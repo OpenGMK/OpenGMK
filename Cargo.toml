@@ -1,0 +1,7 @@
+[package]
+name = "gm8emu"
+version = "0.1.0"
+authors = ["viri <not.viri@protonmail.ch>"]
+edition = "2018"
+
+[dependencies]
