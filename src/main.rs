@@ -1,3 +1,6 @@
+pub(crate) mod xmath;
+
 fn main() {
-    println!("Hello, world!");
+    let val = xmath::round(3.5);
+    println!("Result: {}", val);
 }
