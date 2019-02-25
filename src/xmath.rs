@@ -1,19 +1,19 @@
 // xmath: Contains unconventional math functions that don't behave as you'd expect in GameMaker 8.
 
 #[inline(always)]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-/// Direct binding to the FPU Integer STore (FIST) instruction - rounds to nearest even number.
+#[cfg(target_arch = "x86_64")]
+/// Direct binding to the FPU Integer STore (FIST) instruction - 
+///   rounds f64 to i32, preferring even numbers when the decimal part is .5
 pub fn round(val: f64) -> i32 {
-    let val = val as f32;
     let out: i32;
     unsafe {
         asm!(
-            "sub $$0x04, %rsp   # allocate 4 bytes (x)
-            mov ${0}, (%rsp)    # val -> x
-            flds (%rsp)         # x -> ST(0)
+            "sub $$0x08, %rsp   # allocate 8 bytes (x)
+            mov $1, (%rsp)      # val -> x
+            fldl (%rsp)         # x -> ST(0)
             fistpl (%rsp)       # FIST(ST(0)) -> x, pop ST(0)
             movl (%rsp), $0     # x -> out
-            add $$0x04, %rsp"
+            add $$0x08, %rsp"
 
             : "=r"(out)
             : "r"(val)
@@ -23,8 +23,9 @@ pub fn round(val: f64) -> i32 {
 }
 
 #[inline(always)]
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-/// Mimics the FPU Integer STore (FIST) instruction - rounds to nearest even number.
+#[cfg(not(target_arch = "x86_64"))]
+/// Mimics the FPU Integer STore (FIST) instruction -
+///   rounds f64 to i32, preferring even numbers when the decimal part is .5
 pub fn round(val: f64) -> i32 {
     let floor = val.floor();
     let floori = floor as i32;
@@ -47,7 +48,7 @@ mod tests {
         assert_eq!(super::round(2.5), 2);
         assert_eq!(super::round(3.5), 4);
         for i in 0..1000 {
-            assert!(super::round(i as f64 + 0.5) % 2 == 0);
+            assert_eq!(super::round(i as f64 + 0.5) % 2, 0);
         }
     }
 }
