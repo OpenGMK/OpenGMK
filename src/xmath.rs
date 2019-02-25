@@ -1,8 +1,15 @@
 // xmath: Contains unconventional math functions that don't behave as you'd expect in GameMaker 8.
 
 #[inline(always)]
+/// Compares two real numbers.
+/// Both are interpreted as a 32-bit float to avoid pitfalls when comparing.
+pub fn equals(val1: f64, val2: f64) -> bool {
+    val1 as f32 == val2 as f32
+}
+
+#[inline(always)]
 #[cfg(target_arch = "x86_64")]
-/// Direct binding to the FPU Integer STore (FIST) instruction - 
+/// Direct binding to the FPU Integer STore (FIST) instruction -
 ///   rounds f64 to i32, preferring even numbers when the decimal part is .5
 pub fn round(val: f64) -> i32 {
     let out: i32;
