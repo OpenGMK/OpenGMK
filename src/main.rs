@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let data = fs::read(&args[1])?;
-    let _game = Game::from_exe(data);
+    let _game = Game::from_exe(data)?;
 
     Ok(())
 }
