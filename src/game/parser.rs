@@ -67,8 +67,9 @@ fn inflate(data: &mut io::Cursor<Vec<u8>>, len: usize) -> Result<Vec<u8>, Error>
     Ok(buf)
 }
 
-/// Helper trait for reading pascal-style strings from any kind of input.
+/// Helper trait for reading pascal-style strings.
 trait ReadString: io::Read {
+    /// Reads a pascal-style string from the underlying reader.
     fn read_string(&mut self) -> io::Result<String> {
         let len = self.read_u32::<LE>()? as usize;
         let mut buf = vec![0u8; len];
@@ -77,7 +78,20 @@ trait ReadString: io::Read {
     }
 }
 
+/// Helper trait for skipping arbirtary chunks of data in input.
+/// A preceding u32 indicating the size is required.
+trait SkipAny: io::Read + io::Seek {
+    /// Skips arbitrary data, assuming it's preceded by a u32 indicating size.
+    /// Returns the length of the data skipped.
+    fn skip_any(&mut self) -> io::Result<usize> {
+        let len = self.read_u32::<LE>()? as i64;
+        self.seek(SeekFrom::Current(len))?;
+        Ok(len as usize)
+    }
+}
+
 impl<R: io::Read + ?Sized> ReadString for R {}
+impl<S: io::Read + io::Seek + ?Sized> SkipAny for S {}
 
 impl Game {
     pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
@@ -138,9 +152,7 @@ impl Game {
         }
 
         // skip embedded dll data chunk
-        let dll_len = exe.read_u32::<LE>()? as i64;
-        exe.seek(SeekFrom::Current(dll_len))?;
-        verbose!(" (size: {})\n", dll_len);
+        verbose!(" (size: {})\n", exe.skip_any()?);
 
         // -- asset data decryption --
         {
