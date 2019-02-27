@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use std::error;
 use std::fmt::{self, Display};
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::option::NoneError;
 
 const GM80_MAGIC_POS: u64 = 2000000;
@@ -97,8 +97,58 @@ impl Game {
         let dll = exe.read_u32::<LE>()? as i64;
         exe.seek(SeekFrom::Current(dll))?;
 
-        // time to decrypt the data!
-        // oh_boy!()
+        // time to decrypt the asset data!
+        {
+            println!("decrypting asset data...");
+            let mut swap_table = [0u8; 256];
+            let mut reverse_table = [0u8; 256];
+
+            // the swap table is squished inbetween 2 chunks of useless garbage
+            let garbage1_size = exe.read_u32::<LE>()? as i64 * 4;
+            let garbage2_size = exe.read_u32::<LE>()? as i64 * 4;
+            exe.seek(SeekFrom::Current(garbage1_size))?;
+            assert_eq!(exe.read(&mut swap_table)?, 256);
+            exe.seek(SeekFrom::Current(garbage2_size))?;
+
+            println!(
+                "located swaptable between 2 garbagetables (sizes {} & {})",
+                garbage1_size, garbage2_size
+            );
+
+            // fill up reverse table
+            for i in 0..256 {
+                reverse_table[swap_table[i] as usize] = i as u8;
+            }
+
+            // preparing for decryption
+            let len = exe.read_u32::<LE>()? as usize;
+            let pos = exe.position() as usize;
+            let data = exe.get_mut();
+
+            // first pass
+            for i in (pos..=pos + len).rev() {
+                // simplified: rev[data[i - 1]] - (data[i - 2] + (i - (pos + 1)))
+                data[i - 1] = reverse_table[data[i - 1] as usize]
+                    .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+            }
+
+            // second pass
+            let mut a: u8;
+            let mut b: u32;
+            for i in (pos..pos + len - 1).rev() {
+                b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
+                if b < pos as u32 {
+                    b = pos as u32;
+                }
+                a = data[i];
+                data[i] = data[b as usize];
+                data[b as usize] = a;
+            }
+        }
+
+        // more garbage fields
+        let garbage = ((exe.read_u32::<LE>()? + 6) * 4) as i64;
+        exe.seek(SeekFrom::Current(garbage))?;
 
         Ok(())
     }
