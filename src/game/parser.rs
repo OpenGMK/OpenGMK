@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use std::error;
 use std::fmt::{self, Display};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::option::NoneError;
 
 const GM80_MAGIC_POS: u64 = 2000000;
@@ -57,8 +57,7 @@ impl From<NoneError> for Error {
 }
 
 /// Convenience function for inflating zlib data. A preceding u32 indicating size is assumed.
-fn inflate(data: &mut io::Cursor<Vec<u8>>) -> Result<Vec<u8>, Error> {
-    let len = data.read_u32::<LE>()? as usize;
+fn inflate(data: &mut io::Cursor<Vec<u8>>, len: usize) -> Result<Vec<u8>, Error> {
     let pos = data.position() as usize;
     let slice = data.get_ref().get(pos..pos + len)?;
     let mut decoder = ZlibDecoder::new(slice);
@@ -69,7 +68,19 @@ fn inflate(data: &mut io::Cursor<Vec<u8>>) -> Result<Vec<u8>, Error> {
 }
 
 impl Game {
-    pub fn from_exe(exe: Vec<u8>) -> Result<(), Error> {
+    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
+        // small macro so I don't have to type "if verbose {}" for every print
+        // it's also easy to modify later
+        macro_rules! verbose {
+            ($($arg:tt)*) => {{
+                if verbose {
+                    print!($($arg)*);
+                }
+            }};
+        }
+
+        // -- begin exe reading --
+
         // verify executable header
         if exe.get(0..2)? != b"MZ" {
             return Err(Error::from(ErrorKind::InvalidExeHeader));
@@ -84,22 +95,45 @@ impl Game {
             // support gm8.1 here later
             return Err(Error::from(ErrorKind::InvalidMagic));
         }
+        verbose!(
+            "Detected GameMaker 8.0 magic '{}' @ {:#X}\n",
+            GM80_MAGIC,
+            GM80_MAGIC_POS
+        );
 
         // version version blahblah - I should do something with this later.
         exe.seek(SeekFrom::Current(12))?;
 
+        // -- settings --
+
         // settings data chunk
-        let _settings = inflate(&mut exe)?;
+        let settings_len = exe.read_u32::<LE>()? as usize;
+        verbose!("Inflating settings chunk... (size: {})\n", settings_len);
+        let _settings = inflate(&mut exe, settings_len)?; // TODO: don't ignore this
+        verbose!("Inflated successfully (new size: {})\n", _settings.len());
 
-        // directx shared library (D3DX8.dll), we obviously don't need this...
-        let dlln = exe.read_u32::<LE>()? as i64;
-        exe.seek(SeekFrom::Current(dlln))?;
-        let dll = exe.read_u32::<LE>()? as i64;
-        exe.seek(SeekFrom::Current(dll))?;
+        // -- directx shared library --
 
-        // time to decrypt the asset data!
+        // we obviously don't need this, so we skip over it
+        let dllname_len = exe.read_u32::<LE>()? as i64;
+        if verbose {
+            // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
+            let dllname_len = dllname_len as usize;
+            let mut dllname = vec![0u8; dllname_len];
+            assert_eq!(exe.read(&mut dllname)?, dllname_len);
+            let dllname = String::from_utf8(dllname).unwrap_or("<INVALID UTF8>".to_string());
+            verbose!("Skipping embedded DLL '{}'", dllname);
+        } else {
+            exe.seek(SeekFrom::Current(dllname_len))?; // skip dllname string
+        }
+
+        // skip embedded dll data chunk
+        let dll_len = exe.read_u32::<LE>()? as i64;
+        exe.seek(SeekFrom::Current(dll_len))?;
+        verbose!(" (size: {})\n", dll_len);
+
+        // -- asset data decryption --
         {
-            println!("decrypting asset data...");
             let mut swap_table = [0u8; 256];
             let mut reverse_table = [0u8; 256];
 
@@ -110,29 +144,33 @@ impl Game {
             assert_eq!(exe.read(&mut swap_table)?, 256);
             exe.seek(SeekFrom::Current(garbage2_size))?;
 
-            println!(
-                "located swaptable between 2 garbagetables (sizes {} & {})",
-                garbage1_size, garbage2_size
-            );
-
             // fill up reverse table
             for i in 0..256 {
                 reverse_table[swap_table[i] as usize] = i as u8;
             }
 
-            // preparing for decryption
+            // asset data length
             let len = exe.read_u32::<LE>()? as usize;
-            let pos = exe.position() as usize;
-            let data = exe.get_mut();
 
-            // first pass
+            // simplifying for expressions below
+            let pos = exe.position() as usize; // stream position
+            let data = exe.get_mut(); // mutable ref for writing
+            verbose!(
+                "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})\n",
+                len,
+                garbage1_size,
+                garbage2_size
+            );
+
+            // decryption: first pass
+            //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
             for i in (pos..=pos + len).rev() {
-                // simplified: rev[data[i - 1]] - (data[i - 2] + (i - (pos + 1)))
                 data[i - 1] = reverse_table[data[i - 1] as usize]
                     .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
             }
 
-            // second pass
+            // decryption: second pass
+            //   .. it's complicated
             let mut a: u8;
             let mut b: u32;
             for i in (pos..pos + len - 1).rev() {
@@ -146,9 +184,19 @@ impl Game {
             }
         }
 
-        // more garbage fields
+        // more garbage fields that do nothing
         let garbage = ((exe.read_u32::<LE>()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
+
+        // -- extensions --
+
+        let _ = exe.read_u32::<LE>()?; // data version '700'
+        let extension_count = exe.read_u32::<LE>()?;
+
+        // read extensions
+        if extension_count != 0 {
+            // stuff
+        }
 
         Ok(())
     }
