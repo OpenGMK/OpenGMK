@@ -56,7 +56,7 @@ impl From<NoneError> for Error {
     }
 }
 
-/// Convenience function for inflating zlib data. A preceding u32 indicating size is assumed.
+/// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
 fn inflate(data: &mut io::Cursor<Vec<u8>>, len: usize) -> Result<Vec<u8>, Error> {
     let pos = data.position() as usize;
     let slice = data.get_ref().get(pos..pos + len)?;
@@ -67,10 +67,22 @@ fn inflate(data: &mut io::Cursor<Vec<u8>>, len: usize) -> Result<Vec<u8>, Error>
     Ok(buf)
 }
 
+/// Helper trait for reading pascal-style strings from any kind of input.
+trait ReadString: io::Read {
+    fn read_string(&mut self) -> io::Result<String> {
+        let len = self.read_u32::<LE>()? as usize;
+        let mut buf = vec![0u8; len];
+        self.read(&mut buf)?;
+        Ok(String::from_utf8_lossy(&buf).to_string())
+    }
+}
+
+impl<R: io::Read + ?Sized> ReadString for R {}
+
 impl Game {
     pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
-        // small macro so I don't have to type "if verbose {}" for every print
-        // it's also easy to modify later
+        // Helper macro so I don't have to type `if verbose {}` for every print.
+        // It's also easy to modify later.
         macro_rules! verbose {
             ($($arg:tt)*) => {{
                 if verbose {
@@ -115,16 +127,14 @@ impl Game {
         // -- directx shared library --
 
         // we obviously don't need this, so we skip over it
-        let dllname_len = exe.read_u32::<LE>()? as i64;
+        // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
         if verbose {
-            // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
-            let dllname_len = dllname_len as usize;
-            let mut dllname = vec![0u8; dllname_len];
-            assert_eq!(exe.read(&mut dllname)?, dllname_len);
-            let dllname = String::from_utf8(dllname).unwrap_or("<INVALID UTF8>".to_string());
+            let dllname = exe.read_string()?;
             verbose!("Skipping embedded DLL '{}'", dllname);
         } else {
-            exe.seek(SeekFrom::Current(dllname_len))?; // skip dllname string
+            // otherwise, skip dll name string
+            let dllname_len = exe.read_u32::<LE>()? as i64;
+            exe.seek(SeekFrom::Current(dllname_len))?;
         }
 
         // skip embedded dll data chunk
@@ -195,7 +205,8 @@ impl Game {
 
         // read extensions
         if extension_count != 0 {
-            // stuff
+            let char_table = [0u8; 512]; // 512 = 0x200
+            for _ in 0..extension_count {}
         }
 
         Ok(())
