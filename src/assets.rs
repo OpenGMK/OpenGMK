@@ -10,8 +10,7 @@ pub struct Sound {
     pub file_type: String,
     pub file_name: String,
 
-    /// This is optional because the associated data doesn't need to exist.
-    /// Fantastic.
+    /// This is optional because the associated data doesn't need to exist. Fantastic.
     pub file_data: Option<Box<[u8]>>,
 
     /// Volume - Between 0 and 1, although the editor only allows as low as 0.3

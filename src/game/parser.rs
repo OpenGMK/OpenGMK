@@ -222,7 +222,7 @@ impl Game {
         //
 
         let extensions_ver = exe.read_u32::<LE>()?; // data version '700'
-        let extension_count = exe.read_u32::<LE>()? + 1;
+        let extension_count = exe.read_u32::<LE>()?;
 
         // read extensions
         if extension_count != 0 {
@@ -281,7 +281,7 @@ impl Game {
                 sound_count
             );
 
-            let mut sounds: Vec<Option<Sound>> = Vec::with_capacity(sound_count);
+            let mut sounds: Vec<Option<Box<Sound>>> = Vec::with_capacity(sound_count);
             for _ in 0..sound_count {
                 let len = exe.read_u32::<LE>()? as usize;
                 let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
@@ -309,7 +309,7 @@ impl Game {
                     let pan = data.read_f64::<LE>()?;
                     let preload = data.read_u32::<LE>()? != 0;
 
-                    sounds.push(Some(Sound {
+                    sounds.push(Some(Box::new(Sound {
                         name,
                         version,
                         kind,
@@ -319,7 +319,7 @@ impl Game {
                         volume,
                         pan,
                         preload,
-                    }));
+                    })));
                 } else {
                     sounds.push(None);
                 }
