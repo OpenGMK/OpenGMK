@@ -1,6 +1,7 @@
 #![feature(asm)] // Usage: xmath
 #![feature(try_trait)]
 
+mod assets;
 mod game;
 mod xmath;
 
