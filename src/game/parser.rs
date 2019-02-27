@@ -152,7 +152,8 @@ impl Game {
         }
 
         // skip embedded dll data chunk
-        verbose!(" (size: {})\n", exe.skip_any()?);
+        let dll_len = exe.skip_any()?;
+        verbose!(" (size: {})\n", dll_len);
 
         // -- asset data decryption --
         {
