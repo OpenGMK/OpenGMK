@@ -5,33 +5,6 @@
 
 # Rust needs at least Visual Studio 2013 Appveyor OS for MSVC targets.
 os: Visual Studio 2015
-
-## Build Matrix ##
-
-# This configuration will setup a build for each channel & target combination (12 windows
-# combinations in all).
-#
-# There are 3 channels: stable, beta, and nightly.
-#
-# Alternatively, the full version may be specified for the channel to build using that specific
-# version (e.g. channel: 1.5.0)
-#
-# The values for target are the set of windows Rust build targets. Each value is of the form
-#
-# ARCH-pc-windows-TOOLCHAIN
-#
-# Where ARCH is the target architecture, either x86_64 or i686, and TOOLCHAIN is the linker
-# toolchain to use, either msvc or gnu. See https://www.rust-lang.org/downloads.html#win-foot for
-# a description of the toolchain differences.
-# See https://github.com/rust-lang-nursery/rustup.rs/#toolchain-specification for description of
-# toolchains and host triples.
-#
-# Comment out channel/target combos you do not wish to build in CI.
-#
-# You may use the `cargoflags` and `RUSTFLAGS` variables to set additional flags for cargo commands
-# and rustc, respectively. For instance, you can uncomment the cargoflags lines in the nightly
-# channels to enable unstable features when building for nightly. Or you could add additional
-# matrix entries to test different combinations of features.
 environment:
   matrix:
 
@@ -43,18 +16,6 @@ environment:
   # Nightly 32-bit MSVC
     - channel: nightly
       target: i686-pc-windows-msvc
-      #cargoflags: --features "unstable"
-
-### GNU Toolchains ###
-
-  # Stable 64-bit GNU
-  # Nightly 64-bit GNU
-    - channel: nightly
-      target: x86_64-pc-windows-gnu
-      #cargoflags: --features "unstable"
-  # Nightly 32-bit GNU
-    - channel: nightly
-      target: i686-pc-windows-gnu
       #cargoflags: --features "unstable"
 
 ## Install Script ##
