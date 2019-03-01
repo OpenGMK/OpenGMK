@@ -16,7 +16,6 @@ pub struct Dimensions {
 pub struct CollisionMap {
     pub bounds: BoundingBox,
     pub data: Box<[u8]>,
-    pub version: Version,
 }
 
 pub struct Point {
