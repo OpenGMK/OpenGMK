@@ -497,7 +497,7 @@ impl GMSprite {
                         let bottom = data.read_u32::<LE>()?;
                         let top = data.read_u32::<LE>()?;
 
-                        let mask_size = (width * height) as usize;
+                        let mask_size = width as usize * height as usize;
                         let mut mask = vec![0u8; mask_size];
                         let mut pos = data.position() as usize;
                         data.seek(SeekFrom::Current(4 * mask_size as i64))?;
