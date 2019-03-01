@@ -417,10 +417,12 @@ impl GMSprite {
 
                         let mask_size = (width * height) as usize;
                         let mut mask = vec![0u8; mask_size];
+                        let mut pos = data.position() as usize;
+                        data.seek(SeekFrom::Current(4 * mask_size as i64))?;
+                        let src = data.get_ref();
                         for i in 0..mask_size {
-                            if data.read_u32::<LE>()? != 0 {
-                                mask[i] += 1;
-                            }
+                            mask[i] = src[pos];
+                            pos += 4;
                         }
 
                         Ok(CollisionMap {
