@@ -4,6 +4,7 @@
 mod assets;
 mod game;
 mod types;
+mod util;
 mod xmath;
 
 use crate::game::Game;
@@ -31,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 } else {
                     path = Some(arg);
                 }
-            },
+            }
         }
     }
 
