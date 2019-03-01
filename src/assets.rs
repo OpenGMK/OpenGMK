@@ -1,5 +1,11 @@
 use crate::types::*;
 
+pub struct GMBackground {
+    pub name: String,
+    pub size: Rectangle,
+    pub data: Option<Box<[u8]>>,
+}
+
 pub struct GMSound {
     /// Asset name
     pub name: String,
@@ -22,8 +28,6 @@ pub struct GMSound {
 
     /// TODO: I have no idea what this does.
     pub preload: bool,
-
-    pub version: Version,
 }
 
 pub struct GMSprite {
@@ -34,5 +38,4 @@ pub struct GMSprite {
     pub frames: Option<Vec<Box<[u8]>>>,
     pub colliders: Option<Vec<CollisionMap>>,
     pub per_frame_colliders: bool,
-    pub version: Version,
 }
