@@ -254,7 +254,7 @@ impl Game {
             let mut sounds: Vec<Option<Box<GMSound>>> = Vec::with_capacity(sound_count);
             for _ in 0..sound_count {
                 let len = exe.read_u32::<LE>()? as usize;
-                let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
+                let mut data = inflate(&exe, exe.position() as usize, len)?;
                 exe.seek(SeekFrom::Current(len as i64))?;
                 let sound = GMSound::from_raw(&mut data)?;
                 if let Some(sound) = &sound {
@@ -280,7 +280,7 @@ impl Game {
             let mut sprites: Vec<Option<Box<GMSprite>>> = Vec::with_capacity(sprite_count);
             for _ in 0..sprite_count {
                 let len = exe.read_u32::<LE>()? as usize;
-                let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
+                let mut data = inflate(&exe, exe.position() as usize, len)?;
                 exe.seek(SeekFrom::Current(len as i64))?;
                 let sprite = GMSprite::from_raw(&mut data)?;
                 if let Some(sprite) = &sprite {
@@ -313,7 +313,7 @@ impl Game {
             let mut backgrounds: Vec<Option<Box<GMBackground>>> = Vec::with_capacity(sprite_count);
             for _ in 0..background_count {
                 let len = exe.read_u32::<LE>()? as usize;
-                let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
+                let mut data = inflate(&exe, exe.position() as usize, len)?;
                 exe.seek(SeekFrom::Current(len as i64))?;
                 let background = GMBackground::from_raw(&mut data)?;
                 if let Some(background) = &background {
@@ -336,7 +336,11 @@ impl Game {
 }
 
 impl GMBackground {
-    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMBackground>>, Error> {
+    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMBackground>>, Error>
+    where
+        R: AsMut<[u8]>,
+    {
+        let mut data = io::Cursor::new(data.as_mut());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version1 = data.read_u32::<LE>()?;
@@ -383,7 +387,11 @@ impl GMBackground {
 }
 
 impl GMSound {
-    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSound>>, Error> {
+    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSound>>, Error>
+    where
+        R: AsMut<[u8]>
+    {
+        let mut data = io::Cursor::new(data.as_mut());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version = data.read_u32::<LE>()? as Version;
@@ -424,7 +432,11 @@ impl GMSound {
 }
 
 impl GMSprite {
-    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSprite>>, Error> {
+    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSprite>>, Error>
+    where
+        R: AsMut<[u8]>
+    {
+        let mut data = io::Cursor::new(data.as_mut());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version = data.read_u32::<LE>()? as Version;
@@ -476,7 +488,7 @@ impl GMSprite {
                 }
 
                 let read_collision =
-                    |data: &mut io::Cursor<Vec<u8>>| -> Result<CollisionMap, Error> {
+                    |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
                         let version = data.read_u32::<LE>()? as Version;
                         let width = data.read_u32::<LE>()?;
                         let height = data.read_u32::<LE>()?;
@@ -514,11 +526,11 @@ impl GMSprite {
                 if per_frame_colliders {
                     colliders = Vec::with_capacity(frame_count as usize);
                     for _ in 0..frame_count {
-                        colliders.push(read_collision(data)?);
+                        colliders.push(read_collision(&mut data)?);
                     }
                 } else {
                     colliders = Vec::with_capacity(1);
-                    colliders.push(read_collision(data)?);
+                    colliders.push(read_collision(&mut data)?);
                 }
                 (Some(frames), Some(colliders), per_frame_colliders)
             } else {
