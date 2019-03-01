@@ -1,5 +1,6 @@
-#[derive(Debug)]
-pub struct Sound {
+use crate::types::*;
+
+pub struct GMSound {
     /// Asset name
     pub name: String,
 
@@ -22,5 +23,16 @@ pub struct Sound {
     /// TODO: I have no idea what this does.
     pub preload: bool,
 
-    pub version: u32,
+    pub version: Version,
+}
+
+pub struct GMSprite {
+    pub name: String,
+    pub size: Rectangle,
+    pub origin: Point,
+    pub frame_count: u32,
+    pub frames: Option<Vec<Box<[u8]>>>,
+    pub colliders: Option<Vec<CollisionMap>>,
+    pub per_frame_colliders: bool,
+    pub version: Version,
 }
