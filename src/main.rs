@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         match game {
             Ok(_) => println!("Parsing OK!"),
-            Err(err) => return Err(Box::new(err)),
+            Err(err) => println!("{}", err),
         }
     }
 
