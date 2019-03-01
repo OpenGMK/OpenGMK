@@ -1,6 +1,6 @@
 use super::Game;
 use crate::assets::{GMBackground, GMSound, GMSprite};
-use crate::types::{BoundingBox, CollisionMap, Point, Dimensions, Version};
+use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
@@ -389,7 +389,7 @@ impl GMBackground {
 impl GMSound {
     fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSound>>, Error>
     where
-        R: AsMut<[u8]>
+        R: AsMut<[u8]>,
     {
         let mut data = io::Cursor::new(data.as_mut());
         if data.read_u32::<LE>()? != 0 {
@@ -434,7 +434,7 @@ impl GMSound {
 impl GMSprite {
     fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSprite>>, Error>
     where
-        R: AsMut<[u8]>
+        R: AsMut<[u8]>,
     {
         let mut data = io::Cursor::new(data.as_mut());
         if data.read_u32::<LE>()? != 0 {
