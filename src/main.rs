@@ -3,6 +3,7 @@
 
 mod assets;
 mod game;
+mod types;
 mod xmath;
 
 use crate::game::Game;

@@ -1,5 +1,6 @@
 use super::Game;
-use crate::assets::Sound;
+use crate::assets::{GMSound, GMSprite};
+use crate::types::{BoundingBox, CollisionMap, Point, Rectangle, Version};
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use std::error;
@@ -21,6 +22,7 @@ pub enum ErrorKind {
     InvalidExeHeader,
     InvalidMagic,
     ReadError,
+    SpriteParseError(String, &'static str),
 }
 
 impl error::Error for Error {}
@@ -30,7 +32,10 @@ impl Display for Error {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
-            ErrorKind::ReadError => write!(f, "Error while reading input data. Likely EOF."),
+            ErrorKind::ReadError => write!(f, "Error while reading input data. Likely EOF"),
+            ErrorKind::SpriteParseError(name, cause) => {
+                write!(f, "Failed to parse sprite '{}': {}", name, cause)
+            }
         }
     }
 }
@@ -221,8 +226,8 @@ impl Game {
         // Extensions
         //
 
-        let extensions_ver = exe.read_u32::<LE>()?; // data version '700'
-        let extension_count = exe.read_u32::<LE>()?;
+        let extensions_ver = exe.read_u32::<LE>()? as Version;
+        let extension_count = exe.read_u32::<LE>()? as usize;
 
         // read extensions
         if extension_count != 0 {
@@ -242,8 +247,8 @@ impl Game {
         // Triggers
         //
 
-        let triggers_ver = exe.read_u32::<LE>()?;
-        let trigger_count = exe.read_u32::<LE>()?;
+        let triggers_ver = exe.read_u32::<LE>()? as Version;
+        let trigger_count = exe.read_u32::<LE>()? as usize;
         if trigger_count != 0 {
             verbose!(
                 "Reading triggers... (ver: {:.1}, count: {})\n",
@@ -257,8 +262,8 @@ impl Game {
         // Constants
         //
 
-        let constants_ver = exe.read_u32::<LE>()?;
-        let constant_count = exe.read_u32::<LE>()?;
+        let constants_ver = exe.read_u32::<LE>()? as Version;
+        let constant_count = exe.read_u32::<LE>()? as usize;
         if constant_count != 0 {
             verbose!(
                 "Reading constants... (ver: {:.1}, count: {})\n",
@@ -272,60 +277,236 @@ impl Game {
         // Sounds
         //
 
-        let sounds_ver = exe.read_u32::<LE>()?;
+        let sounds_ver = exe.read_u32::<LE>()? as Version;
         let sound_count = exe.read_u32::<LE>()? as usize;
-        if sound_count != 0 {
+        let sounds = if sound_count != 0 {
             verbose!(
                 "Reading sounds... (ver: {:.1}, count: {})\n",
                 sounds_ver as f64 / 100.0,
                 sound_count
             );
 
-            let mut sounds: Vec<Option<Box<Sound>>> = Vec::with_capacity(sound_count);
+            let mut sounds: Vec<Option<Box<GMSound>>> = Vec::with_capacity(sound_count);
             for _ in 0..sound_count {
                 let len = exe.read_u32::<LE>()? as usize;
                 let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
                 exe.seek(SeekFrom::Current(len as i64))?;
-                if data.read_u32::<LE>()? != 0 {
-                    let name = data.read_string()?;
-                    let version = data.read_u32::<LE>()?;
-                    let kind = data.read_u32::<LE>()?;
-                    let file_type = data.read_string()?;
-                    let file_name = data.read_string()?;
-                    let file_data = if data.read_u32::<LE>()? != 0 {
-                        let len = data.read_u32::<LE>()? as usize;
-                        let pos = data.position() as usize;
-                        Some(
-                            data.get_ref()
-                                .get(pos..pos + len)?
-                                .to_owned()
-                                .into_boxed_slice(),
-                        )
-                    } else {
-                        None
-                    };
-                    let _ = data.read_u32::<LE>()?; // TODO: unused? no clue what this is
-                    let volume = data.read_f64::<LE>()?;
-                    let pan = data.read_f64::<LE>()?;
-                    let preload = data.read_u32::<LE>()? != 0;
-
-                    sounds.push(Some(Box::new(Sound {
-                        name,
-                        version,
-                        kind,
-                        file_type,
-                        file_name,
-                        file_data,
-                        volume,
-                        pan,
-                        preload,
-                    })));
-                } else {
-                    sounds.push(None);
-                }
+                sounds.push(GMSound::from_raw(&mut data, verbose)?);
             }
-        }
+            sounds
+        } else {
+            Vec::with_capacity(0)
+        };
+
+        //
+        // Sprites
+        //
+        let sprites_ver = exe.read_u32::<LE>()? as Version;
+        let sprite_count = exe.read_u32::<LE>()? as usize;
+        let sprites = if sprite_count != 0 {
+            verbose!(
+                "Reading sprites... (ver: {:.1}, count: {})\n",
+                sprites_ver as f64 / 100.0,
+                sprite_count
+            );
+
+            let mut sprites: Vec<Option<Box<GMSprite>>> = Vec::with_capacity(sprite_count);
+            for _ in 0..sprite_count {
+                let len = exe.read_u32::<LE>()? as usize;
+                let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
+                exe.seek(SeekFrom::Current(len as i64))?;
+                sprites.push(GMSprite::from_raw(&mut data, verbose)?);
+            }
+
+            sprites
+        } else {
+            Vec::with_capacity(0)
+        };
 
         Ok(())
+    }
+}
+
+impl GMSound {
+    fn from_raw(data: &mut io::Cursor<Vec<u8>>, log: bool) -> Result<Option<Box<GMSound>>, Error> {
+        if data.read_u32::<LE>()? != 0 {
+            let name = data.read_string()?;
+            let version = data.read_u32::<LE>()? as Version;
+            let kind = data.read_u32::<LE>()?;
+            let file_type = data.read_string()?;
+            let file_name = data.read_string()?;
+            let file_data = if data.read_u32::<LE>()? != 0 {
+                let len = data.read_u32::<LE>()? as usize;
+                let pos = data.position() as usize;
+                Some(
+                    data.get_ref()
+                        .get(pos..pos + len)?
+                        .to_owned()
+                        .into_boxed_slice(),
+                )
+            } else {
+                None
+            };
+            let _ = data.read_u32::<LE>()?; // TODO: unused? no clue what this is
+            let volume = data.read_f64::<LE>()?;
+            let pan = data.read_f64::<LE>()?;
+            let preload = data.read_u32::<LE>()? != 0;
+
+            if log {
+                println!("+ Added sound '{}' ({})", name, file_name);
+            }
+
+            Ok(Some(Box::new(GMSound {
+                name,
+                version,
+                kind,
+                file_type,
+                file_name,
+                file_data,
+                volume,
+                pan,
+                preload,
+            })))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl GMSprite {
+    fn from_raw(data: &mut io::Cursor<Vec<u8>>, log: bool) -> Result<Option<Box<GMSprite>>, Error> {
+        if data.read_u32::<LE>()? != 0 {
+            let name = data.read_string()?;
+            let version = data.read_u32::<LE>()? as Version;
+            let origin_x = data.read_u32::<LE>()?;
+            let origin_y = data.read_u32::<LE>()?;
+            let frame_count = data.read_u32::<LE>()?;
+            let mut width = 0u32;
+            let mut height = 0u32;
+            let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
+                let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
+                for _ in 0..frame_count {
+                    let _version = data.read_u32::<LE>()? as Version; // TODO: Hm.
+                    let frame_width = data.read_u32::<LE>()?;
+                    let frame_height = data.read_u32::<LE>()?;
+
+                    // sanity check 1
+                    if width != 0 && height != 0 {
+                        if width != frame_width || height != frame_height {
+                            return Err(Error::from(ErrorKind::SpriteParseError(
+                                name,
+                                "Inconsistent width/height across frames",
+                            )));
+                        }
+                    } else {
+                        width = frame_width;
+                        height = frame_height;
+                    }
+
+                    let pixeldata_len = data.read_u32::<LE>()?;
+                    let pixeldata_pixels = width * height;
+
+                    // sanity check 2
+                    if pixeldata_len != (pixeldata_pixels * 4) {
+                        return Err(Error::from(ErrorKind::SpriteParseError(
+                            name,
+                            "Inconsistent pixel data length with dimensions",
+                        )));
+                    }
+
+                    // convert BGRA to RGBA
+                    let start = data.position() as usize;
+                    data.seek(SeekFrom::Current(4 * pixeldata_pixels as i64))?;
+                    let mdata = data.get_mut();
+                    let mut pos = start;
+                    let mut tmp: u8;
+                    for _ in 0..pixeldata_pixels {
+                        tmp = mdata[pos]; // tmp = blue
+                        mdata[pos] = mdata[pos + 2]; // blue = red
+                        mdata[pos + 2] = tmp; // red = tmp (blue)
+                        pos += 4;
+                    }
+
+                    // RMakeImage lol
+                    frames.push(mdata[start..pos].to_vec().into_boxed_slice());
+                }
+
+                let read_collision =
+                    |data: &mut io::Cursor<Vec<u8>>| -> Result<CollisionMap, Error> {
+                        let version = data.read_u32::<LE>()? as Version;
+                        let width = data.read_u32::<LE>()?;
+                        let height = data.read_u32::<LE>()?;
+                        let left = data.read_u32::<LE>()?;
+                        let right = data.read_u32::<LE>()?;
+                        let bottom = data.read_u32::<LE>()?;
+                        let top = data.read_u32::<LE>()?;
+
+                        let mask_size = (width * height) as usize;
+                        let mut mask = vec![0u8; mask_size];
+                        for i in 0..mask_size {
+                            if data.read_u32::<LE>()? != 0 {
+                                mask[i] += 1;
+                            }
+                        }
+
+                        Ok(CollisionMap {
+                            bounds: BoundingBox {
+                                width,
+                                height,
+                                top,
+                                bottom,
+                                left,
+                                right,
+                            },
+                            data: mask.into_boxed_slice(),
+                            version,
+                        })
+                    };
+
+                let mut colliders: Vec<CollisionMap>;
+                let per_frame_colliders = data.read_u32::<LE>()? != 0;
+                if per_frame_colliders {
+                    colliders = Vec::with_capacity(frame_count as usize);
+                    for _ in 0..frame_count {
+                        colliders.push(read_collision(data)?);
+                    }
+                } else {
+                    colliders = Vec::with_capacity(1);
+                    colliders.push(read_collision(data)?);
+                }
+                (Some(frames), Some(colliders), per_frame_colliders)
+            } else {
+                (None, None, false)
+            };
+
+            // TODO: bad.
+            if log {
+                println!(
+                    " + Added sprite '{}' ({}x{}, {} frame{})",
+                    name, width, height, frame_count,
+                    if frame_count > 1 {
+                        "s"
+                    } else {
+                        ""
+                    }
+                );
+            }
+
+            Ok(Some(Box::new(GMSprite {
+                name,
+                size: Rectangle { width, height },
+                origin: Point {
+                    x: origin_x,
+                    y: origin_y,
+                },
+                frame_count,
+                frames,
+                colliders,
+                per_frame_colliders,
+                version,
+            })))
+        } else {
+            Ok(None)
+        }
     }
 }
