@@ -336,11 +336,12 @@ impl Game {
 }
 
 impl GMBackground {
-    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMBackground>>, Error>
+    fn from_raw<R>(src: &mut R) -> Result<Option<Box<GMBackground>>, Error>
     where
         R: AsMut<[u8]>,
     {
-        let mut data = io::Cursor::new(data.as_mut());
+        let src = src.as_mut();
+        let mut data = io::Cursor::new(src.as_ref());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version1 = data.read_u32::<LE>()?;
@@ -362,7 +363,6 @@ impl GMBackground {
                 let pos = data.position() as usize;
                 let len = data_len as usize;
                 data.seek(SeekFrom::Current(len as i64))?;
-                let src = data.get_mut();
                 bgra2rgba(&mut src[pos..pos + len]);
 
                 Ok(Some(Box::new(GMBackground {
@@ -387,11 +387,12 @@ impl GMBackground {
 }
 
 impl GMSound {
-    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSound>>, Error>
+    fn from_raw<R>(src: &mut R) -> Result<Option<Box<GMSound>>, Error>
     where
         R: AsMut<[u8]>,
     {
-        let mut data = io::Cursor::new(data.as_mut());
+        let src = src.as_mut();
+        let mut data = io::Cursor::new(src.as_ref());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version = data.read_u32::<LE>()? as Version;
@@ -401,10 +402,10 @@ impl GMSound {
             let file_data = if data.read_u32::<LE>()? != 0 {
                 let len = data.read_u32::<LE>()? as usize;
                 let pos = data.position() as usize;
+                data.seek(SeekFrom::Current(len as i64))?;
                 Some(
-                    data.get_ref()
-                        .get(pos..pos + len)?
-                        .to_owned()
+                    src[pos..pos+len]
+                        .to_vec()
                         .into_boxed_slice(),
                 )
             } else {
@@ -432,11 +433,12 @@ impl GMSound {
 }
 
 impl GMSprite {
-    fn from_raw<R>(data: &mut R) -> Result<Option<Box<GMSprite>>, Error>
+    fn from_raw<R>(src: &mut R) -> Result<Option<Box<GMSprite>>, Error>
     where
         R: AsMut<[u8]>,
     {
-        let mut data = io::Cursor::new(data.as_mut());
+        let src = src.as_mut();
+        let mut data = io::Cursor::new(src.as_ref());
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let _version = data.read_u32::<LE>()? as Version;
@@ -480,15 +482,15 @@ impl GMSprite {
                     let pos = data.position() as usize;
                     let len = pixeldata_len as usize;
                     data.seek(SeekFrom::Current(len as i64))?;
-                    let src = data.get_mut();
-                    bgra2rgba(&mut src[pos..pos + len]);
+                    let mut buf = src[pos..pos + len].to_vec();
+                    bgra2rgba(&mut buf);
 
                     // RMakeImage lol
-                    frames.push(src[pos..pos + len].to_vec().into_boxed_slice());
+                    frames.push(buf.into_boxed_slice());
                 }
 
                 let read_collision =
-                    |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
+                    |data: &mut io::Cursor<&[u8]>| -> Result<CollisionMap, Error> {
                         let version = data.read_u32::<LE>()? as Version;
                         let width = data.read_u32::<LE>()?;
                         let height = data.read_u32::<LE>()?;
@@ -501,7 +503,6 @@ impl GMSprite {
                         let mut mask = vec![0u8; mask_size];
                         let mut pos = data.position() as usize;
                         data.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                        let src = data.get_ref();
                         for i in 0..mask_size {
                             mask[i] = src[pos];
                             pos += 4;
