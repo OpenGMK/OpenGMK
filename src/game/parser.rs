@@ -1,6 +1,6 @@
 use super::Game;
 use crate::assets::{GMBackground, GMSound, GMSprite};
-use crate::types::{BoundingBox, CollisionMap, Point, Rectangle, Version};
+use crate::types::{BoundingBox, CollisionMap, Point, Dimensions, Version};
 use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
@@ -360,13 +360,13 @@ impl GMBackground {
 
                 Ok(Some(Box::new(GMBackground {
                     name,
-                    size: Rectangle { width, height },
+                    size: Dimensions { width, height },
                     data: Some(src[pos..pos + len].to_vec().into_boxed_slice()),
                 })))
             } else {
                 Ok(Some(Box::new(GMBackground {
                     name,
-                    size: Rectangle {
+                    size: Dimensions {
                         width: 0,
                         height: 0,
                     },
@@ -524,7 +524,7 @@ impl GMSprite {
 
             Ok(Some(Box::new(GMSprite {
                 name,
-                size: Rectangle { width, height },
+                size: Dimensions { width, height },
                 origin: Point {
                     x: origin_x,
                     y: origin_y,

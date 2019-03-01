@@ -8,21 +8,20 @@ pub struct BoundingBox {
     pub right: u32,
 }
 
+pub struct Dimensions {
+    pub width: u32,
+    pub height: u32,
+}
+
 pub struct CollisionMap {
     pub bounds: BoundingBox,
     pub data: Box<[u8]>,
     pub version: Version,
 }
 
-#[derive(Debug)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
-}
-
-pub struct Rectangle {
-    pub width: u32,
-    pub height: u32,
 }
 
 pub type Version = u32;
