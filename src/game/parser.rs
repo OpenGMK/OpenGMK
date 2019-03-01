@@ -1,6 +1,7 @@
 use super::Game;
-use crate::assets::{GMSound, GMSprite};
+use crate::assets::{GMBackground, GMSound, GMSprite};
 use crate::types::{BoundingBox, CollisionMap, Point, Rectangle, Version};
+use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use std::error;
@@ -22,20 +23,20 @@ pub enum ErrorKind {
     InvalidExeHeader,
     InvalidMagic,
     ReadError,
-    SpriteParseError(String, &'static str),
+    ImageParseError(String, &'static str),
 }
 
 impl error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.kind {
+            ErrorKind::ImageParseError(name, cause) => {
+                write!(f, "Failed to parse sprite '{}': {}", name, cause)
+            }
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
             ErrorKind::ReadError => write!(f, "Error while reading input data. Likely EOF"),
-            ErrorKind::SpriteParseError(name, cause) => {
-                write!(f, "Failed to parse sprite '{}': {}", name, cause)
-            }
         }
     }
 }
@@ -285,12 +286,11 @@ impl Game {
                 if let Some(sprite) = &sprite {
                     verbose!(
                         " + Added sprite '{}' ({}x{}, {} frame{})\n",
-                        sprite.name, sprite.size.width, sprite.size.height, sprite.frame_count,
-                        if sprite.frame_count > 1 {
-                            "s"
-                        } else {
-                            ""
-                        }
+                        sprite.name,
+                        sprite.size.width,
+                        sprite.size.height,
+                        sprite.frame_count,
+                        if sprite.frame_count > 1 { "s" } else { "" }
                     );
                 }
                 sprites.push(sprite);
@@ -301,7 +301,81 @@ impl Game {
             Vec::with_capacity(0)
         };
 
+        let backgrounds_ver = exe.read_u32::<LE>()? as Version;
+        let background_count = exe.read_u32::<LE>()? as usize;
+        let _backgrounds = if sprite_count != 0 {
+            verbose!(
+                "Reading backgrounds... (ver: {:.1}, count: {})\n",
+                backgrounds_ver as f64 / 100.0,
+                background_count
+            );
+
+            let mut backgrounds: Vec<Option<Box<GMBackground>>> = Vec::with_capacity(sprite_count);
+            for _ in 0..background_count {
+                let len = exe.read_u32::<LE>()? as usize;
+                let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
+                exe.seek(SeekFrom::Current(len as i64))?;
+                let background = GMBackground::from_raw(&mut data)?;
+                if let Some(background) = &background {
+                    verbose!(
+                        " + Added background '{}', ({}x{})\n",
+                        background.name,
+                        background.size.width,
+                        background.size.height,
+                    );
+                }
+                backgrounds.push(background);
+            }
+        };
+
         Ok(())
+    }
+}
+
+impl GMBackground {
+    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMBackground>>, Error> {
+        if data.read_u32::<LE>()? != 0 {
+            let name = data.read_string()?;
+            let _version1 = data.read_u32::<LE>()?;
+            let _version2 = data.read_u32::<LE>()?;
+            let width = data.read_u32::<LE>()?;
+            let height = data.read_u32::<LE>()?;
+            if width > 0 && height > 0 {
+                let data_len = data.read_u32::<LE>()?;
+
+                // sanity check
+                if data_len != (width * height * 4) {
+                    return Err(Error::from(ErrorKind::ImageParseError(
+                        name,
+                        "Inconsistent pixel data length with dimensions",
+                    )));
+                }
+
+                // BGRA -> RGBA
+                let pos = data.position() as usize;
+                let len = data_len as usize;
+                data.seek(SeekFrom::Current(len as i64))?;
+                let src = data.get_mut();
+                bgra2rgba(&mut src[pos..pos + len]);
+
+                Ok(Some(Box::new(GMBackground {
+                    name,
+                    size: Rectangle { width, height },
+                    data: Some(src[pos..pos + len].to_vec().into_boxed_slice()),
+                })))
+            } else {
+                Ok(Some(Box::new(GMBackground {
+                    name,
+                    size: Rectangle {
+                        width: 0,
+                        height: 0,
+                    },
+                    data: None,
+                })))
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -309,7 +383,7 @@ impl GMSound {
     fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSound>>, Error> {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
-            let version = data.read_u32::<LE>()? as Version;
+            let _version = data.read_u32::<LE>()? as Version;
             let kind = data.read_u32::<LE>()?;
             let file_type = data.read_string()?;
             let file_name = data.read_string()?;
@@ -332,7 +406,6 @@ impl GMSound {
 
             Ok(Some(Box::new(GMSound {
                 name,
-                version,
                 kind,
                 file_type,
                 file_name,
@@ -351,7 +424,7 @@ impl GMSprite {
     fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSprite>>, Error> {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
-            let version = data.read_u32::<LE>()? as Version;
+            let _version = data.read_u32::<LE>()? as Version;
             let origin_x = data.read_u32::<LE>()?;
             let origin_y = data.read_u32::<LE>()?;
             let frame_count = data.read_u32::<LE>()?;
@@ -367,7 +440,7 @@ impl GMSprite {
                     // sanity check 1
                     if width != 0 && height != 0 {
                         if width != frame_width || height != frame_height {
-                            return Err(Error::from(ErrorKind::SpriteParseError(
+                            return Err(Error::from(ErrorKind::ImageParseError(
                                 name,
                                 "Inconsistent width/height across frames",
                             )));
@@ -382,27 +455,21 @@ impl GMSprite {
 
                     // sanity check 2
                     if pixeldata_len != (pixeldata_pixels * 4) {
-                        return Err(Error::from(ErrorKind::SpriteParseError(
+                        return Err(Error::from(ErrorKind::ImageParseError(
                             name,
                             "Inconsistent pixel data length with dimensions",
                         )));
                     }
 
-                    // convert BGRA to RGBA
-                    let start = data.position() as usize;
-                    data.seek(SeekFrom::Current(4 * pixeldata_pixels as i64))?;
+                    // BGRA -> RGBA
+                    let pos = data.position() as usize;
+                    let len = pixeldata_len as usize;
+                    data.seek(SeekFrom::Current(len as i64))?;
                     let src = data.get_mut();
-                    let mut pos = start;
-                    let mut tmp: u8;
-                    for _ in 0..pixeldata_pixels {
-                        tmp = src[pos]; // tmp = blue
-                        src[pos] = src[pos + 2]; // blue = red
-                        src[pos + 2] = tmp; // red = tmp (blue)
-                        pos += 4;
-                    }
+                    bgra2rgba(&mut src[pos..pos + len]);
 
                     // RMakeImage lol
-                    frames.push(src[start..pos].to_vec().into_boxed_slice());
+                    frames.push(src[pos..pos + len].to_vec().into_boxed_slice());
                 }
 
                 let read_collision =
@@ -466,7 +533,6 @@ impl GMSprite {
                 frames,
                 colliders,
                 per_frame_colliders,
-                version,
             })))
         } else {
             Ok(None)
