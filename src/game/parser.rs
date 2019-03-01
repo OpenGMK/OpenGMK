@@ -363,12 +363,13 @@ impl GMBackground {
                 let pos = data.position() as usize;
                 let len = data_len as usize;
                 data.seek(SeekFrom::Current(len as i64))?;
-                bgra2rgba(&mut src[pos..pos + len]);
+                let mut buf = src[pos..pos + len].to_vec();
+                bgra2rgba(&mut buf);
 
                 Ok(Some(Box::new(GMBackground {
                     name,
                     size: Dimensions { width, height },
-                    data: Some(src[pos..pos + len].to_vec().into_boxed_slice()),
+                    data: Some(buf.into_boxed_slice()),
                 })))
             } else {
                 Ok(Some(Box::new(GMBackground {
