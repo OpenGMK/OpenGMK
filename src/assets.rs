@@ -2,7 +2,7 @@ use crate::types::*;
 
 pub struct GMBackground {
     pub name: String,
-    pub size: Rectangle,
+    pub size: Dimensions,
     pub data: Option<Box<[u8]>>,
 }
 
@@ -32,7 +32,7 @@ pub struct GMSound {
 
 pub struct GMSprite {
     pub name: String,
-    pub size: Rectangle,
+    pub size: Dimensions,
     pub origin: Point,
     pub frame_count: u32,
     pub frames: Option<Vec<Box<[u8]>>>,
