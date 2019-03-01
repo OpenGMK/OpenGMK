@@ -303,7 +303,7 @@ impl Game {
 
         let backgrounds_ver = exe.read_u32::<LE>()? as Version;
         let background_count = exe.read_u32::<LE>()? as usize;
-        let _backgrounds = if sprite_count != 0 {
+        let _backgrounds = if background_count != 0 {
             verbose!(
                 "Reading backgrounds... (ver: {:.1}, count: {})\n",
                 backgrounds_ver as f64 / 100.0,
@@ -318,7 +318,7 @@ impl Game {
                 let background = GMBackground::from_raw(&mut data)?;
                 if let Some(background) = &background {
                     verbose!(
-                        " + Added background '{}', ({}x{})\n",
+                        " + Added background '{}' ({}x{})\n",
                         background.name,
                         background.size.width,
                         background.size.height,
@@ -326,6 +326,9 @@ impl Game {
                 }
                 backgrounds.push(background);
             }
+            backgrounds
+        } else {
+            Vec::with_capacity(0)
         };
 
         Ok(())
