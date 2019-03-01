@@ -391,18 +391,18 @@ impl GMSprite {
                     // convert BGRA to RGBA
                     let start = data.position() as usize;
                     data.seek(SeekFrom::Current(4 * pixeldata_pixels as i64))?;
-                    let mdata = data.get_mut();
+                    let src = data.get_mut();
                     let mut pos = start;
                     let mut tmp: u8;
                     for _ in 0..pixeldata_pixels {
-                        tmp = mdata[pos]; // tmp = blue
-                        mdata[pos] = mdata[pos + 2]; // blue = red
-                        mdata[pos + 2] = tmp; // red = tmp (blue)
+                        tmp = src[pos]; // tmp = blue
+                        src[pos] = src[pos + 2]; // blue = red
+                        src[pos + 2] = tmp; // red = tmp (blue)
                         pos += 4;
                     }
 
                     // RMakeImage lol
-                    frames.push(mdata[start..pos].to_vec().into_boxed_slice());
+                    frames.push(src[start..pos].to_vec().into_boxed_slice());
                 }
 
                 let read_collision =
