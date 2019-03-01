@@ -403,11 +403,7 @@ impl GMSound {
                 let len = data.read_u32::<LE>()? as usize;
                 let pos = data.position() as usize;
                 data.seek(SeekFrom::Current(len as i64))?;
-                Some(
-                    src[pos..pos+len]
-                        .to_vec()
-                        .into_boxed_slice(),
-                )
+                Some(src[pos..pos + len].to_vec().into_boxed_slice())
             } else {
                 None
             };
@@ -489,38 +485,37 @@ impl GMSprite {
                     frames.push(buf.into_boxed_slice());
                 }
 
-                let read_collision =
-                    |data: &mut io::Cursor<&[u8]>| -> Result<CollisionMap, Error> {
-                        let version = data.read_u32::<LE>()? as Version;
-                        let width = data.read_u32::<LE>()?;
-                        let height = data.read_u32::<LE>()?;
-                        let left = data.read_u32::<LE>()?;
-                        let right = data.read_u32::<LE>()?;
-                        let bottom = data.read_u32::<LE>()?;
-                        let top = data.read_u32::<LE>()?;
+                let read_collision = |data: &mut io::Cursor<&[u8]>| -> Result<CollisionMap, Error> {
+                    let version = data.read_u32::<LE>()? as Version;
+                    let width = data.read_u32::<LE>()?;
+                    let height = data.read_u32::<LE>()?;
+                    let left = data.read_u32::<LE>()?;
+                    let right = data.read_u32::<LE>()?;
+                    let bottom = data.read_u32::<LE>()?;
+                    let top = data.read_u32::<LE>()?;
 
-                        let mask_size = width as usize * height as usize;
-                        let mut mask = vec![0u8; mask_size];
-                        let mut pos = data.position() as usize;
-                        data.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                        for i in 0..mask_size {
-                            mask[i] = src[pos];
-                            pos += 4;
-                        }
+                    let mask_size = width as usize * height as usize;
+                    let mut mask = vec![0u8; mask_size];
+                    let mut pos = data.position() as usize;
+                    data.seek(SeekFrom::Current(4 * mask_size as i64))?;
+                    for i in 0..mask_size {
+                        mask[i] = src[pos];
+                        pos += 4;
+                    }
 
-                        Ok(CollisionMap {
-                            bounds: BoundingBox {
-                                width,
-                                height,
-                                top,
-                                bottom,
-                                left,
-                                right,
-                            },
-                            data: mask.into_boxed_slice(),
-                            version,
-                        })
-                    };
+                    Ok(CollisionMap {
+                        bounds: BoundingBox {
+                            width,
+                            height,
+                            top,
+                            bottom,
+                            left,
+                            right,
+                        },
+                        data: mask.into_boxed_slice(),
+                        version,
+                    })
+                };
 
                 let mut colliders: Vec<CollisionMap>;
                 let per_frame_colliders = data.read_u32::<LE>()? != 0;
