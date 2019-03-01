@@ -82,20 +82,7 @@ trait ReadString: io::Read {
     }
 }
 
-/// Helper trait for skipping arbirtary chunks of data in input.
-/// A preceding u32 indicating the size is required.
-trait SkipAny: io::Read + io::Seek {
-    /// Skips arbitrary data, assuming it's preceded by a u32 indicating size.
-    /// Returns the length of the data skipped.
-    fn skip_any(&mut self) -> io::Result<usize> {
-        let len = self.read_u32::<LE>()? as i64;
-        self.seek(SeekFrom::Current(len))?;
-        Ok(len as usize)
-    }
-}
-
 impl<R: io::Read + ?Sized> ReadString for R {}
-impl<S: io::Read + io::Seek + ?Sized> SkipAny for S {}
 
 impl Game {
     // TODO: functionify a lot of this.
@@ -119,9 +106,9 @@ impl Game {
         let mut exe = io::Cursor::new(exe);
 
         // detect GameMaker version
+        // TODO: support gm8.1 here later obviously
         exe.set_position(GM80_MAGIC_POS);
         if exe.read_u32::<LE>()? != GM80_MAGIC {
-            // support gm8.1 here later
             return Err(Error::from(ErrorKind::InvalidMagic));
         }
         verbose!(
@@ -133,21 +120,14 @@ impl Game {
         // version version blahblah - I should do something with this later.
         exe.seek(SeekFrom::Current(12))?;
 
-        //
         // Game Settings
-        //
-
-        // settings data chunk
         let settings_len = exe.read_u32::<LE>()? as usize;
         verbose!("Inflating settings chunk... (size: {})\n", settings_len);
         let _settings = inflate(&exe, exe.position() as usize, settings_len)?; // TODO: parse
         exe.seek(SeekFrom::Current(settings_len as i64))?;
         verbose!("Inflated successfully (new size: {})\n", _settings.len());
 
-        //
         // Embedded DirectX DLL
-        //
-
         // we obviously don't need this, so we skip over it
         // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
         if verbose {
@@ -160,12 +140,11 @@ impl Game {
         }
 
         // skip embedded dll data chunk
-        let dll_len = exe.skip_any()?;
+        let dll_len = exe.read_u32::<LE>()? as i64;
         verbose!(" (size: {})\n", dll_len);
+        exe.seek(SeekFrom::Current(dll_len))?;
 
-        //
         // Asset Data Decryption
-        //
         {
             let mut swap_table = [0u8; 256];
             let mut reverse_table = [0u8; 256];
@@ -218,35 +197,26 @@ impl Game {
         }
 
         // more garbage fields that do nothing
-        //   there's 6 more u32's than it claims to contain, hence (n+6)*4
+        // (there's 6 more u32's than it claims to contain, hence (n+6)*4)
         let garbage = ((exe.read_u32::<LE>()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
-        //
         // Extensions
-        //
-
-        let extensions_ver = exe.read_u32::<LE>()? as Version;
+        let _extensions_ver = exe.read_u32::<LE>()? as Version;
         let extension_count = exe.read_u32::<LE>()? as usize;
-
-        // read extensions
         if extension_count != 0 {
-            verbose!(
-                "Reading extensions... (ver: {:.1}, count: {})\n",
-                extensions_ver as f64 / 100.0,
-                extension_count
-            );
+            // verbose!(
+            //     "Reading extensions... (ver: {:.1}, count: {})\n",
+            //     extensions_ver as f64 / 100.0,
+            //     extension_count
+            // );
 
-            let _char_table = [0u8; 512]; // 512 = 0x200
-            for _ in 0..extension_count {}
-            // I'll do this part later lol
-            // TODO: ^^^
+            // let _char_table = [0u8; 512]; // 512 = 0x200
+            // for _ in 0..extension_count {}
+            // TODO: implement
         }
 
-        //
         // Triggers
-        //
-
         let triggers_ver = exe.read_u32::<LE>()? as Version;
         let trigger_count = exe.read_u32::<LE>()? as usize;
         if trigger_count != 0 {
@@ -258,10 +228,7 @@ impl Game {
             // TODO: implement
         }
 
-        //
         // Constants
-        //
-
         let constants_ver = exe.read_u32::<LE>()? as Version;
         let constant_count = exe.read_u32::<LE>()? as usize;
         if constant_count != 0 {
@@ -273,13 +240,10 @@ impl Game {
             // TODO: implement
         }
 
-        //
         // Sounds
-        //
-
         let sounds_ver = exe.read_u32::<LE>()? as Version;
         let sound_count = exe.read_u32::<LE>()? as usize;
-        let sounds = if sound_count != 0 {
+        let _sounds = if sound_count != 0 {
             verbose!(
                 "Reading sounds... (ver: {:.1}, count: {})\n",
                 sounds_ver as f64 / 100.0,
@@ -291,19 +255,21 @@ impl Game {
                 let len = exe.read_u32::<LE>()? as usize;
                 let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
                 exe.seek(SeekFrom::Current(len as i64))?;
-                sounds.push(GMSound::from_raw(&mut data, verbose)?);
+                let sound = GMSound::from_raw(&mut data)?;
+                if let Some(sound) = &sound {
+                    verbose!("+ Added sound '{}' ({})\n", sound.name, sound.file_name);
+                }
+                sounds.push(sound);
             }
             sounds
         } else {
             Vec::with_capacity(0)
         };
 
-        //
         // Sprites
-        //
         let sprites_ver = exe.read_u32::<LE>()? as Version;
         let sprite_count = exe.read_u32::<LE>()? as usize;
-        let sprites = if sprite_count != 0 {
+        let _sprites = if sprite_count != 0 {
             verbose!(
                 "Reading sprites... (ver: {:.1}, count: {})\n",
                 sprites_ver as f64 / 100.0,
@@ -315,7 +281,19 @@ impl Game {
                 let len = exe.read_u32::<LE>()? as usize;
                 let mut data = io::Cursor::new(inflate(&exe, exe.position() as usize, len)?);
                 exe.seek(SeekFrom::Current(len as i64))?;
-                sprites.push(GMSprite::from_raw(&mut data, verbose)?);
+                let sprite = GMSprite::from_raw(&mut data)?;
+                if let Some(sprite) = &sprite {
+                    verbose!(
+                        " + Added sprite '{}' ({}x{}, {} frame{})\n",
+                        sprite.name, sprite.size.width, sprite.size.height, sprite.frame_count,
+                        if sprite.frame_count > 1 {
+                            "s"
+                        } else {
+                            ""
+                        }
+                    );
+                }
+                sprites.push(sprite);
             }
 
             sprites
@@ -328,7 +306,7 @@ impl Game {
 }
 
 impl GMSound {
-    fn from_raw(data: &mut io::Cursor<Vec<u8>>, log: bool) -> Result<Option<Box<GMSound>>, Error> {
+    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSound>>, Error> {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
@@ -352,10 +330,6 @@ impl GMSound {
             let pan = data.read_f64::<LE>()?;
             let preload = data.read_u32::<LE>()? != 0;
 
-            if log {
-                println!("+ Added sound '{}' ({})", name, file_name);
-            }
-
             Ok(Some(Box::new(GMSound {
                 name,
                 version,
@@ -374,7 +348,7 @@ impl GMSound {
 }
 
 impl GMSprite {
-    fn from_raw(data: &mut io::Cursor<Vec<u8>>, log: bool) -> Result<Option<Box<GMSprite>>, Error> {
+    fn from_raw(data: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<GMSprite>>, Error> {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
@@ -478,19 +452,6 @@ impl GMSprite {
             } else {
                 (None, None, false)
             };
-
-            // TODO: bad.
-            if log {
-                println!(
-                    " + Added sprite '{}' ({}x{}, {} frame{})",
-                    name, width, height, frame_count,
-                    if frame_count > 1 {
-                        "s"
-                    } else {
-                        ""
-                    }
-                );
-            }
 
             Ok(Some(Box::new(GMSprite {
                 name,
