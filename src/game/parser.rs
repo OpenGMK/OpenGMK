@@ -250,7 +250,11 @@ impl Game {
         // Sounds
         let sounds_ver = exe.read_u32::<LE>()? as Version;
         if sounds_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion("sounds header", 800f64 / 100.0, sounds_ver as f64 / 100.0)));
+            return Err(Error::from(ErrorKind::InvalidVersion(
+                "sounds header",
+                800f64 / 100.0,
+                sounds_ver as f64 / 100.0,
+            )));
         }
         let sound_count = exe.read_u32::<LE>()? as usize;
         let _sounds = if sound_count != 0 {
@@ -279,7 +283,11 @@ impl Game {
         // Sprites
         let sprites_ver = exe.read_u32::<LE>()? as Version;
         if sprites_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion("sprites header", 800f64 / 100.0, sprites_ver as f64 / 100.0)));
+            return Err(Error::from(ErrorKind::InvalidVersion(
+                "sprites header",
+                800f64 / 100.0,
+                sprites_ver as f64 / 100.0,
+            )));
         }
         let sprite_count = exe.read_u32::<LE>()? as usize;
         let _sprites = if sprite_count != 0 {
@@ -315,7 +323,11 @@ impl Game {
 
         let backgrounds_ver = exe.read_u32::<LE>()? as Version;
         if backgrounds_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion("backgrounds header", 800f64 / 100.0, backgrounds_ver as f64 / 100.0)));
+            return Err(Error::from(ErrorKind::InvalidVersion(
+                "backgrounds header",
+                800f64 / 100.0,
+                backgrounds_ver as f64 / 100.0,
+            )));
         }
         let background_count = exe.read_u32::<LE>()? as usize;
         let _backgrounds = if background_count != 0 {
@@ -362,9 +374,17 @@ impl GMBackground {
             let version1 = data.read_u32::<LE>()?;
             let version2 = data.read_u32::<LE>()?;
             if version1 != 710 {
-                return Err(Error::from(ErrorKind::InvalidVersion("background", 710f64 / 100.0, version1 as f64 / 100.0)));
+                return Err(Error::from(ErrorKind::InvalidVersion(
+                    "background",
+                    710f64 / 100.0,
+                    version1 as f64 / 100.0,
+                )));
             } else if version2 != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion("background", 800f64 / 100.0, version2 as f64 / 100.0)));
+                return Err(Error::from(ErrorKind::InvalidVersion(
+                    "background",
+                    800f64 / 100.0,
+                    version2 as f64 / 100.0,
+                )));
             }
             let width = data.read_u32::<LE>()?;
             let height = data.read_u32::<LE>()?;
@@ -418,7 +438,11 @@ impl GMSound {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
             if version != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion("sound", 800f64 / 100.0, version as f64 / 100.0)));
+                return Err(Error::from(ErrorKind::InvalidVersion(
+                    "sound",
+                    800f64 / 100.0,
+                    version as f64 / 100.0,
+                )));
             }
             let kind = data.read_u32::<LE>()?;
             let file_type = data.read_string()?;
@@ -463,7 +487,11 @@ impl GMSprite {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
             if version != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion("sprite", 800f64 / 100.0, version as f64 / 100.0)));
+                return Err(Error::from(ErrorKind::InvalidVersion(
+                    "sprite",
+                    800f64 / 100.0,
+                    version as f64 / 100.0,
+                )));
             }
             let origin_x = data.read_u32::<LE>()?;
             let origin_y = data.read_u32::<LE>()?;
@@ -475,7 +503,11 @@ impl GMSprite {
                 for _ in 0..frame_count {
                     let version = data.read_u32::<LE>()? as Version; // TODO: Hm.
                     if version != 800 {
-                        return Err(Error::from(ErrorKind::InvalidVersion("frame", 800f64 / 100.0, version as f64 / 100.0)));
+                        return Err(Error::from(ErrorKind::InvalidVersion(
+                            "frame",
+                            800f64 / 100.0,
+                            version as f64 / 100.0,
+                        )));
                     }
                     let frame_width = data.read_u32::<LE>()?;
                     let frame_height = data.read_u32::<LE>()?;
@@ -518,7 +550,11 @@ impl GMSprite {
                 let read_collision = |data: &mut io::Cursor<&[u8]>| -> Result<CollisionMap, Error> {
                     let version = data.read_u32::<LE>()? as Version;
                     if version != 800 {
-                        return Err(Error::from(ErrorKind::InvalidVersion("collision map", 800f64 / 100.0, version as f64 / 100.0)));
+                        return Err(Error::from(ErrorKind::InvalidVersion(
+                            "collision map",
+                            800f64 / 100.0,
+                            version as f64 / 100.0,
+                        )));
                     }
                     let width = data.read_u32::<LE>()?;
                     let height = data.read_u32::<LE>()?;
