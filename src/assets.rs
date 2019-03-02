@@ -6,6 +6,20 @@ pub struct GMBackground {
     pub data: Option<Box<[u8]>>,
 }
 
+pub struct GMPath {
+    pub name: String,
+    pub kind: u32, // TODO: enumify
+    pub closed: bool,
+    pub precision: u32, // TOOD: why is this an int
+    pub points: Vec<GMPathPoint>,
+}
+
+pub struct GMPathPoint {
+    pub x: f64,
+    pub y: f64,
+    pub speed: f64,
+}
+
 pub struct GMSound {
     /// Asset name
     pub name: String,
