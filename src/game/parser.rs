@@ -39,7 +39,7 @@ impl Display for Error {
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
             ErrorKind::InvalidVersion(what, expected, got) => write!(
                 f,
-                "Invalid version number while reading {} (expected: {} got: {})",
+                "Invalid version number while reading {} (expected: {:.1}, got: {:.1})",
                 what, expected, got
             ),
             ErrorKind::ReadError => write!(f, "Error while reading input data. Likely EOF"),
@@ -76,6 +76,19 @@ fn inflate(data: &io::Cursor<Vec<u8>>, pos: usize, len: usize) -> Result<Vec<u8>
     let mut buf: Vec<u8> = Vec::with_capacity(len);
     decoder.read_to_end(&mut buf)?;
     Ok(buf)
+}
+
+// Helper function so I don't have to type the else-case for every check.
+fn verify_ver(what: &'static str, expected: u32, got: u32) -> Result<(), Error> {
+    if expected == got {
+        Ok(())
+    } else {
+        Err(Error::from(ErrorKind::InvalidVersion(
+            what,
+            expected as f64 / 100.0,
+            got as f64 / 100.0,
+        )))
+    }
 }
 
 /// Helper trait for reading pascal-style strings.
@@ -249,13 +262,7 @@ impl Game {
 
         // Sounds
         let sounds_ver = exe.read_u32::<LE>()? as Version;
-        if sounds_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion(
-                "sounds header",
-                800f64 / 100.0,
-                sounds_ver as f64 / 100.0,
-            )));
-        }
+        verify_ver("sounds header", 800, sounds_ver)?;
         let sound_count = exe.read_u32::<LE>()? as usize;
         let _sounds = if sound_count != 0 {
             verbose!(
@@ -282,13 +289,7 @@ impl Game {
 
         // Sprites
         let sprites_ver = exe.read_u32::<LE>()? as Version;
-        if sprites_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion(
-                "sprites header",
-                800f64 / 100.0,
-                sprites_ver as f64 / 100.0,
-            )));
-        }
+        verify_ver("sprites header", 800, sprites_ver)?;
         let sprite_count = exe.read_u32::<LE>()? as usize;
         let _sprites = if sprite_count != 0 {
             verbose!(
@@ -322,13 +323,7 @@ impl Game {
         };
 
         let backgrounds_ver = exe.read_u32::<LE>()? as Version;
-        if backgrounds_ver != 800 {
-            return Err(Error::from(ErrorKind::InvalidVersion(
-                "backgrounds header",
-                800f64 / 100.0,
-                backgrounds_ver as f64 / 100.0,
-            )));
-        }
+        verify_ver("backgrounds header", 800, backgrounds_ver)?;
         let background_count = exe.read_u32::<LE>()? as usize;
         let _backgrounds = if background_count != 0 {
             verbose!(
@@ -373,19 +368,8 @@ impl GMBackground {
             let name = data.read_string()?;
             let version1 = data.read_u32::<LE>()?;
             let version2 = data.read_u32::<LE>()?;
-            if version1 != 710 {
-                return Err(Error::from(ErrorKind::InvalidVersion(
-                    "background",
-                    710f64 / 100.0,
-                    version1 as f64 / 100.0,
-                )));
-            } else if version2 != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion(
-                    "background",
-                    800f64 / 100.0,
-                    version2 as f64 / 100.0,
-                )));
-            }
+            verify_ver("background (verno 1)", 710, version1)?;
+            verify_ver("background (verno 2)", 800, version2)?;
             let width = data.read_u32::<LE>()?;
             let height = data.read_u32::<LE>()?;
             if width > 0 && height > 0 {
@@ -437,13 +421,7 @@ impl GMSound {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
-            if version != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion(
-                    "sound",
-                    800f64 / 100.0,
-                    version as f64 / 100.0,
-                )));
-            }
+            verify_ver("sound", 800, version)?;
             let kind = data.read_u32::<LE>()?;
             let file_type = data.read_string()?;
             let file_name = data.read_string()?;
@@ -486,13 +464,7 @@ impl GMSprite {
         if data.read_u32::<LE>()? != 0 {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
-            if version != 800 {
-                return Err(Error::from(ErrorKind::InvalidVersion(
-                    "sprite",
-                    800f64 / 100.0,
-                    version as f64 / 100.0,
-                )));
-            }
+            verify_ver("sprite", 800, version)?;
             let origin_x = data.read_u32::<LE>()?;
             let origin_y = data.read_u32::<LE>()?;
             let frame_count = data.read_u32::<LE>()?;
@@ -501,14 +473,8 @@ impl GMSprite {
             let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
                 let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
-                    let version = data.read_u32::<LE>()? as Version; // TODO: Hm.
-                    if version != 800 {
-                        return Err(Error::from(ErrorKind::InvalidVersion(
-                            "frame",
-                            800f64 / 100.0,
-                            version as f64 / 100.0,
-                        )));
-                    }
+                    let fversion = data.read_u32::<LE>()? as Version; // TODO: Hm.
+                    verify_ver("frame", 800, fversion)?;
                     let frame_width = data.read_u32::<LE>()?;
                     let frame_height = data.read_u32::<LE>()?;
 
@@ -549,13 +515,7 @@ impl GMSprite {
 
                 let read_collision = |data: &mut io::Cursor<&[u8]>| -> Result<CollisionMap, Error> {
                     let version = data.read_u32::<LE>()? as Version;
-                    if version != 800 {
-                        return Err(Error::from(ErrorKind::InvalidVersion(
-                            "collision map",
-                            800f64 / 100.0,
-                            version as f64 / 100.0,
-                        )));
-                    }
+                    verify_ver("collision map", 800, version)?;
                     let width = data.read_u32::<LE>()?;
                     let height = data.read_u32::<LE>()?;
                     let left = data.read_u32::<LE>()?;
