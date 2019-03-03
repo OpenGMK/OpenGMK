@@ -1,5 +1,7 @@
 use super::Game;
-use crate::assets::{GMBackground, GMPath, GMPathKind, GMPathPoint, GMSound, GMSprite, GMScript};
+use crate::assets::{
+    GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSound, GMSprite,
+};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
@@ -525,18 +527,15 @@ impl Game {
             }
 
             if verbose {
-                println!(" + Added path '{}' ({}, {}, {} points, precision: {})",
+                println!(
+                    " + Added path '{}' ({}, {}, {} points, precision: {})",
                     name,
                     if kind == GMPathKind::StraightLines {
                         "straight"
                     } else {
-                        "smooth"
+                        "smooth" // Minecraft Double Smooth Stone Slab
                     },
-                    if closed {
-                        "closed"
-                    } else {
-                        "open"
-                    },
+                    if closed { "closed" } else { "open" },
                     point_count,
                     precision
                 );
@@ -547,7 +546,7 @@ impl Game {
                 kind,
                 closed,
                 precision,
-                points
+                points,
             })
         })?;
 
@@ -559,13 +558,74 @@ impl Game {
             let source = data.read_string()?;
 
             if verbose {
-                println!(" + Added script '{}' (source length: {})", name, source.len());
+                println!(
+                    " + Added script '{}' (source length: {})",
+                    name,
+                    source.len()
+                );
             }
 
-            Ok(GMScript {
+            Ok(GMScript { name, source })
+        })?;
+
+        // Fonts
+        let _fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
+            let name = data.read_string()?;
+            let version = data.read_u32::<LE>()?;
+            verify_ver("font", &name, 800, version)?;
+            let sys_name = data.read_string()?;
+            let size = data.read_u32::<LE>()?;
+            let bold = data.read_u32::<LE>()? != 0;
+            let italic = data.read_u32::<LE>()? != 0;
+            let range_start = data.read_u32::<LE>()?;
+            let range_end = data.read_u32::<LE>()?;
+
+            // TODO: 8.1 specific magic
+
+            let dmap = [0u32; 0x600];
+            let width = data.read_u32::<LE>()?;
+            let height = data.read_u32::<LE>()?;
+            let len = data.read_u32::<LE>()? as usize;
+            if width as usize * height as usize != len {
+                // TODO: bad data.
+            }
+
+            // convert f64 map to RGBA data
+            // Step 1) Fill entire thing with 0xFF (WHITE)
+            // Step 2) Read every byte into every 4th byte (Alpha)
+            let mut pixels = vec![0xFFu8; len * 4];
+            let pos = data.position() as usize;
+            data.seek(SeekFrom::Current(len as i64))?;
+            let src = data.get_ref();
+            let mut pixel_pos = 3;
+            for i in pos..pos + len {
+                pixels[pixel_pos] = src[i];
+                pixel_pos += 4;
+            }
+
+            if verbose {
+                let mut log = format!(" + Added font '{}' ({}, {}px", name, sys_name, size,);
+                if bold {
+                    log += ", bold";
+                }
+                if italic {
+                    log += ", italic";
+                }
+                println!("{})", log);
+            }
+
+            Ok(GMFont {
                 name,
-                source,
-            })
+                sys_name,
+                size,
+                bold,
+                italic,
+                range_start,
+                range_end,
+                dmap: Box::new(dmap),
+                image_size: Dimensions { width, height },
+                image_data: pixels.into_boxed_slice(),
+            }) // TODO: Implement
         })?;
 
         Ok(())
