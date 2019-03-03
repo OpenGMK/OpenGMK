@@ -1,5 +1,5 @@
 use super::Game;
-use crate::assets::{GMBackground, GMPath, GMPathKind, GMPathPoint, GMSound, GMSprite};
+use crate::assets::{GMBackground, GMPath, GMPathKind, GMPathPoint, GMSound, GMSprite, GMScript};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
@@ -548,6 +548,23 @@ impl Game {
                 closed,
                 precision,
                 points
+            })
+        })?;
+
+        // Scripts
+        let _scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
+            let name = data.read_string()?;
+            let version = data.read_u32::<LE>()?;
+            verify_ver("script", &name, 800, version)?;
+            let source = data.read_string()?;
+
+            if verbose {
+                println!(" + Added script '{}' (source length: {})", name, source.len());
+            }
+
+            Ok(GMScript {
+                name,
+                source,
             })
         })?;
 
