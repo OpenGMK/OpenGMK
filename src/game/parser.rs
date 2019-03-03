@@ -2,9 +2,9 @@ use super::Game;
 use crate::assets::{
     GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSound, GMSprite,
 };
+use crate::bytes::{ReadBytes, ReadString};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
-use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use std::error;
 use std::fmt::{self, Display};
@@ -101,19 +101,6 @@ fn verify_ver(what: &str, who: &str, expected: u32, got: u32) -> Result<(), Erro
     }
 }
 
-/// Helper trait for reading pascal-style strings.
-trait ReadString: io::Read {
-    /// Reads a pascal-style string from the underlying reader.
-    fn read_string(&mut self) -> io::Result<String> {
-        let len = self.read_u32::<LE>()? as usize;
-        let mut buf = vec![0u8; len];
-        self.read(&mut buf)?;
-        Ok(String::from_utf8_lossy(&buf).into_owned())
-    }
-}
-
-impl<R: io::Read + ?Sized> ReadString for R {}
-
 impl Game {
     // TODO: functionify a lot of this.
     pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
@@ -138,7 +125,7 @@ impl Game {
         // detect GameMaker version
         // TODO: support gm8.1 here later obviously
         exe.set_position(GM80_MAGIC_POS);
-        if exe.read_u32::<LE>()? != GM80_MAGIC {
+        if exe.read_u32_le()? != GM80_MAGIC {
             return Err(Error::from(ErrorKind::InvalidMagic));
         }
         verbose!(
@@ -151,7 +138,7 @@ impl Game {
         exe.seek(SeekFrom::Current(12))?;
 
         // Game Settings
-        let settings_len = exe.read_u32::<LE>()? as usize;
+        let settings_len = exe.read_u32_le()? as usize;
         verbose!("Inflating settings chunk... (size: {})\n", settings_len);
         let pos = exe.position() as usize;
         exe.seek(SeekFrom::Current(settings_len as i64))?;
@@ -162,16 +149,16 @@ impl Game {
         // we obviously don't need this, so we skip over it
         // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
         if verbose {
-            let dllname = exe.read_string()?;
+            let dllname = exe.read_pas_string()?;
             verbose!("Skipping embedded DLL '{}'", dllname);
         } else {
             // otherwise, skip dll name string
-            let dllname_len = exe.read_u32::<LE>()? as i64;
+            let dllname_len = exe.read_u32_le()? as i64;
             exe.seek(SeekFrom::Current(dllname_len))?;
         }
 
         // skip embedded dll data chunk
-        let dll_len = exe.read_u32::<LE>()? as i64;
+        let dll_len = exe.read_u32_le()? as i64;
         verbose!(" (size: {})\n", dll_len);
         exe.seek(SeekFrom::Current(dll_len))?;
 
@@ -181,8 +168,8 @@ impl Game {
             let mut reverse_table = [0u8; 256];
 
             // the swap table is squished inbetween 2 chunks of useless garbage
-            let garbage1_size = exe.read_u32::<LE>()? as i64 * 4;
-            let garbage2_size = exe.read_u32::<LE>()? as i64 * 4;
+            let garbage1_size = exe.read_u32_le()? as i64 * 4;
+            let garbage2_size = exe.read_u32_le()? as i64 * 4;
             exe.seek(SeekFrom::Current(garbage1_size))?;
             assert_eq!(exe.read(&mut swap_table)?, 256);
             exe.seek(SeekFrom::Current(garbage2_size))?;
@@ -193,7 +180,7 @@ impl Game {
             }
 
             // asset data length
-            let len = exe.read_u32::<LE>()? as usize;
+            let len = exe.read_u32_le()? as usize;
 
             // simplifying for expressions below
             let pos = exe.position() as usize; // stream position
@@ -229,7 +216,7 @@ impl Game {
 
         // more garbage fields that do nothing
         // (there's 6 more u32's than it claims to contain, hence (n+6)*4)
-        let garbage = ((exe.read_u32::<LE>()? + 6) * 4) as i64;
+        let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
         fn read_asset<I, T, P>(
@@ -243,9 +230,9 @@ impl Game {
             I: AsRef<[u8]>,
             P: Fn(io::Cursor<&mut [u8]>) -> Result<T, Error>,
         {
-            let assets_version = src.read_u32::<LE>()?;
+            let assets_version = src.read_u32_le()?;
             verify_ver(name, "", ver, assets_version)?;
-            let asset_count = src.read_u32::<LE>()? as usize;
+            let asset_count = src.read_u32_le()? as usize;
             if asset_count != 0 {
                 if log {
                     println!(
@@ -257,13 +244,13 @@ impl Game {
                 }
                 let mut assets = Vec::with_capacity(asset_count);
                 for _ in 0..asset_count {
-                    let len = src.read_u32::<LE>()? as usize;
+                    let len = src.read_u32_le()? as usize;
                     let pos = src.position() as usize;
                     src.seek(SeekFrom::Current(len as i64))?;
                     let src_ref = src.get_ref().as_ref();
                     let mut inflated = inflate(&src_ref[pos..pos + len])?;
                     let mut data = io::Cursor::new(&mut inflated[..]);
-                    if data.read_u32::<LE>()? != 0 {
+                    if data.read_u32_le()? != 0 {
                         let result = parser(data)?;
                         assets.push(Some(Box::new(result)));
                     } else {
@@ -293,24 +280,24 @@ impl Game {
 
         // Sounds
         let _sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version = data.read_u32::<LE>()? as Version;
+            let name = data.read_pas_string()?;
+            let version = data.read_u32_le()? as Version;
             verify_ver("sound", &name, 800, version)?;
-            let kind = data.read_u32::<LE>()?;
-            let file_type = data.read_string()?;
-            let file_name = data.read_string()?;
-            let file_data = if data.read_u32::<LE>()? != 0 {
-                let len = data.read_u32::<LE>()? as usize;
+            let kind = data.read_u32_le()?;
+            let file_type = data.read_pas_string()?;
+            let file_name = data.read_pas_string()?;
+            let file_data = if data.read_u32_le()? != 0 {
+                let len = data.read_u32_le()? as usize;
                 let pos = data.position() as usize;
                 data.seek(SeekFrom::Current(len as i64))?;
                 Some(data.get_ref()[pos..pos + len].to_vec().into_boxed_slice())
             } else {
                 None
             };
-            let _ = data.read_u32::<LE>()?; // TODO: unused? no clue what this is
-            let volume = data.read_f64::<LE>()?;
-            let pan = data.read_f64::<LE>()?;
-            let preload = data.read_u32::<LE>()? != 0;
+            let _ = data.read_u32_le()?; // TODO: unused? no clue what this is
+            let volume = data.read_f64_le()?;
+            let pan = data.read_f64_le()?;
+            let preload = data.read_u32_le()? != 0;
 
             if verbose {
                 println!(" + Added sound '{}' ({})", name, file_name);
@@ -330,21 +317,21 @@ impl Game {
 
         // Sprites
         let _sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version = data.read_u32::<LE>()? as Version;
+            let name = data.read_pas_string()?;
+            let version = data.read_u32_le()? as Version;
             verify_ver("sprite", &name, 800, version)?;
-            let origin_x = data.read_u32::<LE>()?;
-            let origin_y = data.read_u32::<LE>()?;
-            let frame_count = data.read_u32::<LE>()?;
+            let origin_x = data.read_u32_le()?;
+            let origin_y = data.read_u32_le()?;
+            let frame_count = data.read_u32_le()?;
             let mut width = 0u32;
             let mut height = 0u32;
             let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
                 let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
-                    let fversion = data.read_u32::<LE>()? as Version;
+                    let fversion = data.read_u32_le()? as Version;
                     verify_ver("frame", &name, 800, fversion)?;
-                    let frame_width = data.read_u32::<LE>()?;
-                    let frame_height = data.read_u32::<LE>()?;
+                    let frame_width = data.read_u32_le()?;
+                    let frame_height = data.read_u32_le()?;
 
                     // sanity check 1
                     if width != 0 && height != 0 {
@@ -359,7 +346,7 @@ impl Game {
                         height = frame_height;
                     }
 
-                    let pixeldata_len = data.read_u32::<LE>()?;
+                    let pixeldata_len = data.read_u32_le()?;
                     let pixeldata_pixels = width * height;
 
                     // sanity check 2
@@ -383,14 +370,14 @@ impl Game {
 
                 let read_collision =
                     |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
-                        let version = data.read_u32::<LE>()? as Version;
+                        let version = data.read_u32_le()? as Version;
                         verify_ver("collision map", &name, 800, version)?;
-                        let width = data.read_u32::<LE>()?;
-                        let height = data.read_u32::<LE>()?;
-                        let left = data.read_u32::<LE>()?;
-                        let right = data.read_u32::<LE>()?;
-                        let bottom = data.read_u32::<LE>()?;
-                        let top = data.read_u32::<LE>()?;
+                        let width = data.read_u32_le()?;
+                        let height = data.read_u32_le()?;
+                        let left = data.read_u32_le()?;
+                        let right = data.read_u32_le()?;
+                        let bottom = data.read_u32_le()?;
+                        let top = data.read_u32_le()?;
 
                         let mask_size = width as usize * height as usize;
                         let mut pos = data.position() as usize;
@@ -416,7 +403,7 @@ impl Game {
                     };
 
                 let mut colliders: Vec<CollisionMap>;
-                let per_frame_colliders = data.read_u32::<LE>()? != 0;
+                let per_frame_colliders = data.read_u32_le()? != 0;
                 if per_frame_colliders {
                     colliders = Vec::with_capacity(frame_count as usize);
                     for _ in 0..frame_count {
@@ -454,15 +441,15 @@ impl Game {
 
         // Backgrounds
         let _backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version1 = data.read_u32::<LE>()?;
-            let version2 = data.read_u32::<LE>()?;
+            let name = data.read_pas_string()?;
+            let version1 = data.read_u32_le()?;
+            let version2 = data.read_u32_le()?;
             verify_ver("background (verno. 1)", &name, 710, version1)?;
             verify_ver("background (verno. 2)", &name, 800, version2)?;
-            let width = data.read_u32::<LE>()?;
-            let height = data.read_u32::<LE>()?;
+            let width = data.read_u32_le()?;
+            let height = data.read_u32_le()?;
             if width > 0 && height > 0 {
-                let data_len = data.read_u32::<LE>()?;
+                let data_len = data.read_u32_le()?;
 
                 // sanity check
                 if data_len != (width * height * 4) {
@@ -506,23 +493,23 @@ impl Game {
 
         // Paths
         let _paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version = data.read_u32::<LE>()?;
+            let name = data.read_pas_string()?;
+            let version = data.read_u32_le()?;
             verify_ver("path", &name, 530, version)?;
-            let kind = if data.read_u32::<LE>()? == 0 {
+            let kind = if data.read_u32_le()? == 0 {
                 GMPathKind::StraightLines
             } else {
                 GMPathKind::SmoothCurve
             };
-            let closed = data.read_u32::<LE>()? != 0;
-            let precision = data.read_u32::<LE>()?;
-            let point_count = data.read_u32::<LE>()?;
+            let closed = data.read_u32_le()? != 0;
+            let precision = data.read_u32_le()?;
+            let point_count = data.read_u32_le()?;
             let mut points = Vec::new();
             for _ in 0..point_count {
                 points.push(GMPathPoint {
-                    x: data.read_f64::<LE>()?,
-                    y: data.read_f64::<LE>()?,
-                    speed: data.read_f64::<LE>()?,
+                    x: data.read_f64_le()?,
+                    y: data.read_f64_le()?,
+                    speed: data.read_f64_le()?,
                 });
             }
 
@@ -552,10 +539,10 @@ impl Game {
 
         // Scripts
         let _scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version = data.read_u32::<LE>()?;
+            let name = data.read_pas_string()?;
+            let version = data.read_u32_le()?;
             verify_ver("script", &name, 800, version)?;
-            let source = data.read_string()?;
+            let source = data.read_pas_string()?;
 
             if verbose {
                 println!(
@@ -570,22 +557,22 @@ impl Game {
 
         // Fonts
         let _fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
-            let name = data.read_string()?;
-            let version = data.read_u32::<LE>()?;
+            let name = data.read_pas_string()?;
+            let version = data.read_u32_le()?;
             verify_ver("font", &name, 800, version)?;
-            let sys_name = data.read_string()?;
-            let size = data.read_u32::<LE>()?;
-            let bold = data.read_u32::<LE>()? != 0;
-            let italic = data.read_u32::<LE>()? != 0;
-            let range_start = data.read_u32::<LE>()?;
-            let range_end = data.read_u32::<LE>()?;
+            let sys_name = data.read_pas_string()?;
+            let size = data.read_u32_le()?;
+            let bold = data.read_u32_le()? != 0;
+            let italic = data.read_u32_le()? != 0;
+            let range_start = data.read_u32_le()?;
+            let range_end = data.read_u32_le()?;
 
             // TODO: 8.1 specific magic
 
             let dmap = [0u32; 0x600];
-            let width = data.read_u32::<LE>()?;
-            let height = data.read_u32::<LE>()?;
-            let len = data.read_u32::<LE>()? as usize;
+            let width = data.read_u32_le()?;
+            let height = data.read_u32_le()?;
+            let len = data.read_u32_le()? as usize;
             if width as usize * height as usize != len {
                 // TODO: bad data.
             }

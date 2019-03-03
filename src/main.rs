@@ -2,6 +2,7 @@
 #![feature(try_trait)]
 
 mod assets;
+mod bytes;
 mod game;
 mod types;
 mod util;
