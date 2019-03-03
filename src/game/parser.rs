@@ -82,10 +82,15 @@ where
 }
 
 // Helper function so I don't have to type the else-case for every check.
-fn verify_ver(what: String, expected: u32, got: u32) -> Result<(), Error> {
+fn verify_ver(what: &str, who: &str, expected: u32, got: u32) -> Result<(), Error> {
     if expected == got {
         Ok(())
     } else {
+        let what = if who != "" {
+            format!("{} '{}'", what, who)
+        } else {
+            format!("{} (HEADER)", what)
+        };
         Err(Error::from(ErrorKind::InvalidVersion(
             what,
             expected as f64 / 100.0,
@@ -237,12 +242,12 @@ impl Game {
             P: Fn(io::Cursor<&mut [u8]>) -> Result<T, Error>,
         {
             let assets_version = src.read_u32::<LE>()?;
-            verify_ver(format!("{}s header", name), ver, assets_version)?;
+            verify_ver(name, "", ver, assets_version)?;
             let asset_count = src.read_u32::<LE>()? as usize;
             if asset_count != 0 {
                 if log {
                     println!(
-                        "Reading {}s... (ver: {:.1}, count: {})",
+                        "Reading {}... (ver: {:.1}, count: {})",
                         name,
                         assets_version as f64 / 100f64,
                         asset_count
@@ -270,25 +275,25 @@ impl Game {
         }
 
         // Extensions
-        let _extensions = read_asset(&mut exe, "extension", 700, verbose, |_| {
+        let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
             Ok(()) // TODO: Implement
         })?;
 
         // Triggers
-        let _triggers = read_asset(&mut exe, "trigger", 800, verbose, |_| {
+        let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
             Ok(()) // TODO: Implement
         })?;
 
         // Constants
-        let _constants = read_asset(&mut exe, "constant", 800, verbose, |_| {
+        let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
             Ok(()) // TODO: Implement
         })?;
 
         // Sounds
-        let _sounds = read_asset(&mut exe, "sound", 800, verbose, |mut data| {
+        let _sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
-            verify_ver("sound".to_string(), 800, version)?;
+            verify_ver("sound", &name, 800, version)?;
             let kind = data.read_u32::<LE>()?;
             let file_type = data.read_string()?;
             let file_name = data.read_string()?;
@@ -322,10 +327,10 @@ impl Game {
         })?;
 
         // Sprites
-        let _sprites = read_asset(&mut exe, "sprite", 800, verbose, |mut data| {
+        let _sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()? as Version;
-            verify_ver(format!("sprite '{}'", name), 800, version)?;
+            verify_ver("sprite", &name, 800, version)?;
             let origin_x = data.read_u32::<LE>()?;
             let origin_y = data.read_u32::<LE>()?;
             let frame_count = data.read_u32::<LE>()?;
@@ -335,7 +340,7 @@ impl Game {
                 let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
                     let fversion = data.read_u32::<LE>()? as Version;
-                    verify_ver("frame".to_string(), 800, fversion)?;
+                    verify_ver("frame", &name, 800, fversion)?;
                     let frame_width = data.read_u32::<LE>()?;
                     let frame_height = data.read_u32::<LE>()?;
 
@@ -377,7 +382,7 @@ impl Game {
                 let read_collision =
                     |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
                         let version = data.read_u32::<LE>()? as Version;
-                        verify_ver("collision map".to_string(), 800, version)?;
+                        verify_ver("collision map", &name, 800, version)?;
                         let width = data.read_u32::<LE>()?;
                         let height = data.read_u32::<LE>()?;
                         let left = data.read_u32::<LE>()?;
@@ -446,12 +451,12 @@ impl Game {
         })?;
 
         // Backgrounds
-        let _backgrounds = read_asset(&mut exe, "background", 800, verbose, |mut data| {
+        let _backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
             let name = data.read_string()?;
             let version1 = data.read_u32::<LE>()?;
             let version2 = data.read_u32::<LE>()?;
-            verify_ver(format!("background '{}' (verno. 1)", name), 710, version1)?;
-            verify_ver(format!("background '{}' (verno. 2)", name), 800, version2)?;
+            verify_ver("background (verno. 1)", &name, 710, version1)?;
+            verify_ver("background (verno. 2)", &name, 800, version2)?;
             let width = data.read_u32::<LE>()?;
             let height = data.read_u32::<LE>()?;
             if width > 0 && height > 0 {
@@ -498,10 +503,10 @@ impl Game {
         })?;
 
         // Paths
-        let _paths = read_asset(&mut exe, "path", 800, verbose, |mut data| {
+        let _paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
             let name = data.read_string()?;
             let version = data.read_u32::<LE>()?;
-            verify_ver(format!("path '{}'", name), 530, version)?;
+            verify_ver("path", &name, 530, version)?;
             let kind = if data.read_u32::<LE>()? == 0 {
                 GMPathKind::StraightLines
             } else {
