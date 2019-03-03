@@ -26,6 +26,11 @@ pub struct GMPathPoint {
     pub speed: f64,
 }
 
+pub struct GMScript {
+    pub name: String,
+    pub source: String,
+}
+
 pub struct GMSound {
     /// Asset name
     pub name: String,
