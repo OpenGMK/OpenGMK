@@ -5,5 +5,4 @@ authors = ["viri <not.viri@protonmail.ch>"]
 edition = "2018"
 
 [dependencies]
-byteorder = "1.*"
 flate2 = "1.0"
