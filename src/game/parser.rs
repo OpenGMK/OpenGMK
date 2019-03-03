@@ -329,7 +329,7 @@ impl Game {
                 let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
                     let fversion = data.read_u32_le()? as Version;
-                    verify_ver("frame", &name, 800, fversion)?;
+                    verify_ver("frame in", &name, 800, fversion)?;
                     let frame_width = data.read_u32_le()?;
                     let frame_height = data.read_u32_le()?;
 
@@ -371,7 +371,7 @@ impl Game {
                 let read_collision =
                     |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
                         let version = data.read_u32_le()? as Version;
-                        verify_ver("collision map", &name, 800, version)?;
+                        verify_ver("collision map in", &name, 800, version)?;
                         let width = data.read_u32_le()?;
                         let height = data.read_u32_le()?;
                         let left = data.read_u32_le()?;
@@ -614,6 +614,25 @@ impl Game {
                 image_data: pixels.into_boxed_slice(),
             })
         })?;
+
+        // // Timelines
+        // let _timelines = read_asset(&mut exe, "timelines", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()?;
+        //     verify_ver("timeline", &name, 500, version)?;
+        //     let moment_count = data.read_u32_le()?;
+        //     for _ in 0..moment_count {
+        //         let time = data.read_u32_le()?;
+        //         let moment_version = data.read_u32_le()?;
+        //         verify_ver("moment in", &name, 400, moment_version)?;
+        //         let action_count = data.read_u32_le()? as usize;
+        //         let actions = Vec::with_capacity(action_count);
+        //         for _ in 0..action_count {
+
+        //         }
+        //     }
+        //     Ok(())
+        // })?;
 
         Ok(Game {
             sprites,
