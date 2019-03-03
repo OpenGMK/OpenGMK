@@ -231,7 +231,6 @@ impl Game {
             ver: u32,
             log: bool,
             parser: P,
-            //log_callback: C,
         ) -> Result<Vec<Option<Box<T>>>, Error>
         where
             I: AsRef<[u8]>,
@@ -254,18 +253,18 @@ impl Game {
                     let len = src.read_u32::<LE>()? as usize;
                     let pos = src.position() as usize;
                     src.seek(SeekFrom::Current(len as i64))?;
+                    if len <= 12 {
+                        // It doesn't exist (deleted asset)
+                        continue;
+                    }
                     let src_ref = src.get_ref().as_ref();
                     let mut inflated = inflate(&src_ref[pos..pos + len])?;
                     let mut data = io::Cursor::new(&mut inflated[..]);
                     if data.read_u32::<LE>()? != 0 {
                         let result = parser(data)?;
-                        if log {
-                            //log_callback(&result);
-                        }
                         assets.push(Some(Box::new(result)));
                     } else {
                         assets.push(None);
-                        // println!("Non-existent asset data length: {}", len);
                     }
                 }
                 Ok(assets)
