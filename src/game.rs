@@ -1,7 +1,18 @@
 mod parser;
-use crate::assets::{GMSound, GMSprite};
+use crate::assets::*;
 
 pub struct Game {
-    pub sounds: Vec<Option<Box<GMSound>>>,
     pub sprites: Vec<Option<Box<GMSprite>>>,
+    pub sounds: Vec<Option<Box<GMSound>>>,
+    pub backgrounds: Vec<Option<Box<GMBackground>>>,
+    pub paths: Vec<Option<Box<GMPath>>>,
+    pub scripts: Vec<Option<Box<GMScript>>>,
+    pub fonts: Vec<Option<Box<GMFont>>>,
+    // Timelines
+    // Objects
+    // Rooms
+    
+    // Triggers
+    // Constants
+    // Extensions
 }
