@@ -6,6 +6,19 @@ pub struct GMBackground {
     pub data: Option<Box<[u8]>>,
 }
 
+pub struct GMFont {
+    pub name: String,
+    pub sys_name: String,
+    pub size: u32,
+    pub bold: bool,
+    pub italic: bool,
+    pub range_start: u32,
+    pub range_end: u32,
+    pub dmap: Box<[u32; 0x600]>,
+    pub image_size: Dimensions,
+    pub image_data: Box<[u8]>,
+}
+
 pub struct GMPath {
     pub name: String,
     pub kind: GMPathKind, // TODO: enumify
@@ -17,7 +30,7 @@ pub struct GMPath {
 #[derive(PartialEq)]
 pub enum GMPathKind {
     StraightLines,
-    SmoothCurve
+    SmoothCurve,
 }
 
 pub struct GMPathPoint {
