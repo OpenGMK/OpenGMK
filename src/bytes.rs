@@ -8,6 +8,7 @@ use std::u64;
 
 pub trait ReadBytes: io::Read {
     /// Reads a `u32` (little-endian) from the underlying reader.
+    #[inline(always)]
     fn read_u32_le(&mut self) -> io::Result<u32> {
         let mut data = [0u8; 4];
         self.read_exact(&mut data)?;
@@ -15,6 +16,7 @@ pub trait ReadBytes: io::Read {
     }
 
     /// Reads an `f64` (little-endian) from the underlying reader.
+    #[inline(always)]
     fn read_f64_le(&mut self) -> io::Result<f64> {
         let mut data = [0u8; 8];
         self.read_exact(&mut data)?;
@@ -25,6 +27,7 @@ pub trait ReadBytes: io::Read {
 /// Helper trait for reading strings.
 pub trait ReadString: io::Read {
     /// Reads a pascal-style string from the underlying reader.
+    #[inline(always)]
     fn read_pas_string(&mut self) -> io::Result<String> {
         let len = self.read_u32_le()? as usize;
         let mut buf = vec![0u8; len];
