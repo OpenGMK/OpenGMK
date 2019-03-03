@@ -604,14 +604,14 @@ impl Game {
             }
 
             if verbose {
-                let mut log = format!(" + Added font '{}' ({}, {}px", name, sys_name, size,);
-                if bold {
-                    log += ", bold";
-                }
-                if italic {
-                    log += ", italic";
-                }
-                println!("{})", log);
+                println!(
+                    " + Added font '{}' ({}, {}px{}{})",
+                    name,
+                    sys_name,
+                    size,
+                    if bold { ", bold" } else { "" },
+                    if italic { ", italic" } else { "" }
+                );
             }
 
             Ok(GMFont {
