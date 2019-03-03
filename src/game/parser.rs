@@ -625,7 +625,7 @@ impl Game {
                 dmap: Box::new(dmap),
                 image_size: Dimensions { width, height },
                 image_data: pixels.into_boxed_slice(),
-            }) // TODO: Implement
+            })
         })?;
 
         Ok(())
