@@ -6,6 +6,8 @@ pub struct GMBackground {
     pub data: Option<Box<[u8]>>,
 }
 
+pub type GMCodeAction = u32;
+
 pub struct GMFont {
     pub name: String,
     pub sys_name: String,
