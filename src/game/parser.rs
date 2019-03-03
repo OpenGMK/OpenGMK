@@ -1,5 +1,5 @@
 use super::Game;
-use crate::assets::{GMBackground, GMPath, GMPathPoint, GMSound, GMSprite};
+use crate::assets::{GMBackground, GMPath, GMPathKind, GMPathPoint, GMSound, GMSprite};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
 use byteorder::{ReadBytesExt, LE};
@@ -450,7 +450,7 @@ impl Game {
         })?;
 
         // Backgrounds
-        let _backgrounds = read_asset(&mut exe, "trigger", 800, verbose, |mut data| {
+        let _backgrounds = read_asset(&mut exe, "background", 800, verbose, |mut data| {
             let name = data.read_string()?;
             let version1 = data.read_u32::<LE>()?;
             let version2 = data.read_u32::<LE>()?;
@@ -499,6 +499,55 @@ impl Game {
                     data: None,
                 })
             }
+        })?;
+
+        // Paths
+        let _paths = read_asset(&mut exe, "path", 800, verbose, |mut data| {
+            let name = data.read_string()?;
+            let version = data.read_u32::<LE>()?;
+            verify_ver(format!("path '{}'", name), 530, version)?;
+            let kind = if data.read_u32::<LE>()? == 0 {
+                GMPathKind::StraightLines
+            } else {
+                GMPathKind::SmoothCurve
+            };
+            let closed = data.read_u32::<LE>()? != 0;
+            let precision = data.read_u32::<LE>()?;
+            let point_count = data.read_u32::<LE>()?;
+            let mut points = Vec::new();
+            for _ in 0..point_count {
+                points.push(GMPathPoint {
+                    x: data.read_f64::<LE>()?,
+                    y: data.read_f64::<LE>()?,
+                    speed: data.read_f64::<LE>()?,
+                });
+            }
+
+            if verbose {
+                println!(" + Added path '{}' ({}, {}, {} points, precision: {})",
+                    name,
+                    if kind == GMPathKind::StraightLines {
+                        "straight"
+                    } else {
+                        "smooth"
+                    },
+                    if closed {
+                        "closed"
+                    } else {
+                        "open"
+                    },
+                    point_count,
+                    precision
+                );
+            }
+
+            Ok(GMPath {
+                name,
+                kind,
+                closed,
+                precision,
+                points
+            })
         })?;
 
         Ok(())

@@ -8,10 +8,16 @@ pub struct GMBackground {
 
 pub struct GMPath {
     pub name: String,
-    pub kind: u32, // TODO: enumify
+    pub kind: GMPathKind, // TODO: enumify
     pub closed: bool,
     pub precision: u32, // TOOD: why is this an int
     pub points: Vec<GMPathPoint>,
+}
+
+#[derive(PartialEq)]
+pub enum GMPathKind {
+    StraightLines,
+    SmoothCurve
 }
 
 pub struct GMPathPoint {
