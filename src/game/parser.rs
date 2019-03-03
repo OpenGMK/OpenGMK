@@ -103,7 +103,7 @@ fn verify_ver(what: &str, who: &str, expected: u32, got: u32) -> Result<(), Erro
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
+    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<Game, Error> {
         // Helper macro so I don't have to type `if verbose {}` for every print.
         // It's also easy to modify later.
         macro_rules! verbose {
@@ -279,7 +279,7 @@ impl Game {
         })?;
 
         // Sounds
-        let _sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
+        let sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version = data.read_u32_le()? as Version;
             verify_ver("sound", &name, 800, version)?;
@@ -316,7 +316,7 @@ impl Game {
         })?;
 
         // Sprites
-        let _sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
+        let sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version = data.read_u32_le()? as Version;
             verify_ver("sprite", &name, 800, version)?;
@@ -440,7 +440,7 @@ impl Game {
         })?;
 
         // Backgrounds
-        let _backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
+        let backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version1 = data.read_u32_le()?;
             let version2 = data.read_u32_le()?;
@@ -492,7 +492,7 @@ impl Game {
         })?;
 
         // Paths
-        let _paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
+        let paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version = data.read_u32_le()?;
             verify_ver("path", &name, 530, version)?;
@@ -538,7 +538,7 @@ impl Game {
         })?;
 
         // Scripts
-        let _scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
+        let scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version = data.read_u32_le()?;
             verify_ver("script", &name, 800, version)?;
@@ -556,7 +556,7 @@ impl Game {
         })?;
 
         // Fonts
-        let _fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
+        let fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
             let name = data.read_pas_string()?;
             let version = data.read_u32_le()?;
             verify_ver("font", &name, 800, version)?;
@@ -615,6 +615,13 @@ impl Game {
             })
         })?;
 
-        Ok(())
+        Ok(Game {
+            sprites,
+            sounds,
+            backgrounds,
+            paths,
+            scripts,
+            fonts,
+        })
     }
 }
