@@ -31,7 +31,7 @@ pub trait WriteBytes: io::Write {
         Ok(self.write(&n.to_le_bytes())?)
     }
 
-    /// Reads an `f64` (little-endian) from the underlying writer.
+    /// Writes an `f64` (little-endian) to the underlying writer.
     #[inline(always)]
     fn write_f64_le(&mut self, n: f64) -> io::Result<usize> {
         Ok(self.write(&(n.to_bits()).to_le_bytes())?)
