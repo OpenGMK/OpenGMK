@@ -124,10 +124,12 @@ pub enum SoundKind {
 impl From<u32> for SoundKind {
     fn from(n: u32) -> SoundKind {
         match n {
-            _ => SoundKind::Normal,
+            0 => SoundKind::Normal,
             1 => SoundKind::BackgroundMusic,
             2 => SoundKind::ThreeDimensional,
             3 => SoundKind::Multimedia,
+            
+            _ => SoundKind::Normal,
         }
     }
 }
