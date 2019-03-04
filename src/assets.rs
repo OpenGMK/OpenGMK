@@ -1,7 +1,9 @@
 pub mod path;
+pub mod script;
 pub mod sound;
 
 pub use self::path::Path;
+pub use self::script::Script;
 pub use self::sound::Sound;
 
 use crate::types::{CollisionMap, Dimensions, Point};
@@ -25,11 +27,6 @@ pub struct GMFont {
     pub dmap: Box<[u32; 0x600]>,
     pub image_size: Dimensions,
     pub image_data: Box<[u8]>,
-}
-
-pub struct GMScript {
-    pub name: String,
-    pub source: String,
 }
 
 pub struct GMSprite {
