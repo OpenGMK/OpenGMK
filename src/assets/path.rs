@@ -4,7 +4,7 @@ use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
 
-const VERSION: Version = 530;
+pub const VERSION: Version = 530;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum ConnectionKind {
