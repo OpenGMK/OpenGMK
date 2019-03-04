@@ -1,5 +1,7 @@
-mod sound;
+pub mod path;
+pub mod sound;
 
+pub use self::path::Path;
 pub use self::sound::Sound;
 
 use crate::types::{CollisionMap, Dimensions, Point};
@@ -23,26 +25,6 @@ pub struct GMFont {
     pub dmap: Box<[u32; 0x600]>,
     pub image_size: Dimensions,
     pub image_data: Box<[u8]>,
-}
-
-pub struct GMPath {
-    pub name: String,
-    pub kind: GMPathKind, // TODO: enumify
-    pub closed: bool,
-    pub precision: u32, // TOOD: why is this an int
-    pub points: Vec<GMPathPoint>,
-}
-
-#[derive(PartialEq)]
-pub enum GMPathKind {
-    StraightLines,
-    SmoothCurve,
-}
-
-pub struct GMPathPoint {
-    pub x: f64,
-    pub y: f64,
-    pub speed: f64,
 }
 
 pub struct GMScript {
