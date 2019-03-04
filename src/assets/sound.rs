@@ -4,7 +4,7 @@ use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
 
-const VERSION: Version = 800;
+pub const VERSION: Version = 800;
 
 pub struct Sound {
     /// The asset name present in GML and the editor.
