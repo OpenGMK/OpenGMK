@@ -1,18 +1,14 @@
+pub mod background;
 pub mod path;
 pub mod script;
 pub mod sound;
 
+pub use self::background::Background;
 pub use self::path::Path;
 pub use self::script::Script;
 pub use self::sound::Sound;
 
 use crate::types::{CollisionMap, Dimensions, Point};
-
-pub struct GMBackground {
-    pub name: String,
-    pub size: Dimensions,
-    pub data: Option<Box<[u8]>>,
-}
 
 pub type GMCodeAction = u32;
 
