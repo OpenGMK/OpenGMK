@@ -103,7 +103,7 @@ fn verify_ver(what: &str, who: &str, expected: u32, got: u32) -> Result<(), Erro
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<Game, Error> {
+    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
         // Helper macro so I don't have to type `if verbose {}` for every print.
         // It's also easy to modify later.
         macro_rules! verbose {
@@ -219,401 +219,401 @@ impl Game {
         let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
-        fn read_asset<I, T, P>(
-            src: &mut io::Cursor<I>,
-            name: &str,
-            ver: u32,
-            log: bool,
-            parser: P,
-        ) -> Result<Vec<Option<Box<T>>>, Error>
-        where
-            I: AsRef<[u8]>,
-            P: Fn(io::Cursor<&mut [u8]>) -> Result<T, Error>,
-        {
-            let assets_version = src.read_u32_le()?;
-            verify_ver(name, "", ver, assets_version)?;
-            let asset_count = src.read_u32_le()? as usize;
-            if asset_count != 0 {
-                if log {
-                    println!(
-                        "Reading {}... (ver: {:.1}, count: {})",
-                        name,
-                        assets_version as f64 / 100f64,
-                        asset_count
-                    );
-                }
-                let mut assets = Vec::with_capacity(asset_count);
-                for _ in 0..asset_count {
-                    let len = src.read_u32_le()? as usize;
-                    let pos = src.position() as usize;
-                    src.seek(SeekFrom::Current(len as i64))?;
-                    let src_ref = src.get_ref().as_ref();
-                    let mut inflated = inflate(&src_ref[pos..pos + len])?;
-                    let mut data = io::Cursor::new(&mut inflated[..]);
-                    if data.read_u32_le()? != 0 {
-                        let result = parser(data)?;
-                        assets.push(Some(Box::new(result)));
-                    } else {
-                        assets.push(None);
-                    }
-                }
-                Ok(assets)
-            } else {
-                Ok(Vec::new()) // Identical to with_capacity(0)
-            }
-        }
+        // fn read_asset<I, T, P>(
+        //     src: &mut io::Cursor<I>,
+        //     name: &str,
+        //     ver: u32,
+        //     log: bool,
+        //     parser: P,
+        // ) -> Result<Vec<Option<Box<T>>>, Error>
+        // where
+        //     I: AsRef<[u8]>,
+        //     P: Fn(io::Cursor<&mut [u8]>) -> Result<T, Error>,
+        // {
+        //     let assets_version = src.read_u32_le()?;
+        //     verify_ver(name, "", ver, assets_version)?;
+        //     let asset_count = src.read_u32_le()? as usize;
+        //     if asset_count != 0 {
+        //         if log {
+        //             println!(
+        //                 "Reading {}... (ver: {:.1}, count: {})",
+        //                 name,
+        //                 assets_version as f64 / 100f64,
+        //                 asset_count
+        //             );
+        //         }
+        //         let mut assets = Vec::with_capacity(asset_count);
+        //         for _ in 0..asset_count {
+        //             let len = src.read_u32_le()? as usize;
+        //             let pos = src.position() as usize;
+        //             src.seek(SeekFrom::Current(len as i64))?;
+        //             let src_ref = src.get_ref().as_ref();
+        //             let mut inflated = inflate(&src_ref[pos..pos + len])?;
+        //             let mut data = io::Cursor::new(&mut inflated[..]);
+        //             if data.read_u32_le()? != 0 {
+        //                 let result = parser(data)?;
+        //                 assets.push(Some(Box::new(result)));
+        //             } else {
+        //                 assets.push(None);
+        //             }
+        //         }
+        //         Ok(assets)
+        //     } else {
+        //         Ok(Vec::new()) // Identical to with_capacity(0)
+        //     }
+        // }
 
-        // Extensions
-        let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        // // Extensions
+        // let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
+        //     Ok(()) // TODO: Implement
+        // })?;
 
-        // Triggers
-        let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        // // Triggers
+        // let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
+        //     Ok(()) // TODO: Implement
+        // })?;
 
-        // Constants
-        let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        // // Constants
+        // let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
+        //     Ok(()) // TODO: Implement
+        // })?;
 
-        // Sounds
-        let sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version = data.read_u32_le()? as Version;
-            verify_ver("sound", &name, 800, version)?;
-            let kind = data.read_u32_le()?;
-            let file_type = data.read_pas_string()?;
-            let file_name = data.read_pas_string()?;
-            let file_data = if data.read_u32_le()? != 0 {
-                let len = data.read_u32_le()? as usize;
-                let pos = data.position() as usize;
-                data.seek(SeekFrom::Current(len as i64))?;
-                Some(data.get_ref()[pos..pos + len].to_vec().into_boxed_slice())
-            } else {
-                None
-            };
-            let _ = data.read_u32_le()?; // TODO: unused? no clue what this is
-            let volume = data.read_f64_le()?;
-            let pan = data.read_f64_le()?;
-            let preload = data.read_u32_le()? != 0;
+        // // Sounds
+        // let sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()? as Version;
+        //     verify_ver("sound", &name, 800, version)?;
+        //     let kind = data.read_u32_le()?;
+        //     let file_type = data.read_pas_string()?;
+        //     let file_name = data.read_pas_string()?;
+        //     let file_data = if data.read_u32_le()? != 0 {
+        //         let len = data.read_u32_le()? as usize;
+        //         let pos = data.position() as usize;
+        //         data.seek(SeekFrom::Current(len as i64))?;
+        //         Some(data.get_ref()[pos..pos + len].to_vec().into_boxed_slice())
+        //     } else {
+        //         None
+        //     };
+        //     let _ = data.read_u32_le()?; // TODO: unused? no clue what this is
+        //     let volume = data.read_f64_le()?;
+        //     let pan = data.read_f64_le()?;
+        //     let preload = data.read_u32_le()? != 0;
 
-            if verbose {
-                println!(" + Added sound '{}' ({})", name, file_name);
-            }
+        //     if verbose {
+        //         println!(" + Added sound '{}' ({})", name, file_name);
+        //     }
 
-            Ok(Sound {
-                name,
-                kind,
-                file_type,
-                file_name,
-                file_data,
-                volume,
-                pan,
-                preload,
-            })
-        })?;
+        //     Ok(Sound {
+        //         name,
+        //         kind,
+        //         file_type,
+        //         file_name,
+        //         file_data,
+        //         volume,
+        //         pan,
+        //         preload,
+        //     })
+        // })?;
 
-        // Sprites
-        let sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version = data.read_u32_le()? as Version;
-            verify_ver("sprite", &name, 800, version)?;
-            let origin_x = data.read_u32_le()?;
-            let origin_y = data.read_u32_le()?;
-            let frame_count = data.read_u32_le()?;
-            let mut width = 0u32;
-            let mut height = 0u32;
-            let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
-                let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
-                for _ in 0..frame_count {
-                    let fversion = data.read_u32_le()? as Version;
-                    verify_ver("frame in", &name, 800, fversion)?;
-                    let frame_width = data.read_u32_le()?;
-                    let frame_height = data.read_u32_le()?;
+        // // Sprites
+        // let sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()? as Version;
+        //     verify_ver("sprite", &name, 800, version)?;
+        //     let origin_x = data.read_u32_le()?;
+        //     let origin_y = data.read_u32_le()?;
+        //     let frame_count = data.read_u32_le()?;
+        //     let mut width = 0u32;
+        //     let mut height = 0u32;
+        //     let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
+        //         let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
+        //         for _ in 0..frame_count {
+        //             let fversion = data.read_u32_le()? as Version;
+        //             verify_ver("frame in", &name, 800, fversion)?;
+        //             let frame_width = data.read_u32_le()?;
+        //             let frame_height = data.read_u32_le()?;
 
-                    // sanity check 1
-                    if width != 0 && height != 0 {
-                        if width != frame_width || height != frame_height {
-                            return Err(Error::from(ErrorKind::ImageParseError(
-                                name,
-                                "Inconsistent width/height across frames",
-                            )));
-                        }
-                    } else {
-                        width = frame_width;
-                        height = frame_height;
-                    }
+        //             // sanity check 1
+        //             if width != 0 && height != 0 {
+        //                 if width != frame_width || height != frame_height {
+        //                     return Err(Error::from(ErrorKind::ImageParseError(
+        //                         name,
+        //                         "Inconsistent width/height across frames",
+        //                     )));
+        //                 }
+        //             } else {
+        //                 width = frame_width;
+        //                 height = frame_height;
+        //             }
 
-                    let pixeldata_len = data.read_u32_le()?;
-                    let pixeldata_pixels = width * height;
+        //             let pixeldata_len = data.read_u32_le()?;
+        //             let pixeldata_pixels = width * height;
 
-                    // sanity check 2
-                    if pixeldata_len != (pixeldata_pixels * 4) {
-                        return Err(Error::from(ErrorKind::ImageParseError(
-                            name,
-                            "Inconsistent pixel data length with dimensions",
-                        )));
-                    }
+        //             // sanity check 2
+        //             if pixeldata_len != (pixeldata_pixels * 4) {
+        //                 return Err(Error::from(ErrorKind::ImageParseError(
+        //                     name,
+        //                     "Inconsistent pixel data length with dimensions",
+        //                 )));
+        //             }
 
-                    // BGRA -> RGBA
-                    let pos = data.position() as usize;
-                    let len = pixeldata_len as usize;
-                    data.seek(SeekFrom::Current(len as i64))?;
-                    let mut buf = data.get_ref()[pos..pos + len].to_vec();
-                    bgra2rgba(&mut buf);
+        //             // BGRA -> RGBA
+        //             let pos = data.position() as usize;
+        //             let len = pixeldata_len as usize;
+        //             data.seek(SeekFrom::Current(len as i64))?;
+        //             let mut buf = data.get_ref()[pos..pos + len].to_vec();
+        //             bgra2rgba(&mut buf);
 
-                    // RMakeImage lol
-                    frames.push(buf.into_boxed_slice());
-                }
+        //             // RMakeImage lol
+        //             frames.push(buf.into_boxed_slice());
+        //         }
 
-                let read_collision =
-                    |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
-                        let version = data.read_u32_le()? as Version;
-                        verify_ver("collision map in", &name, 800, version)?;
-                        let width = data.read_u32_le()?;
-                        let height = data.read_u32_le()?;
-                        let left = data.read_u32_le()?;
-                        let right = data.read_u32_le()?;
-                        let bottom = data.read_u32_le()?;
-                        let top = data.read_u32_le()?;
+        //         let read_collision =
+        //             |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
+        //                 let version = data.read_u32_le()? as Version;
+        //                 verify_ver("collision map in", &name, 800, version)?;
+        //                 let width = data.read_u32_le()?;
+        //                 let height = data.read_u32_le()?;
+        //                 let left = data.read_u32_le()?;
+        //                 let right = data.read_u32_le()?;
+        //                 let bottom = data.read_u32_le()?;
+        //                 let top = data.read_u32_le()?;
 
-                        let mask_size = width as usize * height as usize;
-                        let mut pos = data.position() as usize;
-                        data.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                        let mut mask = vec![0u8; mask_size];
-                        let src = data.get_mut();
-                        for i in 0..mask_size {
-                            mask[i] = src[pos];
-                            pos += 4;
-                        }
+        //                 let mask_size = width as usize * height as usize;
+        //                 let mut pos = data.position() as usize;
+        //                 data.seek(SeekFrom::Current(4 * mask_size as i64))?;
+        //                 let mut mask = vec![0u8; mask_size];
+        //                 let src = data.get_mut();
+        //                 for i in 0..mask_size {
+        //                     mask[i] = src[pos];
+        //                     pos += 4;
+        //                 }
 
-                        Ok(CollisionMap {
-                            bounds: BoundingBox {
-                                width,
-                                height,
-                                top,
-                                bottom,
-                                left,
-                                right,
-                            },
-                            data: mask.into_boxed_slice(),
-                        })
-                    };
+        //                 Ok(CollisionMap {
+        //                     bounds: BoundingBox {
+        //                         width,
+        //                         height,
+        //                         top,
+        //                         bottom,
+        //                         left,
+        //                         right,
+        //                     },
+        //                     data: mask.into_boxed_slice(),
+        //                 })
+        //             };
 
-                let mut colliders: Vec<CollisionMap>;
-                let per_frame_colliders = data.read_u32_le()? != 0;
-                if per_frame_colliders {
-                    colliders = Vec::with_capacity(frame_count as usize);
-                    for _ in 0..frame_count {
-                        colliders.push(read_collision(&mut data)?);
-                    }
-                } else {
-                    colliders = Vec::with_capacity(1);
-                    colliders.push(read_collision(&mut data)?);
-                }
-                (Some(frames), Some(colliders), per_frame_colliders)
-            } else {
-                (None, None, false)
-            };
+        //         let mut colliders: Vec<CollisionMap>;
+        //         let per_frame_colliders = data.read_u32_le()? != 0;
+        //         if per_frame_colliders {
+        //             colliders = Vec::with_capacity(frame_count as usize);
+        //             for _ in 0..frame_count {
+        //                 colliders.push(read_collision(&mut data)?);
+        //             }
+        //         } else {
+        //             colliders = Vec::with_capacity(1);
+        //             colliders.push(read_collision(&mut data)?);
+        //         }
+        //         (Some(frames), Some(colliders), per_frame_colliders)
+        //     } else {
+        //         (None, None, false)
+        //     };
 
-            if verbose {
-                println!(
-                    " + Added sprite '{}' ({}x{}, {} frames)",
-                    name, width, height, frame_count
-                );
-            }
+        //     if verbose {
+        //         println!(
+        //             " + Added sprite '{}' ({}x{}, {} frames)",
+        //             name, width, height, frame_count
+        //         );
+        //     }
 
-            Ok(GMSprite {
-                name,
-                size: Dimensions { width, height },
-                origin: Point {
-                    x: origin_x,
-                    y: origin_y,
-                },
-                frame_count,
-                frames,
-                colliders,
-                per_frame_colliders,
-            })
-        })?;
+        //     Ok(GMSprite {
+        //         name,
+        //         size: Dimensions { width, height },
+        //         origin: Point {
+        //             x: origin_x,
+        //             y: origin_y,
+        //         },
+        //         frame_count,
+        //         frames,
+        //         colliders,
+        //         per_frame_colliders,
+        //     })
+        // })?;
 
-        // Backgrounds
-        let backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version1 = data.read_u32_le()?;
-            let version2 = data.read_u32_le()?;
-            verify_ver("background (verno. 1)", &name, 710, version1)?;
-            verify_ver("background (verno. 2)", &name, 800, version2)?;
-            let width = data.read_u32_le()?;
-            let height = data.read_u32_le()?;
-            if width > 0 && height > 0 {
-                let data_len = data.read_u32_le()?;
+        // // Backgrounds
+        // let backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version1 = data.read_u32_le()?;
+        //     let version2 = data.read_u32_le()?;
+        //     verify_ver("background (verno. 1)", &name, 710, version1)?;
+        //     verify_ver("background (verno. 2)", &name, 800, version2)?;
+        //     let width = data.read_u32_le()?;
+        //     let height = data.read_u32_le()?;
+        //     if width > 0 && height > 0 {
+        //         let data_len = data.read_u32_le()?;
 
-                // sanity check
-                if data_len != (width * height * 4) {
-                    return Err(Error::from(ErrorKind::ImageParseError(
-                        name,
-                        "Inconsistent pixel data length with dimensions",
-                    )));
-                }
+        //         // sanity check
+        //         if data_len != (width * height * 4) {
+        //             return Err(Error::from(ErrorKind::ImageParseError(
+        //                 name,
+        //                 "Inconsistent pixel data length with dimensions",
+        //             )));
+        //         }
 
-                // BGRA -> RGBA
-                let pos = data.position() as usize;
-                let len = data_len as usize;
-                data.seek(SeekFrom::Current(len as i64))?;
-                let mut buf = data.get_ref()[pos..pos + len].to_vec();
-                bgra2rgba(&mut buf);
+        //         // BGRA -> RGBA
+        //         let pos = data.position() as usize;
+        //         let len = data_len as usize;
+        //         data.seek(SeekFrom::Current(len as i64))?;
+        //         let mut buf = data.get_ref()[pos..pos + len].to_vec();
+        //         bgra2rgba(&mut buf);
 
-                if verbose {
-                    println!(" + Added background '{}' ({}x{})", name, width, height);
-                }
+        //         if verbose {
+        //             println!(" + Added background '{}' ({}x{})", name, width, height);
+        //         }
 
-                Ok(GMBackground {
-                    name,
-                    size: Dimensions { width, height },
-                    data: Some(buf.into_boxed_slice()),
-                })
-            } else {
-                if verbose {
-                    println!(" + Added background (blank) '{}' (0x0)", name);
-                }
+        //         Ok(GMBackground {
+        //             name,
+        //             size: Dimensions { width, height },
+        //             data: Some(buf.into_boxed_slice()),
+        //         })
+        //     } else {
+        //         if verbose {
+        //             println!(" + Added background (blank) '{}' (0x0)", name);
+        //         }
 
-                Ok(GMBackground {
-                    name,
-                    size: Dimensions {
-                        width: 0,
-                        height: 0,
-                    },
-                    data: None,
-                })
-            }
-        })?;
+        //         Ok(GMBackground {
+        //             name,
+        //             size: Dimensions {
+        //                 width: 0,
+        //                 height: 0,
+        //             },
+        //             data: None,
+        //         })
+        //     }
+        // })?;
 
-        // Paths
-        let paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version = data.read_u32_le()?;
-            verify_ver("path", &name, 530, version)?;
-            let kind = if data.read_u32_le()? == 0 {
-                GMPathKind::StraightLines
-            } else {
-                GMPathKind::SmoothCurve
-            };
-            let closed = data.read_u32_le()? != 0;
-            let precision = data.read_u32_le()?;
-            let point_count = data.read_u32_le()?;
-            let mut points = Vec::new();
-            for _ in 0..point_count {
-                points.push(GMPathPoint {
-                    x: data.read_f64_le()?,
-                    y: data.read_f64_le()?,
-                    speed: data.read_f64_le()?,
-                });
-            }
+        // // Paths
+        // let paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()?;
+        //     verify_ver("path", &name, 530, version)?;
+        //     let kind = if data.read_u32_le()? == 0 {
+        //         GMPathKind::StraightLines
+        //     } else {
+        //         GMPathKind::SmoothCurve
+        //     };
+        //     let closed = data.read_u32_le()? != 0;
+        //     let precision = data.read_u32_le()?;
+        //     let point_count = data.read_u32_le()?;
+        //     let mut points = Vec::new();
+        //     for _ in 0..point_count {
+        //         points.push(GMPathPoint {
+        //             x: data.read_f64_le()?,
+        //             y: data.read_f64_le()?,
+        //             speed: data.read_f64_le()?,
+        //         });
+        //     }
 
-            if verbose {
-                println!(
-                    " + Added path '{}' ({}, {}, {} points, precision: {})",
-                    name,
-                    if kind == GMPathKind::StraightLines {
-                        "straight"
-                    } else {
-                        "smooth" // Minecraft Double Smooth Stone Slab
-                    },
-                    if closed { "closed" } else { "open" },
-                    point_count,
-                    precision
-                );
-            }
+        //     if verbose {
+        //         println!(
+        //             " + Added path '{}' ({}, {}, {} points, precision: {})",
+        //             name,
+        //             if kind == GMPathKind::StraightLines {
+        //                 "straight"
+        //             } else {
+        //                 "smooth" // Minecraft Double Smooth Stone Slab
+        //             },
+        //             if closed { "closed" } else { "open" },
+        //             point_count,
+        //             precision
+        //         );
+        //     }
 
-            Ok(GMPath {
-                name,
-                kind,
-                closed,
-                precision,
-                points,
-            })
-        })?;
+        //     Ok(GMPath {
+        //         name,
+        //         kind,
+        //         closed,
+        //         precision,
+        //         points,
+        //     })
+        // })?;
 
-        // Scripts
-        let scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version = data.read_u32_le()?;
-            verify_ver("script", &name, 800, version)?;
-            let source = data.read_pas_string()?;
+        // // Scripts
+        // let scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()?;
+        //     verify_ver("script", &name, 800, version)?;
+        //     let source = data.read_pas_string()?;
 
-            if verbose {
-                println!(
-                    " + Added script '{}' (source length: {})",
-                    name,
-                    source.len()
-                );
-            }
+        //     if verbose {
+        //         println!(
+        //             " + Added script '{}' (source length: {})",
+        //             name,
+        //             source.len()
+        //         );
+        //     }
 
-            Ok(GMScript { name, source })
-        })?;
+        //     Ok(GMScript { name, source })
+        // })?;
 
-        // Fonts
-        let fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
-            let name = data.read_pas_string()?;
-            let version = data.read_u32_le()?;
-            verify_ver("font", &name, 800, version)?;
-            let sys_name = data.read_pas_string()?;
-            let size = data.read_u32_le()?;
-            let bold = data.read_u32_le()? != 0;
-            let italic = data.read_u32_le()? != 0;
-            let range_start = data.read_u32_le()?;
-            let range_end = data.read_u32_le()?;
+        // // Fonts
+        // let fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
+        //     let name = data.read_pas_string()?;
+        //     let version = data.read_u32_le()?;
+        //     verify_ver("font", &name, 800, version)?;
+        //     let sys_name = data.read_pas_string()?;
+        //     let size = data.read_u32_le()?;
+        //     let bold = data.read_u32_le()? != 0;
+        //     let italic = data.read_u32_le()? != 0;
+        //     let range_start = data.read_u32_le()?;
+        //     let range_end = data.read_u32_le()?;
 
-            // TODO: 8.1 specific magic
+        //     // TODO: 8.1 specific magic
 
-            let dmap = [0u32; 0x600];
-            let width = data.read_u32_le()?;
-            let height = data.read_u32_le()?;
-            let len = data.read_u32_le()? as usize;
-            if width as usize * height as usize != len {
-                // TODO: bad data.
-            }
+        //     let dmap = [0u32; 0x600];
+        //     let width = data.read_u32_le()?;
+        //     let height = data.read_u32_le()?;
+        //     let len = data.read_u32_le()? as usize;
+        //     if width as usize * height as usize != len {
+        //         // TODO: bad data.
+        //     }
 
-            // convert f64 map to RGBA data
-            // Step 1) Fill entire thing with 0xFF (WHITE)
-            // Step 2) Read every byte into every 4th byte (Alpha)
-            let mut pixels = vec![0xFFu8; len * 4];
-            let pos = data.position() as usize;
-            data.seek(SeekFrom::Current(len as i64))?;
-            let src = data.get_ref();
-            let mut pixel_pos = 3;
-            for i in pos..pos + len {
-                pixels[pixel_pos] = src[i];
-                pixel_pos += 4;
-            }
+        //     // convert f64 map to RGBA data
+        //     // Step 1) Fill entire thing with 0xFF (WHITE)
+        //     // Step 2) Read every byte into every 4th byte (Alpha)
+        //     let mut pixels = vec![0xFFu8; len * 4];
+        //     let pos = data.position() as usize;
+        //     data.seek(SeekFrom::Current(len as i64))?;
+        //     let src = data.get_ref();
+        //     let mut pixel_pos = 3;
+        //     for i in pos..pos + len {
+        //         pixels[pixel_pos] = src[i];
+        //         pixel_pos += 4;
+        //     }
 
-            if verbose {
-                println!(
-                    " + Added font '{}' ({}, {}px{}{})",
-                    name,
-                    sys_name,
-                    size,
-                    if bold { ", bold" } else { "" },
-                    if italic { ", italic" } else { "" }
-                );
-            }
+        //     if verbose {
+        //         println!(
+        //             " + Added font '{}' ({}, {}px{}{})",
+        //             name,
+        //             sys_name,
+        //             size,
+        //             if bold { ", bold" } else { "" },
+        //             if italic { ", italic" } else { "" }
+        //         );
+        //     }
 
-            Ok(GMFont {
-                name,
-                sys_name,
-                size,
-                bold,
-                italic,
-                range_start,
-                range_end,
-                dmap: Box::new(dmap),
-                image_size: Dimensions { width, height },
-                image_data: pixels.into_boxed_slice(),
-            })
-        })?;
+        //     Ok(GMFont {
+        //         name,
+        //         sys_name,
+        //         size,
+        //         bold,
+        //         italic,
+        //         range_start,
+        //         range_end,
+        //         dmap: Box::new(dmap),
+        //         image_size: Dimensions { width, height },
+        //         image_data: pixels.into_boxed_slice(),
+        //     })
+        // })?;
 
         // // Timelines
         // let _timelines = read_asset(&mut exe, "timelines", 800, verbose, |mut data| {
@@ -634,13 +634,6 @@ impl Game {
         //     Ok(())
         // })?;
 
-        Ok(Game {
-            sprites,
-            sounds,
-            backgrounds,
-            paths,
-            scripts,
-            fonts,
-        })
+        Ok(())
     }
 }
