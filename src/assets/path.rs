@@ -47,7 +47,7 @@ impl Path {
         let mut result = writer.write_pas_string(&self.name)?;
         result += writer.write_u32_le(VERSION as u32)?;
         result += writer.write_u32_le(self.connection as u32)?;
-        result += writer.write_u32_le(if self.closed { 1} else {0})?;
+        result += writer.write_u32_le(if self.closed { 1 } else { 0 })?;
         result += writer.write_u32_le(self.precision as u32)?;
         result += writer.write_u32_le(self.points.len() as u32)?;
         for point in self.points.iter() {
