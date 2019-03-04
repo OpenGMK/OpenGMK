@@ -1,7 +1,7 @@
 use super::Game;
-use crate::assets::{
-    GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSprite, Sound,
-};
+// use crate::assets::{
+//     GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSprite, Sound,
+// };
 use crate::bytes::{ReadBytes, ReadString};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
 use crate::util::bgra2rgba;
