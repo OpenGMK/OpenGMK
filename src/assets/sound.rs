@@ -46,7 +46,7 @@ impl Sound {
         W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
+        result += writer.write_u32_le(VERSION as u32)?;
         result += writer.write_u32_le(self.kind as u32)?;
         result += writer.write_pas_string(&self.extension)?;
         result += writer.write_pas_string(&self.source)?;
@@ -128,7 +128,7 @@ impl From<u32> for SoundKind {
             1 => SoundKind::BackgroundMusic,
             2 => SoundKind::ThreeDimensional,
             3 => SoundKind::Multimedia,
-            
+
             _ => SoundKind::Normal,
         }
     }
