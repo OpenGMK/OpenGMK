@@ -1,6 +1,6 @@
 use super::Game;
 use crate::assets::{
-    GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSound, GMSprite,
+    GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSprite, Sound,
 };
 use crate::bytes::{ReadBytes, ReadString};
 use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
@@ -303,7 +303,7 @@ impl Game {
                 println!(" + Added sound '{}' ({})", name, file_name);
             }
 
-            Ok(GMSound {
+            Ok(Sound {
                 name,
                 kind,
                 file_type,
