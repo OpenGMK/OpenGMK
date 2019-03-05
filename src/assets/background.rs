@@ -9,8 +9,13 @@ pub const VERSION1: Version = 710;
 pub const VERSION2: Version = 800;
 
 pub struct Background {
+    /// The asset name present in GML and the editor.
     pub name: String,
+
+    /// The size of the background image.
     pub size: Dimensions,
+
+    /// The raw RGBA pixeldata.
     pub data: Option<Box<[u8]>>,
 }
 
@@ -25,6 +30,7 @@ impl Background {
         result += writer.write_u32_le(self.size.width as u32)?;
         result += writer.write_u32_le(self.size.height as u32)?;
         if let Some(data) = &self.data {
+            result += writer.write_u32_le(data.len() as u32)?; // TODO: RGBA <> BGRA
             result += writer.write(&data)?;
         }
 
