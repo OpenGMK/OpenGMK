@@ -2,7 +2,7 @@
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::types::{Dimensions, Version};
-use crate::util::bgra2rgba;
+use crate::util::{bgra2rgba, rgba2bgra};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION1: Version = 710;
@@ -30,8 +30,12 @@ impl Background {
         result += writer.write_u32_le(self.size.width as u32)?;
         result += writer.write_u32_le(self.size.height as u32)?;
         if let Some(data) = &self.data {
-            result += writer.write_u32_le(data.len() as u32)?; // TODO: RGBA <> BGRA
-            result += writer.write(&data)?;
+            let mut pixeldata = data.clone();
+            rgba2bgra(&mut pixeldata);
+            result += writer.write(&pixeldata)?;
+
+            result += writer.write_u32_le(pixeldata.len() as u32)?;
+            result += writer.write(&pixeldata)?;
         }
 
         Ok(result)

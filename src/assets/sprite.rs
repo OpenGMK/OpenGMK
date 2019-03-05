@@ -2,7 +2,7 @@
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::types::{BoundingBox, Dimensions, Point, Version};
-use crate::util::bgra2rgba;
+use crate::util::{bgra2rgba, rgba2bgra};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: Version = 800;
@@ -51,7 +51,11 @@ impl Sprite {
                 result += writer.write_u32_le(self.size.width)?;
                 result += writer.write_u32_le(self.size.height)?;
                 result += writer.write_u32_le(frame.len() as u32)?;
-                result += writer.write(&frame)?; // TODO: Swap RGBA <> BGRA
+                
+                let mut pixeldata = frame.clone();
+                rgba2bgra(&mut pixeldata);
+                result += writer.write(&pixeldata)?;
+
                 result += writer.write_u32_le(if self.per_frame_colliders { 1 } else { 0 })?;
                 if let Some(colliders) = &self.colliders {
                     for collider in colliders.iter() {
