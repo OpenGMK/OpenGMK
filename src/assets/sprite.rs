@@ -15,11 +15,23 @@ pub struct CollisionMap {
 }
 
 pub struct Sprite {
+    /// The asset name present in GML and the editor.
     pub name: String,
+
+    /// The size of each individual frame.
     pub size: Dimensions,
+
+    /// The origin within the sprite.
     pub origin: Point,
+
+    /// The raw RGBA pixeldata for each frame.
     pub frames: Option<Vec<Box<[u8]>>>,
+
+    /// The collider associated with one or each frame.
+    /// If `per_frame_colliders` is false, this contains 1 map.
     pub colliders: Option<Vec<CollisionMap>>,
+
+    /// Whether each individual frame has its own collision map.
     pub per_frame_colliders: bool,
 }
 
