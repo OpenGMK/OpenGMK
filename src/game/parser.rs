@@ -302,8 +302,12 @@ impl Game {
                     0
                 };
                 println!(
-                    " + Added sprite '{}' ({}x{}, {} frames)",
-                    sprite.name, sprite.size.width, sprite.size.height, framecount
+                    " + Added sprite '{}' ({}x{}, {} frame{})",
+                    sprite.name,
+                    sprite.size.width,
+                    sprite.size.height,
+                    framecount,
+                    if framecount > 1 { "s" } else { "" }
                 );
             }
             Ok(sprite)
@@ -327,7 +331,7 @@ impl Game {
             let path = Path::deserialize(data, strict)?;
             if verbose {
                 println!(
-                    " + Added path '{}' ({}, {}, {} points, precision: {})",
+                    " + Added path '{}' ({}, {}, {} point{}, precision: {})",
                     path.name,
                     match path.connection {
                         ConnectionKind::StraightLine => "straight",
@@ -335,6 +339,7 @@ impl Game {
                     },
                     if path.closed { "closed" } else { "open" },
                     path.points.len(),
+                    if path.points.len() > 1 { "s" } else { "" },
                     path.precision
                 );
             }
@@ -395,7 +400,7 @@ impl Game {
             backgrounds,
             paths,
             scripts,
-            fonts
+            fonts,
         })
     }
 }
