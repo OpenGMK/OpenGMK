@@ -11,5 +11,3 @@ pub use self::path::Path;
 pub use self::script::Script;
 pub use self::sound::Sound;
 pub use self::sprite::Sprite;
-
-pub type GMCodeAction = u32;

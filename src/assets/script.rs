@@ -32,7 +32,7 @@ impl Script {
     {
         let mut reader = io::Cursor::new(bin.as_ref());
         let name = reader.read_pas_string()?;
-        
+
         if strict {
             let version = reader.read_u32_le()?;
             assert_eq!(version, VERSION);
@@ -42,9 +42,6 @@ impl Script {
 
         let source = reader.read_pas_string()?;
 
-        Ok(Script {
-            name,
-            source,
-        })
+        Ok(Script { name, source })
     }
 }
