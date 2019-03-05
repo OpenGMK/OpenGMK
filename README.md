@@ -4,4 +4,9 @@
 [![Safety](https://img.shields.io/badge/unsafe-1%25-blue.svg)](./src/xmath.rs)
 
 # gm8emu
-oh boy!
+Imagine I have a really cool readme here.
+
+
+## Credits
+- [Adamcake](https://github.com/Adamcake)'s absurd amount of runtime [documentation](https://github.com/Adamcake/GM8Emulator/blob/master/notes.txt).
+- [DatZach](https://github.com/DatZach)'s [decompiler](https://github.com/WastedMeerkat/gm81decompiler) for "documenting" the loading sequence.
