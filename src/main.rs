@@ -22,9 +22,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut verbose = false;
+    let mut strict = true;
     let mut path: Option<&String> = None;
     for arg in args.iter() {
         match arg.as_ref() {
+            "--lazy" => strict = false,
             "--verbose" => verbose = true,
             _ => {
                 if let Some(path) = &path {
@@ -39,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(path) = path {
         let data = fs::read(path)?;
-        let game = Game::from_exe(data, verbose);
+        let game = Game::from_exe(data, strict, verbose);
 
         match game {
             Ok(_) => println!("Parsing OK!"),

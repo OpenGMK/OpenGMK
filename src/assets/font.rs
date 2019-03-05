@@ -1,8 +1,9 @@
 #![allow(dead_code)] // Shut up.
+
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::types::Dimensions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
-use crate::types::Dimensions;
 
 pub const VERSION: Version = 800;
 
@@ -18,7 +19,7 @@ pub struct Font {
 
     /// Whether the font is bold.
     pub bold: bool,
-    
+
     /// Whether the font is italic.
     pub italic: bool,
 
@@ -49,8 +50,8 @@ impl Font {
         result += writer.write_u32_le(VERSION)?;
         result += writer.write_pas_string(&self.sys_name)?;
         result += writer.write_u32_le(self.size)?;
-        result += writer.write_u32_le(if self.bold {1} else {0})?;
-        result += writer.write_u32_le(if self.italic {1} else {0})?;
+        result += writer.write_u32_le(if self.bold { 1 } else { 0 })?;
+        result += writer.write_u32_le(if self.italic { 1 } else { 0 })?;
         result += writer.write_u32_le(self.range_start)?;
         result += writer.write_u32_le(self.range_end)?;
         result += writer.write_u32_le(self.image_size.width)?;
@@ -59,7 +60,7 @@ impl Font {
         for i in (3..self.image_data.len()).step_by(4) {
             result += writer.write(&[self.image_data[i] as u8])?;
         }
-        
+
         Ok(result)
     }
 

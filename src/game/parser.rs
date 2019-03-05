@@ -1,10 +1,6 @@
 use super::Game;
-// use crate::assets::{
-//     GMBackground, GMFont, GMPath, GMPathKind, GMPathPoint, GMScript, GMSprite, Sound,
-// };
+use crate::assets::{self, *};
 use crate::bytes::{ReadBytes, ReadString};
-use crate::types::{BoundingBox, CollisionMap, Dimensions, Point, Version};
-use crate::util::bgra2rgba;
 use flate2::read::ZlibDecoder;
 use std::error;
 use std::fmt::{self, Display};
@@ -26,16 +22,12 @@ pub enum ErrorKind {
     InvalidMagic,
     InvalidVersion(String, f64, f64),
     ReadError,
-    ImageParseError(String, &'static str),
 }
 
 impl error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.kind {
-            ErrorKind::ImageParseError(name, cause) => {
-                write!(f, "Failed to parse sprite '{}': {}", name, cause)
-            }
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
@@ -103,17 +95,7 @@ fn verify_ver(what: &str, who: &str, expected: u32, got: u32) -> Result<(), Erro
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe(exe: Vec<u8>, verbose: bool) -> Result<(), Error> {
-        // Helper macro so I don't have to type `if verbose {}` for every print.
-        // It's also easy to modify later.
-        macro_rules! verbose {
-            ($($arg:tt)*) => {{
-                if verbose {
-                    print!($($arg)*);
-                }
-            }};
-        }
-
+    pub fn from_exe(exe: Vec<u8>, strict: bool, verbose: bool) -> Result<Game, Error> {
         // verify executable header
         if exe.get(0..2)? != b"MZ" {
             return Err(Error::from(ErrorKind::InvalidExeHeader));
@@ -128,29 +110,39 @@ impl Game {
         if exe.read_u32_le()? != GM80_MAGIC {
             return Err(Error::from(ErrorKind::InvalidMagic));
         }
-        verbose!(
-            "Detected GameMaker 8.0 magic '{}' @ {:#X}\n",
-            GM80_MAGIC,
-            GM80_MAGIC_POS
-        );
+
+        if verbose {
+            println!(
+                "Detected GameMaker 8.0 magic '{}' @ {:#X}\n",
+                GM80_MAGIC, GM80_MAGIC_POS
+            );
+        }
 
         // version version blahblah - I should do something with this later.
         exe.seek(SeekFrom::Current(12))?;
 
         // Game Settings
         let settings_len = exe.read_u32_le()? as usize;
-        verbose!("Inflating settings chunk... (size: {})\n", settings_len);
         let pos = exe.position() as usize;
         exe.seek(SeekFrom::Current(settings_len as i64))?;
         let _settings = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
-        verbose!("Inflated successfully (new size: {})\n", _settings.len());
+
+        if verbose {
+            println!(
+                "Reading settings chunk... (size: {} ({} deflated))",
+                _settings.len(),
+                settings_len
+            );
+        }
 
         // Embedded DirectX DLL
         // we obviously don't need this, so we skip over it
         // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
         if verbose {
             let dllname = exe.read_pas_string()?;
-            verbose!("Skipping embedded DLL '{}'", dllname);
+            if verbose {
+                print!("Skipping embedded DLL '{}'", dllname);
+            }
         } else {
             // otherwise, skip dll name string
             let dllname_len = exe.read_u32_le()? as i64;
@@ -159,7 +151,10 @@ impl Game {
 
         // skip embedded dll data chunk
         let dll_len = exe.read_u32_le()? as i64;
-        verbose!(" (size: {})\n", dll_len);
+        if verbose {
+            // follwup to the print above
+            print!(" (size: {})\n", dll_len);
+        }
         exe.seek(SeekFrom::Current(dll_len))?;
 
         // Asset Data Decryption
@@ -185,12 +180,12 @@ impl Game {
             // simplifying for expressions below
             let pos = exe.position() as usize; // stream position
             let data = exe.get_mut(); // mutable ref for writing
-            verbose!(
-                "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})\n",
-                len,
-                garbage1_size,
-                garbage2_size
-            );
+            if verbose {
+                println!(
+                    "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})\n",
+                    len, garbage1_size, garbage2_size
+                );
+            }
 
             // decryption: first pass
             //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
@@ -219,401 +214,161 @@ impl Game {
         let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
-        // fn read_asset<I, T, P>(
-        //     src: &mut io::Cursor<I>,
-        //     name: &str,
-        //     ver: u32,
-        //     log: bool,
-        //     parser: P,
-        // ) -> Result<Vec<Option<Box<T>>>, Error>
-        // where
-        //     I: AsRef<[u8]>,
-        //     P: Fn(io::Cursor<&mut [u8]>) -> Result<T, Error>,
-        // {
-        //     let assets_version = src.read_u32_le()?;
-        //     verify_ver(name, "", ver, assets_version)?;
-        //     let asset_count = src.read_u32_le()? as usize;
-        //     if asset_count != 0 {
-        //         if log {
-        //             println!(
-        //                 "Reading {}... (ver: {:.1}, count: {})",
-        //                 name,
-        //                 assets_version as f64 / 100f64,
-        //                 asset_count
-        //             );
-        //         }
-        //         let mut assets = Vec::with_capacity(asset_count);
-        //         for _ in 0..asset_count {
-        //             let len = src.read_u32_le()? as usize;
-        //             let pos = src.position() as usize;
-        //             src.seek(SeekFrom::Current(len as i64))?;
-        //             let src_ref = src.get_ref().as_ref();
-        //             let mut inflated = inflate(&src_ref[pos..pos + len])?;
-        //             let mut data = io::Cursor::new(&mut inflated[..]);
-        //             if data.read_u32_le()? != 0 {
-        //                 let result = parser(data)?;
-        //                 assets.push(Some(Box::new(result)));
-        //             } else {
-        //                 assets.push(None);
-        //             }
-        //         }
-        //         Ok(assets)
-        //     } else {
-        //         Ok(Vec::new()) // Identical to with_capacity(0)
-        //     }
-        // }
+        fn read_asset<I, T, P>(
+            src: &mut io::Cursor<I>,
+            name: &str,
+            ver: u32,
+            log: bool,
+            parser: P,
+        ) -> Result<Vec<Option<Box<T>>>, Error>
+        where
+            I: AsRef<[u8]>,
+            P: Fn(&[u8]) -> Result<T, Error>,
+        {
+            use std::u32;
 
-        // // Extensions
-        // let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
-        //     Ok(()) // TODO: Implement
-        // })?;
+            let assets_version = src.read_u32_le()?;
+            verify_ver(name, "", ver, assets_version)?;
+            let asset_count = src.read_u32_le()? as usize;
+            if asset_count != 0 {
+                if log {
+                    println!(
+                        "Reading {}... (ver: {:.1}, count: {})",
+                        name,
+                        assets_version as f64 / 100f64,
+                        asset_count
+                    );
+                }
+                let mut assets = Vec::with_capacity(asset_count);
+                for _ in 0..asset_count {
+                    let len = src.read_u32_le()? as usize;
+                    let pos = src.position() as usize;
+                    src.seek(SeekFrom::Current(len as i64))?;
+                    let src_ref = src.get_ref().as_ref();
 
-        // // Triggers
-        // let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
-        //     Ok(()) // TODO: Implement
-        // })?;
+                    // Replace this once I remove flate2
+                    let inflated = inflate(&src_ref[pos..pos + len])?;
+                    let mut data: &[u8] = inflated.as_ref();
+                    if data.len() > 4 {
+                        let mut buf = [0u8; 4];
+                        data.read(&mut buf)?;
+                        if u32::from_le_bytes(buf) != 0 {
+                            let result = parser(&data)?;
+                            assets.push(Some(Box::new(result)));
+                        } else {
+                            assets.push(None);
+                        }
+                    } else {
+                        assets.push(None);
+                    }
+                }
+                Ok(assets)
+            } else {
+                Ok(Vec::new()) // Identical to with_capacity(0)
+            }
+        }
 
-        // // Constants
-        // let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
-        //     Ok(()) // TODO: Implement
-        // })?;
+        // Extensions
+        let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
+            Ok(()) // TODO: Implement
+        })?;
 
-        // // Sounds
-        // let sounds = read_asset(&mut exe, "sounds", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version = data.read_u32_le()? as Version;
-        //     verify_ver("sound", &name, 800, version)?;
-        //     let kind = data.read_u32_le()?;
-        //     let file_type = data.read_pas_string()?;
-        //     let file_name = data.read_pas_string()?;
-        //     let file_data = if data.read_u32_le()? != 0 {
-        //         let len = data.read_u32_le()? as usize;
-        //         let pos = data.position() as usize;
-        //         data.seek(SeekFrom::Current(len as i64))?;
-        //         Some(data.get_ref()[pos..pos + len].to_vec().into_boxed_slice())
-        //     } else {
-        //         None
-        //     };
-        //     let _ = data.read_u32_le()?; // TODO: unused? no clue what this is
-        //     let volume = data.read_f64_le()?;
-        //     let pan = data.read_f64_le()?;
-        //     let preload = data.read_u32_le()? != 0;
+        // Triggers
+        let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
+            Ok(()) // TODO: Implement
+        })?;
 
-        //     if verbose {
-        //         println!(" + Added sound '{}' ({})", name, file_name);
-        //     }
+        // Constants
+        let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
+            Ok(()) // TODO: Implement
+        })?;
 
-        //     Ok(Sound {
-        //         name,
-        //         kind,
-        //         file_type,
-        //         file_name,
-        //         file_data,
-        //         volume,
-        //         pan,
-        //         preload,
-        //     })
-        // })?;
+        // Sounds
+        let sounds = read_asset(&mut exe, "sounds", 800, verbose, |data| {
+            let sound = Sound::deserialize(data, strict)?;
+            if verbose {
+                println!(" + Added sound '{}' ({})", sound.name, sound.source);
+            }
+            Ok(sound)
+        })?;
 
-        // // Sprites
-        // let sprites = read_asset(&mut exe, "sprites", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version = data.read_u32_le()? as Version;
-        //     verify_ver("sprite", &name, 800, version)?;
-        //     let origin_x = data.read_u32_le()?;
-        //     let origin_y = data.read_u32_le()?;
-        //     let frame_count = data.read_u32_le()?;
-        //     let mut width = 0u32;
-        //     let mut height = 0u32;
-        //     let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
-        //         let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
-        //         for _ in 0..frame_count {
-        //             let fversion = data.read_u32_le()? as Version;
-        //             verify_ver("frame in", &name, 800, fversion)?;
-        //             let frame_width = data.read_u32_le()?;
-        //             let frame_height = data.read_u32_le()?;
+        // Sprites
+        let sprites = read_asset(&mut exe, "sprites", 800, verbose, |data| {
+            let sprite = Sprite::deserialize(data, strict)?;
+            if verbose {
+                let framecount = if let Some(frames) = &sprite.frames {
+                    frames.len()
+                } else {
+                    0
+                };
+                println!(
+                    " + Added sprite '{}' ({}x{}, {} frames)",
+                    sprite.name, sprite.size.width, sprite.size.height, framecount
+                );
+            }
+            Ok(sprite)
+        })?;
 
-        //             // sanity check 1
-        //             if width != 0 && height != 0 {
-        //                 if width != frame_width || height != frame_height {
-        //                     return Err(Error::from(ErrorKind::ImageParseError(
-        //                         name,
-        //                         "Inconsistent width/height across frames",
-        //                     )));
-        //                 }
-        //             } else {
-        //                 width = frame_width;
-        //                 height = frame_height;
-        //             }
+        // Backgrounds
+        let backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |data| {
+            let background = Background::deserialize(data, strict)?;
+            if verbose {
+                println!(
+                    " + Added background '{}' ({}x{})",
+                    background.name, background.size.width, background.size.height
+                );
+            }
+            Ok(background)
+        })?;
 
-        //             let pixeldata_len = data.read_u32_le()?;
-        //             let pixeldata_pixels = width * height;
+        // Paths
+        let paths = read_asset(&mut exe, "paths", 800, verbose, |data| {
+            use assets::path::ConnectionKind;
+            let path = Path::deserialize(data, strict)?;
+            if verbose {
+                println!(
+                    " + Added path '{}' ({}, {}, {} points, precision: {})",
+                    path.name,
+                    match path.connection {
+                        ConnectionKind::StraightLine => "straight",
+                        ConnectionKind::SmoothCurve => "smooth",
+                    },
+                    if path.closed { "closed" } else { "open" },
+                    path.points.len(),
+                    path.precision
+                );
+            }
+            Ok(path)
+        })?;
 
-        //             // sanity check 2
-        //             if pixeldata_len != (pixeldata_pixels * 4) {
-        //                 return Err(Error::from(ErrorKind::ImageParseError(
-        //                     name,
-        //                     "Inconsistent pixel data length with dimensions",
-        //                 )));
-        //             }
+        // Scripts
+        let scripts = read_asset(&mut exe, "scripts", 800, verbose, |data| {
+            let script = Script::deserialize(data, strict)?;
+            if verbose {
+                println!(
+                    " + Added script '{}' (source length: {})",
+                    script.name,
+                    script.source.len()
+                );
+            }
+            Ok(script)
+        })?;
 
-        //             // BGRA -> RGBA
-        //             let pos = data.position() as usize;
-        //             let len = pixeldata_len as usize;
-        //             data.seek(SeekFrom::Current(len as i64))?;
-        //             let mut buf = data.get_ref()[pos..pos + len].to_vec();
-        //             bgra2rgba(&mut buf);
-
-        //             // RMakeImage lol
-        //             frames.push(buf.into_boxed_slice());
-        //         }
-
-        //         let read_collision =
-        //             |data: &mut io::Cursor<&mut [u8]>| -> Result<CollisionMap, Error> {
-        //                 let version = data.read_u32_le()? as Version;
-        //                 verify_ver("collision map in", &name, 800, version)?;
-        //                 let width = data.read_u32_le()?;
-        //                 let height = data.read_u32_le()?;
-        //                 let left = data.read_u32_le()?;
-        //                 let right = data.read_u32_le()?;
-        //                 let bottom = data.read_u32_le()?;
-        //                 let top = data.read_u32_le()?;
-
-        //                 let mask_size = width as usize * height as usize;
-        //                 let mut pos = data.position() as usize;
-        //                 data.seek(SeekFrom::Current(4 * mask_size as i64))?;
-        //                 let mut mask = vec![0u8; mask_size];
-        //                 let src = data.get_mut();
-        //                 for i in 0..mask_size {
-        //                     mask[i] = src[pos];
-        //                     pos += 4;
-        //                 }
-
-        //                 Ok(CollisionMap {
-        //                     bounds: BoundingBox {
-        //                         width,
-        //                         height,
-        //                         top,
-        //                         bottom,
-        //                         left,
-        //                         right,
-        //                     },
-        //                     data: mask.into_boxed_slice(),
-        //                 })
-        //             };
-
-        //         let mut colliders: Vec<CollisionMap>;
-        //         let per_frame_colliders = data.read_u32_le()? != 0;
-        //         if per_frame_colliders {
-        //             colliders = Vec::with_capacity(frame_count as usize);
-        //             for _ in 0..frame_count {
-        //                 colliders.push(read_collision(&mut data)?);
-        //             }
-        //         } else {
-        //             colliders = Vec::with_capacity(1);
-        //             colliders.push(read_collision(&mut data)?);
-        //         }
-        //         (Some(frames), Some(colliders), per_frame_colliders)
-        //     } else {
-        //         (None, None, false)
-        //     };
-
-        //     if verbose {
-        //         println!(
-        //             " + Added sprite '{}' ({}x{}, {} frames)",
-        //             name, width, height, frame_count
-        //         );
-        //     }
-
-        //     Ok(GMSprite {
-        //         name,
-        //         size: Dimensions { width, height },
-        //         origin: Point {
-        //             x: origin_x,
-        //             y: origin_y,
-        //         },
-        //         frame_count,
-        //         frames,
-        //         colliders,
-        //         per_frame_colliders,
-        //     })
-        // })?;
-
-        // // Backgrounds
-        // let backgrounds = read_asset(&mut exe, "backgrounds", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version1 = data.read_u32_le()?;
-        //     let version2 = data.read_u32_le()?;
-        //     verify_ver("background (verno. 1)", &name, 710, version1)?;
-        //     verify_ver("background (verno. 2)", &name, 800, version2)?;
-        //     let width = data.read_u32_le()?;
-        //     let height = data.read_u32_le()?;
-        //     if width > 0 && height > 0 {
-        //         let data_len = data.read_u32_le()?;
-
-        //         // sanity check
-        //         if data_len != (width * height * 4) {
-        //             return Err(Error::from(ErrorKind::ImageParseError(
-        //                 name,
-        //                 "Inconsistent pixel data length with dimensions",
-        //             )));
-        //         }
-
-        //         // BGRA -> RGBA
-        //         let pos = data.position() as usize;
-        //         let len = data_len as usize;
-        //         data.seek(SeekFrom::Current(len as i64))?;
-        //         let mut buf = data.get_ref()[pos..pos + len].to_vec();
-        //         bgra2rgba(&mut buf);
-
-        //         if verbose {
-        //             println!(" + Added background '{}' ({}x{})", name, width, height);
-        //         }
-
-        //         Ok(GMBackground {
-        //             name,
-        //             size: Dimensions { width, height },
-        //             data: Some(buf.into_boxed_slice()),
-        //         })
-        //     } else {
-        //         if verbose {
-        //             println!(" + Added background (blank) '{}' (0x0)", name);
-        //         }
-
-        //         Ok(GMBackground {
-        //             name,
-        //             size: Dimensions {
-        //                 width: 0,
-        //                 height: 0,
-        //             },
-        //             data: None,
-        //         })
-        //     }
-        // })?;
-
-        // // Paths
-        // let paths = read_asset(&mut exe, "paths", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version = data.read_u32_le()?;
-        //     verify_ver("path", &name, 530, version)?;
-        //     let kind = if data.read_u32_le()? == 0 {
-        //         GMPathKind::StraightLines
-        //     } else {
-        //         GMPathKind::SmoothCurve
-        //     };
-        //     let closed = data.read_u32_le()? != 0;
-        //     let precision = data.read_u32_le()?;
-        //     let point_count = data.read_u32_le()?;
-        //     let mut points = Vec::new();
-        //     for _ in 0..point_count {
-        //         points.push(GMPathPoint {
-        //             x: data.read_f64_le()?,
-        //             y: data.read_f64_le()?,
-        //             speed: data.read_f64_le()?,
-        //         });
-        //     }
-
-        //     if verbose {
-        //         println!(
-        //             " + Added path '{}' ({}, {}, {} points, precision: {})",
-        //             name,
-        //             if kind == GMPathKind::StraightLines {
-        //                 "straight"
-        //             } else {
-        //                 "smooth" // Minecraft Double Smooth Stone Slab
-        //             },
-        //             if closed { "closed" } else { "open" },
-        //             point_count,
-        //             precision
-        //         );
-        //     }
-
-        //     Ok(GMPath {
-        //         name,
-        //         kind,
-        //         closed,
-        //         precision,
-        //         points,
-        //     })
-        // })?;
-
-        // // Scripts
-        // let scripts = read_asset(&mut exe, "scripts", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version = data.read_u32_le()?;
-        //     verify_ver("script", &name, 800, version)?;
-        //     let source = data.read_pas_string()?;
-
-        //     if verbose {
-        //         println!(
-        //             " + Added script '{}' (source length: {})",
-        //             name,
-        //             source.len()
-        //         );
-        //     }
-
-        //     Ok(GMScript { name, source })
-        // })?;
-
-        // // Fonts
-        // let fonts = read_asset(&mut exe, "fonts", 800, verbose, |mut data| {
-        //     let name = data.read_pas_string()?;
-        //     let version = data.read_u32_le()?;
-        //     verify_ver("font", &name, 800, version)?;
-        //     let sys_name = data.read_pas_string()?;
-        //     let size = data.read_u32_le()?;
-        //     let bold = data.read_u32_le()? != 0;
-        //     let italic = data.read_u32_le()? != 0;
-        //     let range_start = data.read_u32_le()?;
-        //     let range_end = data.read_u32_le()?;
-
-        //     // TODO: 8.1 specific magic
-
-        //     let dmap = [0u32; 0x600];
-        //     let width = data.read_u32_le()?;
-        //     let height = data.read_u32_le()?;
-        //     let len = data.read_u32_le()? as usize;
-        //     if width as usize * height as usize != len {
-        //         // TODO: bad data.
-        //     }
-
-        //     // convert f64 map to RGBA data
-        //     // Step 1) Fill entire thing with 0xFF (WHITE)
-        //     // Step 2) Read every byte into every 4th byte (Alpha)
-        //     let mut pixels = vec![0xFFu8; len * 4];
-        //     let pos = data.position() as usize;
-        //     data.seek(SeekFrom::Current(len as i64))?;
-        //     let src = data.get_ref();
-        //     let mut pixel_pos = 3;
-        //     for i in pos..pos + len {
-        //         pixels[pixel_pos] = src[i];
-        //         pixel_pos += 4;
-        //     }
-
-        //     if verbose {
-        //         println!(
-        //             " + Added font '{}' ({}, {}px{}{})",
-        //             name,
-        //             sys_name,
-        //             size,
-        //             if bold { ", bold" } else { "" },
-        //             if italic { ", italic" } else { "" }
-        //         );
-        //     }
-
-        //     Ok(GMFont {
-        //         name,
-        //         sys_name,
-        //         size,
-        //         bold,
-        //         italic,
-        //         range_start,
-        //         range_end,
-        //         dmap: Box::new(dmap),
-        //         image_size: Dimensions { width, height },
-        //         image_data: pixels.into_boxed_slice(),
-        //     })
-        // })?;
+        // Fonts
+        let fonts = read_asset(&mut exe, "paths", 800, verbose, |data| {
+            let font = Font::deserialize(data, false, strict)?;
+            if verbose {
+                println!(
+                    " + Added font '{}' ({}, {}px{}{})",
+                    font.name,
+                    font.sys_name,
+                    font.size,
+                    if font.bold { ", bold" } else { "" },
+                    if font.italic { ", italic" } else { "" }
+                );
+            }
+            Ok(font)
+        })?;
 
         // // Timelines
         // let _timelines = read_asset(&mut exe, "timelines", 800, verbose, |mut data| {
@@ -634,6 +389,13 @@ impl Game {
         //     Ok(())
         // })?;
 
-        Ok(())
+        Ok(Game {
+            sprites,
+            sounds,
+            backgrounds,
+            paths,
+            scripts,
+            fonts
+        })
     }
 }
