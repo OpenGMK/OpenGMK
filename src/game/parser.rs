@@ -258,6 +258,42 @@ impl Game {
         let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
         exe.set_position(p);
 
+        fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
+            let count = src.read_u32_le()? as usize;
+            let mut refs = Vec::with_capacity(count);
+            for _ in 0..count {
+                let len = src.read_u32_le()? as usize;
+                let pos = src.position() as usize;
+                src.seek(SeekFrom::Current(len as i64))?;
+                let data = src.get_ref();
+                refs.push(&data[pos..pos + len]);
+            }
+            Ok(refs)
+        }
+
+        fn get_assets<T, F>(
+            src: &mut io::Cursor<&[u8]>,
+            deserializer: F,
+        ) -> Result<Vec<Option<Box<T>>>, Error>
+        where
+            T: Send,
+            F: Fn(&[u8]) -> Result<T, io::Error> + Sync,
+        {
+            get_asset_refs(src)?
+                .par_iter()
+                .map(|data| inflate(&data))
+                .map(|data| {
+                    data.and_then(|data| {
+                        if &data[0..4] != &[0, 0, 0, 0] {
+                            Ok(Some(Box::new(deserializer(&data[4..])?)))
+                        } else {
+                            Ok(None)
+                        }
+                    })
+                })
+                .collect::<Result<Vec<_>, Error>>()
+        }
+
         // Extensions
         let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
             Ok(()) // TODO: Implement
@@ -273,35 +309,9 @@ impl Game {
             Ok(()) // TODO: Implement
         })?;
 
-        fn get_assets<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
-            let count = src.read_u32_le()? as usize;
-            let mut refs = Vec::with_capacity(count);
-            for _ in 0..count {
-                let len = src.read_u32_le()? as usize;
-                let pos = src.position() as usize;
-                src.seek(SeekFrom::Current(len as i64))?; // try.
-                let data = src.get_ref();
-                refs.push(&data[pos..pos + len]);
-            }
-            Ok(refs)
-        }
-
         // Sounds
         assert_eq!(800, exe.read_u32_le()?);
-        let sounds = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Sound::deserialize(&data[4..], strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
+        let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, strict))?;
         if verbose {
             for sound in sounds.iter() {
                 if let Some(sound) = sound {
@@ -312,20 +322,7 @@ impl Game {
 
         // Sprites
         assert_eq!(800, exe.read_u32_le()?);
-        let sprites = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Sprite::deserialize(&data[4..], strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
+        let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, strict))?;
         if verbose {
             for sprite in sprites.iter() {
                 if let Some(sprite) = sprite {
@@ -348,20 +345,7 @@ impl Game {
 
         // Backgrounds
         assert_eq!(800, exe.read_u32_le()?);
-        let backgrounds = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Background::deserialize(&data[4..], strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
+        let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, strict))?;
         if verbose {
             for background in backgrounds.iter() {
                 if let Some(background) = background {
@@ -375,20 +359,7 @@ impl Game {
 
         // Paths
         assert_eq!(800, exe.read_u32_le()?);
-        let paths = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Path::deserialize(&data[4..], strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
+        let paths = get_assets(&mut exe, |data| Path::deserialize(data, strict))?;
         if verbose {
             use assets::path::ConnectionKind;
             for path in paths.iter() {
@@ -411,20 +382,7 @@ impl Game {
 
         // Scripts
         assert_eq!(800, exe.read_u32_le()?);
-        let scripts = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Script::deserialize(&data[4..], strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
+        let scripts = get_assets(&mut exe, |data| Script::deserialize(data, strict))?;
         if verbose {
             for script in scripts.iter() {
                 if let Some(script) = script {
@@ -437,21 +395,9 @@ impl Game {
             }
         }
 
+        // Fonts
         assert_eq!(800, exe.read_u32_le()?);
-        let fonts = get_assets(&mut exe)?
-            .par_iter()
-            .map(|data| inflate(&data))
-            .map(|data| {
-                data.and_then(|data| {
-                    if &data[0..4] != &[0, 0, 0, 0] {
-                        Ok(Some(Box::new(Font::deserialize(&data[4..], false, strict)?)))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-        
+        let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, strict))?;
         if verbose {
             for font in fonts.iter() {
                 if let Some(font) = font {
