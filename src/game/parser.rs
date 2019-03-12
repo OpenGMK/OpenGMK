@@ -199,60 +199,6 @@ impl Game {
         let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
-        fn read_asset<I, T, P>(
-            src: &mut io::Cursor<I>,
-            name: &str,
-            ver: u32,
-            log: bool,
-            parser: P,
-        ) -> Result<Vec<Option<Box<T>>>, Error>
-        where
-            I: AsRef<[u8]>,
-            P: Fn(&[u8]) -> Result<T, Error>,
-        {
-            use std::u32;
-
-            let assets_version = src.read_u32_le()?;
-            // verify_ver(name, ver, assets_version)?;
-            let asset_count = src.read_u32_le()? as usize;
-            if asset_count != 0 {
-                if log {
-                    println!(
-                        "Reading {}... (ver: {:.1}, count: {})",
-                        name,
-                        assets_version as f64 / 100f64,
-                        asset_count
-                    );
-                }
-                let mut assets = Vec::with_capacity(asset_count);
-                for _ in 0..asset_count {
-                    let len = src.read_u32_le()? as usize;
-                    let pos = src.position() as usize;
-                    src.seek(SeekFrom::Current(len as i64))?;
-                    let src_ref = src.get_ref().as_ref();
-
-                    // Replace this once I remove flate2
-                    let inflated = inflate(&src_ref[pos..pos + len])?;
-                    let mut data: &[u8] = inflated.as_ref();
-                    if data.len() > 4 {
-                        let mut buf = [0u8; 4];
-                        data.read(&mut buf)?;
-                        if u32::from_le_bytes(buf) != 0 {
-                            let result = parser(&data)?;
-                            assets.push(Some(Box::new(result)));
-                        } else {
-                            assets.push(None);
-                        }
-                    } else {
-                        assets.push(None);
-                    }
-                }
-                Ok(assets)
-            } else {
-                Ok(Vec::new()) // Identical to with_capacity(0)
-            }
-        }
-
         // TODO: make this not hacky-looking..
         let p = exe.position();
         let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
@@ -295,19 +241,16 @@ impl Game {
         }
 
         // Extensions
-        let _extensions = read_asset(&mut exe, "extensions", 700, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        assert_eq!(700, exe.read_u32_le()?);
+        let _extensions = get_assets(&mut exe, |_data| Ok(()));
 
         // Triggers
-        let _triggers = read_asset(&mut exe, "triggers", 800, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        assert_eq!(800, exe.read_u32_le()?);
+        let _triggers = get_assets(&mut exe, |_data| Ok(()));
 
         // Constants
-        let _constants = read_asset(&mut exe, "constants", 800, verbose, |_| {
-            Ok(()) // TODO: Implement
-        })?;
+        assert_eq!(800, exe.read_u32_le()?);
+        let _constants = get_assets(&mut exe, |_data| Ok(()));
 
         // Sounds
         assert_eq!(800, exe.read_u32_le()?);
