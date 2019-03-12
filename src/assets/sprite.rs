@@ -51,7 +51,7 @@ impl Sprite {
                 result += writer.write_u32_le(self.size.width)?;
                 result += writer.write_u32_le(self.size.height)?;
                 result += writer.write_u32_le(frame.len() as u32)?;
-                
+
                 let mut pixeldata = frame.clone();
                 rgba2bgra(&mut pixeldata);
                 result += writer.write(&pixeldata)?;
