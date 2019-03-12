@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 flate2 = "1.0"
+rayon = "1.0"
