@@ -61,6 +61,60 @@ impl From<NoneError> for Error {
     }
 }
 
+/// Removes GameMaker 8.0 protection in-place.
+fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<()> {
+    let mut swap_table = [0u8; 256];
+    let mut reverse_table = [0u8; 256];
+
+    // the swap table is squished inbetween 2 chunks of useless garbage
+    let garbage1_size = data.read_u32_le()? as i64 * 4;
+    let garbage2_size = data.read_u32_le()? as i64 * 4;
+    data.seek(SeekFrom::Current(garbage1_size))?;
+    assert_eq!(data.read(&mut swap_table)?, 256);
+    data.seek(SeekFrom::Current(garbage2_size))?;
+
+    // fill up reverse table
+    for i in 0..256 {
+        reverse_table[swap_table[i] as usize] = i as u8;
+    }
+
+    // asset data length
+    let len = data.read_u32_le()? as usize;
+
+    // simplifying for expressions below
+    let pos = data.position() as usize; // stream position
+    let data = data.get_mut(); // mutable ref for writing
+    if verbose {
+        println!(
+            "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})",
+            len, garbage1_size, garbage2_size
+        );
+    }
+
+    // decryption: first pass
+    //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
+    for i in (pos..=pos + len).rev() {
+        data[i - 1] = reverse_table[data[i - 1] as usize]
+            .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+    }
+
+    // decryption: second pass
+    //   .. it's complicated
+    let mut a: u8;
+    let mut b: u32;
+    for i in (pos..pos + len - 1).rev() {
+        b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
+        if b < pos as u32 {
+            b = pos as u32;
+        }
+        a = data[i];
+        data[i] = data[b as usize];
+        data[b as usize] = a;
+    }
+
+    Ok(())
+}
+
 /// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
 fn inflate<I>(data: &I) -> Result<Vec<u8>, Error>
 where
@@ -142,57 +196,8 @@ impl Game {
         }
         exe.seek(SeekFrom::Current(dll_len))?;
 
-        // Asset Data Decryption
-        {
-            let mut swap_table = [0u8; 256];
-            let mut reverse_table = [0u8; 256];
-
-            // the swap table is squished inbetween 2 chunks of useless garbage
-            let garbage1_size = exe.read_u32_le()? as i64 * 4;
-            let garbage2_size = exe.read_u32_le()? as i64 * 4;
-            exe.seek(SeekFrom::Current(garbage1_size))?;
-            assert_eq!(exe.read(&mut swap_table)?, 256);
-            exe.seek(SeekFrom::Current(garbage2_size))?;
-
-            // fill up reverse table
-            for i in 0..256 {
-                reverse_table[swap_table[i] as usize] = i as u8;
-            }
-
-            // asset data length
-            let len = exe.read_u32_le()? as usize;
-
-            // simplifying for expressions below
-            let pos = exe.position() as usize; // stream position
-            let data = exe.get_mut(); // mutable ref for writing
-            if verbose {
-                println!(
-                    "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})\n",
-                    len, garbage1_size, garbage2_size
-                );
-            }
-
-            // decryption: first pass
-            //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
-            for i in (pos..=pos + len).rev() {
-                data[i - 1] = reverse_table[data[i - 1] as usize]
-                    .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
-            }
-
-            // decryption: second pass
-            //   .. it's complicated
-            let mut a: u8;
-            let mut b: u32;
-            for i in (pos..pos + len - 1).rev() {
-                b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
-                if b < pos as u32 {
-                    b = pos as u32;
-                }
-                a = data[i];
-                data[i] = data[b as usize];
-                data[b as usize] = a;
-            }
-        }
+        // yeah
+        decrypt_gm80(&mut exe, verbose)?;
 
         // more garbage fields that do nothing
         // (there's 6 more u32's than it claims to contain, hence (n+6)*4)
@@ -240,19 +245,19 @@ impl Game {
                 .collect::<Result<Vec<_>, Error>>()
         }
 
-        // Extensions
+        // TODO: Extensions
         assert_eq!(700, exe.read_u32_le()?);
         let _extensions = get_assets(&mut exe, |_data| Ok(()));
 
-        // Triggers
+        // TODO: Triggers
         assert_eq!(800, exe.read_u32_le()?);
         let _triggers = get_assets(&mut exe, |_data| Ok(()));
 
-        // Constants
+        // TODO: Constants
         assert_eq!(800, exe.read_u32_le()?);
         let _constants = get_assets(&mut exe, |_data| Ok(()));
 
-        // Sounds
+        // TODO: Sounds
         assert_eq!(800, exe.read_u32_le()?);
         let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, strict))?;
         if verbose {
