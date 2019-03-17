@@ -14,6 +14,6 @@ pub struct Game {
     // Rooms
 
     // Triggers
-    // Constants
+    pub constants: Vec<(String, String)>,
     // Extensions
 }

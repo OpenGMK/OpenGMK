@@ -253,9 +253,18 @@ impl Game {
         assert_eq!(800, exe.read_u32_le()?);
         let _triggers = get_assets(&mut exe, |_data| Ok(()));
 
-        // TODO: Constants
+        // TODO: Constants! Test this!
         assert_eq!(800, exe.read_u32_le()?);
-        let _constants = get_assets(&mut exe, |_data| Ok(()));
+        let constant_count = exe.read_u32_le()? as usize;
+        let mut constants = Vec::with_capacity(constant_count);
+        for _ in 0..constant_count {
+            let name = exe.read_pas_string()?;
+            let value = exe.read_pas_string()?;
+            if verbose {
+                println!(" + Added constant '{}' (value: {})", name, value);
+            }
+            constants.push((name, value));
+        }
 
         // TODO: Sounds
         assert_eq!(800, exe.read_u32_le()?);
@@ -368,6 +377,7 @@ impl Game {
             paths,
             scripts,
             fonts,
+            constants,
         })
     }
 }
