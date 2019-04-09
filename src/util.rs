@@ -1,5 +1,6 @@
 /// Converts BGRA pixeldata to RGBA pixeldata in-place.
 pub fn bgra2rgba(data: &mut [u8]) {
+    assert_eq!(data.len() % 4, 0);
     data.chunks_exact_mut(4).for_each(|chunk| chunk.swap(0, 2));
 }
 
