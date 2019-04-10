@@ -1,5 +1,5 @@
 use super::Game;
-use crate::assets::{self, *};
+use crate::assets::{self, path::ConnectionKind, *};
 
 use crate::bytes::{ReadBytes, ReadString};
 use flate2::read::ZlibDecoder;
@@ -236,7 +236,7 @@ impl Game {
                 .map(|data| {
                     data.and_then(|data| {
                         if data.get(..4).unwrap_or(&[0, 0, 0, 0]) != &[0, 0, 0, 0] {
-                            Ok(Some(Box::new(deserializer(&data[4..])?)))
+                            Ok(Some(Box::new(deserializer(data.get(4..).unwrap_or(&[]))?)))
                         } else {
                             Ok(None)
                         }
@@ -270,104 +270,91 @@ impl Game {
         assert_eq!(800, exe.read_u32_le()?);
         let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, strict))?;
         if verbose {
-            for sound in sounds.iter() {
-                if let Some(sound) = sound {
-                    println!(" + Added sound '{}' ({})", sound.name, sound.source);
-                }
-            }
+            sounds.iter().flatten().for_each(|sound| {
+                println!(" + Added sound '{}' ({})", sound.name, sound.source);
+            });
         }
 
         // Sprites
         assert_eq!(800, exe.read_u32_le()?);
         let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, strict))?;
         if verbose {
-            for sprite in sprites.iter() {
-                if let Some(sprite) = sprite {
-                    let framecount = if let Some(frames) = &sprite.frames {
-                        frames.len()
-                    } else {
-                        0
-                    };
-                    println!(
-                        " + Added sprite '{}' ({}x{}, {} frame{})",
-                        sprite.name,
-                        sprite.size.width,
-                        sprite.size.height,
-                        framecount,
-                        if framecount > 1 { "s" } else { "" }
-                    );
-                }
-            }
+            sprites.iter().flatten().for_each(|sprite| {
+                let framecount = if let Some(frames) = &sprite.frames {
+                    frames.len()
+                } else {
+                    0
+                };
+                println!(
+                    " + Added sprite '{}' ({}x{}, {} frame{})",
+                    sprite.name,
+                    sprite.size.width,
+                    sprite.size.height,
+                    framecount,
+                    if framecount > 1 { "s" } else { "" }
+                );
+            });
         }
 
         // Backgrounds
         assert_eq!(800, exe.read_u32_le()?);
         let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, strict))?;
         if verbose {
-            for background in backgrounds.iter() {
-                if let Some(background) = background {
-                    println!(
-                        " + Added background '{}' ({}x{})",
-                        background.name, background.size.width, background.size.height
-                    );
-                }
-            }
+            backgrounds.iter().flatten().for_each(|background| {
+                println!(
+                    " + Added background '{}' ({}x{})",
+                    background.name, background.size.width, background.size.height
+                );
+            });
         }
 
         // Paths
         assert_eq!(800, exe.read_u32_le()?);
         let paths = get_assets(&mut exe, |data| Path::deserialize(data, strict))?;
         if verbose {
-            use assets::path::ConnectionKind;
-            for path in paths.iter() {
-                if let Some(path) = path {
-                    println!(
-                        " + Added path '{}' ({}, {}, {} point{}, precision: {})",
-                        path.name,
-                        match path.connection {
-                            ConnectionKind::StraightLine => "straight",
-                            ConnectionKind::SmoothCurve => "smooth",
-                        },
-                        if path.closed { "closed" } else { "open" },
-                        path.points.len(),
-                        if path.points.len() > 1 { "s" } else { "" },
-                        path.precision
-                    );
-                }
-            }
+            paths.iter().flatten().for_each(|path| {
+                println!(
+                    " + Added path '{}' ({}, {}, {} point{}, precision: {})",
+                    path.name,
+                    match path.connection {
+                        ConnectionKind::StraightLine => "straight",
+                        ConnectionKind::SmoothCurve => "smooth",
+                    },
+                    if path.closed { "closed" } else { "open" },
+                    path.points.len(),
+                    if path.points.len() > 1 { "s" } else { "" },
+                    path.precision
+                );
+            });
         }
 
         // Scripts
         assert_eq!(800, exe.read_u32_le()?);
         let scripts = get_assets(&mut exe, |data| Script::deserialize(data, strict))?;
         if verbose {
-            for script in scripts.iter() {
-                if let Some(script) = script {
-                    println!(
-                        " + Added script '{}' (source length: {})",
-                        script.name,
-                        script.source.len()
-                    );
-                }
-            }
+            scripts.iter().flatten().for_each(|script| {
+                println!(
+                    " + Added script '{}' (source length: {})",
+                    script.name,
+                    script.source.len()
+                );
+            });
         }
 
         // Fonts
         assert_eq!(800, exe.read_u32_le()?);
         let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, strict))?;
         if verbose {
-            for font in fonts.iter() {
-                if let Some(font) = font {
-                    println!(
-                        " + Added font '{}' ({}, {}px{}{})",
-                        font.name,
-                        font.sys_name,
-                        font.size,
-                        if font.bold { ", bold" } else { "" },
-                        if font.italic { ", italic" } else { "" }
-                    );
-                }
-            }
+            fonts.iter().flatten().for_each(|font| {
+                println!(
+                    " + Added font '{}' ({}, {}px{}{})",
+                    font.name,
+                    font.sys_name,
+                    font.size,
+                    if font.bold { ", bold" } else { "" },
+                    if font.italic { ", italic" } else { "" }
+                );
+            });
         }
 
         Ok(Game {
