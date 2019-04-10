@@ -235,7 +235,7 @@ impl Game {
                 .map(|data| inflate(&data))
                 .map(|data| {
                     data.and_then(|data| {
-                        if &data[..4] != &[0, 0, 0, 0] {
+                        if data.get(..4).unwrap_or(&[0, 0, 0, 0]) != &[0, 0, 0, 0] {
                             Ok(Some(Box::new(deserializer(&data[4..])?)))
                         } else {
                             Ok(None)
