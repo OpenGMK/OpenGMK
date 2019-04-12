@@ -1,5 +1,5 @@
 use super::Game;
-use crate::assets::{self, path::ConnectionKind, *};
+use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite};
 
 use crate::bytes::{ReadBytes, ReadString};
 use flate2::read::ZlibDecoder;
@@ -23,7 +23,6 @@ pub enum ErrorKind {
     IO(io::Error),
     InvalidExeHeader,
     InvalidMagic,
-    ReadError,
 }
 
 impl error::Error for Error {}
@@ -33,7 +32,6 @@ impl Display for Error {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
-            ErrorKind::ReadError => write!(f, "Error while reading input data. Likely EOF"),
         }
     }
 }
