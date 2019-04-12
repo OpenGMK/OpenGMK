@@ -23,6 +23,7 @@ pub enum ErrorKind {
     IO(io::Error),
     InvalidExeHeader,
     InvalidMagic,
+    InvalidVersion(String, f64, f64), // name, expected, got
 }
 
 impl error::Error for Error {}
@@ -32,6 +33,9 @@ impl Display for Error {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
+            ErrorKind::InvalidVersion(n, e, g) => {
+                write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
+            }
         }
     }
 }
@@ -146,6 +150,19 @@ impl Game {
             );
         }
 
+        // little helper thing
+        let assert_ver = |name: &str, expect, ver| -> Result<(), Error> {
+            if ver == expect {
+                Ok(())
+            } else {
+                Err(Error::from(ErrorKind::InvalidVersion(
+                    name.to_string(),
+                    expect as f64 / 100.0f64,
+                    ver as f64 / 100.0f64,
+                )))
+            }
+        };
+
         // version version blahblah - I should do something with this later.
         exe.seek(SeekFrom::Current(12))?;
 
@@ -235,15 +252,15 @@ impl Game {
         }
 
         // TODO: Extensions
-        assert_eq!(700, exe.read_u32_le()?);
+        assert_ver("extensions header", 700, exe.read_u32_le()?)?;
         let _extensions = get_assets(&mut exe, |_data| Ok(()));
 
         // TODO: Triggers
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("triggers header", 800, exe.read_u32_le()?)?;
         let _triggers = get_assets(&mut exe, |_data| Ok(()));
 
         // TODO: Constants! Test this!
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("constants header", 800, exe.read_u32_le()?)?;
         let constant_count = exe.read_u32_le()? as usize;
         let mut constants = Vec::with_capacity(constant_count);
         for _ in 0..constant_count {
@@ -255,8 +272,8 @@ impl Game {
             constants.push((name, value));
         }
 
-        // TODO: Sounds
-        assert_eq!(800, exe.read_u32_le()?);
+        // Sounds
+        assert_ver("sounds header", 800, exe.read_u32_le()?)?;
         let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, strict))?;
         if verbose {
             sounds.iter().flatten().for_each(|sound| {
@@ -265,7 +282,7 @@ impl Game {
         }
 
         // Sprites
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("sprites header", 800, exe.read_u32_le()?)?;
         let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, strict))?;
         if verbose {
             sprites.iter().flatten().for_each(|sprite| {
@@ -286,7 +303,7 @@ impl Game {
         }
 
         // Backgrounds
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("backgrounds header", 800, exe.read_u32_le()?)?;
         let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, strict))?;
         if verbose {
             backgrounds.iter().flatten().for_each(|background| {
@@ -298,7 +315,7 @@ impl Game {
         }
 
         // Paths
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("paths header", 800, exe.read_u32_le()?)?;
         let paths = get_assets(&mut exe, |data| Path::deserialize(data, strict))?;
         if verbose {
             paths.iter().flatten().for_each(|path| {
@@ -318,7 +335,7 @@ impl Game {
         }
 
         // Scripts
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("scripts header", 800, exe.read_u32_le()?)?;
         let scripts = get_assets(&mut exe, |data| Script::deserialize(data, strict))?;
         if verbose {
             scripts.iter().flatten().for_each(|script| {
@@ -331,7 +348,7 @@ impl Game {
         }
 
         // Fonts
-        assert_eq!(800, exe.read_u32_le()?);
+        assert_ver("fonts header", 800, exe.read_u32_le()?)?;
         let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, strict))?;
         if verbose {
             fonts.iter().flatten().for_each(|font| {
