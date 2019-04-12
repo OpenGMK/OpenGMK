@@ -8,7 +8,6 @@ use rayon::prelude::*;
 use std::error;
 use std::fmt::{self, Display};
 use std::io::{self, Read, Seek, SeekFrom};
-use std::option::NoneError;
 use std::u32;
 
 const GM80_MAGIC_POS: u64 = 2000000;
@@ -49,14 +48,6 @@ impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error {
             kind: ErrorKind::IO(err),
-        }
-    }
-}
-
-impl From<NoneError> for Error {
-    fn from(_: NoneError) -> Error {
-        Error {
-            kind: ErrorKind::ReadError,
         }
     }
 }
@@ -136,7 +127,7 @@ impl Game {
         let exe = exe.as_mut();
 
         // verify executable header
-        if exe.get(0..2)? != b"MZ" {
+        if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
             return Err(Error::from(ErrorKind::InvalidExeHeader));
         }
 
