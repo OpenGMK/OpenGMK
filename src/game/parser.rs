@@ -7,6 +7,7 @@ use rayon::prelude::*;
 
 use std::error;
 use std::fmt::{self, Display};
+use std::fs;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::u32;
 
@@ -33,9 +34,11 @@ impl Display for Error {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
-            ErrorKind::InvalidVersion(n, e, g) => {
-                write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
-            }
+            ErrorKind::InvalidVersion(n, e, g) => write!(
+                f,
+                "Invalid version in {} (expected: {:.1}, got: {:.1})",
+                n, e, g
+            ),
         }
     }
 }
@@ -122,7 +125,7 @@ where
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe<I>(mut exe: I, strict: bool, verbose: bool) -> Result<Game, Error>
+    pub fn from_exe<I>(mut exe: I, strict: bool, verbose: bool, dll_out: Option<&String>) -> Result<Game, Error>
     where
         I: AsRef<[u8]> + AsMut<[u8]>,
     {
@@ -194,13 +197,20 @@ impl Game {
             exe.seek(SeekFrom::Current(dllname_len))?;
         }
 
-        // skip embedded dll data chunk
+        // skip or dump embedded dll data chunk
         let dll_len = exe.read_u32_le()? as i64;
         if verbose {
             // follwup to the print above
             print!(" (size: {})\n", dll_len);
         }
-        exe.seek(SeekFrom::Current(dll_len))?;
+        if let Some(out_path) = dll_out {
+            println!("Dumping DirectX DLL to {}...", out_path);
+            let mut dll_data = vec![0u8; dll_len as usize];
+            exe.read(&mut dll_data)?;
+            fs::write(out_path, &dll_data)?;
+        } else {
+            exe.seek(SeekFrom::Current(dll_len))?;
+        }
 
         // yeah
         decrypt_gm80(&mut exe, verbose)?;

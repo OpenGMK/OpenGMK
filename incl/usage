@@ -1,0 +1,7 @@
+Usage: gm8emu <options> <input>
+
+Options:
+-h or --help                  Prints this helpful message.
+-D or --dump-dll <out-path>   Writes the inner DLL to out-path.
+-l or --lazy                  Skip verification of version numbers.
+-v or --verbose               Enable verbose logging.
