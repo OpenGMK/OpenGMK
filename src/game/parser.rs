@@ -125,7 +125,12 @@ where
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe<I>(mut exe: I, strict: bool, verbose: bool, dll_out: Option<&String>) -> Result<Game, Error>
+    pub fn from_exe<I>(
+        mut exe: I,
+        strict: bool,
+        verbose: bool,
+        dll_out: Option<&String>,
+    ) -> Result<Game, Error>
     where
         I: AsRef<[u8]> + AsMut<[u8]>,
     {
@@ -220,10 +225,10 @@ impl Game {
         let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
         exe.seek(SeekFrom::Current(garbage))?;
 
-        // TODO: make this not hacky-looking..
-        let p = exe.position();
+        // Rewrap data immutable.
+        let prev_pos = exe.position();
         let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
-        exe.set_position(p);
+        exe.set_position(prev_pos);
 
         fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
             let count = src.read_u32_le()? as usize;

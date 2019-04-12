@@ -28,7 +28,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut args_it = args.iter();
     while let Some(arg) = args_it.next() {
         match arg.as_ref() {
-            "-h" | "--help" => { print_usage(); return Ok(()); },
+            "-h" | "--help" => {
+                print_usage();
+                return Ok(());
+            }
 
             "-D" | "--dump-dll" => {
                 if let Some(path) = args_it.next() {
