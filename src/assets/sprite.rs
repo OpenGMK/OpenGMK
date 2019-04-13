@@ -112,20 +112,16 @@ impl Sprite {
                 let frame_width = reader.read_u32_le()?;
                 let frame_height = reader.read_u32_le()?;
 
-                // sanity check 1
-                if width != 0 && height != 0 {
-                    if width != frame_width || height != frame_height {
-                        panic!("Inconsistent width/height across frames");
-                    }
-                } else {
+                // returned when querying size, width of frame0
+                if width == 0 && height == 0 {
                     width = frame_width;
                     height = frame_height;
                 }
 
                 let pixeldata_len = reader.read_u32_le()?;
-                let pixeldata_pixels = width * height;
+                let pixeldata_pixels = frame_width * frame_height;
 
-                // sanity check 2
+                // sanity check
                 if pixeldata_len != (pixeldata_pixels * 4) {
                     panic!("Inconsistent pixel data length with dimensions");
                 }
