@@ -137,8 +137,10 @@ impl Game {
         let exe = exe.as_mut();
 
         // verify executable header
-        if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
-            return Err(Error::from(ErrorKind::InvalidExeHeader));
+        if strict {
+            if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
+                return Err(Error::from(ErrorKind::InvalidExeHeader));
+            }
         }
 
         // comfy wrapper for byteorder I/O
