@@ -22,11 +22,11 @@ pub struct Sprite {
     pub origin: Point,
 
     /// The raw RGBA pixeldata for each frame.
-    pub frames: Option<Vec<(Dimensions, Box<[u8]>)>>,
+    pub frames: Vec<(Dimensions, Box<[u8]>)>,
 
     /// The collider associated with one or each frame.
     /// If `per_frame_colliders` is false, this contains 1 map.
-    pub colliders: Option<Vec<CollisionMap>>,
+    pub colliders: Vec<CollisionMap>,
 
     /// Whether each individual frame has its own collision map.
     pub per_frame_colliders: bool,
@@ -41,9 +41,9 @@ impl Sprite {
         result += writer.write_u32_le(VERSION as u32)?;
         result += writer.write_u32_le(self.origin.x)?;
         result += writer.write_u32_le(self.origin.y)?;
-        if let Some(frames) = &self.frames {
-            result += writer.write_u32_le(frames.len() as u32)?;
-            for frame in frames.iter() {
+        if self.frames.len() != 0 {
+            result += writer.write_u32_le(self.frames.len() as u32)?;
+            for frame in self.frames.iter() {
                 result += writer.write_u32_le(VERSION_FRAME)?;
                 result += writer.write_u32_le(frame.0.width)?;
                 result += writer.write_u32_le(frame.0.height)?;
@@ -54,19 +54,17 @@ impl Sprite {
                 result += writer.write(&pixeldata)?;
 
                 result += writer.write_u32_le(if self.per_frame_colliders { 1 } else { 0 })?;
-                if let Some(colliders) = &self.colliders {
-                    for collider in colliders.iter() {
-                        result += writer.write_u32_le(VERSION_COLLISION)?;
-                        result += writer.write_u32_le(collider.bounds.width)?;
-                        result += writer.write_u32_le(collider.bounds.height)?;
-                        result += writer.write_u32_le(collider.bounds.left)?;
-                        result += writer.write_u32_le(collider.bounds.right)?;
-                        result += writer.write_u32_le(collider.bounds.bottom)?;
-                        result += writer.write_u32_le(collider.bounds.top)?;
-                        result += writer.write(&collider.data)?;
-                        for pixel in collider.data.iter() {
-                            result += writer.write_u32_le(*pixel as u32)?;
-                        }
+                for collider in self.colliders.iter() {
+                    result += writer.write_u32_le(VERSION_COLLISION)?;
+                    result += writer.write_u32_le(collider.bounds.width)?;
+                    result += writer.write_u32_le(collider.bounds.height)?;
+                    result += writer.write_u32_le(collider.bounds.left)?;
+                    result += writer.write_u32_le(collider.bounds.right)?;
+                    result += writer.write_u32_le(collider.bounds.bottom)?;
+                    result += writer.write_u32_le(collider.bounds.top)?;
+                    result += writer.write(&collider.data)?;
+                    for pixel in collider.data.iter() {
+                        result += writer.write_u32_le(*pixel as u32)?;
                     }
                 }
             }
@@ -183,12 +181,11 @@ impl Sprite {
                     colliders.push(read_collision(&mut reader, strict)?);
                 }
             } else {
-                colliders = Vec::with_capacity(1);
-                colliders.push(read_collision(&mut reader, strict)?);
+                colliders = vec![read_collision(&mut reader, strict)?];
             }
-            (Some(frames), Some(colliders), per_frame_colliders)
+            (frames, colliders, per_frame_colliders)
         } else {
-            (None, None, false)
+            (Vec::new(), Vec::new(), false)
         };
 
         Ok(Sprite {
@@ -198,5 +195,13 @@ impl Sprite {
             colliders,
             per_frame_colliders,
         })
+    }
+
+    pub fn width(&self) -> u32 {
+        self.frames.iter().next().map_or(1, |frame| frame.0.width)
+    }
+
+    pub fn height(&self) -> u32 {
+        self.frames.iter().next().map_or(1, |frame| frame.0.height)
     }
 }

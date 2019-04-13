@@ -303,18 +303,12 @@ impl Game {
         let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, strict))?;
         if verbose {
             sprites.iter().flatten().for_each(|sprite| {
-                let framecount = sprite.frames.as_ref().map_or(0, |f| f.len());
+                let framecount = sprite.frames.len();
                 println!(
                     " + Added sprite '{}' ({}x{}, {} frame{})",
                     sprite.name,
-                    sprite
-                        .frames
-                        .as_ref()
-                        .map_or(0, |f| f.iter().next().map_or(0, |f1| f1.0.width)),
-                    sprite
-                        .frames
-                        .as_ref()
-                        .map_or(0, |f| f.iter().next().map_or(0, |f1| f1.0.height)),
+                    sprite.width(),
+                    sprite.height(),
                     framecount,
                     if framecount > 1 { "s" } else { "" }
                 );
