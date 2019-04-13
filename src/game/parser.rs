@@ -307,8 +307,14 @@ impl Game {
                 println!(
                     " + Added sprite '{}' ({}x{}, {} frame{})",
                     sprite.name,
-                    sprite.size.width,
-                    sprite.size.height,
+                    sprite
+                        .frames
+                        .as_ref()
+                        .map_or(0, |f| f.iter().next().map_or(0, |f1| f1.0.width)),
+                    sprite
+                        .frames
+                        .as_ref()
+                        .map_or(0, |f| f.iter().next().map_or(0, |f1| f1.0.height)),
                     framecount,
                     if framecount > 1 { "s" } else { "" }
                 );

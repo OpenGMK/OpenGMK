@@ -18,14 +18,11 @@ pub struct Sprite {
     /// The asset name present in GML and the editor.
     pub name: String,
 
-    /// The size of each individual frame.
-    pub size: Dimensions,
-
     /// The origin within the sprite.
     pub origin: Point,
 
     /// The raw RGBA pixeldata for each frame.
-    pub frames: Option<Vec<Box<[u8]>>>,
+    pub frames: Option<Vec<(Dimensions, Box<[u8]>)>>,
 
     /// The collider associated with one or each frame.
     /// If `per_frame_colliders` is false, this contains 1 map.
@@ -48,11 +45,11 @@ impl Sprite {
             result += writer.write_u32_le(frames.len() as u32)?;
             for frame in frames.iter() {
                 result += writer.write_u32_le(VERSION_FRAME)?;
-                result += writer.write_u32_le(self.size.width)?;
-                result += writer.write_u32_le(self.size.height)?;
-                result += writer.write_u32_le(frame.len() as u32)?;
+                result += writer.write_u32_le(frame.0.width)?;
+                result += writer.write_u32_le(frame.0.height)?;
+                result += writer.write_u32_le(frame.1.len() as u32)?;
 
-                let mut pixeldata = frame.clone();
+                let mut pixeldata = frame.1.clone();
                 rgba2bgra(&mut pixeldata);
                 result += writer.write(&pixeldata)?;
 
@@ -97,10 +94,8 @@ impl Sprite {
         let x = reader.read_u32_le()?;
         let y = reader.read_u32_le()?;
         let frame_count = reader.read_u32_le()?;
-        let mut width = 0u32;
-        let mut height = 0u32;
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
-            let mut frames: Vec<Box<[u8]>> = Vec::with_capacity(frame_count as usize);
+            let mut frames = Vec::with_capacity(frame_count as usize);
             for _ in 0..frame_count {
                 if strict {
                     let version = reader.read_u32_le()? as Version;
@@ -112,14 +107,8 @@ impl Sprite {
                 let frame_width = reader.read_u32_le()?;
                 let frame_height = reader.read_u32_le()?;
 
-                // returned when querying size, width of frame0
-                if width == 0 && height == 0 {
-                    width = frame_width;
-                    height = frame_height;
-                }
-
-                let pixeldata_len = reader.read_u32_le()?;
-                let pixeldata_pixels = frame_width * frame_height;
+                let pixeldata_len = reader.read_u32_le()? as usize;
+                let pixeldata_pixels = frame_width as usize * frame_height as usize;
 
                 // sanity check
                 if pixeldata_len != (pixeldata_pixels * 4) {
@@ -128,13 +117,18 @@ impl Sprite {
 
                 // BGRA -> RGBA
                 let pos = reader.position() as usize;
-                let len = pixeldata_len as usize;
-                reader.seek(SeekFrom::Current(len as i64))?;
-                let mut buf = reader.get_ref()[pos..pos + len].to_vec();
+                reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
+                let mut buf = reader.get_ref()[pos..pos + pixeldata_len].to_vec();
                 bgra2rgba(&mut buf);
 
                 // RMakeImage lol
-                frames.push(buf.into_boxed_slice());
+                frames.push((
+                    Dimensions {
+                        width: frame_width,
+                        height: frame_height,
+                    },
+                    buf.into_boxed_slice(),
+                ));
             }
 
             fn read_collision<T>(
@@ -199,7 +193,6 @@ impl Sprite {
 
         Ok(Sprite {
             name,
-            size: Dimensions { width, height },
             origin: Point { x, y },
             frames,
             colliders,
