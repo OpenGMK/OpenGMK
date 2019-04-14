@@ -1,7 +1,7 @@
-use super::Game;
-use crate::assets::{path::ConnectionKind, Trigger, Background, Font, Path, Script, Sound, Sprite};
-
+use super::{Game, GameVersion};
+use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite};
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
+
 use flate2::read::ZlibDecoder;
 use rayon::prelude::*;
 
@@ -9,8 +9,8 @@ use std::error;
 use std::fmt::{self, Display};
 use std::fs;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::u32;
 use std::iter::once;
+use std::u32;
 
 const GM80_MAGIC_POS: u64 = 2000000;
 const GM80_MAGIC: u32 = 1234321;
@@ -117,8 +117,6 @@ fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     Ok(())
 }
 
-
-
 /// Removes GM8.1 encryption in-place.
 fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<()> {
     // YYG's crc32 implementation
@@ -141,7 +139,10 @@ fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     };
 
     let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
-    let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
+    let hash_key_utf16: Vec<u8> = hash_key
+        .bytes()
+        .flat_map(|c| once(c).chain(once(0)))
+        .collect();
 
     // generate crc table
     let mut crc_table = [0u32; 256];
@@ -149,7 +150,12 @@ fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     for i in 0..256 {
         crc_table[i] = crc_32_reflect(i as u32, 8) << 24;
         for _ in 0..8 {
-            crc_table[i] = (crc_table[i] << 1) ^ (if crc_table[i] & (1 << 31) != 0 { crc_polynomial } else { 0 });
+            crc_table[i] = (crc_table[i] << 1)
+                ^ (if crc_table[i] & (1 << 31) != 0 {
+                    crc_polynomial
+                } else {
+                    0
+                });
         }
         crc_table[i] = crc_32_reflect(crc_table[i], 32);
     }
@@ -160,10 +166,8 @@ fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
 
     if verbose {
         println!(
-            "Decrypting GM8.1 protection with hash key {}, seed1 {}, seed2 {}",
-            hash_key,
-            seed1,
-            seed2
+            "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})",
+            hash_key, seed1, seed2
         )
     }
 
@@ -220,59 +224,51 @@ impl Game {
         let mut exe = io::Cursor::new(exe);
 
         // detect GameMaker version
-        let mut ver: u32 = 0;
+        let mut game_ver = None;
         // check for standard 8.0 header
         exe.set_position(GM80_MAGIC_POS);
         if exe.read_u32_le()? == GM80_MAGIC {
-
             if verbose {
-                println!(
-                    "Detected GameMaker 8.0 magic '{}' @ {:#X}",
-                    GM80_MAGIC, GM80_MAGIC_POS
-                );
+                println!("Detected GameMaker 8.0 magic (pos: {:#X})", GM80_MAGIC_POS);
             }
 
-            ver = 800;
+            game_ver = Some(GameVersion::GameMaker80);
             exe.seek(SeekFrom::Current(12))?; // 8.0-specific header TODO: strict should probably check these values.
-        }
-        else {
+        } else {
             // check for standard 8.1 header
             exe.set_position(GM81_MAGIC_POS);
 
             for _ in 0..GM81_MAGIC_FIELD_SIZE {
                 if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
                     if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
-                        
                         if verbose {
                             println!(
-                                "Detected GameMaker 8.1 magic @ {:#X}",
+                                "Detected GameMaker 8.1 magic (pos: {:#X})",
                                 exe.position() - 8
                             );
                         }
 
-                        ver = 810;
+                        game_ver = Some(GameVersion::GameMaker81);
                         decrypt_gm81(&mut exe, verbose)?;
                         exe.seek(SeekFrom::Current(20))?; // 8.1-specific header TODO: strict should probably check these values.
                         break;
-                    }
-                    else {
+                    } else {
                         exe.set_position(exe.position() - 4);
                     }
                 }
             }
 
             // error if no version detected
-            if ver == 0 {
+            if let None = game_ver {
                 return Err(Error::from(ErrorKind::InvalidMagic));
             }
         }
 
-        if verbose {
-            println!(
-                "Using version {}",
-                ver
-            );
-        }
+        // Technically, it shouldn't make it here with a `None`.
+        let game_ver = match game_ver {
+            Some(ver) => ver,
+            None => return Err(Error::from(ErrorKind::InvalidMagic)),
+        };
 
         // little helper thing
         let assert_ver = |name: &str, expect, ver| -> Result<(), Error> {
@@ -500,6 +496,8 @@ impl Game {
             scripts,
             fonts,
             constants,
+
+            version: game_ver,
         })
     }
 }

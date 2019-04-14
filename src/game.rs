@@ -16,4 +16,10 @@ pub struct Game {
     // Triggers
     pub constants: Vec<(String, String)>,
     // Extensions
+    pub version: GameVersion,
+}
+
+pub enum GameVersion {
+    GameMaker80,
+    GameMaker81,
 }
