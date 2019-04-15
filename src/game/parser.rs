@@ -1,7 +1,7 @@
 use super::Game;
 use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite};
 
-use crate::bytes::{ReadBytes, ReadString};
+use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 use flate2::read::ZlibDecoder;
 use rayon::prelude::*;
 
@@ -10,9 +10,15 @@ use std::fmt::{self, Display};
 use std::fs;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::u32;
+use std::iter::once;
 
 const GM80_MAGIC_POS: u64 = 2000000;
 const GM80_MAGIC: u32 = 1234321;
+
+const GM81_MAGIC_POS: u64 = 3800004;
+const GM81_MAGIC_FIELD_SIZE: u32 = 1024;
+const GM81_MAGIC_1: u32 = 0xF7000000;
+const GM81_MAGIC_2: u32 = 0x00140067;
 
 #[derive(Debug)]
 pub struct Error {
@@ -111,6 +117,73 @@ fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     Ok(())
 }
 
+
+
+/// Removes GM8.1 encryption in-place.
+fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<()> {
+    // YYG's crc32 implementation
+    let crc_32 = |hash_key: &Vec<u8>, crc_table: &[u32; 256]| -> u32 {
+        let mut result: u32 = 0xFFFFFFFF;
+        for c in hash_key.iter() {
+            result = (result >> 8) ^ crc_table[((result & 0xFF) as u8 ^ c) as usize];
+        }
+        result
+    };
+    let crc_32_reflect = |mut value: u32, c: i8| -> u32 {
+        let mut rvalue: u32 = 0;
+        for i in 1..=c {
+            if value & 1 != 0 {
+                rvalue |= 1 << (c - i);
+            }
+            value >>= 1;
+        }
+        rvalue
+    };
+
+    let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
+    let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
+
+    // generate crc table
+    let mut crc_table = [0u32; 256];
+    let crc_polynomial: u32 = 0x04C11DB7;
+    for i in 0..256 {
+        crc_table[i] = crc_32_reflect(i as u32, 8) << 24;
+        for _ in 0..8 {
+            crc_table[i] = (crc_table[i] << 1) ^ (if crc_table[i] & (1 << 31) != 0 { crc_polynomial } else { 0 });
+        }
+        crc_table[i] = crc_32_reflect(crc_table[i], 32);
+    }
+
+    // get our two seeds for generating xor masks
+    let mut seed1 = data.read_u32_le()?;
+    let mut seed2 = crc_32(&hash_key_utf16, &crc_table);
+
+    if verbose {
+        println!(
+            "Decrypting GM8.1 protection with hash key {}, seed1 {}, seed2 {}",
+            hash_key,
+            seed1,
+            seed2
+        )
+    }
+
+    // skip to where gm81 encryption starts
+    let old_position = data.position();
+    data.seek(SeekFrom::Current(((seed2 & 0xFF) + 0xA) as i64))?;
+
+    // Decrypt stream from here
+    while let Ok(dword) = data.read_u32_le() {
+        data.set_position(data.position() - 4);
+        seed1 = (0xFFFF & seed1) * 0x9069 + (seed1 >> 16);
+        seed2 = (0xFFFF & seed2) * 0x4650 + (seed2 >> 16);
+        let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
+        data.write_u32_le(xor_mask ^ dword)?;
+    }
+
+    data.set_position(old_position);
+    Ok(())
+}
+
 /// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
 fn inflate<I>(data: &I) -> Result<Vec<u8>, Error>
 where
@@ -147,16 +220,57 @@ impl Game {
         let mut exe = io::Cursor::new(exe);
 
         // detect GameMaker version
-        // TODO: support gm8.1 here later obviously
+        let mut ver: u32 = 0;
+        // check for standard 8.0 header
         exe.set_position(GM80_MAGIC_POS);
-        if exe.read_u32_le()? != GM80_MAGIC {
-            return Err(Error::from(ErrorKind::InvalidMagic));
+        if exe.read_u32_le()? == GM80_MAGIC {
+
+            if verbose {
+                println!(
+                    "Detected GameMaker 8.0 magic '{}' @ {:#X}",
+                    GM80_MAGIC, GM80_MAGIC_POS
+                );
+            }
+
+            ver = 800;
+            exe.seek(SeekFrom::Current(12))?; // 8.0-specific header TODO: strict should probably check these values.
+        }
+        else {
+            // check for standard 8.1 header
+            exe.set_position(GM81_MAGIC_POS);
+
+            for _ in 0..GM81_MAGIC_FIELD_SIZE {
+                if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
+                    if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
+                        
+                        if verbose {
+                            println!(
+                                "Detected GameMaker 8.1 magic @ {:#X}",
+                                exe.position() - 8
+                            );
+                        }
+
+                        ver = 810;
+                        decrypt_gm81(&mut exe, verbose)?;
+                        exe.seek(SeekFrom::Current(20))?; // 8.1-specific header TODO: strict should probably check these values.
+                        break;
+                    }
+                    else {
+                        exe.set_position(exe.position() - 4);
+                    }
+                }
+            }
+
+            // error if no version detected
+            if ver == 0 {
+                return Err(Error::from(ErrorKind::InvalidMagic));
+            }
         }
 
         if verbose {
             println!(
-                "Detected GameMaker 8.0 magic '{}' @ {:#X}\n",
-                GM80_MAGIC, GM80_MAGIC_POS
+                "Using version {}",
+                ver
             );
         }
 
@@ -172,9 +286,6 @@ impl Game {
                 )))
             }
         };
-
-        // version version blahblah - I should do something with this later.
-        exe.seek(SeekFrom::Current(12))?;
 
         // Game Settings
         let settings_len = exe.read_u32_le()? as usize;
