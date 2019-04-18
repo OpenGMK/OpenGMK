@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::game::parser::ParserOptions;
 use crate::types::Dimensions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
@@ -64,14 +65,14 @@ impl Font {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, _gm81: bool, strict: bool) -> io::Result<Font>
+    pub fn deserialize<B>(bin: B, _gm81: bool, options: &ParserOptions) -> io::Result<Font>
     where
         B: AsRef<[u8]>,
     {
         let mut reader = io::Cursor::new(bin.as_ref());
         let name = reader.read_pas_string()?;
 
-        if strict {
+        if options.strict {
             let version = reader.read_u32_le()? as Version;
             assert_eq!(version, VERSION);
         } else {

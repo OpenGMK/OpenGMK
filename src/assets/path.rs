@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::game::parser::ParserOptions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
 
@@ -59,14 +60,14 @@ impl Path {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, strict: bool) -> io::Result<Path>
+    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Path>
     where
         B: AsRef<[u8]>,
     {
         let mut reader = io::Cursor::new(bin.as_ref());
         let name = reader.read_pas_string()?;
 
-        if strict {
+        if options.strict {
             let version = reader.read_u32_le()? as Version;
             assert_eq!(version, VERSION);
         } else {

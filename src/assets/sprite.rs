@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::game::parser::ParserOptions;
 use crate::types::{BoundingBox, Dimensions, Point, Version};
 use crate::util::{bgra2rgba, rgba2bgra};
 use std::io::{self, Seek, SeekFrom};
@@ -75,14 +76,14 @@ impl Sprite {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, strict: bool) -> io::Result<Sprite>
+    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Sprite>
     where
         B: AsRef<[u8]>,
     {
         let mut reader = io::Cursor::new(bin.as_ref());
         let name = reader.read_pas_string()?;
 
-        if strict {
+        if options.strict {
             let version = reader.read_u32_le()? as Version;
             assert_eq!(version, VERSION);
         } else {
@@ -95,7 +96,7 @@ impl Sprite {
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
             let mut frames = Vec::with_capacity(frame_count as usize);
             for _ in 0..frame_count {
-                if strict {
+                if options.strict {
                     let version = reader.read_u32_le()? as Version;
                     assert_eq!(version, VERSION_FRAME);
                 } else {
@@ -131,12 +132,12 @@ impl Sprite {
 
             fn read_collision<T>(
                 reader: &mut io::Cursor<T>,
-                strict: bool,
+                options: &ParserOptions,
             ) -> io::Result<CollisionMap>
             where
                 T: AsRef<[u8]>,
             {
-                if strict {
+                if options.strict {
                     let version = reader.read_u32_le()? as Version;
                     assert_eq!(version, VERSION_COLLISION);
                 } else {
@@ -178,10 +179,10 @@ impl Sprite {
             if per_frame_colliders {
                 colliders = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
-                    colliders.push(read_collision(&mut reader, strict)?);
+                    colliders.push(read_collision(&mut reader, options)?);
                 }
             } else {
-                colliders = vec![read_collision(&mut reader, strict)?];
+                colliders = vec![read_collision(&mut reader, options)?];
             }
             (frames, colliders, per_frame_colliders)
         } else {

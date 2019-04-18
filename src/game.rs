@@ -1,4 +1,4 @@
-mod parser;
+pub mod parser;
 
 use crate::assets::*;
 
@@ -12,7 +12,6 @@ pub struct Game {
     // Timelines
     // Objects
     // Rooms
-
     pub triggers: Vec<Option<Box<Trigger>>>,
     pub constants: Vec<(String, String)>,
     // Extensions

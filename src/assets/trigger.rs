@@ -1,9 +1,10 @@
 #![allow(dead_code)] // Shut up???
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::game::parser::ParserOptions;
 use crate::types::Version;
-use std::io::{self, Seek, SeekFrom};
 use std::fmt::{self, Display};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: Version = 800;
 
@@ -36,12 +37,12 @@ impl Trigger {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, strict: bool) -> io::Result<Trigger>
+    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Trigger>
     where
         B: AsRef<[u8]>,
     {
         let mut reader = io::Cursor::new(bin.as_ref());
-        if strict {
+        if options.strict {
             let version = reader.read_u32_le()?;
             assert_eq!(version, VERSION);
         } else {
@@ -83,10 +84,14 @@ impl From<u32> for TriggerKind {
 
 impl Display for TriggerKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            TriggerKind::Step => "step",
-            TriggerKind::BeginStep => "begin step",
-            TriggerKind::EndStep => "end step",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                TriggerKind::Step => "step",
+                TriggerKind::BeginStep => "begin step",
+                TriggerKind::EndStep => "end step",
+            }
+        )
     }
 }

@@ -20,6 +20,27 @@ const GM81_MAGIC_FIELD_SIZE: u32 = 1024;
 const GM81_MAGIC_1: u32 = 0xF7000000;
 const GM81_MAGIC_2: u32 = 0x00140067;
 
+pub struct ParserOptions<'a> {
+    /// Optionally dump DirectX dll to out path.
+    pub dump_dll: Option<&'a std::path::Path>,
+
+    /// Enable verbose logging.
+    pub log: bool,
+
+    /// Strict version checking.
+    pub strict: bool,
+}
+
+impl<'a> ParserOptions<'a> {
+    pub fn new() -> ParserOptions<'a> {
+        ParserOptions {
+            dump_dll: None,
+            log: false,
+            strict: true,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
@@ -64,7 +85,7 @@ impl From<io::Error> for Error {
 }
 
 /// Removes GameMaker 8.0 protection in-place.
-fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<()> {
+fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> io::Result<()> {
     let mut swap_table = [0u8; 256];
     let mut reverse_table = [0u8; 256];
 
@@ -86,7 +107,7 @@ fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     // simplifying for expressions below
     let pos = data.position() as usize; // stream position
     let data = data.get_mut(); // mutable ref for writing
-    if verbose {
+    if options.log {
         println!(
             "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})",
             len, garbage1_size, garbage2_size
@@ -118,7 +139,7 @@ fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
 }
 
 /// Removes GM8.1 encryption in-place.
-fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<()> {
+fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> io::Result<()> {
     // YYG's crc32 implementation
     let crc_32 = |hash_key: &Vec<u8>, crc_table: &[u32; 256]| -> u32 {
         let mut result: u32 = 0xFFFFFFFF;
@@ -164,7 +185,7 @@ fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, verbose: bool) -> io::Result<(
     let mut seed1 = data.read_u32_le()?;
     let mut seed2 = crc_32(&hash_key_utf16, &crc_table);
 
-    if verbose {
+    if options.log {
         println!(
             "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})",
             hash_key, seed1, seed2
@@ -202,19 +223,14 @@ where
 
 impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe<I>(
-        mut exe: I,
-        strict: bool,
-        verbose: bool,
-        dll_out: Option<&String>,
-    ) -> Result<Game, Error>
+    pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game, Error>
     where
         I: AsRef<[u8]> + AsMut<[u8]>,
     {
         let exe = exe.as_mut();
 
         // verify executable header
-        if strict {
+        if options.strict {
             if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
@@ -228,7 +244,7 @@ impl Game {
         // check for standard 8.0 header
         exe.set_position(GM80_MAGIC_POS);
         if exe.read_u32_le()? == GM80_MAGIC {
-            if verbose {
+            if options.log {
                 println!("Detected GameMaker 8.0 magic (pos: {:#X})", GM80_MAGIC_POS);
             }
 
@@ -241,7 +257,7 @@ impl Game {
             for _ in 0..GM81_MAGIC_FIELD_SIZE {
                 if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
                     if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
-                        if verbose {
+                        if options.log {
                             println!(
                                 "Detected GameMaker 8.1 magic (pos: {:#X})",
                                 exe.position() - 8
@@ -249,7 +265,7 @@ impl Game {
                         }
 
                         game_ver = Some(GameVersion::GameMaker81);
-                        decrypt_gm81(&mut exe, verbose)?;
+                        decrypt_gm81(&mut exe, options)?;
                         exe.seek(SeekFrom::Current(20))?; // 8.1-specific header TODO: strict should probably check these values.
                         break;
                     } else {
@@ -289,7 +305,7 @@ impl Game {
         exe.seek(SeekFrom::Current(settings_len as i64))?;
         let _settings = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
 
-        if verbose {
+        if options.log {
             println!(
                 "Reading settings chunk... (size: {} ({} deflated))",
                 _settings.len(),
@@ -300,9 +316,9 @@ impl Game {
         // Embedded DirectX DLL
         // we obviously don't need this, so we skip over it
         // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
-        if verbose {
+        if options.log {
             let dllname = exe.read_pas_string()?;
-            if verbose {
+            if options.log {
                 print!("Skipping embedded DLL '{}'", dllname);
             }
         } else {
@@ -313,12 +329,12 @@ impl Game {
 
         // skip or dump embedded dll data chunk
         let dll_len = exe.read_u32_le()? as i64;
-        if verbose {
-            // follwup to the print above
+        if options.log {
+            // follwup to the print aboves
             print!(" (size: {})\n", dll_len);
         }
-        if let Some(out_path) = dll_out {
-            println!("Dumping DirectX DLL to {}...", out_path);
+        if let Some(out_path) = options.dump_dll {
+            println!("Dumping DirectX DLL to {}...", out_path.display());
             let mut dll_data = vec![0u8; dll_len as usize];
             exe.read(&mut dll_data)?;
             fs::write(out_path, &dll_data)?;
@@ -327,7 +343,7 @@ impl Game {
         }
 
         // yeah
-        decrypt_gm80(&mut exe, verbose)?;
+        decrypt_gm80(&mut exe, options)?;
 
         // more garbage fields that do nothing
         // (there's 6 more u32's than it claims to contain, hence (n+6)*4)
@@ -381,8 +397,8 @@ impl Game {
 
         // Triggers
         assert_ver("triggers header", 800, exe.read_u32_le()?)?;
-        let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, strict))?;
-        if verbose {
+        let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, options))?;
+        if options.log {
             triggers.iter().flatten().for_each(|trigger| {
                 println!(
                     " + Added trigger '{}' (moment: {}, condition: {})",
@@ -398,7 +414,7 @@ impl Game {
         for _ in 0..constant_count {
             let name = exe.read_pas_string()?;
             let value = exe.read_pas_string()?;
-            if verbose {
+            if options.log {
                 println!(" + Added constant '{}' (value: {})", name, value);
             }
             constants.push((name, value));
@@ -406,8 +422,8 @@ impl Game {
 
         // Sounds
         assert_ver("sounds header", 800, exe.read_u32_le()?)?;
-        let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, strict))?;
-        if verbose {
+        let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, options))?;
+        if options.log {
             sounds.iter().flatten().for_each(|sound| {
                 println!(" + Added sound '{}' ({})", sound.name, sound.source);
             });
@@ -415,8 +431,8 @@ impl Game {
 
         // Sprites
         assert_ver("sprites header", 800, exe.read_u32_le()?)?;
-        let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, strict))?;
-        if verbose {
+        let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, options))?;
+        if options.log {
             sprites.iter().flatten().for_each(|sprite| {
                 let framecount = sprite.frames.len();
                 println!(
@@ -432,8 +448,8 @@ impl Game {
 
         // Backgrounds
         assert_ver("backgrounds header", 800, exe.read_u32_le()?)?;
-        let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, strict))?;
-        if verbose {
+        let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, options))?;
+        if options.log {
             backgrounds.iter().flatten().for_each(|background| {
                 println!(
                     " + Added background '{}' ({}x{})",
@@ -444,8 +460,8 @@ impl Game {
 
         // Paths
         assert_ver("paths header", 800, exe.read_u32_le()?)?;
-        let paths = get_assets(&mut exe, |data| Path::deserialize(data, strict))?;
-        if verbose {
+        let paths = get_assets(&mut exe, |data| Path::deserialize(data, options))?;
+        if options.log {
             paths.iter().flatten().for_each(|path| {
                 println!(
                     " + Added path '{}' ({}, {}, {} point{}, precision: {})",
@@ -464,8 +480,8 @@ impl Game {
 
         // Scripts
         assert_ver("scripts header", 800, exe.read_u32_le()?)?;
-        let scripts = get_assets(&mut exe, |data| Script::deserialize(data, strict))?;
-        if verbose {
+        let scripts = get_assets(&mut exe, |data| Script::deserialize(data, options))?;
+        if options.log {
             scripts.iter().flatten().for_each(|script| {
                 println!(
                     " + Added script '{}' (source length: {})",
@@ -477,8 +493,8 @@ impl Game {
 
         // Fonts
         assert_ver("fonts header", 800, exe.read_u32_le()?)?;
-        let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, strict))?;
-        if verbose {
+        let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, options))?;
+        if options.log {
             fonts.iter().flatten().for_each(|font| {
                 println!(
                     " + Added font '{}' ({}, {}px{}{})",
