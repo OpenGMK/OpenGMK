@@ -498,6 +498,7 @@ impl Game {
             paths,
             scripts,
             fonts,
+            triggers,
             constants,
 
             version: game_ver,
