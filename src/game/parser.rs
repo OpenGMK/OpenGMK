@@ -1,5 +1,5 @@
 use super::Game;
-use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite};
+use crate::assets::{path::ConnectionKind, Trigger, Background, Font, Path, Script, Sound, Sprite};
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 use flate2::read::ZlibDecoder;
@@ -385,7 +385,12 @@ impl Game {
 
         // TODO: Triggers
         assert_ver("triggers header", 800, exe.read_u32_le()?)?;
-        let _triggers = get_assets(&mut exe, |_data| Ok(()));
+        let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, strict))?;
+        if verbose {
+            triggers.iter().flatten().for_each(|trigger| {
+                println!(" + Added trigger '{}' ({}): {}", trigger.name, trigger.moment as u32, trigger.condition);
+            });
+        }
 
         // TODO: Constants! Test this!
         assert_ver("constants header", 800, exe.read_u32_le()?)?;

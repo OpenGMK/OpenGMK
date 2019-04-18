@@ -1,3 +1,4 @@
+pub mod trigger;
 pub mod background;
 pub mod font;
 pub mod path;
@@ -5,6 +6,7 @@ pub mod script;
 pub mod sound;
 pub mod sprite;
 
+pub use self::trigger::Trigger;
 pub use self::background::Background;
 pub use self::font::Font;
 pub use self::path::Path;
