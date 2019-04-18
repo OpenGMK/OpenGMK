@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
-use crate::game::parser::ParserOptions;
+use crate::game::{GameVersion, parser::ParserOptions};
 use crate::types::Dimensions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
@@ -65,7 +65,7 @@ impl Font {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, _gm81: bool, options: &ParserOptions) -> io::Result<Font>
+    pub fn deserialize<B>(bin: B, _v: GameVersion, options: &ParserOptions) -> io::Result<Font>
     where
         B: AsRef<[u8]>,
     {

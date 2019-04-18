@@ -493,7 +493,7 @@ impl Game {
 
         // Fonts
         assert_ver("fonts header", 800, exe.read_u32_le()?)?;
-        let fonts = get_assets(&mut exe, |data| Font::deserialize(data, false, options))?;
+        let fonts = get_assets(&mut exe, |data| Font::deserialize(data, &game_ver, options))?;
         if options.log {
             fonts.iter().flatten().for_each(|font| {
                 println!(
