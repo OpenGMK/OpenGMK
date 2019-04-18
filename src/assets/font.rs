@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
-use crate::game::{GameVersion, parser::ParserOptions};
+use crate::game::{parser::ParserOptions, GameVersion};
 use crate::types::Dimensions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
@@ -29,6 +29,12 @@ pub struct Font {
 
     /// The charcode range end of the font.
     pub range_end: u32,
+
+    // TODO: Document
+    pub charset: u32,
+
+    // TODO: Document
+    pub aa_level: u32,
 
     /// A complicated lookup table thing.
     /// TODO: ^^^^^
@@ -65,7 +71,11 @@ impl Font {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, _v: &GameVersion, options: &ParserOptions) -> io::Result<Font>
+    pub fn deserialize<B>(
+        bin: B,
+        game_ver: &GameVersion,
+        options: &ParserOptions,
+    ) -> io::Result<Font>
     where
         B: AsRef<[u8]>,
     {
@@ -83,10 +93,18 @@ impl Font {
         let size = reader.read_u32_le()?;
         let bold = reader.read_u32_le()? != 0;
         let italic = reader.read_u32_le()? != 0;
-        let range_start = reader.read_u32_le()?;
+        let mut range_start = reader.read_u32_le()?;
         let range_end = reader.read_u32_le()?;
 
-        // TODO: 8.1 specific magic
+        let (charset, aa_level) = match game_ver {
+            GameVersion::GameMaker80 => (0, 0),
+            GameVersion::GameMaker81 => {
+                let charset = range_start & 0xFF000000;
+                let aa_level = range_start & 0x00FF0000;
+                range_start &= 0x0000FFFF;
+                (charset, aa_level)
+            }
+        };
 
         let dmap = [0u32; 0x600];
         let width = reader.read_u32_le()?;
@@ -117,6 +135,8 @@ impl Font {
             italic,
             range_start,
             range_end,
+            charset,
+            aa_level,
             dmap: Box::new(dmap),
             image_size: Dimensions { width, height },
             image_data: pixels.into_boxed_slice(),
