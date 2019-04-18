@@ -3,6 +3,7 @@
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
+use std::fmt::{self, Display};
 
 pub const VERSION: Version = 800;
 
@@ -77,5 +78,15 @@ impl From<u32> for TriggerKind {
 
             _ => TriggerKind::Step,
         }
+    }
+}
+
+impl Display for TriggerKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            TriggerKind::Step => "step",
+            TriggerKind::BeginStep => "begin step",
+            TriggerKind::EndStep => "end step",
+        })
     }
 }

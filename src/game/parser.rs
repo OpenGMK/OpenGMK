@@ -385,8 +385,8 @@ impl Game {
         if verbose {
             triggers.iter().flatten().for_each(|trigger| {
                 println!(
-                    " + Added trigger '{}' ({}): {}",
-                    trigger.name, trigger.moment as u32, trigger.condition
+                    " + Added trigger '{}' (moment: {}, condition: {})",
+                    trigger.name, trigger.moment, trigger.condition
                 );
             });
         }
