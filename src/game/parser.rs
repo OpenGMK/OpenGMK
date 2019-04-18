@@ -379,7 +379,7 @@ impl Game {
         assert_ver("extensions header", 700, exe.read_u32_le()?)?;
         let _extensions = get_assets(&mut exe, |_data| Ok(()));
 
-        // TODO: Triggers
+        // Triggers
         assert_ver("triggers header", 800, exe.read_u32_le()?)?;
         let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, strict))?;
         if verbose {
@@ -391,7 +391,7 @@ impl Game {
             });
         }
 
-        // TODO: Constants! Test this!
+        // Constants
         assert_ver("constants header", 800, exe.read_u32_le()?)?;
         let constant_count = exe.read_u32_le()? as usize;
         let mut constants = Vec::with_capacity(constant_count);
