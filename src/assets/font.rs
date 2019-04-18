@@ -65,7 +65,7 @@ impl Font {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, _v: GameVersion, options: &ParserOptions) -> io::Result<Font>
+    pub fn deserialize<B>(bin: B, _v: &GameVersion, options: &ParserOptions) -> io::Result<Font>
     where
         B: AsRef<[u8]>,
     {
