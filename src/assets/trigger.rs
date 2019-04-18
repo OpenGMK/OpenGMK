@@ -52,7 +52,12 @@ impl Trigger {
         let moment = TriggerKind::from(reader.read_u32_le()?);
         let constant_name = reader.read_pas_string()?;
 
-        Ok(Trigger { name, condition, moment, constant_name })
+        Ok(Trigger {
+            name,
+            condition,
+            moment,
+            constant_name,
+        })
     }
 }
 
@@ -60,7 +65,7 @@ impl Trigger {
 pub enum TriggerKind {
     Step = 0,
     BeginStep = 1,
-    EndStep = 2
+    EndStep = 2,
 }
 
 impl From<u32> for TriggerKind {

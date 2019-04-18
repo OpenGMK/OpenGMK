@@ -1,5 +1,5 @@
 use super::{Game, GameVersion};
-use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite};
+use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite, Trigger};
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 
 use flate2::read::ZlibDecoder;
@@ -384,7 +384,10 @@ impl Game {
         let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, strict))?;
         if verbose {
             triggers.iter().flatten().for_each(|trigger| {
-                println!(" + Added trigger '{}' ({}): {}", trigger.name, trigger.moment as u32, trigger.condition);
+                println!(
+                    " + Added trigger '{}' ({}): {}",
+                    trigger.name, trigger.moment as u32, trigger.condition
+                );
             });
         }
 
