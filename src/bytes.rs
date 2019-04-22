@@ -3,10 +3,19 @@
 use std::io;
 
 use std::f64;
+use std::i32;
 use std::u32;
 use std::u64;
 
 pub trait ReadBytes: io::Read {
+    /// Reads an `i32` (little-endian) from the underlying reader.
+    #[inline(always)]
+    fn read_i32_le(&mut self) -> io::Result<i32> {
+        let mut data = [0u8; 4];
+        self.read_exact(&mut data)?;
+        Ok(i32::from_le_bytes(data))
+    }
+
     /// Reads a `u32` (little-endian) from the underlying reader.
     #[inline(always)]
     fn read_u32_le(&mut self) -> io::Result<u32> {
@@ -25,6 +34,12 @@ pub trait ReadBytes: io::Read {
 }
 
 pub trait WriteBytes: io::Write {
+    /// Writes a `i32` (little-endian) to the underlying writer.
+    #[inline(always)]
+    fn write_i32_le(&mut self, n: u32) -> io::Result<usize> {
+        Ok(self.write(&n.to_le_bytes())?)
+    }
+
     /// Writes a `u32` (little-endian) to the underlying writer.
     #[inline(always)]
     fn write_u32_le(&mut self, n: u32) -> io::Result<usize> {
