@@ -1,5 +1,7 @@
 use super::{Game, GameVersion};
-use crate::assets::{path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite, Trigger};
+use crate::assets::{
+    path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite, Timeline, Trigger,
+};
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 
 use flate2::read::ZlibDecoder;
@@ -504,6 +506,35 @@ impl Game {
                     if font.bold { ", bold" } else { "" },
                     if font.italic { ", italic" } else { "" }
                 );
+            });
+        }
+
+        // Timelines
+        assert_ver("timelines header", 800, exe.read_u32_le()?)?;
+        let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, options))?;
+        if options.log {
+            timelines.iter().flatten().for_each(|timeline| {
+                println!(
+                    "+ Added timeline '{}' (moments: {})",
+                    timeline.name,
+                    timeline.moments.len()
+                );
+                // for moment in &timeline.moments {
+                //     println!("    Moment {}", moment.0);
+                //     for action in &moment.1 {
+                //         println!(
+                //             "        Action [ID: {}, Parameters: {}]",
+                //             action.id,
+                //             action
+                //                 .parameters
+                //                 .iter()
+                //                 .map(|p| format!("{:?}", p)) // map each param to a debug string repr
+                //                 .collect::<Vec<_>>()         // put all those in a vec
+                //                 .iter()
+                //                 .fold(String::new(), |s, param| s + ", " + param)
+                //         );
+                //     }
+                // }
             });
         }
 

@@ -1,6 +1,7 @@
 mod assets;
 mod bytes;
 mod game;
+mod gml;
 mod types;
 mod util;
 mod xmath;
