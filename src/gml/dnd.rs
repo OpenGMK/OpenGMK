@@ -27,6 +27,15 @@ pub enum CodeActionParam {
 }
 
 impl CodeAction {
+    pub fn serialize<W>(&self, _writer: &mut W) -> io::Result<usize>
+    where
+        W: io::Write,
+    {
+        let result = 0;
+        // TODO: this
+        Ok(result)
+    }
+
     pub fn deserialize(reader: &mut io::Cursor<&[u8]>) -> io::Result<CodeAction> {
         //let mut reader = io::Cursor::new(bin.as_ref());
         reader.seek(SeekFrom::Current(8))?; // "Skips version id and useless lib id" TODO strict
