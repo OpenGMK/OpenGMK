@@ -515,7 +515,7 @@ impl Game {
         if options.log {
             timelines.iter().flatten().for_each(|timeline| {
                 println!(
-                    "+ Added timeline '{}' (moments: {})",
+                    " + Added timeline '{}' (moments: {})",
                     timeline.name,
                     timeline.moments.len()
                 );
@@ -544,23 +544,27 @@ impl Game {
         if options.log {
             objects.iter().flatten().for_each(|object| {
                 println!(
-                    "+ Added object {} ({}{}{}depth {})",
+                    " + Added object {} ({}{}{}depth {})",
                     object.name,
-                    if object.solid {"solid; "} else {""},
-                    if object.visible {"visible; "} else {""},
-                    if object.persistent {"persistent; "} else {""},
+                    if object.solid { "solid; " } else { "" },
+                    if object.visible { "visible; " } else { "" },
+                    if object.persistent {
+                        "persistent; "
+                    } else {
+                        ""
+                    },
                     object.depth,
                 );
-                for (i, sub_list) in object.events.iter().enumerate() {
-                    for (sub, actions) in sub_list.iter() {
-                        println!(
-                            "*** New event, category {}, sub-event {}, {} actions",
-                            i,
-                            sub,
-                            actions.len(),
-                        );
-                    }
-                }
+                // for (i, sub_list) in object.events.iter().enumerate() {
+                //     for (sub, actions) in sub_list.iter() {
+                //         println!(
+                //             "*** New event, category {}, sub-event {}, {} actions",
+                //             i,
+                //             sub,
+                //             actions.len(),
+                //         );
+                //     }
+                // }
             });
         }
 
