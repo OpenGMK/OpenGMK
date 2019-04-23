@@ -1,6 +1,6 @@
 use super::{Game, GameVersion};
 use crate::assets::{
-    path::ConnectionKind, Background, Font, Path, Script, Sound, Sprite, Timeline, Trigger,
+    path::ConnectionKind, Background, Font, Object, Path, Script, Sound, Sprite, Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 
@@ -538,6 +538,32 @@ impl Game {
             });
         }
 
+        // Objects
+        assert_ver("objects header", 800, exe.read_u32_le()?)?;
+        let objects = get_assets(&mut exe, |data| Object::deserialize(data, options))?;
+        if options.log {
+            objects.iter().flatten().for_each(|object| {
+                println!(
+                    "+ Added object {} ({}{}{}depth {})",
+                    object.name,
+                    if object.solid {"solid; "} else {""},
+                    if object.visible {"visible; "} else {""},
+                    if object.persistent {"persistent; "} else {""},
+                    object.depth,
+                );
+                for (i, sub_list) in object.events.iter().enumerate() {
+                    for (sub, actions) in sub_list.iter() {
+                        println!(
+                            "*** New event, category {}, sub-event {}, {} actions",
+                            i,
+                            sub,
+                            actions.len(),
+                        );
+                    }
+                }
+            });
+        }
+
         Ok(Game {
             sprites,
             sounds,
@@ -545,6 +571,8 @@ impl Game {
             paths,
             scripts,
             fonts,
+            timelines,
+            objects,
             triggers,
             constants,
 

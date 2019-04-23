@@ -9,8 +9,8 @@ pub struct Game {
     pub paths: Vec<Option<Box<Path>>>,
     pub scripts: Vec<Option<Box<Script>>>,
     pub fonts: Vec<Option<Box<Font>>>,
-    // Timelines
-    // Objects
+    pub timelines: Vec<Option<Box<Timeline>>>,
+    pub objects: Vec<Option<Box<Object>>>,
     // Rooms
     pub triggers: Vec<Option<Box<Trigger>>>,
     pub constants: Vec<(String, String)>,
