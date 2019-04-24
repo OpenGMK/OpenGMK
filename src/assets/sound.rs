@@ -32,13 +32,16 @@ pub struct Sound {
     /// Value is between -1.0 and +1.0 (-1 Left <- 0 -> Right +1)
     pub pan: f64,
 
-    /// TODO: I have no idea what this does.
-    /// Maybe it preemptively caches the audio samples.
+    /// Indicates whether the "preload" option was checked for this sound
+    /// We will most likely ignore this and preload everything.
     pub preload: bool,
 
-    /// TODO: I also have no idea what this does.
-    /// It might be garbage data.
-    unused1: u32,
+    /// Various "effects" which can be checked in the sound editor.
+    pub chorus: bool,
+    pub echo: bool,
+    pub flanger: bool,
+    pub gargle: bool,
+    pub reverb: bool,
 }
 
 impl Sound {
@@ -60,7 +63,12 @@ impl Sound {
             result += writer.write_u32_le(0)?;
         }
 
-        result += writer.write_u32_le(self.unused1)?;
+        let effects = (if self.chorus { 1 } else { 0 })
+            + (if self.echo { 2 } else { 0 })
+            + (if self.flanger { 4 } else { 0 })
+            + (if self.gargle { 8 } else { 0 })
+            + (if self.reverb { 16 } else { 0 });
+        result += writer.write_u32_le(effects)?;
         result += writer.write_f64_le(self.volume)?;
         result += writer.write_f64_le(self.pan)?;
         result += writer.write_u32_le(if self.preload { 1 } else { 0 })?;
@@ -95,7 +103,13 @@ impl Sound {
             None
         };
 
-        let unused1 = reader.read_u32_le()?;
+        let effects = reader.read_u32_le()?;
+        let chorus: bool = (effects & 1) != 0;
+        let echo: bool = (effects & 2) != 0;
+        let flanger: bool = (effects & 4) != 0;
+        let gargle: bool = (effects & 8) != 0;
+        let reverb: bool = (effects & 16) != 0;
+
         let volume = reader.read_f64_le()?;
         let pan = reader.read_f64_le()?;
         let preload = reader.read_u32_le()? != 0;
@@ -109,7 +123,11 @@ impl Sound {
             volume,
             pan,
             preload,
-            unused1,
+            chorus,
+            echo,
+            flanger,
+            gargle,
+            reverb,
         })
     }
 }
