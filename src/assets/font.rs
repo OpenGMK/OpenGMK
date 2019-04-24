@@ -30,14 +30,15 @@ pub struct Font {
     /// The charcode range end of the font.
     pub range_end: u32,
 
-    // TODO: Document
+    // The charset that was used to generate this font (usually ANSI)
     pub charset: u32,
 
-    // TODO: Document
+    // The anti-aliasing level that was used to generate this font
     pub aa_level: u32,
 
-    /// A complicated lookup table thing.
-    /// TODO: ^^^^^
+    /// Lookup table for sections of the font's pixel data, relative to a given character's ord value.
+    /// A font supports exactly 256 characters, and each character has six values here which are used to draw that character from the pixel data:
+    /// x, y, width, height, cursor offset (ie. how far right of the cursor to draw), and cursor distance (ie. how far right to move the cursor after drawing.)
     pub dmap: Box<[u32; 0x600]>,
 
     /// The size of the cooked RGBA pixeldata.
@@ -99,8 +100,8 @@ impl Font {
         let (charset, aa_level) = match game_ver {
             GameVersion::GameMaker80 => (0, 0),
             GameVersion::GameMaker81 => {
-                let charset = range_start & 0xFF000000;
-                let aa_level = range_start & 0x00FF0000;
+                let charset = (range_start & 0xFF000000) >> 24;
+                let aa_level = (range_start & 0x00FF0000) >> 16;
                 range_start &= 0x0000FFFF;
                 (charset, aa_level)
             }
@@ -110,9 +111,7 @@ impl Font {
         let width = reader.read_u32_le()?;
         let height = reader.read_u32_le()?;
         let len = reader.read_u32_le()? as usize;
-        if width as usize * height as usize != len {
-            // TODO: bad reader.
-        }
+        assert_eq!(width as usize * height as usize, len); // Since these values are redundant, make sure they match up.
 
         // convert f64 map to RGBA data
         // step 1) Fill entire thing with 0xFF (WHITE)
