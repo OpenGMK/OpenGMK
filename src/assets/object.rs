@@ -50,10 +50,10 @@ impl Object {
         let mut result = writer.write_pas_string(&self.name)?;
         result += writer.write_u32_le(VERSION as u32)?;
         result += writer.write_u32_le(self.sprite_index as u32)?;
-        result += writer.write_u32_le(if self.solid {1} else {0})?;
-        result += writer.write_u32_le(if self.visible {1} else {0})?;
+        result += writer.write_u32_le(if self.solid { 1 } else { 0 })?;
+        result += writer.write_u32_le(if self.visible { 1 } else { 0 })?;
         result += writer.write_u32_le(self.depth as u32)?;
-        result += writer.write_u32_le(if self.persistent {1} else {0})?;
+        result += writer.write_u32_le(if self.persistent { 1 } else { 0 })?;
         result += writer.write_u32_le(self.parent_index as u32)?;
         result += writer.write_u32_le(self.mask_index as u32)?;
 
@@ -67,7 +67,7 @@ impl Object {
                     result += CodeAction::serialize(action, writer)?;
                 }
             }
-            result += writer.write_i32_le(-1_i32)?; // Better way to do this?
+            result += writer.write_i32_le(-1_i32)?;
         }
         Ok(result)
     }
@@ -99,7 +99,7 @@ impl Object {
         // Oh, also, it's 0..=n so the number is actually 11 instead of 12 because there are 12 lists. Yeah.
         let event_list_count = reader.read_u32_le()?;
         assert_eq!(event_list_count, 11);
-        let mut events: Vec<Vec<(u32, Vec<CodeAction>)>> = Vec::with_capacity((event_list_count + 1) as usize);
+        let mut events = Vec::with_capacity((event_list_count + 1) as usize);
 
         for _ in 0..=event_list_count {
             let mut sub_event_list: Vec<(u32, Vec<CodeAction>)> = Vec::new();
