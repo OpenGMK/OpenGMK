@@ -67,7 +67,7 @@ impl Object {
                     result += CodeAction::serialize(action, writer)?;
                 }
             }
-            result += writer.write_u32_le((-1 as i32) as u32)?; // Better way to do this?
+            result += writer.write_i32_le(-1_i32)?; // Better way to do this?
         }
         Ok(result)
     }
@@ -104,8 +104,8 @@ impl Object {
         for _ in 0..=event_list_count {
             let mut sub_event_list: Vec<(u32, Vec<CodeAction>)> = Vec::new();
             loop {
-                let index = reader.read_u32_le()?;
-                if (index as i32) == -1 {
+                let index = reader.read_i32_le()?;
+                if index == -1 {
                     break;
                 }
 
@@ -121,7 +121,7 @@ impl Object {
                 for _ in 0..action_count {
                     actions.push(CodeAction::deserialize(&mut reader)?);
                 }
-                sub_event_list.push((index, actions));
+                sub_event_list.push((index as u32, actions));
             }
             events.push(sub_event_list);
         }
