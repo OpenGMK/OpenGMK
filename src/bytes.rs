@@ -36,7 +36,7 @@ pub trait ReadBytes: io::Read {
 pub trait WriteBytes: io::Write {
     /// Writes a `i32` (little-endian) to the underlying writer.
     #[inline(always)]
-    fn write_i32_le(&mut self, n: u32) -> io::Result<usize> {
+    fn write_i32_le(&mut self, n: i32) -> io::Result<usize> {
         Ok(self.write(&n.to_le_bytes())?)
     }
 
