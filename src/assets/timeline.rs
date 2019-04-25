@@ -1,10 +1,6 @@
 #![allow(dead_code)]
 
-use crate::bytes::{
-    ReadBytes,
-    ReadString,
-    //WriteBytes, WriteString
-};
+use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::game::parser::ParserOptions;
 use crate::gml::dnd::CodeAction;
 use crate::types::Version;
@@ -23,12 +19,21 @@ pub struct Timeline {
 }
 
 impl Timeline {
-    pub fn serialize<W>(&self, _writer: &mut W) -> io::Result<usize>
+    pub fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
     {
-        let result = 0;
-        // TODO: this
+        let mut result = writer.write_pas_string(&self.name)?;
+        result += writer.write_u32_le(VERSION as u32)?;
+        result += writer.write_u32_le(self.moments.len() as u32)?;
+        for (moment_index, actions) in self.moments.iter() {
+            result += writer.write_u32_le(*moment_index)?;
+            result += writer.write_u32_le(VERSION_MOMENT as u32)?;
+            result += writer.write_u32_le(actions.len() as u32)?;
+            for action in actions.iter() {
+                result += CodeAction::serialize(action, writer)?;
+            }
+        }
         Ok(result)
     }
 
