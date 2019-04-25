@@ -62,7 +62,7 @@ impl Timeline {
 
             let mut actions = Vec::with_capacity(action_count);
             for _ in 0..action_count {
-                actions.push(CodeAction::deserialize(&mut reader)?);
+                actions.push(CodeAction::deserialize(&mut reader, options)?);
             }
 
             moments.push((moment_index, actions));

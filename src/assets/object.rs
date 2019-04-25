@@ -119,7 +119,7 @@ impl Object {
                 let action_count = reader.read_u32_le()?;
                 let mut actions: Vec<CodeAction> = Vec::with_capacity(action_count as usize);
                 for _ in 0..action_count {
-                    actions.push(CodeAction::deserialize(&mut reader)?);
+                    actions.push(CodeAction::deserialize(&mut reader, options)?);
                 }
                 sub_event_list.push((index as u32, actions));
             }
