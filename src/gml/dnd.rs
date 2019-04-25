@@ -38,6 +38,8 @@ pub struct CodeAction {
     pub fn_name: String,
     pub fn_code: String,
 
+    pub applies_to_original: i32,
+
     pub param_types: [u32; PARAM_COUNT],
     pub param_strings: Vec<String>,
 }
@@ -50,12 +52,35 @@ pub enum CodeActionParam {
 }
 
 impl CodeAction {
-    pub fn serialize<W>(&self, _writer: &mut W) -> io::Result<usize>
+    pub fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
     {
-        let result = 0;
-        // TODO: this
+        let mut result = writer.write_u32_le(VERSION)?;
+        result += writer.write_u32_le(self.lib_id)?;
+        result += writer.write_u32_le(self.id)?;
+        result += writer.write_u32_le(self.action_kind)?;
+        result += writer.write_u32_le(self.can_be_relative)?;
+        result += writer.write_u32_le(if self.is_condition { 1 } else { 0 })?;
+        result += writer.write_u32_le(if self.applies_to_something { 1 } else { 0 })?;
+        result += writer.write_u32_le(self.action_type)?;
+        result += writer.write_pas_string(&self.fn_name)?;
+        result += writer.write_pas_string(&self.fn_code)?;
+
+        result += writer.write_u32_le(self.parameters.len() as u32)?;
+        result += writer.write_u32_le(PARAM_COUNT as u32)?;
+        for i in self.param_types.iter() {
+            result += writer.write_u32_le(*i)?;
+        }
+        result += writer.write_i32_le(self.applies_to_original)?;
+        result += writer.write_u32_le(if self.is_relative { 1 } else { 0 })?;
+
+        result += writer.write_u32_le(PARAM_COUNT as u32)?;
+        for i in self.param_strings.iter() {
+            result += writer.write_pas_string(i)?;
+        }
+        result += writer.write_u32_le(if self.invert_condition { 1 } else { 0 })?;
+
         Ok(result)
     }
 
@@ -90,14 +115,14 @@ impl CodeAction {
         assert_eq!(type_count, PARAM_COUNT as u32);
 
         let mut param_types = [0u32; PARAM_COUNT];
-        for i in 0..type_count {
+        for i in 0..(type_count as usize) {
             param_types[i] = reader.read_u32_le()?;
         }
 
+        let applies_to_original = reader.read_i32_le()?;
         let applies_to = if applies_to_something {
-            reader.read_i32_le()?
+            applies_to_original
         } else {
-            reader.seek(SeekFrom::Current(4))?;
             -1 // TODO: gml::constants::SELF or something, this is self
         };
         let is_relative = reader.read_u32_le()? != 0;
@@ -141,6 +166,7 @@ impl CodeAction {
             action_type,
             fn_name,
             fn_code,
+            applies_to_original,
             param_types,
             param_strings,
         })
