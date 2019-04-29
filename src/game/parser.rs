@@ -560,8 +560,8 @@ impl Game {
             });
         }
 
-        let last_instance_id = exe.read_u32_le()?;
-        let last_tile_id = exe.read_u32_le()?;
+        let last_instance_id = exe.read_i32_le()?;
+        let last_tile_id = exe.read_i32_le()?;
 
         // TODO: Included Files
         assert_ver("included files' header", 800, exe.read_u32_le()?)?;
@@ -597,6 +597,31 @@ impl Game {
             hdg
         };
 
+        // Garbage... ? TODO: What is this???
+        assert_ver("garbage string collection header", 500, exe.read_u32_le()?)?;
+        let _gs_count = exe.read_u32_le()? as usize;
+        let mut _gstrings = Vec::with_capacity(_gs_count);
+        for _ in 0.._gs_count {
+            _gstrings.push(exe.read_pas_string()?);
+        }
+        if options.log {
+            println!(" + Added Garbage Strings: {:?}", _gstrings);
+        }
+
+        // Room Order
+        assert_ver("room order lookup", 700, exe.read_u32_le()?)?;
+        let room_order = {
+            let ro_count = exe.read_u32_le()? as usize;
+            let mut room_order = Vec::with_capacity(ro_count);
+            for _ in 0..ro_count {
+                room_order.push(exe.read_u32_le()?);
+            }
+            if options.log {
+                println!(" + Added Room Order LUT: {:?}", room_order);
+            }
+            room_order
+        };
+
         Ok(Game {
             sprites,
             sounds,
@@ -612,6 +637,9 @@ impl Game {
 
             version: game_ver,
             help_dialog,
+            last_instance_id,
+            last_tile_id,
+            room_order
         })
     }
 }
