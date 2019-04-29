@@ -41,7 +41,7 @@ impl Color {
 
     /// Formats self as an RGBA hexadecimal value.
     pub fn as_hexstring(&self) -> String {
-        format!("{:X}", self.as_decimal().swap_bytes())
+        format!("{:0>8X}", self.as_decimal().swap_bytes())
     }
 }
 
@@ -108,7 +108,7 @@ pub type Version = u32;
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn color_test() {
         let cool_color = 0xFECAAB; // RGBA #abcafe
