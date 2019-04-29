@@ -360,7 +360,7 @@ impl Game {
         let pro_flag: bool = exe.read_u32_le()? != 0;
         let game_id = exe.read_u32_le()?;
         if options.log {
-            println!("Pro flag: {}", if pro_flag {"true"} else {"false"});
+            println!("Pro flag: {}", pro_flag);
             println!("Game ID: {}", game_id);
         }
 
