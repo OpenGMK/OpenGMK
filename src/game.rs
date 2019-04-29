@@ -13,7 +13,7 @@ pub struct Game {
     pub objects: Vec<Option<Box<Object>>>,
     // Rooms
     pub triggers: Vec<Option<Box<Trigger>>>,
-    pub constants: Vec<(String, String)>,
+    pub constants: Vec<Constant>,
     // Extensions
     pub version: GameVersion,
 }

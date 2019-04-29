@@ -1,4 +1,5 @@
 pub mod background;
+pub mod constant;
 pub mod font;
 pub mod object;
 pub mod path;
@@ -9,6 +10,7 @@ pub mod timeline;
 pub mod trigger;
 
 pub use self::background::Background;
+pub use self::constant::Constant;
 pub use self::font::Font;
 pub use self::object::Object;
 pub use self::path::Path;

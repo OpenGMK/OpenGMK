@@ -1,6 +1,7 @@
 use super::{Game, GameVersion};
 use crate::assets::{
-    path::ConnectionKind, Background, Font, Object, Path, Script, Sound, Sprite, Timeline, Trigger,
+    path::ConnectionKind, Background, Constant, Font, Object, Path, Script, Sound, Sprite,
+    Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 
@@ -415,11 +416,11 @@ impl Game {
         let mut constants = Vec::with_capacity(constant_count);
         for _ in 0..constant_count {
             let name = exe.read_pas_string()?;
-            let value = exe.read_pas_string()?;
+            let expression = exe.read_pas_string()?;
             if options.log {
-                println!(" + Added constant '{}' (value: {})", name, value);
+                println!(" + Added constant '{}' (expression: {})", name, expression);
             }
-            constants.push((name, value));
+            constants.push(Constant { name, expression });
         }
 
         // Sounds
