@@ -21,7 +21,7 @@ pub struct Game {
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32, // TODO: type
     pub last_tile_id: i32, // TODO: type
-    pub room_order: Vec<u32>, // TODO: type?
+    pub room_order: Vec<i32>, // TODO: type?
 }
 
 #[derive(Debug)]

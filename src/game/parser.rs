@@ -627,7 +627,7 @@ impl Game {
             let ro_count = exe.read_u32_le()? as usize;
             let mut room_order = Vec::with_capacity(ro_count);
             for _ in 0..ro_count {
-                room_order.push(exe.read_u32_le()?);
+                room_order.push(exe.read_i32_le()?);
             }
             if options.log {
                 println!(" + Added Room Order LUT: {:?}", room_order);
