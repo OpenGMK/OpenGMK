@@ -1,6 +1,7 @@
 pub mod parser;
 
 use crate::assets::*;
+use crate::types::{Color, Dimensions};
 
 pub struct Game {
     pub sprites: Vec<Option<Box<Sprite>>>,
@@ -16,6 +17,23 @@ pub struct Game {
     pub constants: Vec<Constant>,
     // Extensions
     pub version: GameVersion,
+
+    pub help_dialog: GameHelpDialog,
+}
+
+#[derive(Debug)]
+pub struct GameHelpDialog {
+    pub bg_color: Color,
+    pub new_window: bool,
+    pub caption: String,
+    pub left: i32,
+    pub top: i32,
+    pub size: Dimensions,
+    pub border: bool,
+    pub resizable: bool,
+    pub window_on_top: bool,
+    pub freeze_game: bool,
+    pub info: String,
 }
 
 pub enum GameVersion {

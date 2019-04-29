@@ -1,9 +1,10 @@
-use super::{Game, GameVersion};
+use super::{Game, GameHelpDialog, GameVersion};
 use crate::assets::{
     path::ConnectionKind, Background, Constant, Font, Object, Path, Room, Script, Sound, Sprite,
     Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
+use crate::types::{Color, Dimensions};
 
 use flate2::read::ZlibDecoder;
 use rayon::prelude::*;
@@ -559,6 +560,43 @@ impl Game {
             });
         }
 
+        let last_instance_id = exe.read_u32_le()?;
+        let last_tile_id = exe.read_u32_le()?;
+
+        // TODO: Included Files
+        assert_ver("included files' header", 800, exe.read_u32_le()?)?;
+        let _extensions = get_assets(&mut exe, |_data| Ok(()));
+
+        // Help Dialog
+        assert_ver("help dialog", 800, exe.read_u32_le()?)?;
+        let help_dialog = {
+            let len = exe.read_u32_le()? as usize;
+            let pos = exe.position() as usize;
+            let mut data =
+                io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
+            let hdg = GameHelpDialog {
+                bg_color: data.read_u32_le()?.into(),
+                new_window: data.read_u32_le()? != 0,
+                caption: data.read_pas_string()?,
+                left: data.read_i32_le()?,
+                top: data.read_i32_le()?,
+                size: Dimensions {
+                    width: data.read_u32_le()?,
+                    height: data.read_u32_le()?,
+                },
+                border: data.read_u32_le()? != 0,
+                resizable: data.read_u32_le()? != 0,
+                window_on_top: data.read_u32_le()? != 0,
+                freeze_game: data.read_u32_le()? != 0,
+                info: data.read_pas_string()?,
+            };
+            if options.log {
+                println!(" + Help Dialog: {:#?}", hdg);
+            }
+            exe.seek(SeekFrom::Current(len as i64))?;
+            hdg
+        };
+
         Ok(Game {
             sprites,
             sounds,
@@ -573,6 +611,7 @@ impl Game {
             rooms,
 
             version: game_ver,
+            help_dialog,
         })
     }
 }
