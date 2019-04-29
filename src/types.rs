@@ -86,6 +86,7 @@ impl From<Color> for (u8, u8, u8) {
     }
 }
 
+#[derive(Debug)]
 pub struct Dimensions {
     pub width: u32,
     pub height: u32,
