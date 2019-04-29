@@ -349,10 +349,23 @@ impl Game {
         // yeah
         decrypt_gm80(&mut exe, options)?;
 
-        // more garbage fields that do nothing
-        // (there's 6 more u32's than it claims to contain, hence (n+6)*4)
-        let garbage = ((exe.read_u32_le()? + 6) * 4) as i64;
-        exe.seek(SeekFrom::Current(garbage))?;
+        // Garbage field - random bytes
+        let garbage_dwords = exe.read_u32_le()?;
+        exe.seek(SeekFrom::Current((garbage_dwords * 4) as i64))?;
+        if options.log {
+            println!("Skipped {} garbage DWORDs", garbage_dwords);
+        }
+
+        // GM8 Pro flag, game ID
+        let pro_flag: bool = exe.read_u32_le()? != 0;
+        let game_id = exe.read_u32_le()?;
+        if options.log {
+            println!("Pro flag: {}", if pro_flag {"true"} else {"false"});
+            println!("Game ID: {}", game_id);
+        }
+
+        // 16 random bytes...
+        exe.seek(SeekFrom::Current(16))?;
 
         // Rewrap data immutable.
         let prev_pos = exe.position();
