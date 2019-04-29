@@ -11,7 +11,7 @@ pub struct Game {
     pub fonts: Vec<Option<Box<Font>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub objects: Vec<Option<Box<Object>>>,
-    // Rooms
+    pub rooms: Vec<Option<Box<Room>>>,
     pub triggers: Vec<Option<Box<Trigger>>>,
     pub constants: Vec<Constant>,
     // Extensions

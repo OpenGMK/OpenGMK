@@ -1,6 +1,6 @@
 use super::{Game, GameVersion};
 use crate::assets::{
-    path::ConnectionKind, Background, Constant, Font, Object, Path, Script, Sound, Sprite,
+    path::ConnectionKind, Background, Constant, Font, Object, Path, Room, Script, Sound, Sprite,
     Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
@@ -543,6 +543,22 @@ impl Game {
             });
         }
 
+        // Rooms
+        assert_ver("rooms header", 800, exe.read_u32_le()?)?;
+        let rooms = get_assets(&mut exe, |data| Room::deserialize(data, options))?;
+        if options.log {
+            rooms.iter().flatten().for_each(|room| {
+                println!(
+                    " + Added room '{}' ({}x{}, {}FPS{})",
+                    room.name,
+                    room.size.width,
+                    room.size.height,
+                    room.speed,
+                    if room.persistent { ", persistent" } else { "" },
+                );
+            });
+        }
+
         Ok(Game {
             sprites,
             sounds,
@@ -554,6 +570,7 @@ impl Game {
             objects,
             triggers,
             constants,
+            rooms,
 
             version: game_ver,
         })
