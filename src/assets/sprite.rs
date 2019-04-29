@@ -40,8 +40,8 @@ impl Sprite {
     {
         let mut result = writer.write_pas_string(&self.name)?;
         result += writer.write_u32_le(VERSION as u32)?;
-        result += writer.write_u32_le(self.origin.x)?;
-        result += writer.write_u32_le(self.origin.y)?;
+        result += writer.write_i32_le(self.origin.x)?;
+        result += writer.write_i32_le(self.origin.y)?;
         if self.frames.len() != 0 {
             result += writer.write_u32_le(self.frames.len() as u32)?;
             for frame in self.frames.iter() {
@@ -90,8 +90,8 @@ impl Sprite {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let x = reader.read_u32_le()?;
-        let y = reader.read_u32_le()?;
+        let x = reader.read_i32_le()?;
+        let y = reader.read_i32_le()?;
         let frame_count = reader.read_u32_le()?;
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
             let mut frames = Vec::with_capacity(frame_count as usize);
