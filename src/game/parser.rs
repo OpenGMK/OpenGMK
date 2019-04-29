@@ -519,22 +519,6 @@ impl Game {
                     timeline.name,
                     timeline.moments.len()
                 );
-                // for moment in &timeline.moments {
-                //     println!("    Moment {}", moment.0);
-                //     for action in &moment.1 {
-                //         println!(
-                //             "        Action [ID: {}, Parameters: {}]",
-                //             action.id,
-                //             action
-                //                 .parameters
-                //                 .iter()
-                //                 .map(|p| format!("{:?}", p)) // map each param to a debug string repr
-                //                 .collect::<Vec<_>>()         // put all those in a vec
-                //                 .iter()
-                //                 .fold(String::new(), |s, param| s + ", " + param)
-                //         );
-                //     }
-                // }
             });
         }
 
@@ -555,16 +539,6 @@ impl Game {
                     },
                     object.depth,
                 );
-                // for (i, sub_list) in object.events.iter().enumerate() {
-                //     for (sub, actions) in sub_list.iter() {
-                //         println!(
-                //             "*** New event, category {}, sub-event {}, {} actions",
-                //             i,
-                //             sub,
-                //             actions.len(),
-                //         );
-                //     }
-                // }
             });
         }
 
