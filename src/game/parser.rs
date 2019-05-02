@@ -4,7 +4,7 @@ use crate::assets::{
     Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
-use crate::types::{Color, Dimensions};
+use crate::types::Dimensions;
 
 use flate2::read::ZlibDecoder;
 use rayon::prelude::*;
@@ -652,7 +652,7 @@ impl Game {
             help_dialog,
             last_instance_id,
             last_tile_id,
-            room_order
+            room_order,
         })
     }
 }

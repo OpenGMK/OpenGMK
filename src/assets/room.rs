@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Shut up.
 
-use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::bytes::{ReadBytes, ReadString};
 use crate::game::parser::ParserOptions;
 use crate::types::{Color, Dimensions, Point, Rectangle, Version};
 use std::io::{self, Seek, SeekFrom};
@@ -92,15 +92,11 @@ pub struct ViewFollowData {
 }
 
 impl Room {
-    pub fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
+    pub fn serialize<W>(&self, _writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
     {
-        let result = 0;
-
         panic!("unimplemented");
-
-        Ok(result)
     }
 
     pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Room>
