@@ -15,6 +15,12 @@ impl<'a> Lexer<'a> {
             iter: src.chars().peekable(),
         }
     }
+
+    fn fast_forward(&mut self) {
+        while self.iter.peek().map(|ch| ch.is_whitespace()).unwrap_or(false) {
+            self.iter.next();
+        }
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
