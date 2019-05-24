@@ -8,16 +8,19 @@ pub struct Lexer<'a> {
     iter: Peekable<Enumerate<Bytes<'a>>>,
 }
 
-impl<'a> Lexer<'a> { 
+impl<'a> Lexer<'a> {
+    /// Creates a new Lexer over GML source code.
     pub fn new(src: &'a str) -> Self {
         Lexer {
             src,
             iter: src.bytes().enumerate().peekable(),
         }
     }
-
+    
+    /// Fast-forwards the internal iterator to the next token, skipping over whitespace.
     fn fast_forward(&mut self) {
-        while self.iter.peek().map(|(_, ch)| *ch < (b' ' + 1)).unwrap_or(false) {
+        // gml defines any ascii character that is ' ' and below as whitespace
+        while self.iter.peek().map(|(_, ch)| *ch <= b' ').unwrap_or(false) {
             self.iter.next();
         }
     }
