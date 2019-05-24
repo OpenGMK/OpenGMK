@@ -10,8 +10,25 @@ pub enum Token<'a> {
     String(&'a str),
 }
 
-#[derive(Debug)]
-pub enum Keyword {}
+#[derive(Debug, PartialEq)]
+pub enum Keyword {
+    Var,
+    If,
+    Else,
+    With,
+    Repeat,
+    Do,
+    Until,
+    While,
+    For,
+    Switch,
+    Case,
+    Default,
+    Break,
+    Continue,
+    Return,
+    Exit,
+}
 
 #[derive(Debug)]
 pub enum Operator {}
