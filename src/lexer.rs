@@ -6,6 +6,7 @@ use std::str::Bytes;
 pub struct Lexer<'a> {
     src: &'a str,
     iter: Peekable<Enumerate<Bytes<'a>>>,
+    buf: Vec<u8>,
 }
 
 impl<'a> Lexer<'a> {
@@ -14,6 +15,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             src,
             iter: src.bytes().enumerate().peekable(),
+            buf: Vec::with_capacity(8),
         }
     }
     
@@ -62,7 +64,27 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                     }
                 };
-                Token::Identifier(identifier)
+
+                match identifier {
+                    "var" => Token::Keyword(Keyword::Var),
+                    "if" => Token::Keyword(Keyword::If),
+                    "else" => Token::Keyword(Keyword::Else),
+                    "with" => Token::Keyword(Keyword::With),
+                    "repeat" => Token::Keyword(Keyword::Repeat),
+                    "do" => Token::Keyword(Keyword::Do),
+                    "until" => Token::Keyword(Keyword::Until),
+                    "while" => Token::Keyword(Keyword::While),
+                    "for" => Token::Keyword(Keyword::For),
+                    "switch" => Token::Keyword(Keyword::Switch),
+                    "case" => Token::Keyword(Keyword::Case),
+                    "default" => Token::Keyword(Keyword::Default),
+                    "break" => Token::Keyword(Keyword::Break),
+                    "continue" => Token::Keyword(Keyword::Continue),
+                    "return" => Token::Keyword(Keyword::Return),
+                    "exit" => Token::Keyword(Keyword::Exit),
+
+                    _ => Token::Identifier(identifier),
+                }
             },
 
             b'0' ..= b'9' | b'.' => {
@@ -86,7 +108,7 @@ impl<'a> Iterator for Lexer<'a> {
             },
 
             _ => {
-                self.iter.next(); // skip
+                self.iter.next(); // skip (if possible)
                 Token::InvalidChar(head.0, head.1)
             },
         })
