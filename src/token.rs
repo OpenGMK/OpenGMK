@@ -8,6 +8,8 @@ pub enum Token<'a> {
 
     Real(f64),
     String(&'a str),
+
+    InvalidChar(usize, u8),
 }
 
 #[derive(Debug, PartialEq)]
