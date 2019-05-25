@@ -48,7 +48,7 @@ impl<'a> Iterator for Lexer<'a> {
         
         let head = *self.iter.peek()?;
         println!("we at '{}'", &self.src[(head.0)..]);
-        match head.1 {
+        Some(match head.1 {
             b'A'...b'Z' | b'a'... b'z' | b'_' => {
                 let identifier = {
                     let mut last = head;
@@ -62,27 +62,33 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                     }
                 };
-                return Some(Token::Identifier(identifier));
+                Token::Identifier(identifier)
             },
 
             b'0' ..= b'9' | b'.' => {
-                // inhale real
+                // inhale real (tbd)
+                Token::Identifier("invalid")
             },
 
             b'"' | b'\'' => {
                 // inhale string
+                Token::Identifier("invalid")
             },
 
             b'$' => {
                 // inhale hex literal
+                Token::Identifier("invalid")
             },
 
             0x00 ..= b'~' => {
                 // operator possibly
+                Token::Identifier("invalid")
             },
 
-            _ => panic!("Oh no! Corrupt character: {} ({:#X})", head.1, head.1),
-        }
-        None
+            _ => {
+                self.iter.next(); // skip
+                Token::InvalidChar(head.0, head.1)
+            },
+        })
     }
 }
