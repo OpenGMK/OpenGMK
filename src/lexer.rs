@@ -49,7 +49,6 @@ impl<'a> Iterator for Lexer<'a> {
         };
         
         let head = *self.iter.peek()?;
-        println!("we at '{}'", &self.src[(head.0)..]);
         Some(match head.1 {
             b'A'...b'Z' | b'a'... b'z' | b'_' => {
                 let identifier = {
