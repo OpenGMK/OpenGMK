@@ -127,5 +127,38 @@ pub enum Operator {
 }
 
 #[derive(Debug)]
-pub enum Separator {}
+pub enum Separator {
+    /// `(` Parentheses Open
+    ParenLeft,
+
+    /// `)` Parentheses Close
+    ParenRight,
+
+    /// `{` Braces Open
+    BraceLeft,
+
+    /// `}` Braces Close
+    BraceRight,
+
+    /// `[` Bracket Open
+    BracketLeft,
+
+    /// `]` Bracket Close
+    BracketRight,
+
+    /// `;` Semicolon
+    Semicolon,
+
+    /// `:` Colon
+    Colon,
+
+    /// `,` Comma
+    Comma,
+
+    /// `.` Period
+    Period,
+
+    /// `then` (Legacy)
+    Then,
+}
 
