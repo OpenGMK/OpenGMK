@@ -66,6 +66,7 @@ impl<'a> Iterator for Lexer<'a> {
                 };
 
                 match identifier {
+                    // Keywords
                     "var" => Token::Keyword(Keyword::Var),
                     "if" => Token::Keyword(Keyword::If),
                     "else" => Token::Keyword(Keyword::Else),
@@ -82,6 +83,17 @@ impl<'a> Iterator for Lexer<'a> {
                     "continue" => Token::Keyword(Keyword::Continue),
                     "return" => Token::Keyword(Keyword::Return),
                     "exit" => Token::Keyword(Keyword::Exit),
+
+                    // Operators
+                    "mod" => Token::Operator(Operator::Modulo),
+                    "div" => Token::Operator(Operator::IntDivide),
+                    "and" => Token::Operator(Operator::And),
+                    "or" => Token::Operator(Operator::Or),
+                    "xor" => Token::Operator(Operator::Xor),
+                    "not" => Token::Operator(Operator::Not),
+                    "then" => Token::Separator(Separator::Then),
+                    "begin" => Token::Separator(Separator::BraceLeft),
+                    "end" => Token::Separator(Separator::BraceRight),
 
                     _ => Token::Identifier(identifier),
                 }
