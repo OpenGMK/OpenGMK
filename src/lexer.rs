@@ -1,7 +1,7 @@
 use crate::token::*;
 
 use std::iter::{Enumerate, Peekable};
-use std::str::Bytes;
+use std::str::{self, Bytes};
 
 pub struct Lexer<'a> {
     src: &'a str,
@@ -40,7 +40,7 @@ impl<'a> Iterator for Lexer<'a> {
         macro_rules! to_str {
             ($src: expr, $range: expr) => ({
                 unsafe {
-                    std::str::from_utf8_unchecked(
+                    str::from_utf8_unchecked(
                         $src.as_bytes()
                             .get_unchecked($range)
                     )
@@ -54,9 +54,12 @@ impl<'a> Iterator for Lexer<'a> {
                 let identifier = {
                     let mut last = head;
                     loop {
-                        match self.iter.next() {
-                            Some(tail) => match tail.1 {
-                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => last = tail,
+                        match self.iter.peek() {
+                            Some(&tail) => match tail.1 {
+                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => {
+                                    last = tail;
+                                    self.iter.next();
+                                },
                                 _ => break to_str!(src, head.0..tail.0),
                             },
                             None => break to_str!(src, head.0..=last.0),
@@ -98,9 +101,35 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             },
 
-            b'0' ..= b'9' | b'.' => {
-                // inhale real (tbd)
-                Token::Identifier("invalid")
+            b'0'...b'9' | b'.' => {
+                self.buf.clear();
+                let mut has_decimal = false;
+                loop {
+                    match self.iter.peek() {
+                        Some(&(_, ch)) => match ch {
+                            b'0'...b'9' => {
+                                self.buf.push(ch);
+                                self.iter.next();
+                            },
+                            b'.' => if !has_decimal {
+                                has_decimal = true;
+                                self.buf.push(ch);
+                                self.iter.next();
+                            },
+                            _ => break,
+                        },
+                        None => break,
+                    }
+                }
+                if &self.buf == b"." {
+                    Token::Separator(Separator::Period)
+                } else {
+                    Token::Real(
+                        unsafe { str::from_utf8_unchecked(&self.buf) }
+                            .parse()
+                            .unwrap_or(0.0)
+                    )
+                }
             },
 
             b'"' | b'\'' => {
