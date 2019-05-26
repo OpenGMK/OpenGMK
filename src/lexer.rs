@@ -5,8 +5,8 @@ use std::str::{self, Bytes};
 
 pub struct Lexer<'a> {
     src: &'a str,
-    iter: Peekable<Enumerate<Bytes<'a>>>,
     buf: Vec<u8>,
+    iter: Peekable<Enumerate<Bytes<'a>>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -14,8 +14,8 @@ impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
         Lexer {
             src,
-            iter: src.bytes().enumerate().peekable(),
             buf: Vec::with_capacity(8),
+            iter: src.bytes().enumerate().peekable(),
         }
     }
     
@@ -134,16 +134,19 @@ impl<'a> Iterator for Lexer<'a> {
 
             b'"' | b'\'' => {
                 // inhale string
+                self.iter.next();
                 Token::Identifier("invalid")
             },
 
             b'$' => {
                 // inhale hex literal
+                self.iter.next();
                 Token::Identifier("invalid")
             },
 
             0x00 ..= b'~' => {
                 // operator possibly
+                self.iter.next();
                 Token::Identifier("invalid")
             },
 
