@@ -111,10 +111,12 @@ impl<'a> Iterator for Lexer<'a> {
                                 self.buf.push(ch);
                                 self.iter.next();
                             },
-                            b'.' => if !has_decimal {
-                                has_decimal = true;
-                                self.buf.push(ch);
+                            b'.' => {
                                 self.iter.next();
+                                if !has_decimal {
+                                    has_decimal = true;
+                                    self.buf.push(ch);
+                                }
                             },
                             _ => break,
                         },
