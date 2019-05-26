@@ -112,10 +112,16 @@ impl<'a> Iterator for Lexer<'a> {
                                 self.iter.next();
                             },
                             b'.' => {
-                                self.iter.next();
                                 if !has_decimal {
                                     has_decimal = true;
                                     self.buf.push(ch);
+                                    self.iter.next();
+                                } else {
+                                    if &self.buf != b"." {
+                                        self.iter.next();
+                                    } else {
+                                        break;
+                                    }
                                 }
                             },
                             _ => break,
@@ -135,9 +141,26 @@ impl<'a> Iterator for Lexer<'a> {
             },
 
             b'"' | b'\'' => {
-                // inhale string
                 self.iter.next();
-                Token::Identifier("invalid")
+                let head2 = match self.iter.next() {
+                    Some(head) => head,
+                    // TODO: Unclosed strings might have a trailing newline
+                    None => return Some(Token::String("")),
+                };
+                let mut lastindex = head2.0;
+                let string = loop {
+                    match self.iter.next() {
+                        Some((i, ch)) => {
+                            lastindex = i;
+                            if ch == head.1 {
+                                break to_str!(src, head2.0..i)
+                            }
+                        },
+                        // yes, unclosed strings at eof are supported
+                        None => break to_str!(src, head2.0..=lastindex),
+                    }
+                };
+                Token::String(string)
             },
 
             b'$' => {
