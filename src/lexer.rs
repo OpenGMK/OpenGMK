@@ -262,6 +262,25 @@ impl<'a> Iterator for Lexer<'a> {
                             Operator::GreaterThan => Operator::BinaryShiftRight,
 
                             Operator::Assign => Operator::Equal,
+
+                            // single line comments
+                            Operator::Divide => {
+                                self.iter.next();
+                                let head = match self.iter.peek() {
+                                    Some(&(i, _)) => i,
+                                    None => return Some(Token::Comment("")),
+                                };
+                                let comment = loop {
+                                    match self.iter.peek() {
+                                        Some(&(i, ch)) => match ch {
+                                            b'\n' | b'\r' => break to_str(src, head..i),
+                                            _ => { self.iter.next(); },
+                                        },
+                                        None => break to_str(src, head..src.len()),
+                                    }
+                                };
+                                return Some(Token::Comment(comment.trim()));
+                            },
                             
                             _ => return Some(Token::Operator(op)),
                         };
