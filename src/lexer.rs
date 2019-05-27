@@ -173,7 +173,7 @@ impl<'a> Iterator for Lexer<'a> {
                     Token::Real(0.0)
                 } else {
                     Token::Real(
-                        u64::from_str_radix(hex, 16).unwrap_or(0xFFFF_FFFF_FFFF_FFFF) as f64
+                        u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64
                     )
                 }
             },
