@@ -312,7 +312,39 @@ impl<'a> Iterator for Lexer<'a> {
                         };
                         self.iter.next();
                         Token::Operator(eq_combo)
-                    } else {
+                    }
+                    
+                    // multi-line comments
+                    else if op == Operator::Divide && ch2 == b'*' {
+                        self.iter.next();
+                        let head = match self.iter.peek() {
+                            Some(&(i, _)) => i,
+                            None => return Some(Token::Comment("")),
+                        };
+                        let comment = loop {
+                            match self.iter.peek() {
+                                Some(&(i, ch)) => match ch {
+                                    b'*' => {
+                                        self.iter.next();
+                                        match self.iter.peek() {
+                                            Some(&(_, ch)) => {
+                                                self.iter.next();
+                                                if ch == b'/' {
+                                                    break to_str(src, head..i);
+                                                }
+                                            },
+                                            None => break to_str(src, head..src.len()),
+                                        }
+                                    },
+                                    _ => { self.iter.next(); },
+                                },
+                                None => break to_str(src, head..src.len()),
+                            }
+                        };
+                        Token::Comment(comment.trim())
+                    }
+
+                    else {
                         Token::Operator(op)
                     }
                 } else {
