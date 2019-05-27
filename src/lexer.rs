@@ -136,8 +136,8 @@ impl<'a> Iterator for Lexer<'a> {
             b'"' | b'\'' => {
                 self.iter.next();
                 let quote = head.1; // starting quote mark
-                let head = match self.iter.next() {
-                    Some((i, _)) => i,
+                let head = match self.iter.peek() {
+                    Some(&(i, _)) => i,
                     None => return Some(Token::String("")),
                 };
                 let string = loop {
