@@ -53,7 +53,7 @@ impl<'a> Iterator for Lexer<'a> {
         
         let head = *self.iter.peek()?;
         Some(match head.1 {
-            // identifier, keyword or alphanumeric operator
+            // identifier, keyword or alphanumeric operator/separator
             b'A'...b'Z' | b'a'... b'z' | b'_' => {
                 let identifier = {
                     loop {
@@ -215,12 +215,93 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             },
 
-            0x00 ..= b'~' => {
-                // operator possibly
+            // operator, separator or possibly just an invalid character
+            0x00...b'~' => {
+                let op_sep_ch = |ch| match ch & 0b0111_1111 {
+                    b'!' => Token::Operator(Operator::Not),
+                    b'&' => Token::Operator(Operator::BinaryAnd),
+                    b'(' => Token::Separator(Separator::ParenLeft),
+                    b')' => Token::Separator(Separator::ParenRight),
+                    b'*' => Token::Operator(Operator::Multiply),
+                    b'+' => Token::Operator(Operator::Add),
+                    b',' => Token::Separator(Separator::Comma),
+                    b'-' => Token::Operator(Operator::Subtract),
+                    b'/' => Token::Operator(Operator::Divide),
+                    b':' => Token::Separator(Separator::Colon),
+                    b';' => Token::Separator(Separator::Semicolon),
+                    b'<' => Token::Operator(Operator::LessThan),
+                    b'=' => Token::Operator(Operator::Assign),
+                    b'>' => Token::Operator(Operator::GreaterThan),
+                    b'[' => Token::Separator(Separator::BracketLeft),
+                    b']' => Token::Separator(Separator::BracketRight),
+                    b'^' => Token::Operator(Operator::BinaryXor),
+                    b'{' => Token::Separator(Separator::BraceLeft),
+                    b'|' => Token::Operator(Operator::BinaryOr),
+                    b'}' => Token::Separator(Separator::BraceRight),
+                    b'~' => Token::Operator(Operator::Complement),
+                    _ => Token::InvalidChar(head.0, head.1),
+                };
+
+                let mut token1 = op_sep_ch(head.1);
                 self.iter.next();
-                Token::Identifier("invalid")
+
+                if let Token::Operator(op) = token1 {
+                    let ch2 = match self.iter.peek() {
+                        Some(&(_, ch)) => ch,
+                        None => return Some(Token::Operator(op)),
+                    };
+
+                    // boolean operators that are just repeated chars
+                    // such as && || ^^
+                    if head.1 == ch2 {
+                        let repeated_combo = match op {
+                            Operator::BinaryAnd => Operator::And,
+                            Operator::BinaryOr => Operator::Or,
+                            Operator::BinaryXor => Operator::Xor,
+                            Operator::LessThan => Operator::BinaryShiftLeft,
+                            Operator::GreaterThan => Operator::BinaryShiftRight,
+
+                            Operator::Assign => Operator::Equal,
+                            
+                            _ => return Some(Token::Operator(op)),
+                        };
+                        self.iter.next();
+                        Token::Operator(repeated_combo)
+                    }
+
+                    // assignment operator combos such as += -= *= /=
+                    else if ch2 == b'=' {
+                        let eq_combo = match op {
+                            // boolean operators
+                            // == is in above match condition since it's a repeated character
+                            Operator::Not => Operator::NotEqual,
+                            
+                            // comparison operators
+                            Operator::LessThan => Operator::LessThanOrEqual,
+                            Operator::GreaterThan => Operator::GreaterThanOrEqual,
+                            
+                            // assignment operators
+                            Operator::Add => Operator::AssignAdd,
+                            Operator::Subtract => Operator::AssignSubtract,
+                            Operator::Multiply => Operator::AssignMultiply,
+                            Operator::Divide => Operator::AssignDivide,
+                            Operator::BinaryAnd => Operator::AssignBinaryAnd,
+                            Operator::BinaryOr => Operator::AssignBinaryOr,
+                            Operator::BinaryXor => Operator::AssignBinaryXor,
+
+                            _ => return Some(Token::Operator(op)),
+                        };
+                        self.iter.next();
+                        Token::Operator(eq_combo)
+                    } else {
+                        Token::Operator(op)
+                    }
+                } else {
+                    token1
+                }
             },
 
+            // invalid unicode
             _ => {
                 self.iter.next(); // skip (if possible)
                 Token::InvalidChar(head.0, head.1)
