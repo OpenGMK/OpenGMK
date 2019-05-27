@@ -52,17 +52,13 @@ impl<'a> Iterator for Lexer<'a> {
         Some(match head.1 {
             b'A'...b'Z' | b'a'... b'z' | b'_' => {
                 let identifier = {
-                    let mut last = head;
                     loop {
                         match self.iter.peek() {
                             Some(&tail) => match tail.1 {
-                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => {
-                                    last = tail;
-                                    self.iter.next();
-                                },
+                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => { self.iter.next(); },
                                 _ => break to_str!(src, head.0..tail.0),
                             },
-                            None => break to_str!(src, head.0..=last.0),
+                            None => break to_str!(src, head.0..src.len()),
                         }
                     }
                 };
@@ -147,17 +143,13 @@ impl<'a> Iterator for Lexer<'a> {
                     // TODO: Unclosed strings might have a trailing newline
                     None => return Some(Token::String("")),
                 };
-                let mut lastindex = head2.0;
                 let string = loop {
                     match self.iter.next() {
-                        Some((i, ch)) => {
-                            lastindex = i;
-                            if ch == head.1 {
-                                break to_str!(src, head2.0..i)
-                            }
-                        },
+                        Some((i, ch)) => if ch == head.1 {
+                            break to_str!(src, head2.0..i)
+                        }, 
                         // yes, unclosed strings at eof are supported
-                        None => break to_str!(src, head2.0..=lastindex),
+                        None => break to_str!(src, head2.0..src.len()),
                     }
                 };
                 Token::String(string)
