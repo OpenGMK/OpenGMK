@@ -1,6 +1,7 @@
 use crate::token::*;
 
 use std::iter::{Enumerate, Peekable};
+use std::ops::Range;
 use std::str::{self, Bytes};
 
 pub struct Lexer<'a> {
@@ -37,16 +38,11 @@ impl<'a> Iterator for Lexer<'a> {
         // this is fine since we operate on something that is a &str in a first place
         // we should of course never use a value not pulled from peek() as range indices
         let src = self.src; // since &mut self
-        macro_rules! to_str {
-            ($src: expr, $range: expr) => ({
-                unsafe {
-                    str::from_utf8_unchecked(
-                        $src.as_bytes()
-                            .get_unchecked($range)
-                    )
-                }
-            })
-        };
+        fn to_str<'a>(src: &'a str, range: Range<usize>) -> &'a str {
+            unsafe {
+                str::from_utf8_unchecked(src.as_bytes().get_unchecked(range))
+            }
+        }
         
         let head = *self.iter.peek()?;
         Some(match head.1 {
@@ -56,9 +52,9 @@ impl<'a> Iterator for Lexer<'a> {
                         match self.iter.peek() {
                             Some(&tail) => match tail.1 {
                                 b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => { self.iter.next(); },
-                                _ => break to_str!(src, head.0..tail.0),
+                                _ => break to_str(src, head.0..tail.0),
                             },
-                            None => break to_str!(src, head.0..src.len()),
+                            None => break to_str(src, head.0..src.len()),
                         }
                     }
                 };
@@ -146,10 +142,10 @@ impl<'a> Iterator for Lexer<'a> {
                 let string = loop {
                     match self.iter.next() {
                         Some((i, ch)) => if ch == head.1 {
-                            break to_str!(src, head2.0..i)
+                            break to_str(src, head2.0..i)
                         }, 
                         // yes, unclosed strings at eof are supported
-                        None => break to_str!(src, head2.0..src.len()),
+                        None => break to_str(src, head2.0..src.len()),
                     }
                 };
                 Token::String(string)
