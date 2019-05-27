@@ -6,8 +6,14 @@ use std::str::{self, Bytes};
 use std::u64;
 
 pub struct Lexer<'a> {
+    /// GML source code to return references to.
     src: &'a str,
+
+    /// Internal buffer for parsing numbers.
+    /// Required due to a quirk described below.
     buf: Vec<u8>,
+
+    /// Iterator over the source code as raw bytes.
     iter: Peekable<Enumerate<Bytes<'a>>>,
 }
 
@@ -47,6 +53,7 @@ impl<'a> Iterator for Lexer<'a> {
         
         let head = *self.iter.peek()?;
         Some(match head.1 {
+            // identifier, keyword or alphanumeric operator
             b'A'...b'Z' | b'a'... b'z' | b'_' => {
                 let identifier = {
                     loop {
@@ -94,9 +101,22 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             },
 
+            // real literal or . operator
+            // in a real literal, every dot after the first one is ignored
+            // a number can't begin with `..` - for example, '..1' is read as:
+            // - the Period separator
+            // - real literal literal 0.1
+            // we copy this to self.buf, and the only purpose of this buffer is to be compliant
+            // with this absolutely asinine language design, otherwise it could be non allocating.
+            // examples of valid real literals:
+            // 5.5.5.... => 5.55
+            // 6...2...9 => 6.29
+            // .7....3.. => 0.73
+            // 4.2...0.0 => 4.2
             b'0'...b'9' | b'.' => {
-                self.buf.clear();
+                // whether we hit a . yet - begin ignoring afterwards if it's a real literal
                 let mut has_decimal = false;
+                self.buf.clear();
                 loop {
                     match self.iter.peek() {
                         Some(&(_, ch)) => match ch {
@@ -110,6 +130,7 @@ impl<'a> Iterator for Lexer<'a> {
                                     self.buf.push(ch);
                                     self.iter.next();
                                 } else {
+                                    // correct interpretation of token starting with ..
                                     if &self.buf != b"." {
                                         self.iter.next();
                                     } else {
@@ -122,10 +143,12 @@ impl<'a> Iterator for Lexer<'a> {
                         None => break,
                     }
                 }
+
                 if &self.buf == b"." {
                     Token::Separator(Separator::Period)
                 } else {
                     Token::Real(
+                        // only 0-9 and . can be in the buffer, check unneeded
                         unsafe { str::from_utf8_unchecked(&self.buf) }
                             .parse()
                             .unwrap_or(0.0)
@@ -133,27 +156,40 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             },
 
+            // string literal
+            // note: unclosed string literals at eof are accepted, however each script ends in:
+            // newline
+            // space
+            // space
+            // so "asdf would be "asdf\n  "
+            // we don't take care of this here, that's the script loader's job
             b'"' | b'\'' => {
-                self.iter.next();
-                let quote = head.1; // starting quote mark
+                self.iter.next(); // skip over opening quote
+                let quote = head.1; // opening quote mark char
+
+                // new head after opening quote
                 let head = match self.iter.peek() {
                     Some(&(i, _)) => i,
                     None => return Some(Token::String("")),
                 };
+
                 let string = loop {
                     match self.iter.next() {
                         Some((i, ch)) => if ch == quote {
                             break to_str(src, head..i)
                         }, 
-                        // yes, unclosed strings at eof are supported
                         None => break to_str(src, head..src.len()),
                     }
                 };
                 Token::String(string)
             },
 
+            // hexadecimal real literal.
+            // a single $ with no valid hexadecimal chars after it is equivalent to $0.
             b'$' => {
-                self.iter.next();
+                self.iter.next(); // skip '$'
+
+                // new head after '$'
                 let head = match self.iter.peek() {
                     Some(&(i, _)) => i,
                     None => return Some(Token::Real(0.0)),
@@ -173,6 +209,7 @@ impl<'a> Iterator for Lexer<'a> {
                     Token::Real(0.0)
                 } else {
                     Token::Real(
+                        // if it failed to parse it must be too large, so we return the max value
                         u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64
                     )
                 }
