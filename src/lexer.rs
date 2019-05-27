@@ -135,18 +135,18 @@ impl<'a> Iterator for Lexer<'a> {
 
             b'"' | b'\'' => {
                 self.iter.next();
-                let head2 = match self.iter.next() {
-                    Some(head) => head,
-                    // TODO: Unclosed strings might have a trailing newline
+                let quote = head.1; // starting quote mark
+                let head = match self.iter.next() {
+                    Some((i, _)) => i,
                     None => return Some(Token::String("")),
                 };
                 let string = loop {
                     match self.iter.next() {
-                        Some((i, ch)) => if ch == head.1 {
-                            break to_str(src, head2.0..i)
+                        Some((i, ch)) => if ch == quote {
+                            break to_str(src, head..i)
                         }, 
                         // yes, unclosed strings at eof are supported
-                        None => break to_str(src, head2.0..src.len()),
+                        None => break to_str(src, head..src.len()),
                     }
                 };
                 Token::String(string)
