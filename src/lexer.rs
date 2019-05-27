@@ -3,6 +3,7 @@ use crate::token::*;
 use std::iter::{Enumerate, Peekable};
 use std::ops::Range;
 use std::str::{self, Bytes};
+use std::u64;
 
 pub struct Lexer<'a> {
     src: &'a str,
@@ -152,9 +153,29 @@ impl<'a> Iterator for Lexer<'a> {
             },
 
             b'$' => {
-                // inhale hex literal
                 self.iter.next();
-                Token::Identifier("invalid")
+                let head = match self.iter.peek() {
+                    Some(&(i, _)) => i,
+                    None => return Some(Token::Real(0.0)),
+                };
+
+                let hex = loop {
+                    match self.iter.peek() {
+                        Some(&(i, ch)) => match ch {
+                            b'0'...b'9' | b'a'...b'f' | b'A'...b'F' => { self.iter.next(); },
+                            _ => break to_str(src, head..i),
+                        },
+                        None => break to_str(src, head..src.len()),
+                    }
+                };
+
+                if hex.is_empty() {
+                    Token::Real(0.0)
+                } else {
+                    Token::Real(
+                        u64::from_str_radix(hex, 16).unwrap_or(0xFFFF_FFFF_FFFF_FFFF) as f64
+                    )
+                }
             },
 
             0x00 ..= b'~' => {
