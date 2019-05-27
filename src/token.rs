@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token<'a> {
     Identifier(&'a str),
     Keyword(Keyword),
@@ -32,7 +32,7 @@ pub enum Keyword {
     Exit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Operator {
     /// `+` Add or unary positive (redundant)
     Add,
@@ -126,7 +126,7 @@ pub enum Operator {
     Complement,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Separator {
     /// `(` Parentheses Open
     ParenLeft,
