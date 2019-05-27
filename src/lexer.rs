@@ -328,8 +328,8 @@ impl<'a> Iterator for Lexer<'a> {
                                         self.iter.next();
                                         match self.iter.peek() {
                                             Some(&(_, ch)) => {
-                                                self.iter.next();
                                                 if ch == b'/' {
+                                                    self.iter.next();
                                                     break to_str(src, head..i);
                                                 }
                                             },
