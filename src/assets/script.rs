@@ -2,6 +2,7 @@ use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::game::parser::ParserOptions;
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
+use crate::gml::ast::AST;
 
 pub const VERSION: Version = 800;
 
@@ -11,6 +12,9 @@ pub struct Script {
 
     /// The full source code for the script.
     pub source: String,
+
+    /// AST for the script's source code.
+    pub ast: AST,
 }
 
 impl Script {
@@ -41,6 +45,8 @@ impl Script {
 
         let source = reader.read_pas_string()?;
 
-        Ok(Script { name, source })
+        let ast = AST::new(&source);
+
+        Ok(Script { name, source, ast })
     }
 }
