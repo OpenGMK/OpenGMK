@@ -37,7 +37,7 @@ pub enum Keyword {
 pub enum Operator {
     /// `+` Add or unary positive (redundant)
     Add,
-    
+
     /// `-` Subtract or unary negative
     Subtract,
 
@@ -162,4 +162,3 @@ pub enum Separator {
     /// `then` (Legacy)
     Then,
 }
-

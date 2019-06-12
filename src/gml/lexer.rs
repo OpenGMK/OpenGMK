@@ -26,7 +26,7 @@ impl<'a> Lexer<'a> {
             iter: src.bytes().enumerate().peekable(),
         }
     }
-    
+
     /// Fast-forwards the internal iterator to the next token, skipping over whitespace.
     fn fast_forward(&mut self) {
         // gml defines any ascii character that is ' ' and below as whitespace
@@ -41,25 +41,25 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Token<'a>> {
         self.fast_forward(); // locate next token
-       
+
         // this is fine since we operate on something that is a &str in a first place
         // we should of course never use a value not pulled from peek() as range indices
         let src = self.src; // since &mut self
         fn to_str<'a>(src: &'a str, range: Range<usize>) -> &'a str {
-            unsafe {
-                str::from_utf8_unchecked(src.as_bytes().get_unchecked(range))
-            }
+            unsafe { str::from_utf8_unchecked(src.as_bytes().get_unchecked(range)) }
         }
-        
+
         let head = *self.iter.peek()?;
         Some(match head.1 {
             // identifier, keyword or alphanumeric operator/separator
-            b'A'...b'Z' | b'a'... b'z' | b'_' => {
+            b'A'...b'Z' | b'a'...b'z' | b'_' => {
                 let identifier = {
                     loop {
                         match self.iter.peek() {
                             Some(&tail) => match tail.1 {
-                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => { self.iter.next(); },
+                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => {
+                                    self.iter.next();
+                                }
                                 _ => break to_str(src, head.0..tail.0),
                             },
                             None => break to_str(src, head.0..src.len()),
@@ -99,7 +99,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                     _ => Token::Identifier(identifier),
                 }
-            },
+            }
 
             // real literal or . operator
             // in a real literal, every dot after the first one is ignored
@@ -123,7 +123,7 @@ impl<'a> Iterator for Lexer<'a> {
                             b'0'...b'9' => {
                                 self.buf.push(ch);
                                 self.iter.next();
-                            },
+                            }
                             b'.' => {
                                 if !has_decimal {
                                     has_decimal = true;
@@ -137,7 +137,7 @@ impl<'a> Iterator for Lexer<'a> {
                                         break;
                                     }
                                 }
-                            },
+                            }
                             _ => break,
                         },
                         None => break,
@@ -151,10 +151,10 @@ impl<'a> Iterator for Lexer<'a> {
                         // only 0-9 and . can be in the buffer, check unneeded
                         unsafe { str::from_utf8_unchecked(&self.buf) }
                             .parse()
-                            .unwrap_or(0.0)
+                            .unwrap_or(0.0),
                     )
                 }
-            },
+            }
 
             // string literal
             // note: unclosed string literals at eof are accepted, however each script ends in:
@@ -175,14 +175,16 @@ impl<'a> Iterator for Lexer<'a> {
 
                 let string = loop {
                     match self.iter.next() {
-                        Some((i, ch)) => if ch == quote {
-                            break to_str(src, head..i)
-                        }, 
+                        Some((i, ch)) => {
+                            if ch == quote {
+                                break to_str(src, head..i);
+                            }
+                        }
                         None => break to_str(src, head..src.len()),
                     }
                 };
                 Token::String(string)
-            },
+            }
 
             // hexadecimal real literal.
             // a single $ with no valid hexadecimal chars after it is equivalent to $0.
@@ -198,7 +200,9 @@ impl<'a> Iterator for Lexer<'a> {
                 let hex = loop {
                     match self.iter.peek() {
                         Some(&(i, ch)) => match ch {
-                            b'0'...b'9' | b'a'...b'f' | b'A'...b'F' => { self.iter.next(); },
+                            b'0'...b'9' | b'a'...b'f' | b'A'...b'F' => {
+                                self.iter.next();
+                            }
                             _ => break to_str(src, head..i),
                         },
                         None => break to_str(src, head..src.len()),
@@ -210,10 +214,10 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     Token::Real(
                         // if it failed to parse it must be too large, so we return the max value
-                        u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64
+                        u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64,
                     )
                 }
-            },
+            }
 
             // operator, separator or possibly just an invalid character
             0x00...b'~' => {
@@ -274,31 +278,32 @@ impl<'a> Iterator for Lexer<'a> {
                                     match self.iter.peek() {
                                         Some(&(i, ch)) => match ch {
                                             b'\n' | b'\r' => break to_str(src, head..i),
-                                            _ => { self.iter.next(); },
+                                            _ => {
+                                                self.iter.next();
+                                            }
                                         },
                                         None => break to_str(src, head..src.len()),
                                     }
                                 };
                                 return Some(Token::Comment(comment.trim()));
-                            },
-                            
+                            }
+
                             _ => return Some(Token::Operator(op)),
                         };
                         self.iter.next();
                         Token::Operator(repeated_combo)
                     }
-
                     // assignment operator combos such as += -= *= /=
                     else if ch2 == b'=' {
                         let eq_combo = match op {
                             // boolean operators
                             // == is in above match condition since it's a repeated character
                             Operator::Not => Operator::NotEqual,
-                            
+
                             // comparison operators
                             Operator::LessThan => Operator::LessThanOrEqual,
                             Operator::GreaterThan => Operator::GreaterThanOrEqual,
-                            
+
                             // assignment operators
                             Operator::Add => Operator::AssignAdd,
                             Operator::Subtract => Operator::AssignSubtract,
@@ -313,7 +318,6 @@ impl<'a> Iterator for Lexer<'a> {
                         self.iter.next();
                         Token::Operator(eq_combo)
                     }
-                    
                     // multi-line comments
                     else if op == Operator::Divide && ch2 == b'*' {
                         self.iter.next();
@@ -332,31 +336,31 @@ impl<'a> Iterator for Lexer<'a> {
                                                     self.iter.next();
                                                     break to_str(src, head..i);
                                                 }
-                                            },
+                                            }
                                             None => break to_str(src, head..src.len()),
                                         }
-                                    },
-                                    _ => { self.iter.next(); },
+                                    }
+                                    _ => {
+                                        self.iter.next();
+                                    }
                                 },
                                 None => break to_str(src, head..src.len()),
                             }
                         };
                         Token::Comment(comment.trim())
-                    }
-
-                    else {
+                    } else {
                         Token::Operator(op)
                     }
                 } else {
                     token1
                 }
-            },
+            }
 
             // invalid unicode
             _ => {
                 self.iter.next(); // skip (if possible)
                 Token::InvalidChar(head.0, head.1)
-            },
+            }
         })
     }
 }
