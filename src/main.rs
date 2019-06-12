@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Shut up.
+
 mod assets;
 mod bytes;
 mod game;

@@ -1,4 +1,4 @@
-use crate::token::*;
+use super::token::*;
 
 use std::iter::{Enumerate, Peekable};
 use std::ops::Range;
@@ -242,7 +242,7 @@ impl<'a> Iterator for Lexer<'a> {
                     _ => Token::InvalidChar(head.0, head.1),
                 };
 
-                let mut token1 = op_sep_ch(head.1);
+                let token1 = op_sep_ch(head.1);
                 self.iter.next();
 
                 if let Token::Operator(op) = token1 {

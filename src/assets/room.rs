@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Shut up.
-
 use crate::bytes::{ReadBytes, ReadString};
 use crate::game::parser::ParserOptions;
 use crate::types::{Color, Dimensions, Point, Rectangle, Version};

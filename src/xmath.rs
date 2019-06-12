@@ -1,8 +1,5 @@
 // xmath: Contains unconventional math functions that don't behave as you'd expect in GameMaker 8.
 
-// Yeah, yeah, shut up, you're gonna be used later.
-#![allow(dead_code)]
-
 #[inline(always)]
 /// Compares two real numbers.
 /// Both are interpreted as a 32-bit float to avoid pitfalls when comparing.

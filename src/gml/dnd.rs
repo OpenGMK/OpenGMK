@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::game::parser::ParserOptions;
 use crate::gml;
