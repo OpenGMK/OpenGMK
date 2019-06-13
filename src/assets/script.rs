@@ -1,8 +1,8 @@
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::game::parser::ParserOptions;
+use crate::gml::ast::{self, AST};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
-use crate::gml::ast::AST;
 
 pub const VERSION: Version = 800;
 
@@ -14,7 +14,7 @@ pub struct Script {
     pub source: String,
 
     /// AST for the script's source code.
-    pub ast: AST,
+    pub ast: Result<AST, ast::Error>,
 }
 
 impl Script {
