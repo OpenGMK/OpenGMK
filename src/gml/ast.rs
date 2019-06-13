@@ -21,6 +21,7 @@ pub enum Expr<'a> {
     Switch(Box<SwitchExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
+    Group(Vec<Expr<'a>>),
 }
 
 pub struct UnaryExpr<'a> {
