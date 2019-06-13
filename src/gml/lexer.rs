@@ -13,6 +13,8 @@ pub struct Lexer<'a> {
     /// Required due to a quirk described below.
     buf: Vec<u8>,
 
+    line_hint: usize,
+
     /// Iterator over the source code as raw bytes.
     iter: Peekable<Enumerate<Bytes<'a>>>,
 }
@@ -23,15 +25,25 @@ impl<'a> Lexer<'a> {
         Lexer {
             src,
             buf: Vec::with_capacity(8),
+            line_hint: 1,
             iter: src.bytes().enumerate().peekable(),
         }
     }
 
     /// Fast-forwards the internal iterator to the next token, skipping over whitespace.
-    fn fast_forward(&mut self) {
-        // gml defines any ascii character that is ' ' and below as whitespace
-        while self.iter.peek().map(|(_, ch)| *ch <= b' ').unwrap_or(false) {
-            self.iter.next();
+    /// Returns how many lines (LF) were skipped in the process.
+    fn fast_forward(&mut self) -> usize {
+        let mut lines_skipped: usize = 0;
+        loop {
+            match self.iter.peek() {
+                Some(&(_, ch)) if ch <= b' ' => {
+                    if ch == b'\n' {
+                        lines_skipped += 1;
+                    }
+                    self.iter.next();
+                },
+                _ => break lines_skipped,
+            }
         }
     }
 }
@@ -40,7 +52,12 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Token<'a>> {
-        self.fast_forward(); // locate next token
+        // locate next token
+        let skip = self.fast_forward();
+        if skip > 0 {
+            self.line_hint += skip;
+            return Some(Token::LineHint(self.line_hint));
+        }
 
         // this is fine since we operate on something that is a &str in a first place
         // we should of course never use a value not pulled from peek() as range indices
