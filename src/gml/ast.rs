@@ -1,5 +1,5 @@
 use super::lexer::Lexer;
-use super::token::*;
+use super::token::{Operator, Token};
 
 use std::error;
 use std::fmt;
