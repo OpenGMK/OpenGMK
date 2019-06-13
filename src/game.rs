@@ -3,12 +3,12 @@ pub mod parser;
 use crate::assets::*;
 use crate::types::{Color, Dimensions};
 
-pub struct Game {
+pub struct Game<'a> {
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub sounds: Vec<Option<Box<Sound>>>,
     pub backgrounds: Vec<Option<Box<Background>>>,
     pub paths: Vec<Option<Box<Path>>>,
-    pub scripts: Vec<Option<Box<Script>>>,
+    pub scripts: Vec<Option<Box<Script<'a>>>>,
     pub fonts: Vec<Option<Box<Font>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub objects: Vec<Option<Box<Object>>>,

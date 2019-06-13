@@ -6,7 +6,7 @@ use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: Version = 800;
 
-pub struct Script {
+pub struct Script<'a> {
     /// The asset name present in GML and the editor.
     pub name: String,
 
@@ -14,10 +14,10 @@ pub struct Script {
     pub source: String,
 
     /// AST for the script's source code.
-    pub ast: Result<AST, ast::Error>,
+    pub ast: Result<AST<'a>, ast::Error>,
 }
 
-impl Script {
+impl<'a> Script<'a> {
     pub fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
@@ -29,7 +29,7 @@ impl Script {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Script>
+    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Script<'a>>
     where
         B: AsRef<[u8]>,
     {

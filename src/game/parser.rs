@@ -225,9 +225,9 @@ where
     Ok(buf)
 }
 
-impl Game {
+impl<'a> Game<'a> {
     // TODO: functionify a lot of this.
-    pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game, Error>
+    pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game<'a>, Error>
     where
         I: AsRef<[u8]> + AsMut<[u8]>,
     {
