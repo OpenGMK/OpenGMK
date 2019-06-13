@@ -10,6 +10,7 @@ pub enum Token<'a> {
     String(&'a str),
 
     Comment(&'a str),
+    LineHint(usize),
     InvalidChar(usize, u8),
 }
 
