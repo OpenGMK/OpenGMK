@@ -3,6 +3,7 @@ use crate::game::parser::ParserOptions;
 use crate::gml::ast::{self, AST};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
+use std::ops::Deref;
 
 pub const VERSION: Version = 800;
 
@@ -11,7 +12,7 @@ pub struct Script<'a> {
     pub name: String,
 
     /// The full source code for the script.
-    pub source: String,
+    pub source: Box<str>,
 
     /// AST for the script's source code.
     pub ast: Result<AST<'a>, ast::Error>,
@@ -43,9 +44,11 @@ impl<'a> Script<'a> {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let source = reader.read_pas_string()?;
+        let source = reader.read_pas_string()?.into_boxed_str();
 
-        let ast = AST::new(&source);
+        // TODO: Don't do this. This is horrible.
+        let ssource: &'static str = unsafe { std::mem::transmute(source.deref()) };
+        let ast = AST::new(&ssource);
 
         Ok(Script { name, source, ast })
     }
