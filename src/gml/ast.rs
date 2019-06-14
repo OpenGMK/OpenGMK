@@ -119,7 +119,7 @@ impl<'a> AST<'a> {
         Ok(AST { expressions })
     }
 
-    fn read_line<'b>(lex: &mut Peekable<Lexer<'b>>) -> Result<Option<Expr<'b>>, Error> {
+    fn read_line(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
         let token = match lex.next() {
             Some(t) => t,
             None => return Ok(None), // EOF
