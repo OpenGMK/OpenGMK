@@ -25,6 +25,8 @@ pub enum Expr<'a> {
     Var(Box<VarExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
+
+    Nop,
 }
 
 pub struct UnaryExpr<'a> {
@@ -244,15 +246,19 @@ impl<'a> AST<'a> {
                                 Some(Token::Separator(Separator::BraceRight)) => {
                                     lex.next();
                                     break;
-                                },
+                                }
                                 _ => {
                                     let inner_exp = AST::read_line(lex);
                                     match inner_exp {
                                         Ok(Some(e)) => inner_expressions.push(e),
-                                        Ok(None) => return Err(Error::new("Un-closed brace at EOF".to_string())),
+                                        Ok(None) => {
+                                            return Err(Error::new(
+                                                "Unclosed brace at EOF".to_string(),
+                                            ))
+                                        }
                                         Err(e) => return Err(e),
                                     }
-                                },
+                                }
                             }
                         }
                         Ok(Some(Expr::Group(inner_expressions)))
@@ -265,7 +271,7 @@ impl<'a> AST<'a> {
                     }
 
                     // A semicolon is treated as a line of code which does nothing.
-                    Separator::Semicolon => AST::read_line(lex),
+                    Separator::Semicolon => Ok(Some(Expr::Nop)),
 
                     // Default
                     _ => {
@@ -277,7 +283,10 @@ impl<'a> AST<'a> {
                 }
             }
 
-            Token::Comment(_) => AST::read_line(lex),
+            Token::Comment(_) => Ok(Some(Expr::Nop)),
+
+            Token::LineHint(_) => Ok(Some(Expr::Nop)), // TODO: store the line number somewhere
+
             _ => {
                 return Err(Error::new(format!(
                     "Invalid token at beginning of expression: {:?}",
