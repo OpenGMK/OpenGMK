@@ -30,6 +30,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Returns the current line number in the source code.
     pub fn line(&self) -> usize {
         self.line_hint
     }

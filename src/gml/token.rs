@@ -9,7 +9,6 @@ pub enum Token<'a> {
     Real(f64),
     String(&'a str),
     
-    LineHint(usize),
     InvalidChar(usize, u8),
 }
 
