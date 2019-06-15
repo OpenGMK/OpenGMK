@@ -235,13 +235,39 @@ impl<'a> AST<'a> {
             }
 
             Token::Separator(sep) => {
-                // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                 match sep {
+                    // Code contained in {} is treated here as one single expression, called a Group.
+                    Separator::BraceLeft => {
+                        let mut inner_expressions = Vec::new();
+                        loop {
+                            match lex.peek() {
+                                Some(Token::Separator(Separator::BraceRight)) => {
+                                    lex.next();
+                                    break;
+                                },
+                                _ => {
+                                    let inner_exp = AST::read_line(lex);
+                                    match inner_exp {
+                                        Ok(Some(e)) => inner_expressions.push(e),
+                                        Ok(None) => return Err(Error::new("Un-closed brace at EOF".to_string())),
+                                        Err(e) => return Err(e),
+                                    }
+                                },
+                            }
+                        }
+                        Ok(Some(Expr::Group(inner_expressions)))
+                    }
+
+                    // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
                         // TODO: parse an assignment
                         Ok(None)
                     }
+
+                    // A semicolon is treated as a line of code which does nothing.
                     Separator::Semicolon => AST::read_line(lex),
+
+                    // Default
                     _ => {
                         return Err(Error::new(format!(
                             "Invalid Separator at beginning of expression: {:?}",
