@@ -126,6 +126,9 @@ pub enum Operator {
 
     /// `~` Binary Complement (Unary)
     Complement,
+
+    /// `[]` Array Indexing (AST)
+    Index,
 }
 
 #[derive(Debug, PartialEq)]
