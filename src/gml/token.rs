@@ -129,6 +129,9 @@ pub enum Operator {
 
     /// `[]` Array Indexing (AST)
     Index,
+
+    /// `.` Dereferencing (AST)
+    Deref,
 }
 
 #[derive(Debug, PartialEq)]
