@@ -12,11 +12,8 @@ pub struct AST<'a> {
 
 #[derive(Debug)]
 pub enum Expr<'a> {
-    Literal(Token<'a>),
-
-    Unary(Box<UnaryExpr<'a>>),
-    Binary(Box<BinaryExpr<'a>>),
-
+    Assignment(Box<AssignmentExpr<'a>>),
+    Function(Box<FunctionExpr<'a>>),
     DoUntil(Box<DoUntilExpr<'a>>),
     For(Box<ForExpr<'a>>),
     Group(Vec<Expr<'a>>),
@@ -31,6 +28,23 @@ pub enum Expr<'a> {
 }
 
 #[derive(Debug)]
+pub enum Evaluable<'a> {
+    LiteralReal(f64),
+    LiteralString(String),
+    Identifier(Box<IdentifierExpr<'a>>),
+    Function(Box<FunctionExpr<'a>>),
+    Unary(Box<UnaryExpr<'a>>),
+    Binary(Box<BinaryExpr<'a>>),
+}
+
+
+#[derive(Debug)]
+pub struct AssignmentExpr<'a> {
+    pub op: Operator,
+    pub lhs: IdentifierExpr<'a>,
+}
+
+#[derive(Debug)]
 pub struct UnaryExpr<'a> {
     pub op: Operator,
     pub child: Expr<'a>,
@@ -41,6 +55,19 @@ pub struct BinaryExpr<'a> {
     pub op: Operator,
     pub left: Expr<'a>,
     pub right: Expr<'a>,
+}
+
+#[derive(Debug)]
+pub struct IdentifierExpr<'a> {
+    pub variable: &'a str,
+    pub owner: Option<Expr<'a>>,
+    pub array_accessor: Vec<Expr<'a>>,
+}
+
+#[derive(Debug)]
+pub struct FunctionExpr<'a> {
+    pub name: &'a str,
+    pub params: Vec<Expr<'a>>,
 }
 
 #[derive(Debug)]
