@@ -10,6 +10,7 @@ pub struct AST<'a> {
     pub expressions: Vec<Expr<'a>>,
 }
 
+#[derive(Debug)]
 pub enum Expr<'a> {
     Literal(Token<'a>),
 
@@ -29,22 +30,26 @@ pub enum Expr<'a> {
     Nop,
 }
 
+#[derive(Debug)]
 pub struct UnaryExpr<'a> {
     pub op: Operator,
     pub child: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct BinaryExpr<'a> {
     pub op: Operator,
     pub left: Expr<'a>,
     pub right: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct DoUntilExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct ForExpr<'a> {
     pub start: Expr<'a>,
     pub cond: Expr<'a>,
@@ -53,31 +58,37 @@ pub struct ForExpr<'a> {
     pub body: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct IfExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
     pub else_body: Option<Expr<'a>>,
 }
 
+#[derive(Debug)]
 pub struct RepeatExpr<'a> {
     pub count: Expr<'a>,
     pub body: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct SwitchExpr<'a> {
     pub value: Expr<'a>,
     pub cases: Vec<(Expr<'a>, Expr<'a>)>,
 }
 
+#[derive(Debug)]
 pub struct VarExpr<'a> {
     pub vars: Vec<&'a str>,
 }
 
+#[derive(Debug)]
 pub struct WithExpr<'a> {
     pub target: Expr<'a>,
     pub body: Expr<'a>,
 }
 
+#[derive(Debug)]
 pub struct WhileExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
@@ -105,13 +116,16 @@ impl<'a> AST<'a> {
     pub fn new(source: &'a str) -> Result<Self, Error> {
         let mut lex = Lexer::new(source).peekable();
         let mut expressions = Vec::new();
+        let mut line: usize = 1;
 
         loop {
             // Get the first token from the iterator, or exit the loop if there are no more
-            let expr = AST::read_line(&mut lex);
-            match expr {
+            match AST::read_line(&mut lex, &mut line) {
                 Ok(Some(expr)) => {
-                    expressions.push(expr);
+                    // Filter top-level NOPs
+                    if !expr.is_nop() {
+                        expressions.push(expr);
+                    }
                 }
                 Ok(None) => break,
                 Err(e) => return Err(e),
@@ -121,7 +135,10 @@ impl<'a> AST<'a> {
         Ok(AST { expressions })
     }
 
-    fn read_line(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
+    fn read_line(
+        lex: &mut Peekable<Lexer<'a>>,
+        line: &mut usize,
+    ) -> Result<Option<Expr<'a>>, Error> {
         let token = match lex.next() {
             Some(t) => t,
             None => return Ok(None), // EOF
@@ -140,17 +157,18 @@ impl<'a> AST<'a> {
                             let next_token = match lex.next() {
                                 Some(t) => t,
                                 None => {
-                                    return Err(Error::new(
-                                        "Expected var name, found EOF".to_string(),
-                                    ))
+                                    return Err(Error::new(format!(
+                                        "Expected var name, found EOF (line {})",
+                                        line
+                                    )))
                                 }
                             };
                             let var_name = match next_token {
                                 Token::Identifier(id) => id,
                                 _ => {
                                     return Err(Error::new(format!(
-                                        "Invalid token, expected var name: {:?}",
-                                        next_token
+                                        "Invalid token, expected var name (line {}): {:?}",
+                                        line, next_token,
                                     )))
                                 }
                             };
@@ -209,8 +227,8 @@ impl<'a> AST<'a> {
 
                     _ => {
                         return Err(Error::new(format!(
-                            "Invalid Keyword at beginning of expression: {:?}",
-                            key
+                            "Invalid Keyword at beginning of expression on line {}: {:?}",
+                            line, key
                         )))
                     }
                 }
@@ -247,18 +265,13 @@ impl<'a> AST<'a> {
                                     lex.next();
                                     break;
                                 }
-                                _ => {
-                                    let inner_exp = AST::read_line(lex);
-                                    match inner_exp {
-                                        Ok(Some(e)) => inner_expressions.push(e),
-                                        Ok(None) => {
-                                            return Err(Error::new(
-                                                "Unclosed brace at EOF".to_string(),
-                                            ))
-                                        }
-                                        Err(e) => return Err(e),
+                                _ => match AST::read_line(lex, line) {
+                                    Ok(Some(e)) => inner_expressions.push(e),
+                                    Ok(None) => {
+                                        return Err(Error::new("Unclosed brace at EOF".to_string()))
                                     }
-                                }
+                                    Err(e) => return Err(e),
+                                },
                             }
                         }
                         Ok(Some(Expr::Group(inner_expressions)))
@@ -276,8 +289,8 @@ impl<'a> AST<'a> {
                     // Default
                     _ => {
                         return Err(Error::new(format!(
-                            "Invalid Separator at beginning of expression: {:?}",
-                            sep
+                            "Invalid Separator at beginning of expression on line {}: {:?}",
+                            line, sep
                         )))
                     }
                 }
@@ -285,14 +298,27 @@ impl<'a> AST<'a> {
 
             Token::Comment(_) => Ok(Some(Expr::Nop)),
 
-            Token::LineHint(_) => Ok(Some(Expr::Nop)), // TODO: store the line number somewhere
+            Token::LineHint(l) => {
+                *line = l;
+                Ok(Some(Expr::Nop))
+            }
 
             _ => {
                 return Err(Error::new(format!(
-                    "Invalid token at beginning of expression: {:?}",
-                    token
+                    "Invalid token at beginning of expression on line {}: {:?}",
+                    line, token
                 )))
             }
+        }
+    }
+}
+
+impl<'a> Expr<'a> {
+    pub fn is_nop(&self) -> bool {
+        if let Expr::Nop = self {
+            true
+        } else {
+            false
         }
     }
 }
