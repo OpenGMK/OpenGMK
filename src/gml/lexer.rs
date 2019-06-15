@@ -41,7 +41,7 @@ impl<'a> Lexer<'a> {
                         lines_skipped += 1;
                     }
                     self.iter.next();
-                },
+                }
                 _ => break lines_skipped,
             }
         }
