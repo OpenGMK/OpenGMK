@@ -30,6 +30,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn line(&self) -> usize {
+        self.line_hint
+    }
+
     /// Fast-forwards the internal iterator to the next token, skipping over whitespace.
     /// Returns how many lines (LF) were skipped in the process.
     fn fast_forward(&mut self) -> usize {
@@ -53,11 +57,7 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Token<'a>> {
         // locate next token
-        let skip = self.fast_forward();
-        if skip > 0 {
-            self.line_hint += skip;
-            return Some(Token::LineHint(self.line_hint));
-        }
+        self.line_hint = self.fast_forward();
 
         // this is fine since we operate on something that is a &str in a first place
         // we should of course never use a value not pulled from peek() as range indices
@@ -287,22 +287,17 @@ impl<'a> Iterator for Lexer<'a> {
                             // single line comments
                             Operator::Divide => {
                                 self.iter.next();
-                                let head = match self.iter.peek() {
-                                    Some(&(i, _)) => i,
-                                    None => return Some(Token::Comment("")),
-                                };
-                                let comment = loop {
+                                loop {
                                     match self.iter.peek() {
-                                        Some(&(i, ch)) => match ch {
-                                            b'\n' | b'\r' => break to_str(src, head..i),
-                                            _ => {
-                                                self.iter.next();
-                                            }
+                                        Some(&(_, ch)) => match ch {
+                                            b'\n' | b'\r' => break,
+                                            _ => { self.iter.next(); },
                                         },
-                                        None => break to_str(src, head..src.len()),
+                                        None => break,
                                     }
-                                };
-                                return Some(Token::Comment(comment.trim()));
+                                }
+
+                                return self.next();
                             }
 
                             _ => return Some(Token::Operator(op)),
@@ -338,33 +333,29 @@ impl<'a> Iterator for Lexer<'a> {
                     // multi-line comments
                     else if op == Operator::Divide && ch2 == b'*' {
                         self.iter.next();
-                        let head = match self.iter.peek() {
-                            Some(&(i, _)) => i,
-                            None => return Some(Token::Comment("")),
-                        };
-                        let comment = loop {
+                        loop {
                             match self.iter.peek() {
-                                Some(&(i, ch)) => match ch {
+                                Some(&(_, ch)) => match ch {
                                     b'*' => {
                                         self.iter.next();
                                         match self.iter.peek() {
                                             Some(&(_, ch)) => {
                                                 if ch == b'/' {
                                                     self.iter.next();
-                                                    break to_str(src, head..i);
+                                                    break;
                                                 }
                                             }
-                                            None => break to_str(src, head..src.len()),
+                                            None => break,
                                         }
                                     }
                                     _ => {
                                         self.iter.next();
                                     }
                                 },
-                                None => break to_str(src, head..src.len()),
+                                None => break,
                             }
-                        };
-                        Token::Comment(comment.trim())
+                        }
+                        return self.next();
                     } else {
                         Token::Operator(op)
                     }
