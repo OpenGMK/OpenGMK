@@ -12,10 +12,14 @@ pub struct AST<'a> {
 
 #[derive(Debug)]
 pub enum Expr<'a> {
-    Assignment(Box<AssignmentExpr<'a>>),
-    Function(Box<FunctionExpr<'a>>),
+    Literal(Token<'a>),
+
+    Unary(Box<UnaryExpr<'a>>),
+    Binary(Box<BinaryExpr<'a>>),
+
     DoUntil(Box<DoUntilExpr<'a>>),
     For(Box<ForExpr<'a>>),
+    Function(Box<FunctionExpr<'a>>),
     Group(Vec<Expr<'a>>),
     If(Box<IfExpr<'a>>),
     Repeat(Box<RepeatExpr<'a>>),
@@ -23,26 +27,8 @@ pub enum Expr<'a> {
     Var(Box<VarExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
-    Function(Box<FunctionExpr<'a>>),
 
     Nop,
-}
-
-#[derive(Debug)]
-pub enum Evaluable<'a> {
-    LiteralReal(f64),
-    LiteralString(String),
-    Identifier(Box<IdentifierExpr<'a>>),
-    Function(Box<FunctionExpr<'a>>),
-    Unary(Box<UnaryExpr<'a>>),
-    Binary(Box<BinaryExpr<'a>>),
-}
-
-
-#[derive(Debug)]
-pub struct AssignmentExpr<'a> {
-    pub op: Operator,
-    pub lhs: IdentifierExpr<'a>,
 }
 
 #[derive(Debug)]
@@ -120,12 +106,6 @@ pub struct WithExpr<'a> {
 pub struct WhileExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
-}
-
-#[derive(Debug)]
-pub struct FunctionExpr<'a> {
-    pub name: &'a str,
-    pub args: Vec<Expr<'a>>,
 }
 
 #[derive(Debug)]
@@ -327,13 +307,6 @@ impl<'a> AST<'a> {
                         )))
                     }
                 }
-            }
-
-            Token::Comment(_) => Ok(Some(Expr::Nop)),
-
-            Token::LineHint(l) => {
-                *line = l;
-                Ok(Some(Expr::Nop))
             }
 
             _ => {
