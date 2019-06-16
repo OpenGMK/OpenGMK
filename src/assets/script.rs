@@ -3,7 +3,6 @@ use crate::game::parser::ParserOptions;
 use crate::gml::ast::{self, AST};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
-use std::ops::Deref;
 
 pub const VERSION: Version = 800;
 
@@ -47,7 +46,7 @@ impl<'a> Script<'a> {
         let source = reader.read_pas_string()?.into_boxed_str();
 
         // TODO: Don't do this. This is horrible.
-        let ssource: &'static str = unsafe { std::mem::transmute(source.deref()) };
+        let ssource: &'static str = unsafe { std::mem::transmute(&*source) };
         let ast = AST::new(&ssource);
 
         Ok(Script { name, source, ast })
