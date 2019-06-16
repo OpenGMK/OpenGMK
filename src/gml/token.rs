@@ -124,6 +124,12 @@ pub enum Operator {
 
     /// `~` Binary Complement (Unary)
     Complement,
+
+    /// '.' isn't an operator
+    Period,
+
+    /// '[]' Array Accessor
+    ArrayAccessor,
 }
 
 #[derive(Debug, PartialEq)]
