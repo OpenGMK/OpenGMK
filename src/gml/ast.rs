@@ -23,6 +23,7 @@ pub enum Expr<'a> {
     Var(Box<VarExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
+    Function(Box<FunctionExpr<'a>>),
 
     Nop,
 }
@@ -119,6 +120,12 @@ pub struct WithExpr<'a> {
 pub struct WhileExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
+}
+
+#[derive(Debug)]
+pub struct FunctionExpr<'a> {
+    pub name: &'a str,
+    pub args: Vec<Expr<'a>>,
 }
 
 #[derive(Debug)]
@@ -274,9 +281,8 @@ impl<'a> AST<'a> {
                         Ok(None)
                     }
                     _ => {
-                        // TODO: parse an assignment
-                        // (note next token may be one of 8 assignment operators, period, or '[' )
-                        Ok(None)
+                        let binary_tree = AST::read_binary_tree(lex, line, Some(token))?;
+                        Ok(Some(binary_tree))
                     }
                 }
             }
@@ -306,8 +312,8 @@ impl<'a> AST<'a> {
 
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
-                        // TODO: parse an assignment
-                        Ok(None)
+                        let binary_tree = AST::read_binary_tree(lex, line, None)?;
+                        Ok(Some(binary_tree))
                     }
 
                     // A semicolon is treated as a line of code which does nothing.
@@ -336,6 +342,157 @@ impl<'a> AST<'a> {
                     line, token
                 )))
             }
+        }
+    }
+
+    fn read_binary_tree(
+        lex: &mut Peekable<Lexer<'a>>,
+        line: &mut usize,
+        first_token: Option<Token<'a>>,
+    ) -> Result<Expr<'a>, Error> {
+        // player.alarm[0]
+        // ([] (. player alarm) 0)
+        // (1).x = 5;
+        // (= (. 1 x) 5)
+
+        // Get the very first token in this exp value
+        let mut lhs = match first_token {
+            Some(t) => Expr::Literal(t),
+            None => match lex.next() {
+                Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
+                    let binary_tree = AST::read_binary_tree(lex, line, None)?;
+                    if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
+                        return Err(Error::new(format!(
+                            "Unclosed parenthesis in binary tree on line {}",
+                            line
+                        )));
+                    }
+                    binary_tree
+                }
+                Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
+                Some(t) => {
+                    return Err(Error::new(format!(
+                        "Invalid token while scanning binary tree on line {}: {:?}",
+                        line, t
+                    )))
+                }
+                None => {
+                    return Err(Error::new(format!(
+                        "Found EOF unexpectedly while reading binary tree (line {})",
+                        line
+                    )))
+                }
+            },
+        };
+
+        // Do we need to amend this LHS at all?
+        match lex.peek() {
+            Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
+                lex.next();
+                let mut dimensions = Vec::new();
+                loop {
+                    match lex.peek() {
+                        Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
+                            lex.next();
+                            break;
+                        }
+                        Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
+                            lex.next();
+                        }
+                        None => {
+                            return Err(Error::new(format!(
+                                "Found EOF unexpectedly while reading binary tree (line {})",
+                                line
+                            )))
+                        }
+                        _ => {
+                            let binary_tree = AST::read_binary_tree(lex, line, None)?;
+                            dimensions.push(binary_tree);
+                        }
+                    }
+                }
+                lhs = Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::ArrayAccessor,
+                    left: lhs,
+                    right: Expr::Group(dimensions),
+                }));
+            }
+
+            Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
+                lex.next();
+                lhs = Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Period,
+                    left: lhs,
+                    right: Expr::Literal(lex.next().ok_or_else(|| {
+                        Error::new(format!(
+                            "Found EOF unexpectedly while reading binary tree (line {})",
+                            line
+                        ))
+                    })?),
+                }));
+            }
+            Some(_) => {}
+            None => {
+                return Err(Error::new(format!(
+                    "Found EOF unexpectedly while reading binary tree (line {})",
+                    line
+                )))
+            }
+        }
+
+        // Check if the next token is an operator
+        // TODO: we don't do precedence
+        let next_token = lex.peek();
+        match next_token {
+            Some(&Token::Operator(_)) => {
+                if let Some(Token::Operator(op)) = lex.next() {
+                    Ok(Expr::Binary(Box::new(BinaryExpr {
+                        op: op,
+                        left: lhs,
+                        right: AST::read_binary_tree(lex, line, None)?,
+                    })))
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => Ok(lhs),
+        }
+    }
+
+    fn get_op_precedence(op: Operator) -> i8 {
+        match op {
+            Operator::Add => 4,
+            Operator::Subtract => 4,
+            Operator::Multiply => 5,
+            Operator::Divide => 5,
+            Operator::IntDivide => 5,
+            Operator::BinaryAnd => 2,
+            Operator::BinaryOr => 2,
+            Operator::BinaryXor => 2,
+            Operator::Assign => 6,
+            Operator::Not => 7,
+            Operator::LessThan => 1,
+            Operator::GreaterThan => 1,
+            Operator::AssignAdd => 6,
+            Operator::AssignSubtract => 6,
+            Operator::AssignMultiply => 6,
+            Operator::AssignDivide => 6,
+            Operator::AssignBinaryAnd => 6,
+            Operator::AssignBinaryOr => 6,
+            Operator::AssignBinaryXor => 6,
+            Operator::Equal => 1,
+            Operator::NotEqual => 1,
+            Operator::LessThanOrEqual => 1,
+            Operator::GreaterThanOrEqual => 1,
+            Operator::Modulo => 5,
+            Operator::And => 0,
+            Operator::Or => 0,
+            Operator::Xor => 0,
+            Operator::BinaryShiftLeft => 3,
+            Operator::BinaryShiftRight => 3,
+            Operator::Complement => 7,
+            Operator::Period => 9,
+            Operator::ArrayAccessor => 8,
         }
     }
 }
