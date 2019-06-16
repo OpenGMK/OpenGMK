@@ -292,7 +292,9 @@ impl<'a> Iterator for Lexer<'a> {
                                     match self.iter.peek() {
                                         Some(&(_, ch)) => match ch {
                                             b'\n' | b'\r' => break,
-                                            _ => { self.iter.next(); },
+                                            _ => {
+                                                self.iter.next();
+                                            }
                                         },
                                         None => break,
                                     }
