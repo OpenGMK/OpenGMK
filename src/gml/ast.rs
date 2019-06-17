@@ -299,7 +299,7 @@ impl<'a> AST<'a> {
 
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
-                        let binary_tree = AST::read_binary_tree(lex, line, None, true, 0)?;
+                        let binary_tree = AST::read_binary_tree(lex, line, Some(Token::Separator(Separator::ParenLeft)), true, 0)?;
                         if let Some(op) = binary_tree.1 {
                             Err(Error::new(format!(
                                 "Stray operator {:?} in expression on line {}",
@@ -340,40 +340,41 @@ impl<'a> AST<'a> {
         lowest_prec: u8, // We are not allowed to go below this operator precedence in this tree. If we do, we'll return the next op.
     ) -> Result<(Expr<'a>, Option<Operator>), Error> {
         // Get the very first token in this exp value
-        let mut lhs = match first_token {
-            Some(t) => Expr::Literal(t),
-            None => match lex.next() {
-                Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
-                    let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
-                    if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
-                        return Err(Error::new(format!(
-                            "Unclosed parenthesis in binary tree on line {}",
-                            line
-                        )));
-                    } else if let Some(op) = binary_tree.1 {
-                        return Err(Error::new(format!(
-                            "Stray operator {:?} in expression on line {}",
-                            op, line,
-                        )));
-                    }
-                    binary_tree.0
-                }
-                Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
-                Some(Token::Real(t)) => Expr::Literal(Token::Real(t)),
-                Some(Token::String(t)) => Expr::Literal(Token::String(t)),
-                Some(t) => {
+        let mut lhs = match if first_token.is_some() {
+            first_token
+        } else {
+            lex.next()
+        } {
+            Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
+                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
+                if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
                     return Err(Error::new(format!(
-                        "Invalid token while scanning binary tree on line {}: {:?}",
-                        line, t
-                    )))
-                }
-                None => {
-                    return Err(Error::new(format!(
-                        "Found EOF unexpectedly while reading binary tree (line {})",
+                        "Unclosed parenthesis in binary tree on line {}",
                         line
-                    )))
+                    )));
+                } else if let Some(op) = binary_tree.1 {
+                    return Err(Error::new(format!(
+                        "Stray operator {:?} in expression on line {}",
+                        op, line,
+                    )));
                 }
-            },
+                binary_tree.0
+            }
+            Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
+            Some(Token::Real(t)) => Expr::Literal(Token::Real(t)),
+            Some(Token::String(t)) => Expr::Literal(Token::String(t)),
+            Some(t) => {
+                return Err(Error::new(format!(
+                    "Invalid token while scanning binary tree on line {}: {:?}",
+                    line, t
+                )))
+            }
+            None => {
+                return Err(Error::new(format!(
+                    "Found EOF unexpectedly while reading binary tree (line {})",
+                    line
+                )))
+            }
         };
 
         // Do we need to amend this LHS at all?
@@ -599,19 +600,6 @@ impl<'a> Expr<'a> {
             true
         } else {
             false
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::AST;
-
-    #[test]
-    fn basics() {
-        match AST::new("a=1/2/3") {
-            Ok(ast) => println!("{:?}", ast.expressions),
-            Err(e) => panic!("{}", e),
         }
     }
 }
