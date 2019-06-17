@@ -25,9 +25,7 @@ impl Color {
 
     /// Converts the color to an ABGR decimal value.
     pub fn as_decimal(&self) -> u32 {
-        (((self.b * RGB_RANGE) as u32) << 16
-            | ((self.g * RGB_RANGE) as u32) << 8
-            | (self.r * RGB_RANGE) as u32)
+        (((self.b * RGB_RANGE) as u32) << 16 | ((self.g * RGB_RANGE) as u32) << 8 | (self.r * RGB_RANGE) as u32)
     }
 
     /// Creates a tuple of (r, g, b) values from self.

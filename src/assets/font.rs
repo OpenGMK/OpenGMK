@@ -34,9 +34,15 @@ pub struct Font {
     // The anti-aliasing level that was used to generate this font
     pub aa_level: u32,
 
-    /// Lookup table for sections of the font's pixel data, relative to a given character's ord value.
-    /// A font supports exactly 256 characters, and each character has six values here which are used to draw that character from the pixel data:
-    /// x, y, width, height, cursor offset (ie. how far right of the cursor to draw), and cursor distance (ie. how far right to move the cursor after drawing.)
+    /// Lookup table for sections of the font's pixel data, relative to a given character's ASCII numeric value.
+    /// A font supports exactly 256 characters, and each character has six values here,
+    /// which are used to draw that character from the pixel data:
+    /// - x
+    /// - y
+    /// - width
+    /// - height
+    /// - cursor offset (ie. how far right of the cursor to draw)
+    /// - cursor distance (ie. how far right to move the cursor after drawing.)
     pub dmap: Box<[u32; 0x600]>,
 
     /// The size of the cooked RGBA pixeldata.
@@ -70,11 +76,7 @@ impl Font {
         Ok(result)
     }
 
-    pub fn deserialize<B>(
-        bin: B,
-        game_ver: &GameVersion,
-        options: &ParserOptions,
-    ) -> io::Result<Font>
+    pub fn deserialize<B>(bin: B, game_ver: &GameVersion, options: &ParserOptions) -> io::Result<Font>
     where
         B: AsRef<[u8]>,
     {

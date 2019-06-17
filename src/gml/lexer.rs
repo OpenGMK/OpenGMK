@@ -167,9 +167,7 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     Token::Real(
                         // only 0-9 and . can be in the buffer, check unneeded
-                        unsafe { str::from_utf8_unchecked(&self.buf) }
-                            .parse()
-                            .unwrap_or(0.0),
+                        unsafe { str::from_utf8_unchecked(&self.buf) }.parse().unwrap_or(0.0),
                     )
                 }
             }
