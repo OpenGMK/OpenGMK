@@ -151,9 +151,8 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Group(group) => write!(
                 f,
                 "<{}>",
-                group
-                    .iter()
-                    .fold(String::new(), |acc, expr| acc + &format!("{}, ", expr))
+                group.iter().fold(String::new(), |acc, expr| acc
+                    + &format!("{}, ", expr).trim_end_matches(|ch| ch == ' ' || ch == ','))
             ),
             Expr::If(if_ex) => match if_ex.else_body {
                 Some(ref els) => write!(f, "(if {} {} {})", if_ex.cond, if_ex.body, els),
