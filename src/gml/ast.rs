@@ -124,9 +124,10 @@ impl<'a> fmt::Display for Expr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Literal(tok) => match tok {
+                Token::Identifier(id) => write!(f, "{}", id),
                 Token::Real(r) => write!(f, "{}", r),
                 Token::String(s) => write!(f, "\"{}\"", s),
-                _ => panic!("adam, change this!"),
+                _ => panic!("adam, fix this!"),
             },
 
             Expr::Unary(unary) => write!(f, "({} {})", unary.op, unary.child),
@@ -144,7 +145,7 @@ impl<'a> fmt::Display for Expr<'a> {
                 call.name,
                 call.params
                     .iter()
-                    .fold(String::new(), |acc, varname| acc + &format!("{} ", varname))
+                    .fold(String::new(), |acc, fnname| acc + &format!("{} ", fnname))
                     .trim_end()
             ),
             Expr::Group(group) => write!(
