@@ -18,11 +18,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     if args.len() < 1 {
-        print!("{}", include_str!("../incl/default"));
+        print!("{}", include_str!("incl/default"));
         return Ok(());
     }
 
-    let print_usage = || print!("{}", include_str!("../incl/usage"));
+    let print_usage = || print!("{}", include_str!("incl/usage"));
     let mut options = ParserOptions::new();
     let mut path: Option<&String> = None;
     let mut argi = args.iter();
