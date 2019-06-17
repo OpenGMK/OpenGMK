@@ -6,11 +6,12 @@ use std::fmt;
 
 use std::iter::Peekable;
 
+#[derive(Debug, PartialEq)]
 pub struct AST<'a> {
     pub expressions: Vec<Expr<'a>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
     Literal(Token<'a>),
 
@@ -31,39 +32,39 @@ pub enum Expr<'a> {
     Nop,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryExpr<'a> {
     pub op: Operator,
     pub child: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryExpr<'a> {
     pub op: Operator,
     pub left: Expr<'a>,
     pub right: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct IdentifierExpr<'a> {
     pub variable: &'a str,
     pub owner: Option<Expr<'a>>,
     pub array_accessor: Vec<Expr<'a>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FunctionExpr<'a> {
     pub name: &'a str,
     pub params: Vec<Expr<'a>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DoUntilExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ForExpr<'a> {
     pub start: Expr<'a>,
     pub cond: Expr<'a>,
@@ -72,37 +73,37 @@ pub struct ForExpr<'a> {
     pub body: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct IfExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
     pub else_body: Option<Expr<'a>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct RepeatExpr<'a> {
     pub count: Expr<'a>,
     pub body: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SwitchExpr<'a> {
     pub value: Expr<'a>,
     pub cases: Vec<(Expr<'a>, Expr<'a>)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VarExpr<'a> {
     pub vars: Vec<&'a str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct WithExpr<'a> {
     pub target: Expr<'a>,
     pub body: Expr<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct WhileExpr<'a> {
     pub cond: Expr<'a>,
     pub body: Expr<'a>,
