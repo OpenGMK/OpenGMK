@@ -251,7 +251,7 @@ impl<'a> AST<'a> {
             Token::Identifier(id) => {
                 // An expression starting with an identifier may be either an assignment or script/function.
                 // This is determined by what type of token immediately follows it.
-                let next_token = match lex.next() {
+                let next_token = match lex.peek() {
                     Some(t) => t,
                     None => return Err(Error::new(format!("Stray identifier at EOF: {:?}", id))),
                 };
@@ -359,6 +359,8 @@ impl<'a> AST<'a> {
                     binary_tree.0
                 }
                 Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
+                Some(Token::Real(t)) => Expr::Literal(Token::Real(t)),
+                Some(Token::String(t)) => Expr::Literal(Token::String(t)),
                 Some(t) => {
                     return Err(Error::new(format!(
                         "Invalid token while scanning binary tree on line {}: {:?}",
@@ -426,13 +428,7 @@ impl<'a> AST<'a> {
                     })?),
                 }));
             }
-            Some(_) => {}
-            None => {
-                return Err(Error::new(format!(
-                    "Found EOF unexpectedly while reading binary tree (line {})",
-                    line
-                )))
-            }
+            _ => {}
         }
 
         // Check if the next token is an operator
