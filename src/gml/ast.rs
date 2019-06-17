@@ -300,7 +300,13 @@ impl<'a> AST<'a> {
 
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
-                        let binary_tree = AST::read_binary_tree(lex, line, Some(Token::Separator(Separator::ParenLeft)), true, 0)?;
+                        let binary_tree = AST::read_binary_tree(
+                            lex,
+                            line,
+                            Some(Token::Separator(Separator::ParenLeft)),
+                            true,
+                            0,
+                        )?;
                         if let Some(op) = binary_tree.1 {
                             Err(Error::new(format!(
                                 "Stray operator {:?} in expression on line {}",
@@ -601,6 +607,26 @@ impl<'a> Expr<'a> {
             true
         } else {
             false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basics() {
+        match AST::new("a = 1") {
+            Ok(ast) => assert_eq!(
+                ast.expressions,
+                vec![Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::Literal(Token::Identifier("a")),
+                    right: Expr::Literal(Token::Real(1.0))
+                }))]
+            ),
+            Err(e) => panic!("{}", e),
         }
     }
 }
