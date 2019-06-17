@@ -9,3 +9,6 @@ unstable_features = true
 
 # Formatting rules (preset) version
 version = "Two"
+
+# Maximum line width
+max_width = 120
