@@ -523,10 +523,9 @@ impl<'a> AST<'a> {
                     loop {
                         // Here, we get the precedence of the operator we found. If this returns None, it's probably an assignment,
                         // so we use that in conjunction with an if-let to check its validity.
-                        // TODO: probably don't do this, it assumes any non-precedence op is an assignment, eg "1 ! 2;" gets compiled to (not 1 2)
                         if let Some(precedence) = AST::get_op_precedence(&op) {
-                            // this op is invalid if assignment expected
-                            if expect_assignment {
+                            // this op is invalid if assignment expected, or if it's exclusively unary (those have no precedence so they pass the above check)
+                            if expect_assignment || op == Operator::Not || op == Operator::Complement {
                                 break Err(Error::new(format!(
                                     "Invalid operator {:?} found, expected assignment (line {})",
                                     op, line,
