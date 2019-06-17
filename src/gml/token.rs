@@ -127,10 +127,10 @@ pub enum Operator {
     /// `~` Binary Complement (Unary)
     Complement,
 
-    /// '.' isn't an operator
+    /// `.` Dereference Operator
     Period,
 
-    /// '[]' Array Accessor
+    /// `[]` Array Accessor
     ArrayAccessor,
 }
 
@@ -168,6 +168,29 @@ pub enum Separator {
 
     /// `then` (Legacy)
     Then,
+}
+
+impl fmt::Display for Keyword {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Keyword::Var => write!(f, "var"),
+            Keyword::If => write!(f, "if"),
+            Keyword::Else => write!(f, "else"),
+            Keyword::With => write!(f, "with"),
+            Keyword::Repeat => write!(f, "repeat"),
+            Keyword::Do => write!(f, "do"),
+            Keyword::Until => write!(f, "until"),
+            Keyword::While => write!(f, "while"),
+            Keyword::For => write!(f, "for"),
+            Keyword::Switch => write!(f, "switch"),
+            Keyword::Case => write!(f, "case"),
+            Keyword::Default => write!(f, "default"),
+            Keyword::Break => write!(f, "break"),
+            Keyword::Continue => write!(f, "continue"),
+            Keyword::Return => write!(f, "return"),
+            Keyword::Exit => write!(f, "exit"),
+        }
+    }
 }
 
 impl fmt::Display for Operator {
