@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
     Identifier(&'a str),
@@ -166,4 +168,62 @@ pub enum Separator {
 
     /// `then` (Legacy)
     Then,
+}
+
+
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Operator::Add => write!(f, "+"),
+            Operator::Subtract => write!(f, "-"),
+            Operator::Multiply => write!(f, "*"),
+            Operator::Divide => write!(f, "/"),
+            Operator::IntDivide => write!(f, "div"),
+            Operator::BinaryAnd => write!(f, "&"),
+            Operator::BinaryOr => write!(f, "|"),
+            Operator::BinaryXor => write!(f, "^"),
+            Operator::Assign => write!(f, "="),
+            Operator::Not => write!(f, "!"),
+            Operator::LessThan => write!(f, "<"),
+            Operator::GreaterThan => write!(f, ">"),
+            Operator::AssignAdd => write!(f, "+="),
+            Operator::AssignSubtract => write!(f, "-="),
+            Operator::AssignMultiply => write!(f, "*="),
+            Operator::AssignDivide => write!(f, "/="),
+            Operator::AssignBinaryAnd => write!(f, "&="),
+            Operator::AssignBinaryOr => write!(f, "|="),
+            Operator::AssignBinaryXor => write!(f, "^="),
+            Operator::Equal => write!(f, "=="),
+            Operator::NotEqual => write!(f, "!="),
+            Operator::LessThanOrEqual => write!(f, "<="),
+            Operator::GreaterThanOrEqual => write!(f, ">="),
+            Operator::Modulo => write!(f, "mod"),
+            Operator::And => write!(f, "&&"),
+            Operator::Or => write!(f, "||"),
+            Operator::Xor => write!(f, "^^"),
+            Operator::BinaryShiftLeft => write!(f, "<<"),
+            Operator::BinaryShiftRight => write!(f, ">>"),
+            Operator::Complement => write!(f, "~"),
+            Operator::Period => write!(f, "."),
+            Operator::ArrayAccessor => write!(f, "[]"),
+        }
+    }
+}
+
+impl fmt::Display for Separator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Separator::ParenLeft => write!(f, "("),
+            Separator::ParenRight => write!(f, ")"),
+            Separator::BraceLeft => write!(f, "{{"),
+            Separator::BraceRight => write!(f, "}}"),
+            Separator::BracketLeft => write!(f, "["),
+            Separator::BracketRight => write!(f, "]"),
+            Separator::Semicolon => write!(f, ";"),
+            Separator::Colon => write!(f, ":"),
+            Separator::Comma => write!(f, ","),
+            Separator::Period => write!(f, "."),
+            Separator::Then => write!(f, "then"),
+        }
+    }
 }
