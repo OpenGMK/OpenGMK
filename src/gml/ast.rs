@@ -120,6 +120,72 @@ impl Error {
     }
 }
 
+impl<'a> fmt::Display for Expr<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expr::Literal(tok) => match tok {
+                Token::Real(r) => write!(f, "{}", r),
+                Token::String(s) => write!(f, "\"{}\"", s),
+                _ => panic!("adam, change this!"),
+            },
+
+            Expr::Unary(unary) => write!(f, "({} {})", unary.op, unary.child),
+            Expr::Binary(binary) => write!(f, "({} {} {})", binary.op, binary.left, binary.right),
+
+            Expr::DoUntil(dountil) => write!(f, "(do {} until {})", dountil.cond, dountil.body),
+            Expr::For(for_ex) => write!(
+                f,
+                "(for ({}, {}, {}) {})",
+                for_ex.start, for_ex.cond, for_ex.step, for_ex.body
+            ),
+            Expr::Function(call) => write!(
+                f,
+                "(@{} {})",
+                call.name,
+                call.params
+                    .iter()
+                    .fold(String::new(), |acc, varname| acc + &format!("{} ", varname))
+                    .trim_end()
+            ),
+            Expr::Group(group) => write!(
+                f,
+                "<{}>",
+                group
+                    .iter()
+                    .fold(String::new(), |acc, expr| acc + &format!("{}, ", expr))
+            ),
+            Expr::If(if_ex) => match if_ex.else_body {
+                Some(ref els) => write!(f, "(if {} {} {})", if_ex.cond, if_ex.body, els),
+                None => write!(f, "(if {} {})", if_ex.cond, if_ex.body),
+            },
+            Expr::Repeat(repeat) => write!(f, "(repeat {} {})", repeat.count, repeat.body),
+            Expr::Switch(switch) => write!(
+                f,
+                "(switch {} {})",
+                switch.value,
+                switch
+                    .cases
+                    .iter()
+                    .fold(String::new(), |acc, (val, body)| acc
+                        + &format!("({} {}) ", val, body))
+                    .trim_end()
+            ),
+            Expr::Var(var) => write!(
+                f,
+                "(var {})",
+                var.vars
+                    .iter()
+                    .fold(String::new(), |acc, varname| acc + &format!("{} ", varname))
+                    .trim_end()
+            ),
+            Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
+            Expr::While(while_ex) => write!(f, "(while {} {})", while_ex.cond, while_ex.body),
+
+            Expr::Nop => write!(f, ""),
+        }
+    }
+}
+
 impl error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
