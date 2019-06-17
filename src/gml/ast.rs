@@ -377,58 +377,60 @@ impl<'a> AST<'a> {
         };
 
         // Do we need to amend this LHS at all?
-        match lex.peek() {
-            Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
-                lex.next();
-                let mut dimensions = Vec::new();
-                loop {
-                    match lex.peek() {
-                        Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
-                            lex.next();
-                            break;
-                        }
-                        Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
-                            lex.next();
-                        }
-                        None => {
-                            return Err(Error::new(format!(
-                                "Found EOF unexpectedly while reading binary tree (line {})",
-                                line
-                            )))
-                        }
-                        _ => {
-                            let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
-                            if let Some(op) = binary_tree.1 {
-                                return Err(Error::new(format!(
-                                    "Stray operator {:?} in expression on line {}",
-                                    op, line,
-                                )));
+        loop {
+            match lex.peek() {
+                Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
+                    lex.next();
+                    let mut dimensions = Vec::new();
+                    loop {
+                        match lex.peek() {
+                            Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
+                                lex.next();
+                                break;
                             }
-                            dimensions.push(binary_tree.0);
+                            Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
+                                lex.next();
+                            }
+                            None => {
+                                return Err(Error::new(format!(
+                                    "Found EOF unexpectedly while reading binary tree (line {})",
+                                    line
+                                )))
+                            }
+                            _ => {
+                                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
+                                if let Some(op) = binary_tree.1 {
+                                    return Err(Error::new(format!(
+                                        "Stray operator {:?} in expression on line {}",
+                                        op, line,
+                                    )));
+                                }
+                                dimensions.push(binary_tree.0);
+                            }
                         }
                     }
+                    lhs = Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::ArrayAccessor,
+                        left: lhs,
+                        right: Expr::Group(dimensions),
+                    }));
                 }
-                lhs = Expr::Binary(Box::new(BinaryExpr {
-                    op: Operator::ArrayAccessor,
-                    left: lhs,
-                    right: Expr::Group(dimensions),
-                }));
-            }
 
-            Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
-                lex.next();
-                lhs = Expr::Binary(Box::new(BinaryExpr {
-                    op: Operator::Period,
-                    left: lhs,
-                    right: Expr::Literal(lex.next().ok_or_else(|| {
-                        Error::new(format!(
-                            "Found EOF unexpectedly while reading binary tree (line {})",
-                            line
-                        ))
-                    })?),
-                }));
+                Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
+                    lex.next();
+                    lhs = Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Period,
+                        left: lhs,
+                        right: Expr::Literal(lex.next().ok_or_else(|| {
+                            Error::new(format!(
+                                "Found EOF unexpectedly while reading binary tree (line {})",
+                                line
+                            ))
+                        })?),
+                    }));
+                }
+                _ => break,
             }
-            _ => {}
         }
 
         // Check if the next token is an operator
@@ -459,8 +461,16 @@ impl<'a> AST<'a> {
                                 if precedence < lowest_prec {
                                     break Ok((lhs, Some(op)));
                                 } else {
-                                    let rhs =
-                                        AST::read_binary_tree(lex, line, None, false, precedence)?;
+                                    // We're allowed to use the next operator. Let's read an RHS to put on after it.
+                                    // You might be thinking "precedence + 1" is counter-intuitive- "precedence" would make more sense. Well, the difference
+                                    // is left-to-right vs right-to-left construction. This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
+                                    let rhs = AST::read_binary_tree(
+                                        lex,
+                                        line,
+                                        None,
+                                        false,
+                                        precedence + 1,
+                                    )?;
                                     if let Some(next_op) = rhs.1 {
                                         // There's another operator even after the RHS.
                                         if let Some(next_prec) = AST::get_op_precedence(&next_op) {
@@ -589,6 +599,19 @@ impl<'a> Expr<'a> {
             true
         } else {
             false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AST;
+
+    #[test]
+    fn basics() {
+        match AST::new("a=1/2/3") {
+            Ok(ast) => println!("{:?}", ast.expressions),
+            Err(e) => panic!("{}", e),
         }
     }
 }
