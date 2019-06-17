@@ -470,7 +470,7 @@ impl<'a> AST<'a> {
                         }
                     }
                     lhs = Expr::Binary(Box::new(BinaryExpr {
-                        op: Operator::ArrayAccessor,
+                        op: Operator::Index,
                         left: lhs,
                         right: Expr::Group(dimensions),
                     }));
@@ -479,7 +479,7 @@ impl<'a> AST<'a> {
                 Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
                     lex.next();
                     lhs = Expr::Binary(Box::new(BinaryExpr {
-                        op: Operator::Period,
+                        op: Operator::Deref,
                         left: lhs,
                         right: Expr::Literal(lex.next().ok_or_else(|| {
                             Error::new(format!(
@@ -645,8 +645,8 @@ impl<'a> AST<'a> {
             Operator::BinaryShiftLeft => Some(3),
             Operator::BinaryShiftRight => Some(3),
             Operator::Complement => None,
-            Operator::Period => None,
-            Operator::ArrayAccessor => None,
+            Operator::Deref => None,
+            Operator::Index => None,
         }
     }
 }

@@ -128,10 +128,10 @@ pub enum Operator {
     Complement,
 
     /// `.` Dereference Operator
-    Period,
+    Deref,
 
     /// `[]` Array Accessor
-    ArrayAccessor,
+    Index,
 }
 
 #[derive(Debug, PartialEq)]
@@ -226,8 +226,8 @@ impl fmt::Display for Operator {
             Operator::BinaryShiftLeft => write!(f, "<<"),
             Operator::BinaryShiftRight => write!(f, ">>"),
             Operator::Complement => write!(f, "~"),
-            Operator::Period => write!(f, "."),
-            Operator::ArrayAccessor => write!(f, "[]"),
+            Operator::Deref => write!(f, "."),
+            Operator::Index => write!(f, "[]"),
         }
     }
 }
