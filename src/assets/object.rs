@@ -32,11 +32,12 @@ pub struct Object {
     pub parent_index: i32,
 
     /// Default mask_index (a sprite index) for this Object
-    /// Note: any negative index (usually -1) indicates sprite_index should be used as mask index
+    /// Note: any negative index (usually -1) indicates sprite_index should be used as mask index.
     pub mask_index: i32,
 
     /// Object event lists
-    /// An object usually has 12 event lists. Each list can have 0 or many sub-events, which are indexed by the tuple LHS.
+    /// An object usually has 12 event lists.
+    /// Each list can have 0 or many sub-events, which are indexed by the tuple LHS.
     pub events: Vec<Vec<(u32, Vec<CodeAction>)>>,
 }
 
@@ -92,8 +93,10 @@ impl Object {
         let parent_index = reader.read_u32_le()? as i32;
         let mask_index = reader.read_u32_le()? as i32;
 
-        // This is always 11. I don't know what to do if this isn't 11. We'll probably never know, because it's always 11.
-        // We might as well load it instead of hard-coding it everywhere just for clarity, and for easier damage control if this ever becomes a problem.
+        // This is always 11. I don't know what to do if this isn't 11.
+        // We'll probably never know, because it's always 11.
+        // We might as well load it instead of hard-coding it everywhere just for clarity,
+        // and for easier damage control if this ever becomes a problem.
         // Oh, also, it's 0..=n so the number is actually 11 instead of 12 because there are 12 lists. Yeah.
         let event_list_count = reader.read_u32_le()?;
         assert_eq!(event_list_count, 11);

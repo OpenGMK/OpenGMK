@@ -81,10 +81,7 @@ impl Background {
         } else {
             Ok(Background {
                 name,
-                size: Dimensions {
-                    width: 0,
-                    height: 0,
-                },
+                size: Dimensions { width: 0, height: 0 },
                 data: None,
             })
         }

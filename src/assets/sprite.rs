@@ -128,10 +128,7 @@ impl Sprite {
                 ));
             }
 
-            fn read_collision<T>(
-                reader: &mut io::Cursor<T>,
-                options: &ParserOptions,
-            ) -> io::Result<CollisionMap>
+            fn read_collision<T>(reader: &mut io::Cursor<T>, options: &ParserOptions) -> io::Result<CollisionMap>
             where
                 T: AsRef<[u8]>,
             {

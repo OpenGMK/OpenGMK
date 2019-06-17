@@ -1,7 +1,6 @@
 use super::{Game, GameHelpDialog, GameVersion};
 use crate::assets::{
-    path::ConnectionKind, Background, Constant, Font, Object, Path, Room, Script, Sound, Sprite,
-    Timeline, Trigger,
+    path::ConnectionKind, Background, Constant, Font, Object, Path, Room, Script, Sound, Sprite, Timeline, Trigger,
 };
 use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 use crate::types::Dimensions;
@@ -65,11 +64,9 @@ impl Display for Error {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
             ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
-            ErrorKind::InvalidVersion(n, e, g) => write!(
-                f,
-                "Invalid version in {} (expected: {:.1}, got: {:.1})",
-                n, e, g
-            ),
+            ErrorKind::InvalidVersion(n, e, g) => {
+                write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
+            }
         }
     }
 }
@@ -121,8 +118,8 @@ fn decrypt_gm80(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> io
     // decryption: first pass
     //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
     for i in (pos..=pos + len).rev() {
-        data[i - 1] = reverse_table[data[i - 1] as usize]
-            .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+        data[i - 1] =
+            reverse_table[data[i - 1] as usize].wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
     }
 
     // decryption: second pass
@@ -164,10 +161,7 @@ fn decrypt_gm81(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> io
     };
 
     let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
-    let hash_key_utf16: Vec<u8> = hash_key
-        .bytes()
-        .flat_map(|c| once(c).chain(once(0)))
-        .collect();
+    let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
 
     // generate crc table
     let mut crc_table = [0u32; 256];
@@ -253,7 +247,8 @@ impl<'a> Game<'a> {
             }
 
             game_ver = Some(GameVersion::GameMaker80);
-            exe.seek(SeekFrom::Current(12))?; // 8.0-specific header TODO: strict should probably check these values.
+            // 8.0-specific header TODO: strict should probably check these values.
+            exe.seek(SeekFrom::Current(12))?;
         } else {
             // check for standard 8.1 header
             exe.set_position(GM81_MAGIC_POS);
@@ -262,15 +257,13 @@ impl<'a> Game<'a> {
                 if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
                     if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
                         if options.log {
-                            println!(
-                                "Detected GameMaker 8.1 magic (pos: {:#X})",
-                                exe.position() - 8
-                            );
+                            println!("Detected GameMaker 8.1 magic (pos: {:#X})", exe.position() - 8);
                         }
 
                         game_ver = Some(GameVersion::GameMaker81);
                         decrypt_gm81(&mut exe, options)?;
-                        exe.seek(SeekFrom::Current(20))?; // 8.1-specific header TODO: strict should probably check these values.
+                        // 8.1-specific header TODO: strict should probably check these values.
+                        exe.seek(SeekFrom::Current(20))?;
                         break;
                     } else {
                         exe.set_position(exe.position() - 4);
@@ -385,10 +378,7 @@ impl<'a> Game<'a> {
             Ok(refs)
         }
 
-        fn get_assets<T, F>(
-            src: &mut io::Cursor<&[u8]>,
-            deserializer: F,
-        ) -> Result<Vec<Option<Box<T>>>, Error>
+        fn get_assets<T, F>(src: &mut io::Cursor<&[u8]>, deserializer: F) -> Result<Vec<Option<Box<T>>>, Error>
         where
             T: Send,
             F: Fn(&[u8]) -> Result<T, io::Error> + Sync,
@@ -547,11 +537,7 @@ impl<'a> Game<'a> {
                     object.name,
                     if object.solid { "solid; " } else { "" },
                     if object.visible { "visible; " } else { "" },
-                    if object.persistent {
-                        "persistent; "
-                    } else {
-                        ""
-                    },
+                    if object.persistent { "persistent; " } else { "" },
                     object.depth,
                 );
             });
@@ -585,8 +571,7 @@ impl<'a> Game<'a> {
         let help_dialog = {
             let len = exe.read_u32_le()? as usize;
             let pos = exe.position() as usize;
-            let mut data =
-                io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
+            let mut data = io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
             let hdg = GameHelpDialog {
                 bg_color: data.read_u32_le()?.into(),
                 new_window: data.read_u32_le()? != 0,

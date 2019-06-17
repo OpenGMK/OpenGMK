@@ -152,8 +152,10 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Group(group) => write!(
                 f,
                 "<{}>",
-                group.iter().fold(String::new(), |acc, expr| acc
-                    + &format!("{}, ", expr)).trim_end_matches(|ch| ch == ' ' || ch == ',')
+                group
+                    .iter()
+                    .fold(String::new(), |acc, expr| acc + &format!("{}, ", expr))
+                    .trim_end_matches(|ch| ch == ' ' || ch == ',')
             ),
             Expr::If(if_ex) => match if_ex.else_body {
                 Some(ref els) => write!(f, "(if {} {} {})", if_ex.cond, if_ex.body, els),
@@ -167,8 +169,7 @@ impl<'a> fmt::Display for Expr<'a> {
                 switch
                     .cases
                     .iter()
-                    .fold(String::new(), |acc, (val, body)| acc
-                        + &format!("({} {}) ", val, body))
+                    .fold(String::new(), |acc, (val, body)| acc + &format!("({} {}) ", val, body))
                     .trim_end()
             ),
             Expr::Var(var) => write!(
@@ -217,10 +218,7 @@ impl<'a> AST<'a> {
         Ok(AST { expressions })
     }
 
-    fn read_line(
-        lex: &mut Peekable<Lexer<'a>>,
-        line: &mut usize,
-    ) -> Result<Option<Expr<'a>>, Error> {
+    fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
         let token = match lex.next() {
             Some(t) => t,
             None => return Ok(None), // EOF
@@ -239,10 +237,7 @@ impl<'a> AST<'a> {
                             let next_token = match lex.next() {
                                 Some(t) => t,
                                 None => {
-                                    return Err(Error::new(format!(
-                                        "Expected var name, found EOF (line {})",
-                                        line
-                                    )))
+                                    return Err(Error::new(format!("Expected var name, found EOF (line {})", line)));
                                 }
                             };
                             let var_name = match next_token {
@@ -251,7 +246,7 @@ impl<'a> AST<'a> {
                                     return Err(Error::new(format!(
                                         "Invalid token, expected var name (line {}): {:?}",
                                         line, next_token,
-                                    )))
+                                    )));
                                 }
                             };
                             vars.push(var_name);
@@ -311,7 +306,7 @@ impl<'a> AST<'a> {
                         return Err(Error::new(format!(
                             "Invalid Keyword at beginning of expression on line {}: {:?}",
                             line, key
-                        )))
+                        )));
                     }
                 }
             }
@@ -355,9 +350,7 @@ impl<'a> AST<'a> {
                                 }
                                 _ => match AST::read_line(lex, line) {
                                     Ok(Some(e)) => inner_expressions.push(e),
-                                    Ok(None) => {
-                                        return Err(Error::new("Unclosed brace at EOF".to_string()))
-                                    }
+                                    Ok(None) => return Err(Error::new("Unclosed brace at EOF".to_string())),
                                     Err(e) => return Err(e),
                                 },
                             }
@@ -367,13 +360,8 @@ impl<'a> AST<'a> {
 
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
-                        let binary_tree = AST::read_binary_tree(
-                            lex,
-                            line,
-                            Some(Token::Separator(Separator::ParenLeft)),
-                            true,
-                            0,
-                        )?;
+                        let binary_tree =
+                            AST::read_binary_tree(lex, line, Some(Token::Separator(Separator::ParenLeft)), true, 0)?;
                         if let Some(op) = binary_tree.1 {
                             Err(Error::new(format!(
                                 "Stray operator {:?} in expression on line {}",
@@ -392,7 +380,7 @@ impl<'a> AST<'a> {
                         return Err(Error::new(format!(
                             "Invalid Separator at beginning of expression on line {}: {:?}",
                             line, sep
-                        )))
+                        )));
                     }
                 }
             }
@@ -401,7 +389,7 @@ impl<'a> AST<'a> {
                 return Err(Error::new(format!(
                     "Invalid token at beginning of expression on line {}: {:?}",
                     line, token
-                )))
+                )));
             }
         }
     }
@@ -411,14 +399,11 @@ impl<'a> AST<'a> {
         line: &mut usize,
         first_token: Option<Token<'a>>, // Sometimes we've already parsed the first token, so it should be put here.
         expect_assignment: bool,        // Do we expect the first op to be an assignment?
-        lowest_prec: u8, // We are not allowed to go below this operator precedence in this tree. If we do, we'll return the next op.
+        lowest_prec: u8,                // We are not allowed to go below this operator precedence in this tree.
+                                        // If we do, we'll return the next op.
     ) -> Result<(Expr<'a>, Option<Operator>), Error> {
         // Get the very first token in this exp value
-        let mut lhs = match if first_token.is_some() {
-            first_token
-        } else {
-            lex.next()
-        } {
+        let mut lhs = match if first_token.is_some() { first_token } else { lex.next() } {
             Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
                 let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
                 if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
@@ -441,13 +426,13 @@ impl<'a> AST<'a> {
                 return Err(Error::new(format!(
                     "Invalid token while scanning binary tree on line {}: {:?}",
                     line, t
-                )))
+                )));
             }
             None => {
                 return Err(Error::new(format!(
                     "Found EOF unexpectedly while reading binary tree (line {})",
                     line
-                )))
+                )));
             }
         };
 
@@ -470,7 +455,7 @@ impl<'a> AST<'a> {
                                 return Err(Error::new(format!(
                                     "Found EOF unexpectedly while reading binary tree (line {})",
                                     line
-                                )))
+                                )));
                             }
                             _ => {
                                 let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
@@ -521,35 +506,33 @@ impl<'a> AST<'a> {
 
                     // Now, loop until there are no more buffered operators.
                     loop {
-                        // Here, we get the precedence of the operator we found. If this returns None, it's probably an assignment,
+                        // Here, we get the precedence of the operator we found.
+                        // If this returns None, it's probably an assignment,
                         // so we use that in conjunction with an if-let to check its validity.
                         if let Some(precedence) = AST::get_op_precedence(&op) {
-                            // this op is invalid if assignment expected, or if it's exclusively unary (those have no precedence so they pass the above check)
+                            // this op is invalid if assignment expected, or if it's exclusively unary
+                            // (those have no precedence so they pass the above check)
                             if expect_assignment || op == Operator::Not || op == Operator::Complement {
                                 break Err(Error::new(format!(
                                     "Invalid operator {:?} found, expected assignment (line {})",
                                     op, line,
                                 )));
                             } else {
-                                // If this op has lower precedence than we're allowed to read, we have to return it here.
+                                // If this op has lower prec than we're allowed to read, we have to return it here.
                                 if precedence < lowest_prec {
                                     break Ok((lhs, Some(op)));
                                 } else {
                                     // We're allowed to use the next operator. Let's read an RHS to put on after it.
-                                    // You might be thinking "precedence + 1" is counter-intuitive- "precedence" would make more sense. Well, the difference
-                                    // is left-to-right vs right-to-left construction. This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
-                                    let rhs = AST::read_binary_tree(
-                                        lex,
-                                        line,
-                                        None,
-                                        false,
-                                        precedence + 1,
-                                    )?;
+                                    // You might be thinking "precedence + 1" is counter-intuitive -
+                                    // "precedence" would make more sense, right?
+                                    // Well, the difference is left-to-right vs right-to-left construction.
+                                    // This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
+                                    let rhs = AST::read_binary_tree(lex, line, None, false, precedence + 1)?;
                                     if let Some(next_op) = rhs.1 {
                                         // There's another operator even after the RHS.
                                         if let Some(next_prec) = AST::get_op_precedence(&next_op) {
                                             if next_prec < lowest_prec {
-                                                // This next op is lower than we're allowed to go, so we have to return it
+                                                // This next op is lower than we're allowed to go, so we must return it
                                                 break Ok((
                                                     Expr::Binary(Box::new(BinaryExpr {
                                                         op: op,
@@ -559,7 +542,8 @@ impl<'a> AST<'a> {
                                                     Some(next_op),
                                                 ));
                                             } else {
-                                                // Update LHS by sticking RHS onto it, set op to the new operator, and go round again.
+                                                // Update LHS by sticking RHS onto it,
+                                                // set op to the new operator, and go round again.
                                                 lhs = Expr::Binary(Box::new(BinaryExpr {
                                                     op: op,
                                                     left: lhs,
@@ -568,7 +552,8 @@ impl<'a> AST<'a> {
                                                 op = next_op;
                                             }
                                         } else {
-                                            unreachable!() // Precedence would already have been checked by the returning function.
+                                            // Precedence would already have been checked by the returning function.
+                                            unreachable!()
                                         }
                                     } else {
                                         // No more operators so let's put our lhs and rhs together.
@@ -592,8 +577,7 @@ impl<'a> AST<'a> {
                                 )));
                             } else {
                                 // No need to do precedence on an assignment, so just grab RHS and return
-                                let rhs =
-                                    AST::read_binary_tree(lex, line, None, false, lowest_prec)?;
+                                let rhs = AST::read_binary_tree(lex, line, None, false, lowest_prec)?;
                                 if let Some(op) = rhs.1 {
                                     break Err(Error::new(format!(
                                         "Stray operator {:?} in expression on line {}",

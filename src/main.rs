@@ -51,10 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "--test-sdl2" => {
                 let sdl = sdl2::init().unwrap();
                 let video_subsystem = sdl.video().unwrap();
-                let _window = video_subsystem
-                    .window("gm8emu ✨", 800, 600)
-                    .build()
-                    .unwrap();
+                let _window = video_subsystem.window("gm8emu ✨", 800, 600).build().unwrap();
 
                 let mut event_pump = sdl.event_pump().unwrap();
                 'main: loop {
