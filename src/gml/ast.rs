@@ -31,6 +31,11 @@ pub enum Expr<'a> {
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
 
+    Continue,
+    Break,
+    Exit,
+    Return(Box<Expr<'a>>),
+
     Nop,
 }
 
@@ -175,6 +180,11 @@ impl<'a> fmt::Display for Expr<'a> {
             ),
             Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
             Expr::While(while_ex) => write!(f, "(while {} {})", while_ex.cond, while_ex.body),
+
+            Expr::Continue => write!(f, "(continue)"),
+            Expr::Break => write!(f, "(break)"),
+            Expr::Exit => write!(f, "(exit)"),
+            Expr::Return(e) => write!(f, "(return {})", e),
 
             Expr::Nop => write!(f, ""),
         }
@@ -341,6 +351,20 @@ impl<'a> AST<'a> {
                             Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
                         })?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
+                    }
+
+                    Keyword::Break => Ok(Some(Expr::Break)),
+
+                    Keyword::Continue => Ok(Some(Expr::Continue)),
+
+                    Keyword::Exit => Ok(Some(Expr::Exit)),
+
+                    Keyword::Return => {
+                        let (val, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        Ok(Some(Expr::Return(Box::new(val))))
                     }
 
                     _ => {
