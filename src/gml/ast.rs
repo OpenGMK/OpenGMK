@@ -198,20 +198,21 @@ impl fmt::Display for Error {
     }
 }
 
+// TODO? This is not the prettiest.
 macro_rules! expect_token {
-    ( $expect: literal, $token: expr, $line: expr, $($content: tt)* ) => ({
+    ( $token: expr, $line: expr, $($content: tt)* ) => ({
         match $token {
             Some(Token::$($content)*) => {},
             Some(t) => {
                 return Err(Error::new(format!(
-                    "Unexpected token {:?} on line {}; '{}' expected",
-                    t, $line, $expect
+                    "Unexpected token {:?} on line {}; `{}` expected",
+                    t, $line, Token::$($content)*,
                 )));
             }
             None => {
                 return Err(Error::new(format!(
-                    "Unexpected EOF on line {}; '{}' expected",
-                    $line, $expect
+                    "Unexpected EOF on line {}; `{}` expected",
+                    $line, Token::$($content)*,
                 )));
             }
         }
@@ -293,7 +294,7 @@ impl<'a> AST<'a> {
                     Keyword::Do => {
                         let body = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
-                        expect_token!("until", lex.next(), line, Keyword(Keyword::Until));
+                        expect_token!(lex.next(), line, Keyword(Keyword::Until));
                         let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
@@ -320,18 +321,18 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::For => {
-                        expect_token!('(', lex.next(), line, Separator(Separator::ParenLeft));
+                        expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
                         let start = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
-                        expect_token!(';', lex.next(), line, Separator(Separator::Semicolon));
+                        expect_token!(lex.next(), line, Separator(Separator::Semicolon));
                         let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        expect_token!(';', lex.next(), line, Separator(Separator::Semicolon));
+                        expect_token!(lex.next(), line, Separator(Separator::Semicolon));
                         let step = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
-                        expect_token!(')', lex.next(), line, Separator(Separator::ParenRight));
+                        expect_token!(lex.next(), line, Separator(Separator::ParenRight));
                         let body = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF after 'for' params (line {})", line)))?;
                         Ok(Some(Expr::For(Box::new(ForExpr {
