@@ -144,6 +144,7 @@ impl<'a> fmt::Display for Expr<'a> {
                 call.name,
                 call.params
                     .iter()
+                    .filter(|ex| **ex != Expr::Nop)
                     .fold(String::new(), |acc, fnname| acc + &format!("{} ", fnname))
                     .trim_end()
             ),
@@ -152,6 +153,7 @@ impl<'a> fmt::Display for Expr<'a> {
                 "<{}>",
                 group
                     .iter()
+                    .filter(|ex| **ex != Expr::Nop)
                     .fold(String::new(), |acc, expr| acc + &format!("{}, ", expr))
                     .trim_end_matches(|ch| ch == ' ' || ch == ',')
             ),
@@ -162,7 +164,7 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Repeat(repeat) => write!(f, "(repeat {} {})", repeat.count, repeat.body),
             Expr::Switch(switch) => write!(
                 f,
-                "(switch {} {})",
+                "(HEY ADAM THIS NEEDS FORMATTING TODO HELLO HI {} {})",
                 switch.value,
                 switch
                     .cases
