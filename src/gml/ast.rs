@@ -84,8 +84,9 @@ pub struct RepeatExpr<'a> {
 #[derive(Debug, PartialEq)]
 pub struct SwitchExpr<'a> {
     pub value: Expr<'a>,
-    pub cases: Vec<(Expr<'a>, Expr<'a>)>,
-    pub default_case: Option<Expr<'a>>,
+    pub cases: Vec<(Expr<'a>, usize)>,
+    pub default_case: Option<usize>,
+    pub body: Vec<Expr<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
