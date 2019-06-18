@@ -307,6 +307,9 @@ impl<'a> AST<'a> {
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
+                        if lex.peek() == Some(&Token::Separator(Separator::Then)) {
+                            lex.next();
+                        }
                         let body = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
                         let else_body = if lex.peek() == Some(&Token::Keyword(Keyword::Else)) {
