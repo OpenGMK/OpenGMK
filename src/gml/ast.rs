@@ -510,9 +510,8 @@ impl<'a> AST<'a> {
                         // If this returns None, it's probably an assignment,
                         // so we use that in conjunction with an if-let to check its validity.
                         if let Some(precedence) = AST::get_op_precedence(&op) {
-                            // this op is invalid if assignment expected, or if it's exclusively unary
-                            // (those have no precedence so they pass the above check)
-                            if expect_assignment || op == Operator::Not || op == Operator::Complement {
+                            // this op is invalid if an assignment is expected
+                            if expect_assignment {
                                 break Err(Error::new(format!(
                                     "Invalid operator {:?} found, expected assignment (line {})",
                                     op, line,
@@ -569,8 +568,9 @@ impl<'a> AST<'a> {
                                 }
                             }
                         } else {
-                            // this op is invalid if assignment not expected
-                            if !expect_assignment {
+                            // this op is invalid if assignment not expected, OR if it's a unary operator
+                            // (those have no precedence so they pass the previous test.)
+                            if !expect_assignment || op == Operator::Not || op == Operator::Complement {
                                 break Err(Error::new(format!(
                                     "Invalid operator {:?} found, expected evaluable (line {})",
                                     op, line,
@@ -936,11 +936,6 @@ mod tests {
                 })),
             }))]),
         );
-    }
-
-    #[test]
-    fn fake_test() {
-        ast_test("().x = 1", None)
     }
 
     fn ast_test(input: &str, expected_output: Option<Vec<Expr>>) {
