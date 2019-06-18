@@ -416,8 +416,7 @@ impl<'a> AST<'a> {
                 };
                 match next_token {
                     Token::Separator(ref sep) if *sep == Separator::ParenLeft => {
-                        // TODO: parse a script/function call
-                        Ok(None)
+                        Ok(Some(AST::read_function_call(lex, line, id)?))
                     }
                     _ => {
                         let binary_tree = AST::read_binary_tree(lex, line, Some(token), true, 0)?;
@@ -657,7 +656,14 @@ impl<'a> AST<'a> {
                     )));
                 }
             }
-            Some(Token::Identifier(t)) => Expr::LiteralIdentifier(t),
+            Some(Token::Identifier(t)) => {
+                if lex.peek() == Some(&Token::Separator(Separator::ParenLeft)) {
+                    AST::read_function_call(lex, line, t)?
+                } else {
+                    Expr::LiteralIdentifier(t)
+                }
+            }
+
             Some(Token::Real(t)) => Expr::LiteralReal(t),
             Some(Token::String(t)) => Expr::LiteralString(t),
             Some(t) => {
@@ -741,6 +747,43 @@ impl<'a> AST<'a> {
         }
 
         Ok(lhs)
+    }
+
+    fn read_function_call(
+        lex: &mut Peekable<Lexer<'a>>,
+        line: &mut usize,
+        function_name: &'a str,
+    ) -> Result<Expr<'a>, Error> {
+        expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
+
+        let mut params = Vec::new();
+        loop {
+            match lex.peek() {
+                Some(Token::Separator(ref sep)) if *sep == Separator::ParenRight => {
+                    lex.next();
+                    break Ok(Expr::Function(Box::new(FunctionExpr {
+                        name: function_name,
+                        params: params,
+                    })));
+                }
+                Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
+                    lex.next();
+                }
+                None => {
+                    break Err(Error::new(format!(
+                        "Found EOF unexpectedly while reading binary tree (line {})",
+                        line
+                    )));
+                }
+                _ => {
+                    let (param, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                    if op.is_some() {
+                        unreachable!("read_binary_tree returned an operator");
+                    }
+                    params.push(param);
+                }
+            }
+        }
     }
 
     fn get_op_precedence(op: &Operator) -> Option<u8> {
@@ -1202,6 +1245,27 @@ mod tests {
                         right: Expr::LiteralReal(1.0),
                     })),
                 })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_function_syntax() {
+        assert_ast(
+            "instance_create(random(800), random(608), apple);",
+            Some(vec![Expr::Function(Box::new(FunctionExpr {
+                name: "instance_create",
+                params: vec![
+                    Expr::Function(Box::new(FunctionExpr {
+                        name: "random",
+                        params: vec![Expr::LiteralReal(800.0)],
+                    })),
+                    Expr::Function(Box::new(FunctionExpr {
+                        name: "random",
+                        params: vec![Expr::LiteralReal(608.0)],
+                    })),
+                    Expr::LiteralIdentifier("apple"),
+                ],
             }))]),
         )
     }
