@@ -402,96 +402,8 @@ impl<'a> AST<'a> {
         lowest_prec: u8,                // We are not allowed to go below this operator precedence in this tree.
                                         // If we do, we'll return the next op.
     ) -> Result<(Expr<'a>, Option<Operator>), Error> {
-        // Get the very first token in this exp value
-        let mut lhs = match if first_token.is_some() { first_token } else { lex.next() } {
-            Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
-                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
-                if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
-                    return Err(Error::new(format!(
-                        "Unclosed parenthesis in binary tree on line {}",
-                        line
-                    )));
-                } else if let Some(op) = binary_tree.1 {
-                    return Err(Error::new(format!(
-                        "Stray operator {:?} in expression on line {}",
-                        op, line,
-                    )));
-                }
-                binary_tree.0
-            }
-            Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
-            Some(Token::Real(t)) => Expr::Literal(Token::Real(t)),
-            Some(Token::String(t)) => Expr::Literal(Token::String(t)),
-            Some(t) => {
-                return Err(Error::new(format!(
-                    "Invalid token while scanning binary tree on line {}: {:?}",
-                    line, t
-                )));
-            }
-            None => {
-                return Err(Error::new(format!(
-                    "Found EOF unexpectedly while reading binary tree (line {})",
-                    line
-                )));
-            }
-        };
-
-        // Do we need to amend this LHS at all?
-        loop {
-            match lex.peek() {
-                Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
-                    lex.next();
-                    let mut dimensions = Vec::new();
-                    loop {
-                        match lex.peek() {
-                            Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
-                                lex.next();
-                                break;
-                            }
-                            Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
-                                lex.next();
-                            }
-                            None => {
-                                return Err(Error::new(format!(
-                                    "Found EOF unexpectedly while reading binary tree (line {})",
-                                    line
-                                )));
-                            }
-                            _ => {
-                                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
-                                if let Some(op) = binary_tree.1 {
-                                    return Err(Error::new(format!(
-                                        "Stray operator {:?} in expression on line {}",
-                                        op, line,
-                                    )));
-                                }
-                                dimensions.push(binary_tree.0);
-                            }
-                        }
-                    }
-                    lhs = Expr::Binary(Box::new(BinaryExpr {
-                        op: Operator::Index,
-                        left: lhs,
-                        right: Expr::Group(dimensions),
-                    }));
-                }
-
-                Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
-                    lex.next();
-                    lhs = Expr::Binary(Box::new(BinaryExpr {
-                        op: Operator::Deref,
-                        left: lhs,
-                        right: Expr::Literal(lex.next().ok_or_else(|| {
-                            Error::new(format!(
-                                "Found EOF unexpectedly while reading binary tree (line {})",
-                                line
-                            ))
-                        })?),
-                    }));
-                }
-                _ => break,
-            }
-        }
+        // Get the first expression before any operators
+        let mut lhs = AST::read_btree_expression(lex, line, first_token)?;
 
         // Check if the next token is an operator
         let next_token = lex.peek();
@@ -611,6 +523,119 @@ impl<'a> AST<'a> {
                 }
             }
         }
+    }
+
+    fn read_btree_expression(
+        lex: &mut Peekable<Lexer<'a>>,
+        line: &mut usize,
+        first_token: Option<Token<'a>>,
+    ) -> Result<Expr<'a>, Error> {
+        // Get first token and match it
+        let mut lhs = match if first_token.is_some() { first_token } else { lex.next() } {
+            Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
+                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
+                if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
+                    return Err(Error::new(format!(
+                        "Unclosed parenthesis in binary tree on line {}",
+                        line
+                    )));
+                } else if let Some(op) = binary_tree.1 {
+                    return Err(Error::new(format!(
+                        "Stray operator {:?} in expression on line {}",
+                        op, line,
+                    )));
+                }
+                binary_tree.0
+            }
+            Some(Token::Operator(op)) => {
+                if op == Operator::Add || op == Operator::Subtract || op == Operator::Not || op == Operator::Complement {
+                    Expr::Unary(Box::new (UnaryExpr {
+                        op: op,
+                        child: AST::read_btree_expression(lex, line, None)?,
+                    }))
+                }
+                else {
+                    return Err(Error::new(format!(
+                        "Invalid unary operator {:?} in expression on line {}",
+                        op, line,
+                    )));
+                }
+            }
+            Some(Token::Identifier(t)) => Expr::Literal(Token::Identifier(t)),
+            Some(Token::Real(t)) => Expr::Literal(Token::Real(t)),
+            Some(Token::String(t)) => Expr::Literal(Token::String(t)),
+            Some(t) => {
+                return Err(Error::new(format!(
+                    "Invalid token while scanning binary tree on line {}: {:?}",
+                    line, t
+                )));
+            }
+            None => {
+                return Err(Error::new(format!(
+                    "Found EOF unexpectedly while reading binary tree (line {})",
+                    line
+                )));
+            }
+        };
+
+        // Do we need to amend this LHS at all?
+        loop {
+            match lex.peek() {
+                Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
+                    lex.next();
+                    let mut dimensions = Vec::new();
+                    loop {
+                        match lex.peek() {
+                            Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
+                                lex.next();
+                                break;
+                            }
+                            Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
+                                lex.next();
+                            }
+                            None => {
+                                return Err(Error::new(format!(
+                                    "Found EOF unexpectedly while reading binary tree (line {})",
+                                    line
+                                )));
+                            }
+                            _ => {
+                                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
+                                if let Some(op) = binary_tree.1 {
+                                    return Err(Error::new(format!(
+                                        "Stray operator {:?} in expression on line {}",
+                                        op, line,
+                                    )));
+                                }
+                                dimensions.push(binary_tree.0);
+                            }
+                        }
+                    }
+                    lhs = Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Index,
+                        left: lhs,
+                        right: Expr::Group(dimensions),
+                    }));
+                }
+
+                Some(Token::Separator(ref sep)) if *sep == Separator::Period => {
+                    lex.next();
+                    lhs = Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: lhs,
+                        right: Expr::Literal(lex.next().ok_or_else(|| {
+                            Error::new(format!(
+                                "Found EOF unexpectedly while reading binary tree (line {})",
+                                line
+                            ))
+                        })?),
+                    }));
+                }
+                _ => break,
+            }
+        }
+
+        Ok(lhs)
     }
 
     fn get_op_precedence(op: &Operator) -> Option<u8> {
