@@ -127,7 +127,7 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Unary(unary) => write!(f, "({} {})", unary.op, unary.child),
             Expr::Binary(binary) => write!(f, "({} {} {})", binary.op, binary.left, binary.right),
 
-            Expr::DoUntil(dountil) => write!(f, "(do {} until {})", dountil.cond, dountil.body),
+            Expr::DoUntil(dountil) => write!(f, "(do {} until {})", dountil.body, dountil.cond),
             Expr::For(for_ex) => write!(
                 f,
                 "(for ({}, {}, {}) {})",
@@ -1114,10 +1114,24 @@ mod tests {
         )
     }
 
-    //#[test]
-    //fn test_btree_unary_grouping() {
-    // TODO: "a = ~(b + 1)"
-    //}
+    #[test]
+    fn test_btree_unary_grouping() {
+        assert_ast(
+            "a = ~(b + 1)",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::LiteralIdentifier("a"),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Complement,
+                    child: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Add,
+                        left: Expr::LiteralIdentifier("b"),
+                        right: Expr::LiteralReal(1.0),
+                    })),
+                })),
+            }))])
+        )
+    }
 
     fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
         match AST::new(input) {
