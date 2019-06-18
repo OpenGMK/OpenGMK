@@ -668,12 +668,12 @@ mod tests {
     #[test]
     fn test_nothing() {
         // Empty string
-        ast_test("", None)
+        assert_ast("", None)
     }
 
     #[test]
     fn test_assignment_op_assign() {
-        ast_test(
+        assert_ast(
             // Simple assignment - Assign
             "a = 1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_add() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignAdd
             "b += 2",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -699,7 +699,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_subtract() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignSubtract
             "c -= 3",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_multiply() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignMultiply
             "d *= 4",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_divide() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignDivide
             "e /= 5",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -738,7 +738,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_and() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignBinaryAnd
             "f &= 6",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -751,7 +751,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_or() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignBinaryOr
             "g |= 7",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -764,7 +764,7 @@ mod tests {
 
     #[test]
     fn test_assignment_op_xor() {
-        ast_test(
+        assert_ast(
             // Simple assignment - AssignBinaryXor
             "h ^= 8",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -780,26 +780,26 @@ mod tests {
     fn test_assignment_op_invalid() {
         // Assignment syntax - Multiply - should fail
         // Note: chose "Multiply" specifically as it cannot be unary, unlike Add or Subtract
-        ast_test("i * 9", None);
+        assert_ast("i * 9", None);
     }
 
     #[test]
     #[should_panic]
     fn test_assignment_op_not() {
         // Assignment syntax - Not - should fail
-        ast_test("j ! 10", None);
+        assert_ast("j ! 10", None);
     }
 
     #[test]
     #[should_panic]
     fn test_assignment_op_complement() {
         // Assignment syntax - Complement - should fail
-        ast_test("k ~ 11", None);
+        assert_ast("k ~ 11", None);
     }
 
     #[test]
     fn test_assignment_lhs() {
-        ast_test(
+        assert_ast(
             // Assignment with deref and index on lhs
             "a.b[c] += d;",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -820,7 +820,7 @@ mod tests {
 
     #[test]
     fn test_assignment_2d_index() {
-        ast_test(
+        assert_ast(
             // Arbitrary chains of deref, 1- and 2-dimension index ops on both lhs and rhs
             "a.b[c].d.e[f,g]=h[i,j].k",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -867,7 +867,7 @@ mod tests {
 
     #[test]
     fn test_assignment_lhs_expression() {
-        ast_test(
+        assert_ast(
             // Assignment whose LHS is an expression-deref
             "(a + 1).x = 400;",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -888,7 +888,7 @@ mod tests {
 
     #[test]
     fn test_assignment_assign_equal() {
-        ast_test(
+        assert_ast(
             // Differentiation between usages of '=' - simple
             "a=b=c",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -905,7 +905,7 @@ mod tests {
 
     #[test]
     fn test_assignment_assign_equal_complex() {
-        ast_test(
+        assert_ast(
             // Differentiation between usages of '=' - complex
             "(a=b).c[d=e]=f[g=h]=i",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -946,7 +946,7 @@ mod tests {
 
     #[test]
     fn test_btree_unary_positive() {
-        ast_test(
+        assert_ast(
             // Binary tree format - unary operator - positive
             "a=+1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -962,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_btree_unary_subtract() {
-        ast_test(
+        assert_ast(
             // Binary tree format - unary operator - negative
             "a=-1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -978,7 +978,7 @@ mod tests {
 
     #[test]
     fn test_btree_unary_complement() {
-        ast_test(
+        assert_ast(
             // Binary tree format - unary operator - complement
             "a=~1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -994,7 +994,7 @@ mod tests {
 
     #[test]
     fn test_btree_unary_not() {
-        ast_test(
+        assert_ast(
             // Binary tree format - unary operator - negative
             "a=!1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -1010,7 +1010,7 @@ mod tests {
 
     #[test]
     fn test_btree_unary_syntax() {
-        ast_test(
+        assert_ast(
             // Binary tree format - unary operators - syntax parse test
             "a = 1+!~-b.c[+d]-2--3", // (- (- (+ 1 2) 3) 4)
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
@@ -1061,7 +1061,7 @@ mod tests {
     // TODO: "a = ~(b + 1)"
     //}
 
-    fn ast_test(input: &str, expected_output: Option<Vec<Expr>>) {
+    fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
         match AST::new(input) {
             Ok(ast) => {
                 if let Some(e) = expected_output {
