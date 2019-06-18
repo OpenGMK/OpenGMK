@@ -262,7 +262,19 @@ impl<'a> AST<'a> {
 
                     Keyword::Do => {
                         let body = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line,)))?;
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
+                        match lex.next() {
+                            Some(Token::Keyword(Keyword::Until)) => {}
+                            Some(t) => {
+                                return Err(Error::new(format!(
+                                    "Unexpected token {:?} on line {}; 'until' expected",
+                                    t, line
+                                )));
+                            }
+                            None => {
+                                return Err(Error::new(format!("Unexpected EOF on line {}; 'until' expected", line)));
+                            }
+                        }
                         let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
@@ -271,8 +283,21 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::If => {
-                        // TODO: if-else
-                        Ok(None)
+                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        let body = AST::read_line(lex, line)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
+                        let else_body = if lex.peek() == Some(&Token::Keyword(Keyword::Else)) {
+                            lex.next(); // consume 'else'
+                            Some(AST::read_line(lex, line)?.ok_or_else(|| {
+                                Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line))
+                            })?)
+                        } else {
+                            None
+                        };
+                        Ok(Some(Expr::If(Box::new(IfExpr { cond, body, else_body }))))
                     }
 
                     Keyword::For => {
