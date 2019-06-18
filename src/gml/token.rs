@@ -170,6 +170,20 @@ pub enum Separator {
     Then,
 }
 
+impl<'a> fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Token::Identifier(i) => write!(f, "{}", i),
+            Token::Real(r) => write!(f, "{}", r),
+            Token::String(s) => write!(f, "\"{}\"", s),
+            Token::Keyword(k) => write!(f, "{}", k),
+            Token::Operator(o) => write!(f, "{}", o),
+            Token::Separator(s) => write!(f, "{}", s),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
 impl fmt::Display for Keyword {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
