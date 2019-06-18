@@ -120,12 +120,6 @@ impl Error {
 impl<'a> fmt::Display for Expr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            /*Expr::Literal(tok) => match tok {
-                Token::Identifier(id) => write!(f, "{}", id),
-                Token::Real(r) => write!(f, "{}", r),
-                Token::String(s) => write!(f, "\"{}\"", s),
-                _ => panic!("adam, fix this!"),
-            },*/
             Expr::LiteralIdentifier(id) => write!(f, "{}", id),
             Expr::LiteralReal(r) => write!(f, "{}", r),
             Expr::LiteralString(s) => write!(f, "\"{}\"", s),
@@ -267,8 +261,13 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::Do => {
-                        // TODO: do-until
-                        Ok(None)
+                        let body = AST::read_line(lex, line)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line,)))?;
+                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        Ok(Some(Expr::DoUntil(Box::new(DoUntilExpr { cond, body }))))
                     }
 
                     Keyword::If => {
@@ -547,13 +546,13 @@ impl<'a> AST<'a> {
                 binary_tree.0
             }
             Some(Token::Operator(op)) => {
-                if op == Operator::Add || op == Operator::Subtract || op == Operator::Not || op == Operator::Complement {
-                    Expr::Unary(Box::new (UnaryExpr {
+                if op == Operator::Add || op == Operator::Subtract || op == Operator::Not || op == Operator::Complement
+                {
+                    Expr::Unary(Box::new(UnaryExpr {
                         op: op,
                         child: AST::read_btree_expression(lex, line, None)?,
                     }))
-                }
-                else {
+                } else {
                     return Err(Error::new(format!(
                         "Invalid unary operator {:?} in expression on line {}",
                         op, line,
@@ -623,17 +622,20 @@ impl<'a> AST<'a> {
                         Some(Token::Identifier(id)) => Expr::Binary(Box::new(BinaryExpr {
                             op: Operator::Deref,
                             left: lhs,
-                            right: Expr::LiteralIdentifier(id)
+                            right: Expr::LiteralIdentifier(id),
                         })),
-                        Some(t) => return Err(Error::new(format!(
-                            "Unexpected token {:?} following deref on line {}",
-                            t,
-                            line
-                        ))),
-                        None => return Err(Error::new(format!(
-                            "Found EOF unexpectedly while reading binary tree (line {})",
-                            line
-                        ))),
+                        Some(t) => {
+                            return Err(Error::new(format!(
+                                "Unexpected token {:?} following deref on line {}",
+                                t, line
+                            )));
+                        }
+                        None => {
+                            return Err(Error::new(format!(
+                                "Found EOF unexpectedly while reading binary tree (line {})",
+                                line
+                            )));
+                        }
                     }
                 }
                 _ => break,
@@ -874,20 +876,14 @@ mod tests {
                         })),
                         right: Expr::LiteralIdentifier("e"),
                     })),
-                    right: Expr::Group(vec![
-                        Expr::LiteralIdentifier("f"),
-                        Expr::LiteralIdentifier("g"),
-                    ]),
+                    right: Expr::Group(vec![Expr::LiteralIdentifier("f"), Expr::LiteralIdentifier("g")]),
                 })),
                 right: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Deref,
                     left: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Index,
                         left: Expr::LiteralIdentifier("h"),
-                        right: Expr::Group(vec![
-                            Expr::LiteralIdentifier("i"),
-                            Expr::LiteralIdentifier("j"),
-                        ]),
+                        right: Expr::Group(vec![Expr::LiteralIdentifier("i"), Expr::LiteralIdentifier("j")]),
                     })),
                     right: Expr::LiteralIdentifier("k"),
                 })),
