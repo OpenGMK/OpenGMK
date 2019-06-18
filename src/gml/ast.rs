@@ -666,6 +666,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_nothing() {
+        // Empty string
+        ast_test("", None)
+    }
+
+    #[test]
     fn test_assignment_op_assign() {
         ast_test(
             // Simple assignment - Assign
@@ -937,6 +943,123 @@ mod tests {
             }))]),
         );
     }
+
+    #[test]
+    fn test_btree_unary_positive() {
+        ast_test(
+            // Binary tree format - unary operator - positive
+            "a=+1",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Add,
+                    child: Expr::Literal(Token::Real(1.0)),
+                })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_btree_unary_subtract() {
+        ast_test(
+            // Binary tree format - unary operator - negative
+            "a=-1",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Subtract,
+                    child: Expr::Literal(Token::Real(1.0)),
+                })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_btree_unary_complement() {
+        ast_test(
+            // Binary tree format - unary operator - complement
+            "a=~1",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Complement,
+                    child: Expr::Literal(Token::Real(1.0)),
+                })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_btree_unary_not() {
+        ast_test(
+            // Binary tree format - unary operator - negative
+            "a=!1",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Not,
+                    child: Expr::Literal(Token::Real(1.0)),
+                })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_btree_unary_syntax() {
+        ast_test(
+            // Binary tree format - unary operators - syntax parse test
+            "a = 1+!~-b.c[+d]-2--3", // (- (- (+ 1 2) 3) 4)
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Subtract,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Subtract,
+                        left: Expr::Binary(Box::new(BinaryExpr {
+                            op: Operator::Add,
+                            left: Expr::Literal(Token::Real(1.0)),
+                            right: Expr::Unary(Box::new(UnaryExpr {
+                                op: Operator::Not,
+                                child: Expr::Unary(Box::new(UnaryExpr {
+                                    op: Operator::Complement,
+                                    child: Expr::Unary(Box::new(UnaryExpr {
+                                        op: Operator::Subtract,
+                                        child: Expr::Binary(Box::new(BinaryExpr {
+                                            op: Operator::Index,
+                                            left: Expr::Binary(Box::new(BinaryExpr {
+                                                op: Operator::Deref,
+                                                left: Expr::Literal(Token::Identifier("b")),
+                                                right: Expr::Literal(Token::Identifier("c")),
+                                            })),
+                                            right: Expr::Group(vec![Expr::Unary(Box::new(UnaryExpr {
+                                                op: Operator::Add,
+                                                child: Expr::Literal(Token::Identifier("d")),
+                                            }))]),
+                                        })),
+                                    })),
+                                })),
+                            })),
+                        })),
+                        right: Expr::Literal(Token::Real(2.0)),
+                    })),
+                    right: Expr::Unary(Box::new(UnaryExpr {
+                        op: Operator::Subtract,
+                        child: Expr::Literal(Token::Real(3.0)),
+                    })),
+                })),
+            }))]),
+        )
+    }
+
+    //#[test]
+    //fn test_btree_unary_grouping() {
+    // TODO: "a = ~(b + 1)"
+    //}
 
     fn ast_test(input: &str, expected_output: Option<Vec<Expr>>) {
         match AST::new(input) {
