@@ -306,8 +306,14 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::Repeat => {
-                        // TODO: repeat
-                        Ok(None)
+                        let (count, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'repeat' condition (line {})", line))
+                        })?;
+                        Ok(Some(Expr::Repeat(Box::new(RepeatExpr { count, body }))))
                     }
 
                     Keyword::Switch => {
@@ -316,13 +322,25 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::With => {
-                        // TODO: with
-                        Ok(None)
+                        let (target, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
+                        })?;
+                        Ok(Some(Expr::With(Box::new(WithExpr { target, body }))))
                     }
 
                     Keyword::While => {
-                        // TODO: while
-                        Ok(None)
+                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
+                        })?;
+                        Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
                     }
 
                     _ => {
@@ -1129,7 +1147,7 @@ mod tests {
                         right: Expr::LiteralReal(1.0),
                     })),
                 })),
-            }))])
+            }))]),
         )
     }
 
