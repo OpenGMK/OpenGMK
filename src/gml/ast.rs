@@ -666,17 +666,291 @@ mod tests {
     use super::*;
 
     #[test]
-    fn basics() {
-        match AST::new("a = 1") {
-            Ok(ast) => assert_eq!(
-                ast.expressions,
-                vec![Expr::Binary(Box::new(BinaryExpr {
-                    op: Operator::Assign,
-                    left: Expr::Literal(Token::Identifier("a")),
-                    right: Expr::Literal(Token::Real(1.0))
-                }))]
-            ),
-            Err(e) => panic!("{}", e),
+    fn test_assignment_op_assign() {
+        ast_test(
+            // Simple assignment - Assign
+            "a = 1",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Literal(Token::Real(1.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_add() {
+        ast_test(
+            // Simple assignment - AssignAdd
+            "b += 2",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignAdd,
+                left: Expr::Literal(Token::Identifier("b")),
+                right: Expr::Literal(Token::Real(2.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_subtract() {
+        ast_test(
+            // Simple assignment - AssignSubtract
+            "c -= 3",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignSubtract,
+                left: Expr::Literal(Token::Identifier("c")),
+                right: Expr::Literal(Token::Real(3.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_multiply() {
+        ast_test(
+            // Simple assignment - AssignMultiply
+            "d *= 4",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignMultiply,
+                left: Expr::Literal(Token::Identifier("d")),
+                right: Expr::Literal(Token::Real(4.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_divide() {
+        ast_test(
+            // Simple assignment - AssignDivide
+            "e /= 5",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignDivide,
+                left: Expr::Literal(Token::Identifier("e")),
+                right: Expr::Literal(Token::Real(5.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_and() {
+        ast_test(
+            // Simple assignment - AssignBinaryAnd
+            "f &= 6",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignBinaryAnd,
+                left: Expr::Literal(Token::Identifier("f")),
+                right: Expr::Literal(Token::Real(6.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_or() {
+        ast_test(
+            // Simple assignment - AssignBinaryOr
+            "g |= 7",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignBinaryOr,
+                left: Expr::Literal(Token::Identifier("g")),
+                right: Expr::Literal(Token::Real(7.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_assignment_op_xor() {
+        ast_test(
+            // Simple assignment - AssignBinaryXor
+            "h ^= 8",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignBinaryXor,
+                left: Expr::Literal(Token::Identifier("h")),
+                right: Expr::Literal(Token::Real(8.0)),
+            }))]),
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_assignment_op_invalid() {
+        // Assignment syntax - Multiply - should fail
+        // Note: chose "Multiply" specifically as it cannot be unary, unlike Add or Subtract
+        ast_test("i * 9", None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_assignment_op_not() {
+        // Assignment syntax - Not - should fail
+        ast_test("j ! 10", None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_assignment_op_complement() {
+        // Assignment syntax - Complement - should fail
+        ast_test("k ~ 11", None);
+    }
+
+    #[test]
+    fn test_assignment_lhs() {
+        ast_test(
+            // Assignment with deref and index on lhs
+            "a.b[c] += d;",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::AssignAdd,
+                left: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Index,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: Expr::Literal(Token::Identifier("a")),
+                        right: Expr::Literal(Token::Identifier("b")),
+                    })),
+                    right: Expr::Group(vec![Expr::Literal(Token::Identifier("c"))]),
+                })),
+                right: Expr::Literal(Token::Identifier("d")),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn test_assignment_2d_index() {
+        ast_test(
+            // Arbitrary chains of deref, 1- and 2-dimension index ops on both lhs and rhs
+            "a.b[c].d.e[f,g]=h[i,j].k",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Index,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: Expr::Binary(Box::new(BinaryExpr {
+                            op: Operator::Deref,
+                            left: Expr::Binary(Box::new(BinaryExpr {
+                                op: Operator::Index,
+                                left: Expr::Binary(Box::new(BinaryExpr {
+                                    op: Operator::Deref,
+                                    left: Expr::Literal(Token::Identifier("a")),
+                                    right: Expr::Literal(Token::Identifier("b")),
+                                })),
+                                right: Expr::Group(vec![Expr::Literal(Token::Identifier("c"))]),
+                            })),
+                            right: Expr::Literal(Token::Identifier("d")),
+                        })),
+                        right: Expr::Literal(Token::Identifier("e")),
+                    })),
+                    right: Expr::Group(vec![
+                        Expr::Literal(Token::Identifier("f")),
+                        Expr::Literal(Token::Identifier("g")),
+                    ]),
+                })),
+                right: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Deref,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Index,
+                        left: Expr::Literal(Token::Identifier("h")),
+                        right: Expr::Group(vec![
+                            Expr::Literal(Token::Identifier("i")),
+                            Expr::Literal(Token::Identifier("j")),
+                        ]),
+                    })),
+                    right: Expr::Literal(Token::Identifier("k")),
+                })),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn test_assignment_lhs_expression() {
+        ast_test(
+            // Assignment whose LHS is an expression-deref
+            "(a + 1).x = 400;",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Deref,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Add,
+                        left: Expr::Literal(Token::Identifier("a")),
+                        right: Expr::Literal(Token::Real(1.0)),
+                    })),
+                    right: Expr::Literal(Token::Identifier("x")),
+                })),
+                right: Expr::Literal(Token::Real(400.0)),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn test_assignment_assign_equal() {
+        ast_test(
+            // Differentiation between usages of '=' - simple
+            "a=b=c",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Literal(Token::Identifier("a")),
+                right: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Equal,
+                    left: Expr::Literal(Token::Identifier("b")),
+                    right: Expr::Literal(Token::Identifier("c")),
+                })),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn test_assignment_assign_equal_complex() {
+        ast_test(
+            // Differentiation between usages of '=' - complex
+            "(a=b).c[d=e]=f[g=h]=i",
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Index,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: Expr::Binary(Box::new(BinaryExpr {
+                            op: Operator::Equal,
+                            left: Expr::Literal(Token::Identifier("a")),
+                            right: Expr::Literal(Token::Identifier("b")),
+                        })),
+                        right: Expr::Literal(Token::Identifier("c")),
+                    })),
+                    right: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Equal,
+                        left: Expr::Literal(Token::Identifier("d")),
+                        right: Expr::Literal(Token::Identifier("e")),
+                    }))]),
+                })),
+                right: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Equal,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Index,
+                        left: Expr::Literal(Token::Identifier("f")),
+                        right: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
+                            op: Operator::Equal,
+                            left: Expr::Literal(Token::Identifier("g")),
+                            right: Expr::Literal(Token::Identifier("h")),
+                        }))]),
+                    })),
+                    right: Expr::Literal(Token::Identifier("i")),
+                })),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn fake_test() {
+        ast_test("().x = 1", None)
+    }
+
+    fn ast_test(input: &str, expected_output: Option<Vec<Expr>>) {
+        match AST::new(input) {
+            Ok(ast) => {
+                if let Some(e) = expected_output {
+                    assert_eq!(ast.expressions, e);
+                }
+            }
+            Err(e) => panic!("AST test encountered error: '{}' for input: {}", e, input),
         }
     }
 }
