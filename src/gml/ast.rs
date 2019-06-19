@@ -782,9 +782,6 @@ impl<'a> AST<'a> {
                         params: params,
                     })));
                 }
-                Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
-                    lex.next();
-                }
                 None => {
                     break Err(Error::new(format!(
                         "Found EOF unexpectedly while reading binary tree (line {})",
@@ -797,6 +794,9 @@ impl<'a> AST<'a> {
                         unreachable!("read_binary_tree returned an operator");
                     }
                     params.push(param);
+                    if let Some(&Token::Separator(Separator::Comma)) = lex.peek() {
+                        lex.next();
+                    }
                 }
             }
         }
@@ -1270,7 +1270,7 @@ mod tests {
     fn test_function_syntax() {
         assert_ast(
             // Function call syntax
-            "instance_create(random(800), random(608), apple);",
+            "instance_create(random(800), random(608,), apple);",
             Some(vec![Expr::Function(Box::new(FunctionExpr {
                 name: "instance_create",
                 params: vec![
