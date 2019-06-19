@@ -256,41 +256,33 @@ impl<'a> AST<'a> {
                 match key {
                     Keyword::Var => {
                         // Read var identifiers
-                        let mut vars = Vec::with_capacity(1);
+                        if let Some(&Token::Identifier(id)) = lex.peek() {
+                            lex.next();
+                            let mut vars = Vec::with_capacity(1);
+                            vars.push(id);
 
-                        loop {
-                            // Read one identifier and store it as a var name
-                            let next_token = match lex.next() {
-                                Some(t) => t,
-                                None => {
-                                    return Err(Error::new(format!("Expected var name, found EOF (line {})", line)));
+                            loop {
+                                // Check if next token is a comma, if so, we expect another var name afterwards
+                                if let Some(Token::Separator(Separator::Comma)) = lex.peek() {
+                                    lex.next();
+                                } else {
+                                    break;
                                 }
-                            };
-                            let var_name = match next_token {
-                                Token::Identifier(id) => id,
-                                _ => {
-                                    return Err(Error::new(format!(
-                                        "Invalid token, expected var name (line {}): {:?}",
-                                        line, next_token,
-                                    )));
-                                }
-                            };
-                            vars.push(var_name);
 
-                            // Check if next token is a comma, if so, we expect another var name afterwards
-                            let next_token = match lex.peek() {
-                                Some(t) => t,
-                                None => break,
-                            };
-                            match next_token {
-                                Token::Separator(ref sep) if *sep == Separator::Comma => {
-                                    lex.next(); // skip the comma
+                                // Read one identifier and store it as a var name
+                                if let Some(Token::Identifier(id)) = lex.peek() {
+                                    vars.push(id);
+                                    lex.next();
+                                } else {
+                                    break;
                                 }
-                                _ => break,
                             }
-                        }
 
-                        Ok(Some(Expr::Var(Box::new(VarExpr { vars }))))
+                            Ok(Some(Expr::Var(Box::new(VarExpr { vars }))))
+                        } else {
+                            // This doesn't do anything in GML. We could probably make it a NOP.
+                            Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] }))))
+                        }
                     }
 
                     Keyword::Do => {
@@ -1376,6 +1368,39 @@ mod tests {
                 }))]),
             }))]),
         )
+    }
+
+    #[test]
+    fn test_var_syntax() {
+        assert_ast(
+            // var syntax - basic constructions
+            "var a; var b, c",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec!["a"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec!["b", "c"] })),
+            ]),
+        )
+    }
+
+    #[test]
+    fn test_var_syntax_complex() {
+        assert_ast(
+            // var syntax - unusual valid constructions
+            "var; var a,b,; var c,var",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec![] })),
+                Expr::Var(Box::new(VarExpr { vars: vec!["a", "b"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec!["c"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec![] })),
+            ]),
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_var_invalid_comma() {
+        // var syntax - invalid comma
+        assert_ast("var, a;", None)
     }
 
     fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
