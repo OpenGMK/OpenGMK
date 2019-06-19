@@ -702,30 +702,35 @@ impl<'a> AST<'a> {
                 Some(Token::Separator(ref sep)) if *sep == Separator::BracketLeft => {
                     lex.next();
                     let mut dimensions = Vec::new();
-                    loop {
-                        match lex.peek() {
-                            Some(Token::Separator(ref sep)) if *sep == Separator::BracketRight => {
-                                lex.next();
-                                break;
+                    if lex.peek() == Some(&Token::Separator(Separator::BracketRight)) {
+                        lex.next();
+                    } else {
+                        loop {
+                            let (dim, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                            if op.is_some() {
+                                unreachable!("read_binary_tree returned an operator");
                             }
-                            Some(Token::Separator(ref sep)) if *sep == Separator::Comma => {
-                                lex.next();
-                            }
-                            None => {
-                                return Err(Error::new(format!(
-                                    "Found EOF unexpectedly while reading binary tree (line {})",
-                                    line
-                                )));
-                            }
-                            _ => {
-                                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
-                                if let Some(op) = binary_tree.1 {
+                            dimensions.push(dim);
+                            match lex.next() {
+                                Some(Token::Separator(Separator::BracketRight)) => break,
+                                Some(Token::Separator(Separator::Comma)) => {
+                                    if lex.peek() == Some(&Token::Separator(Separator::BracketRight)) {
+                                        lex.next();
+                                        break;
+                                    }
+                                }
+                                Some(t) => {
                                     return Err(Error::new(format!(
-                                        "Stray operator {:?} in expression on line {}",
-                                        op, line,
+                                        "Invalid token {:?}, expected expression (line {})",
+                                        t, line
                                     )));
                                 }
-                                dimensions.push(binary_tree.0);
+                                None => {
+                                    return Err(Error::new(format!(
+                                        "Found EOF unexpectedly while reading array accessor (line {})",
+                                        line
+                                    )));
+                                }
                             }
                         }
                     }
@@ -773,33 +778,42 @@ impl<'a> AST<'a> {
         expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
 
         let mut params = Vec::new();
-        loop {
-            match lex.peek() {
-                Some(Token::Separator(ref sep)) if *sep == Separator::ParenRight => {
-                    lex.next();
-                    break Ok(Expr::Function(Box::new(FunctionExpr {
-                        name: function_name,
-                        params: params,
-                    })));
+        if lex.peek() == Some(&Token::Separator(Separator::ParenRight)) {
+            lex.next();
+        } else {
+            loop {
+                let (param, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                if op.is_some() {
+                    unreachable!("read_binary_tree returned an operator");
                 }
-                None => {
-                    break Err(Error::new(format!(
-                        "Found EOF unexpectedly while reading binary tree (line {})",
-                        line
-                    )));
-                }
-                _ => {
-                    let (param, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
-                    if op.is_some() {
-                        unreachable!("read_binary_tree returned an operator");
+                params.push(param);
+                match lex.next() {
+                    Some(Token::Separator(Separator::ParenRight)) => break,
+                    Some(Token::Separator(Separator::Comma)) => {
+                        if lex.peek() == Some(&Token::Separator(Separator::ParenRight)) {
+                            lex.next();
+                            break;
+                        }
                     }
-                    params.push(param);
-                    if let Some(&Token::Separator(Separator::Comma)) = lex.peek() {
-                        lex.next();
+                    Some(t) => {
+                        return Err(Error::new(format!(
+                            "Invalid token {:?}, expected expression (line {})",
+                            t, line
+                        )));
+                    }
+                    None => {
+                        return Err(Error::new(format!(
+                            "Found EOF unexpectedly while reading function call (line {})",
+                            line
+                        )));
                     }
                 }
             }
         }
+        Ok(Expr::Function(Box::new(FunctionExpr {
+            name: function_name,
+            params: params,
+        })))
     }
 
     fn get_op_precedence(op: &Operator) -> Option<u8> {
