@@ -31,6 +31,9 @@ pub enum Expr<'a> {
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
 
+    Case(Box<Expr<'a>>),
+    Default,
+
     Continue,
     Break,
     Exit,
@@ -88,10 +91,8 @@ pub struct RepeatExpr<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct SwitchExpr<'a> {
-    pub value: Expr<'a>,
-    pub cases: Vec<(Expr<'a>, usize)>,
-    pub default_case: Option<usize>,
-    pub body: Vec<Expr<'a>>,
+    pub input: Expr<'a>,
+    pub body: Expr<'a>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -162,16 +163,7 @@ impl<'a> fmt::Display for Expr<'a> {
                 None => write!(f, "(if {} {})", if_ex.cond, if_ex.body),
             },
             Expr::Repeat(repeat) => write!(f, "(repeat {} {})", repeat.count, repeat.body),
-            Expr::Switch(switch) => write!(
-                f,
-                "(HEY ADAM THIS NEEDS FORMATTING TODO HELLO HI {} {})",
-                switch.value,
-                switch
-                    .cases
-                    .iter()
-                    .fold(String::new(), |acc, (val, body)| acc + &format!("({} {}) ", val, body))
-                    .trim_end()
-            ),
+            Expr::Switch(switch) => write!(f, "(switch {} {})", switch.input, switch.body),
             Expr::Var(var) => write!(
                 f,
                 "(var {})",
@@ -182,6 +174,9 @@ impl<'a> fmt::Display for Expr<'a> {
             ),
             Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
             Expr::While(while_ex) => write!(f, "(while {} {})", while_ex.cond, while_ex.body),
+
+            Expr::Case(e) => write!(f, "(case {})", e),
+            Expr::Default => write!(f, "(default)"),
 
             Expr::Continue => write!(f, "(continue)"),
             Expr::Break => write!(f, "(break)"),
@@ -359,8 +354,14 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::Switch => {
-                        // TODO: switch
-                        Ok(None)
+                        let (input, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'repeat' condition (line {})", line))
+                        })?;
+                        Ok(Some(Expr::Switch(Box::new(SwitchExpr { input, body }))))
                     }
 
                     Keyword::With => {
@@ -383,6 +384,20 @@ impl<'a> AST<'a> {
                             Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
                         })?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
+                    }
+
+                    Keyword::Case => {
+                        let (expr, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        if op.is_some() {
+                            unreachable!("read_binary_tree returned an operator");
+                        }
+                        expect_token!(lex.next(), line, Separator(Separator::Colon));
+                        Ok(Some(Expr::Case(Box::new(expr))))
+                    }
+
+                    Keyword::Default => {
+                        expect_token!(lex.next(), line, Separator(Separator::Colon));
+                        Ok(Some(Expr::Default))
                     }
 
                     Keyword::Break => Ok(Some(Expr::Break)),
