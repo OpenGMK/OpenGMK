@@ -329,14 +329,21 @@ impl<'a> AST<'a> {
                         expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
                         let start = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
-                        expect_token!(lex.next(), line, Separator(Separator::Semicolon));
+                        if lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
+                            lex.next();
+                        }
                         let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        expect_token!(lex.next(), line, Separator(Separator::Semicolon));
+                        if lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
+                            lex.next();
+                        }
                         let step = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
+                        while lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
+                            lex.next();
+                        }
                         expect_token!(lex.next(), line, Separator(Separator::ParenRight));
                         let body = AST::read_line(lex, line)?
                             .ok_or_else(|| Error::new(format!("Unexpected EOF after 'for' params (line {})", line)))?;
@@ -443,16 +450,16 @@ impl<'a> AST<'a> {
                             match lex.peek() {
                                 Some(Token::Separator(Separator::BraceRight)) => {
                                     lex.next();
-                                    break;
+                                    break Ok(Some(Expr::Group(inner_expressions)));
                                 }
                                 _ => match AST::read_line(lex, line) {
+                                    Ok(Some(Expr::Nop)) => continue,
                                     Ok(Some(e)) => inner_expressions.push(e),
-                                    Ok(None) => return Err(Error::new("Unclosed brace at EOF".to_string())),
-                                    Err(e) => return Err(e),
+                                    Ok(None) => break Err(Error::new("Unclosed brace at EOF".to_string())),
+                                    Err(e) => break Err(e),
                                 },
                             }
                         }
-                        Ok(Some(Expr::Group(inner_expressions)))
                     }
 
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
@@ -843,7 +850,7 @@ mod tests {
     #[test]
     fn test_nothing() {
         // Empty string
-        assert_ast("", None)
+        assert_ast("", Some(vec![]))
     }
 
     #[test]
@@ -1235,6 +1242,7 @@ mod tests {
     #[test]
     fn test_btree_unary_grouping() {
         assert_ast(
+            // Unary operator applied to sub-tree
             "a = ~(b + 1)",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
@@ -1254,6 +1262,7 @@ mod tests {
     #[test]
     fn test_function_syntax() {
         assert_ast(
+            // Function call syntax
             "instance_create(random(800), random(608), apple);",
             Some(vec![Expr::Function(Box::new(FunctionExpr {
                 name: "instance_create",
@@ -1268,6 +1277,103 @@ mod tests {
                     })),
                     Expr::LiteralIdentifier("apple"),
                 ],
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_for_syntax_standard() {
+        assert_ast(
+            // For-loop syntax - standard
+            "for(i = 0; i < 10; i += 1) { a = 1; b = c;}",
+            Some(vec![Expr::For(Box::new(ForExpr {
+                start: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(0.0),
+                })),
+                cond: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::LessThan,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(10.0),
+                })),
+                step: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::AssignAdd,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(1.0),
+                })),
+                body: Expr::Group(vec![
+                    Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Assign,
+                        left: Expr::LiteralIdentifier("a"),
+                        right: Expr::LiteralReal(1.0),
+                    })),
+                    Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Assign,
+                        left: Expr::LiteralIdentifier("b"),
+                        right: Expr::LiteralIdentifier("c"),
+                    })),
+                ]),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_for_syntax_no_sep() {
+        assert_ast(
+            // For-loop syntax - no separators
+            "for(i=0 i<10 i+=1) c=3",
+            Some(vec![Expr::For(Box::new(ForExpr {
+                start: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(0.0),
+                })),
+                cond: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::LessThan,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(10.0),
+                })),
+                step: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::AssignAdd,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(1.0),
+                })),
+                body: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("c"),
+                    right: Expr::LiteralReal(3.0),
+                })),
+            }))]),
+        )
+    }
+
+    #[test]
+    fn test_for_syntax_random_sep() {
+        assert_ast(
+            // For-loop syntax - arbitrary semicolons
+            "for(i=0; i<10 i+=1; ;) {d=4}",
+            Some(vec![Expr::For(Box::new(ForExpr {
+                start: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(0.0),
+                })),
+                cond: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::LessThan,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(10.0),
+                })),
+                step: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::AssignAdd,
+                    left: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralReal(1.0),
+                })),
+                body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("d"),
+                    right: Expr::LiteralReal(4.0),
+                }))]),
             }))]),
         )
     }
