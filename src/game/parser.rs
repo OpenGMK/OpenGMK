@@ -57,6 +57,7 @@ pub enum ErrorKind {
     InvalidExeHeader,
     InvalidMagic,
     InvalidVersion(String, f64, f64), // name, expected, got
+    PartialUPXPacking,
 }
 
 impl error::Error for Error {}
@@ -69,6 +70,7 @@ impl Display for Error {
             ErrorKind::InvalidVersion(n, e, g) => {
                 write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
             }
+            ErrorKind::PartialUPXPacking => write!(f, "Invalid packing: exe header is signed by UPX, but could not find packed data"),
         }
     }
 }
@@ -415,8 +417,6 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
         did_wrap18 = u_var9 >= 0x80000000;
         u_var9 = u_var9.wrapping_mul(2);
         pull_new = u_var9 == 0;
-
-        //println!("Output: {:?}", output);
     }
 
     Ok(output)
@@ -468,9 +468,10 @@ impl<'a> Game<'a> {
                         exe.seek(SeekFrom::Current(28))?;
 
                         let unpacked = unpack_upx(&mut exe, options)?;
-                        if options.log {
-                            println!("Unpacked: {:?}", unpacked);
-                        }
+                        let mut _unpacked = io::Cursor::new(unpacked);
+                    }
+                    else {
+                        return Err(Error::from(ErrorKind::PartialUPXPacking));
                     }
                 }
             }
