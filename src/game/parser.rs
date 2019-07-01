@@ -466,7 +466,14 @@ fn check_antidec(exe: &mut io::Cursor<&[u8]>) -> Result<Option<(u32, u32, u32, u
 
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
-fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, exe_load_offset: u32, header_start: u32, xor_mask: u32, add_mask: u32, sub_mask: u32) -> Result<(), Error> {
+fn decrypt_antidec(
+    data: &mut io::Cursor<&mut [u8]>,
+    exe_load_offset: u32,
+    header_start: u32,
+    xor_mask: u32,
+    add_mask: u32,
+    sub_mask: u32,
+) -> Result<(), Error> {
     let mut xor_mask = xor_mask;
     let mut add_mask = add_mask;
 
@@ -510,7 +517,7 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
         exe.seek(SeekFrom::Current(36))?;
         // Check for "UPX1" header
         if exe.read_u32_le()? == 0x31585055 {
-            exe.seek(SeekFrom::Current(77))?;
+            exe.seek(SeekFrom::Current(76))?;
 
             // Read the UPX version which is a null-terminated string.
             if options.log {
@@ -553,7 +560,6 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                     exe.seek(SeekFrom::Current(12))?;
                     return Ok(GameVersion::GameMaker80);
-
                 } else {
                     return Err(Error::from(ErrorKind::UnknownFormat));
                 }
