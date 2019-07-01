@@ -55,7 +55,7 @@ pub struct Error {
 pub enum ErrorKind {
     IO(io::Error),
     InvalidExeHeader,
-    InvalidMagic,
+    UnknownFormat,
     InvalidVersion(String, f64, f64), // name, expected, got
     PartialUPXPacking,
 }
@@ -66,11 +66,14 @@ impl Display for Error {
         match &self.kind {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
             ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
-            ErrorKind::InvalidMagic => write!(f, "Invalid magic number (missing 1234321)"),
+            ErrorKind::UnknownFormat => write!(f, "Unknown data format - no game version detected"),
             ErrorKind::InvalidVersion(n, e, g) => {
                 write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
             }
-            ErrorKind::PartialUPXPacking => write!(f, "Invalid packing: exe header is signed by UPX, but could not find packed data"),
+            ErrorKind::PartialUPXPacking => write!(
+                f,
+                "Invalid packing: exe header is signed by UPX, but could not find packed data"
+            ),
         }
     }
 }
@@ -226,7 +229,7 @@ where
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
 fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Result<Vec<u8>, Error> {
     //data.set_position(UPX_BYTES_START_POS);
-    let mut output: Vec<u8> = vec![0u8; 0x39FBC4]; // TODO: how do we pre-determine the size?
+    let mut output: Vec<u8> = vec![0u8; 0x600000]; // TODO: how do we pre-determine the size?
     let mut u_var2: u8;
     let mut i_var5: i32;
     let mut u_var6: u32;
@@ -234,7 +237,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
     let mut u_var9: u32;
     let mut u_var10: u32;
     let mut u_var12: u32 = 0xFFFFFFFF;
-    let mut pu_var14: u32 = 0; // Cursor for output vec
+    let mut pu_var14: u32 = 0x400; // Cursor for output vec
     let mut did_wrap17: bool;
     let mut did_wrap18: bool;
 
@@ -277,9 +280,10 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                 did_wrap17 = u_var9 >= 0x80000000;
                 u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
             }
-            u_var6 = (2 * (i_var5 as u32)) + if did_wrap17 {1} else {0};
+            u_var6 = (2 * (i_var5 as u32)) + if did_wrap17 { 1 } else { 0 };
             u_var9 = u_var10.wrapping_mul(2);
-            if u_var10 >= 0x80000000 { // if (CARRY4(uVar10,uVar10)) {
+            if u_var10 >= 0x80000000 {
+                // if (CARRY4(uVar10,uVar10)) {
                 if u_var9 != 0 {
                     break;
                 }
@@ -296,7 +300,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                 did_wrap17 = u_var9 >= 0x80000000;
                 u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
             }
-            i_var5 = ((u_var6 - 1) * 2 + if did_wrap17 {1} else {0}) as i32;
+            i_var5 = ((u_var6 - 1) * 2 + if did_wrap17 { 1 } else { 0 }) as i32;
         }
 
         i_var5 = 0;
@@ -308,8 +312,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                 did_wrap17 = u_var9 >= 0x80000000;
                 u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
             }
-        }
-        else {
+        } else {
             u_var2 = data.read_u8()?;
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in its other bytes.
             u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (u_var2 as u32 & 0xFF)) ^ 0xFFFFFFFF;
@@ -340,13 +343,13 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                             did_wrap17 = u_var9 >= 0x80000000;
                             u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
                         }
-                        i_var5 = (i_var5 * 2) + if did_wrap17 {1} else {0};
+                        i_var5 = (i_var5 * 2) + if did_wrap17 { 1 } else { 0 };
                         u_var9 = u_var10.wrapping_mul(2);
                         if u_var10 >= 0x80000000 {
                             break;
                         }
                     }
-                    
+
                     if u_var9 != 0 {
                         break;
                     }
@@ -369,26 +372,26 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                 did_wrap17 = u_var9 >= 0x80000000;
                 u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
             }
-            i_var5 = (i_var5 * 2) + if did_wrap17 {1} else {0};
+            i_var5 = (i_var5 * 2) + if did_wrap17 { 1 } else { 0 };
         }
 
-        u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 {1} else {0}; // No idea, just going with it.
+        u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea, just going with it.
 
         pu_var8 = pu_var14.wrapping_add(u_var12);
         if u_var12 < 0xfffffffd {
             loop {
                 // uVar4 = *puVar8;
                 let uv1 = output[pu_var8 as usize];
-                let uv2 = output[(pu_var8+1) as usize];
-                let uv3 = output[(pu_var8+2) as usize];
-                let uv4 = output[(pu_var8+3) as usize];
+                let uv2 = output[(pu_var8 + 1) as usize];
+                let uv3 = output[(pu_var8 + 2) as usize];
+                let uv4 = output[(pu_var8 + 3) as usize];
                 // puVar8 = puVar8 + 1; (ADD EDX,0x4)
                 pu_var8 += 4;
                 // *puVar14 = uVar4;
                 output[pu_var14 as usize] = uv1;
-                output[(pu_var14+1) as usize] = uv2;
-                output[(pu_var14+2) as usize] = uv3;
-                output[(pu_var14+3) as usize] = uv4;
+                output[(pu_var14 + 1) as usize] = uv2;
+                output[(pu_var14 + 2) as usize] = uv3;
+                output[(pu_var14 + 3) as usize] = uv4;
                 // puVar14 = puVar14 + 1; (ADD EDI,0x4)
                 pu_var14 += 4;
 
@@ -399,8 +402,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                 }
             }
             pu_var14 = pu_var14.wrapping_add(u_var10);
-        }
-        else {
+        } else {
             loop {
                 u_var2 = output[pu_var8 as usize];
                 pu_var8 += 1;
@@ -422,6 +424,182 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
     Ok(output)
 }
 
+/// Helper function for checking whether a data stream looks like an antidec2-protected exe.
+/// If so, returns the relevant vars to decrypt the data stream (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
+fn check_antidec(exe: &mut io::Cursor<&[u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, Error> {
+    // Verify size is large enough to do the following checks - otherwise it can't be antidec
+    if exe.get_ref().len() < 0x144AC4 {
+        return Ok(None);
+    }
+
+    // Check for the loading sequence
+    exe.set_position(0x00032337);
+    let mut buf = [0u8; 8];
+    exe.read_exact(&mut buf)?;
+    if buf == [0xE2, 0xF7, 0xC7, 0x05, 0x2E, 0x2F, 0x43, 0x00] {
+        // Looks like antidec's loading sequence, so let's extract values from it
+        // First, the xor byte that's used to decrypt the decryption code (yes you read that right)
+        exe.seek(SeekFrom::Current(-9))?;
+        let byte_xor_mask = exe.read_u8()?;
+        // Convert it into a u32 mask so we can apply it easily to dwords
+        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        // Next, the file offset for loading gamedata bytes
+        exe.set_position(0x000322A9);
+        let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
+        // Now the header_start from later in the file
+        exe.set_position(0x00144AC0);
+        let header_start = exe.read_u32_le()?;
+        // xor mask
+        exe.set_position(0x000322D3);
+        let xor_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        // add mask
+        exe.set_position(0x000322D8);
+        let add_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        // sub mask
+        exe.set_position(0x000322E4);
+        let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        Ok(Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Removes antidec2 encryption from gamedata, given the IVs required to do so.
+/// Also sets the cursor to the start of the gamedata.
+fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, exe_load_offset: u32, header_start: u32, xor_mask: u32, add_mask: u32, sub_mask: u32) -> Result<(), Error> {
+    let mut xor_mask = xor_mask;
+    let mut add_mask = add_mask;
+
+    // Get offset of last dword
+    let mut file_offset: usize = data.get_ref().len() - 4;
+    while file_offset >= (exe_load_offset as usize) {
+        // Read current dword
+        data.set_position(file_offset as u64);
+        let mut dword = data.read_u32_le()?;
+
+        // xor then add then bswap
+        dword ^= xor_mask;
+        dword = dword.wrapping_add(add_mask);
+        dword = dword.swap_bytes();
+
+        // Modify masks
+        xor_mask = xor_mask.wrapping_sub(sub_mask);
+        add_mask = add_mask.swap_bytes().wrapping_add(1);
+
+        // Write decrypted byte
+        data.set_position(file_offset as u64);
+        data.write_u32_le(dword)?;
+
+        file_offset -= 4;
+    }
+
+    data.set_position((exe_load_offset + header_start + 4) as u64);
+    Ok(())
+}
+
+/// Identifies the game version and start of gamedata header, given a data cursor. Also removes any version-specific encryptions.
+fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<GameVersion, Error> {
+    // Check for UPX-signed PE header
+    exe.set_position(0x170);
+    // Check for "UPX0" header
+    if exe.read_u32_le()? == 0x30585055 {
+        if options.log {
+            println!("Found UPX0 header");
+        }
+
+        exe.seek(SeekFrom::Current(36))?;
+        // Check for "UPX1" header
+        if exe.read_u32_le()? == 0x31585055 {
+            exe.seek(SeekFrom::Current(77))?;
+
+            // Read the UPX version which is a null-terminated string.
+            if options.log {
+                let mut upx_ver = String::with_capacity(4); // Usually "3.03"
+                while let Ok(ch) = exe.read_u8() {
+                    if ch != 0 {
+                        upx_ver.push(ch as char);
+                    } else {
+                        break;
+                    }
+                }
+                println!("Found UPX version {}", upx_ver);
+            } else {
+                while exe.read_u8()? != 0 {}
+            }
+
+            if exe.read_u32_le()? == 0x21585055 {
+                //"UPX!"
+                exe.seek(SeekFrom::Current(28))?;
+
+                let unpacked = unpack_upx(exe, options)?;
+                if options.log {
+                    println!("Successfully unpacked UPX - output is {} bytes", unpacked.len());
+                }
+                let mut unpacked = io::Cursor::new(&*unpacked);
+
+                // UPX unpacked, now check if this is a supported data format
+                if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) =
+                    check_antidec(&mut unpacked)?
+                {
+                    if options.log {
+                        println!("Found antidec2 loading sequence, decrypting with the following values:");
+                        println!(
+                            "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                            exe_load_offset, header_start, xor_mask, add_mask, sub_mask
+                        );
+                    }
+                    decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
+
+                    // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+                    exe.seek(SeekFrom::Current(12))?;
+                    return Ok(GameVersion::GameMaker80);
+
+                } else {
+                    return Err(Error::from(ErrorKind::UnknownFormat));
+                }
+            } else {
+                return Err(Error::from(ErrorKind::PartialUPXPacking));
+            }
+        }
+    }
+
+    // detect GameMaker version
+    // check for standard 8.0 header
+    exe.set_position(GM80_MAGIC_POS);
+    if exe.read_u32_le()? == GM80_MAGIC {
+        if options.log {
+            println!("Detected GameMaker 8.0 magic (pos: {:#X})", GM80_MAGIC_POS);
+        }
+
+        // 8.0-specific header TODO: strict should probably check these values.
+        exe.seek(SeekFrom::Current(12))?;
+
+        Ok(GameVersion::GameMaker80)
+    } else {
+        // check for standard 8.1 header
+        exe.set_position(GM81_MAGIC_POS);
+
+        for _ in 0..GM81_MAGIC_FIELD_SIZE {
+            if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
+                if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
+                    if options.log {
+                        println!("Detected GameMaker 8.1 magic (pos: {:#X})", exe.position() - 8);
+                    }
+
+                    decrypt_gm81(exe, options)?;
+                    // 8.1-specific header TODO: strict should probably check these values.
+                    exe.seek(SeekFrom::Current(20))?;
+                    return Ok(GameVersion::GameMaker81);
+                } else {
+                    exe.set_position(exe.position() - 4);
+                }
+            }
+        }
+
+        Err(Error::from(ErrorKind::UnknownFormat))
+    }
+}
+
 impl<'a> Game<'a> {
     // TODO: functionify a lot of this.
     pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game<'a>, Error>
@@ -440,88 +618,7 @@ impl<'a> Game<'a> {
         // comfy wrapper for byteorder I/O
         let mut exe = io::Cursor::new(exe);
 
-        // Check for UPX-signed PE header
-        exe.set_position(0x170);
-        if exe.read_u32_le()? == 0x30585055 { //"UPX0"
-            exe.seek(SeekFrom::Current(36))?;
-            if exe.read_u32_le()? == 0x31585055 { //"UPX1"
-                exe.seek(SeekFrom::Current(36))?;
-                if exe.read_u32_le()? == 0x7273722E { //".rsrc"
-                    exe.seek(SeekFrom::Current(36))?;
-
-                    // Read the UPX version which is a null-terminated string.
-                    if options.log {
-                        let mut upx_ver = String::with_capacity(4); // Usually "3.03"
-                        while let Ok(ch) = exe.read_u8() {
-                            if ch != 0 {
-                                upx_ver.push(ch as char);
-                            } else {
-                                break;
-                            }
-                        }
-                        println!("Found UPX version {}", upx_ver);
-                    } else {
-                        while exe.read_u8()? != 0 {}
-                    }
-
-                    if exe.read_u32_le()? == 0x21585055 { //"UPX!"
-                        exe.seek(SeekFrom::Current(28))?;
-
-                        let unpacked = unpack_upx(&mut exe, options)?;
-                        let mut _unpacked = io::Cursor::new(unpacked);
-                    }
-                    else {
-                        return Err(Error::from(ErrorKind::PartialUPXPacking));
-                    }
-                }
-            }
-        }
-
-        // detect GameMaker version
-        let mut game_ver = None;
-        // check for standard 8.0 header
-        exe.set_position(GM80_MAGIC_POS);
-        if exe.read_u32_le()? == GM80_MAGIC {
-            if options.log {
-                println!("Detected GameMaker 8.0 magic (pos: {:#X})", GM80_MAGIC_POS);
-            }
-
-            game_ver = Some(GameVersion::GameMaker80);
-            // 8.0-specific header TODO: strict should probably check these values.
-            exe.seek(SeekFrom::Current(12))?;
-        } else {
-            // check for standard 8.1 header
-            exe.set_position(GM81_MAGIC_POS);
-
-            for _ in 0..GM81_MAGIC_FIELD_SIZE {
-                if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
-                    if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
-                        if options.log {
-                            println!("Detected GameMaker 8.1 magic (pos: {:#X})", exe.position() - 8);
-                        }
-
-                        game_ver = Some(GameVersion::GameMaker81);
-                        decrypt_gm81(&mut exe, options)?;
-                        // 8.1-specific header TODO: strict should probably check these values.
-                        exe.seek(SeekFrom::Current(20))?;
-                        break;
-                    } else {
-                        exe.set_position(exe.position() - 4);
-                    }
-                }
-            }
-
-            // error if no version detected
-            if let None = game_ver {
-                return Err(Error::from(ErrorKind::InvalidMagic));
-            }
-        }
-
-        // Technically, it shouldn't make it here with a `None`.
-        let game_ver = match game_ver {
-            Some(ver) => ver,
-            None => return Err(Error::from(ErrorKind::InvalidMagic)),
-        };
+        let game_ver = find_gamedata(&mut exe, options)?;
 
         // little helper thing
         let assert_ver = |name: &str, expect, ver| -> Result<(), Error> {
