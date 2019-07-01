@@ -23,7 +23,7 @@ const GM81_MAGIC_FIELD_SIZE: u32 = 1024;
 const GM81_MAGIC_1: u32 = 0xF7000000;
 const GM81_MAGIC_2: u32 = 0x00140067;
 
-const UPX_BYTES_START_POS: u64 = 0x20D;
+//const UPX_BYTES_START_POS: u64 = 0x20D;
 
 pub struct ParserOptions<'a> {
     /// Optionally dump DirectX dll to out path.
@@ -223,8 +223,8 @@ where
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
 fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Result<Vec<u8>, Error> {
-    data.set_position(UPX_BYTES_START_POS);
-    let mut output: Vec<u8> = vec![0u8; 0x18ECC0]; // TODO: how do we pre-determine the size?
+    //data.set_position(UPX_BYTES_START_POS);
+    let mut output: Vec<u8> = vec![0u8; 0x39FBC4]; // TODO: how do we pre-determine the size?
     let mut u_var2: u8;
     let mut i_var5: i32;
     let mut u_var6: u32;
@@ -310,7 +310,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
         else {
             u_var2 = data.read_u8()?;
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in its other bytes.
-            u_var12 = (((u_var6 - 3) & 0xFFFFFF00) + (u_var2 as u32)) ^ 0xFFFFFFFF;
+            u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (u_var2 as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
             }
@@ -396,7 +396,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
                     break;
                 }
             }
-            pu_var14.wrapping_add(u_var10);
+            pu_var14 = pu_var14.wrapping_add(u_var10);
         }
         else {
             loop {
@@ -415,6 +415,8 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
         did_wrap18 = u_var9 >= 0x80000000;
         u_var9 = u_var9.wrapping_mul(2);
         pull_new = u_var9 == 0;
+
+        //println!("Output: {:?}", output);
     }
 
     Ok(output)
