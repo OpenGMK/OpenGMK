@@ -23,6 +23,8 @@ const GM81_MAGIC_FIELD_SIZE: u32 = 1024;
 const GM81_MAGIC_1: u32 = 0xF7000000;
 const GM81_MAGIC_2: u32 = 0x00140067;
 
+const UPX_BYTES_START_POS: u64 = 0x20D;
+
 pub struct ParserOptions<'a> {
     /// Optionally dump DirectX dll to out path.
     pub dump_dll: Option<&'a std::path::Path>,
@@ -219,6 +221,205 @@ where
     Ok(buf)
 }
 
+/// Unpack the bytecode of a UPX-protected exe into a separate buffer
+fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Result<Vec<u8>, Error> {
+    data.set_position(UPX_BYTES_START_POS);
+    let mut output: Vec<u8> = vec![0u8; 0x18ECC0]; // TODO: how do we pre-determine the size?
+    let mut u_var2: u8;
+    let mut i_var5: i32;
+    let mut u_var6: u32;
+    let mut pu_var8: u32;
+    let mut u_var9: u32;
+    let mut u_var10: u32;
+    let mut u_var12: u32 = 0xFFFFFFFF;
+    let mut pu_var14: u32 = 0; // Cursor for output vec
+    let mut did_wrap17: bool;
+    let mut did_wrap18: bool;
+
+    u_var9 = data.read_u32_le()?;
+    did_wrap18 = u_var9 >= 0x80000000;
+    u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+
+    let mut pull_new: bool = false;
+    loop {
+        // LAB_0
+        if pull_new {
+            u_var9 = data.read_u32_le()?;
+            did_wrap18 = u_var9 >= 0x80000000;
+            u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+        }
+        // LAB_2
+        if did_wrap18 {
+            loop {
+                let u_var2: u8 = data.read_u8()?;
+                output[pu_var14 as usize] = u_var2; // TODO: this is bounds checked, very slow
+                pu_var14 += 1;
+                did_wrap18 = u_var9 >= 0x80000000;
+                u_var9 = u_var9.wrapping_mul(2);
+                if (u_var9 == 0) || (!did_wrap18) {
+                    break;
+                }
+            }
+            if u_var9 == 0 {
+                pull_new = true;
+                continue; // goto LAB_0
+            }
+        }
+
+        i_var5 = 1;
+        loop {
+            did_wrap17 = u_var9 >= 0x80000000;
+            u_var10 = u_var9.wrapping_mul(2);
+            if u_var10 == 0 {
+                u_var9 = data.read_u32_le()?;
+                did_wrap17 = u_var9 >= 0x80000000;
+                u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
+            }
+            u_var6 = (2 * (i_var5 as u32)) + if did_wrap17 {1} else {0};
+            u_var9 = u_var10.wrapping_mul(2);
+            if u_var10 >= 0x80000000 { // if (CARRY4(uVar10,uVar10)) {
+                if u_var9 != 0 {
+                    break;
+                }
+                u_var10 = data.read_u32_le()?;
+                u_var9 = u_var10.wrapping_mul(2).wrapping_add(1);
+                if u_var10 >= 0x80000000 {
+                    break;
+                }
+            }
+            did_wrap17 = u_var9 >= 0x80000000;
+            u_var9 = u_var9.wrapping_mul(2);
+            if u_var9 == 0 {
+                u_var9 = data.read_u32_le()?;
+                did_wrap17 = u_var9 >= 0x80000000;
+                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            }
+            i_var5 = ((u_var6 - 1) * 2 + if did_wrap17 {1} else {0}) as i32;
+        }
+
+        i_var5 = 0;
+        if u_var6 < 3 {
+            did_wrap17 = u_var9 >= 0x80000000;
+            u_var9 = u_var9.wrapping_mul(2);
+            if u_var9 == 0 {
+                u_var9 = data.read_u32_le()?;
+                did_wrap17 = u_var9 >= 0x80000000;
+                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            }
+        }
+        else {
+            u_var2 = data.read_u8()?;
+            // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in its other bytes.
+            u_var12 = (((u_var6 - 3) & 0xFFFFFF00) + (u_var2 as u32)) ^ 0xFFFFFFFF;
+            if u_var12 == 0 {
+                break; // This is the only exit point
+            }
+            did_wrap17 = (u_var12 & 1) != 0;
+            u_var12 = ((u_var12 as i32) >> 1) as u32;
+        }
+
+        let mut b: bool = true;
+        if !did_wrap17 {
+            i_var5 += 1;
+            did_wrap17 = u_var9 >= 0x80000000;
+            u_var9 = u_var9.wrapping_mul(2);
+            if u_var9 == 0 {
+                u_var9 = data.read_u32_le()?;
+                did_wrap17 = u_var9 >= 0x80000000;
+                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            }
+            if !did_wrap17 {
+                loop {
+                    loop {
+                        did_wrap17 = u_var9 >= 0x80000000;
+                        u_var10 = u_var9.wrapping_mul(2);
+                        if u_var10 == 0 {
+                            u_var9 = data.read_u32_le()?;
+                            did_wrap17 = u_var9 >= 0x80000000;
+                            u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
+                        }
+                        i_var5 = (i_var5 * 2) + if did_wrap17 {1} else {0};
+                        u_var9 = u_var10.wrapping_mul(2);
+                        if u_var10 >= 0x80000000 {
+                            break;
+                        }
+                    }
+                    
+                    if u_var9 != 0 {
+                        break;
+                    }
+                    u_var10 = data.read_u32_le()?;
+                    u_var9 = u_var10.wrapping_mul(2).wrapping_add(1);
+                    if u_var10 >= 0x80000000 {
+                        break;
+                    }
+                }
+                i_var5 += 2;
+                b = false;
+            }
+        }
+
+        if b {
+            did_wrap17 = u_var9 >= 0x80000000;
+            u_var9 = u_var9.wrapping_mul(2);
+            if u_var9 == 0 {
+                u_var9 = data.read_u32_le()?;
+                did_wrap17 = u_var9 >= 0x80000000;
+                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            }
+            i_var5 = (i_var5 * 2) + if did_wrap17 {1} else {0};
+        }
+
+        u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 {1} else {0}; // No idea, just going with it.
+
+        pu_var8 = pu_var14.wrapping_add(u_var12);
+        if u_var12 < 0xfffffffd {
+            loop {
+                // uVar4 = *puVar8;
+                let uv1 = output[pu_var8 as usize];
+                let uv2 = output[(pu_var8+1) as usize];
+                let uv3 = output[(pu_var8+2) as usize];
+                let uv4 = output[(pu_var8+3) as usize];
+                // puVar8 = puVar8 + 1; (ADD EDX,0x4)
+                pu_var8 += 4;
+                // *puVar14 = uVar4;
+                output[pu_var14 as usize] = uv1;
+                output[(pu_var14+1) as usize] = uv2;
+                output[(pu_var14+2) as usize] = uv3;
+                output[(pu_var14+3) as usize] = uv4;
+                // puVar14 = puVar14 + 1; (ADD EDI,0x4)
+                pu_var14 += 4;
+
+                did_wrap17 = 3 < u_var10;
+                u_var10 = u_var10.wrapping_sub(4);
+                if (!did_wrap17) || (u_var10 == 0) {
+                    break;
+                }
+            }
+            pu_var14.wrapping_add(u_var10);
+        }
+        else {
+            loop {
+                u_var2 = output[pu_var8 as usize];
+                pu_var8 += 1;
+                output[pu_var14 as usize] = u_var2;
+                pu_var14 += 1;
+                u_var10 = u_var10.wrapping_sub(1);
+
+                if u_var10 == 0 {
+                    break;
+                }
+            }
+        }
+
+        did_wrap18 = u_var9 >= 0x80000000;
+        u_var9 = u_var9.wrapping_mul(2);
+        pull_new = u_var9 == 0;
+    }
+
+    Ok(output)
+}
+
 impl<'a> Game<'a> {
     // TODO: functionify a lot of this.
     pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game<'a>, Error>
@@ -236,6 +437,42 @@ impl<'a> Game<'a> {
 
         // comfy wrapper for byteorder I/O
         let mut exe = io::Cursor::new(exe);
+
+        // Check for UPX-signed PE header
+        exe.set_position(0x170);
+        if exe.read_u32_le()? == 0x30585055 { //"UPX0"
+            exe.seek(SeekFrom::Current(36))?;
+            if exe.read_u32_le()? == 0x31585055 { //"UPX1"
+                exe.seek(SeekFrom::Current(36))?;
+                if exe.read_u32_le()? == 0x7273722E { //".rsrc"
+                    exe.seek(SeekFrom::Current(36))?;
+
+                    // Read the UPX version which is a null-terminated string.
+                    if options.log {
+                        let mut upx_ver = String::with_capacity(4); // Usually "3.03"
+                        while let Ok(ch) = exe.read_u8() {
+                            if ch != 0 {
+                                upx_ver.push(ch as char);
+                            } else {
+                                break;
+                            }
+                        }
+                        println!("Found UPX version {}", upx_ver);
+                    } else {
+                        while exe.read_u8()? != 0 {}
+                    }
+
+                    if exe.read_u32_le()? == 0x21585055 { //"UPX!"
+                        exe.seek(SeekFrom::Current(28))?;
+
+                        let unpacked = unpack_upx(&mut exe, options)?;
+                        if options.log {
+                            println!("Unpacked: {:?}", unpacked);
+                        }
+                    }
+                }
+            }
+        }
 
         // detect GameMaker version
         let mut game_ver = None;
