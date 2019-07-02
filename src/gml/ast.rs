@@ -217,6 +217,13 @@ macro_rules! expect_token {
 }
 
 impl<'a> AST<'a> {
+    // TODO: make this const fn when Vec::new() const fn is stabilized
+    pub fn empty() -> Self {
+        AST {
+            expressions: Vec::new(),
+        }
+    }
+
     pub fn new(source: &'a str) -> Result<Self, Error> {
         let mut lex = Lexer::new(source).peekable();
         let mut expressions = Vec::new();
