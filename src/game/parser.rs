@@ -227,9 +227,18 @@ where
 }
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
-fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Result<Vec<u8>, Error> {
-    //data.set_position(UPX_BYTES_START_POS);
-    let mut output: Vec<u8> = vec![0u8; 0x600000]; // TODO: how do we pre-determine the size?
+fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<Vec<u8>, Error> {
+    // Locate PE header and read code entry point
+    // Note: I am not sure how to read the full length of the data section, but UPX's entry point is always after the
+    // area it extracts to, so it should always suffice as an output size. We could also read the ImageBase from here, but
+    // since BOTH the code section and entry point are already relative to ImageBase, there's no need.
+    data.set_position(0x3C);
+    let pe_header = data.read_u8()?;
+    data.set_position(pe_header as u64 + 40);
+    let entry_point = data.read_u32_le()?;
+    data.seek(SeekFrom::Current(361))?;
+
+    let mut output: Vec<u8> = vec![0u8; entry_point as usize];
     let mut u_var2: u8;
     let mut i_var5: i32;
     let mut u_var6: u32;
@@ -242,6 +251,11 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, _options: &ParserOptions) -> Res
     let mut did_wrap18: bool;
 
     u_var9 = data.read_u32_le()?;
+
+    if options.log {
+        println!("UPX entry point: 0x{:X}; unpacker IV: {}", entry_point, u_var9);
+    }
+
     did_wrap18 = u_var9 >= 0x80000000;
     u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
 
