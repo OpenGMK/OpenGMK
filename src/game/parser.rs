@@ -65,7 +65,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.kind {
             ErrorKind::IO(err) => write!(f, "IO Error: {}", err),
-            ErrorKind::InvalidExeHeader => write!(f, "Invalid .exe header (missing 'MZ')"),
+            ErrorKind::InvalidExeHeader => write!(f, "Invalid EXE or PE header"),
             ErrorKind::UnknownFormat => write!(f, "Unknown data format - no game version detected"),
             ErrorKind::InvalidVersion(n, e, g) => {
                 write!(f, "Invalid version in {} (expected: {:.1}, got: {:.1})", n, e, g)
@@ -616,9 +616,17 @@ impl<'a> Game<'a> {
 
         // verify executable header
         if options.strict {
+            // Windows EXE must always start with "MZ"
             if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
+            // Byte 0x3C indicates the start of the PE header
+            let pe_header_loc = exe[0x3C] as usize;
+            // PE header must begin with PE\0\0, then 0x14C which means i386.
+            if exe.get(pe_header_loc..(pe_header_loc+6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
+                return Err(Error::from(ErrorKind::InvalidExeHeader));
+            }
+
         }
 
         // comfy wrapper for byteorder I/O
