@@ -628,15 +628,18 @@ impl<'a> Game<'a> {
 
         // little helper thing
         let assert_ver = |name: &str, expect, ver| -> Result<(), Error> {
-            if ver == expect {
-                Ok(())
-            } else {
-                Err(Error::from(ErrorKind::InvalidVersion(
-                    name.to_string(),
-                    expect as f64 / 100.0f64,
-                    ver as f64 / 100.0f64,
-                )))
+            if options.strict {
+                if ver == expect {
+                    Ok(())
+                } else {
+                    Err(Error::from(ErrorKind::InvalidVersion(
+                        name.to_string(),
+                        expect as f64 / 100.0f64,
+                        ver as f64 / 100.0f64,
+                    )))
+                }
             }
+            else {Ok(())}
         };
 
         // Game Settings
