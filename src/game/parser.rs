@@ -440,7 +440,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe.
 /// If so, returns the relevant vars to decrypt the data stream (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
-fn check_antidec(exe: &mut io::Cursor<&[u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, Error> {
+fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, Error> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x144AC4 {
         return Ok(None);
@@ -552,11 +552,11 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
                 //"UPX!"
                 exe.seek(SeekFrom::Current(28))?;
 
-                let unpacked = unpack_upx(exe, options)?;
+                let mut unpacked = unpack_upx(exe, options)?;
                 if options.log {
                     println!("Successfully unpacked UPX - output is {} bytes", unpacked.len());
                 }
-                let mut unpacked = io::Cursor::new(&*unpacked);
+                let mut unpacked = io::Cursor::new(&mut*unpacked);
 
                 // UPX unpacked, now check if this is a supported data format
                 if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) =
@@ -583,7 +583,22 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
         }
     }
 
-    // detect GameMaker version
+    // Check for antidec2 protection in the base exe (so without UPX on top of it)
+    if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(exe)? {
+        if options.log {
+            println!("Found antidec2 loading sequence [no UPX], decrypting with the following values:");
+            println!(
+                "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                exe_load_offset, header_start, xor_mask, add_mask, sub_mask
+            );
+        }
+        decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
+
+        // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+        exe.seek(SeekFrom::Current(12))?;
+        return Ok(GameVersion::GameMaker80);
+    }
+
     // check for standard 8.0 header
     exe.set_position(GM80_MAGIC_POS);
     if exe.read_u32_le()? == GM80_MAGIC {
@@ -660,8 +675,9 @@ impl<'a> Game<'a> {
                         ver as f64 / 100.0f64,
                     )))
                 }
+            } else {
+                Ok(())
             }
-            else {Ok(())}
         };
 
         // Game Settings
