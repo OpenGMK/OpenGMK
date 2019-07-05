@@ -31,6 +31,14 @@ pub trait ReadBytes: io::Read {
         self.read_exact(&mut data)?;
         Ok(f64::from_bits(u64::from_le_bytes(data)))
     }
+
+    /// Reads an `f64` (little-endian) from the underlying reader.
+    #[inline(always)]
+    fn read_u8(&mut self) -> io::Result<u8> {
+        let mut data = [0u8; 1];
+        self.read_exact(&mut data)?;
+        Ok(u8::from_le_bytes(data))
+    }
 }
 
 pub trait WriteBytes: io::Write {
