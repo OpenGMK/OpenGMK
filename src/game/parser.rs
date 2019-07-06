@@ -624,22 +624,23 @@ impl<'a> Game<'a> {
     {
         let exe = exe.as_mut();
 
+        // comfy wrapper for byteorder I/O
+        let mut exe = io::Cursor::new(exe);
+
         // verify executable header
         if options.strict {
             // Windows EXE must always start with "MZ"
-            if exe.get(0..2).unwrap_or(b"XX") != b"MZ" {
+            if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
             // Byte 0x3C indicates the start of the PE header
-            let pe_header_loc = exe[0x3C] as usize;
+            exe.set_position(0x3C);
+            let pe_header_loc = exe.read_u32_le()? as usize;
             // PE header must begin with PE\0\0, then 0x14C which means i386.
-            if exe.get(pe_header_loc..(pe_header_loc + 6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
+            if exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
         }
-
-        // comfy wrapper for byteorder I/O
-        let mut exe = io::Cursor::new(exe);
 
         let game_ver = find_gamedata(&mut exe, options)?;
 
