@@ -624,10 +624,94 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
     }
 }
 
-/// Check if this is a standard gm8.0 game by looking for the loading sequence
+/// Check if this is a standard gm8.1 game by looking for the loading sequence
 /// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
 fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<bool, Error> {
-    Ok(false) // todo
+    if options.log {
+        println!("Checking for standard GM8.1 format");
+    }
+
+    // Verify size is large enough to do the following checks - otherwise it can't be this format
+    if exe.get_ref().len() < 0x226D8A {
+        if options.log {
+            println!("File too short for this format (0x{:X} bytes)", exe.get_ref().len());
+        }
+        return Ok(false);
+    }
+
+    // Check for the standard 8.1 loading sequence
+    exe.set_position(0x00226CF3);
+    let mut buf = [0u8; 8];
+    exe.read_exact(&mut buf)?;
+    if buf == [0xE8, 0x80, 0xF2, 0xDD, 0xFF, 0xC7, 0x45, 0xF0] {
+        // Looks like GM8.1 so let's parse the rest of loading sequence.
+        // Next dword is the point where we start reading the header
+        let header_start = exe.read_u32_le()?;
+
+        // Next we'll read the magic value
+        exe.seek(SeekFrom::Current(125))?;
+        let mut buf = [0u8; 3];
+        exe.read_exact(&mut buf)?;
+        let gm81_magic: Option<u32> = match buf {
+            [0x81, 0x7D, 0xEC] => {
+                let magic = exe.read_u32_le()?;
+                if exe.read_u8()? == 0x74 {
+                    if options.log {
+                        println!("GM8.1 magic check looks intact - value is 0x{:X}", magic);
+                    }
+                    Some(magic)
+                }
+                else {
+                    println!("GM8.1 magic check's JE is patched out");
+                    None
+                }
+            }
+            b => {
+                println!("GM8.1 magic check's CMP is patched out ({:?})", b);
+                None
+            }
+        };
+
+        // Search for header
+        exe.set_position(header_start as u64);
+        match gm81_magic {
+            Some(n) => {
+                if options.log {
+                    println!("Searching for GM8.1 magic number {} from position {} ({} tries)", n, header_start, GM81_MAGIC_FIELD_SIZE);
+                }
+                let found_header = {
+                    let mut i = header_start as u64;
+                    loop {
+                        exe.set_position(i);
+                        let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                        if val == n {
+                            break true;
+                        }
+                        i += 1;
+                        if ((i + 8) as usize) >= exe.get_ref().len() {
+                            break false;
+                        }
+                    }
+                };
+                if !found_header {
+                    if options.log {
+                        println!("Didn't find GM81 magic value (0x{:X}) after {} tries, so giving up", n, GM81_MAGIC_FIELD_SIZE);
+                    }
+                    return Ok(false);
+                }
+            },
+            None => {
+                exe.seek(SeekFrom::Current(8))?;
+            }
+        }
+
+        decrypt_gm81(exe, options)?;
+        exe.seek(SeekFrom::Current(20))?;
+        Ok(true)
+    }
+    else {
+        Ok(false)
+    }
 }
 
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
