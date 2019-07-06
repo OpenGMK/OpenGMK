@@ -8,6 +8,7 @@ use crate::types::Dimensions;
 use flate2::read::ZlibDecoder;
 use rayon::prelude::*;
 
+use std::convert::TryInto;
 use std::error;
 use std::fmt::{self, Display};
 use std::fs;
@@ -484,34 +485,26 @@ fn decrypt_antidec(
     data: &mut io::Cursor<&mut [u8]>,
     exe_load_offset: u32,
     header_start: u32,
-    xor_mask: u32,
-    add_mask: u32,
+    mut xor_mask: u32,
+    mut add_mask: u32,
     sub_mask: u32,
 ) -> Result<(), Error> {
-    let mut xor_mask = xor_mask;
-    let mut add_mask = add_mask;
+    let game_data = data.get_mut().get_mut(exe_load_offset as usize..).unwrap(); // <- TODO
+    for chunk in game_data.rchunks_exact_mut(4) {
+        let chunk: &mut [u8; 4] = chunk.try_into().unwrap(); // unreachable
+        let mut value = u32::from_le_bytes(*chunk);
 
-    // Get offset of last dword
-    let mut file_offset: usize = data.get_ref().len() - 4;
-    while file_offset >= (exe_load_offset as usize) {
-        // Read current dword
-        data.set_position(file_offset as u64);
-        let mut dword = data.read_u32_le()?;
+        // apply masks, bswap
+        value ^= xor_mask;
+        value = value.wrapping_add(add_mask);
+        value = value.swap_bytes();
 
-        // xor then add then bswap
-        dword ^= xor_mask;
-        dword = dword.wrapping_add(add_mask);
-        dword = dword.swap_bytes();
-
-        // Modify masks
+        // cycle masks
         xor_mask = xor_mask.wrapping_sub(sub_mask);
         add_mask = add_mask.swap_bytes().wrapping_add(1);
 
-        // Write decrypted byte
-        data.set_position(file_offset as u64);
-        data.write_u32_le(dword)?;
-
-        file_offset -= 4;
+        // write decrypted value
+        *chunk = value.to_le_bytes();
     }
 
     data.set_position((exe_load_offset + header_start + 4) as u64);
@@ -556,7 +549,7 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
                 if options.log {
                     println!("Successfully unpacked UPX - output is {} bytes", unpacked.len());
                 }
-                let mut unpacked = io::Cursor::new(&mut*unpacked);
+                let mut unpacked = io::Cursor::new(&mut *unpacked);
 
                 // UPX unpacked, now check if this is a supported data format
                 if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) =
@@ -652,10 +645,9 @@ impl<'a> Game<'a> {
             // Byte 0x3C indicates the start of the PE header
             let pe_header_loc = exe[0x3C] as usize;
             // PE header must begin with PE\0\0, then 0x14C which means i386.
-            if exe.get(pe_header_loc..(pe_header_loc+6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
+            if exe.get(pe_header_loc..(pe_header_loc + 6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
-
         }
 
         // comfy wrapper for byteorder I/O
