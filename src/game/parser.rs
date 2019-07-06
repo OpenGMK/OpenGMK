@@ -16,14 +16,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::iter::once;
 use std::u32;
 
-//const GM80_MAGIC_POS: u64 = 2000000;
-//const GM80_MAGIC: u32 = 1234321;
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
-
-const GM81_MAGIC_POS: u64 = 3800004;
-const GM81_MAGIC_FIELD_SIZE: u32 = 1024;
-const GM81_MAGIC_1: u32 = 0xF7000000;
-const GM81_MAGIC_2: u32 = 0x00140067;
 
 //const UPX_BYTES_START_POS: u64 = 0x20D;
 
@@ -677,7 +670,7 @@ fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
         match gm81_magic {
             Some(n) => {
                 if options.log {
-                    println!("Searching for GM8.1 magic number {} from position {} ({} tries)", n, header_start, GM81_MAGIC_FIELD_SIZE);
+                    println!("Searching for GM8.1 magic number {} from position {}", n, header_start);
                 }
                 let found_header = {
                     let mut i = header_start as u64;
@@ -695,7 +688,7 @@ fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                 };
                 if !found_header {
                     if options.log {
-                        println!("Didn't find GM81 magic value (0x{:X}) after {} tries, so giving up", n, GM81_MAGIC_FIELD_SIZE);
+                        println!("Didn't find GM81 magic value (0x{:X}) before EOF, so giving up", n);
                     }
                     return Ok(false);
                 }
