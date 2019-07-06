@@ -479,6 +479,18 @@ fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u3
     }
 }
 
+/// Check if this is a standard gm8.0 game by looking for the loading sequence
+/// If so, sets the cursor to the start of the gamedata.
+fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<bool, Error> {
+    Ok(false) // todo
+}
+
+/// Check if this is a standard gm8.0 game by looking for the loading sequence
+/// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
+fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<bool, Error> {
+    Ok(false) // todo
+}
+
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
 fn decrypt_antidec(
@@ -592,38 +604,14 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
         return Ok(GameVersion::GameMaker80);
     }
 
-    // check for standard 8.0 header
-    exe.set_position(GM80_MAGIC_POS);
-    if exe.read_u32_le()? == GM80_MAGIC {
-        if options.log {
-            println!("Detected GameMaker 8.0 magic (pos: {:#X})", GM80_MAGIC_POS);
-        }
-
-        // 8.0-specific header TODO: strict should probably check these values.
-        exe.seek(SeekFrom::Current(12))?;
-
+    // Standard formats
+    if check_gm80(exe, options)? {
         Ok(GameVersion::GameMaker80)
-    } else {
-        // check for standard 8.1 header
-        exe.set_position(GM81_MAGIC_POS);
-
-        for _ in 0..GM81_MAGIC_FIELD_SIZE {
-            if (exe.read_u32_le()? & 0xFF00FF00) == GM81_MAGIC_1 {
-                if (exe.read_u32_le()? & 0x00FF00FF) == GM81_MAGIC_2 {
-                    if options.log {
-                        println!("Detected GameMaker 8.1 magic (pos: {:#X})", exe.position() - 8);
-                    }
-
-                    decrypt_gm81(exe, options)?;
-                    // 8.1-specific header TODO: strict should probably check these values.
-                    exe.seek(SeekFrom::Current(20))?;
-                    return Ok(GameVersion::GameMaker81);
-                } else {
-                    exe.set_position(exe.position() - 4);
-                }
-            }
-        }
-
+    }
+    else if check_gm81(exe, options)? {
+        Ok(GameVersion::GameMaker81)
+    }
+    else {
         Err(Error::from(ErrorKind::UnknownFormat))
     }
 }
