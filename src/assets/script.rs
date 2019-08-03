@@ -1,29 +1,19 @@
 use crate::bytes::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::game::parser::ParserOptions;
-use crate::gml::ast::{self, AST};
 use crate::types::Version;
 use std::io::{self, Seek, SeekFrom};
-use std::marker::PhantomPinned;
-use std::pin::Pin;
-use std::ptr::NonNull;
 
 pub const VERSION: Version = 800;
 
-pub struct Script<'a> {
+pub struct Script {
     /// The asset name present in GML and the editor.
     pub name: String,
 
     /// The full source code for the script.
     pub source: Box<str>,
-
-    /// AST for the script's source code.
-    pub ast: Result<AST<'a>, ast::Error>,
-
-    // Do not implement Unpin!
-    _no_unpin: PhantomPinned,
 }
 
-impl<'a> Script<'a> {
+impl Script {
     pub fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
@@ -35,7 +25,7 @@ impl<'a> Script<'a> {
         Ok(result)
     }
 
-    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Pin<Box<Script<'a>>>>
+    pub fn deserialize<B>(bin: B, options: &ParserOptions) -> io::Result<Script>
     where
         B: AsRef<[u8]>,
     {
@@ -50,22 +40,9 @@ impl<'a> Script<'a> {
         }
 
         let source = reader.read_pas_string()?.into_boxed_str();
-        let mut script = Box::pin(Script {
+        Ok(Script {
             name,
-            source,
-            ast: Ok(AST::empty()),
-
-            _no_unpin: PhantomPinned,
-        });
-
-        // Since modifying a field will not move it, this is safe.
-        // This is intended Pin usage. https://doc.rust-lang.org/std/pin/index.html
-        let source_ptr = NonNull::from(&script.source);
-        unsafe {
-            let mut_ref: Pin<&mut Self> = Pin::as_mut(&mut script);
-            Pin::get_unchecked_mut(mut_ref).ast = AST::new(&*source_ptr.as_ptr());
-        }
-
-        Ok(script)
+            source
+        })
     }
 }
