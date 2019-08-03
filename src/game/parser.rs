@@ -6,7 +6,7 @@ use crate::bytes::{ReadBytes, ReadString, WriteBytes};
 use crate::types::Dimensions;
 
 use flate2::read::ZlibDecoder;
-use rayon::prelude::*;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use std::convert::TryInto;
 use std::error;

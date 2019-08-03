@@ -1,6 +1,6 @@
 pub mod parser;
 
-use crate::assets::*;
+use crate::assets::{Background, Constant, Font, Object, Path, Room, Script, Sound, Sprite, Timeline, Trigger};
 use crate::types::{Color, Dimensions};
 
 pub struct Game {
