@@ -832,9 +832,9 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
     }
 }
 
-impl<'a> Game<'a> {
+impl Game {
     // TODO: functionify a lot of this.
-    pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game<'a>, Error>
+    pub fn from_exe<I>(mut exe: I, options: &ParserOptions) -> Result<Game, Error>
     where
         I: AsRef<[u8]> + AsMut<[u8]>,
     {
@@ -1068,25 +1068,10 @@ impl<'a> Game<'a> {
 
         // Scripts
         assert_ver("scripts header", 800, exe.read_u32_le()?)?;
-        let scripts = get_asset_refs(&mut exe)?
-            .par_iter()
-            .map(|deflated| {
-                inflate(&deflated).and_then(|data| {
-                    if data.get(..4).unwrap_or(&[0, 0, 0, 0]) != &[0, 0, 0, 0] {
-                        Ok(Some(Script::deserialize(data.get(4..).unwrap_or(&[]), options)?))
-                    } else {
-                        Ok(None)
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+        let scripts = get_assets(&mut exe, |data| Script::deserialize(data, options))?;
         if options.log {
             scripts.iter().flatten().for_each(|script| {
-                println!(
-                    " + Added script '{}' (source length: {})",
-                    script.name,
-                    script.source.len()
-                );
+                println!(" + Added script '{}'", script.name);
             });
         }
 
