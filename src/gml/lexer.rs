@@ -1,4 +1,4 @@
-use super::token::*;
+use super::token::{Keyword, Operator, Separator, Token};
 
 use std::iter::{Enumerate, Peekable};
 use std::ops::Range;
