@@ -70,12 +70,12 @@ impl<'a> Iterator for Lexer<'a> {
         let head = *self.iter.peek()?;
         Some(match head.1 {
             // identifier, keyword or alphanumeric operator/separator
-            b'A'...b'Z' | b'a'...b'z' | b'_' => {
+            b'A'..=b'Z' | b'a'..=b'z' | b'_' => {
                 let identifier = {
                     loop {
                         match self.iter.peek() {
                             Some(&tail) => match tail.1 {
-                                b'A'...b'Z' | b'a'...b'z' | b'0'...b'9' | b'_' => {
+                                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' => {
                                     self.iter.next();
                                 }
                                 _ => break to_str(src, head.0..tail.0),
@@ -131,14 +131,14 @@ impl<'a> Iterator for Lexer<'a> {
             // 6...2...9 => 6.29
             // .7....3.. => 0.73
             // 4.2...0.0 => 4.2
-            b'0'...b'9' | b'.' => {
+            b'0'..=b'9' | b'.' => {
                 // whether we hit a . yet - begin ignoring afterwards if it's a real literal
                 let mut has_decimal = false;
                 self.buf.clear();
                 loop {
                     match self.iter.peek() {
                         Some(&(_, ch)) => match ch {
-                            b'0'...b'9' => {
+                            b'0'..=b'9' => {
                                 self.buf.push(ch);
                                 self.iter.next();
                             }
@@ -216,7 +216,7 @@ impl<'a> Iterator for Lexer<'a> {
                 let hex = loop {
                     match self.iter.peek() {
                         Some(&(i, ch)) => match ch {
-                            b'0'...b'9' | b'a'...b'f' | b'A'...b'F' => {
+                            b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                                 self.iter.next();
                             }
                             _ => break to_str(src, head..i),
@@ -236,7 +236,7 @@ impl<'a> Iterator for Lexer<'a> {
             }
 
             // operator, separator or possibly just an invalid character
-            0x00...b'~' => {
+            0x00..=b'~' => {
                 let op_sep_ch = |ch| match ch & 0b0111_1111 {
                     b'!' => Token::Operator(Operator::Not),
                     b'&' => Token::Operator(Operator::BinaryAnd),
