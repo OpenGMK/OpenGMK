@@ -1,3 +1,5 @@
+mod byteio;
+
 #[cfg(test)]
 mod tests {
     #[test]
