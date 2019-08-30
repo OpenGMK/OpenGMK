@@ -1,8 +1,10 @@
 mod constant;
 mod script;
+mod trigger;
 
 pub use self::constant::Constant;
 pub use self::script::Script;
+pub use self::trigger::{Trigger, TriggerKind};
 
 use std::{
     error::Error,
