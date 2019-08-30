@@ -23,6 +23,25 @@ pub struct Trigger {
     pub constant_name: String,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum TriggerKind {
+    Step = 0,
+    BeginStep = 1,
+    EndStep = 2,
+}
+
+impl From<u32> for TriggerKind {
+    fn from(n: u32) -> TriggerKind {
+        match n {
+            0 => TriggerKind::Step,
+            1 => TriggerKind::BeginStep,
+            2 => TriggerKind::EndStep,
+
+            _ => TriggerKind::Step,
+        }
+    }
+}
+
 impl Asset for Trigger {
     fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
     where
@@ -61,24 +80,5 @@ impl Asset for Trigger {
         result += writer.write_pas_string(&self.constant_name)?;
 
         Ok(result)
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum TriggerKind {
-    Step = 0,
-    BeginStep = 1,
-    EndStep = 2,
-}
-
-impl From<u32> for TriggerKind {
-    fn from(n: u32) -> TriggerKind {
-        match n {
-            0 => TriggerKind::Step,
-            1 => TriggerKind::BeginStep,
-            2 => TriggerKind::EndStep,
-
-            _ => TriggerKind::Step,
-        }
     }
 }
