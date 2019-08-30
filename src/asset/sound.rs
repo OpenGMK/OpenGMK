@@ -11,29 +11,40 @@ pub struct Sound {
     /// The source file name, including the extension.
     pub source: String,
 
-    /// The file extension.
+    /// The file type (extension).
     pub extension: String,
 
     /// The raw filedata.
-    /// This is optional because the associated data can be blank.
+    /// This is optional because the associated data can be blank
+    /// since in the IDE when you create a new sound it has no associated data.
     pub data: Option<Box<[u8]>>,
 
-    /// Currently, this seems to be always 0. If it worked, it should be one of:
+    /// Stupid legacy garbage indicating what kind of sound it is.
+    /// If it's SoundKind::Multimedia, it should be opened with your system's media player.
     pub kind: SoundKind,
 
     /// The output volume.
     /// Value is between 0.0 and 1.0, although the editor only allows as low as 0.3.
+    /// This is meant to be applied at first load time and cannot be changed.
     pub volume: f64,
 
     /// Stereo Panning.
     /// Value is between -1.0 and +1.0 (-1 Left <- 0 -> Right +1)
+    /// This is meant to be applied at first load time and cannot be changed.
     pub pan: f64,
 
-    /// Indicates whether the "preload" option was checked for this sound
-    /// We will most likely ignore this and preload everything.
+    /// Indicates whether the "preload" option was checked for this sound.
+    /// This would mean the samples would be decoded at load time,
+    /// and you wouldn't be able to manipulate volume, pan, etc from GML.
     pub preload: bool,
 
     /// Various "effects" which can be checked in the sound editor.
+    /// These are meant to be computed at load time and aren't dynamic.
+    pub fx: SoundFX,
+}
+
+/// Various filters which can be set on any sound.
+pub struct SoundFX {
     pub chorus: bool,
     pub echo: bool,
     pub flanger: bool,
@@ -43,9 +54,13 @@ pub struct Sound {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum SoundKind {
+    /// Normal Sound
     Normal = 0,
+    /// Background music
     BackgroundMusic = 1,
+    /// 3D Sound
     ThreeDimensional = 2,
+    /// Use multimedia player
     Multimedia = 3,
 }
 
@@ -111,11 +126,13 @@ impl Asset for Sound {
             volume,
             pan,
             preload,
-            chorus,
-            echo,
-            flanger,
-            gargle,
-            reverb,
+            fx: SoundFX {
+                chorus,
+                echo,
+                flanger,
+                gargle,
+                reverb
+            },
         })
     }
 
@@ -137,11 +154,11 @@ impl Asset for Sound {
             result += writer.write_u32_le(0)?;
         }
 
-        let effects = (if self.chorus { 1 } else { 0 })
-            + (if self.echo { 2 } else { 0 })
-            + (if self.flanger { 4 } else { 0 })
-            + (if self.gargle { 8 } else { 0 })
-            + (if self.reverb { 16 } else { 0 });
+        let effects = (if self.fx.chorus { 1 } else { 0 })
+            + (if self.fx.echo { 2 } else { 0 })
+            + (if self.fx.flanger { 4 } else { 0 })
+            + (if self.fx.gargle { 8 } else { 0 })
+            + (if self.fx.reverb { 16 } else { 0 });
         result += writer.write_u32_le(effects)?;
         result += writer.write_f64_le(self.volume)?;
         result += writer.write_f64_le(self.pan)?;
