@@ -1,3 +1,5 @@
+pub mod asset;
+
 mod byteio;
 
 #[cfg(test)]
