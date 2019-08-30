@@ -2,7 +2,6 @@ mod script;
 
 pub use self::script::Script;
 
-use crate::GameVersion;
 use std::{
     error::Error,
     fmt::{self, Display},
@@ -10,7 +9,7 @@ use std::{
 };
 
 pub trait Asset {
-    fn deserialize<B>(from: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(from: B, strict: bool, version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized;
