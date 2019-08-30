@@ -13,12 +13,12 @@ pub struct Script {
 }
 
 impl Asset for Script {
-    fn deserialize<B>(from: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized,
     {
-        let mut reader = io::Cursor::new(from.as_ref());
+        let mut reader = io::Cursor::new(bytes.as_ref());
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -32,13 +32,13 @@ impl Asset for Script {
         Ok(Script { name, source })
     }
 
-    fn serialize<W>(&self, to: &mut W) -> io::Result<usize>
+    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
     {
-        let mut result = to.write_pas_string(&self.name)?;
-        result += to.write_u32_le(VERSION as u32)?;
-        result += to.write_pas_string(&self.source)?;
+        let mut result = writer.write_pas_string(&self.name)?;
+        result += writer.write_u32_le(VERSION as u32)?;
+        result += writer.write_pas_string(&self.source)?;
 
         Ok(result)
     }

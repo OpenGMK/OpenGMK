@@ -11,11 +11,11 @@ use std::{
 };
 
 pub trait Asset {
-    fn deserialize<B>(from: B, strict: bool, version: u32) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized;
-    fn serialize<W>(&self, to: &mut W) -> io::Result<usize>
+    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write;
 }
