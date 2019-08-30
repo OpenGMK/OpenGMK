@@ -1,9 +1,11 @@
 mod constant;
 mod script;
+mod sound;
 mod trigger;
 
 pub use self::constant::Constant;
 pub use self::script::Script;
+pub use self::sound::{Sound, SoundKind};
 pub use self::trigger::{Trigger, TriggerKind};
 
 use std::{
