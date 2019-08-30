@@ -2,6 +2,7 @@ mod script;
 
 pub use self::script::Script;
 
+use crate::GameVersion;
 use std::{
     error::Error,
     fmt::{self, Display},
@@ -9,7 +10,7 @@ use std::{
 };
 
 pub trait Asset {
-    fn deserialize<B>(from: B) -> Result<Self, AssetDataError> where B: AsRef<[u8]>, Self: Sized;
+    fn deserialize<B>(from: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError> where B: AsRef<[u8]>, Self: Sized;
     fn serialize<W>(&self, to: &mut W) -> io::Result<usize> where W: io::Write;
 }
 
