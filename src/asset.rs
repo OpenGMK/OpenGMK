@@ -1,5 +1,7 @@
+mod constant;
 mod script;
 
+pub use self::constant::Constant;
 pub use self::script::Script;
 
 use std::{
