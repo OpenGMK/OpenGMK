@@ -1,8 +1,8 @@
-mod constant;
-mod room;
-mod script;
-mod sound;
-mod trigger;
+pub mod constant;
+pub mod room;
+pub mod script;
+pub mod sound;
+pub mod trigger;
 
 pub use self::constant::Constant;
 pub use self::room::Room;
