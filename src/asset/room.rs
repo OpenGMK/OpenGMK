@@ -38,6 +38,8 @@ pub struct Room {
 
     pub views: Vec<View>,
 
+    pub instances: Vec<Instance>,
+
     pub tiles: Vec<Tile>,
 }
 
@@ -206,6 +208,7 @@ impl Asset for Room {
             backgrounds,
             views_enabled,
             views,
+            instances,
             tiles,
         })
     }
@@ -214,6 +217,72 @@ impl Asset for Room {
     where
         W: io::Write
     {
-        panic!("unimplemented");
+        let mut result = writer.write_pas_string(&self.name)?;
+        result += writer.write_u32_le(VERSION)?;
+        result += writer.write_pas_string(&self.caption)?;
+        result += writer.write_u32_le(self.width)?;
+        result += writer.write_u32_le(self.height)?;
+        result += writer.write_u32_le(self.speed)?;
+        result += writer.write_u32_le(self.persistent as u32)?;
+        result += writer.write_u32_le(self.bg_colour)?;
+        result += writer.write_u32_le(self.clear_screen as u32)?;
+        result += writer.write_pas_string(&self.creation_code)?;
+
+        result += writer.write_u32_le(self.backgrounds.len() as u32)?;
+        for background in &self.backgrounds {
+            result += writer.write_u32_le(background.visible_on_start as u32)?;
+            result += writer.write_u32_le(background.is_foreground as u32)?;
+            result += writer.write_i32_le(background.source_bg)?;
+            result += writer.write_i32_le(background.xoffset)?;
+            result += writer.write_i32_le(background.yoffset)?;
+            result += writer.write_u32_le(background.tile_horz as u32)?;
+            result += writer.write_u32_le(background.tile_vert as u32)?;
+            result += writer.write_i32_le(background.hspeed)?;
+            result += writer.write_i32_le(background.vspeed)?;
+            result += writer.write_u32_le(background.stretch as u32)?;
+        }
+
+        result += writer.write_u32_le(self.views_enabled as u32)?;
+        result += writer.write_u32_le(self.views.len() as u32)?;
+        for view in &self.views {
+            result += writer.write_u32_le(view.visible as u32)?;
+            result += writer.write_i32_le(view.source_x)?;
+            result += writer.write_i32_le(view.source_y)?;
+            result += writer.write_u32_le(view.source_w)?;
+            result += writer.write_u32_le(view.source_h)?;
+            result += writer.write_i32_le(view.port_x)?;
+            result += writer.write_i32_le(view.port_y)?;
+            result += writer.write_u32_le(view.port_w)?;
+            result += writer.write_u32_le(view.port_h)?;
+            result += writer.write_i32_le(view.following.hborder)?;
+            result += writer.write_i32_le(view.following.vborder)?;
+            result += writer.write_i32_le(view.following.hspeed)?;
+            result += writer.write_i32_le(view.following.vspeed)?;
+            result += writer.write_i32_le(view.following.target)?;
+        }
+
+        result += writer.write_u32_le(self.instances.len() as u32)?;
+        for instance in &self.instances {
+            result += writer.write_i32_le(instance.x)?;
+            result += writer.write_i32_le(instance.y)?;
+            result += writer.write_i32_le(instance.object)?;
+            result += writer.write_i32_le(instance.id)?;
+            result += writer.write_pas_string(&instance.creation_code)?;
+        }
+
+        result += writer.write_u32_le(self.tiles.len() as u32)?;
+        for tile in &self.tiles {
+            result += writer.write_i32_le(tile.x)?;
+            result += writer.write_i32_le(tile.y)?;
+            result += writer.write_i32_le(tile.source_bg)?;
+            result += writer.write_u32_le(tile.tile_x as u32)?;
+            result += writer.write_u32_le(tile.tile_y as u32)?;
+            result += writer.write_u32_le(tile.width)?;
+            result += writer.write_u32_le(tile.height)?;
+            result += writer.write_i32_le(tile.depth)?;
+            result += writer.write_i32_le(tile.id)?;
+        }
+
+        Ok(result)
     }
 }
