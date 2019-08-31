@@ -81,7 +81,7 @@ impl Asset for Sound {
     fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
-        Self: Sized
+        Self: Sized,
     {
         let mut reader = io::Cursor::new(bytes.as_ref());
         let name = reader.read_pas_string()?;
@@ -101,17 +101,20 @@ impl Asset for Sound {
             let len = reader.read_u32_le()? as usize;
             let pos = reader.position() as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
-            Some(reader.get_ref()[pos..pos + len].to_vec().into_boxed_slice())
+            Some(match reader.get_ref().get(pos..pos + len) {
+                Some(chunk) => chunk.to_vec().into_boxed_slice(),
+                None => unreachable!(), // checked with seek
+            })
         } else {
             None
         };
 
         let effects = reader.read_u32_le()?;
-        let chorus: bool = (effects & 1) != 0;
-        let echo: bool = (effects & 2) != 0;
-        let flanger: bool = (effects & 4) != 0;
-        let gargle: bool = (effects & 8) != 0;
-        let reverb: bool = (effects & 16) != 0;
+        let chorus: bool = (effects & 0b1) != 0;
+        let echo: bool = (effects & 0b10) != 0;
+        let flanger: bool = (effects & 0b100) != 0;
+        let gargle: bool = (effects & 0b1000) != 0;
+        let reverb: bool = (effects & 0b10000) != 0;
 
         let volume = reader.read_f64_le()?;
         let pan = reader.read_f64_le()?;
@@ -131,14 +134,14 @@ impl Asset for Sound {
                 echo,
                 flanger,
                 gargle,
-                reverb
+                reverb,
             },
         })
     }
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
-        W: io::Write
+        W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
         result += writer.write_u32_le(VERSION)?;
@@ -147,22 +150,23 @@ impl Asset for Sound {
         result += writer.write_pas_string(&self.source)?;
 
         if let Some(data) = &self.data {
-            result += writer.write_u32_le(1)?;
+            result += writer.write_u32_le(true as u32)?;
             result += writer.write_u32_le(data.len() as u32)?;
             result += writer.write(&data)?;
         } else {
             result += writer.write_u32_le(0)?;
         }
 
-        let effects = (if self.fx.chorus { 1 } else { 0 })
-            + (if self.fx.echo { 2 } else { 0 })
-            + (if self.fx.flanger { 4 } else { 0 })
-            + (if self.fx.gargle { 8 } else { 0 })
-            + (if self.fx.reverb { 16 } else { 0 });
+        let mut effects = self.fx.chorus as u32;
+        effects |= (self.fx.echo as u32) << 1;
+        effects |= (self.fx.flanger as u32) << 2;
+        effects |= (self.fx.gargle as u32) << 3;
+        effects |= (self.fx.reverb as u32) << 4;
+
         result += writer.write_u32_le(effects)?;
         result += writer.write_f64_le(self.volume)?;
         result += writer.write_f64_le(self.pan)?;
-        result += writer.write_u32_le(if self.preload { 1 } else { 0 })?;
+        result += writer.write_u32_le(self.preload as u32)?;
 
         Ok(result)
     }
