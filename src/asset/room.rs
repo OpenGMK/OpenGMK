@@ -11,8 +11,10 @@ pub struct Room {
     /// The default window title when this room is loaded.
     pub caption: String,
 
-    /// The size of the room in pixels.
+    /// The width of the room in pixels.
     pub width: u32,
+
+    /// The height of the room in pixels.
     pub height: u32,
 
     /// The frames per second the room runs at.
@@ -105,7 +107,7 @@ impl Asset for Room {
     fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
-        Self: Sized
+        Self: Sized,
     {
         let mut reader = io::Cursor::new(bytes.as_ref());
         let name = reader.read_pas_string()?;
@@ -215,7 +217,7 @@ impl Asset for Room {
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
-        W: io::Write
+        W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
         result += writer.write_u32_le(VERSION)?;

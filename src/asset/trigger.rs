@@ -6,7 +6,7 @@ pub const VERSION: u32 = 800;
 
 pub struct Trigger {
     /// The asset name present in the editor.
-    /// 
+    ///
     /// I don't think this actually has any purpose.
     /// The trigger is referred to in GML by its constant_name field.
     pub name: String,
@@ -15,7 +15,7 @@ pub struct Trigger {
     pub condition: String,
 
     /// What event to run the check on.
-    /// 
+    ///
     /// TODO: This should probably be an Event enum.
     pub moment: TriggerKind,
 
@@ -46,7 +46,7 @@ impl Asset for Trigger {
     fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
-        Self: Sized
+        Self: Sized,
     {
         let mut reader = io::Cursor::new(bytes.as_ref());
         if strict {
@@ -71,7 +71,7 @@ impl Asset for Trigger {
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
-        W: io::Write
+        W: io::Write,
     {
         let mut result = writer.write_u32_le(VERSION as u32)?;
         result += writer.write_pas_string(&self.name)?;
