@@ -1,4 +1,5 @@
 pub mod asset;
+pub mod def;
 
 mod byteio;
 
