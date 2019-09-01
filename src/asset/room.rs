@@ -1,5 +1,6 @@
 use crate::asset::{assert_ver, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::def::ID;
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 541;
@@ -52,7 +53,7 @@ pub struct Background {
     /// Incredible design! Thank you Mark Overmars!
     pub is_foreground: bool,
 
-    pub source_bg: i32, // TODO: Background asset ID type
+    pub source_bg: ID,
     pub xoffset: i32,
     pub yoffset: i32,
     pub tile_horz: bool,
@@ -65,21 +66,21 @@ pub struct Background {
 pub struct Instance {
     pub x: i32,
     pub y: i32,
-    pub object: i32, // TODO: Object asset ID type
-    pub id: i32,     // TODO: Instance ID type
+    pub object: ID,
+    pub id: ID,
     pub creation_code: String,
 }
 
 pub struct Tile {
     x: i32,
     y: i32,
-    source_bg: i32, // TODO: Background asset ID type
+    source_bg: ID,
     tile_x: bool,
     tile_y: bool,
     width: u32,
     height: u32,
     depth: i32,
-    id: i32, // TODO: Instance ID type
+    id: ID,
 }
 
 pub struct View {
@@ -100,7 +101,7 @@ pub struct ViewFollowData {
     pub vborder: i32,
     pub hspeed: i32,
     pub vspeed: i32,
-    pub target: i32, // TODO: Instance ID type
+    pub target: ID,
 }
 
 impl Asset for Room {
