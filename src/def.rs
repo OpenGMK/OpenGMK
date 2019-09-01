@@ -3,7 +3,7 @@
 /// Represents an object, instance, tile or special values.
 /// 
 /// When positive, it would refer to:
-/// - Object Index in range 0..100_000
+/// - Asset Index in range 0..100_000
 /// - Instance Index in range 100_000..10_000_000
 /// - Tile Index in range 10_000_000..= (Undefined Behaviour)
 /// 
