@@ -1,10 +1,12 @@
 pub mod constant;
+pub mod path;
 pub mod room;
 pub mod script;
 pub mod sound;
 pub mod trigger;
 
 pub use self::constant::Constant;
+pub use self::path::Path;
 pub use self::room::Room;
 pub use self::script::Script;
 pub use self::sound::{Sound, SoundKind};
