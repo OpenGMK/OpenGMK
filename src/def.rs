@@ -10,11 +10,11 @@
 /// Negative values have special meaning in GML, those being:
 /// - `self` / -1, referring to the context of the executing object
 /// - `other` / -2, referring to the context of other instances in special events (ex: collision with other instance)
-/// - `all` / -3, referring to the context of every instance.
-/// - `noone` / -4, referring to a nonexistent instance.
-/// - `global` / -5, referring to a global dummy object accessible anywhere.
+/// - `all` / -3, referring to the context of every instance
+/// - `noone` / -4, referring to a nonexistent instance
+/// - `global` / -5, referring to a global dummy object accessible anywhere
 /// - `local` / -7, referring to the context of a dummy object
-/// that holds variables of the current script.
+/// that holds variables of the current script
 /// 
 /// Regarding `local`, this snippet:
 /// 
