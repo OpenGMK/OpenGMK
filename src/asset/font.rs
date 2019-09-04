@@ -84,7 +84,7 @@ impl Asset for Font {
                 let aa_level = (range_start & 0x00FF0000) >> 16;
                 range_start &= 0x0000FFFF;
                 (charset, aa_level)
-            },
+            }
             _ => panic!("Remove this when this match is on an enum and not a u32"),
         };
 
@@ -92,7 +92,8 @@ impl Asset for Font {
         let map_width = reader.read_u32_le()?;
         let map_height = reader.read_u32_le()?;
         let len = reader.read_u32_le()? as usize;
-        assert_eq!(map_width as usize * map_height as usize, len); // Since these values are redundant, make sure they match up.
+        // Since these values are redundant, make sure they match up.
+        assert_eq!(map_width as usize * map_height as usize, len);
 
         let len = reader.read_u32_le()? as usize;
         let pos = reader.position() as usize;
