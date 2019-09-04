@@ -87,7 +87,10 @@ impl Asset for Sprite {
                 // read pixeldata
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
-                let data = reader.get_ref().get(pos..pos+pixeldata_len).unwrap_or_else(|| unreachable!());
+                let data = reader
+                    .get_ref()
+                    .get(pos..pos + pixeldata_len)
+                    .unwrap_or_else(|| unreachable!());
 
                 frames.push(Frame {
                     width: frame_width,
