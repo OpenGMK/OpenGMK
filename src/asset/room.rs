@@ -1,6 +1,7 @@
 use crate::asset::{assert_ver, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::def::ID;
+use crate::GameVersion;
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 541;
@@ -105,7 +106,7 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize<B>(bytes: B, strict: bool, _version: u32) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized,

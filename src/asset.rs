@@ -16,6 +16,7 @@ pub use self::sound::{Sound, SoundKind};
 pub use self::sprite::Sprite;
 pub use self::trigger::{Trigger, TriggerKind};
 
+use crate::GameVersion;
 use std::{
     error::Error,
     fmt::{self, Display},
@@ -23,7 +24,7 @@ use std::{
 };
 
 pub trait Asset {
-    fn deserialize<B>(bytes: B, strict: bool, version: u32) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized;
