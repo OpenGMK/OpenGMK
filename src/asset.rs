@@ -36,6 +36,7 @@ pub trait Asset {
 #[derive(Debug)]
 pub enum AssetDataError {
     IO(io::Error),
+    MalformedData,
     VersionError { expected: u32, got: u32 },
 }
 
@@ -54,6 +55,7 @@ impl Display for AssetDataError {
                     *got,
                     *got as f32 / 100.0
                 ),
+                AssetDataError::MalformedData => format!("malformed data while reading"),
             }
         )
     }

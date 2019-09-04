@@ -82,7 +82,7 @@ impl Asset for Sprite {
 
                 // sanity check
                 if pixeldata_len != (pixeldata_pixels * 4) {
-                    panic!("Inconsistent pixel data length with dimensions");
+                    return Err(AssetDataError::MalformedData);
                 }
 
                 // read pixeldata

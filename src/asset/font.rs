@@ -91,8 +91,11 @@ impl Asset for Font {
         let map_width = reader.read_u32_le()?;
         let map_height = reader.read_u32_le()?;
         let len = reader.read_u32_le()? as usize;
+        
         // Since these values are redundant, make sure they match up.
-        assert_eq!(map_width as usize * map_height as usize, len);
+        if map_width as usize * map_height as usize != len {
+            return Err(AssetDataError::MalformedData);
+        }
 
         let len = reader.read_u32_le()? as usize;
         let pos = reader.position() as usize;
