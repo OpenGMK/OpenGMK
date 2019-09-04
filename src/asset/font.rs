@@ -1,5 +1,6 @@
 use crate::asset::{assert_ver, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::GameVersion;
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
@@ -54,7 +55,7 @@ pub struct Font {
 }
 
 impl Asset for Font {
-    fn deserialize<B>(bytes: B, strict: bool, version: u32) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized,
@@ -76,16 +77,14 @@ impl Asset for Font {
         let mut range_start = reader.read_u32_le()?;
         let range_end = reader.read_u32_le()?;
 
-        // TODO: I assume version will be an enum instead of u32 at some point?
         let (charset, aa_level) = match version {
-            800 => (0, 0),
-            810 => {
+            GameVersion::GameMaker8_0 => (0, 0),
+            GameVersion::GameMaker8_1 => {
                 let charset = (range_start & 0xFF000000) >> 24;
                 let aa_level = (range_start & 0x00FF0000) >> 16;
                 range_start &= 0x0000FFFF;
                 (charset, aa_level)
             }
-            _ => panic!("Remove this when this match is on an enum and not a u32"),
         };
 
         let dmap = [0u32; 0x600];
