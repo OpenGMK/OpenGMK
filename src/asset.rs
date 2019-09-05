@@ -5,6 +5,7 @@ pub mod room;
 pub mod script;
 pub mod sound;
 pub mod sprite;
+pub mod timeline;
 pub mod trigger;
 
 pub mod etc;
@@ -16,6 +17,7 @@ pub use self::room::Room;
 pub use self::script::Script;
 pub use self::sound::{Sound, SoundKind};
 pub use self::sprite::Sprite;
+pub use self::timeline::Timeline;
 pub use self::trigger::{Trigger, TriggerKind};
 
 use crate::GameVersion;
