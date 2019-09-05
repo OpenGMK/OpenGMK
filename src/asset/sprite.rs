@@ -89,14 +89,16 @@ impl Asset for Sprite {
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
                 let data = reader
-                    .get_ref()
-                    .get(pos..pos + pixeldata_len)
-                    .unwrap_or_else(|| unreachable!());
+                    .get_ref() // get underlying data
+                    .get(pos..pos + pixeldata_len) // get pixeldata chunk
+                    .unwrap_or_else(|| unreachable!()) // seek verified
+                    .to_vec() // copy to heap
+                    .into_boxed_slice(); // as box.
 
                 frames.push(Frame {
                     width: frame_width,
                     height: frame_height,
-                    data: data.to_vec().into_boxed_slice(),
+                    data,
                 });
             }
 

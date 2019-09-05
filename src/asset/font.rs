@@ -100,10 +100,12 @@ impl Asset for Font {
         let len = reader.read_u32_le()? as usize;
         let pos = reader.position() as usize;
         reader.seek(SeekFrom::Current(len as i64))?;
-        let pixel_map = match reader.get_ref().get(pos..pos + len) {
-            Some(chunk) => chunk.to_vec().into_boxed_slice(),
-            None => unreachable!(), // checked with seek
-        };
+        let pixel_map = reader
+            .get_ref() // get underlying data
+            .get(pos..pos + len) // get pixels chunk
+            .unwrap_or_else(|| unreachable!()) // seek verified
+            .to_vec() // copy to heap
+            .into_boxed_slice(); // as box.
 
         Ok(Font {
             name,
