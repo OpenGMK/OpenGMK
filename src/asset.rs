@@ -7,6 +7,8 @@ pub mod sound;
 pub mod sprite;
 pub mod trigger;
 
+pub mod etc;
+
 pub use self::constant::Constant;
 pub use self::font::Font;
 pub use self::path::Path;
