@@ -1,5 +1,6 @@
 pub mod asset;
 pub mod def;
+pub mod reader;
 
 mod byteio;
 
