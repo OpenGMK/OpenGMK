@@ -12,7 +12,7 @@ pub struct Background {
 
     /// The width of the background image in pixels.
     pub width: u32,
-    
+
     /// The height of the background image in pixels.
     pub height: u32,
 
@@ -53,19 +53,23 @@ impl Asset for Background {
             let pos = reader.position() as usize;
             let len = data_len as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
-            let buf = reader.get_ref().get(pos..pos + len)
+            let buf = reader
+                .get_ref()
+                .get(pos..pos + len)
                 .unwrap_or_else(|| unreachable!()) // seek checked
                 .to_vec();
 
             Ok(Background {
                 name,
-                width, height,
+                width,
+                height,
                 data: Some(buf.into_boxed_slice()),
             })
         } else {
             Ok(Background {
                 name,
-                width: 0, height: 0,
+                width: 0,
+                height: 0,
                 data: None,
             })
         }

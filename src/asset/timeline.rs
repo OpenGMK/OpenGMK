@@ -1,6 +1,6 @@
-use crate::GameVersion;
-use crate::asset::{assert_ver, Asset, AssetDataError, etc::CodeAction};
+use crate::asset::{assert_ver, etc::CodeAction, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::GameVersion;
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 500;
