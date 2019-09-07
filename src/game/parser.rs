@@ -236,174 +236,133 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
         println!("UPX entry point: 0x{:X}", entry_point);
     }
 
+    // set up output vector
     let mut output: Vec<u8> = Vec::with_capacity(entry_point as usize); // = vec![0u8; entry_point as usize];
     output.extend_from_slice(&[0u8; 0x400]);
-    let mut mask_buffer: u32 = 0;
-    let mut u_var12: u32 = 0xFFFFFFFF;
-    //let mut pu_var14: u32 = 0x400; // Cursor for output vec
-    let mut next_bit_buffer: bool = false;
 
-    fn pull_new_mask(
+    // helper function to pull a new bit from the mask buffer and pull a new mask if we exhaust the current one
+    fn pull_new_bit(
         mask_buffer: &mut u32,
         next_bit_buffer: &mut bool,
         data: &mut io::Cursor<&mut [u8]>,
     ) -> Result<(), Error> {
-        let v = data.read_u32_le()?;
-        let (b, w) = v.overflowing_add(v);
-        *mask_buffer = b + 1;
-        *next_bit_buffer = w;
-        Ok(())
-    };
-
-    fn pull_new_bit(mask_buffer: &mut u32, next_bit_buffer: &mut bool) {
         let (b, w) = mask_buffer.overflowing_add(*mask_buffer);
-        *mask_buffer = b;
-        *next_bit_buffer = w;
+        if b == 0 {
+            let v = data.read_u32_le()?;
+            let (b, w) = v.overflowing_add(v);
+            *mask_buffer = b + 1;
+            *next_bit_buffer = w;
+            Ok(())
+        } else {
+            *mask_buffer = b;
+            *next_bit_buffer = w;
+            Ok(())
+        }
     }
 
-    pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+    // Data always starts with a bitmask, so let's pull it in and assign our buffers their IVs
+    let v = data.read_u32_le()?;
+    let (b, w) = v.overflowing_add(v);
+    let mut mask_buffer = b + 1;
+    let mut next_bit_buffer = w;
 
+    // This value also gets stored between loops
+    let mut u_var12: u32 = 0xFFFFFFFF;
+
+    // Main loop
     loop {
-        // LAB_2
         if next_bit_buffer {
-            loop {
-                let u_var2: u8 = data.read_u8()?;
-                //output[pu_var14 as usize] = u_var2; // TODO: this is bounds checked, very slow
-                //pu_var14 += 1;
-                output.push(u_var2);
-
-                pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-                if (mask_buffer == 0) || (!next_bit_buffer) {
-                    break;
-                }
-            }
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-                continue;
-            }
+            // Instruction bit 1 means to copy a byte directly from input to output.
+            output.push(data.read_u8()?);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
+            continue;
         }
 
-        let mut i_var5: i32 = 1;
-        let mut u_var6: u32;
+        // We pulled a 0. u_var6 is a value calculated from the instruction bits following a 0.
+        let mut u_var6: u32 = 1;
         loop {
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            }
-            u_var6 = (2 * (i_var5 as u32)) + (next_bit_buffer as u32);
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            // Pull a bit and push it into u_var6
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
+            u_var6 <<= 1;
+            u_var6 |= next_bit_buffer as u32;
+
+            // Next bit is an instruction bit. If it's 1, it means stop reading.
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
             if next_bit_buffer {
-                if mask_buffer != 0 {
-                    break;
-                }
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-                if next_bit_buffer {
-                    break;
-                }
+                break;
             }
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            }
-            i_var5 = ((u_var6 - 1) * 2 + next_bit_buffer as u32) as i32;
+            // Otherwise, it means pull another bit and push it into u_var6
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
+            u_var6 -= 1; // Decrements here, not sure why.
+            u_var6 <<= 1;
+            u_var6 |= next_bit_buffer as u32;
         }
 
-        i_var5 = 0;
+        // The minimum possible value of u_var6 is 2, since it starts at 1, is immediately shifted, then
+        // has a bit added to it. I guess this check is for whether that's the case (and the bit was 0)?
         if u_var6 < 3 {
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            }
+            // Just grabs a new instruction-bit normally.
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
         } else {
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in it.
             u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
             }
+            // Next instruction bit is pulled from the byte we read above, then shifted out of that byte
             next_bit_buffer = (u_var12 & 1) != 0;
             u_var12 = ((u_var12 as i32) >> 1) as u32;
         }
 
-        let mut b: bool = true;
+        // next, we're going to calculate the number of bytes to copy from somewhere else in the output vec.
+        let mut byte_count: u32 = 0;
+        let mut do_push_bit: bool = true;
         if !next_bit_buffer {
-            i_var5 += 1;
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            }
+            // Instruction to start byte_count at 1, then pull bits into it.
+            byte_count = 1;
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
             if !next_bit_buffer {
+                // Loop pulling bits into byte_count
                 loop {
-                    loop {
-                        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-                        if mask_buffer == 0 {
-                            pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-                        }
-                        i_var5 = (i_var5 * 2) + next_bit_buffer as i32;
-                        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-                        if next_bit_buffer {
-                            break;
-                        }
-                    }
-
-                    if mask_buffer != 0 {
-                        break;
-                    }
-                    pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+                    // Pull bit, push it into byte_count
+                    pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
+                    byte_count <<= 1;
+                    byte_count += next_bit_buffer as u32;
+                    // Instruction bit - 1 means stop
+                    pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
                     if next_bit_buffer {
                         break;
                     }
                 }
-                i_var5 += 2;
-                b = false;
+                // Add 2 to the byte count for some reason?
+                byte_count += 2;
+                do_push_bit = false;
             }
         }
-
-        if b {
-            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-            if mask_buffer == 0 {
-                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            }
-            i_var5 = (i_var5 * 2) + next_bit_buffer as i32;
+        if do_push_bit {
+            // We didn't do the loop above, so instead we just pull one bit into byte_count
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
+            byte_count <<= 1;
+            byte_count += next_bit_buffer as u32;
         }
 
-        let mut u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea
-
-        let mut pu_var8 = (output.len() as u32).wrapping_add(u_var12);
-        if u_var12 < 0xfffffffd {
-            loop {
-                let uv1 = output[pu_var8 as usize];
-                let uv2 = output[(pu_var8 + 1) as usize];
-                let uv3 = output[(pu_var8 + 2) as usize];
-                let uv4 = output[(pu_var8 + 3) as usize];
-                pu_var8 += 4;
-                output.push(uv1);
-                output.push(uv2);
-                output.push(uv3);
-                output.push(uv4);
-
-                next_bit_buffer = 3 < u_var10;
-                u_var10 = u_var10.wrapping_sub(4);
-                if (!next_bit_buffer) || (u_var10 == 0) {
-                    break;
-                }
-            }
-            output.truncate((output.len() as u32).wrapping_add(u_var10) as usize);
-        } else {
-            loop {
-                output.push(output[pu_var8 as usize]);
-                pu_var8 += 1;
-                u_var10 = u_var10.wrapping_sub(1);
-
-                if u_var10 == 0 {
-                    break;
-                }
-            }
+        // Again, add 2 to the byte count for some reason.
+        byte_count += 2;
+        if u_var12 < 0xfffffb00 {
+            // Add another 1 only if our cursor is more than 1280 bytes behind the head. Not sure why.
+            byte_count += 1;
         }
 
-        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
-        if mask_buffer == 0 {
-            pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+        // Cursor into the output vector. We're going to read some bytes from here and push them again.
+        let mut cursor = (output.len() as u32).wrapping_add(u_var12) as usize;
+        // Do the byte-copying.
+        for _ in 0..byte_count {
+            output.push(output[cursor]);
+            cursor += 1;
         }
+
+        // Finally, pull a new instruction bit and start the loop again.
+        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
     }
 
     output.shrink_to_fit();
