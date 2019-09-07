@@ -236,12 +236,11 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
         println!("UPX entry point: 0x{:X}", entry_point);
     }
 
-    let mut output: Vec<u8> = vec![0u8; entry_point as usize];
-    //let mut u_var2: u8;
-    let mut pu_var8: u32;
+    let mut output: Vec<u8> = Vec::with_capacity(entry_point as usize); // = vec![0u8; entry_point as usize];
+    output.extend_from_slice(&[0u8; 0x400]);
     let mut mask_buffer: u32 = 0;
     let mut u_var12: u32 = 0xFFFFFFFF;
-    let mut pu_var14: u32 = 0x400; // Cursor for output vec
+    //let mut pu_var14: u32 = 0x400; // Cursor for output vec
     let mut next_bit_buffer: bool = false;
 
     fn pull_new_mask(
@@ -269,8 +268,10 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
         if next_bit_buffer {
             loop {
                 let u_var2: u8 = data.read_u8()?;
-                output[pu_var14 as usize] = u_var2; // TODO: this is bounds checked, very slow
-                pu_var14 += 1;
+                //output[pu_var14 as usize] = u_var2; // TODO: this is bounds checked, very slow
+                //pu_var14 += 1;
+                output.push(u_var2);
+
                 pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
                 if (mask_buffer == 0) || (!next_bit_buffer) {
                     break;
@@ -367,23 +368,18 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
 
         let mut u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea
 
-        pu_var8 = pu_var14.wrapping_add(u_var12);
+        let mut pu_var8 = (output.len() as u32).wrapping_add(u_var12);
         if u_var12 < 0xfffffffd {
             loop {
-                // uVar4 = *puVar8;
                 let uv1 = output[pu_var8 as usize];
                 let uv2 = output[(pu_var8 + 1) as usize];
                 let uv3 = output[(pu_var8 + 2) as usize];
                 let uv4 = output[(pu_var8 + 3) as usize];
-                // puVar8 = puVar8 + 1; (ADD EDX,0x4)
                 pu_var8 += 4;
-                // *puVar14 = uVar4;
-                output[pu_var14 as usize] = uv1;
-                output[(pu_var14 + 1) as usize] = uv2;
-                output[(pu_var14 + 2) as usize] = uv3;
-                output[(pu_var14 + 3) as usize] = uv4;
-                // puVar14 = puVar14 + 1; (ADD EDI,0x4)
-                pu_var14 += 4;
+                output.push(uv1);
+                output.push(uv2);
+                output.push(uv3);
+                output.push(uv4);
 
                 next_bit_buffer = 3 < u_var10;
                 u_var10 = u_var10.wrapping_sub(4);
@@ -391,13 +387,11 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
                     break;
                 }
             }
-            pu_var14 = pu_var14.wrapping_add(u_var10);
+            output.truncate((output.len() as u32).wrapping_add(u_var10) as usize);
         } else {
             loop {
-                let u_var2 = output[pu_var8 as usize];
+                output.push(output[pu_var8 as usize]);
                 pu_var8 += 1;
-                output[pu_var14 as usize] = u_var2;
-                pu_var14 += 1;
                 u_var10 = u_var10.wrapping_sub(1);
 
                 if u_var10 == 0 {
@@ -412,6 +406,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
         }
     }
 
+    output.shrink_to_fit();
     Ok(output)
 }
 
