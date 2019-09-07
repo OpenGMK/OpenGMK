@@ -244,7 +244,11 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
     let mut pu_var14: u32 = 0x400; // Cursor for output vec
     let mut next_bit_buffer: bool = false;
 
-    fn pull_new_mask(mask_buffer: &mut u32, next_bit_buffer: &mut bool, data: &mut io::Cursor<&mut [u8]>) -> Result<(), Error> {
+    fn pull_new_mask(
+        mask_buffer: &mut u32,
+        next_bit_buffer: &mut bool,
+        data: &mut io::Cursor<&mut [u8]>,
+    ) -> Result<(), Error> {
         let v = data.read_u32_le()?;
         let (b, w) = v.overflowing_add(v);
         *mask_buffer = b + 1;
@@ -309,9 +313,8 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
             if mask_buffer == 0 {
                 pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-        }
-        else {
-            // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in its other bytes.
+        } else {
+            // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in it.
             u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
@@ -362,7 +365,7 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
             i_var5 = (i_var5 * 2) + next_bit_buffer as i32;
         }
 
-        let mut u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea, just going with it.
+        let mut u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea
 
         pu_var8 = pu_var14.wrapping_add(u_var12);
         if u_var12 < 0xfffffffd {
@@ -413,7 +416,8 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
 }
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe.
-/// If so, returns the relevant vars to decrypt the data stream (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
+/// If so, returns the relevant vars to decrypt the data stream:
+/// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
 fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, Error> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (GM80_HEADER_START_POS as usize) + 4 {
@@ -484,19 +488,18 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                         println!("GM8.0 magic check looks intact - value is {}", magic);
                     }
                     Some(magic)
-                }
-                else {
+                } else {
                     println!("GM8.0 magic check's JNZ is patched out");
                     None
                 }
-            },
+            }
             0x90 => {
                 exe.seek(SeekFrom::Current(4))?;
                 if options.log {
                     println!("GM8.0 magic check is patched out with NOP");
                 }
                 None
-            },
+            }
             i => {
                 if options.log {
                     println!("Unknown instruction in place of magic CMP: {}", i);
@@ -521,19 +524,18 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                                 println!("GM8.0 header version check looks intact - value is {}", magic);
                             }
                             Some(magic)
-                        }
-                        else {
+                        } else {
                             println!("GM8.0 header version check's JNZ is patched out");
                             None
                         }
-                    },
+                    }
                     0x90 => {
                         exe.seek(SeekFrom::Current(4))?;
                         if options.log {
                             println!("GM8.0 header version check is patched out with NOP");
                         }
                         None
-                    },
+                    }
                     i => {
                         if options.log {
                             println!("Unknown instruction in place of magic CMP: {}", i);
@@ -541,8 +543,7 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                         return Ok(false);
                     }
                 }
-            }
-            else {
+            } else {
                 if options.log {
                     println!("GM8.0 header version check appears patched out");
                 }
@@ -564,11 +565,14 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                 let header1 = exe.read_u32_le()?;
                 if header1 != n {
                     if options.log {
-                        println!("Failed to read GM8.0 header: expected {} at {}, got {}", n, header_start, header1);
+                        println!(
+                            "Failed to read GM8.0 header: expected {} at {}, got {}",
+                            n, header_start, header1
+                        );
                     }
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
             }
@@ -582,7 +586,7 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                     }
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
             }
@@ -590,8 +594,7 @@ fn check_gm80(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
 
         exe.seek(SeekFrom::Current(8))?;
         Ok(true)
-    }
-    else {
+    } else {
         Ok(false)
     }
 }
@@ -632,8 +635,7 @@ fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                         println!("GM8.1 magic check looks intact - value is 0x{:X}", magic);
                     }
                     Some(magic)
-                }
-                else {
+                } else {
                     println!("GM8.1 magic check's JE is patched out");
                     None
                 }
@@ -671,7 +673,7 @@ fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
                     }
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(8))?;
             }
@@ -680,8 +682,7 @@ fn check_gm81(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resul
         decrypt_gm81(exe, options)?;
         exe.seek(SeekFrom::Current(20))?;
         Ok(true)
-    }
-    else {
+    } else {
         Ok(false)
     }
 }
@@ -718,7 +719,8 @@ fn decrypt_antidec(
     Ok(())
 }
 
-/// Identifies the game version and start of gamedata header, given a data cursor. Also removes any version-specific encryptions.
+/// Identifies the game version and start of gamedata header, given a data cursor.
+/// Also removes any version-specific encryptions.
 fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<GameVersion, Error> {
     // Check for UPX-signed PE header
     exe.set_position(0x170);
@@ -802,11 +804,9 @@ fn find_gamedata(exe: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Re
     // Standard formats
     if check_gm80(exe, options)? {
         Ok(GameVersion::GameMaker80)
-    }
-    else if check_gm81(exe, options)? {
+    } else if check_gm81(exe, options)? {
         Ok(GameVersion::GameMaker81)
-    }
-    else {
+    } else {
         Err(Error::from(ErrorKind::UnknownFormat))
     }
 }
@@ -832,7 +832,12 @@ impl Game {
             exe.set_position(0x3C);
             let pe_header_loc = exe.read_u32_le()? as usize;
             // PE header must begin with PE\0\0, then 0x14C which means i386.
-            if exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)).unwrap_or(b"XXXXXX") != b"PE\0\0\x4C\x01" {
+            if exe
+                .get_ref()
+                .get(pe_header_loc..(pe_header_loc + 6))
+                .unwrap_or(b"XXXXXX")
+                != b"PE\0\0\x4C\x01"
+            {
                 return Err(Error::from(ErrorKind::InvalidExeHeader));
             }
         }
