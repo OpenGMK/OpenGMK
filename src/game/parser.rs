@@ -224,147 +224,128 @@ where
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
 fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Result<Vec<u8>, Error> {
     // Locate PE header and read code entry point
-    // Note: I am not sure how to read the full length of the data section, but UPX's entry point is always after the
-    // area it extracts to, so it should always suffice as an output size. We could also read the ImageBase from here, but
-    // since BOTH the code section and entry point are already relative to ImageBase, there's no need.
+    // Note: I am not sure how to read the exact length of the data section, but UPX's entry point is
+    // always after the area it extracts to, so it should always suffice as an output size.
     data.set_position(0x3C);
     let pe_header = data.read_u8()?;
     data.set_position(pe_header as u64 + 40);
     let entry_point = data.read_u32_le()?;
     data.seek(SeekFrom::Current(361))?;
 
-    let mut output: Vec<u8> = vec![0u8; entry_point as usize];
-    let mut u_var2: u8;
-    let mut i_var5: i32;
-    let mut u_var6: u32;
-    let mut pu_var8: u32;
-    let mut u_var9: u32;
-    let mut u_var10: u32;
-    let mut u_var12: u32 = 0xFFFFFFFF;
-    let mut pu_var14: u32 = 0x400; // Cursor for output vec
-    let mut did_wrap17: bool;
-    let mut did_wrap18: bool;
-
-    u_var9 = data.read_u32_le()?;
-
     if options.log {
-        println!("UPX entry point: 0x{:X}; unpacker IV: {}", entry_point, u_var9);
+        println!("UPX entry point: 0x{:X}", entry_point);
     }
 
-    did_wrap18 = u_var9 >= 0x80000000;
-    u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+    let mut output: Vec<u8> = vec![0u8; entry_point as usize];
+    //let mut u_var2: u8;
+    let mut pu_var8: u32;
+    let mut mask_buffer: u32 = 0;
+    let mut u_var12: u32 = 0xFFFFFFFF;
+    let mut pu_var14: u32 = 0x400; // Cursor for output vec
+    let mut next_bit_buffer: bool = false;
 
-    let mut pull_new: bool = false;
+    fn pull_new_mask(mask_buffer: &mut u32, next_bit_buffer: &mut bool, data: &mut io::Cursor<&mut [u8]>) -> Result<(), Error> {
+        let v = data.read_u32_le()?;
+        let (b, w) = v.overflowing_add(v);
+        *mask_buffer = b + 1;
+        *next_bit_buffer = w;
+        Ok(())
+    };
+
+    fn pull_new_bit(mask_buffer: &mut u32, next_bit_buffer: &mut bool) {
+        let (b, w) = mask_buffer.overflowing_add(*mask_buffer);
+        *mask_buffer = b;
+        *next_bit_buffer = w;
+    }
+
+    pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+
     loop {
-        // LAB_0
-        if pull_new {
-            u_var9 = data.read_u32_le()?;
-            did_wrap18 = u_var9 >= 0x80000000;
-            u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
-        }
         // LAB_2
-        if did_wrap18 {
+        if next_bit_buffer {
             loop {
                 let u_var2: u8 = data.read_u8()?;
                 output[pu_var14 as usize] = u_var2; // TODO: this is bounds checked, very slow
                 pu_var14 += 1;
-                did_wrap18 = u_var9 >= 0x80000000;
-                u_var9 = u_var9.wrapping_mul(2);
-                if (u_var9 == 0) || (!did_wrap18) {
+                pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+                if (mask_buffer == 0) || (!next_bit_buffer) {
                     break;
                 }
             }
-            if u_var9 == 0 {
-                pull_new = true;
-                continue; // goto LAB_0
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+                continue;
             }
         }
 
-        i_var5 = 1;
+        let mut i_var5: i32 = 1;
+        let mut u_var6: u32;
         loop {
-            did_wrap17 = u_var9 >= 0x80000000;
-            u_var10 = u_var9.wrapping_mul(2);
-            if u_var10 == 0 {
-                u_var9 = data.read_u32_le()?;
-                did_wrap17 = u_var9 >= 0x80000000;
-                u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-            u_var6 = (2 * (i_var5 as u32)) + if did_wrap17 { 1 } else { 0 };
-            u_var9 = u_var10.wrapping_mul(2);
-            if u_var10 >= 0x80000000 {
-                // if (CARRY4(uVar10,uVar10)) {
-                if u_var9 != 0 {
+            u_var6 = (2 * (i_var5 as u32)) + (next_bit_buffer as u32);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if next_bit_buffer {
+                if mask_buffer != 0 {
                     break;
                 }
-                u_var10 = data.read_u32_le()?;
-                u_var9 = u_var10.wrapping_mul(2).wrapping_add(1);
-                if u_var10 >= 0x80000000 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+                if next_bit_buffer {
                     break;
                 }
             }
-            did_wrap17 = u_var9 >= 0x80000000;
-            u_var9 = u_var9.wrapping_mul(2);
-            if u_var9 == 0 {
-                u_var9 = data.read_u32_le()?;
-                did_wrap17 = u_var9 >= 0x80000000;
-                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-            i_var5 = ((u_var6 - 1) * 2 + if did_wrap17 { 1 } else { 0 }) as i32;
+            i_var5 = ((u_var6 - 1) * 2 + next_bit_buffer as u32) as i32;
         }
 
         i_var5 = 0;
         if u_var6 < 3 {
-            did_wrap17 = u_var9 >= 0x80000000;
-            u_var9 = u_var9.wrapping_mul(2);
-            if u_var9 == 0 {
-                u_var9 = data.read_u32_le()?;
-                did_wrap17 = u_var9 >= 0x80000000;
-                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-        } else {
-            u_var2 = data.read_u8()?;
+        }
+        else {
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in its other bytes.
-            u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (u_var2 as u32 & 0xFF)) ^ 0xFFFFFFFF;
+            u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
             }
-            did_wrap17 = (u_var12 & 1) != 0;
+            next_bit_buffer = (u_var12 & 1) != 0;
             u_var12 = ((u_var12 as i32) >> 1) as u32;
         }
 
         let mut b: bool = true;
-        if !did_wrap17 {
+        if !next_bit_buffer {
             i_var5 += 1;
-            did_wrap17 = u_var9 >= 0x80000000;
-            u_var9 = u_var9.wrapping_mul(2);
-            if u_var9 == 0 {
-                u_var9 = data.read_u32_le()?;
-                did_wrap17 = u_var9 >= 0x80000000;
-                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-            if !did_wrap17 {
+            if !next_bit_buffer {
                 loop {
                     loop {
-                        did_wrap17 = u_var9 >= 0x80000000;
-                        u_var10 = u_var9.wrapping_mul(2);
-                        if u_var10 == 0 {
-                            u_var9 = data.read_u32_le()?;
-                            did_wrap17 = u_var9 >= 0x80000000;
-                            u_var10 = u_var9.wrapping_mul(2).wrapping_add(1);
+                        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+                        if mask_buffer == 0 {
+                            pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
                         }
-                        i_var5 = (i_var5 * 2) + if did_wrap17 { 1 } else { 0 };
-                        u_var9 = u_var10.wrapping_mul(2);
-                        if u_var10 >= 0x80000000 {
+                        i_var5 = (i_var5 * 2) + next_bit_buffer as i32;
+                        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+                        if next_bit_buffer {
                             break;
                         }
                     }
 
-                    if u_var9 != 0 {
+                    if mask_buffer != 0 {
                         break;
                     }
-                    u_var10 = data.read_u32_le()?;
-                    u_var9 = u_var10.wrapping_mul(2).wrapping_add(1);
-                    if u_var10 >= 0x80000000 {
+                    pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+                    if next_bit_buffer {
                         break;
                     }
                 }
@@ -374,17 +355,14 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
         }
 
         if b {
-            did_wrap17 = u_var9 >= 0x80000000;
-            u_var9 = u_var9.wrapping_mul(2);
-            if u_var9 == 0 {
-                u_var9 = data.read_u32_le()?;
-                did_wrap17 = u_var9 >= 0x80000000;
-                u_var9 = u_var9.wrapping_mul(2).wrapping_add(1);
+            pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+            if mask_buffer == 0 {
+                pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
             }
-            i_var5 = (i_var5 * 2) + if did_wrap17 { 1 } else { 0 };
+            i_var5 = (i_var5 * 2) + next_bit_buffer as i32;
         }
 
-        u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea, just going with it.
+        let mut u_var10 = (i_var5 as u32) + 2 + if u_var12 < 0xfffffb00 { 1 } else { 0 }; // No idea, just going with it.
 
         pu_var8 = pu_var14.wrapping_add(u_var12);
         if u_var12 < 0xfffffffd {
@@ -404,16 +382,16 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
                 // puVar14 = puVar14 + 1; (ADD EDI,0x4)
                 pu_var14 += 4;
 
-                did_wrap17 = 3 < u_var10;
+                next_bit_buffer = 3 < u_var10;
                 u_var10 = u_var10.wrapping_sub(4);
-                if (!did_wrap17) || (u_var10 == 0) {
+                if (!next_bit_buffer) || (u_var10 == 0) {
                     break;
                 }
             }
             pu_var14 = pu_var14.wrapping_add(u_var10);
         } else {
             loop {
-                u_var2 = output[pu_var8 as usize];
+                let u_var2 = output[pu_var8 as usize];
                 pu_var8 += 1;
                 output[pu_var14 as usize] = u_var2;
                 pu_var14 += 1;
@@ -425,9 +403,10 @@ fn unpack_upx(data: &mut io::Cursor<&mut [u8]>, options: &ParserOptions) -> Resu
             }
         }
 
-        did_wrap18 = u_var9 >= 0x80000000;
-        u_var9 = u_var9.wrapping_mul(2);
-        pull_new = u_var9 == 0;
+        pull_new_bit(&mut mask_buffer, &mut next_bit_buffer);
+        if mask_buffer == 0 {
+            pull_new_mask(&mut mask_buffer, &mut next_bit_buffer, data)?;
+        }
     }
 
     Ok(output)
