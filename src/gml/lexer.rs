@@ -9,10 +9,6 @@ pub struct Lexer<'a> {
     /// GML source code to return references to.
     src: &'a str,
 
-    /// Internal buffer for parsing numbers.
-    /// Required due to a quirk described below.
-    buf: Vec<u8>,
-
     line_hint: usize,
 
     /// Iterator over the source code as raw bytes.
@@ -24,7 +20,6 @@ impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
         Lexer {
             src,
-            buf: Vec::with_capacity(8),
             line_hint: 1,
             iter: src.bytes().enumerate().peekable(),
         }
@@ -124,52 +119,51 @@ impl<'a> Iterator for Lexer<'a> {
             // a number can't begin with `..` - for example, '..1' is read as:
             // - the Period separator
             // - real literal literal 0.1
-            // we copy this to self.buf, and the only purpose of this buffer is to be compliant
-            // with this absolutely asinine language design, otherwise it could be non allocating.
-            // examples of valid real literals:
+            // examples of valid real literals, you will lose brain cells reading this:
             // 5.5.5.... => 5.55
             // 6...2...9 => 6.29
             // .7....3.. => 0.73
             // 4.2...0.0 => 4.2
             b'0'..=b'9' | b'.' => {
-                // whether we hit a . yet - begin ignoring afterwards if it's a real literal
-                let mut has_decimal = false;
-                self.buf.clear();
+                let mut point_seen = false;
+
+                match head.1 {
+                    b'.' => {
+                        self.iter.next();
+                        match self.iter.peek() {
+                            Some(&(_, ch)) => match ch {
+                                b'0'..=b'9' => (),
+                                _ => return Some(Token::Separator(Separator::Period)),
+                            }
+                            _ => ()
+                        }
+                    }
+                    _ => ()
+                }
+                
+                let mut result = 0.0f64;
+                let mut factor = 1.0f64;
                 loop {
                     match self.iter.peek() {
-                        Some(&(_, ch)) => match ch {
-                            b'0'..=b'9' => {
-                                self.buf.push(ch);
-                                self.iter.next();
-                            }
-                            b'.' => {
-                                if !has_decimal {
-                                    has_decimal = true;
-                                    self.buf.push(ch);
-                                    self.iter.next();
-                                } else {
-                                    // correct interpretation of token starting with ..
-                                    if &self.buf != b"." {
-                                        self.iter.next();
-                                    } else {
-                                        break;
+                        Some(&(_, ch)) => {
+                            match ch {
+                                ch @ b'0'..=b'9' => {
+                                    let dec = ch - b'0';
+                                    if point_seen {
+                                        factor /= 10.0;
                                     }
+                                    result = result * 10.0 + (dec as f64);
                                 }
+                                b'.' => point_seen = true,
+                                _ => break,
                             }
-                            _ => break,
-                        },
+                            self.iter.next();
+                        }
                         None => break,
                     }
                 }
 
-                if &self.buf == b"." {
-                    Token::Separator(Separator::Period)
-                } else {
-                    Token::Real(
-                        // only 0-9 and . can be in the buffer, check unneeded
-                        unsafe { str::from_utf8_unchecked(&self.buf) }.parse().unwrap_or(0.0),
-                    )
-                }
+                Token::Real(result * factor)
             }
 
             // string literal
