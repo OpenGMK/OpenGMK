@@ -1,7 +1,10 @@
 use crate::asset::{assert_ver, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::GameVersion;
-use std::io::{self, Seek, SeekFrom};
+use std::{
+    fmt::{self, Display},
+    io::{self, Seek, SeekFrom},
+};
 
 pub const VERSION: u32 = 800;
 
@@ -29,6 +32,16 @@ pub enum TriggerKind {
     Step = 0,
     BeginStep = 1,
     EndStep = 2,
+}
+
+impl Display for TriggerKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TriggerKind::Step => write!(f, "step"),
+            TriggerKind::BeginStep => write!(f, "begin step"),
+            TriggerKind::EndStep => write!(f, "end step"),
+        }
+    }
 }
 
 impl From<u32> for TriggerKind {
