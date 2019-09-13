@@ -161,7 +161,7 @@ where
                             logger,
                             concat!(
                                 "Found antidec2 loading sequence, decrypting with the following values:\n",
-                                "exe_load_offset:0x{:X} header_start:0x{:X}",
+                                "exe_load_offset:0x{:X} header_start:0x{:X} ",
                                 "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
                             ),
                             exe_load_offset,
