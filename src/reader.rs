@@ -108,6 +108,11 @@ macro_rules! from_err {
 from_err!(ReaderError, AssetDataError, AssetError);
 from_err!(ReaderError, io::Error, IO);
 
+pub enum Gm81XorMethod {
+    Normal,
+    Sudalv,
+}
+
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
@@ -390,14 +395,26 @@ where
                     log!(logger, "GM8.1 magic check looks intact - value is 0x{:X}", magic);
                     Some(magic)
                 } else {
-                    println!("GM8.1 magic check's JE is patched out");
+                    log!(logger, "GM8.1 magic check's JE is patched out");
                     None
                 }
             }
             b => {
-                println!("GM8.1 magic check's CMP is patched out ({:?})", b);
+                log!(logger, "GM8.1 magic check's CMP is patched out ({:?})", b);
                 None
             }
+        };
+
+        // Check if SUDALV's re-encryption is in use
+        exe.set_position(0x0010BB83);
+        let mut buf = [0u8; 8];
+        exe.read_exact(&mut buf)?;
+        let xor_method = match buf {
+            [0x8B, 0x02, 0xC1, 0xE0, 0x10, 0x8B, 0x11, 0x81] => {
+                log!(logger, "Found SUDALV re-encryption");
+                Gm81XorMethod::Sudalv
+            },
+            _ => Gm81XorMethod::Normal,
         };
 
         // Search for header
@@ -438,7 +455,7 @@ where
             }
         }
 
-        decrypt_gm81(exe, logger)?;
+        decrypt_gm81(exe, logger, xor_method)?;
         exe.seek(SeekFrom::Current(20))?;
         Ok(true)
     } else {
@@ -505,7 +522,7 @@ where
 }
 
 /// Removes GM8.1 encryption in-place.
-fn decrypt_gm81<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<()>
+fn decrypt_gm81<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>, xor_method: Gm81XorMethod) -> io::Result<()>
 where
     F: Copy + Fn(&str),
 {
@@ -528,6 +545,7 @@ where
         rvalue
     };
 
+    let sudalv_magic_point = (data.position() - 12) as u32;
     let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
     let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
 
@@ -564,16 +582,58 @@ where
     data.seek(SeekFrom::Current(((seed2 & 0xFF) + 0xA) as i64))?;
 
     // Decrypt stream from here
-    while let Ok(dword) = data.read_u32_le() {
-        data.set_position(data.position() - 4);
-        seed1 = (0xFFFF & seed1) * 0x9069 + (seed1 >> 16);
-        seed2 = (0xFFFF & seed2) * 0x4650 + (seed2 >> 16);
-        let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
-        data.write_u32_le(xor_mask ^ dword)?;
+    match xor_method {
+        Gm81XorMethod::Normal => {
+            // Normal xor generation
+            while let Ok(dword) = data.read_u32_le() {
+                data.set_position(data.position() - 4);
+                seed1 = (0xFFFF & seed1) * 0x9069 + (seed1 >> 16);
+                seed2 = (0xFFFF & seed2) * 0x4650 + (seed2 >> 16);
+                let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
+                data.write_u32_le(xor_mask ^ dword)?;
+            }
+        },
+        Gm81XorMethod::Sudalv => {
+            // SUDALV xor generation
+            let pos = data.position();
+            data.set_position(0x20);
+            let mut x20: u32 = data.read_u32_le()?;
+            data.set_position(pos);
+
+            while let Ok(dword) = data.read_u32_le() {
+                data.set_position(data.position() - 4);
+                seed1 = sudalv_magic(seed1, data, sudalv_magic_point, &mut x20)?;
+                seed2 = sudalv_magic(seed2, data, sudalv_magic_point, &mut x20)?;
+                let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
+                data.write_u32_le(xor_mask ^ dword)?;
+            }
+        },
     }
 
     data.set_position(old_position);
     Ok(())
+}
+
+fn sudalv_magic(seed: u32, data: &mut io::Cursor<&mut [u8]>, magic_point: u32, x20: &mut u32) -> io::Result<u32> {
+    let t = seed & 0xFFFF;
+    let start_pos = data.position();
+
+    if *x20 == 0 {
+        *x20 = magic_point;
+    }
+
+    data.set_position(*x20 as u64);
+    let ecx = data.read_u32_le()?;
+
+    if ecx == 0 {
+        *x20 = magic_point;
+    }
+    else {
+        *x20 -= 2;
+    }
+
+    data.set_position(start_pos);
+    Ok(t.wrapping_mul(ecx & 0xFFFF).wrapping_add(seed >> 16))
 }
 
 /// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
