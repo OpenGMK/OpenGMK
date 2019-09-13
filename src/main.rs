@@ -1,14 +1,11 @@
 #![allow(dead_code)] // Shut up.
 
-mod assets;
 mod bytes;
-mod game;
 mod gml;
 mod types;
 mod util;
 mod xmath;
 
-use crate::game::{parser::ParserOptions, Game};
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -23,10 +20,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let print_usage = || print!("{}", include_str!("incl/usage"));
-    let mut options = ParserOptions::new();
-    let mut path: Option<&String> = None;
-    let mut argi = args.iter();
 
+    let mut path: Option<&String> = None;
+    let mut dump_dll_path: Option<&Path> = None;
+    let mut strict = true;
+    let mut verbose = false;
+
+    let mut argi = args.iter();
     while let Some(arg) = argi.next() {
         match arg.as_ref() {
             "-h" | "--help" => {
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             "-D" | "--dump-dll" => {
                 if let Some(path) = argi.next() {
-                    options.dump_dll = Some(Path::new(path));
+                    dump_dll_path = Some(Path::new(path));
                 } else {
                     println!("Invalid usage of dump-dll, out-path not provided.");
                     print_usage();
@@ -44,9 +44,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            "-l" | "--lazy" => options.strict = false,
+            "-l" | "--lazy" => strict = false,
 
-            "--verbose" => options.log = true,
+            "--verbose" => verbose = true,
 
             "--test-sdl2" => {
                 let sdl = sdl2::init().unwrap();
@@ -77,11 +77,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    fn l_print(s: &str) {
+        println!("{}", s);
+    }
+
     if let Some(path) = path {
         let data = fs::read(path)?;
-        let game = Game::from_exe(data, &options);
+        let assets = gm8x::reader::from_exe(
+            data,
+            strict,
+            if verbose {
+                Some(l_print)
+            } else {
+                None
+            },
+            dump_dll_path
+        );
 
-        match game {
+        match assets {
             Ok(_) => println!("Parsing OK!"),
             Err(err) => println!("{}", err),
         }
