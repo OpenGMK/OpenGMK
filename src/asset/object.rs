@@ -1,4 +1,4 @@
-use crate::asset::{assert_ver, Asset, AssetDataError, etc::CodeAction};
+use crate::asset::{assert_ver, etc::CodeAction, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
 use crate::GameVersion;
 use std::io::{self, Seek, SeekFrom};
@@ -27,17 +27,17 @@ pub struct Object {
     pub persistent: bool,
 
     /// Object index for the parent of this Object
-    /// 
+    ///
     /// Note: any negative index (usually -1) indicates no parent.
     pub parent_index: i32,
 
     /// Default mask_index (a sprite index) for this Object
-    /// 
+    ///
     /// Note: any negative index (usually -1) indicates sprite_index should be used as mask index.
     pub mask_index: i32,
 
     /// Object event lists.
-    /// 
+    ///
     /// An object usually has 12 event lists.
     /// Each list can have 0 or many sub-events, which are indexed by the tuple LHS.
     pub events: Vec<Vec<(u32, Vec<CodeAction>)>>,

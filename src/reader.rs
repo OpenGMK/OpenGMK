@@ -1,14 +1,19 @@
+use crate::asset::{AssetDataError, *};
+use crate::byteio::{ReadBytes, ReadString, WriteBytes};
+use crate::color::Color;
 use crate::GameVersion;
-use crate::byteio::{ReadBytes, WriteBytes};
 
 use flate2::read::ZlibDecoder;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use std::{
     convert::TryInto,
     error::Error,
     fmt::{self, Display},
-    iter::once,
+    fs,
     io::{self, Read, Seek, SeekFrom},
+    iter::once,
+    path,
 };
 
 macro_rules! log {
@@ -25,10 +30,50 @@ macro_rules! log {
             ));
         }
     };
+    ($($x:expr,)*) => (log![$($x),*]); // leveraged from vec![]
+}
+
+pub struct GameAssets {
+    pub sprites: Vec<Option<Box<Sprite>>>,
+    pub sounds: Vec<Option<Box<Sound>>>,
+    pub backgrounds: Vec<Option<Box<Background>>>,
+    pub paths: Vec<Option<Box<Path>>>,
+    pub scripts: Vec<Option<Box<Script>>>,
+    pub fonts: Vec<Option<Box<Font>>>,
+    pub timelines: Vec<Option<Box<Timeline>>>,
+    pub objects: Vec<Option<Box<Object>>>,
+    pub rooms: Vec<Option<Box<Room>>>,
+    pub triggers: Vec<Option<Box<Trigger>>>,
+    pub constants: Vec<Constant>,
+    // Extensions
+    pub version: GameVersion,
+
+    pub help_dialog: GameHelpDialog,
+    pub last_instance_id: i32, // TODO: type
+    pub last_tile_id: i32,     // TODO: type
+    pub room_order: Vec<i32>,  // TODO: type?
+}
+
+#[derive(Debug)]
+pub struct GameHelpDialog {
+    pub bg_color: Color,
+    pub new_window: bool,
+    pub caption: String,
+    pub left: i32,
+    pub top: i32,
+    pub width: u32,
+    pub height: u32,
+    pub border: bool,
+    pub resizable: bool,
+    pub window_on_top: bool,
+    pub freeze_game: bool,
+    pub info: String,
 }
 
 #[derive(Debug)]
 pub enum ReaderError {
+    AssetError(AssetDataError),
+    InvalidExeHeader,
     IO(io::Error),
     PartialUPXPacking,
     UnknownFormat,
@@ -36,26 +81,40 @@ pub enum ReaderError {
 impl Error for ReaderError {}
 impl Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            ReaderError::IO(err) => format!("io error: {}", err),
-            ReaderError::PartialUPXPacking => format!("looks upx protected, can't locate headers"),
-            ReaderError::UnknownFormat => format!("unknown format, could not identify file")
-        })
-    }
-}
-impl From<io::Error> for ReaderError {
-    fn from(err: io::Error) -> Self {
-        ReaderError::IO(err)
+        write!(
+            f,
+            "{}",
+            match self {
+                ReaderError::AssetError(err) => format!("asset data error: {}", err),
+                ReaderError::InvalidExeHeader => format!("invalid exe header"),
+                ReaderError::IO(err) => format!("io error: {}", err),
+                ReaderError::PartialUPXPacking => format!("looks upx protected, can't locate headers"),
+                ReaderError::UnknownFormat => format!("unknown format, could not identify file"),
+            }
+        )
     }
 }
 
+macro_rules! from_err {
+    ($t: ty, $e: ty, $variant: ident) => {
+        impl From<$e> for $t {
+            fn from(err: $e) -> Self {
+                <$t>::$variant(err)
+            }
+        }
+    };
+}
+
+from_err!(ReaderError, AssetDataError, AssetError);
+from_err!(ReaderError, io::Error, IO);
 
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
 
-/// Identifies the game version and start of gamedata header, given a data cursor. Also removes any version-specific encryptions.
+/// Identifies the game version and start of gamedata header, given a data cursor.
+/// Also removes any version-specific encryptions.
 pub fn find_gamedata<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<GameVersion, ReaderError>
 where
-    F: Copy + Fn(&str)
+    F: Copy + Fn(&str),
 {
     // Check for UPX-signed PE header
     exe.set_position(0x170);
@@ -99,12 +158,17 @@ where
                 {
                     if logger.is_some() {
                         log!(
-                            logger, 
+                            logger,
                             concat!(
                                 "Found antidec2 loading sequence, decrypting with the following values:\n",
-                                "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
+                                "exe_load_offset:0x{:X} header_start:0x{:X}",
+                                "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
                             ),
-                            exe_load_offset, header_start, xor_mask, add_mask, sub_mask
+                            exe_load_offset,
+                            header_start,
+                            xor_mask,
+                            add_mask,
+                            sub_mask
                         );
                     }
                     decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
@@ -125,12 +189,16 @@ where
     if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(exe)? {
         if logger.is_some() {
             log!(
-                logger, 
+                logger,
                 concat!(
                     "Found antidec2 loading sequence [no UPX], decrypting with the following values:\n",
                     "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
                 ),
-                exe_load_offset, header_start, xor_mask, add_mask, sub_mask
+                exe_load_offset,
+                header_start,
+                xor_mask,
+                add_mask,
+                sub_mask
             );
         }
         decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
@@ -154,13 +222,17 @@ where
 /// If so, sets the cursor to the start of the gamedata.
 fn check_gm80<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
 where
-    F: Fn(&str),
+    F: Copy + Fn(&str),
 {
     log!(logger, "Checking for standard GM8.0 format...");
 
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < (GM80_HEADER_START_POS as usize) + 4 {
-        log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
+        log!(
+            logger,
+            "File too short for this format (0x{:X} bytes)",
+            exe.get_ref().len()
+        );
         return Ok(false);
     }
 
@@ -179,17 +251,16 @@ where
                 if buf == [0x0F, 0x85, 0x18, 0x01, 0x00, 0x00] {
                     log!(logger, "GM8.0 magic check looks intact - value is {}", magic);
                     Some(magic)
-                }
-                else {
+                } else {
                     log!(logger, "GM8.0 magic check's JNZ is patched out");
                     None
                 }
-            },
+            }
             0x90 => {
                 exe.seek(SeekFrom::Current(4))?;
                 log!(logger, "GM8.0 magic check is patched out with NOP");
                 None
-            },
+            }
             i => {
                 log!(logger, "Unknown instruction in place of magic CMP: {}", i);
                 return Ok(false);
@@ -210,24 +281,22 @@ where
                         if buf == [0x0F, 0x85, 0xF5, 0x00, 0x00, 0x00] {
                             log!(logger, "GM8.0 header version check looks intact - value is {}", magic);
                             Some(magic)
-                        }
-                        else {
+                        } else {
                             println!("GM8.0 header version check's JNZ is patched out");
                             None
                         }
-                    },
+                    }
                     0x90 => {
                         exe.seek(SeekFrom::Current(4))?;
                         log!(logger, "GM8.0 header version check is patched out with NOP");
                         None
-                    },
+                    }
                     i => {
                         log!(logger, "Unknown instruction in place of magic CMP: {}", i);
                         return Ok(false);
                     }
                 }
-            }
-            else {
+            } else {
                 log!(logger, "GM8.0 header version check appears patched out");
                 None
             }
@@ -244,10 +313,16 @@ where
             Some(n) => {
                 let header1 = exe.read_u32_le()?;
                 if header1 != n {
-                    log!(logger, "Failed to read GM8.0 header: expected {} at {}, got {}", n, header_start, header1);
+                    log!(
+                        logger,
+                        "Failed to read GM8.0 header: expected {} at {}, got {}",
+                        n,
+                        header_start,
+                        header1
+                    );
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
             }
@@ -256,10 +331,15 @@ where
             Some(n) => {
                 let header2 = exe.read_u32_le()?;
                 if header2 != n {
-                    log!(logger, "Failed to read GM8.0 header: expected version {}, got {}", n, header2);
+                    log!(
+                        logger,
+                        "Failed to read GM8.0 header: expected version {}, got {}",
+                        n,
+                        header2
+                    );
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
             }
@@ -267,8 +347,7 @@ where
 
         exe.seek(SeekFrom::Current(8))?;
         Ok(true)
-    }
-    else {
+    } else {
         Ok(false)
     }
 }
@@ -277,13 +356,17 @@ where
 /// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
 fn check_gm81<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
 where
-    F: Fn(&str),
+    F: Copy + Fn(&str),
 {
     log!(logger, "Checking for standard GM8.1 format");
 
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x226D8A {
-        log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
+        log!(
+            logger,
+            "File too short for this format (0x{:X} bytes)",
+            exe.get_ref().len()
+        );
         return Ok(false);
     }
 
@@ -306,8 +389,7 @@ where
                 if exe.read_u8()? == 0x74 {
                     log!(logger, "GM8.1 magic check looks intact - value is 0x{:X}", magic);
                     Some(magic)
-                }
-                else {
+                } else {
                     println!("GM8.1 magic check's JE is patched out");
                     None
                 }
@@ -322,7 +404,12 @@ where
         exe.set_position(header_start as u64);
         match gm81_magic {
             Some(n) => {
-                log!(logger, "Searching for GM8.1 magic number {} from position {}", n, header_start);
+                log!(
+                    logger,
+                    "Searching for GM8.1 magic number {} from position {}",
+                    n,
+                    header_start
+                );
                 let found_header = {
                     let mut i = header_start as u64;
                     loop {
@@ -338,10 +425,14 @@ where
                     }
                 };
                 if !found_header {
-                    log!(logger, "Didn't find GM81 magic value (0x{:X}) before EOF, so giving up", n);
+                    log!(
+                        logger,
+                        "Didn't find GM81 magic value (0x{:X}) before EOF, so giving up",
+                        n
+                    );
                     return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(8))?;
             }
@@ -350,16 +441,73 @@ where
         decrypt_gm81(exe, logger)?;
         exe.seek(SeekFrom::Current(20))?;
         Ok(true)
-    }
-    else {
+    } else {
         Ok(false)
     }
+}
+
+/// Removes GameMaker 8.0 protection in-place.
+fn decrypt_gm80<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<()>
+where
+    F: Copy + Fn(&str),
+{
+    let mut swap_table = [0u8; 256];
+    let mut reverse_table = [0u8; 256];
+
+    // the swap table is squished inbetween 2 chunks of useless garbage
+    let garbage1_size = data.read_u32_le()? as i64 * 4;
+    let garbage2_size = data.read_u32_le()? as i64 * 4;
+    data.seek(SeekFrom::Current(garbage1_size))?;
+    assert_eq!(data.read(&mut swap_table)?, 256);
+    data.seek(SeekFrom::Current(garbage2_size))?;
+
+    // fill up reverse table
+    for i in 0..256 {
+        reverse_table[swap_table[i] as usize] = i as u8;
+    }
+
+    // asset data length
+    let len = data.read_u32_le()? as usize;
+
+    // simplifying for expressions below
+    let pos = data.position() as usize; // stream position
+    let data = data.get_mut(); // mutable ref for writing
+    log!(
+        logger,
+        "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})",
+        len,
+        garbage1_size,
+        garbage2_size
+    );
+
+    // decryption: first pass
+    //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
+    for i in (pos..=pos + len).rev() {
+        data[i - 1] =
+            reverse_table[data[i - 1] as usize].wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+    }
+
+    // decryption: second pass
+    //   .. it's complicated
+    let mut a: u8;
+    let mut b: u32;
+    for i in (pos..pos + len - 1).rev() {
+        b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
+        if b < pos as u32 {
+            b = pos as u32;
+        }
+        a = data[i];
+        data[i] = data[b as usize];
+        data[b as usize] = a;
+    }
+
+    Ok(())
 }
 
 /// Removes GM8.1 encryption in-place.
 fn decrypt_gm81<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<()>
 where
-    F: Fn(&str),
+    F: Copy + Fn(&str),
 {
     // YYG's crc32 implementation
     let crc_32 = |hash_key: &Vec<u8>, crc_table: &[u32; 256]| -> u32 {
@@ -405,9 +553,11 @@ where
 
     log!(
         logger,
-            "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})",
-            hash_key, seed1, seed2
-        );
+        "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})",
+        hash_key,
+        seed1,
+        seed2
+    );
 
     // skip to where gm81 encryption starts
     let old_position = data.position();
@@ -427,7 +577,7 @@ where
 }
 
 /// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
-fn _inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
+fn inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
 where
     I: AsRef<[u8]> + ?Sized,
 {
@@ -439,7 +589,8 @@ where
 }
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe.
-/// If so, returns the relevant vars to decrypt the data stream (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
+/// If so, returns the relevant vars to decrypt the data stream
+/// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
 fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, ReaderError> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (GM80_HEADER_START_POS as usize) + 4 {
@@ -491,7 +642,8 @@ fn decrypt_antidec(
     let game_data = data.get_mut().get_mut(exe_load_offset as usize..).unwrap(); // <- TODO
     for chunk in game_data.rchunks_exact_mut(4) {
         // TODO: fix this when const generics start existing
-        let chunk: &mut [u8; 4] = chunk.try_into()
+        let chunk: &mut [u8; 4] = chunk
+            .try_into()
             .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() });
         let mut value = u32::from_le_bytes(*chunk);
 
@@ -515,7 +667,7 @@ fn decrypt_antidec(
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
 fn unpack_upx<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<Vec<u8>, ReaderError>
 where
-    F: Fn(&str),
+    F: Copy + Fn(&str),
 {
     // Locate PE header and read code entry point
     // Note: I am not sure how to read the exact length of the data section, but UPX's entry point is
@@ -656,6 +808,401 @@ where
         // Finally, pull a new instruction bit and start the loop again.
         pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
     }
-    
+
     Ok(output)
+}
+
+pub fn from_exe<I, F>(
+    mut exe: I,
+    strict: bool,
+    logger: Option<F>,
+    dump_dll: Option<&path::Path>,
+) -> Result<GameAssets, ReaderError>
+where
+    F: Copy + Fn(&str),
+    I: AsRef<[u8]> + AsMut<[u8]>,
+{
+    let exe = exe.as_mut();
+
+    // comfy wrapper for byteorder I/O
+    let mut exe = io::Cursor::new(exe);
+
+    // verify executable header
+    if strict {
+        // Windows EXE must always start with "MZ"
+        if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
+            return Err(ReaderError::InvalidExeHeader);
+        }
+        // Byte 0x3C indicates the start of the PE header
+        exe.set_position(0x3C);
+        let pe_header_loc = exe.read_u32_le()? as usize;
+        // PE header must begin with PE\0\0, then 0x14C which means i386.
+        match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
+            Some(b"PE\0\0\x4C\x01") => (),
+            _ => return Err(ReaderError::InvalidExeHeader),
+        }
+    }
+
+    let game_ver = find_gamedata(&mut exe, logger)?;
+
+    // little helper thing
+    macro_rules! assert_ver {
+        ($name: literal, $expect: expr, $ver: expr) => {{
+            let expected = $expect;
+            let got = $ver;
+            if strict {
+                if got == expected {
+                    Ok(())
+                } else {
+                    Err(ReaderError::AssetError(AssetDataError::VersionError { expected, got }))
+                }
+            } else {
+                Ok(())
+            }
+        }};
+    }
+
+    // Game Settings
+    let settings_len = exe.read_u32_le()? as usize;
+    let pos = exe.position() as usize;
+    exe.seek(SeekFrom::Current(settings_len as i64))?;
+    let _settings = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
+
+    log!(
+        logger,
+        "Reading settings chunk... (size: {} ({} deflated))",
+        _settings.len(),
+        settings_len
+    );
+
+    // Embedded DirectX DLL
+    // we obviously don't need this, so we skip over it
+    // if we're verbose logging, read the dll name (usually D3DX8.dll, but...)
+    if logger.is_some() {
+        let dllname = exe.read_pas_string()?;
+        log!(logger, "Skipping embedded DLL '{}'", dllname);
+    } else {
+        // otherwise, skip dll name string
+        let dllname_len = exe.read_u32_le()? as i64;
+        exe.seek(SeekFrom::Current(dllname_len))?;
+    }
+
+    // skip or dump embedded dll data chunk
+    let dll_len = exe.read_u32_le()? as i64;
+    if let Some(out_path) = dump_dll {
+        println!("Dumping DirectX DLL to {}...", out_path.display());
+        let mut dll_data = vec![0u8; dll_len as usize];
+        exe.read(&mut dll_data)?;
+        fs::write(out_path, &dll_data)?;
+    } else {
+        exe.seek(SeekFrom::Current(dll_len))?;
+    }
+
+    // yeah
+    decrypt_gm80(&mut exe, logger)?;
+
+    // Garbage field - random bytes
+    let garbage_dwords = exe.read_u32_le()?;
+    exe.seek(SeekFrom::Current((garbage_dwords * 4) as i64))?;
+    log!(logger, "Skipped {} garbage DWORDs", garbage_dwords);
+
+    // GM8 Pro flag, game ID
+    let pro_flag: bool = exe.read_u32_le()? != 0;
+    let game_id = exe.read_u32_le()?;
+    log!(logger, "Pro flag: {}", pro_flag);
+    log!(logger, "Game ID: {}", game_id);
+
+    // 16 random bytes...
+    exe.seek(SeekFrom::Current(16))?;
+
+    // Rewrap data immutable.
+    let prev_pos = exe.position();
+    let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
+    exe.set_position(prev_pos);
+
+    fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
+        let count = src.read_u32_le()? as usize;
+        let mut refs = Vec::with_capacity(count);
+        for _ in 0..count {
+            let len = src.read_u32_le()? as usize;
+            let pos = src.position() as usize;
+            src.seek(SeekFrom::Current(len as i64))?;
+            let data = src.get_ref();
+            refs.push(&data[pos..pos + len]);
+        }
+        Ok(refs)
+    }
+
+    fn get_assets<T, F>(src: &mut io::Cursor<&[u8]>, deserializer: F) -> Result<Vec<Option<Box<T>>>, ReaderError>
+    where
+        T: Send,
+        F: Fn(&[u8]) -> Result<T, AssetDataError> + Sync,
+    {
+        get_asset_refs(src)?
+            .par_iter()
+            .map(|chunk| {
+                inflate(&chunk).and_then(|data| {
+                    // If the first u32 is 0 then the underlying data doesn't exist (is a None asset).
+                    match data.get(..4) {
+                        Some(&[0, 0, 0, 0]) => Ok(None),
+                        Some(_) => Ok(Some(Box::new(deserializer(
+                            data.get(4..).unwrap_or_else(|| unreachable!()),
+                        )?))),
+                        None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>, ReaderError>>()
+    }
+
+    // stuff to pass to asset deserializers
+    let a_strict = strict;
+    let a_version = game_ver;
+
+    // TODO: Extensions
+    assert_ver!("extensions header", 700, exe.read_u32_le()?)?;
+    let _extensions = get_assets(&mut exe, |_data| Ok(()));
+
+    // Triggers
+    assert_ver!("triggers header", 800, exe.read_u32_le()?)?;
+    let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        triggers.iter().flatten().for_each(|trigger| {
+            log!(
+                logger,
+                " + Added trigger '{}' (moment: {}, condition: {})",
+                trigger.name,
+                trigger.moment,
+                trigger.condition
+            );
+        });
+    }
+
+    // Constants
+    assert_ver!("constants header", 800, exe.read_u32_le()?)?;
+    let constant_count = exe.read_u32_le()? as usize;
+    let mut constants = Vec::with_capacity(constant_count);
+    for _ in 0..constant_count {
+        let name = exe.read_pas_string()?;
+        let expression = exe.read_pas_string()?;
+        log!(logger, " + Added constant '{}' (expression: {})", name, expression);
+        constants.push(Constant { name, expression });
+    }
+
+    // Sounds
+    assert_ver!("sounds header", 800, exe.read_u32_le()?)?;
+    let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        sounds.iter().flatten().for_each(|sound| {
+            log!(logger, " + Added sound '{}' ({})", sound.name, sound.source);
+        });
+    }
+
+    // Sprites
+    assert_ver!("sprites header", 800, exe.read_u32_le()?)?;
+    let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        sprites.iter().flatten().for_each(|sprite| {
+            let framecount = sprite.frames.len();
+            let (width, height) = match sprite.frames.first() {
+                Some(frame) => (frame.width, frame.height),
+                None => (0, 0),
+            };
+            log!(
+                logger,
+                " + Added sprite '{}' ({}x{}, {} frame{})",
+                sprite.name,
+                width,
+                height,
+                framecount,
+                if framecount > 1 { "s" } else { "" }
+            );
+        });
+    }
+
+    // Backgrounds
+    assert_ver!("backgrounds header", 800, exe.read_u32_le()?)?;
+    let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        backgrounds.iter().flatten().for_each(|background| {
+            log!(
+                logger,
+                " + Added background '{}' ({}x{})",
+                background.name,
+                background.width,
+                background.height
+            );
+        });
+    }
+
+    // Paths
+    assert_ver!("paths header", 800, exe.read_u32_le()?)?;
+    let paths = get_assets(&mut exe, |data| Path::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        use crate::asset::path::ConnectionKind;
+
+        paths.iter().flatten().for_each(|path| {
+            log!(
+                logger,
+                " + Added path '{}' ({}, {}, {} point{}, precision: {})",
+                path.name,
+                match path.connection {
+                    ConnectionKind::StraightLine => "straight",
+                    ConnectionKind::SmoothCurve => "smooth",
+                },
+                if path.closed { "closed" } else { "open" },
+                path.points.len(),
+                if path.points.len() > 1 { "s" } else { "" },
+                path.precision
+            );
+        });
+    }
+
+    // Scripts
+    assert_ver!("scripts header", 800, exe.read_u32_le()?)?;
+    let scripts = get_assets(&mut exe, |data| Script::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        scripts.iter().flatten().for_each(|script| {
+            log!(logger, " + Added script '{}'", script.name);
+        });
+    }
+
+    // Fonts
+    assert_ver!("fonts header", 800, exe.read_u32_le()?)?;
+    let fonts = get_assets(&mut exe, |data| Font::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        fonts.iter().flatten().for_each(|font| {
+            log!(
+                logger,
+                " + Added font '{}' ({}, {}px{}{})",
+                font.name,
+                font.sys_name,
+                font.size,
+                if font.bold { ", bold" } else { "" },
+                if font.italic { ", italic" } else { "" }
+            );
+        });
+    }
+
+    // Timelines
+    assert_ver!("timelines header", 800, exe.read_u32_le()?)?;
+    let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        timelines.iter().flatten().for_each(|timeline| {
+            log!(
+                logger,
+                " + Added timeline '{}' (moments: {})",
+                timeline.name,
+                timeline.moments.len()
+            );
+        });
+    }
+
+    // Objects
+    assert_ver!("objects header", 800, exe.read_u32_le()?)?;
+    let objects = get_assets(&mut exe, |data| Object::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        objects.iter().flatten().for_each(|object| {
+            log!(
+                logger,
+                " + Added object {} ({}{}{}depth {})",
+                object.name,
+                if object.solid { "solid; " } else { "" },
+                if object.visible { "visible; " } else { "" },
+                if object.persistent { "persistent; " } else { "" },
+                object.depth,
+            );
+        });
+    }
+
+    // Rooms
+    assert_ver!("rooms header", 800, exe.read_u32_le()?)?;
+    let rooms = get_assets(&mut exe, |data| Room::deserialize(data, a_strict, a_version))?;
+    if logger.is_some() {
+        rooms.iter().flatten().for_each(|room| {
+            log!(
+                logger,
+                " + Added room '{}' ({}x{}, {}FPS{})",
+                room.name,
+                room.width,
+                room.height,
+                room.speed,
+                if room.persistent { ", persistent" } else { "" },
+            );
+        });
+    }
+
+    let last_instance_id = exe.read_i32_le()?;
+    let last_tile_id = exe.read_i32_le()?;
+
+    // TODO: Included Files
+    assert_ver!("included files' header", 800, exe.read_u32_le()?)?;
+    let _extensions = get_assets(&mut exe, |_data| Ok(()));
+
+    // Help Dialog
+    assert_ver!("help dialog", 800, exe.read_u32_le()?)?;
+    let help_dialog = {
+        let len = exe.read_u32_le()? as usize;
+        let pos = exe.position() as usize;
+        let mut data = io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
+        let hdg = GameHelpDialog {
+            bg_color: data.read_u32_le()?.into(),
+            new_window: data.read_u32_le()? != 0,
+            caption: data.read_pas_string()?,
+            left: data.read_i32_le()?,
+            top: data.read_i32_le()?,
+            width: data.read_u32_le()?,
+            height: data.read_u32_le()?,
+            border: data.read_u32_le()? != 0,
+            resizable: data.read_u32_le()? != 0,
+            window_on_top: data.read_u32_le()? != 0,
+            freeze_game: data.read_u32_le()? != 0,
+            info: data.read_pas_string()?,
+        };
+        log!(logger, " + Help Dialog: {:#?}", hdg);
+        exe.seek(SeekFrom::Current(len as i64))?;
+        hdg
+    };
+
+    // Garbage... ? TODO: What is this???
+    assert_ver!("garbage string collection header", 500, exe.read_u32_le()?)?;
+    let _gs_count = exe.read_u32_le()? as usize;
+    let mut _gstrings = Vec::with_capacity(_gs_count);
+    for _ in 0.._gs_count {
+        _gstrings.push(exe.read_pas_string()?);
+    }
+    log!(logger, " + Added Garbage Strings: {:?}", _gstrings);
+
+    // Room Order
+    assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;
+    let room_order = {
+        let ro_count = exe.read_u32_le()? as usize;
+        let mut room_order = Vec::with_capacity(ro_count);
+        for _ in 0..ro_count {
+            room_order.push(exe.read_i32_le()?);
+        }
+        log!(logger, " + Added Room Order LUT: {:?}", room_order);
+
+        room_order
+    };
+
+    Ok(GameAssets {
+        sprites,
+        sounds,
+        backgrounds,
+        paths,
+        scripts,
+        fonts,
+        timelines,
+        objects,
+        triggers,
+        constants,
+        rooms,
+
+        version: game_ver,
+        help_dialog,
+        last_instance_id,
+        last_tile_id,
+        room_order,
+    })
 }

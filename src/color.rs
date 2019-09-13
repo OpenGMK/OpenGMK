@@ -14,8 +14,8 @@ impl Color {
 
     /// Creates a Color from an ABGR decimal value.
     pub fn from_abgr_packed(val: u32) -> Color {
-Color {
-            r: (val & 0xFF) as u8 ,
+        Color {
+            r: (val & 0xFF) as u8,
             g: ((val >> 8) & 0xFF) as u8,
             b: ((val >> 16) & 0xFF) as u8,
             a: ((val >> 24) & 0xFF) as u8,
@@ -24,14 +24,12 @@ Color {
 
     /// Converts the color to an ABGR decimal value.
     pub fn as_decimal(&self) -> u32 {
-        ((self.a as u32) << 24 | (self.b as u32) << 16 | (self.g as u32) << 8 | self.r  as u32)
+        ((self.a as u32) << 24 | (self.b as u32) << 16 | (self.g as u32) << 8 | self.r as u32)
     }
 
     /// Creates a tuple of (r, g, b) values from self.
     pub fn as_rgba(&self) -> (u8, u8, u8, u8) {
-        
-            (self.r, self.g, self.b, self.a)
-        
+        (self.r, self.g, self.b, self.a)
     }
 
     /// Formats self as an RGBA hexadecimal value.
