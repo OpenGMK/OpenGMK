@@ -19,8 +19,6 @@ pub struct Trigger {
     pub condition: String,
 
     /// What event to run the check on.
-    ///
-    /// TODO: This should probably be an Event enum.
     pub moment: TriggerKind,
 
     /// Constant name used to refer to the trigger in GML.
