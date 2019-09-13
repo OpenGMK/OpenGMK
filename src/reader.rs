@@ -1164,14 +1164,14 @@ where
         hdg
     };
 
-    // Garbage... ? TODO: What is this???
-    assert_ver!("garbage string collection header", 500, exe.read_u32_le()?)?;
-    let _gs_count = exe.read_u32_le()? as usize;
-    let mut _gstrings = Vec::with_capacity(_gs_count);
-    for _ in 0.._gs_count {
-        _gstrings.push(exe.read_pas_string()?);
+    // Action library initialization code. We don't need to store this.
+    assert_ver!("action library initialization code header", 500, exe.read_u32_le()?)?;
+    let str_count = exe.read_u32_le()? as usize;
+    for _ in 0..str_count {
+        let str_len = exe.read_u32_le()?;
+        exe.seek(SeekFrom::Current(str_len as i64))?;
     }
-    log!(logger, " + Added Garbage Strings: {:?}", _gstrings);
+    log!(logger, " + Skipped {} action library initialization strings", str_count);
 
     // Room Order
     assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;
