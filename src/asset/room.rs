@@ -1,5 +1,6 @@
 use crate::asset::{assert_ver, Asset, AssetDataError};
 use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::color::Color;
 use crate::def::ID;
 use crate::GameVersion;
 use std::io::{self, Seek, SeekFrom};
@@ -27,8 +28,7 @@ pub struct Room {
 
     /// The background colour the room gets cleared to every frame before drawing.
     /// Unused if clear_screen is true.
-    /// TODO: Colour type?
-    pub bg_colour: u32,
+    pub bg_colour: Color,
 
     /// Whether to clear the screen inbetween frames.
     pub clear_screen: bool,
@@ -126,7 +126,7 @@ impl Asset for Room {
         let height = reader.read_u32_le()?;
         let speed = reader.read_u32_le()?;
         let persistent = reader.read_u32_le()? != 0;
-        let bg_colour = reader.read_u32_le()?;
+        let bg_colour = reader.read_u32_le()?.into();
         let clear_screen = reader.read_u32_le()? != 0;
         let creation_code = reader.read_pas_string()?;
 
@@ -228,7 +228,7 @@ impl Asset for Room {
         result += writer.write_u32_le(self.height)?;
         result += writer.write_u32_le(self.speed)?;
         result += writer.write_u32_le(self.persistent as u32)?;
-        result += writer.write_u32_le(self.bg_colour)?;
+        result += writer.write_u32_le(self.bg_colour.into())?;
         result += writer.write_u32_le(self.clear_screen as u32)?;
         result += writer.write_pas_string(&self.creation_code)?;
 
