@@ -96,10 +96,10 @@ impl Display for ReaderError {
 }
 
 macro_rules! from_err {
-    ($t: ty, $e: ty, $variant: ident) => {
+    ($t: ident, $e: ty, $variant: ident) => {
         impl From<$e> for $t {
             fn from(err: $e) -> Self {
-                <$t>::$variant(err)
+                $t::$variant(err)
             }
         }
     };
