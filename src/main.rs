@@ -48,24 +48,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             "--verbose" => verbose = true,
 
-            "--test-sdl2" => {
-                let sdl = sdl2::init().unwrap();
-                let video_subsystem = sdl.video().unwrap();
-                let _window = video_subsystem.window("gm8emu ✨", 800, 600).build().unwrap();
-
-                let mut event_pump = sdl.event_pump().unwrap();
-                'main: loop {
-                    for event in event_pump.poll_iter() {
-                        match event {
-                            sdl2::event::Event::Quit { .. } => break 'main,
-                            _ => {}
-                        }
-                    }
-                }
-
-                return Ok(());
-            }
-
             _ => {
                 if let Some(path) = &path {
                     println!("Can't open multiple games at once! ({} and {})", path, arg);
