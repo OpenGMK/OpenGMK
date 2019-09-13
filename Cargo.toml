@@ -6,4 +6,3 @@ edition = "2018"
 
 [dependencies]
 gm8x = { git = "https://github.com/notviri/gm8x" }
-sdl2 = { version = "0.32.2", features = ["bundled", "static-link"] }
