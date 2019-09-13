@@ -6,8 +6,3 @@ edition = "2018"
 
 [dependencies]
 gm8x = { git = "https://github.com/notviri/gm8x" }
-
-[profile.release]
-codegen-units = 1
-lto = true
-panic = "abort"
