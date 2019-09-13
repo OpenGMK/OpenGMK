@@ -673,8 +673,8 @@ where
     // Note: I am not sure how to read the exact length of the data section, but UPX's entry point is
     // always after the area it extracts to, so it should always suffice as an output size.
     data.set_position(0x3C);
-    let pe_header = data.read_u8()?;
-    data.set_position(pe_header as u64 + 40);
+    let pe_header_loc = data.read_u32_le()? as u64;
+    data.set_position(pe_header_loc + 40);
     let entry_point = data.read_u32_le()?;
     data.seek(SeekFrom::Current(361))?;
 
@@ -833,7 +833,7 @@ where
         if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
             return Err(ReaderError::InvalidExeHeader);
         }
-        // Byte 0x3C indicates the start of the PE header
+        // Dword at 0x3C indicates the start of the PE header
         exe.set_position(0x3C);
         let pe_header_loc = exe.read_u32_le()? as usize;
         // PE header must begin with PE\0\0, then 0x14C which means i386.
