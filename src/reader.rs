@@ -413,7 +413,7 @@ where
             [0x8B, 0x02, 0xC1, 0xE0, 0x10, 0x8B, 0x11, 0x81] => {
                 log!(logger, "Found SUDALV re-encryption");
                 Gm81XorMethod::Sudalv
-            },
+            }
             _ => Gm81XorMethod::Normal,
         };
 
@@ -592,7 +592,7 @@ where
                 let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
                 data.write_u32_le(xor_mask ^ dword)?;
             }
-        },
+        }
         Gm81XorMethod::Sudalv => {
             // SUDALV xor generation
             let pos = data.position();
@@ -607,7 +607,7 @@ where
                 let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
                 data.write_u32_le(xor_mask ^ dword)?;
             }
-        },
+        }
     }
 
     data.set_position(old_position);
@@ -627,8 +627,7 @@ fn sudalv_magic(seed: u32, data: &mut io::Cursor<&mut [u8]>, magic_point: u32, x
 
     if ecx == 0 {
         *x20 = magic_point;
-    }
-    else {
+    } else {
         *x20 -= 2;
     }
 
