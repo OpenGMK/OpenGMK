@@ -43,6 +43,7 @@ pub struct GameAssets {
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub objects: Vec<Option<Box<Object>>>,
     pub rooms: Vec<Option<Box<Room>>>,
+    pub included_files: Vec<IncludedFile>,
     pub triggers: Vec<Option<Box<Trigger>>>,
     pub constants: Vec<Constant>,
     // Extensions
@@ -1194,9 +1195,34 @@ where
     let last_instance_id = exe.read_i32_le()?;
     let last_tile_id = exe.read_i32_le()?;
 
-    // TODO: Included Files
-    assert_ver!("included files' header", 800, exe.read_u32_le()?)?;
-    let _extensions = get_assets(&mut exe, |_data| Ok(()));
+    // Included Files
+    assert_ver!("included files header", 800, exe.read_u32_le()?)?;
+    let included_files = get_asset_refs(&mut exe)?
+        .iter()
+        .map(|chunk| {
+            inflate(chunk)
+                .and_then(|data| IncludedFile::deserialize(data, a_strict, a_version)
+                .map_err(|e| e.into())) // AssetDataError -> ReaderError
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if logger.is_some() {
+        use crate::asset::includedfile::ExportSetting;
+        for file in &included_files {
+            log!(
+                logger,
+                " + Added included file '{}' (len: {}, export mode: {})",
+                file.file_name,
+                file.source_length,
+                match &file.export_settings {
+                    ExportSetting::NoExport => "no export".into(),
+                    ExportSetting::TempFolder => "temp folder".into(),
+                    ExportSetting::GameFolder => "game folder".into(),
+                    ExportSetting::CustomFolder(p) => format!("custom path: '{}'", p),
+                }
+            );
+        }
+    }
+
 
     // Help Dialog
     assert_ver!("help dialog", 800, exe.read_u32_le()?)?;
@@ -1257,6 +1283,7 @@ where
         triggers,
         constants,
         rooms,
+        included_files,
 
         version: game_ver,
         help_dialog,
