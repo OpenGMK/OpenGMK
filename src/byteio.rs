@@ -25,6 +25,22 @@ pub trait ReadBytes: io::Read {
         Ok(u32::from_le_bytes(data))
     }
 
+    /// Reads an `i16` (little-endian) from the underlying reader.
+    #[inline(always)]
+    fn read_i16_le(&mut self) -> io::Result<i16> {
+        let mut data = [0u8; 2];
+        self.read_exact(&mut data)?;
+        Ok(i16::from_le_bytes(data))
+    }
+
+    /// Reads a `u16` (little-endian) from the underlying reader.
+    #[inline(always)]
+    fn read_u16_le(&mut self) -> io::Result<u16> {
+        let mut data = [0u8; 2];
+        self.read_exact(&mut data)?;
+        Ok(u16::from_le_bytes(data))
+    }
+
     /// Reads an `f64` (little-endian) from the underlying reader.
     #[inline(always)]
     fn read_f64_le(&mut self) -> io::Result<f64> {
@@ -33,7 +49,7 @@ pub trait ReadBytes: io::Read {
         Ok(f64::from_bits(u64::from_le_bytes(data)))
     }
 
-    /// Reads an `f64` (little-endian) from the underlying reader.
+    /// Reads a `u8` from the underlying reader.
     #[inline(always)]
     fn read_u8(&mut self) -> io::Result<u8> {
         let mut data = [0u8; 1];
