@@ -118,109 +118,82 @@ const GM80_HEADER_START_POS: u64 = 0x144AC0;
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
 /// Also removes any version-specific encryptions.
-pub fn find_gamedata<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<GameVersion, ReaderError>
+pub fn find_gamedata<F>(
+    exe: &mut io::Cursor<&mut [u8]>,
+    logger: Option<F>,
+    upx_data: Option<(u32, u32)>,
+) -> Result<GameVersion, ReaderError>
 where
     F: Copy + Fn(&str),
 {
-    // Check for UPX-signed PE header
-    exe.set_position(0x170);
-    // Check for "UPX0" header
-    if &exe.read_u32_le()?.to_le_bytes() == b"UPX0" {
-        if logger.is_some() {
-            log!(logger, "Found UPX0 header at {}", exe.position() - 4);
-        }
+    // Check if UPX is in use first
+    match upx_data {
+        Some((max_size, disk_offset)) => {
+            // UPX in use, let's unpack it
+            let mut unpacked = unpack_upx(exe, max_size, disk_offset, logger)?;
+            log!(logger, "Successfully unpacked UPX - output is {} bytes", unpacked.len());
+            let mut unpacked = io::Cursor::new(&mut *unpacked);
 
-        exe.seek(SeekFrom::Current(36))?;
-        // Check for "UPX1" header
-        if &exe.read_u32_le()?.to_le_bytes() == b"UPX1" {
-            exe.seek(SeekFrom::Current(76))?;
-
-            // Read the UPX version which is a null-terminated string.
-            if logger.is_some() {
-                let mut upx_ver = String::with_capacity(4); // Usually "3.03"
-                while let Ok(ch) = exe.read_u8() {
-                    if ch != 0 {
-                        upx_ver.push(ch as char);
-                    } else {
-                        break;
-                    }
+            // UPX unpacked, now check if this is a supported data format
+            if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(&mut unpacked)? {
+                if logger.is_some() {
+                    log!(
+                        logger,
+                        concat!(
+                            "Found antidec2 loading sequence, decrypting with the following values:\n",
+                            "exe_load_offset:0x{:X} header_start:0x{:X} ",
+                            "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
+                        ),
+                        exe_load_offset,
+                        header_start,
+                        xor_mask,
+                        add_mask,
+                        sub_mask
+                    );
                 }
-                log!(logger, "Found UPX version {}", upx_ver);
+                decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
+
+                // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+                exe.seek(SeekFrom::Current(12))?;
+                Ok(GameVersion::GameMaker8_0)
             } else {
-                while exe.read_u8()? != 0 {}
+                Err(ReaderError::UnknownFormat)
             }
+        }
+        None => {
+            // Check for antidec2 protection in the base exe (so without UPX on top of it)
+            if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(exe)? {
+                if logger.is_some() {
+                    log!(
+                        logger,
+                        concat!(
+                            "Found antidec2 loading sequence [no UPX], decrypting with the following values:\n",
+                            "exe_load_offset:0x{:X} header_start:0x{:X} ",
+                            "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                        ),
+                        exe_load_offset,
+                        header_start,
+                        xor_mask,
+                        add_mask,
+                        sub_mask
+                    );
+                }
+                decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
 
-            if &exe.read_u32_le()?.to_le_bytes() == b"UPX!" {
-                //"UPX!"
-                exe.seek(SeekFrom::Current(28))?;
-
-                let mut unpacked = unpack_upx(exe, logger)?;
-                log!(logger, "Successfully unpacked UPX - output is {} bytes", unpacked.len());
-                let mut unpacked = io::Cursor::new(&mut *unpacked);
-
-                // UPX unpacked, now check if this is a supported data format
-                if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) =
-                    check_antidec(&mut unpacked)?
-                {
-                    if logger.is_some() {
-                        log!(
-                            logger,
-                            concat!(
-                                "Found antidec2 loading sequence, decrypting with the following values:\n",
-                                "exe_load_offset:0x{:X} header_start:0x{:X} ",
-                                "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
-                            ),
-                            exe_load_offset,
-                            header_start,
-                            xor_mask,
-                            add_mask,
-                            sub_mask
-                        );
-                    }
-                    decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
-
-                    // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-                    exe.seek(SeekFrom::Current(12))?;
-                    return Ok(GameVersion::GameMaker8_0);
+                // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+                exe.seek(SeekFrom::Current(12))?;
+                Ok(GameVersion::GameMaker8_0)
+            } else {
+                // Standard formats
+                if check_gm80(exe, logger)? {
+                    Ok(GameVersion::GameMaker8_0)
+                } else if check_gm81(exe, logger)? {
+                    Ok(GameVersion::GameMaker8_1)
                 } else {
-                    return Err(ReaderError::UnknownFormat);
+                    Err(ReaderError::UnknownFormat)
                 }
-            } else {
-                return Err(ReaderError::PartialUPXPacking);
             }
         }
-    }
-
-    // Check for antidec2 protection in the base exe (so without UPX on top of it)
-    if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(exe)? {
-        if logger.is_some() {
-            log!(
-                logger,
-                concat!(
-                    "Found antidec2 loading sequence [no UPX], decrypting with the following values:\n",
-                    "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                ),
-                exe_load_offset,
-                header_start,
-                xor_mask,
-                add_mask,
-                sub_mask
-            );
-        }
-        decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
-
-        // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-        exe.seek(SeekFrom::Current(12))?;
-        return Ok(GameVersion::GameMaker8_0);
-    }
-
-    // Standard formats
-    if check_gm80(exe, logger)? {
-        Ok(GameVersion::GameMaker8_0)
-    } else if check_gm81(exe, logger)? {
-        Ok(GameVersion::GameMaker8_1)
-    } else {
-        Err(ReaderError::UnknownFormat)
     }
 }
 
@@ -725,24 +698,26 @@ fn decrypt_antidec(
 }
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
-fn unpack_upx<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<Vec<u8>, ReaderError>
+fn unpack_upx<F>(
+    data: &mut io::Cursor<&mut [u8]>,
+    max_size: u32,
+    disk_offset: u32,
+    logger: Option<F>,
+) -> Result<Vec<u8>, ReaderError>
 where
     F: Copy + Fn(&str),
 {
-    // Locate PE header and read code entry point
-    // Note: I am not sure how to read the exact length of the data section, but UPX's entry point is
-    // always after the area it extracts to, so it should always suffice as an output size.
-    data.set_position(0x3C);
-    let pe_header_loc = data.read_u32_le()? as u64;
-    data.set_position(pe_header_loc + 40);
-    let entry_point = data.read_u32_le()?;
-    data.seek(SeekFrom::Current(361))?;
-
-    log!(logger, "UPX entry point: 0x{:X}", entry_point);
+    log!(
+        logger,
+        "Unpacking UPX with output size {}, data starting at {}",
+        max_size,
+        disk_offset
+    );
 
     // set up output vector
-    let mut output: Vec<u8> = Vec::with_capacity(entry_point as usize); // = vec![0u8; entry_point as usize];
+    let mut output: Vec<u8> = Vec::with_capacity(max_size as usize);
     output.extend_from_slice(&[0u8; 0x400]);
+    data.set_position((disk_offset as u64) + 0xD); // yeah it starts 13 bytes into the section
 
     // helper function to pull a new bit from the mask buffer and pull a new mask if we exhaust the current one
     fn pull_new_bit(
@@ -872,6 +847,49 @@ where
     Ok(output)
 }
 
+fn find_rsrc_icon(data: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32)>, ReaderError> {
+    // top level header
+    let rsrc_base = data.position();
+    data.seek(SeekFrom::Current(12))?;
+    let name_count = data.read_u16_le()?;
+    let id_count = data.read_u16_le()?;
+    // skip over any names in the top-level
+    data.seek(SeekFrom::Current((name_count as i64) * 8))?;
+    // read IDs until we find 3 (RT_ICON)
+    for _ in 0..id_count {
+        let id = data.read_u32_le()?;
+        let offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
+        if id == 3 {
+            // Go down to next layer
+            data.set_position((offset as u64) + rsrc_base + 14);
+            let leaf_count = data.read_u16_le()?;
+            if leaf_count == 0 {
+                // No leaves under RT_ICON, so no icon
+                return Ok(None);
+            }
+            // And another layer...
+            data.seek(SeekFrom::Current(4))?;
+            let language_offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
+            data.set_position((language_offset as u64) + rsrc_base + 20);
+            let leaf = data.read_u32_le()?;
+            // Finally we get to the leaf, which has a pointer to our icon data + size
+            data.set_position((leaf as u64) + rsrc_base);
+            let rva = data.read_u32_le()?;
+            let size = data.read_u32_le()?;
+            return Ok(Some((rva, size)));
+        }
+    }
+    // No RT_ICON group, so no icon
+    Ok(None)
+}
+
+pub struct PESection {
+    pub virtual_size: u32,
+    pub virtual_address: u32,
+    pub disk_size: u32,
+    pub disk_address: u32,
+}
+
 pub fn from_exe<I, F>(
     mut exe: I,
     strict: bool,
@@ -888,22 +906,110 @@ where
     let mut exe = io::Cursor::new(exe);
 
     // verify executable header
-    if strict {
-        // Windows EXE must always start with "MZ"
-        if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
-            return Err(ReaderError::InvalidExeHeader);
+    // Windows EXE must always start with "MZ"
+    if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
+        return Err(ReaderError::InvalidExeHeader);
+    }
+    // Dword at 0x3C indicates the start of the PE header
+    exe.set_position(0x3C);
+    let pe_header_loc = exe.read_u32_le()? as usize;
+    // PE header must begin with PE\0\0, then 0x14C which means i386.
+    match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
+        Some(b"PE\0\0\x4C\x01") => (),
+        _ => return Err(ReaderError::InvalidExeHeader),
+    }
+    // Read number of sections
+    exe.set_position((pe_header_loc + 6) as u64);
+    let section_count = exe.read_u16_le()?;
+    // Read length of optional header
+    exe.seek(SeekFrom::Current(12))?;
+    let optional_len = exe.read_u16_le()?;
+    // Skip over PE characteristics (2 bytes) + optional header
+    exe.seek(SeekFrom::Current((optional_len as i64) + 2))?;
+
+    // Read all sections, noting these 3 values from certain sections if they exist
+    let mut upx0_virtual_len: Option<u32> = None;
+    let mut upx1_data: Option<(u32, u32)> = None; // virtual size, position on disk
+    let mut rsrc_ico_data: Option<(u32, u32)> = None;
+
+    let mut sections: Vec<PESection> = Vec::with_capacity(section_count as usize);
+
+    for _ in 0..section_count {
+        let mut sect_name = [0u8; 8];
+        exe.read_exact(&mut sect_name)?;
+
+        let virtual_size = exe.read_u32_le()?;
+        let virtual_address = exe.read_u32_le()?;
+        let disk_size = exe.read_u32_le()?;
+        let disk_address = exe.read_u32_le()?;
+        exe.seek(SeekFrom::Current(16))?;
+
+        // See if this is a section we want to do something with
+        match sect_name {
+            [0x55, 0x50, 0x58, 0x30, 0x00, 0x00, 0x00, 0x00] => {
+                // UPX0 section
+                upx0_virtual_len = Some(virtual_size);
+                log!(logger, "UPX0 section found, virtual len: {}", virtual_size);
+            }
+            [0x55, 0x50, 0x58, 0x31, 0x00, 0x00, 0x00, 0x00] => {
+                // UPX1 section
+                upx1_data = Some((virtual_size, disk_address));
+                log!(logger, "UPX1 section found, virtual len: {}", virtual_size);
+            }
+            [0x2E, 0x72, 0x73, 0x72, 0x63, 0x00, 0x00, 0x00] => {
+                // .rsrc section
+                log!(logger, "Reading .rsrc");
+                let temp_pos = exe.position();
+                exe.set_position(disk_address as u64);
+                rsrc_ico_data = find_rsrc_icon(&mut exe)?;
+                exe.set_position(temp_pos);
+            }
+            _ => {}
         }
-        // Dword at 0x3C indicates the start of the PE header
-        exe.set_position(0x3C);
-        let pe_header_loc = exe.read_u32_le()? as usize;
-        // PE header must begin with PE\0\0, then 0x14C which means i386.
-        match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
-            Some(b"PE\0\0\x4C\x01") => (),
-            _ => return Err(ReaderError::InvalidExeHeader),
-        }
+        sections.push(PESection {
+            virtual_size,
+            virtual_address,
+            disk_size,
+            disk_address,
+        })
     }
 
-    let game_ver = find_gamedata(&mut exe, logger)?;
+    // Find icon data if we can
+    let mut icon_data: Option<Vec<u8>> = None;
+    match rsrc_ico_data {
+        Some((rva, size)) => {
+            for section in sections {
+                if rva >= section.virtual_address && (rva + size) < (section.virtual_address + section.virtual_size) {
+                    // icon data is in this section
+                    let offset_on_disk = rva - section.virtual_address;
+                    let icon_location = section.disk_address + offset_on_disk;
+                    exe.set_position(icon_location as u64);
+                    let mut data = vec![0u8; size as usize];
+                    exe.read_exact(&mut data)?;
+                    icon_data = Some(data);
+                    break;
+                }
+            }
+        }
+        None => {}
+    }
+    match icon_data {
+        Some(v) => log!(logger, "Loaded icon data ({} bytes)", v.len()),
+        None => log!(logger, "Couldn't find an icon"),
+    }
+
+    // Decide if UPX is in use based on PE section names
+    // This is None if there is no UPX, obviously, otherwise it's (max_size, offset_on_disk)
+    let upx_data: Option<(u32, u32)> = match upx0_virtual_len {
+        Some(len0) => match upx1_data {
+            Some((len1, offset)) => Some((len0 + len1, offset)),
+            None => None,
+        },
+        None => None,
+    };
+
+    // Identify the game version in use and locate the gamedata header
+    let game_ver = find_gamedata(&mut exe, logger, upx_data)?;
 
     // little helper thing
     macro_rules! assert_ver {
@@ -1200,9 +1306,8 @@ where
     let included_files = get_asset_refs(&mut exe)?
         .iter()
         .map(|chunk| {
-            inflate(chunk)
-                .and_then(|data| IncludedFile::deserialize(data, a_strict, a_version)
-                .map_err(|e| e.into())) // AssetDataError -> ReaderError
+            // AssetDataError -> ReaderError
+            inflate(chunk).and_then(|data| IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
@@ -1222,7 +1327,6 @@ where
             );
         }
     }
-
 
     // Help Dialog
     assert_ver!("help dialog", 800, exe.read_u32_le()?)?;
