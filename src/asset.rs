@@ -94,3 +94,21 @@ fn assert_ver(got: u32, expected: u32) -> Result<(), AssetDataError> {
         Ok(())
     }
 }
+
+// pascal-string extension for easy use
+pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
+    fn read_pas_string(&mut self) -> io::Result<String> {
+        let len = self.read_u32_le()? as usize;
+        self.read_string_utf8_lossy(len)
+    }
+}
+
+pub trait WritePascalString: io::Write + minio::WritePrimitives {
+    fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
+        self.write_u32_le(s.len() as u32)
+            .and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
+    }
+}
+
+impl<R> ReadPascalString for R where R: io::Read {}
+impl<W> WritePascalString for W where W: io::Write {}

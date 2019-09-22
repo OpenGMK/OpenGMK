@@ -1,9 +1,9 @@
 use crate::asset::{AssetDataError, *};
-use crate::byteio::{ReadBytes, ReadString, WriteBytes};
 use crate::color::Color;
 use crate::GameVersion;
 
 use flate2::read::ZlibDecoder;
+use minio::{ReadPrimitives, WritePrimitives};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use std::{

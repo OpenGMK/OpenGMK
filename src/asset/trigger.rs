@@ -1,6 +1,7 @@
-use crate::asset::{assert_ver, Asset, AssetDataError};
-use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString};
 use crate::GameVersion;
+
+use minio::{ReadPrimitives, WritePrimitives};
 use std::{
     fmt::{self, Display},
     io::{self, Seek, SeekFrom},

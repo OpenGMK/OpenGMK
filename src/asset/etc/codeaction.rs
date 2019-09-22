@@ -1,6 +1,7 @@
-use crate::asset::{assert_ver, AssetDataError};
-use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::asset::{assert_ver, AssetDataError, ReadPascalString, WritePascalString};
 use crate::def::ID;
+
+use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Cursor, Seek, SeekFrom};
 
 pub const VERSION: u32 = 440;
