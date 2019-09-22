@@ -2,7 +2,6 @@ pub mod asset;
 pub mod def;
 pub mod reader;
 
-mod byteio;
 mod color;
 
 #[derive(Copy, Clone)]

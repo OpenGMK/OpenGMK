@@ -1,8 +1,9 @@
-use crate::asset::{assert_ver, Asset, AssetDataError};
-use crate::byteio::{ReadBytes, ReadString, WriteBytes, WriteString};
+use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString};
 use crate::color::Color;
 use crate::def::ID;
 use crate::GameVersion;
+
+use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 541;
