@@ -146,8 +146,6 @@ impl Extension {
             let initializer = reader.read_pas_string()?;
             let finalizer = reader.read_pas_string()?;
 
-            println!("filename: {}", name);
-
             let function_count = reader.read_u32_le()? as usize;
             let mut functions = Vec::with_capacity(function_count);
             for _ in 0..function_count {
