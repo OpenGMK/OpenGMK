@@ -1,7 +1,8 @@
 pub mod background;
 pub mod constant;
-pub mod includedfile;
+pub mod extension;
 pub mod font;
+pub mod includedfile;
 pub mod object;
 pub mod path;
 pub mod room;
@@ -15,8 +16,9 @@ pub mod etc;
 
 pub use self::background::Background;
 pub use self::constant::Constant;
-pub use self::includedfile::IncludedFile;
+pub use self::extension::Extension;
 pub use self::font::Font;
+pub use self::includedfile::IncludedFile;
 pub use self::object::Object;
 pub use self::path::Path;
 pub use self::room::Room;

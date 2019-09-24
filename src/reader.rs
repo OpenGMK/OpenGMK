@@ -1081,11 +1081,6 @@ where
     // 16 random bytes...
     exe.seek(SeekFrom::Current(16))?;
 
-    // Rewrap data immutable.
-    let prev_pos = exe.position();
-    let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
-    exe.set_position(prev_pos);
-
     fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
         let count = src.read_u32_le()? as usize;
         let mut refs = Vec::with_capacity(count);
@@ -1125,9 +1120,19 @@ where
     let a_strict = strict;
     let a_version = game_ver;
 
-    // TODO: Extensions
     assert_ver!("extensions header", 700, exe.read_u32_le()?)?;
-    let _extensions = get_assets(&mut exe, |_data| Ok(()));
+    let extension_count = exe.read_u32_le()? as usize;
+    let mut extensions = Vec::with_capacity(extension_count);
+    for _ in 0..extension_count {
+        let ext = Extension::read(&mut exe, a_strict)?;
+        log!(logger, "+ Added extension '{}' (files: {})", ext.name, ext.files.len());
+        extensions.push(ext);
+    }
+
+    // Rewrap data immutable.
+    let prev_pos = exe.position();
+    let mut exe = io::Cursor::new(exe.into_inner() as &[u8]);
+    exe.set_position(prev_pos);
 
     // Triggers
     assert_ver!("triggers header", 800, exe.read_u32_le()?)?;
