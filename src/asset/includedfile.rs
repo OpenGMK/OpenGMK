@@ -1,7 +1,7 @@
-use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, /* WritePascalString */};
+use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString /* WritePascalString */};
 use crate::GameVersion;
 
-use minio::{ReadPrimitives, /* WritePrimitives */};
+use minio::ReadPrimitives;
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
@@ -9,19 +9,19 @@ pub const VERSION: u32 = 800;
 pub struct IncludedFile {
     /// The name of the included file.
     pub file_name: String,
-    
+
     /// The path of the source file (from the developer's PC).
     pub source_path: String,
-    
+
     /// The length of the source file.
     pub source_length: usize,
 
     /// Whether the file is embedded.
     pub stored_in_gmk: bool,
-    
+
     /// Contains the embedded data, if it is embedded.
     pub embedded_data: Option<Box<[u8]>>,
-    
+
     /// The export settings used for the file on load.
     pub export_settings: ExportSetting,
 
@@ -69,11 +69,13 @@ impl Asset for IncludedFile {
             let len = reader.read_u32_le()? as usize;
             let pos = reader.position() as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
-            Some(reader.get_ref()
-                .get(pos..pos+len)
-                .unwrap_or_else(|| unreachable!())
-                .to_vec()
-                .into_boxed_slice()
+            Some(
+                reader
+                    .get_ref()
+                    .get(pos..pos + len)
+                    .unwrap_or_else(|| unreachable!())
+                    .to_vec()
+                    .into_boxed_slice(),
             )
         } else {
             None
