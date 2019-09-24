@@ -609,8 +609,8 @@ fn sudalv_magic(seed: u32, data: &mut io::Cursor<&mut [u8]>, magic_point: u32, x
     Ok(t.wrapping_mul(ecx & 0xFFFF).wrapping_add(seed >> 16))
 }
 
-/// Helper function for inflating zlib data. A preceding u32 indicating size is assumed.
-fn inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
+/// Helper function for inflating zlib data.
+pub(crate) fn inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
 where
     I: AsRef<[u8]> + ?Sized,
 {
