@@ -101,7 +101,7 @@ fn assert_ver(got: u32, expected: u32) -> Result<(), AssetDataError> {
 pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
     fn read_pas_string(&mut self) -> io::Result<String> {
         let len = self.read_u32_le()? as usize;
-        self.read_string_utf8_lossy(len)
+        self.read_str_utf8_lossy(len)
     }
 }
 
