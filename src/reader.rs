@@ -34,6 +34,7 @@ macro_rules! log {
 }
 
 pub struct GameAssets {
+    pub extensions: Vec<Extension>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub sounds: Vec<Option<Box<Sound>>>,
     pub backgrounds: Vec<Option<Box<Background>>>,
@@ -1381,6 +1382,7 @@ where
     };
 
     Ok(GameAssets {
+        extensions,
         sprites,
         sounds,
         backgrounds,
