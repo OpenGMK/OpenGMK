@@ -190,6 +190,8 @@ where
                     Ok(GameVersion::GameMaker8_0)
                 } else if check_gm81(exe, logger)? {
                     Ok(GameVersion::GameMaker8_1)
+                } else if check_gm81_lazy(exe, logger)? {
+                    Ok(GameVersion::GameMaker8_1)
                 } else {
                     Err(ReaderError::UnknownFormat)
                 }
@@ -435,6 +437,29 @@ where
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+/// Check if this is a standard gm8.1 game by looking for the default header (last-resort method)
+/// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
+fn check_gm81_lazy<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
+where
+    F: Copy + Fn(&str),
+{
+    log!(logger, "Searching for default GM8.1 data header");
+    let mut i = 3800004;
+    loop {
+        exe.set_position(i);
+        let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+        if val == 0xF7140067 {
+            decrypt_gm81(exe, logger, Gm81XorMethod::Normal)?;
+            exe.seek(SeekFrom::Current(20))?;
+            break Ok(true);
+        }
+        i += 1;
+        if ((i + 8) as usize) >= exe.get_ref().len() {
+            break Ok(false);
+        }
     }
 }
 
