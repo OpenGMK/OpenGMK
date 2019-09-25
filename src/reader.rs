@@ -56,6 +56,7 @@ pub struct GameAssets {
     pub room_order: Vec<i32>,  // TODO: type?
 
     pub settings: Settings,
+    pub guid: [u32; 4],
 }
 
 #[derive(Debug)]
@@ -1515,7 +1516,12 @@ where
     log!(logger, "Game ID: {}", game_id);
 
     // 16 random bytes...
-    exe.seek(SeekFrom::Current(16))?;
+    let guid = [
+        exe.read_u32_le()?,
+        exe.read_u32_le()?,
+        exe.read_u32_le()?,
+        exe.read_u32_le()?,
+    ];
 
     fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
         let count = src.read_u32_le()? as usize;
@@ -1836,6 +1842,8 @@ where
         last_instance_id,
         last_tile_id,
         room_order,
+
         settings,
+        guid,
     })
 }
