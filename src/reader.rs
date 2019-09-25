@@ -152,28 +152,41 @@ pub struct Settings {
     /// Sub-var of `set_resolution` - Color Depth
     ///
     /// 0 - No Change
+    ///
     /// 1 - 16-Bit
+    ///
     /// 2 - 32-Bit
     pub colour_depth: u32,
 
     /// Sub-var of `set_resolution` - Resolution
     ///
     /// 0 - No change
+    ///
     /// 1 - 320x240
+    ///
     /// 2 - 640x480
+    ///
     /// 3 - 800x600
+    ///
     /// 4 - 1024x768
+    ///
     /// 5 - 1280x1024
+    ///
     /// 6 - 1600x1200
     pub resolution: u32,
 
     /// Sub-var of `set_resolution` - Frequency
     ///
     /// 0 - No Change
+    ///
     /// 1 - 60Hz
+    ///
     /// 2 - 70Hz
+    ///
     /// 3 - 85Hz
+    ///
     /// 4 - 100Hz
+    ///
     /// 5 - 120Hz
     pub frequency: u32,
 
@@ -207,14 +220,21 @@ pub struct Settings {
     /// Game Process Priority
     ///
     /// 0 - Normal
+    ///
     /// 1 - High
+    ///
     /// 2 - Highest
+    ///
     pub priority: u32,
 
     /// Freeze the game window when the window loses focus
     pub freeze_on_lose_focus: bool,
 
-    // TODO HI HELLO
+    /// 0 - No loading progress bar
+    ///
+    /// 1 - Default loading progress bar
+    ///
+    /// 2 - Own loading progress bar
     pub loading_bar: u32,
 
     /// Loading bar - (Custom) Back Image
