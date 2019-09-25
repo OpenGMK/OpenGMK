@@ -51,9 +51,9 @@ pub struct GameAssets {
     pub version: GameVersion,
 
     pub help_dialog: GameHelpDialog,
-    pub last_instance_id: i32, // TODO: type
-    pub last_tile_id: i32,     // TODO: type
-    pub room_order: Vec<i32>,  // TODO: type?
+    pub last_instance_id: i32,
+    pub last_tile_id: i32,
+    pub room_order: Vec<i32>,
 
     pub settings: Settings,
     pub guid: [u32; 4],
