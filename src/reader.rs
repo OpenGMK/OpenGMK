@@ -134,9 +134,9 @@ pub struct Settings {
     /// Scaling
     ///
     /// Fixed scale, in %.
-    /// If it's `-1`, Keep aspect ratio.
+    /// If it's negative (usually `-1`), Keep aspect ratio.
     /// Otherwise if it's `0`, Full scale.
-    pub scaling: u32,
+    pub scaling: i32,
 
     /// Allow the player to resize the game window
     pub allow_resize: bool,
@@ -1240,7 +1240,7 @@ where
         let interpolate_pixels = cfg.read_u32_le()? != 0;
         let dont_draw_border = cfg.read_u32_le()? != 0;
         let display_cursor = cfg.read_u32_le()? != 0;
-        let scaling = cfg.read_u32_le()?;
+        let scaling = cfg.read_i32_le()?;
         let allow_resize = cfg.read_u32_le()? != 0;
         let window_on_top = cfg.read_u32_le()? != 0;
         let clear_colour = cfg.read_u32_le()?;
