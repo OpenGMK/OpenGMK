@@ -117,10 +117,7 @@ impl From<u32> for CallingConvention {
 }
 
 impl Extension {
-    pub fn read(
-        reader: &mut io::Cursor<&mut [u8]>,
-        strict: bool,
-    ) -> Result<Self, AssetDataError> {
+    pub fn read(reader: &mut io::Cursor<&mut [u8]>, strict: bool) -> Result<Self, AssetDataError> {
         if strict {
             let version = reader.read_u32_le()?;
             assert_ver(version, VERSION)?;

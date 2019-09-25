@@ -54,6 +54,8 @@ pub struct GameAssets {
     pub last_instance_id: i32, // TODO: type
     pub last_tile_id: i32,     // TODO: type
     pub room_order: Vec<i32>,  // TODO: type?
+
+    pub settings: Settings,
 }
 
 #[derive(Debug)]
@@ -113,6 +115,143 @@ from_err!(ReaderError, io::Error, IO);
 pub enum Gm81XorMethod {
     Normal,
     Sudalv,
+}
+
+pub struct Settings {
+    /// Start in full-screen mode
+    pub fullscreen: bool,
+
+    /// Interpolate colors between pixels
+    pub interpolate_pixels: bool,
+
+    /// Don't draw a border in windowed mode
+    pub dont_draw_border: bool,
+
+    /// Display the cursor
+    pub display_cursor: bool,
+
+    /// Scaling
+    ///
+    /// Fixed scale, in %.
+    /// If it's `-1`, Keep aspect ratio.
+    /// Otherwise if it's `0`, Full scale.
+    pub scaling: u32,
+
+    /// Allow the player to resize the game window
+    pub allow_resize: bool,
+
+    /// Let the game window always stay on top
+    pub window_on_top: bool,
+
+    /// Colour outside the room region (RGBA)
+    pub clear_colour: u32,
+
+    /// Set the resolution of the screen
+    pub set_resolution: bool,
+
+    /// Sub-var of `set_resolution` - Color Depth
+    ///
+    /// 0 - No Change
+    /// 1 - 16-Bit
+    /// 2 - 32-Bit
+    pub colour_depth: u32,
+
+    /// Sub-var of `set_resolution` - Resolution
+    ///
+    /// 0 - No change
+    /// 1 - 320x240
+    /// 2 - 640x480
+    /// 3 - 800x600
+    /// 4 - 1024x768
+    /// 5 - 1280x1024
+    /// 6 - 1600x1200
+    pub resolution: u32,
+
+    /// Sub-var of `set_resolution` - Frequency
+    ///
+    /// 0 - No Change
+    /// 1 - 60Hz
+    /// 2 - 70Hz
+    /// 3 - 85Hz
+    /// 4 - 100Hz
+    /// 5 - 120Hz
+    pub frequency: u32,
+
+    /// Don't show the buttons in the window captions
+    pub dont_show_buttons: bool,
+
+    /// Use synchronization to avoid tearing
+    pub vsync: bool,
+
+    /// Disable screensavers and power saving actions
+    pub disable_screensaver: bool,
+
+    /// Let <Esc> end the game
+    pub esc_close_game: bool,
+
+    /// Treat the close button as the <Esc> key
+    pub treat_close_as_esc: bool,
+
+    /// Let <F1> show the game information
+    pub f1_help_menu: bool,
+
+    /// Let <F4> switch between screen modes
+    pub f4_fullscreen_toggle: bool,
+
+    /// Let <F5> save the game and <F6> load a game
+    pub f5_save_f6_load: bool,
+
+    /// Let <F9> take a screenshot of the game
+    pub f9_screenshot: bool,
+
+    /// Game Process Priority
+    ///
+    /// 0 - Normal
+    /// 1 - High
+    /// 2 - Highest
+    pub priority: u32,
+
+    /// Freeze the game window when the window loses focus
+    pub freeze_on_lose_focus: bool,
+
+    // TODO HI HELLO
+    pub loading_bar: u32,
+
+    /// Loading bar - (Custom) Back Image
+    pub backdata: Box<[u8]>,
+
+    /// Loading bar - (Custom) Front Image
+    pub frontdata: Box<[u8]>,
+
+    /// Show your own image while loading (data)
+    pub custom_load_image: Box<[u8]>,
+
+    /// Sub-value of `custom_load_image`:
+    /// Make image partially translucent
+    pub transparent: bool,
+
+    /// Sub-value of `custom_load_image` + `transparent`
+    ///
+    /// Make translucent with alpha value: x
+    pub translucency: u32,
+
+    /// Scale progress bar image
+    pub scale_progress_bar: bool,
+
+    /// Display error messages
+    pub show_error_messages: bool,
+
+    /// Write error messages to file game_errors.log
+    pub log_errors: bool,
+
+    /// Abort on all error messages
+    pub always_abort: bool,
+
+    /// Treat uninitialized variables as value 0
+    pub zero_uninitalized_vars: bool,
+
+    /// Throw an error when arguments aren't initialized correctly
+    pub error_on_uninitalized_args: bool,
 }
 
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
@@ -1058,14 +1197,265 @@ where
     let settings_len = exe.read_u32_le()? as usize;
     let pos = exe.position() as usize;
     exe.seek(SeekFrom::Current(settings_len as i64))?;
-    let _settings = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
+    let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
 
-    log!(
-        logger,
-        "Reading settings chunk... (size: {} ({} deflated))",
-        _settings.len(),
-        settings_len
-    );
+    log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
+
+    let settings = {
+        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Box<[u8]>, ReaderError> {
+            if cfg.read_u32_le()? != 0 {
+                let len = cfg.read_u32_le()? as usize;
+                let pos = cfg.position() as usize;
+                cfg.seek(SeekFrom::Current(len as i64))?;
+                Ok(inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice())
+            } else {
+                Ok(Box::new([]))
+            }
+        }
+
+        let mut cfg = io::Cursor::new(settings_chunk);
+
+        let fullscreen = cfg.read_u32_le()? != 0;
+        let interpolate_pixels = cfg.read_u32_le()? != 0;
+        let dont_draw_border = cfg.read_u32_le()? != 0;
+        let display_cursor = cfg.read_u32_le()? != 0;
+        let scaling = cfg.read_u32_le()?;
+        let allow_resize = cfg.read_u32_le()? != 0;
+        let window_on_top = cfg.read_u32_le()? != 0;
+        let clear_colour = cfg.read_u32_le()?;
+        let set_resolution = cfg.read_u32_le()? != 0;
+        let colour_depth = cfg.read_u32_le()?;
+        let resolution = cfg.read_u32_le()?;
+        let frequency = cfg.read_u32_le()?;
+        let dont_show_buttons = cfg.read_u32_le()? != 0;
+        let vsync = cfg.read_u32_le()? != 0;
+        let disable_screensaver = cfg.read_u32_le()? != 0;
+        let f4_fullscreen_toggle = cfg.read_u32_le()? != 0;
+        let f1_help_menu = cfg.read_u32_le()? != 0;
+        let esc_close_game = cfg.read_u32_le()? != 0;
+        let f5_save_f6_load = cfg.read_u32_le()? != 0;
+        let f9_screenshot = cfg.read_u32_le()? != 0;
+        let treat_close_as_esc = cfg.read_u32_le()? != 0;
+        let priority = cfg.read_u32_le()?;
+        let freeze_on_lose_focus = cfg.read_u32_le()? != 0;
+        let loading_bar = cfg.read_u32_le()?;
+        let (backdata, frontdata): (Box<[u8]>, Box<[u8]>) = if loading_bar != 0 {
+            (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?)
+        } else {
+            (Box::new([]), Box::new([]))
+        };
+        let custom_load_image = read_data_maybe(&mut cfg)?;
+        let transparent = cfg.read_u32_le()? != 0;
+        let translucency = cfg.read_u32_le()?;
+        let scale_progress_bar = cfg.read_u32_le()? != 0;
+        let show_error_messages = cfg.read_u32_le()? != 0;
+        let log_errors = cfg.read_u32_le()? != 0;
+        let always_abort = cfg.read_u32_le()? != 0;
+        let (zero_uninitalized_vars, error_on_uninitalized_args) = match (game_ver, cfg.read_u32_le()?) {
+            (GameVersion::GameMaker8_0, x) => (x != 0, true),
+            (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
+        };
+
+        log!(logger, " + Loaded settings structure");
+        log!(logger, "   - Start in full-screen mode: {}", fullscreen);
+
+        log!(logger, "   - Interpolate colors between pixels: {}", interpolate_pixels);
+
+        log!(
+            logger,
+            "   - Don't draw a border in windowed mode: {}",
+            dont_draw_border
+        );
+
+        log!(logger, "   - Display the cursor: {}", display_cursor);
+
+        log!(logger, "   - Scaling: {}", scaling);
+
+        log!(
+            logger,
+            "   - Allow the player to resize the game window: {}",
+            allow_resize
+        );
+
+        log!(logger, "   - Let the game window always stay on top: {}", window_on_top);
+
+        log!(logger, "   - Colour outside the room region (RGBA): #{:0>8X}", 0x1234);
+
+        log!(logger, "   - Set the resolution of the screen: {}", set_resolution);
+
+        log!(
+            logger,
+            "   -   -> Color Depth: {}",
+            match colour_depth {
+                0 => "No Change",
+                1 => "16-Bit",
+                2 | _ => "32-Bit",
+            }
+        );
+
+        log!(
+            logger,
+            "   -   -> Resolution: {}",
+            match resolution {
+                0 => "No Change",
+                1 => "320x240",
+                2 => "640x480",
+                3 => "800x600",
+                4 => "1024x768",
+                5 => "1280x1024",
+                6 | _ => "1600x1200",
+            }
+        );
+
+        log!(
+            logger,
+            "   -   -> Frequency: {}",
+            match frequency {
+                0 => "No Change",
+                1 => "60Hz",
+                2 => "70Hz",
+                3 => "85Hz",
+                4 => "100Hz",
+                5 | _ => "120Hz",
+            }
+        );
+
+        log!(
+            logger,
+            "   - Don't show the buttons in the window captions: {}",
+            dont_show_buttons
+        );
+
+        log!(logger, "   - Use synchronization to avoid tearing: {}", vsync);
+
+        log!(
+            logger,
+            "   - Disable screensavers and power saving actions: {}",
+            disable_screensaver
+        );
+
+        log!(logger, "   - Let <Esc> end the game: {}", esc_close_game);
+
+        log!(
+            logger,
+            "   - Treat the close button as the <Esc> key: {}",
+            treat_close_as_esc
+        );
+
+        log!(logger, "   - Let <F1> show the game information: {}", f1_help_menu);
+
+        log!(
+            logger,
+            "   - Let <F4> switch between screen modes: {}",
+            f4_fullscreen_toggle
+        );
+
+        log!(
+            logger,
+            "   - Let <F5> save the game and <F6> load a game: {}",
+            f5_save_f6_load
+        );
+
+        log!(logger, "   - Let <F9> take a screenshot of the game: {}", f9_screenshot);
+
+        log!(
+            logger,
+            "   - Game Process Priority: {}",
+            match priority {
+                0 => "Normal",
+                1 => "High",
+                2 | _ => "Highest",
+            }
+        );
+
+        log!(
+            logger,
+            "   - Freeze the game window when the window loses focus: {}",
+            freeze_on_lose_focus
+        );
+
+        log!(
+            logger,
+            "   - Loading bar: {}",
+            match loading_bar {
+                0 => "No loading progress bar",
+                1 => "Default loading progress bar",
+                2 | _ => "Own loading progress bar",
+            }
+        );
+
+        log!(
+            logger,
+            "   - Show your own image while loading: {}",
+            !custom_load_image.is_empty()
+        );
+
+        log!(logger, "   -   -> Make image partially translucent: {}", transparent);
+
+        log!(logger, "   -   -> Make translucent with alpha value: {}", translucency);
+
+        log!(logger, "   - Scale progress bar image: {}", scale_progress_bar);
+
+        log!(logger, "   - Display error messages: {}", show_error_messages);
+
+        log!(
+            logger,
+            "   - Write error messages to file game_errors.log: {}",
+            log_errors
+        );
+
+        log!(logger, "   - Abort on all error messages: {}", always_abort);
+
+        log!(
+            logger,
+            "   - Treat uninitialized variables as value 0: {}",
+            zero_uninitalized_vars
+        );
+
+        log!(
+            logger,
+            "   - Throw an error when arguments aren't initialized correctly: {}",
+            error_on_uninitalized_args
+        );
+
+        Settings {
+            fullscreen,
+            interpolate_pixels,
+            dont_draw_border,
+            display_cursor,
+            scaling,
+            allow_resize,
+            window_on_top,
+            clear_colour,
+            set_resolution,
+            colour_depth,
+            resolution,
+            frequency,
+            dont_show_buttons,
+            vsync,
+            disable_screensaver,
+            f4_fullscreen_toggle,
+            f1_help_menu,
+            esc_close_game,
+            f5_save_f6_load,
+            f9_screenshot,
+            treat_close_as_esc,
+            priority,
+            freeze_on_lose_focus,
+            loading_bar,
+            backdata,
+            frontdata,
+            custom_load_image,
+            transparent,
+            translucency,
+            scale_progress_bar,
+            show_error_messages,
+            log_errors,
+            always_abort,
+            zero_uninitalized_vars,
+            error_on_uninitalized_args,
+        }
+    };
 
     // Embedded DirectX DLL
     // we obviously don't need this, so we skip over it
@@ -1426,5 +1816,6 @@ where
         last_instance_id,
         last_tile_id,
         room_order,
+        settings,
     })
 }
