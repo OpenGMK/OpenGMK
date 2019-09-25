@@ -41,10 +41,10 @@ pub struct CodeAction {
     /// Whether you can change execution target in the GameMaker 8 IDE.
     pub applies_to_something: bool,
 
-    /// [TODO] Name of the function if provided.
+    /// Name of the function if applicable. Usually only provided by extensions.
     pub fn_name: String,
 
-    /// [TODO] Probably the code of the custom Drag-and-Drop.
+    /// The GML code of the Drag-and-Drop if applicable. Usually only provided by extensions.
     pub fn_code: String,
 
     pub param_count: usize,
