@@ -1218,7 +1218,7 @@ where
     let settings_len = exe.read_u32_le()? as usize;
     let pos = exe.position() as usize;
     exe.seek(SeekFrom::Current(settings_len as i64))?;
-    let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?; // TODO: parse
+    let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?;
 
     log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
 
