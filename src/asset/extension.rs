@@ -28,10 +28,10 @@ pub struct File {
     /// What kind of file this is, used to determine the usage.
     pub kind: FileKind,
 
-    /// adam comment this HI TODO
+    /// Initialization code for DLLs or GML files. Not used for other types.
     pub initializer: String,
 
-    /// adam comment this HI TODO
+    /// Finalization code for DLLs or GML files. Not used for other types.
     pub finalizer: String,
 
     /// GML or external functions you can invoke from the file.
