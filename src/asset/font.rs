@@ -88,25 +88,19 @@ impl Asset for Font {
             }
         };
 
-        let dmap = [0u32; 0x600];
+        let mut dmap = [0u32; 0x600];
+        for i in 0..dmap.len() {
+            dmap[i] = reader.read_u32_le()?;
+        }
         let map_width = reader.read_u32_le()?;
         let map_height = reader.read_u32_le()?;
         let len = reader.read_u32_le()? as usize;
 
-        // Since these values are redundant, make sure they match up.
-        if map_width as usize * map_height as usize != len {
-            return Err(AssetDataError::MalformedData);
-        }
-
-        let len = reader.read_u32_le()? as usize;
         let pos = reader.position() as usize;
-        reader.seek(SeekFrom::Current(len as i64))?;
-        let pixel_map = reader
-            .get_ref() // get underlying data
-            .get(pos..pos + len) // get pixels chunk
-            .unwrap_or_else(|| unreachable!()) // seek verified
-            .to_vec() // copy to heap
-            .into_boxed_slice(); // as box.
+        let pixel_map = match reader.into_inner().get(pos..pos + len) {
+            Some(b) => b.to_vec().into_boxed_slice(),
+            None => return Err(AssetDataError::MalformedData),
+        };
 
         Ok(Font {
             name,
