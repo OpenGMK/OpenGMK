@@ -103,14 +103,11 @@ impl Asset for Sound {
             let len = reader.read_u32_le()? as usize;
             let pos = reader.position() as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
-            Some(
-                reader
-                    .get_ref() // get underlying data
-                    .get(pos..pos + len) // reference to file chunk
-                    .unwrap_or_else(|| unreachable!()) // seek verified
-                    .to_vec() // copy to heap
-                    .into_boxed_slice(), // as box.
-            )
+            let pos2 = reader.position() as usize;
+            match reader.get_ref().get(pos..pos2) {
+                Some(b) => Some(b.to_vec().into_boxed_slice()),
+                None => return Err(AssetDataError::MalformedData),
+            }
         } else {
             None
         };
