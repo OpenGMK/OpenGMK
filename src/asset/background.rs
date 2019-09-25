@@ -53,12 +53,10 @@ impl Asset for Background {
 
             let pos = reader.position() as usize;
             let len = data_len as usize;
-            reader.seek(SeekFrom::Current(len as i64))?;
-            let buf = reader
-                .get_ref()
-                .get(pos..pos + len)
-                .unwrap_or_else(|| unreachable!()) // seek checked
-                .to_vec();
+            let buf = match reader.into_inner().get(pos..pos + len) {
+                Some(b) => b.to_vec(),
+                None => return Err(AssetDataError::MalformedData),
+            };
 
             Ok(Background {
                 name,
