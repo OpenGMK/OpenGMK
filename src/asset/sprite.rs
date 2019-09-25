@@ -79,22 +79,14 @@ impl Asset for Sprite {
                 let frame_height = reader.read_u32_le()?;
 
                 let pixeldata_len = reader.read_u32_le()? as usize;
-                let pixeldata_pixels = frame_width as usize * frame_height as usize;
-
-                // sanity check
-                if pixeldata_len != (pixeldata_pixels * 4) {
-                    return Err(AssetDataError::MalformedData);
-                }
 
                 // read pixeldata
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
-                let data = reader
-                    .get_ref() // get underlying data
-                    .get(pos..pos + pixeldata_len) // get pixeldata chunk
-                    .unwrap_or_else(|| unreachable!()) // seek verified
-                    .to_vec() // copy to heap
-                    .into_boxed_slice(); // as box.
+                let data = match reader.get_mut().get(pos..pos + pixeldata_len) {
+                    Some(b) => b.to_vec().into_boxed_slice(),
+                    None => return Err(AssetDataError::MalformedData),
+                };
 
                 frames.push(Frame {
                     width: frame_width,
@@ -124,21 +116,20 @@ impl Asset for Sprite {
                 let mask_size = bbox_width as usize * bbox_height as usize;
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                let mask: Vec<bool> = reader
-                    .get_ref() // inner data
-                    .as_ref() // needed since data is AsRef<[u8]>
-                    .get(pos..pos + (4 * mask_size)) // get mask data chunk
-                    .unwrap_or_else(|| unreachable!()) // seek checked chunk size already...
-                    .chunks_exact(4) // every 4 bytes
-                    .map(|ch| {
-                        // until we get const generics we need to do this to get an exact array
-                        let chunk: &[u8; 4] = ch
-                            .try_into()
-                            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() });
-                        // nonzero value indicates collision pixel present
-                        u32::from_le_bytes(*chunk) != 0
-                    })
-                    .collect();
+                let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
+                    Some(b) => b
+                        .chunks_exact(4)
+                        .map(|ch| {
+                            // until we get const generics we need to do this to get an exact array
+                            let chunk: &[u8; 4] = ch
+                                .try_into()
+                                .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() });
+                            // nonzero value indicates collision pixel present
+                            u32::from_le_bytes(*chunk) != 0
+                        })
+                        .collect(),
+                    None => return Err(AssetDataError::MalformedData),
+                };
 
                 Ok(CollisionMap {
                     bbox_width,
