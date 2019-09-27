@@ -12,6 +12,10 @@ pub enum GameVersion {
 
 pub use color::Color;
 
+pub mod deps {
+    pub use minio;
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
