@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Shut up.
 
 mod bytes;
+mod game;
 mod gml;
 mod types;
 mod util;
@@ -63,24 +64,35 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", s);
     }
 
-    if let Some(path) = path {
+    let assets = if let Some(path) = path {
         let data = fs::read(path)?;
-        let assets = gm8x::reader::from_exe(
-            data,
-            strict,
-            if verbose {
-                Some(l_print)
-            } else {
-                None
-            },
-            dump_dll_path
-        );
+        let assets = gm8x::reader::from_exe(data, strict, if verbose { Some(l_print) } else { None }, dump_dll_path);
 
         match assets {
-            Ok(_) => println!("Parsing OK!"),
-            Err(err) => println!("{}", err),
+            Ok(a) => {
+                println!("Parsing OK!");
+                a
+            }
+            Err(err) => {
+                println!("{}", err);
+                std::process::exit(1);
+            }
         }
-    }
+    } else {
+        println!("No path wtf");
+        std::process::exit(1);
+    };
 
-    Ok(())
+    // Start window, for now, I guess
+    let icon = assets.icon_data.and_then(|data| game::icon_from_win32(&data));
+
+    let (event_loop, window) = game::window("k3", 800, 608, icon, &assets.settings).unwrap();
+
+    event_loop.run(move |event, _, control_flow| match event {
+        winit::event::Event::WindowEvent {
+            event: winit::event::WindowEvent::CloseRequested,
+            window_id,
+        } if window_id == window.id() => *control_flow = winit::event_loop::ControlFlow::Exit,
+        _ => *control_flow = winit::event_loop::ControlFlow::Wait,
+    });
 }
