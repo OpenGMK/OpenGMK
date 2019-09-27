@@ -50,6 +50,7 @@ pub struct GameAssets {
     // Extensions
     pub version: GameVersion,
 
+    pub icon_data: Option<Vec<u8>>,
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
@@ -1179,7 +1180,7 @@ where
         }
         None => {}
     }
-    match icon_data {
+    match &icon_data {
         Some(v) => log!(logger, "Loaded icon data ({} bytes)", v.len()),
         None => log!(logger, "Couldn't find an icon"),
     }
@@ -1837,6 +1838,7 @@ where
         rooms,
         included_files,
 
+        icon_data,
         version: game_ver,
         help_dialog,
         last_instance_id,
