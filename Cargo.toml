@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 gm8x = { git = "https://github.com/notviri/gm8x" }
+winit = "0.20.0-alpha3"
