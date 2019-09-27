@@ -234,7 +234,7 @@ impl<'a> AST<'a> {
             match AST::read_line(&mut lex, &mut line) {
                 Ok(Some(expr)) => {
                     // Filter top-level NOPs
-                    if !expr.is_nop() {
+                    if expr != Expr::Nop {
                         expressions.push(expr);
                     }
                 }
@@ -857,16 +857,6 @@ impl<'a> AST<'a> {
             Operator::Complement => None,
             Operator::Deref => None,
             Operator::Index => None,
-        }
-    }
-}
-
-impl<'a> Expr<'a> {
-    pub fn is_nop(&self) -> bool {
-        if let Expr::Nop = self {
-            true
-        } else {
-            false
         }
     }
 }
