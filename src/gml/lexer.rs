@@ -134,13 +134,13 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(&(_, ch)) => match ch {
                                 b'0'..=b'9' => (),
                                 _ => return Some(Token::Separator(Separator::Period)),
-                            }
-                            _ => ()
+                            },
+                            _ => (),
                         }
                     }
-                    _ => ()
+                    _ => (),
                 }
-                
+
                 let mut result = 0.0f64;
                 let mut factor = 1.0f64;
                 loop {
