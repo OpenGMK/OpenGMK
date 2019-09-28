@@ -72,6 +72,7 @@ fn main() {
         println!("loading '{}'...", input);
     }
 
+    // test
     let _assets = gm8x::reader::from_exe(
         &mut file,
         strict,
