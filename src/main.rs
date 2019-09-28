@@ -4,7 +4,6 @@ mod game;
 mod gml;
 mod types;
 mod util;
-mod xmath;
 
 use std::env;
 use std::fs;
