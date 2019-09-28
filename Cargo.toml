@@ -8,3 +8,6 @@ edition = "2018"
 getopts = "0.2.21"
 gm8x = { path = "lib/gm8x" }
 winit = "0.20.0-alpha3"
+
+[workspace]
+members = [ "lib/gm8x" ]
