@@ -1,6 +1,5 @@
 #![allow(dead_code)] // Shut up.
 
-mod bytes;
 mod game;
 mod gml;
 mod types;
