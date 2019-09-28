@@ -44,7 +44,7 @@ fn main() {
         exit(1);
     });
 
-    if args.len() < 1 || matches.opt_present("h") {
+    if args.len() < 2 || matches.opt_present("h") {
         help(&process, opts);
         return;
     }
