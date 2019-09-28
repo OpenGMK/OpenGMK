@@ -50,7 +50,7 @@ pub struct GameAssets {
     // Extensions
     pub version: GameVersion,
 
-    pub icon_data: Option<Vec<u8>>,
+    pub icon_data: Vec<WindowsIcon>,
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
@@ -117,6 +117,13 @@ from_err!(ReaderError, io::Error, IO);
 pub enum Gm81XorMethod {
     Normal,
     Sudalv,
+}
+
+pub struct WindowsIcon {
+    pub width: u8,
+    pub height: u8,
+    pub bits_per_pixel: u16,
+    pub data: Vec<u8>,
 }
 
 pub struct Settings {
@@ -277,6 +284,8 @@ pub struct Settings {
 }
 
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
+
+
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
 /// Also removes any version-specific encryptions.
@@ -1034,7 +1043,22 @@ where
     Ok(output)
 }
 
-fn find_rsrc_icon(data: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32)>, ReaderError> {
+/// Extracts some bytes from the file from their location in the initialized exe's memory
+fn extract_virtual_bytes(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection>, rva: u32, size: usize) -> Result<Option<Vec<u8>>, ReaderError> {
+    for section in pe_sections {
+        if rva >= section.virtual_address && ((rva as usize) + size) < ((section.virtual_address + section.virtual_size) as usize) {
+            // data is in this section
+            let offset_on_disk = rva - section.virtual_address;
+            let data_location = (section.disk_address + offset_on_disk) as usize;
+            return Ok(data.get_ref().get(data_location..data_location+size).map(|chunk| chunk.to_vec()));
+        }
+    }
+
+    Ok(None)
+}
+
+/// Finds the icon group from the exe file which will be used for the window icon.
+fn find_rsrc_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection>) -> Result<Vec<WindowsIcon>, ReaderError> {
     // top level header
     let rsrc_base = data.position();
     data.seek(SeekFrom::Current(12))?;
@@ -1042,32 +1066,111 @@ fn find_rsrc_icon(data: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32)>
     let id_count = data.read_u16_le()?;
     // skip over any names in the top-level
     data.seek(SeekFrom::Current((name_count as i64) * 8))?;
-    // read IDs until we find 3 (RT_ICON)
+
+    let mut icons: Vec<(u32, u32, u32)> = Vec::new(); // id, rva, size
+    let mut icon_group: Vec<WindowsIcon> = vec![];
+
+    // read IDs until we find 3 (RT_ICON) or 14 (RT_GROUP_ICON)
+    // Windows guarantees that these IDs will be in ascending order, so we'll find 3 before 14.
     for _ in 0..id_count {
         let id = data.read_u32_le()?;
         let offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
+
         if id == 3 {
+            // 3 = RT_ICON
+            let top_level_pos = data.position();
             // Go down to next layer
             data.set_position((offset as u64) + rsrc_base + 14);
             let leaf_count = data.read_u16_le()?;
             if leaf_count == 0 {
                 // No leaves under RT_ICON, so no icon
-                return Ok(None);
+                return Ok(vec![]);
             }
-            // And another layer...
+
+            // Get each leaf
+            for _ in 0..leaf_count {
+                // Store where we are in the leaf index
+                let leaf_pos = data.position();
+
+                // Go down yet another layer
+                let icon_id = data.read_u32_le()?;
+                let language_offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
+                data.set_position((language_offset as u64) + rsrc_base + 20);
+                let leaf = data.read_u32_le()?;
+
+                // Finally we get to the leaf, which has a pointer to our icon data + size
+                data.set_position((leaf as u64) + rsrc_base);
+                let rva = data.read_u32_le()?;
+                let size = data.read_u32_le()?;
+                icons.push((icon_id, rva, size));
+
+                // Go back to the leaf index and go to the next item
+                data.set_position(leaf_pos);
+                data.seek(SeekFrom::Current(8))?;
+            }
+            data.set_position(top_level_pos);
+        }
+        else if id == 14 {
+            // 14 = RT_GROUP_ICON
+            data.set_position((offset as u64) + rsrc_base + 12);
+            let leaf_count = data.read_u16_le()? + data.read_u16_le()?;
+            if leaf_count == 0 {
+                // No leaves under RT_GROUP_ICON, so no icon
+                return Ok(vec![]);
+            }
+
             data.seek(SeekFrom::Current(4))?;
             let language_offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
             data.set_position((language_offset as u64) + rsrc_base + 20);
             let leaf = data.read_u32_le()?;
-            // Finally we get to the leaf, which has a pointer to our icon data + size
+
+            // Finally the leaf
             data.set_position((leaf as u64) + rsrc_base);
             let rva = data.read_u32_le()?;
             let size = data.read_u32_le()?;
-            return Ok(Some((rva, size)));
+
+            match extract_virtual_bytes(data, pe_sections, rva, size as usize)? {
+                Some(v) => {
+                    // Read the ico header
+                    let mut ico_header = io::Cursor::new(&v);
+                    ico_header.seek(SeekFrom::Current(4))?;
+                    let image_count = ico_header.read_u16_le()?;
+                    for _ in 0..image_count {
+                        // Read the details of one icon in this group
+                        let width = ico_header.read_u8()?;
+                        let height = ico_header.read_u8()?;
+                        ico_header.seek(SeekFrom::Current(4))?;
+                        let bits_per_pixel = ico_header.read_u16_le()?;
+                        ico_header.seek(SeekFrom::Current(4))?;
+                        let ordinal = ico_header.read_u16_le()?;
+
+                        // Match this ordinal name with an icon resource
+                        for icon in &icons {
+                            if icon.0 == ordinal as u32 && icon.2 >= 40 {
+                                match extract_virtual_bytes(data, pe_sections, icon.1+40, (icon.2 as usize) - 40)? {
+                                    Some(v) => {
+                                        icon_group.push(WindowsIcon{
+                                            width,
+                                            height,
+                                            bits_per_pixel,
+                                            data: v,
+                                        })
+                                    },
+                                    None => (),
+                                }
+                                break;
+                            }
+                        }
+                    }
+                },
+                _ => (),
+            }
+
+            break;
         }
     }
-    // No RT_ICON group, so no icon
-    Ok(None)
+
+    Ok(icon_group)
 }
 
 pub struct PESection {
@@ -1117,7 +1220,8 @@ where
     // Read all sections, noting these 3 values from certain sections if they exist
     let mut upx0_virtual_len: Option<u32> = None;
     let mut upx1_data: Option<(u32, u32)> = None; // virtual size, position on disk
-    let mut rsrc_ico_data: Option<(u32, u32)> = None;
+    let mut rsrc_location: Option<u32> = None;
+    //let mut icon_data: Vec<WindowsIcon> = vec![];
 
     let mut sections: Vec<PESection> = Vec::with_capacity(section_count as usize);
 
@@ -1145,11 +1249,8 @@ where
             }
             [0x2E, 0x72, 0x73, 0x72, 0x63, 0x00, 0x00, 0x00] => {
                 // .rsrc section
-                log!(logger, "Reading .rsrc");
-                let temp_pos = exe.position();
-                exe.set_position(disk_address as u64);
-                rsrc_ico_data = find_rsrc_icon(&mut exe)?;
-                exe.set_position(temp_pos);
+                log!(logger, "Found .rsrc section beginning at {}", disk_address);
+                rsrc_location = Some(disk_address);
             }
             _ => {}
         }
@@ -1161,29 +1262,18 @@ where
         })
     }
 
-    // Find icon data if we can
-    let mut icon_data: Option<Vec<u8>> = None;
-    match rsrc_ico_data {
-        Some((rva, size)) => {
-            for section in sections {
-                if rva >= section.virtual_address && (rva + size) < (section.virtual_address + section.virtual_size) {
-                    // icon data is in this section
-                    let offset_on_disk = rva - section.virtual_address;
-                    let icon_location = section.disk_address + offset_on_disk;
-                    exe.set_position(icon_location as u64);
-                    let mut data = vec![0u8; size as usize];
-                    exe.read_exact(&mut data)?;
-                    icon_data = Some(data);
-                    break;
-                }
-            }
-        }
-        None => {}
+    let icon_data = if let Some(rsrc) = rsrc_location {
+        let temp_pos = exe.position();
+        exe.set_position(rsrc as u64);
+        let icons = find_rsrc_icons(&mut exe, &sections)?;
+        exe.set_position(temp_pos);
+        icons
     }
-    match &icon_data {
-        Some(v) => log!(logger, "Loaded icon data ({} bytes)", v.len()),
-        None => log!(logger, "Couldn't find an icon"),
-    }
+    else {
+        vec![]
+    };
+
+    log!(logger, "Loaded {} icon(s)", icon_data.len());
 
     // Decide if UPX is in use based on PE section names
     // This is None if there is no UPX, obviously, otherwise it's (max_size, offset_on_disk)
