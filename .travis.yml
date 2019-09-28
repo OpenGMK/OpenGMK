@@ -21,10 +21,6 @@ matrix:
 
 before_install:
   - sudo apt-get update
-  - cargo install cargo-bloat --force
-
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - cargo bloat --release --crates
-  - cargo bloat --release -n 10
