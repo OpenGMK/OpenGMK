@@ -1,0 +1,10 @@
+[package]
+name = "gm8x"
+version = "0.1.0"
+authors = ["viri <git@stuff.moe>"]
+edition = "2018"
+
+[dependencies]
+flate2 = { version = "1.0", features = ["rust_backend"] }
+minio = { git = "https://github.com/notviri/minio" }
+rayon = "1.2.0"
