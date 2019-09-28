@@ -8,7 +8,6 @@ mod util;
 mod xmath;
 
 use std::env;
-use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
@@ -75,7 +74,7 @@ fn main() {
         println!("loading '{}'...", input);
     }
 
-    let assets = gm8x::reader::from_exe(
+    let _assets = gm8x::reader::from_exe(
         &mut file,
         strict,
         if verbose {
@@ -85,5 +84,8 @@ fn main() {
         },
         None,
     )
-    .unwrap();
+    .unwrap_or_else(|e| {
+        eprintln!("failed to load '{}' - {}", input, e);
+        exit(1);
+    });
 }
