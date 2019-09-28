@@ -9,5 +9,10 @@ getopts = "0.2.21"
 gm8x = { path = "lib/gm8x" }
 winit = "0.20.0-alpha3"
 
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+
 [workspace]
 members = [ "lib/gm8x" ]
