@@ -8,91 +8,84 @@ mod util;
 mod xmath;
 
 use std::env;
-use std::error::Error;
 use std::fs;
 use std::path::Path;
+use std::process::exit;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = env::args().skip(1).collect();
-
-    if args.len() < 1 {
-        print!("{}", include_str!("incl/default"));
-        return Ok(());
-    }
-
-    let print_usage = || print!("{}", include_str!("incl/usage"));
-
-    let mut path: Option<&String> = None;
-    let mut dump_dll_path: Option<&Path> = None;
-    let mut strict = true;
-    let mut verbose = false;
-
-    let mut argi = args.iter();
-    while let Some(arg) = argi.next() {
-        match arg.as_ref() {
-            "-h" | "--help" => {
-                print_usage();
-                return Ok(());
+fn help(argv0: &str, opts: getopts::Options) {
+    print!(
+        "{}",
+        opts.usage(&format!(
+            "Usage: {} FILE [options]",
+            match Path::new(argv0).file_name() {
+                Some(file) => file.to_str().unwrap_or(argv0),
+                None => argv0,
             }
+        ))
+    );
+}
 
-            "-D" | "--dump-dll" => {
-                if let Some(path) = argi.next() {
-                    dump_dll_path = Some(Path::new(path));
-                } else {
-                    println!("Invalid usage of dump-dll, out-path not provided.");
-                    print_usage();
-                    std::process::exit(1);
-                }
-            }
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let process = args[0].clone();
 
-            "-l" | "--lazy" => strict = false,
+    let mut opts = getopts::Options::new();
+    opts.optflag("h", "help", "prints this help message");
+    opts.optflag("s", "strict", "enable various data integrity checks");
+    opts.optflag("v", "verbose", "enables verbose logging");
 
-            "--verbose" => verbose = true,
-
-            _ => {
-                if let Some(path) = &path {
-                    println!("Can't open multiple games at once! ({} and {})", path, arg);
-                    std::process::exit(1);
-                } else {
-                    path = Some(arg);
-                }
-            }
+    let matches = opts.parse(&args[1..]).unwrap_or_else(|f| {
+        use getopts::Fail::*;
+        match f {
+            ArgumentMissing(arg) => eprintln!("missing argument {}", arg),
+            UnrecognizedOption(opt) => eprintln!("unrecognized option {}", opt),
+            OptionMissing(opt) => eprintln!("missing option {}", opt),
+            OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
+            UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
         }
+        exit(1);
+    });
+
+    if args.len() < 1 || matches.opt_present("h") {
+        help(&process, opts);
+        return;
     }
 
-    fn l_print(s: &str) {
-        println!("{}", s);
-    }
-
-    let assets = if let Some(path) = path {
-        let data = fs::read(path)?;
-        let assets = gm8x::reader::from_exe(data, strict, if verbose { Some(l_print) } else { None }, dump_dll_path);
-
-        match assets {
-            Ok(a) => {
-                println!("Parsing OK!");
-                a
-            }
-            Err(err) => {
-                println!("{}", err);
-                std::process::exit(1);
-            }
+    let strict = matches.opt_present("s");
+    let verbose = matches.opt_present("v");
+    let input = {
+        if matches.free.len() == 1 {
+            &matches.free[0]
+        } else if matches.free.len() > 1 {
+            eprintln!("unexpected second input {}", matches.free[1]);
+            exit(1);
+        } else {
+            eprintln!("no input file");
+            exit(1);
         }
-    } else {
-        println!("No path wtf");
-        std::process::exit(1);
     };
 
-    // Start window, for now, I guess
-    let icon = assets.icon_data.and_then(|data| game::icon_from_win32(&data));
+    let mut file = fs::read(&input).unwrap_or_else(|e| {
+        eprintln!("failed to open '{}': {}", input, e);
+        exit(1);
+    });
 
-    let (event_loop, window) = game::window("k3", 800, 608, icon, &assets.settings).unwrap();
+    if verbose {
+        println!("loading '{}'...", input);
+    }
 
-    event_loop.run(move |event, _, control_flow| match event {
-        winit::event::Event::WindowEvent {
-            event: winit::event::WindowEvent::CloseRequested,
-            window_id,
-        } if window_id == window.id() => *control_flow = winit::event_loop::ControlFlow::Exit,
-        _ => *control_flow = winit::event_loop::ControlFlow::Wait,
+    let _assets = gm8x::reader::from_exe(
+        &mut file,
+        strict,
+        if verbose {
+            Some(|s: &str| println!("{}", s))
+        } else {
+            None
+        },
+        None,
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("failed to load '{}' - {}", input, e);
+        exit(1);
     });
 }
