@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 getopts = "0.2.21"
-gm8x = { git = "https://github.com/notviri/gm8x" }
+gm8x = { path = "lib/gm8x" }
 winit = "0.20.0-alpha3"

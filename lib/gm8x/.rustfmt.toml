@@ -1,0 +1,14 @@
+# Error if Rustfmt is unable to get all lines within max_width, except for comments and string literals.
+error_on_line_overflow = true
+
+# Error if unable to get comments or string literals within max_width, or they are left with trailing whitespaces.
+error_on_unformatted = true
+
+# That bleeding edge~
+unstable_features = true
+
+# Formatting rules (preset) version
+version = "Two"
+
+# Maximum line width
+max_width = 120
