@@ -120,8 +120,8 @@ pub enum Gm81XorMethod {
 }
 
 pub struct WindowsIcon {
-    pub width: u8,
-    pub height: u8,
+    pub width: u32,
+    pub height: u32,
     pub original_bpp: u16,
     pub bgra_data: Vec<u8>,
 }
@@ -133,6 +133,9 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
     let bpp = data.read_u16_le()?;
     data.set_position(data_start as u64);
 
+    // 0 size actually means 256
+    let ico_wh = |n| if n == 0 { 256 } else { n as _ };
+
     match bpp {
         32 => {
             match data
@@ -140,8 +143,8 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                 .get(data_start..data_start + (width as usize * height as usize * 4))
             {
                 Some(d) => Ok(Some(WindowsIcon {
-                    width,
-                    height,
+                    width: ico_wh(width),
+                    height: ico_wh(height),
                     original_bpp: bpp,
                     bgra_data: d.to_vec(),
                 })),
@@ -182,8 +185,8 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
             }
 
             Ok(Some(WindowsIcon {
-                width,
-                height,
+                width: ico_wh(width),
+                height: ico_wh(height),
                 original_bpp: bpp,
                 bgra_data,
             }))
