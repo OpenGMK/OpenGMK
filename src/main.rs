@@ -72,8 +72,7 @@ fn main() {
         println!("loading '{}'...", input);
     }
 
-    // test
-    let _assets = gm8x::reader::from_exe(
+    let assets = gm8x::reader::from_exe(
         &mut file,
         strict,
         if verbose {
@@ -86,5 +85,20 @@ fn main() {
     .unwrap_or_else(|e| {
         eprintln!("failed to load '{}' - {}", input, e);
         exit(1);
+    });
+
+    use winit::{
+        event::{Event, WindowEvent},
+        event_loop::{ControlFlow, EventLoop},
+        window::WindowBuilder,
+    };
+
+    let (event_loop, window) = game::window("gm8emu!", 800, 608, &assets.icon_data, &assets.settings).unwrap();
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            window_id,
+        } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+        _ => *control_flow = ControlFlow::Wait,
     });
 }
