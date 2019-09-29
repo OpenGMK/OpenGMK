@@ -1,4 +1,3 @@
-use gm8x::deps::minio::ReadPrimitives;
 use gm8x::reader::{Settings, WindowsIcon};
 use std::cmp::max;
 use winit::{

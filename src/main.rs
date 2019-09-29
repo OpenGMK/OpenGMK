@@ -89,8 +89,7 @@ fn main() {
 
     use winit::{
         event::{Event, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
-        window::WindowBuilder,
+        event_loop::ControlFlow,
     };
 
     let (event_loop, window) = game::window("gm8emu!", 800, 608, &assets.icon_data, &assets.settings).unwrap();
