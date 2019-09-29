@@ -92,7 +92,13 @@ fn main() {
         event_loop::ControlFlow,
     };
 
-    let (event_loop, window) = game::window("gm8emu!", 800, 608, &assets.icon_data, &assets.settings).unwrap();
+    let (width, height) = {
+        match assets.rooms.iter().flatten().next() {
+            Some(room1) => (room1.width, room1.height),
+            _ => (500, 500),
+        }
+    };
+    let (event_loop, window) = game::window("gm8emu!", width, height, &assets.icon_data, &assets.settings).unwrap();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             event: WindowEvent::CloseRequested,
