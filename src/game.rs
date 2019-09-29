@@ -1,5 +1,4 @@
 use gm8x::reader::{Settings, WindowsIcon};
-use std::cmp::max;
 use winit::{
     dpi::LogicalSize,
     error::OsError,
@@ -20,7 +19,7 @@ pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
 fn get_icon_via_w(icons: &Vec<WindowsIcon>, w: i32) -> Option<Icon> {
     fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(w: i32, i: I) -> Option<&'a WindowsIcon> {
         i.filter(|i| i.width != 0) // for some reason 0-width icons are legal
-            .min_by(|a, b| max(a.width as i32 - w, 0).cmp(&max(b.width as i32 - w, 0)))
+            .min_by(|a, b| (a.width as i32 - w).abs().cmp(&(b.width as i32 - w).abs()))
     }
 
     closest(w, icons.iter().filter(|i| i.original_bpp == 24 || i.original_bpp == 32))
