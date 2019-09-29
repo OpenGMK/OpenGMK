@@ -158,6 +158,29 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                 bgra_data.extend_from_slice(&blob[lut_pos..lut_pos + 4]);
             }
 
+            // read alpha bits - start by reading bitmask bytes which will be used fully
+            let mut cursor = 0;
+            while cursor + (4 * 8) <= bgra_data.len() {
+                let mut bitmask = data.read_u8()?;
+                for _ in 0..8 {
+                    let (m, b) = bitmask.overflowing_add(bitmask);
+                    bitmask = m;
+                    bgra_data[cursor + 3] = if b {0xFF} else {0x0};
+                    cursor += 4;
+                }
+            }
+
+            // check if there are any pixels left to fill in
+            if cursor < bgra_data.len() {
+                let mut bitmask = data.read_u8()?;
+                while cursor < bgra_data.len() {
+                    let (m, b) = bitmask.overflowing_add(bitmask);
+                    bitmask = m;
+                    bgra_data[cursor + 3] = if b {0xFF} else {0x0};
+                    cursor += 4;
+                }
+            }
+
             Ok(Some(WindowsIcon {
                 width,
                 height,
