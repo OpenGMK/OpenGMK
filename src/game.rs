@@ -36,7 +36,7 @@ pub fn window(
 ) -> Result<(EventLoop<()>, Window), OsError> {
     let event_loop = EventLoop::new();
 
-    let mut window_builder = WindowBuilder::new()
+    let window_builder = WindowBuilder::new()
         .with_title(title)
         .with_window_icon(get_icon_via_w(icons, 32))
         .with_inner_size(LogicalSize::from((width, height)))
@@ -48,12 +48,6 @@ pub fn window(
         } else {
             None
         });
-
-    #[cfg(windows)]
-    {
-        use winit::platform::windows::WindowBuilderExtWindows;
-        window_builder = window_builder.with_taskbar_icon(get_icon_via_w(icons, 16));
-    }
 
     let window = window_builder.build(&event_loop)?;
 
