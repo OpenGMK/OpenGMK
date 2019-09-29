@@ -1,10 +1,12 @@
-use gm8x::reader::{Settings, WindowsIcon};
-use winit::{
+use glutin::{
     dpi::LogicalSize,
-    error::OsError,
+    event::{Event, WindowEvent},
+    event_loop::ControlFlow,
     event_loop::EventLoop,
-    window::{Fullscreen, Icon, Window, WindowBuilder},
+    window::{Fullscreen, Icon, WindowBuilder},
+    {Api, ContextBuilder, GlProfile, GlRequest},
 };
+use gm8x::reader::{GameAssets, WindowsIcon};
 
 pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
     let mut rgba = Vec::with_capacity(raw.len());
@@ -26,29 +28,62 @@ fn get_icon_via_w(icons: &Vec<WindowsIcon>, w: i32) -> Option<Icon> {
         .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
 }
 
-pub fn window(
-    title: &str,
-    width: u32,
-    height: u32,
-    icons: &Vec<WindowsIcon>,
-    extra: &Settings,
-) -> Result<(EventLoop<()>, Window), OsError> {
-    let event_loop = EventLoop::new();
+pub fn launch(assets: GameAssets) {
+    // If there are no rooms, you can't build a GM8 game. Fatal error.
+    // We need a lot of the initialization info from the first room,
+    // the window size, and title, etc. is based on it.
+    let room1 = assets.rooms.iter().flatten().next().unwrap();
 
+    // Set up glutin (winit)
+    let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new()
-        .with_title(title)
-        .with_window_icon(get_icon_via_w(icons, 32))
-        .with_inner_size(LogicalSize::from((width, height)))
-        .with_resizable(extra.allow_resize)
-        .with_always_on_top(extra.window_on_top)
-        .with_decorations(!extra.dont_draw_border)
-        .with_fullscreen(if extra.fullscreen {
+        .with_title(&room1.caption)
+        .with_window_icon(get_icon_via_w(&assets.icon_data, 32))
+        .with_inner_size(LogicalSize::from((room1.width, room1.height)))
+        .with_resizable(assets.settings.allow_resize)
+        .with_always_on_top(assets.settings.window_on_top)
+        .with_decorations(!assets.settings.dont_draw_border)
+        .with_visible(false)
+        .with_fullscreen(if assets.settings.fullscreen {
             Some(Fullscreen::Borderless(event_loop.primary_monitor()))
         } else {
             None
         });
 
-    let window = window_builder.build(&event_loop)?;
+    // Set up OpenGL 3.3 Core context
+    let context = ContextBuilder::new()
+        .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
+        .with_gl_profile(GlProfile::Core)
+        .with_hardware_acceleration(Some(true))
+        // TODO: Maybe manual override?
+        .with_vsync(assets.settings.vsync)
+        // TODO: Maybe on release, when we're done - robustness 0 CHECKS
+        .build_windowed(window_builder, &event_loop)
+        .unwrap(); // TODO
 
-    Ok((event_loop, window))
+    // Make context current
+    let (_context, window) = unsafe { context.make_current().unwrap().split() };
+
+    // Load OpenGL
+    gl_loader::init_gl();
+    gl::load_with(|s| gl_loader::get_proc_address(s) as *const _);
+
+    // test lol
+    let mut t: gl::types::GLint = 0;
+    unsafe {
+        gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut t as *mut _);
+    }
+    println!("MAX TEXTURE SIZE: {}", t);
+
+    window.set_visible(true);
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            window_id,
+        } if window_id == window.id() => {
+            *control_flow = ControlFlow::Exit;
+            gl_loader::end_gl();
+        }
+        _ => *control_flow = ControlFlow::Wait,
+    });
 }

@@ -5,9 +5,11 @@ authors = ["viri <git@stuff.moe>"]
 edition = "2018"
 
 [dependencies]
+gl = "0.13.0"
+gl_loader = "0.1.2"
+glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
 gm8x = { path = "lib/gm8x" }
-winit = "0.20.0-alpha3"
 
 [profile.release]
 codegen-units = 1
