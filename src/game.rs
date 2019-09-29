@@ -24,11 +24,6 @@ fn get_icon_via_w(icons: &Vec<WindowsIcon>, w: i32) -> Option<Icon> {
 
     closest(w, icons.iter().filter(|i| i.original_bpp == 24 || i.original_bpp == 32))
         .or_else(|| closest(w, icons.iter()))
-        .map(|i| {
-            // testy testy
-            println!("using icon - w{} h{} bpp{}", i.width, i.height, i.original_bpp);
-            i
-        })
         .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
 }
 
@@ -40,8 +35,6 @@ pub fn window(
     extra: &Settings,
 ) -> Result<(EventLoop<()>, Window), OsError> {
     let event_loop = EventLoop::new();
-
-    print!("window: "); // testy testy
 
     let mut window_builder = WindowBuilder::new()
         .with_title(title)
@@ -59,7 +52,6 @@ pub fn window(
     #[cfg(windows)]
     {
         use winit::platform::windows::WindowBuilderExtWindows;
-        print!("taskbar: "); // testy testy
         window_builder = window_builder.with_taskbar_icon(get_icon_via_w(icons, 16));
     }
 
