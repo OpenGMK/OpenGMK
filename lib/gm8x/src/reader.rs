@@ -165,7 +165,7 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                 for _ in 0..8 {
                     let (m, b) = bitmask.overflowing_add(bitmask);
                     bitmask = m;
-                    bgra_data[cursor + 3] = if b {0xFF} else {0x0};
+                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
                     cursor += 4;
                 }
             }
@@ -176,7 +176,7 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                 while cursor < bgra_data.len() {
                     let (m, b) = bitmask.overflowing_add(bitmask);
                     bitmask = m;
-                    bgra_data[cursor + 3] = if b {0xFF} else {0x0};
+                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
                     cursor += 4;
                 }
             }
