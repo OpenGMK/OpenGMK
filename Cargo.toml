@@ -10,6 +10,7 @@ gl_loader = "0.1.2"
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
 gm8x = { path = "lib/gm8x" }
+texture_packer = "0.17.0"
 
 [profile.release]
 codegen-units = 1
