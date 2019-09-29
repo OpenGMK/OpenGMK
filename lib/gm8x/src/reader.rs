@@ -122,8 +122,51 @@ pub enum Gm81XorMethod {
 pub struct WindowsIcon {
     pub width: u8,
     pub height: u8,
-    pub bits_per_pixel: u16,
-    pub data: Vec<u8>,
+    pub original_bpp: u16,
+    pub bgra_data: Vec<u8>,
+}
+
+fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon>, ReaderError> {
+    let mut data = io::Cursor::new(blob);
+    let data_start = data.read_u32_le()? as usize;
+    data.set_position(14);
+    let bpp = data.read_u16_le()?;
+    data.set_position(data_start as u64);
+
+    match bpp {
+        32 => {
+            match data
+                .into_inner()
+                .get(data_start..data_start + (width as usize * height as usize * 4))
+            {
+                Some(d) => Ok(Some(WindowsIcon {
+                    width,
+                    height,
+                    original_bpp: bpp,
+                    bgra_data: d.to_vec(),
+                })),
+                None => Ok(None),
+            }
+        }
+        8 => {
+            let pixel_count = width as usize * height as usize;
+            let mut bgra_data = Vec::with_capacity(pixel_count * 4);
+            data.seek(SeekFrom::Current(1024))?; // skip LUT
+
+            for _ in 0..pixel_count {
+                let lut_pos = data_start as usize + (data.read_u8()? as usize * 4);
+                bgra_data.extend_from_slice(&blob[lut_pos..lut_pos + 4]);
+            }
+
+            Ok(Some(WindowsIcon {
+                width,
+                height,
+                original_bpp: bpp,
+                bgra_data,
+            }))
+        }
+        _ => Ok(None),
+    }
 }
 
 pub struct Settings {
@@ -284,8 +327,6 @@ pub struct Settings {
 }
 
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
-
-
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
 /// Also removes any version-specific encryptions.
@@ -1044,13 +1085,23 @@ where
 }
 
 /// Extracts some bytes from the file from their location in the initialized exe's memory
-fn extract_virtual_bytes(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection>, rva: u32, size: usize) -> Result<Option<Vec<u8>>, ReaderError> {
+fn extract_virtual_bytes(
+    data: &mut io::Cursor<&mut [u8]>,
+    pe_sections: &Vec<PESection>,
+    rva: u32,
+    size: usize,
+) -> Result<Option<Vec<u8>>, ReaderError> {
     for section in pe_sections {
-        if rva >= section.virtual_address && ((rva as usize) + size) < ((section.virtual_address + section.virtual_size) as usize) {
+        if rva >= section.virtual_address
+            && ((rva as usize) + size) < ((section.virtual_address + section.virtual_size) as usize)
+        {
             // data is in this section
             let offset_on_disk = rva - section.virtual_address;
             let data_location = (section.disk_address + offset_on_disk) as usize;
-            return Ok(data.get_ref().get(data_location..data_location+size).map(|chunk| chunk.to_vec()));
+            return Ok(data
+                .get_ref()
+                .get(data_location..data_location + size)
+                .map(|chunk| chunk.to_vec()));
         }
     }
 
@@ -1058,7 +1109,10 @@ fn extract_virtual_bytes(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PES
 }
 
 /// Finds the icon group from the exe file which will be used for the window icon.
-fn find_rsrc_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection>) -> Result<Vec<WindowsIcon>, ReaderError> {
+fn find_rsrc_icons(
+    data: &mut io::Cursor<&mut [u8]>,
+    pe_sections: &Vec<PESection>,
+) -> Result<Vec<WindowsIcon>, ReaderError> {
     // top level header
     let rsrc_base = data.position();
     data.seek(SeekFrom::Current(12))?;
@@ -1109,8 +1163,7 @@ fn find_rsrc_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection
                 data.seek(SeekFrom::Current(8))?;
             }
             data.set_position(top_level_pos);
-        }
-        else if id == 14 {
+        } else if id == 14 {
             // 14 = RT_GROUP_ICON
             data.set_position((offset as u64) + rsrc_base + 12);
             let leaf_count = data.read_u16_le()? + data.read_u16_le()?;
@@ -1140,29 +1193,26 @@ fn find_rsrc_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &Vec<PESection
                         let width = ico_header.read_u8()?;
                         let height = ico_header.read_u8()?;
                         ico_header.seek(SeekFrom::Current(4))?;
-                        let bits_per_pixel = ico_header.read_u16_le()?;
+                        let _bits_per_pixel = ico_header.read_u16_le()?; // seems to be wrong sometimes...
                         ico_header.seek(SeekFrom::Current(4))?;
                         let ordinal = ico_header.read_u16_le()?;
 
                         // Match this ordinal name with an icon resource
                         for icon in &icons {
                             if icon.0 == ordinal as u32 && icon.2 >= 40 {
-                                match extract_virtual_bytes(data, pe_sections, icon.1+40, (icon.2 as usize) - 40)? {
+                                match extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                     Some(v) => {
-                                        icon_group.push(WindowsIcon{
-                                            width,
-                                            height,
-                                            bits_per_pixel,
-                                            data: v,
-                                        })
-                                    },
+                                        if let Some(i) = make_icon(width, height, &v)? {
+                                            icon_group.push(i);
+                                        }
+                                    }
                                     None => (),
                                 }
                                 break;
                             }
                         }
                     }
-                },
+                }
                 _ => (),
             }
 
@@ -1268,8 +1318,7 @@ where
         let icons = find_rsrc_icons(&mut exe, &sections)?;
         exe.set_position(temp_pos);
         icons
-    }
-    else {
+    } else {
         vec![]
     };
 
