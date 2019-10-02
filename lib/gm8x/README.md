@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/notviri/gm8x.svg?branch=master)](https://travis-ci.com/notviri/gm8x)
-
 # gm8x
 
 Library used for reading & writing executables created with GameMaker 8 into data structures.
