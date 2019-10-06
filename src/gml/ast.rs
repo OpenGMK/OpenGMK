@@ -38,8 +38,6 @@ pub enum Expr<'a> {
     Break,
     Exit,
     Return(Box<Expr<'a>>),
-
-    Nop,
 }
 
 #[derive(Debug, PartialEq)]
@@ -145,7 +143,6 @@ impl<'a> fmt::Display for Expr<'a> {
                 call.name,
                 call.params
                     .iter()
-                    .filter(|ex| **ex != Expr::Nop)
                     .fold(String::new(), |acc, fnname| acc + &format!("{} ", fnname))
                     .trim_end()
             ),
@@ -154,7 +151,6 @@ impl<'a> fmt::Display for Expr<'a> {
                 "<{}>",
                 group
                     .iter()
-                    .filter(|ex| **ex != Expr::Nop)
                     .fold(String::new(), |acc, expr| acc + &format!("{}, ", expr))
                     .trim_end_matches(|ch| ch == ' ' || ch == ',')
             ),
@@ -182,8 +178,6 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Break => write!(f, "(break)"),
             Expr::Exit => write!(f, "(exit)"),
             Expr::Return(e) => write!(f, "(return {})", e),
-
-            Expr::Nop => write!(f, ""),
         }
     }
 }
@@ -232,12 +226,7 @@ impl<'a> AST<'a> {
         loop {
             // Get the first token from the iterator, or exit the loop if there are no more
             match AST::read_line(&mut lex, &mut line) {
-                Ok(Some(expr)) => {
-                    // Filter top-level NOPs
-                    if expr != Expr::Nop {
-                        expressions.push(expr);
-                    }
-                }
+                Ok(Some(expr)) => expressions.push(expr),
                 Ok(None) => break,
                 Err(e) => return Err(e),
             }
@@ -247,13 +236,16 @@ impl<'a> AST<'a> {
     }
 
     fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
-        let token = match lex.next() {
-            Some(t) => t,
-            None => return Ok(None), // EOF
+        let token = loop {
+            match lex.next() {
+                Some(Token::Separator(Separator::Semicolon)) => continue,
+                Some(t) => break t,
+                None => return Ok(None), // EOF
+            }
         };
 
         // Use token type to determine what logic we should apply here
-        match token {
+        let ret = match token {
             Token::Keyword(key) => {
                 match key {
                     Keyword::Var => {
@@ -467,7 +459,6 @@ impl<'a> AST<'a> {
                                     break Ok(Some(Expr::Group(inner_expressions)));
                                 }
                                 _ => match AST::read_line(lex, line) {
-                                    Ok(Some(Expr::Nop)) => continue,
                                     Ok(Some(e)) => inner_expressions.push(e),
                                     Ok(None) => break Err(Error::new("Unclosed brace at EOF".to_string())),
                                     Err(e) => break Err(e),
@@ -490,9 +481,6 @@ impl<'a> AST<'a> {
                         }
                     }
 
-                    // A semicolon is treated as a line of code which does nothing.
-                    Separator::Semicolon => Ok(Some(Expr::Nop)),
-
                     // Default
                     _ => {
                         return Err(Error::new(format!(
@@ -509,7 +497,14 @@ impl<'a> AST<'a> {
                     line, token
                 )));
             }
+        };
+
+        // skip over trailing semicolons
+        while lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
+            lex.next();
         }
+
+        ret
     }
 
     fn read_binary_tree(
