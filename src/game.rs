@@ -1,3 +1,5 @@
+use crate::atlas::{AtlasBuilder, AtlasRef};
+
 use glutin::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -75,12 +77,66 @@ pub fn launch(assets: GameAssets) {
     gl_loader::init_gl();
     gl::load_with(|s| gl_loader::get_proc_address(s) as *const _);
 
-    // test lol
-    let mut t: gl::types::GLint = 0;
-    unsafe {
-        gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut t as *mut _);
+    // max texture size
+    let max_size = unsafe {
+        let mut val: gl::types::GLint = 0;
+        gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut val as *mut _);
+        val
+    };
+
+    // multi-atlas builder/manager
+    let mut atlases = AtlasBuilder::new(max_size);
+
+    // image-ref to atl-ref map
+    let mut pixelrefs = Vec::new();
+
+    // background associations
+    let mut _bgrefs = Vec::new();
+
+    // sprite associations
+    let mut _spriterefs = Vec::new();
+
+    for sprite in assets.sprites.iter().flatten().map(|s| &**s) {
+        for frame in &sprite.frames {
+            let atl_ref = atlases.add(frame.width as _, frame.height as _);
+
+            pixelrefs.push((&frame.data, atl_ref.clone()));
+            _spriterefs.push((sprite, frame, atl_ref));
+        }
     }
-    println!("MAX TEXTURE SIZE: {}", t);
+
+    for bg in assets.backgrounds.iter().flatten().map(|b| &**b) {
+        if let Some(data) = &bg.data {
+            let atl_ref = atlases.add(bg.width as _, bg.height as _);
+
+            pixelrefs.push((data, atl_ref.clone()));
+            _bgrefs.push((bg, atl_ref));
+        }
+    }
+
+    // not done - needs A to RGBA
+    // for font in assets.fonts.iter().flatten().map(|f| &**f) {
+    //     spriterefs.push((&font.pixel_map, atlases.add(font.map_width as _, font.map_height as _)));
+    // }
+
+    let mut frames = atlases
+        .into_frames()
+        .iter()
+        .map(|(maxx, maxy)| (vec![0u8; ((*maxx * *maxy) * 4) as usize], *maxx, *maxy))
+        .collect::<Vec<_>>();
+    for (f, r) in pixelrefs {
+        let maxx = frames[r.atlas_id as usize].1;
+        let out_buf = &mut frames[r.atlas_id as usize].0;
+
+        for (i, y) in ((r.y as usize)..(r.y as usize + r.h as usize)).enumerate() {
+            let dst_len = (maxx as usize * y as usize * 4) + (r.x as usize * 4);
+            let dst = &mut out_buf[dst_len..dst_len + (r.w as usize * 4)];
+            let src = &f[(r.w as usize * 4) * i..((r.w as usize * 4) * (i + 1))];
+            dst.copy_from_slice(src);
+        }
+    }
+
+    // `frames` contains the full atlases at this point --
 
     window.set_visible(true);
     event_loop.run(move |event, _, control_flow| match event {
