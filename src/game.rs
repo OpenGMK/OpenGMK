@@ -35,7 +35,7 @@ pub fn launch(assets: GameAssets) {
     let room1 = assets
         .room_order
         .first() // first index
-        .map(|x| assets.rooms.iter().nth(*x as usize))
+        .map(|x| assets.rooms.get(*x as usize))
         .and_then(|x| x) // Option<Option<T>> -> Option<T>
         .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
         .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
