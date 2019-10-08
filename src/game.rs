@@ -32,7 +32,14 @@ pub fn launch(assets: GameAssets) {
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
     // the window size, and title, etc. is based on it.
-    let room1 = assets.rooms.iter().flatten().next().unwrap();
+    let room1 = assets
+        .room_order
+        .first() // first index
+        .map(|x| assets.rooms.iter().nth(*x as usize))
+        .and_then(|x| x) // Option<Option<T>> -> Option<T>
+        .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
+        .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
+        .unwrap();
 
     // Set up glutin (winit)
     let event_loop = EventLoop::new();
