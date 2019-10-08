@@ -1,4 +1,4 @@
-use crate::atlas::{AtlasBuilder, AtlasRef};
+use crate::atlas::AtlasBuilder;
 
 use glutin::{
     dpi::LogicalSize,
