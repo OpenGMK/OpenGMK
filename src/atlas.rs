@@ -6,6 +6,7 @@ pub struct AtlasBuilder {
     packers: Vec<(DensePacker, i32, i32)>, // max_x, max_y
 }
 
+#[derive(Clone)]
 pub struct AtlasRef {
     pub atlas_id: u32,
 
