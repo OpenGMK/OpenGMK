@@ -1,5 +1,6 @@
 #![allow(dead_code)] // Shut up.
 
+mod atlas;
 mod game;
 mod gml;
 mod types;
