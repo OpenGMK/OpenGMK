@@ -49,7 +49,7 @@ impl AtlasBuilder {
         self.packers
             .iter()
             .map(|(_, x, y)| {
-                let next_pow2 = |n: f32| 2.0f32.powi(n.log2().ceil() as _);
+                let next_pow2 = |n: f32| 2i32.pow(n.log2().ceil() as _);
                 (next_pow2(*x as _) as _, next_pow2(*y as _) as _)
             })
             .collect()
