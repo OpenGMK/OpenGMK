@@ -38,11 +38,20 @@ impl AtlasBuilder {
             }
         }
 
-        if w > self.max_size || h > self.max_size {
-            panic!("what the fuck that's big"); // TODO lol
-        } else {
-            self.packers.push((DensePacker::new(self.max_size, self.max_size), 0, 0));
-            self.add(w, h)
-        }
+        assert!(w <= self.max_size);
+        assert!(h <= self.max_size);
+        self.packers
+            .push((DensePacker::new(self.max_size, self.max_size), 0, 0));
+        self.add(w, h)
+    }
+
+    pub fn into_frames(self) -> Vec<(i32, i32)> {
+        self.packers
+            .iter()
+            .map(|(_, x, y)| {
+                let next_pow2 = |n: f32| 2.0f32.powi(n.log2().ceil() as _);
+                (next_pow2(*x as _) as _, next_pow2(*y as _) as _)
+            })
+            .collect()
     }
 }
