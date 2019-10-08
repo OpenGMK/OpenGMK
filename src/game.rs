@@ -10,6 +10,8 @@ use glutin::{
 };
 use gm8x::reader::{GameAssets, WindowsIcon};
 
+use std::convert::identity;
+
 pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
     let mut rgba = Vec::with_capacity(raw.len());
     for chunk in raw.rchunks_exact(width * 4) {
@@ -38,7 +40,7 @@ pub fn launch(assets: GameAssets) {
         .room_order
         .first() // first index
         .map(|x| assets.rooms.get(*x as usize))
-        .and_then(|x| x) // Option<Option<T>> -> Option<T>
+        .and_then(identity) // Option<Option<T>> -> Option<T>
         .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
         .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
         .unwrap();
