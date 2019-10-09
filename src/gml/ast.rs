@@ -861,13 +861,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_nothing() {
+    fn nothing() {
         // Empty string
         assert_ast("", Some(vec![]))
     }
 
     #[test]
-    fn test_assignment_op_assign() {
+    fn assignment_op_assign() {
         assert_ast(
             // Simple assignment - Assign
             "a = 1",
@@ -880,7 +880,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_add() {
+    fn assignment_op_add() {
         assert_ast(
             // Simple assignment - AssignAdd
             "b += 2",
@@ -893,7 +893,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_subtract() {
+    fn assignment_op_subtract() {
         assert_ast(
             // Simple assignment - AssignSubtract
             "c -= 3",
@@ -906,7 +906,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_multiply() {
+    fn assignment_op_multiply() {
         assert_ast(
             // Simple assignment - AssignMultiply
             "d *= 4",
@@ -919,7 +919,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_divide() {
+    fn assignment_op_divide() {
         assert_ast(
             // Simple assignment - AssignDivide
             "e /= 5",
@@ -932,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_and() {
+    fn assignment_op_and() {
         assert_ast(
             // Simple assignment - AssignBinaryAnd
             "f &= 6",
@@ -945,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_or() {
+    fn assignment_op_or() {
         assert_ast(
             // Simple assignment - AssignBinaryOr
             "g |= 7",
@@ -958,7 +958,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_op_xor() {
+    fn assignment_op_xor() {
         assert_ast(
             // Simple assignment - AssignBinaryXor
             "h ^= 8",
@@ -972,7 +972,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_assignment_op_invalid() {
+    fn assignment_op_invalid() {
         // Assignment syntax - Multiply - should fail
         // Note: chose "Multiply" specifically as it cannot be unary, unlike Add or Subtract
         assert_ast("i * 9", None);
@@ -980,20 +980,20 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_assignment_op_not() {
+    fn assignment_op_not() {
         // Assignment syntax - Not - should fail
         assert_ast("j ! 10", None);
     }
 
     #[test]
     #[should_panic]
-    fn test_assignment_op_complement() {
+    fn assignment_op_complement() {
         // Assignment syntax - Complement - should fail
         assert_ast("k ~ 11", None);
     }
 
     #[test]
-    fn test_assignment_lhs() {
+    fn assignment_lhs() {
         assert_ast(
             // Assignment with deref and index on lhs
             "a.b[c] += d;",
@@ -1014,7 +1014,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_2d_index() {
+    fn assignment_2d_index() {
         assert_ast(
             // Arbitrary chains of deref, 1- and 2-dimension index ops on both lhs and rhs
             "a.b[c].d.e[f,g]=h[i,j].k",
@@ -1055,7 +1055,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_lhs_expression() {
+    fn assignment_lhs_expression() {
         assert_ast(
             // Assignment whose LHS is an expression-deref
             "(a + 1).x = 400;",
@@ -1076,7 +1076,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_assign_equal() {
+    fn assignment_assign_equal() {
         assert_ast(
             // Differentiation between usages of '=' - simple
             "a=b=c",
@@ -1093,7 +1093,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assignment_assign_equal_complex() {
+    fn assignment_assign_equal_complex() {
         assert_ast(
             // Differentiation between usages of '=' - complex
             "(a=b).c[d=e]=f[g=h]=i",
@@ -1135,13 +1135,13 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_deref_not_id() {
+    fn deref_not_id() {
         // Invalid use of deref operator
         assert_ast("a..=1", None)
     }
 
     #[test]
-    fn test_btree_unary_positive() {
+    fn btree_unary_positive() {
         assert_ast(
             // Binary tree format - unary operator - positive
             "a=+1",
@@ -1157,7 +1157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_btree_unary_subtract() {
+    fn btree_unary_subtract() {
         assert_ast(
             // Binary tree format - unary operator - negative
             "a=-1",
@@ -1173,7 +1173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_btree_unary_complement() {
+    fn btree_unary_complement() {
         assert_ast(
             // Binary tree format - unary operator - complement
             "a=~1",
@@ -1189,7 +1189,7 @@ mod tests {
     }
 
     #[test]
-    fn test_btree_unary_not() {
+    fn btree_unary_not() {
         assert_ast(
             // Binary tree format - unary operator - negative
             "a=!1",
@@ -1205,7 +1205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_btree_unary_syntax() {
+    fn btree_unary_syntax() {
         assert_ast(
             // Binary tree format - unary operators - syntax parse test
             "a = 1+!~-b.c[+d]-2--3", // (- (- (+ 1 2) 3) 4)
@@ -1253,7 +1253,7 @@ mod tests {
     }
 
     #[test]
-    fn test_btree_unary_grouping() {
+    fn btree_unary_grouping() {
         assert_ast(
             // Unary operator applied to sub-tree
             "a = ~(b + 1)",
@@ -1273,7 +1273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_function_syntax() {
+    fn function_syntax() {
         assert_ast(
             // Function call syntax
             "instance_create(random(800), random(608,), apple);",
@@ -1295,7 +1295,7 @@ mod tests {
     }
 
     #[test]
-    fn test_for_syntax_standard() {
+    fn for_syntax_standard() {
         assert_ast(
             // For-loop syntax - standard
             "for(i = 0; i < 10; i += 1) { a = 1; b = c;}",
@@ -1332,7 +1332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_for_syntax_no_sep() {
+    fn for_syntax_no_sep() {
         assert_ast(
             // For-loop syntax - no separators
             "for(i=0 i<10 i+=1) c=3",
@@ -1362,7 +1362,7 @@ mod tests {
     }
 
     #[test]
-    fn test_for_syntax_random_sep() {
+    fn for_syntax_random_sep() {
         assert_ast(
             // For-loop syntax - arbitrary semicolons
             "for(i=0; i<10 i+=1; ;) {d=4}",
@@ -1392,7 +1392,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pascal_init_assign() {
+    fn pascal_init_assign() {
         assert_ast(
             "a := 1",
             Some(vec![
@@ -1406,7 +1406,7 @@ mod tests {
     }
 
     #[test]
-    fn test_var_syntax() {
+    fn var_syntax() {
         assert_ast(
             // var syntax - basic constructions
             "var a; var b, c",
@@ -1418,7 +1418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_var_syntax_complex() {
+    fn var_syntax_complex() {
         assert_ast(
             // var syntax - unusual valid constructions
             "var; var a,b,; var c,var",
@@ -1433,7 +1433,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_var_invalid_comma() {
+    fn var_invalid_comma() {
         // var syntax - invalid comma
         assert_ast("var, a;", None)
     }
