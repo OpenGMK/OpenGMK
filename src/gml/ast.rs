@@ -1407,13 +1407,52 @@ mod tests {
     fn pascal_init_assign() {
         assert_ast(
             "a := 1",
-            Some(vec![
-                Expr::Binary(Box::new(BinaryExpr {
-                    op: Operator::Assign,
+            Some(vec![Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Assign,
+                left: Expr::LiteralIdentifier("a"),
+                right: Expr::LiteralReal(1.0),
+            }))]),
+        );
+    }
+
+    #[test]
+    fn pascal_if() {
+        assert_ast(
+            "
+            if a == 1 then
+            begin
+                a = 2;
+            end
+            else if a == 2 then
+            begin
+                a = 4;
+            end
+            ",
+            Some(vec![Expr::If(Box::new(IfExpr {
+                cond: Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Equal,
                     left: Expr::LiteralIdentifier("a"),
                     right: Expr::LiteralReal(1.0),
-                }))
-            ])
+                })),
+                body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("a"),
+                    right: Expr::LiteralReal(2.0),
+                }))]),
+                else_body: Some(Expr::If(Box::new(IfExpr {
+                    cond: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Equal,
+                        left: Expr::LiteralIdentifier("a"),
+                        right: Expr::LiteralReal(2.0),
+                    })),
+                    body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Assign,
+                        left: Expr::LiteralIdentifier("a"),
+                        right: Expr::LiteralReal(4.0),
+                    }))]),
+                    else_body: None,
+                }))),
+            }))]),
         );
     }
 
