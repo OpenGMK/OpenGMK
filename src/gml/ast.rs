@@ -1392,6 +1392,20 @@ mod tests {
     }
 
     #[test]
+    fn test_pascal_init_assign() {
+        assert_ast(
+            "a := 1",
+            Some(vec![
+                Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::LiteralIdentifier("a"),
+                    right: Expr::LiteralReal(1.0),
+                }))
+            ])
+        );
+    }
+
+    #[test]
     fn test_var_syntax() {
         assert_ast(
             // var syntax - basic constructions

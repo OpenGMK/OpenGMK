@@ -354,6 +354,14 @@ impl<'a> Iterator for Lexer<'a> {
                     } else {
                         Token::Operator(op)
                     }
+                } else if let Token::Separator(Separator::Colon) = token1 {
+                    // pascal-style := init-assignments
+                    if self.iter.peek().map(|(_, ch)| *ch == b'=').unwrap_or(false) {
+                        self.iter.next();
+                        Token::Operator(Operator::Assign)
+                    } else {
+                        Token::Separator(Separator::Colon)
+                    }
                 } else {
                     token1
                 }
@@ -367,3 +375,5 @@ impl<'a> Iterator for Lexer<'a> {
         })
     }
 }
+
+// The lexer is intrinsically tested via the AST tests.
