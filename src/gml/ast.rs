@@ -860,6 +860,18 @@ impl<'a> AST<'a> {
 mod tests {
     use super::*;
 
+    /// Helper function for all the AST testcases.
+    fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
+        match AST::new(input) {
+            Ok(ast) => {
+                if let Some(e) = expected_output {
+                    assert_eq!(ast.expressions, e);
+                }
+            }
+            Err(e) => panic!("AST test encountered error: '{}' for input: {}", e, input),
+        }
+    }
+
     #[test]
     fn nothing() {
         // Empty string
@@ -1436,16 +1448,5 @@ mod tests {
     fn var_invalid_comma() {
         // var syntax - invalid comma
         assert_ast("var, a;", None)
-    }
-
-    fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
-        match AST::new(input) {
-            Ok(ast) => {
-                if let Some(e) = expected_output {
-                    assert_eq!(ast.expressions, e);
-                }
-            }
-            Err(e) => panic!("AST test encountered error: '{}' for input: {}", e, input),
-        }
     }
 }
