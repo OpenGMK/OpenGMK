@@ -4,3 +4,7 @@
 **/*.bin
 **/*.gmk
 **/*.gm81
+
+# editor stuff
+.idea/
+.vscode/
