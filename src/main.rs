@@ -31,6 +31,7 @@ fn main() {
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "prints this help message");
     opts.optflag("s", "strict", "enable various data integrity checks");
+    opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
 
     let matches = opts.parse(&args[1..]).unwrap_or_else(|f| {
@@ -51,6 +52,7 @@ fn main() {
     }
 
     let strict = matches.opt_present("s");
+    let multithread = matches.opt_present("t");
     let verbose = matches.opt_present("v");
     let input = {
         if matches.free.len() == 1 {
@@ -73,15 +75,17 @@ fn main() {
         println!("loading '{}'...", input);
     }
 
+    #[rustfmt::skip]
     let assets = gm8x::reader::from_exe(
-        &mut file,
-        strict,
-        if verbose {
+        &mut file,                              // mut exe: AsRef<[u8]>
+        strict,                                 // strict: bool
+        if verbose {                            // logger: Option<Fn(&str)>
             Some(|s: &str| println!("{}", s))
         } else {
             None
         },
-        None,
+        None,                                   // dump_dll: Option<&Path>
+        multithread,                            // multithread: bool
     )
     .unwrap_or_else(|e| {
         eprintln!("failed to load '{}' - {}", input, e);
