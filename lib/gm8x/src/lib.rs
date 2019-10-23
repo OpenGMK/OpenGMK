@@ -4,7 +4,7 @@ pub mod reader;
 
 mod color;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum GameVersion {
     GameMaker8_0,
     GameMaker8_1,
