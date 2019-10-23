@@ -52,7 +52,7 @@ fn main() {
     }
 
     let strict = matches.opt_present("s");
-    let multithread = matches.opt_present("t");
+    let multithread = !matches.opt_present("t");
     let verbose = matches.opt_present("v");
     let input = {
         if matches.free.len() == 1 {
