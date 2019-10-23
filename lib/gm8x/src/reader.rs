@@ -1261,6 +1261,7 @@ pub fn from_exe<I, F>(
     strict: bool,
     logger: Option<F>,
     dump_dll: Option<&path::Path>,
+    multithread: bool,
 ) -> Result<GameAssets, ReaderError>
 where
     F: Copy + Fn(&str),
@@ -1702,26 +1703,40 @@ where
         Ok(refs)
     }
 
-    fn get_assets<T, F>(src: &mut io::Cursor<&[u8]>, deserializer: F) -> Result<Vec<Option<Box<T>>>, ReaderError>
+    fn get_assets<T, F>(
+        src: &mut io::Cursor<&[u8]>,
+        deserializer: F,
+        multithread: bool,
+    ) -> Result<Vec<Option<Box<T>>>, ReaderError>
     where
         T: Send,
         F: Fn(&[u8]) -> Result<T, AssetDataError> + Sync,
     {
-        get_asset_refs(src)?
-            .par_iter()
-            .map(|chunk| {
-                inflate(&chunk).and_then(|data| {
-                    // If the first u32 is 0 then the underlying data doesn't exist (is a None asset).
-                    match data.get(..4) {
-                        Some(&[0, 0, 0, 0]) => Ok(None),
-                        Some(_) => Ok(Some(Box::new(deserializer(
-                            data.get(4..).unwrap_or_else(|| unreachable!()),
-                        )?))),
-                        None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
-                    }
-                })
+        let to_asset = |ch| {
+            inflate(&ch).and_then(|data| {
+                // If the first u32 is 0 then the underlying data doesn't exist (is a None asset).
+                match data.get(..4) {
+                    Some(&[0, 0, 0, 0]) => Ok(None),
+                    // If there are at least 4 bytes (Some) then [4..] will yield a 0-size slice.
+                    Some(_) => Ok(Some(Box::new(deserializer(
+                        data.get(4..).unwrap_or_else(|| unreachable!()),
+                    )?))),
+                    None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
+                }
             })
-            .collect::<Result<Vec<_>, ReaderError>>()
+        };
+
+        if multithread {
+            get_asset_refs(src)?
+                .par_iter()
+                .map(to_asset)
+                .collect::<Result<Vec<_>, ReaderError>>()
+        } else {
+            get_asset_refs(src)?
+                .iter()
+                .map(to_asset)
+                .collect::<Result<Vec<_>, ReaderError>>()
+        }
     }
 
     // stuff to pass to asset deserializers
@@ -1744,7 +1759,11 @@ where
 
     // Triggers
     assert_ver!("triggers header", 800, exe.read_u32_le()?)?;
-    let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, a_strict, a_version))?;
+    let triggers = get_assets(
+        &mut exe,
+        |data| Trigger::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         triggers.iter().flatten().for_each(|trigger| {
             log!(
@@ -1770,7 +1789,11 @@ where
 
     // Sounds
     assert_ver!("sounds header", 800, exe.read_u32_le()?)?;
-    let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, a_strict, a_version))?;
+    let sounds = get_assets(
+        &mut exe,
+        |data| Sound::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         sounds.iter().flatten().for_each(|sound| {
             log!(logger, " + Added sound '{}' ({})", sound.name, sound.source);
@@ -1779,7 +1802,11 @@ where
 
     // Sprites
     assert_ver!("sprites header", 800, exe.read_u32_le()?)?;
-    let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, a_strict, a_version))?;
+    let sprites = get_assets(
+        &mut exe,
+        |data| Sprite::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         sprites.iter().flatten().for_each(|sprite| {
             let framecount = sprite.frames.len();
@@ -1801,7 +1828,11 @@ where
 
     // Backgrounds
     assert_ver!("backgrounds header", 800, exe.read_u32_le()?)?;
-    let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, a_strict, a_version))?;
+    let backgrounds = get_assets(
+        &mut exe,
+        |data| Background::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         backgrounds.iter().flatten().for_each(|background| {
             log!(
@@ -1816,7 +1847,11 @@ where
 
     // Paths
     assert_ver!("paths header", 800, exe.read_u32_le()?)?;
-    let paths = get_assets(&mut exe, |data| Path::deserialize(data, a_strict, a_version))?;
+    let paths = get_assets(
+        &mut exe,
+        |data| Path::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         use crate::asset::path::ConnectionKind;
 
@@ -1839,7 +1874,11 @@ where
 
     // Scripts
     assert_ver!("scripts header", 800, exe.read_u32_le()?)?;
-    let scripts = get_assets(&mut exe, |data| Script::deserialize(data, a_strict, a_version))?;
+    let scripts = get_assets(
+        &mut exe,
+        |data| Script::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         scripts.iter().flatten().for_each(|script| {
             log!(logger, " + Added script '{}'", script.name);
@@ -1848,7 +1887,11 @@ where
 
     // Fonts
     assert_ver!("fonts header", 800, exe.read_u32_le()?)?;
-    let fonts = get_assets(&mut exe, |data| Font::deserialize(data, a_strict, a_version))?;
+    let fonts = get_assets(
+        &mut exe,
+        |data| Font::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         fonts.iter().flatten().for_each(|font| {
             log!(
@@ -1865,7 +1908,11 @@ where
 
     // Timelines
     assert_ver!("timelines header", 800, exe.read_u32_le()?)?;
-    let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, a_strict, a_version))?;
+    let timelines = get_assets(
+        &mut exe,
+        |data| Timeline::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         timelines.iter().flatten().for_each(|timeline| {
             log!(
@@ -1879,7 +1926,11 @@ where
 
     // Objects
     assert_ver!("objects header", 800, exe.read_u32_le()?)?;
-    let objects = get_assets(&mut exe, |data| Object::deserialize(data, a_strict, a_version))?;
+    let objects = get_assets(
+        &mut exe,
+        |data| Object::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         objects.iter().flatten().for_each(|object| {
             log!(
@@ -1896,7 +1947,11 @@ where
 
     // Rooms
     assert_ver!("rooms header", 800, exe.read_u32_le()?)?;
-    let rooms = get_assets(&mut exe, |data| Room::deserialize(data, a_strict, a_version))?;
+    let rooms = get_assets(
+        &mut exe,
+        |data| Room::deserialize(data, a_strict, a_version),
+        multithread,
+    )?;
     if logger.is_some() {
         rooms.iter().flatten().for_each(|room| {
             log!(
