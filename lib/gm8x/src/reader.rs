@@ -54,6 +54,7 @@ pub struct GameAssets {
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
+    pub library_init_strings: Vec<String>,
     pub room_order: Vec<i32>,
 
     pub settings: Settings,
@@ -2021,14 +2022,14 @@ where
         hdg
     };
 
-    // Action library initialization code. We don't need to store this.
+    // Action library initialization code. These are GML strings which get run at game start, in order.
     assert_ver!("action library initialization code header", 500, exe.read_u32_le()?)?;
     let str_count = exe.read_u32_le()? as usize;
+    let mut library_init_strings = Vec::with_capacity(str_count);
     for _ in 0..str_count {
-        let str_len = exe.read_u32_le()?;
-        exe.seek(SeekFrom::Current(str_len as i64))?;
+        library_init_strings.push(exe.read_pas_string()?);
     }
-    log!(logger, " + Skipped {} action library initialization strings", str_count);
+    log!(logger, " + Read {} action library initialization strings", str_count);
 
     // Room Order
     assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;
@@ -2063,6 +2064,7 @@ where
         help_dialog,
         last_instance_id,
         last_tile_id,
+        library_init_strings,
         room_order,
 
         settings,
