@@ -1,7 +1,3 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+//! OpenGL Functions (Auto-Generated: See build.rs)
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
