@@ -5,31 +5,78 @@ use glutin::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
     event_loop::EventLoop,
+    window::Window,
     window::{Fullscreen, Icon, WindowBuilder},
-    {Api, ContextBuilder, GlProfile, GlRequest},
+    ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
-use gm8x::reader::{GameAssets, WindowsIcon};
+use gm8x::{
+    asset::Room,
+    reader::{GameAssets, WindowsIcon},
+};
 
 use std::convert::identity;
 
-pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
-    let mut rgba = Vec::with_capacity(raw.len());
-    for chunk in raw.rchunks_exact(width * 4) {
-        rgba.extend_from_slice(chunk);
-        let vlen = rgba.len();
-        crate::util::bgra2rgba(rgba.get_mut(vlen - (width * 4)..)?);
-    }
-    Icon::from_rgba(rgba, width as u32, width as u32).ok()
-}
+fn create_window(
+    room1: &Room,
+    icons: &Vec<WindowsIcon>,
+    settings: &gm8x::reader::Settings,
+) -> (ContextWrapper<PossiblyCurrent, ()>, EventLoop<()>, Window) {
+    fn get_icon(icons: &Vec<WindowsIcon>, preferred_width: i32) -> Option<Icon> {
+        fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(preferred_width: i32, i: I) -> Option<&'a WindowsIcon> {
+            i.min_by(|a, b| {
+                (a.width as i32 - preferred_width)
+                    .abs()
+                    .cmp(&(b.width as i32 - preferred_width).abs())
+            })
+        }
 
-fn get_icon_via_w(icons: &Vec<WindowsIcon>, w: i32) -> Option<Icon> {
-    fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(w: i32, i: I) -> Option<&'a WindowsIcon> {
-        i.min_by(|a, b| (a.width as i32 - w).abs().cmp(&(b.width as i32 - w).abs()))
-    }
+        pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
+            let mut rgba = Vec::with_capacity(raw.len());
+            for chunk in raw.rchunks_exact(width * 4) {
+                rgba.extend_from_slice(chunk);
+                let vlen = rgba.len();
+                crate::util::bgra2rgba(rgba.get_mut(vlen - (width * 4)..)?);
+            }
+            Icon::from_rgba(rgba, width as u32, width as u32).ok()
+        }
 
-    closest(w, icons.iter().filter(|i| i.original_bpp == 24 || i.original_bpp == 32))
-        .or_else(|| closest(w, icons.iter()))
+        closest(
+            preferred_width,
+            icons.iter().filter(|i| i.original_bpp == 24 || i.original_bpp == 32),
+        )
+        .or_else(|| closest(preferred_width, icons.iter()))
         .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
+    }
+
+    let event_loop = EventLoop::new();
+    let window_builder = WindowBuilder::new()
+        .with_title(&room1.caption)
+        .with_window_icon(get_icon(icons, 32))
+        .with_inner_size(LogicalSize::from((room1.width, room1.height)))
+        .with_resizable(settings.allow_resize)
+        .with_always_on_top(settings.window_on_top)
+        .with_decorations(!settings.dont_draw_border)
+        .with_visible(false)
+        .with_fullscreen(if settings.fullscreen {
+            Some(Fullscreen::Borderless(event_loop.primary_monitor()))
+        } else {
+            None
+        });
+
+    // Set up OpenGL 3.3 Core context
+    let context = ContextBuilder::new()
+        .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
+        .with_gl_profile(GlProfile::Core)
+        .with_hardware_acceleration(Some(true))
+        // TODO: Maybe manual override?
+        .with_vsync(settings.vsync)
+        // TODO: Maybe on release, when we're done - robustness 0 CHECKS
+        .build_windowed(window_builder, &event_loop)
+        .unwrap(); // TODO
+
+    // Make context current
+    let (ctx, w) = unsafe { context.make_current().unwrap().split() };
+    (ctx, event_loop, w)
 }
 
 pub fn launch(assets: GameAssets) {
@@ -45,35 +92,7 @@ pub fn launch(assets: GameAssets) {
         .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
         .unwrap();
 
-    // Set up glutin (winit)
-    let event_loop = EventLoop::new();
-    let window_builder = WindowBuilder::new()
-        .with_title(&room1.caption)
-        .with_window_icon(get_icon_via_w(&assets.icon_data, 32))
-        .with_inner_size(LogicalSize::from((room1.width, room1.height)))
-        .with_resizable(assets.settings.allow_resize)
-        .with_always_on_top(assets.settings.window_on_top)
-        .with_decorations(!assets.settings.dont_draw_border)
-        .with_visible(false)
-        .with_fullscreen(if assets.settings.fullscreen {
-            Some(Fullscreen::Borderless(event_loop.primary_monitor()))
-        } else {
-            None
-        });
-
-    // Set up OpenGL 3.3 Core context
-    let context = ContextBuilder::new()
-        .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
-        .with_gl_profile(GlProfile::Core)
-        .with_hardware_acceleration(Some(true))
-        // TODO: Maybe manual override?
-        .with_vsync(assets.settings.vsync)
-        // TODO: Maybe on release, when we're done - robustness 0 CHECKS
-        .build_windowed(window_builder, &event_loop)
-        .unwrap(); // TODO
-
-    // Make context current
-    let (ctx, window) = unsafe { context.make_current().unwrap().split() };
+    let (ctx, ev, window) = create_window(room1, &assets.icon_data, &assets.settings);
 
     // Load OpenGL
     gl::load_with(|s| ctx.get_proc_address(s) as *const _);
@@ -140,7 +159,7 @@ pub fn launch(assets: GameAssets) {
     // `frames` contains the full atlases at this point --
 
     window.set_visible(true);
-    event_loop.run(move |event, _, control_flow| match event {
+    ev.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             event: WindowEvent::CloseRequested,
             window_id,
