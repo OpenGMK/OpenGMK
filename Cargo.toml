@@ -4,10 +4,8 @@ version = "0.1.0"
 authors = ["viri <git@stuff.moe>"]
 edition = "2018"
 
-[build-dependencies]
-gl_generator = "0.14.0"
-
 [dependencies]
+gl = { path = "lib/gl" }
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
 gm8x = { path = "lib/gm8x" }

@@ -285,7 +285,10 @@ dependencies = [
 
 [[package]]
 name = "gl"
-version = "0.1.0"
+version = "1.0.0"
+dependencies = [
+ "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "gl_generator"
@@ -397,7 +400,7 @@ name = "gm8emu"
 version = "0.1.0"
 dependencies = [
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gl 1.0.0",
  "glutin 0.22.0-alpha3 (registry+https://github.com/rust-lang/crates.io-index)",
  "gm8x 0.1.0",
  "rect_packer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
