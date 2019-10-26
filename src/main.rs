@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 
 fn main() {
+    // Set up getopts to parse our command line args
     let args: Vec<String> = env::args().collect();
 
     let mut opts = getopts::Options::new();
@@ -23,29 +24,33 @@ fn main() {
         },
     };
 
+    // Print this helpful message if no filename was provided, or if -h/--help was specified
     if matches.free.len() == 0 || matches.opt_present("h") {
         println!("{}", opts.usage(&format!("Command usage: {} FILENAME [options]", &args[0])));
         println!("Tip: to decompile a game, click and drag it on top of {}.", args[0]);
         return;
     }
 
+    // Print this slightly less helpful error message if multiple filenames were provided
     if matches.free.len() > 1 {
         println!("Unexpected input: {}", matches.free[1]);
         return;
     }
 
+    // Get our options and then repeat them back to the user
     let lazy = matches.opt_present("l");
     let verbose = matches.opt_present("v");
     let input = &matches.free[0];
 
     println!("Input file: '{}'", input);
     if lazy {
-        println!("Lazy mode (--lazy, -l): data integrity checking disabled");
+        println!("Option: lazy mode (--lazy, -l): data integrity checking disabled");
     }
     if verbose {
-        println!("Verbose mode (--verbose, -v): verbose console output enabled");
+        println!("Option: verbose mode (--verbose, -v): verbose console output enabled");
     }
 
+    // Open the input file and parse it with gm8x
     let mut file = match fs::read(&input) {
         Ok(f) => f,
         Err(e) => {
@@ -71,6 +76,8 @@ fn main() {
             return;
         }
     };
+
+    // todo: write gmk with assets
 
     println!("Successfully parsed assets from '{}'", input);
 }
