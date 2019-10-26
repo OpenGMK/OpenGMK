@@ -1,0 +1,10 @@
+[package]
+name = "gm8decompiler"
+version = "2.0.0"
+authors = ["GM8Emulator <gm8emulator@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+getopts = "0.2.21"
+gm8x = { git = "https://github.com/notviri/gm8emu" }
+minio  = { git = "https://github.com/notviri/minio" }
