@@ -108,12 +108,12 @@ fn main() {
             let ext = opath.extension().map(|oss| oss.to_str()).and_then(|o| o);
             let stem = opath.file_stem().map(|oss| oss.to_str()).and_then(|o| o);
             match (ext, assets.version) {
-                (Some("gm81"), gm8x::GameVersion::GameMaker8_0)
-                | (Some("gmk"), gm8x::GameVersion::GameMaker8_1) => {
+                (Some(ext @ "gm81"), gm8x::GameVersion::GameMaker8_0)
+                | (Some(ext @ "gmk"), gm8x::GameVersion::GameMaker8_1) => {
                     println!(
                         "***WARNING*** You've specified an output file '{}', a .{} file, for a {} game. I suggest using '-o {}{}' instead, otherwise you won't be able to load the file with GameMaker.",
                         o,
-                        ext.unwrap(),
+                        ext,
                         match assets.version {
                             gm8x::GameVersion::GameMaker8_0 => "GameMaker 8.0",
                             gm8x::GameVersion::GameMaker8_1 => "GameMaker 8.1",
