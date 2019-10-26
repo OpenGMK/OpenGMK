@@ -30,7 +30,7 @@ fn create_window(
             })
         }
 
-        pub fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
+        fn icon_from_win32(raw: &[u8], width: usize) -> Option<Icon> {
             let mut rgba = Vec::with_capacity(raw.len());
             for chunk in raw.rchunks_exact(width * 4) {
                 rgba.extend_from_slice(chunk);
