@@ -19,4 +19,7 @@ lto = true
 panic = "abort"
 
 [workspace]
-members = [ "lib/gm8x" ]
+members = [
+    "lib/gl",
+    "lib/gm8x",
+]
