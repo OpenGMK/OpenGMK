@@ -73,11 +73,10 @@ pub fn launch(assets: GameAssets) {
         .unwrap(); // TODO
 
     // Make context current
-    let (_context, window) = unsafe { context.make_current().unwrap().split() };
+    let (ctx, window) = unsafe { context.make_current().unwrap().split() };
 
     // Load OpenGL
-    gl_loader::init_gl();
-    gl::load_with(|s| gl_loader::get_proc_address(s) as *const _);
+    gl::load_with(|s| ctx.get_proc_address(s) as *const _);
 
     // max texture size
     let max_size = unsafe {
@@ -147,7 +146,6 @@ pub fn launch(assets: GameAssets) {
             window_id,
         } if window_id == window.id() => {
             *control_flow = ControlFlow::Exit;
-            gl_loader::end_gl();
         }
         _ => *control_flow = ControlFlow::Wait,
     });
