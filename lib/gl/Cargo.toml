@@ -1,7 +1,8 @@
 [package]
 name = "gl"
-version = "0.1.0"
-authors = ["viri <git@stuff.moe>"]
+version = "1.0.0"
+authors = ["viri <git@stuff.moe>", "gl_generator authors"]
 edition = "2018"
 
-[dependencies]
+[build-dependencies]
+gl_generator = "0.14.0"
