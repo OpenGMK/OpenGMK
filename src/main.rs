@@ -6,6 +6,9 @@ mod gml;
 mod types;
 mod util;
 
+// `pub` so rustdoc picks it up
+pub mod gl;
+
 use std::env;
 use std::fs;
 use std::path::Path;
