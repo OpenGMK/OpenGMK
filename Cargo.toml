@@ -8,7 +8,6 @@ edition = "2018"
 gl_generator = "0.14.0"
 
 [dependencies]
-gl = "0.13.0"
 gl_loader = "0.1.2"
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
