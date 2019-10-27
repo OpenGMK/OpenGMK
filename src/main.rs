@@ -1,3 +1,4 @@
+use gm8x::GameVersion;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -98,25 +99,28 @@ fn main() {
 
     // Work out what our output filename should be
     let expected_ext = match assets.version {
-        gm8x::GameVersion::GameMaker8_0 => ".gmk",
-        gm8x::GameVersion::GameMaker8_1 => ".gm81",
+        GameVersion::GameMaker8_0 => ".gmk",
+        GameVersion::GameMaker8_1 => ".gm81",
     };
     let gmk_filename = match matches.opt_str("o") {
         Some(o) => {
             // warn user if they specified .gmk for 8.1 or .gm81 for 8.0
             let opath = Path::new(&o);
-            let ext = opath.extension().map(|oss| oss.to_str()).and_then(|o| o);
-            let stem = opath.file_stem().map(|oss| oss.to_str()).and_then(|o| o);
+            let ext = opath.extension().and_then(|oss| oss.to_str());
+            let stem = opath.file_stem().and_then(|oss| oss.to_str());
             match (ext, assets.version) {
-                (Some(ext @ "gm81"), gm8x::GameVersion::GameMaker8_0)
-                | (Some(ext @ "gmk"), gm8x::GameVersion::GameMaker8_1) => {
+                (Some(ext @ "gm81"), GameVersion::GameMaker8_0)
+                | (Some(ext @ "gmk"), GameVersion::GameMaker8_1) => {
                     println!(
-                        "***WARNING*** You've specified an output file '{}', a .{} file, for a {} game. I suggest using '-o {}{}' instead, otherwise you won't be able to load the file with GameMaker.",
+                        concat!(
+                            "***WARNING*** You've specified an output file '{}', a .{} file, for a {} game. ",
+                            "I suggest using '-o {}{}' instead, otherwise you won't be able to load the file with GameMaker.",
+                        ),
                         o,
                         ext,
                         match assets.version {
-                            gm8x::GameVersion::GameMaker8_0 => "GameMaker 8.0",
-                            gm8x::GameVersion::GameMaker8_1 => "GameMaker 8.1",
+                            GameVersion::GameMaker8_0 => "GameMaker 8.0",
+                            GameVersion::GameMaker8_1 => "GameMaker 8.1",
                         },
                         stem.unwrap(),
                         expected_ext
