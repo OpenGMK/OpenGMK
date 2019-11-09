@@ -58,6 +58,7 @@ pub struct GameAssets {
     pub room_order: Vec<i32>,
 
     pub settings: Settings,
+    pub game_id: u32,
     pub guid: [u32; 4],
 }
 
@@ -2068,6 +2069,7 @@ where
         room_order,
 
         settings,
+        game_id,
         guid,
     })
 }
