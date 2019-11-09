@@ -1,7 +1,10 @@
+use gm8x::reader::GameAssets;
 use gm8x::GameVersion;
 use std::env;
 use std::fs;
 use std::path::Path;
+
+pub mod gmk;
 
 fn main() {
     // Set up getopts to parse our command line args
@@ -136,7 +139,29 @@ fn main() {
             expected_ext
         ),
     };
-    println!("Writing to '{}'", gmk_filename);
 
-    // todo: do that
+    // write gmk - I wrapped this in a function so we can catch any io errors here.
+    match write_gmk(&gmk_filename, assets) {
+        Ok(_) => {
+            // successful
+            // press any key to continue?
+        }
+        Err(e) => {
+            println!("Error writing gmk: {}", e);
+            return;
+        }
+    }
+}
+
+fn write_gmk(filename: &str, _assets: GameAssets) -> std::io::Result<()> {
+    println!("Writing to '{}'", filename);
+
+    // Set up a writer to write to our output file
+    let mut gmk = fs::File::create(filename)?;
+
+    // Write GMK header
+    gmk::write_header(&mut gmk)?;
+
+    // TODO: the rest
+    Ok(())
 }
