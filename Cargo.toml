@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 getopts = "0.2.21"
-gm8x = { git = "https://github.com/notviri/gm8emu" }
+gm8x = { git = "https://github.com/OpenGM8/GM8Emulator" }
 minio  = { git = "https://github.com/notviri/minio" }
