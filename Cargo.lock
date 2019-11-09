@@ -100,6 +100,7 @@ dependencies = [
 name = "gm8decompiler"
 version = "2.0.0"
 dependencies = [
+ "flate2 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "gm8x 0.1.0 (git+https://github.com/OpenGM8/GM8Emulator)",
  "minio 1.0.0 (git+https://github.com/notviri/minio)",
@@ -108,7 +109,7 @@ dependencies = [
 [[package]]
 name = "gm8x"
 version = "0.1.0"
-source = "git+https://github.com/OpenGM8/GM8Emulator#bd3a6ed076374ff69e4d1516c0df81116022a658"
+source = "git+https://github.com/OpenGM8/GM8Emulator#91652644db9eca74abeec0fd63bfb86c2f9d9f72"
 dependencies = [
  "flate2 1.0.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "minio 1.0.0 (git+https://github.com/notviri/minio)",

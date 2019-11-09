@@ -10,6 +10,11 @@ fn main() {
     // Set up getopts to parse our command line args
     let args: Vec<String> = env::args().collect();
 
+    // do this thing
+    let b: [u8; 8] = [0xF0, 0x94, 0xF0, 0xB2, 0x79, 0xE8, 0xE7, 0x40];
+    let c = f64::from_bits(u64::from_le_bytes(b));
+    println!("float: {}", c);
+
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "prints this help message");
     opts.optflag("l", "lazy", "disables various data integrity checks");
@@ -153,14 +158,17 @@ fn main() {
     }
 }
 
-fn write_gmk(filename: &str, _assets: GameAssets) -> std::io::Result<()> {
+fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     println!("Writing to '{}'", filename);
 
     // Set up a writer to write to our output file
     let mut gmk = fs::File::create(filename)?;
 
     // Write GMK header
-    gmk::write_header(&mut gmk)?;
+    gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)?;
+
+    // Write settings
+    gmk::write_settings(&mut gmk, assets.settings, assets.version)?;
 
     // TODO: the rest
     Ok(())
