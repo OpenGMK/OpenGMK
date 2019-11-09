@@ -318,13 +318,13 @@ pub struct Settings {
     pub loading_bar: u32,
 
     /// Loading bar - (Custom) Back Image
-    pub backdata: Box<[u8]>,
+    pub backdata: Option<Box<[u8]>>,
 
     /// Loading bar - (Custom) Front Image
-    pub frontdata: Box<[u8]>,
+    pub frontdata: Option<Box<[u8]>>,
 
     /// Show your own image while loading (data)
-    pub custom_load_image: Box<[u8]>,
+    pub custom_load_image: Option<Box<[u8]>>,
 
     /// Sub-value of `custom_load_image`:
     /// Make image partially translucent
@@ -1392,14 +1392,16 @@ where
     log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
 
     let settings = {
-        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Box<[u8]>, ReaderError> {
+        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<[u8]>>, ReaderError> {
             if cfg.read_u32_le()? != 0 {
                 let len = cfg.read_u32_le()? as usize;
                 let pos = cfg.position() as usize;
                 cfg.seek(SeekFrom::Current(len as i64))?;
-                Ok(inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice())
+                Ok(Some(
+                    inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice(),
+                ))
             } else {
-                Ok(Box::new([]))
+                Ok(None)
             }
         }
 
@@ -1429,10 +1431,10 @@ where
         let priority = cfg.read_u32_le()?;
         let freeze_on_lose_focus = cfg.read_u32_le()? != 0;
         let loading_bar = cfg.read_u32_le()?;
-        let (backdata, frontdata): (Box<[u8]>, Box<[u8]>) = if loading_bar != 0 {
+        let (backdata, frontdata): (Option<Box<[u8]>>, Option<Box<[u8]>>) = if loading_bar != 0 {
             (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?)
         } else {
-            (Box::new([]), Box::new([]))
+            (None, None)
         };
         let custom_load_image = read_data_maybe(&mut cfg)?;
         let transparent = cfg.read_u32_le()? != 0;
@@ -1577,7 +1579,7 @@ where
         log!(
             logger,
             "   - Show your own image while loading: {}",
-            !custom_load_image.is_empty()
+            custom_load_image.is_some()
         );
 
         log!(logger, "   -   -> Make image partially translucent: {}", transparent);
