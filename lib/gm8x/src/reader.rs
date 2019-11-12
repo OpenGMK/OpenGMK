@@ -354,6 +354,15 @@ pub struct Settings {
     pub error_on_uninitalized_args: bool,
 }
 
+/// The settings used to decrypt antidec2-protected data, usually extracted from machine code
+pub struct AntidecMetadata {
+    pub exe_load_offset: u32,
+    pub header_start: u32,
+    pub xor_mask: u32,
+    pub add_mask: u32,
+    pub sub_mask: u32,
+}
+
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
@@ -375,23 +384,23 @@ where
             let mut unpacked = io::Cursor::new(&mut *unpacked);
 
             // UPX unpacked, now check if this is a supported data format
-            if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(&mut unpacked)? {
+            if let Some(antidec_settings) = check_antidec(&mut unpacked)? {
                 if logger.is_some() {
                     log!(
                         logger,
-                        concat!(
-                            "Found antidec2 loading sequence, decrypting with the following values:\n",
-                            "exe_load_offset:0x{:X} header_start:0x{:X} ",
-                            "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}"
-                        ),
-                        exe_load_offset,
-                        header_start,
-                        xor_mask,
-                        add_mask,
-                        sub_mask
+                        "Found antidec2 loading sequence, decrypting with the following values:"
+                    );
+                    log!(
+                        logger,
+                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                        antidec_settings.exe_load_offset,
+                        antidec_settings.header_start,
+                        antidec_settings.xor_mask,
+                        antidec_settings.add_mask,
+                        antidec_settings.sub_mask
                     );
                 }
-                decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
+                decrypt_antidec(exe, antidec_settings)?;
 
                 // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                 exe.seek(SeekFrom::Current(12))?;
@@ -402,23 +411,23 @@ where
         }
         None => {
             // Check for antidec2 protection in the base exe (so without UPX on top of it)
-            if let Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)) = check_antidec(exe)? {
+            if let Some(antidec_settings) = check_antidec(exe)? {
                 if logger.is_some() {
                     log!(
                         logger,
-                        concat!(
-                            "Found antidec2 loading sequence [no UPX], decrypting with the following values:\n",
-                            "exe_load_offset:0x{:X} header_start:0x{:X} ",
-                            "xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                        ),
-                        exe_load_offset,
-                        header_start,
-                        xor_mask,
-                        add_mask,
-                        sub_mask
+                        "Found antidec2 loading sequence [no UPX], decrypting with the following values:"
+                    );
+                    log!(
+                        logger,
+                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                        antidec_settings.exe_load_offset,
+                        antidec_settings.header_start,
+                        antidec_settings.xor_mask,
+                        antidec_settings.add_mask,
+                        antidec_settings.sub_mask
                     );
                 }
-                decrypt_antidec(exe, exe_load_offset, header_start, xor_mask, add_mask, sub_mask)?;
+                decrypt_antidec(exe, antidec_settings)?;
 
                 // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                 exe.seek(SeekFrom::Current(12))?;
@@ -889,7 +898,7 @@ where
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe.
 /// If so, returns the relevant vars to decrypt the data stream
 /// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
-fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u32, u32, u32)>, ReaderError> {
+fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (GM80_HEADER_START_POS as usize) + 4 {
         return Ok(None);
@@ -921,7 +930,13 @@ fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u3
         // sub mask
         exe.set_position(0x000322E4);
         let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
-        Ok(Some((exe_load_offset, header_start, xor_mask, add_mask, sub_mask)))
+        Ok(Some(AntidecMetadata {
+            exe_load_offset,
+            header_start,
+            xor_mask,
+            add_mask,
+            sub_mask,
+        }))
     } else {
         Ok(None)
     }
@@ -929,15 +944,12 @@ fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<(u32, u32, u3
 
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
-fn decrypt_antidec(
-    data: &mut io::Cursor<&mut [u8]>,
-    exe_load_offset: u32,
-    header_start: u32,
-    mut xor_mask: u32,
-    mut add_mask: u32,
-    sub_mask: u32,
-) -> Result<(), ReaderError> {
-    let game_data = data.get_mut().get_mut(exe_load_offset as usize..).unwrap(); // <- TODO
+fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> Result<(), ReaderError> {
+    let game_data = data.get_mut().get_mut(settings.exe_load_offset as usize..).unwrap(); // <- TODO
+
+    let mut xor_mask = settings.xor_mask;
+    let mut add_mask = settings.add_mask;
+
     for chunk in game_data.rchunks_exact_mut(4) {
         // TODO: fix this when const generics start existing
         let chunk: &mut [u8; 4] = chunk
@@ -951,14 +963,14 @@ fn decrypt_antidec(
         value = value.swap_bytes();
 
         // cycle masks
-        xor_mask = xor_mask.wrapping_sub(sub_mask);
+        xor_mask = xor_mask.wrapping_sub(settings.sub_mask);
         add_mask = add_mask.swap_bytes().wrapping_add(1);
 
         // write decrypted value
         *chunk = value.to_le_bytes();
     }
 
-    data.set_position((exe_load_offset + header_start + 4) as u64);
+    data.set_position((settings.exe_load_offset + settings.header_start + 4) as u64);
     Ok(())
 }
 
