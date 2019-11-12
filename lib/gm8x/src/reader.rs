@@ -400,11 +400,15 @@ where
                         antidec_settings.sub_mask
                     );
                 }
-                decrypt_antidec(exe, antidec_settings)?;
-
-                // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-                exe.seek(SeekFrom::Current(12))?;
-                Ok(GameVersion::GameMaker8_0)
+                if decrypt_antidec(exe, antidec_settings)? {
+                    // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+                    exe.seek(SeekFrom::Current(12))?;
+                    Ok(GameVersion::GameMaker8_0)
+                }
+                else {
+                    // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
+                    Err(ReaderError::UnknownFormat)
+                }
             } else {
                 Err(ReaderError::UnknownFormat)
             }
@@ -427,11 +431,15 @@ where
                         antidec_settings.sub_mask
                     );
                 }
-                decrypt_antidec(exe, antidec_settings)?;
-
-                // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-                exe.seek(SeekFrom::Current(12))?;
-                Ok(GameVersion::GameMaker8_0)
+                if decrypt_antidec(exe, antidec_settings)? {
+                    // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
+                    exe.seek(SeekFrom::Current(12))?;
+                    Ok(GameVersion::GameMaker8_0)
+                }
+                else {
+                    // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
+                    Err(ReaderError::UnknownFormat)
+                }
             } else {
                 // Standard formats
                 if check_gm80(exe, logger)? {
@@ -944,8 +952,12 @@ fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetada
 
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
-fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> Result<(), ReaderError> {
-    let game_data = data.get_mut().get_mut(settings.exe_load_offset as usize..).unwrap(); // <- TODO
+/// Returns true on success, or false indicating that the provided settings are incompatible with the data.
+fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> Result<bool, ReaderError> {
+    let game_data = match data.get_mut().get_mut(settings.exe_load_offset as usize..) {
+        Some(d) => d,
+        None => return Ok(false),
+    };
 
     let mut xor_mask = settings.xor_mask;
     let mut add_mask = settings.add_mask;
@@ -971,7 +983,7 @@ fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) 
     }
 
     data.set_position((settings.exe_load_offset + settings.header_start + 4) as u64);
-    Ok(())
+    Ok(true)
 }
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
