@@ -63,6 +63,8 @@ impl<'a> Iterator for Lexer<'a> {
         }
 
         let head = *self.iter.peek()?;
+
+        #[allow(clippy::match_overlapping_arm)] // quotes overlap with the catch-all ASCII
         Some(match head.1 {
             // identifier, keyword or alphanumeric operator/separator
             b'A'..=b'Z' | b'a'..=b'z' | b'_' => {
@@ -127,40 +129,31 @@ impl<'a> Iterator for Lexer<'a> {
             b'0'..=b'9' | b'.' => {
                 let mut point_seen = false;
 
-                match head.1 {
-                    b'.' => {
-                        self.iter.next();
-                        match self.iter.peek() {
-                            Some(&(_, ch)) => match ch {
-                                b'0'..=b'9' => (),
-                                _ => return Some(Token::Separator(Separator::Period)),
-                            },
-                            _ => (),
+                if let (_, b'.') = head {
+                    self.iter.next();
+                    if let Some(&(_, ch)) = self.iter.peek() {
+                        match ch {
+                            b'0'..=b'9' => (),
+                            _ => return Some(Token::Separator(Separator::Period)),
                         }
                     }
-                    _ => (),
                 }
 
                 let mut result = 0.0f64;
                 let mut factor = 1.0f64;
-                loop {
-                    match self.iter.peek() {
-                        Some(&(_, ch)) => {
-                            match ch {
-                                ch @ b'0'..=b'9' => {
-                                    let dec = ch - b'0';
-                                    if point_seen {
-                                        factor /= 10.0;
-                                    }
-                                    result = result * 10.0 + (dec as f64);
-                                }
-                                b'.' => point_seen = true,
-                                _ => break,
+                while let Some(&(_, ch)) = self.iter.peek() {
+                    match ch {
+                        ch @ b'0'..=b'9' => {
+                            let dec = ch - b'0';
+                            if point_seen {
+                                factor /= 10.0;
                             }
-                            self.iter.next();
+                            result = result * 10.0 + f64::from(dec);
                         }
-                        None => break,
+                        b'.' => point_seen = true,
+                        _ => break,
                     }
+                    self.iter.next();
                 }
 
                 Token::Real(result * factor)
@@ -280,18 +273,14 @@ impl<'a> Iterator for Lexer<'a> {
                             // single line comments
                             Operator::Divide => {
                                 self.iter.next();
-                                loop {
-                                    match self.iter.peek() {
-                                        Some(&(_, ch)) => match ch {
-                                            b'\n' | b'\r' => break,
-                                            _ => {
-                                                self.iter.next();
-                                            }
-                                        },
-                                        None => break,
+                                while let Some(&(_, ch)) = self.iter.peek() {
+                                    match ch {
+                                        b'\n' | b'\r' => break,
+                                        _ => {
+                                            self.iter.next();
+                                        }
                                     }
                                 }
-
                                 return self.next();
                             }
 
@@ -324,30 +313,22 @@ impl<'a> Iterator for Lexer<'a> {
                         };
                         self.iter.next();
                         Token::Operator(eq_combo)
-                    }
-                    // multi-line comments
-                    else if op == Operator::Divide && ch2 == b'*' {
+                    } else if op == Operator::Divide && ch2 == b'*' {
+                        // multi-line comments
+
                         self.iter.next();
-                        loop {
-                            match self.iter.peek() {
-                                Some(&(_, ch)) => match ch {
-                                    b'*' => {
+                        while let Some(&(_, ch)) = self.iter.peek() {
+                            match ch {
+                                b'*' => {
+                                    self.iter.next();
+                                    if let Some(&(_, b'/')) = self.iter.peek() {
                                         self.iter.next();
-                                        match self.iter.peek() {
-                                            Some(&(_, ch)) => {
-                                                if ch == b'/' {
-                                                    self.iter.next();
-                                                    break;
-                                                }
-                                            }
-                                            None => break,
-                                        }
+                                        break;
                                     }
-                                    _ => {
-                                        self.iter.next();
-                                    }
-                                },
-                                None => break,
+                                }
+                                _ => {
+                                    self.iter.next();
+                                }
                             }
                         }
                         return self.next();
