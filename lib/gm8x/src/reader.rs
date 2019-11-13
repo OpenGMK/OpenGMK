@@ -51,6 +51,7 @@ pub struct GameAssets {
     pub version: GameVersion,
 
     pub icon_data: Vec<WindowsIcon>,
+    pub ico_file_raw: Vec<u8>,
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
@@ -126,7 +127,6 @@ pub struct WindowsIcon {
     pub height: u32,
     pub original_bpp: u16,
     pub bgra_data: Vec<u8>,
-    pub origin_ico_data: Vec<u8>,
 }
 
 fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>, ReaderError> {
@@ -150,7 +150,6 @@ fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>
                     height: ico_wh(height),
                     original_bpp: bpp,
                     bgra_data: d.to_vec(),
-                    origin_ico_data: blob,
                 })),
                 None => Ok(None),
             }
@@ -193,7 +192,6 @@ fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>
                 height: ico_wh(height),
                 original_bpp: bpp,
                 bgra_data,
-                origin_ico_data: blob,
             }))
         }
         _ => Ok(None),
@@ -1165,7 +1163,7 @@ fn extract_virtual_bytes(
 fn find_rsrc_icons(
     data: &mut io::Cursor<&mut [u8]>,
     pe_sections: &Vec<PESection>,
-) -> Result<Vec<WindowsIcon>, ReaderError> {
+) -> Result<(Vec<WindowsIcon>, Vec<u8>), ReaderError> {
     // top level header
     let rsrc_base = data.position();
     data.seek(SeekFrom::Current(12))?;
@@ -1175,7 +1173,6 @@ fn find_rsrc_icons(
     data.seek(SeekFrom::Current((name_count as i64) * 8))?;
 
     let mut icons: Vec<(u32, u32, u32)> = Vec::new(); // id, rva, size
-    let mut icon_group: Vec<WindowsIcon> = vec![];
 
     // read IDs until we find 3 (RT_ICON) or 14 (RT_GROUP_ICON)
     // Windows guarantees that these IDs will be in ascending order, so we'll find 3 before 14.
@@ -1191,7 +1188,7 @@ fn find_rsrc_icons(
             let leaf_count = data.read_u16_le()?;
             if leaf_count == 0 {
                 // No leaves under RT_ICON, so no icon
-                return Ok(vec![]);
+                return Ok((vec![], vec![]));
             }
 
             // Get each leaf
@@ -1222,7 +1219,7 @@ fn find_rsrc_icons(
             let leaf_count = data.read_u16_le()? + data.read_u16_le()?;
             if leaf_count == 0 {
                 // No leaves under RT_GROUP_ICON, so no icon
-                return Ok(vec![]);
+                return Ok((vec![], vec![]));
             }
 
             data.seek(SeekFrom::Current(4))?;
@@ -1241,6 +1238,8 @@ fn find_rsrc_icons(
                     let mut ico_header = io::Cursor::new(&v);
                     ico_header.seek(SeekFrom::Current(4))?;
                     let image_count = ico_header.read_u16_le()?;
+
+                    let mut icon_group: Vec<WindowsIcon> = vec![];
                     for _ in 0..image_count {
                         // Read the details of one icon in this group
                         let width = ico_header.read_u8()?;
@@ -1265,15 +1264,14 @@ fn find_rsrc_icons(
                             }
                         }
                     }
+                    return Ok((icon_group, v));
                 }
                 _ => (),
             }
-
-            break;
         }
     }
 
-    Ok(icon_group)
+    Ok((vec![], vec![]))
 }
 
 pub struct PESection {
@@ -1366,14 +1364,14 @@ where
         })
     }
 
-    let icon_data = if let Some(rsrc) = rsrc_location {
+    let (icon_data, ico_file_raw) = if let Some(rsrc) = rsrc_location {
         let temp_pos = exe.position();
         exe.set_position(rsrc as u64);
         let icons = find_rsrc_icons(&mut exe, &sections)?;
         exe.set_position(temp_pos);
         icons
     } else {
-        vec![]
+        (vec![], vec![])
     };
 
     log!(logger, "Loaded {} icon(s)", icon_data.len());
@@ -2088,6 +2086,7 @@ where
         included_files,
 
         icon_data,
+        ico_file_raw,
         version: game_ver,
         help_dialog,
         last_instance_id,
