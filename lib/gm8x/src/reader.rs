@@ -1235,13 +1235,21 @@ fn find_rsrc_icons(
                     // Read the ico header
                     let mut ico_header = io::Cursor::new(&v);
                     ico_header.seek(SeekFrom::Current(4))?;
-                    let image_count = ico_header.read_u16_le()?;
+                    let image_count = usize::from(ico_header.read_u16_le()?);
 
                     let mut icon_group: Vec<WindowsIcon> = vec![];
-                    let mut raw_file: Vec<u8> = Vec::new();
-                    raw_file.extend_from_slice(&v[0..18]);
-                    raw_file.extend_from_slice(&[0x16, 0x0, 0x0, 0x0]);
+
+                    let raw_header_size = (6 + (image_count * 16)) as usize;
+                    let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
+                    let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
+                    let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
+                    raw_file.extend_from_slice(&v[0..6]);
                     for _ in 0..image_count {
+                        // Copy data to raw file header
+                        let pos = ico_header.position() as usize;
+                        raw_file.extend_from_slice(&v[pos..pos + 12]);
+                        raw_file.write_u32_le((raw_header_size + raw_file_body.len()) as u32)?;
+
                         // Read the details of one icon in this group
                         let width = ico_header.read_u8()?;
                         let height = ico_header.read_u8()?;
@@ -1255,7 +1263,7 @@ fn find_rsrc_icons(
                             if icon.0 == ordinal as u32 && icon.2 >= 40 {
                                 match extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                     Some(v) => {
-                                        raw_file.extend_from_slice(&v);
+                                        raw_file_body.extend_from_slice(&v);
                                         if let Some(i) = make_icon(width, height, v)? {
                                             icon_group.push(i);
                                         }
@@ -1266,6 +1274,7 @@ fn find_rsrc_icons(
                             }
                         }
                     }
+                    raw_file.append(&mut raw_file_body);
                     return Ok((icon_group, raw_file));
                 }
                 _ => (),
