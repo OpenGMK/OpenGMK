@@ -1240,6 +1240,9 @@ fn find_rsrc_icons(
                     let image_count = ico_header.read_u16_le()?;
 
                     let mut icon_group: Vec<WindowsIcon> = vec![];
+                    let mut raw_file: Vec<u8> = Vec::new();
+                    raw_file.extend_from_slice(&v[0..18]);
+                    raw_file.extend_from_slice(&[0x16, 0x0, 0x0, 0x0]);
                     for _ in 0..image_count {
                         // Read the details of one icon in this group
                         let width = ico_header.read_u8()?;
@@ -1254,6 +1257,7 @@ fn find_rsrc_icons(
                             if icon.0 == ordinal as u32 && icon.2 >= 40 {
                                 match extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                     Some(v) => {
+                                        raw_file.extend_from_slice(&v);
                                         if let Some(i) = make_icon(width, height, v)? {
                                             icon_group.push(i);
                                         }
@@ -1264,7 +1268,7 @@ fn find_rsrc_icons(
                             }
                         }
                     }
-                    return Ok((icon_group, v));
+                    return Ok((icon_group, raw_file));
                 }
                 _ => (),
             }
