@@ -559,7 +559,7 @@ impl<'a> AST<'a> {
                                                 // This next op is lower than we're allowed to go, so we must return it
                                                 break Ok((
                                                     Expr::Binary(Box::new(BinaryExpr {
-                                                        op: op,
+                                                        op,
                                                         left: lhs,
                                                         right: rhs.0,
                                                     })),
@@ -569,7 +569,7 @@ impl<'a> AST<'a> {
                                                 // Update LHS by sticking RHS onto it,
                                                 // set op to the new operator, and go round again.
                                                 lhs = Expr::Binary(Box::new(BinaryExpr {
-                                                    op: op,
+                                                    op,
                                                     left: lhs,
                                                     right: rhs.0,
                                                 }));
@@ -583,7 +583,7 @@ impl<'a> AST<'a> {
                                         // No more operators so let's put our lhs and rhs together.
                                         break Ok((
                                             Expr::Binary(Box::new(BinaryExpr {
-                                                op: op,
+                                                op,
                                                 left: lhs,
                                                 right: rhs.0,
                                             })),
@@ -611,7 +611,7 @@ impl<'a> AST<'a> {
                                 } else {
                                     break Ok((
                                         Expr::Binary(Box::new(BinaryExpr {
-                                            op: op,
+                                            op,
                                             left: lhs,
                                             right: rhs.0,
                                         })),
@@ -664,7 +664,7 @@ impl<'a> AST<'a> {
                 if op == Operator::Add || op == Operator::Subtract || op == Operator::Not || op == Operator::Complement
                 {
                     Expr::Unary(Box::new(UnaryExpr {
-                        op: op,
+                        op,
                         child: AST::read_btree_expression(lex, line, None)?,
                     }))
                 } else {
@@ -814,7 +814,7 @@ impl<'a> AST<'a> {
         }
         Ok(Expr::Function(Box::new(FunctionExpr {
             name: function_name,
-            params: params,
+            params,
         })))
     }
 
