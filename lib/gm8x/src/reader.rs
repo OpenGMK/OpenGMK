@@ -137,7 +137,7 @@ fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>
     data.set_position(data_start as u64);
 
     // 0 size actually means 256
-    let ico_wh = |n| if n == 0 { 256 } else { n as _ };
+    let ico_wh = |n| if n == 0 { 256 } else { u32::from(n) };
 
     match bpp {
         32 => {
@@ -443,9 +443,7 @@ where
                 // Standard formats
                 if check_gm80(exe, logger)? {
                     Ok(GameVersion::GameMaker8_0)
-                } else if check_gm81(exe, logger)? {
-                    Ok(GameVersion::GameMaker8_1)
-                } else if check_gm81_lazy(exe, logger)? {
+                } else if check_gm81(exe, logger)? || check_gm81_lazy(exe, logger)? {
                     Ok(GameVersion::GameMaker8_1)
                 } else {
                     Err(ReaderError::UnknownFormat)
@@ -1693,7 +1691,7 @@ where
     if let Some(out_path) = dump_dll {
         println!("Dumping DirectX DLL to {}...", out_path.display());
         let mut dll_data = vec![0u8; dll_len as usize];
-        exe.read(&mut dll_data)?;
+        exe.read_exact(&mut dll_data)?;
         fs::write(out_path, &dll_data)?;
     } else {
         exe.seek(SeekFrom::Current(dll_len))?;
