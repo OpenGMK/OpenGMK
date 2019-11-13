@@ -126,10 +126,11 @@ pub struct WindowsIcon {
     pub height: u32,
     pub original_bpp: u16,
     pub bgra_data: Vec<u8>,
+    pub origin_ico_data: Vec<u8>,
 }
 
-fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon>, ReaderError> {
-    let mut data = io::Cursor::new(blob);
+fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>, ReaderError> {
+    let mut data = io::Cursor::new(&blob);
     let data_start = data.read_u32_le()? as usize;
     data.set_position(14);
     let bpp = data.read_u16_le()?;
@@ -149,6 +150,7 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                     height: ico_wh(height),
                     original_bpp: bpp,
                     bgra_data: d.to_vec(),
+                    origin_ico_data: blob,
                 })),
                 None => Ok(None),
             }
@@ -191,6 +193,7 @@ fn make_icon(width: u8, height: u8, blob: &Vec<u8>) -> Result<Option<WindowsIcon
                 height: ico_wh(height),
                 original_bpp: bpp,
                 bgra_data,
+                origin_ico_data: blob,
             }))
         }
         _ => Ok(None),
@@ -404,8 +407,7 @@ where
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                     exe.seek(SeekFrom::Current(12))?;
                     Ok(GameVersion::GameMaker8_0)
-                }
-                else {
+                } else {
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
                     Err(ReaderError::UnknownFormat)
                 }
@@ -435,8 +437,7 @@ where
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                     exe.seek(SeekFrom::Current(12))?;
                     Ok(GameVersion::GameMaker8_0)
-                }
-                else {
+                } else {
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
                     Err(ReaderError::UnknownFormat)
                 }
@@ -1254,7 +1255,7 @@ fn find_rsrc_icons(
                             if icon.0 == ordinal as u32 && icon.2 >= 40 {
                                 match extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                     Some(v) => {
-                                        if let Some(i) = make_icon(width, height, &v)? {
+                                        if let Some(i) = make_icon(width, height, v)? {
                                             icon_group.push(i);
                                         }
                                     }
