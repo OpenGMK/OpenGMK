@@ -175,7 +175,7 @@ impl Asset for Sprite {
         result += writer.write_u32_le(VERSION as u32)?;
         result += writer.write_i32_le(self.origin_x)?;
         result += writer.write_i32_le(self.origin_y)?;
-        if self.frames.len() != 0 {
+        if !self.frames.is_empty() {
             result += writer.write_u32_le(self.frames.len() as u32)?;
             for frame in self.frames.iter() {
                 result += writer.write_u32_le(VERSION_FRAME)?;
