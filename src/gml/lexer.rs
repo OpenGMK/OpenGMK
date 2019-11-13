@@ -51,7 +51,7 @@ impl<'a> Lexer<'a> {
 impl<'a> Iterator for Lexer<'a> {
     type Item = Token<'a>;
 
-    fn next(&mut self) -> Option<Token<'a>> {
+    fn next(&mut self) -> Option<Self::Item> {
         // locate next token
         self.line_hint = self.fast_forward();
 
