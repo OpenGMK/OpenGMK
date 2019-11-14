@@ -5,6 +5,14 @@ use minio::WritePrimitives;
 use std::io::{self, Write};
 use std::u32;
 
+pub trait WritePascalString: io::Write + minio::WritePrimitives {
+    fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
+        self.write_u32_le(s.len() as u32)
+            .and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
+    }
+}
+impl<W> WritePascalString for W where W: io::Write {}
+
 pub fn write_header<W>(
     writer: &mut W,
     version: GameVersion,
@@ -29,6 +37,7 @@ where
 pub fn write_settings<W>(
     writer: &mut W,
     settings: Settings,
+    ico_file: Vec<u8>,
     version: GameVersion,
 ) -> io::Result<usize>
 where
@@ -114,8 +123,8 @@ where
     enc.write_u32_le(settings.translucency)?;
     enc.write_u32_le(settings.scale_progress_bar as u32)?;
 
-    // TODO: icon data
-    enc.write_u32_le(0)?;
+    enc.write_u32_le(ico_file.len() as u32)?;
+    enc.write_all(&ico_file)?;
 
     enc.write_u32_le(settings.show_error_messages as u32)?;
     enc.write_u32_le(settings.log_errors as u32)?;
@@ -128,21 +137,21 @@ where
         )?,
     };
 
-    // author and metadata - we'd have to extract these from the manifest and I'm pretty sure no one cares about them
-    // todo:
-    // author - string
-    // version - string
-    // timestamp - f64?
-    // information - string
-    // major version - u32
-    // minor version - u32
-    // release version - u32
-    // build version - u32
-    // company - string
-    // product - string
-    // copyright info - string
-    // description - string
-    // timestamp - f64?
+    enc.write_pas_string("decompiler clan :police_car: :police_car: :police_car:")?; // author
+    enc.write_pas_string("")?; // version string
+    enc.write_u64_le(0)?; // timestamp (actually an f64 but it doesn't matter what we write)
+    enc.write_pas_string("")?; // information
+
+    // TODO: extract all this stuff from .rsrc in gm8x
+    enc.write_u32_le(1)?; // major version
+    enc.write_u32_le(0)?; // minor version
+    enc.write_u32_le(0)?; // release version
+    enc.write_u32_le(0)?; // build version
+    enc.write_pas_string("")?; // company
+    enc.write_pas_string("")?; // product
+    enc.write_pas_string("")?; // copyright info
+    enc.write_pas_string("")?; // description
+    enc.write_u64_le(0)?; // timestamp
 
     result += writer.write_u32_le(enc.total_out() as u32)?;
     result += writer.write(&enc.finish()?)?;
