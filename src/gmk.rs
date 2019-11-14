@@ -81,7 +81,9 @@ where
                     flate2::Compression::default(),
                 );
                 backdata_enc.write_all(&data)?;
-                enc.write_all(&backdata_enc.finish()?)?;
+                let compressed = backdata_enc.finish()?;
+                enc.write_u32_le(compressed.len() as u32)?;
+                enc.write_all(&compressed)?;
             }
             None => {
                 enc.write_u32_le(0)?;
@@ -96,7 +98,9 @@ where
                     flate2::Compression::default(),
                 );
                 frontdata_enc.write_all(&data)?;
-                enc.write_all(&frontdata_enc.finish()?)?;
+                let compressed = frontdata_enc.finish()?;
+                enc.write_u32_le(compressed.len() as u32)?;
+                enc.write_all(&compressed)?;
             }
             None => {
                 enc.write_u32_le(0)?;
@@ -106,13 +110,19 @@ where
 
     match settings.custom_load_image {
         Some(data) => {
+            // In GMK format, the first bool is for whether there's a custom load image and the second is for
+            // whether there's actually any data following it. There is only one bool in exe format, thus
+            // we need to write two redundant "true"s here.
+            enc.write_u32_le(1)?;
             enc.write_u32_le(1)?;
             let mut ci_enc = ZlibEncoder::new(
                 Vec::with_capacity(data.len()),
                 flate2::Compression::default(),
             );
             ci_enc.write_all(&data)?;
-            enc.write_all(&ci_enc.finish()?)?;
+            let compressed = ci_enc.finish()?;
+            enc.write_u32_le(compressed.len() as u32)?;
+            enc.write_all(&compressed)?;
         }
         None => {
             enc.write_u32_le(0)?;
@@ -153,8 +163,9 @@ where
     enc.write_pas_string("")?; // description
     enc.write_u64_le(0)?; // timestamp
 
-    result += writer.write_u32_le(enc.total_out() as u32)?;
-    result += writer.write(&enc.finish()?)?;
+    let encoded = enc.finish()?;
+    result += writer.write_u32_le(encoded.len() as u32)?;
+    result += writer.write(&encoded)?;
 
     Ok(result)
 }
