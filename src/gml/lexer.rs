@@ -73,11 +73,11 @@ impl<'a> Iterator for Lexer<'a> {
                 let identifier = {
                     loop {
                         match self.iter.peek() {
-                            Some(&tail) => match tail.1 {
+                            Some(&(tail, ch)) => match ch {
                                 b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' => {
                                     self.iter.next();
                                 }
-                                _ => break sl(&self.src, head.0..tail.0),
+                                _ => break sl(&self.src, head.0..tail),
                             },
                             None => break sl(&self.src, head.0..),
                         }
@@ -174,17 +174,19 @@ impl<'a> Iterator for Lexer<'a> {
 
                 // new head after opening quote
                 let head = match self.iter.peek() {
-                    Some(&(i, _)) => i,
+                    Some(&(head, _)) => head,
                     None => return Some(Token::String("")),
                 };
 
                 let string = loop {
                     match self.iter.next() {
-                        Some((i, ch)) => {
-                            if ch == quote {
-                                break sl(&self.src, head..i);
-                            }
-                        }
+                        Some((tail, ch)) if ch == quote => break sl(&self.src, head..tail),
+                        Some(_) => (),
+
+                        // In GML, if a quote is unclosed it's still a valid string,
+                        // but interestingly enough unclosed strings end in CRLF and three spaces.
+                        // This is likely due to how the runner allocates scripts and is UB,
+                        // and to match the runner behaviour we append that to the end of scripts.
                         None => break sl(&self.src, head..),
                     }
                 };
@@ -204,11 +206,11 @@ impl<'a> Iterator for Lexer<'a> {
 
                 let hex = loop {
                     match self.iter.peek() {
-                        Some(&(i, ch)) => match ch {
+                        Some(&(tail, ch)) => match ch {
                             b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                                 self.iter.next();
                             }
-                            _ => break sl(&self.src, head..i),
+                            _ => break sl(&self.src, head..tail),
                         },
                         None => break sl(&self.src, head..),
                     }
