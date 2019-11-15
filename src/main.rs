@@ -5,15 +5,11 @@ use std::fs;
 use std::path::Path;
 
 pub mod gmk;
+pub mod zlib;
 
 fn main() {
     // Set up getopts to parse our command line args
     let args: Vec<String> = env::args().collect();
-
-    // do this thing
-    let b: [u8; 8] = [0xF0, 0x94, 0xF0, 0xB2, 0x79, 0xE8, 0xE7, 0x40];
-    let c = f64::from_bits(u64::from_le_bytes(b));
-    println!("float: {}", c);
 
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "prints this help message");

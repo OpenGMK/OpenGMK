@@ -1,9 +1,9 @@
-use flate2::write::ZlibEncoder;
 use gm8x::reader::Settings;
 use gm8x::GameVersion;
 use minio::WritePrimitives;
 use std::io::{self, Write};
 use std::u32;
+use crate::zlib::ZlibWriter;
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
@@ -44,7 +44,7 @@ where
     W: io::Write,
 {
     let mut result = writer.write_u32_le(800)?;
-    let mut enc = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    let mut enc = ZlibWriter::new();
     enc.write_u32_le(settings.fullscreen as u32)?;
     enc.write_u32_le(settings.dont_draw_border as u32)?;
     enc.write_u32_le(settings.display_cursor as u32)?;
@@ -76,14 +76,9 @@ where
         match settings.backdata {
             Some(data) => {
                 enc.write_u32_le(1)?;
-                let mut backdata_enc = ZlibEncoder::new(
-                    Vec::with_capacity(data.len()),
-                    flate2::Compression::default(),
-                );
+                let mut backdata_enc = ZlibWriter::new();
                 backdata_enc.write_all(&data)?;
-                let compressed = backdata_enc.finish()?;
-                enc.write_u32_le(compressed.len() as u32)?;
-                enc.write_all(&compressed)?;
+                backdata_enc.finish(&mut enc)?;
             }
             None => {
                 enc.write_u32_le(0)?;
@@ -93,14 +88,9 @@ where
         match settings.frontdata {
             Some(data) => {
                 enc.write_u32_le(1)?;
-                let mut frontdata_enc = ZlibEncoder::new(
-                    Vec::with_capacity(data.len()),
-                    flate2::Compression::default(),
-                );
+                let mut frontdata_enc = ZlibWriter::new();
                 frontdata_enc.write_all(&data)?;
-                let compressed = frontdata_enc.finish()?;
-                enc.write_u32_le(compressed.len() as u32)?;
-                enc.write_all(&compressed)?;
+                frontdata_enc.finish(&mut enc)?;
             }
             None => {
                 enc.write_u32_le(0)?;
@@ -115,14 +105,9 @@ where
             // we need to write two redundant "true"s here.
             enc.write_u32_le(1)?;
             enc.write_u32_le(1)?;
-            let mut ci_enc = ZlibEncoder::new(
-                Vec::with_capacity(data.len()),
-                flate2::Compression::default(),
-            );
+            let mut ci_enc = ZlibWriter::new();
             ci_enc.write_all(&data)?;
-            let compressed = ci_enc.finish()?;
-            enc.write_u32_le(compressed.len() as u32)?;
-            enc.write_all(&compressed)?;
+            ci_enc.finish(&mut enc)?;
         }
         None => {
             enc.write_u32_le(0)?;
@@ -163,9 +148,7 @@ where
     enc.write_pas_string("")?; // description
     enc.write_u64_le(0)?; // timestamp
 
-    let encoded = enc.finish()?;
-    result += writer.write_u32_le(encoded.len() as u32)?;
-    result += writer.write(&encoded)?;
+    result += enc.finish(writer)?;
 
     Ok(result)
 }
