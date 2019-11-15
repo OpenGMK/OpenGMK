@@ -179,6 +179,7 @@ impl<'a> Iterator for Lexer<'a> {
                 };
 
                 let string = loop {
+                    // matching next() here implicitly skips closing quote
                     match self.iter.next() {
                         Some((tail, ch)) if ch == quote => break sl(&self.src, head..tail),
                         Some(_) => (),
