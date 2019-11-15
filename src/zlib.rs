@@ -1,6 +1,6 @@
 use flate2::write::ZlibEncoder;
 use minio::WritePrimitives;
-use std::io::Write;
+use std::io::{self, Write};
 
 /// Takes some data and writes the compressed data to the cursor in GM8 format.
 pub struct ZlibWriter {
@@ -14,7 +14,7 @@ impl ZlibWriter {
         }
     }
 
-    pub fn finish<W: Write>(self, cursor: &mut W) -> std::io::Result<usize> {
+    pub fn finish<W: Write>(self, cursor: &mut W) -> io::Result<usize> {
         let encoded = self.encoder.finish()?;
         let size_len = cursor.write_u32_le(encoded.len() as u32)?;
         cursor.write_all(&encoded)?;
@@ -23,11 +23,11 @@ impl ZlibWriter {
 }
 
 impl Write for ZlibWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         self.encoder.flush()
     }
 }
