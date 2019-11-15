@@ -1,9 +1,10 @@
 use super::token::{Keyword, Operator, Separator, Token};
 
-use std::iter::{Enumerate, Peekable};
-use std::ops::Range;
-use std::str::{self, Bytes};
-use std::u64;
+use std::{
+    iter::{Enumerate, Peekable},
+    slice::SliceIndex,
+    str, u64,
+};
 
 pub struct Lexer<'a> {
     /// GML source code to return references to.
@@ -12,7 +13,7 @@ pub struct Lexer<'a> {
     line_hint: usize,
 
     /// Iterator over the source code as raw bytes.
-    iter: Peekable<Enumerate<Bytes<'a>>>,
+    iter: Peekable<Enumerate<str::Bytes<'a>>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -55,10 +56,11 @@ impl<'a> Iterator for Lexer<'a> {
         // locate next token
         self.line_hint = self.fast_forward();
 
-        // this is fine since we operate on something that is a &str in a first place
-        // we should of course never use a value not pulled from peek() as range indices
-        let src = self.src; // since &mut self
-        fn to_str<'a>(src: &'a str, range: Range<usize>) -> &'a str {
+        /// Helper function to reconstruct our byte slices to a string easily.
+        /// This is fine since we operate on something that is a &str in a first place,
+        /// and we never (should) use a value not pulled from our iterators as range indices.
+        #[inline(always)]
+        fn sl<R: SliceIndex<[u8], Output = [u8]>>(src: &str, range: R) -> &str {
             unsafe { str::from_utf8_unchecked(src.as_bytes().get_unchecked(range)) }
         }
 
@@ -75,9 +77,9 @@ impl<'a> Iterator for Lexer<'a> {
                                 b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' => {
                                     self.iter.next();
                                 }
-                                _ => break to_str(src, head.0..tail.0),
+                                _ => break sl(&self.src, head.0..tail.0),
                             },
-                            None => break to_str(src, head.0..src.len()),
+                            None => break sl(&self.src, head.0..),
                         }
                     }
                 };
@@ -180,10 +182,10 @@ impl<'a> Iterator for Lexer<'a> {
                     match self.iter.next() {
                         Some((i, ch)) => {
                             if ch == quote {
-                                break to_str(src, head..i);
+                                break sl(&self.src, head..i);
                             }
                         }
-                        None => break to_str(src, head..src.len()),
+                        None => break sl(&self.src, head..),
                     }
                 };
                 Token::String(string)
@@ -206,9 +208,9 @@ impl<'a> Iterator for Lexer<'a> {
                             b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                                 self.iter.next();
                             }
-                            _ => break to_str(src, head..i),
+                            _ => break sl(&self.src, head..i),
                         },
-                        None => break to_str(src, head..src.len()),
+                        None => break sl(&self.src, head..),
                     }
                 };
 
