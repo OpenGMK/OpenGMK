@@ -1465,7 +1465,7 @@ where
         let priority = cfg.read_u32_le()?;
         let freeze_on_lose_focus = cfg.read_u32_le()? != 0;
         let loading_bar = cfg.read_u32_le()?;
-        let (backdata, frontdata): (Option<Box<[u8]>>, Option<Box<[u8]>>) = if loading_bar != 0 {
+        let (backdata, frontdata) = if loading_bar != 0 {
             (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?)
         } else {
             (None, None)
