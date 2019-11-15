@@ -23,17 +23,17 @@ impl Color {
     }
 
     /// Converts the color to an ABGR decimal value.
-    pub fn as_decimal(&self) -> u32 {
+    pub fn as_decimal(self) -> u32 {
         ((self.a as u32) << 24 | (self.b as u32) << 16 | (self.g as u32) << 8 | self.r as u32)
     }
 
     /// Creates a tuple of (r, g, b) values from self.
-    pub fn as_rgba(&self) -> (u8, u8, u8, u8) {
+    pub fn as_rgba(self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
     }
 
     /// Formats self as an RGBA hexadecimal value.
-    pub fn as_hexstring(&self) -> String {
+    pub fn as_hexstring(self) -> String {
         format!("{:0>8X}", self.as_decimal().swap_bytes())
     }
 }
