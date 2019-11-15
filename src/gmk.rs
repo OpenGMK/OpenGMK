@@ -1,9 +1,9 @@
+use crate::zlib::ZlibWriter;
 use gm8x::reader::Settings;
 use gm8x::GameVersion;
 use minio::WritePrimitives;
 use std::io::{self, Write};
 use std::u32;
-use crate::zlib::ZlibWriter;
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {

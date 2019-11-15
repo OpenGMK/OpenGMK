@@ -164,7 +164,12 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)?;
 
     // Write settings
-    gmk::write_settings(&mut gmk, assets.settings, assets.ico_file_raw, assets.version)?;
+    gmk::write_settings(
+        &mut gmk,
+        assets.settings,
+        assets.ico_file_raw,
+        assets.version,
+    )?;
 
     // TODO: the rest
     Ok(())
