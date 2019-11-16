@@ -89,8 +89,8 @@ impl Asset for Font {
         };
 
         let mut dmap = [0u32; 0x600];
-        for i in 0..dmap.len() {
-            dmap[i] = reader.read_u32_le()?;
+        for val in dmap.iter_mut() {
+            *val = reader.read_u32_le()?;
         }
         let map_width = reader.read_u32_le()?;
         let map_height = reader.read_u32_le()?;

@@ -11,17 +11,17 @@ use glutin::{
 };
 use gm8x::{
     asset::Room,
-    reader::{GameAssets, WindowsIcon},
+    reader::{GameAssets, Settings as ExeSettings, WindowsIcon},
 };
 
 use std::convert::identity;
 
 fn create_window(
     room1: &Room,
-    icons: &Vec<WindowsIcon>,
-    settings: &gm8x::reader::Settings,
+    icons: &[WindowsIcon],
+    settings: &ExeSettings,
 ) -> (ContextWrapper<PossiblyCurrent, ()>, EventLoop<()>, Window) {
-    fn get_icon(icons: &Vec<WindowsIcon>, preferred_width: i32) -> Option<Icon> {
+    fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<Icon> {
         fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(preferred_width: i32, i: I) -> Option<&'a WindowsIcon> {
             i.min_by(|a, b| {
                 (a.width as i32 - preferred_width)
