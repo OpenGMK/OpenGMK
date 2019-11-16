@@ -1,6 +1,6 @@
 use crate::zlib::ZlibWriter;
 use gm8x::reader::Settings;
-use gm8x::GameVersion;
+use gm8x::{asset, GameVersion};
 use minio::WritePrimitives;
 use std::io::{self, Write};
 use std::u32;
@@ -13,6 +13,7 @@ pub trait WritePascalString: io::Write + minio::WritePrimitives {
 }
 impl<W> WritePascalString for W where W: io::Write {}
 
+// Writes GMK file header
 pub fn write_header<W>(
     writer: &mut W,
     version: GameVersion,
@@ -34,6 +35,13 @@ where
     Ok(result)
 }
 
+// Write a timestamp (currently writes 0, which correlates to 1899-01-01)
+#[inline]
+pub fn write_timestamp<W>(writer: &mut W) -> io::Result<usize> where W: io::Write {
+    writer.write_u64_le(0)
+}
+
+// Writes a settings block to GMK
 pub fn write_settings<W>(
     writer: &mut W,
     settings: Settings,
@@ -134,7 +142,7 @@ where
 
     enc.write_pas_string("decompiler clan :police_car: :police_car: :police_car:")?; // author
     enc.write_pas_string("")?; // version string
-    enc.write_u64_le(0)?; // timestamp (actually an f64 but it doesn't matter what we write)
+    write_timestamp(&mut enc)?; // timestamp
     enc.write_pas_string("")?; // information
 
     // TODO: extract all this stuff from .rsrc in gm8x
@@ -146,9 +154,56 @@ where
     enc.write_pas_string("")?; // product
     enc.write_pas_string("")?; // copyright info
     enc.write_pas_string("")?; // description
-    enc.write_u64_le(0)?; // timestamp
+    write_timestamp(&mut enc)?; // timestamp
 
     result += enc.finish(writer)?;
 
+    Ok(result)
+}
+
+// Helper fn - takes a set of assets from an iterator and passes them to the write function for that asset
+pub fn write_asset_list<W, T, F>(
+    writer: &mut W,
+    list: &[Option<Box<T>>],
+    write_fn: F,
+    gmk_version: u32,
+    version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+    F: Fn(&mut ZlibWriter, &T, GameVersion) -> io::Result<usize>
+{
+    let mut result = writer.write_u32_le(gmk_version)?;
+    result += writer.write_u32_le(list.len() as u32)?;
+    for asset in list.iter() {
+        let mut enc = ZlibWriter::new();
+        match asset {
+            Some(a) => {
+                enc.write_u32_le(true as u32)?;
+                write_fn(&mut enc, a.as_ref(), version)?;
+            },
+            None => {
+                enc.write_u32_le(false as u32)?;
+            },
+        };
+        result += enc.finish(writer)?;
+    }
+    Ok(result)
+}
+
+// Writes a trigger (uncompressed data)
+pub fn write_trigger<W>(
+    writer: &mut W,
+    trigger: &asset::Trigger,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(800)?;
+    result += writer.write_pas_string(&trigger.name)?;
+    result += writer.write_pas_string(&trigger.condition)?;
+    result += writer.write_u32_le(trigger.moment as u32)?;
+    result += writer.write_pas_string(&trigger.constant_name)?;
     Ok(result)
 }
