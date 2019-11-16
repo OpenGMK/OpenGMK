@@ -95,10 +95,10 @@ impl Display for ReaderError {
             "{}",
             match self {
                 ReaderError::AssetError(err) => format!("asset data error: {}", err),
-                ReaderError::InvalidExeHeader => format!("invalid exe header"),
+                ReaderError::InvalidExeHeader => "invalid exe header".into(),
                 ReaderError::IO(err) => format!("io error: {}", err),
-                ReaderError::PartialUPXPacking => format!("looks upx protected, can't locate headers"),
-                ReaderError::UnknownFormat => format!("unknown format, could not identify file"),
+                ReaderError::PartialUPXPacking => "looks upx protected, can't locate headers".into(),
+                ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
             }
         )
     }
@@ -805,17 +805,12 @@ where
     // generate crc table
     let mut crc_table = [0u32; 256];
     let crc_polynomial: u32 = 0x04C11DB7;
-    for i in 0..256 {
-        crc_table[i] = crc_32_reflect(i as u32, 8) << 24;
+    for (i, val) in crc_table.iter_mut().enumerate() {
+        *val = crc_32_reflect(i as u32, 8) << 24;
         for _ in 0..8 {
-            crc_table[i] = (crc_table[i] << 1)
-                ^ (if crc_table[i] & (1 << 31) != 0 {
-                    crc_polynomial
-                } else {
-                    0
-                });
+            *val = (*val << 1) ^ if *val & (1 << 31) != 0 { crc_polynomial } else { 0 };
         }
-        crc_table[i] = crc_32_reflect(crc_table[i], 32);
+        *val = crc_32_reflect(*val, 32);
     }
 
     // get our two seeds for generating xor masks
@@ -1136,7 +1131,7 @@ where
 /// Extracts some bytes from the file from their location in the initialized exe's memory
 fn extract_virtual_bytes(
     data: &mut io::Cursor<&mut [u8]>,
-    pe_sections: &Vec<PESection>,
+    pe_sections: &[PESection],
     rva: u32,
     size: usize,
 ) -> Result<Option<Vec<u8>>, ReaderError> {
@@ -1160,7 +1155,7 @@ fn extract_virtual_bytes(
 /// Finds the icon group from the exe file which will be used for the window icon.
 fn find_rsrc_icons(
     data: &mut io::Cursor<&mut [u8]>,
-    pe_sections: &Vec<PESection>,
+    pe_sections: &[PESection],
 ) -> Result<(Vec<WindowsIcon>, Vec<u8>), ReaderError> {
     // top level header
     let rsrc_base = data.position();
@@ -1230,54 +1225,48 @@ fn find_rsrc_icons(
             let rva = data.read_u32_le()?;
             let size = data.read_u32_le()?;
 
-            match extract_virtual_bytes(data, pe_sections, rva, size as usize)? {
-                Some(v) => {
-                    // Read the ico header
-                    let mut ico_header = io::Cursor::new(&v);
+            if let Some(v) = extract_virtual_bytes(data, pe_sections, rva, size as usize)? {
+                // Read the ico header
+                let mut ico_header = io::Cursor::new(&v);
+                ico_header.seek(SeekFrom::Current(4))?;
+                let image_count = usize::from(ico_header.read_u16_le()?);
+
+                let mut icon_group: Vec<WindowsIcon> = vec![];
+
+                let raw_header_size = (6 + (image_count * 16)) as usize;
+                let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
+                let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
+                let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
+                raw_file.extend_from_slice(&v[0..6]);
+                for _ in 0..image_count {
+                    // Copy data to raw file header
+                    let pos = ico_header.position() as usize;
+                    raw_file.extend_from_slice(&v[pos..pos + 12]);
+                    raw_file.write_u32_le((raw_header_size + raw_file_body.len()) as u32)?;
+
+                    // Read the details of one icon in this group
+                    let width = ico_header.read_u8()?;
+                    let height = ico_header.read_u8()?;
                     ico_header.seek(SeekFrom::Current(4))?;
-                    let image_count = usize::from(ico_header.read_u16_le()?);
+                    let _bits_per_pixel = ico_header.read_u16_le()?; // seems to be wrong sometimes...
+                    ico_header.seek(SeekFrom::Current(4))?;
+                    let ordinal = ico_header.read_u16_le()?;
 
-                    let mut icon_group: Vec<WindowsIcon> = vec![];
-
-                    let raw_header_size = (6 + (image_count * 16)) as usize;
-                    let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
-                    let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
-                    let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
-                    raw_file.extend_from_slice(&v[0..6]);
-                    for _ in 0..image_count {
-                        // Copy data to raw file header
-                        let pos = ico_header.position() as usize;
-                        raw_file.extend_from_slice(&v[pos..pos + 12]);
-                        raw_file.write_u32_le((raw_header_size + raw_file_body.len()) as u32)?;
-
-                        // Read the details of one icon in this group
-                        let width = ico_header.read_u8()?;
-                        let height = ico_header.read_u8()?;
-                        ico_header.seek(SeekFrom::Current(4))?;
-                        let _bits_per_pixel = ico_header.read_u16_le()?; // seems to be wrong sometimes...
-                        ico_header.seek(SeekFrom::Current(4))?;
-                        let ordinal = ico_header.read_u16_le()?;
-
-                        // Match this ordinal name with an icon resource
-                        for icon in &icons {
-                            if icon.0 == ordinal as u32 && icon.2 >= 40 {
-                                match extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
-                                    Some(v) => {
-                                        raw_file_body.extend_from_slice(&v);
-                                        if let Some(i) = make_icon(width, height, v)? {
-                                            icon_group.push(i);
-                                        }
-                                    }
-                                    None => (),
+                    // Match this ordinal name with an icon resource
+                    for icon in &icons {
+                        if icon.0 == ordinal as u32 && icon.2 >= 40 {
+                            if let Some(v) = extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
+                                raw_file_body.extend_from_slice(&v);
+                                if let Some(i) = make_icon(width, height, v)? {
+                                    icon_group.push(i);
                                 }
-                                break;
                             }
+                            break;
                         }
                     }
-                    raw_file.append(&mut raw_file_body);
-                    return Ok((icon_group, raw_file));
                 }
-                _ => (),
+                raw_file.append(&mut raw_file_body);
+                return Ok((icon_group, raw_file));
             }
         }
     }

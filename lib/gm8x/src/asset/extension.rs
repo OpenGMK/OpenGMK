@@ -161,8 +161,8 @@ impl Extension {
 
                 let arg_count = reader.read_u32_le()? as usize;
                 let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
-                for i in 0..ARG_MAX {
-                    arg_types[i] = reader.read_u32_le()?.into();
+                for val in arg_types.iter_mut() {
+                    *val = reader.read_u32_le()?.into();
                 }
                 let return_type: FunctionValueKind = reader.read_u32_le()?.into();
 
@@ -222,8 +222,8 @@ impl Extension {
             if seed2 < 0 {
                 seed2 += 100;
             }
-            for i in 0..char_table.len() {
-                char_table[i] = (i % 256) as u8; // 0-255 then 0-255 again
+            for (i, val) in char_table.iter_mut().enumerate() {
+                *val = (i % 256) as u8; // 0-255 repeating (twice)
             }
 
             // calculating char table - pass 1: pseudorandom byteswap

@@ -67,7 +67,7 @@ impl Display for AssetDataError {
                     *got,
                     *got as f32 / 100.0
                 ),
-                AssetDataError::MalformedData => format!("malformed data while reading"),
+                AssetDataError::MalformedData => "malformed data while reading".into(),
             }
         )
     }

@@ -86,8 +86,8 @@ impl CodeAction {
         }
 
         let mut param_types = [0u32; PARAM_COUNT];
-        for i in 0..PARAM_COUNT {
-            param_types[i] = reader.read_u32_le()?;
+        for val in param_types.iter_mut() {
+            *val = reader.read_u32_le()?;
         }
 
         let applies_to = reader.read_i32_le()? as ID;
@@ -99,8 +99,8 @@ impl CodeAction {
         }
 
         let mut param_strings: [String; 8] = Default::default();
-        for i in 0..PARAM_COUNT {
-            param_strings[i] = reader.read_pas_string()?;
+        for val in param_strings.iter_mut() {
+            *val = reader.read_pas_string()?;
         }
 
         let invert_condition = reader.read_u32_le()? != 0;
