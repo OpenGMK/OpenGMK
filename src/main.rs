@@ -184,6 +184,15 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     // Write constants
     gmk::write_constants(&mut gmk, &assets.constants)?;
 
+    // Write sounds
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.sounds,
+        gmk::write_sound,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }

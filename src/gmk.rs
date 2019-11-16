@@ -226,3 +226,41 @@ where
     result += write_timestamp(writer)?;
     Ok(result)
 }
+
+// Writes a Sound (uncompressed data)
+pub fn write_sound<W>(
+    writer: &mut W,
+    sound: &asset::Sound,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&sound.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(800)?;
+    result += writer.write_u32_le(sound.kind as u32)?;
+    result += writer.write_pas_string(&sound.extension)?;
+    result += writer.write_pas_string(&sound.source)?;
+    match &sound.data {
+        Some(data) => {
+            result += writer.write_u32_le(true as u32)?;
+            result += writer.write(data)?;
+        }
+        None => {
+            result += writer.write_u32_le(false as u32)?;
+        }
+    }
+    result += writer.write_u32_le(
+        (sound.fx.chorus as u32)
+            | (sound.fx.echo as u32) << 1
+            | (sound.fx.flanger as u32) << 2
+            | (sound.fx.gargle as u32) << 3
+            | (sound.fx.reverb as u32) << 4,
+    )?;
+    result += writer.write_f64_le(sound.volume)?;
+    result += writer.write_f64_le(sound.pan)?;
+    result += writer.write_u32_le(sound.preload as u32)?;
+
+    Ok(result)
+}
