@@ -37,7 +37,10 @@ where
 
 // Write a timestamp (currently writes 0, which correlates to 1899-01-01)
 #[inline]
-pub fn write_timestamp<W>(writer: &mut W) -> io::Result<usize> where W: io::Write {
+pub fn write_timestamp<W>(writer: &mut W) -> io::Result<usize>
+where
+    W: io::Write,
+{
     writer.write_u64_le(0)
 }
 
@@ -171,7 +174,7 @@ pub fn write_asset_list<W, T, F>(
 ) -> io::Result<usize>
 where
     W: io::Write,
-    F: Fn(&mut ZlibWriter, &T, GameVersion) -> io::Result<usize>
+    F: Fn(&mut ZlibWriter, &T, GameVersion) -> io::Result<usize>,
 {
     let mut result = writer.write_u32_le(gmk_version)?;
     result += writer.write_u32_le(list.len() as u32)?;
@@ -181,10 +184,10 @@ where
             Some(a) => {
                 enc.write_u32_le(true as u32)?;
                 write_fn(&mut enc, a.as_ref(), version)?;
-            },
+            }
             None => {
                 enc.write_u32_le(false as u32)?;
-            },
+            }
         };
         result += enc.finish(writer)?;
     }

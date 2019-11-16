@@ -172,7 +172,13 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     )?;
 
     // Write triggers
-    gmk::write_asset_list(&mut gmk, &assets.triggers, gmk::write_trigger, 800, assets.version)?;
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.triggers,
+        gmk::write_trigger,
+        800,
+        assets.version,
+    )?;
 
     // TODO: the rest
     Ok(())
