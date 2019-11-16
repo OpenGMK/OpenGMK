@@ -210,3 +210,19 @@ where
     result += writer.write_pas_string(&trigger.constant_name)?;
     Ok(result)
 }
+
+// Writes a list of constants
+// This isn't compatible with write_asset_list because constants have a different, simpler format than most assets.
+pub fn write_constants<W>(writer: &mut W, constants: &[asset::Constant]) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(800)?;
+    result += writer.write_u32_le(constants.len() as u32)?;
+    for constant in constants {
+        result += writer.write_pas_string(&constant.name)?;
+        result += writer.write_pas_string(&constant.expression)?;
+    }
+    result += write_timestamp(writer)?;
+    Ok(result)
+}

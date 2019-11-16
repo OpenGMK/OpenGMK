@@ -179,6 +179,10 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
         800,
         assets.version,
     )?;
+    gmk::write_timestamp(&mut gmk)?;
+
+    // Write constants
+    gmk::write_constants(&mut gmk, &assets.constants)?;
 
     // TODO: the rest
     Ok(())
