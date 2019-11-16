@@ -1,5 +1,5 @@
 use crate::asset::{AssetDataError, *};
-use crate::color::Color;
+use crate::colour::Colour;
 use crate::GameVersion;
 
 use flate2::read::ZlibDecoder;
@@ -65,7 +65,7 @@ pub struct GameAssets {
 
 #[derive(Debug)]
 pub struct GameHelpDialog {
-    pub bg_color: Color,
+    pub bg_color: Colour,
     pub new_window: bool,
     pub caption: String,
     pub left: i32,

@@ -2,7 +2,7 @@ pub mod asset;
 pub mod def;
 pub mod reader;
 
-mod color;
+mod colour;
 
 #[derive(Copy, Clone, Debug)]
 pub enum GameVersion {
@@ -10,7 +10,7 @@ pub enum GameVersion {
     GameMaker8_1,
 }
 
-pub use color::Color;
+pub use colour::Colour;
 
 pub mod deps {
     pub use minio;

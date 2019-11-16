@@ -1,5 +1,5 @@
 use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString};
-use crate::color::Color;
+use crate::colour::Colour;
 use crate::def::ID;
 use crate::GameVersion;
 
@@ -29,7 +29,7 @@ pub struct Room {
 
     /// The background colour the room gets cleared to every frame before drawing.
     /// Unused if clear_screen is true.
-    pub bg_colour: Color,
+    pub bg_colour: Colour,
 
     /// Whether to clear the screen inbetween frames.
     pub clear_screen: bool,
