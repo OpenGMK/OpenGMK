@@ -345,3 +345,30 @@ where
     }
     Ok(result)
 }
+
+// Writes a Path (uncompressed data)
+pub fn write_path<W>(
+    writer: &mut W,
+    path: &asset::Path,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&path.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(530)?;
+    result += writer.write_u32_le(path.connection as u32)?;
+    result += writer.write_u32_le(path.closed as u32)?;
+    result += writer.write_u32_le(path.precision)?;
+    result += writer.write_i32_le(-1)?; // Room to show as background in Path editor
+    result += writer.write_u32_le(16)?; // Snap X
+    result += writer.write_u32_le(16)?; // Snap Y
+    result += writer.write_u32_le(path.points.len() as u32)?;
+    for point in &path.points {
+        result += writer.write_f64_le(point.x)?;
+        result += writer.write_f64_le(point.y)?;
+        result += writer.write_f64_le(point.speed)?;
+    }
+    Ok(result)
+}

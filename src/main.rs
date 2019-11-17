@@ -232,6 +232,18 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write paths
+    if verbose {
+        println!("Writing {} paths...", assets.paths.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.paths,
+        gmk::write_path,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }
