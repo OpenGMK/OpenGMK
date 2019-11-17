@@ -220,6 +220,18 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write backgrounds
+    if verbose {
+        println!("Writing {} backgrounds...", assets.backgrounds.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.backgrounds,
+        gmk::write_background,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }

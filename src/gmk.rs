@@ -309,3 +309,39 @@ where
     result += writer.write_u32_le(0)?; // bbox top
     Ok(result)
 }
+
+// Writes a Background (uncompressed data)
+pub fn write_background<W>(
+    writer: &mut W,
+    background: &asset::Background,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&background.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(710)?;
+
+    // Tileset info isn't in exe - not sure if there's a consistent way to reverse it...
+    result += writer.write_u32_le(false as u32)?; // is tileset
+    result += writer.write_u32_le(16)?; // tile width
+    result += writer.write_u32_le(16)?; // tile height
+    result += writer.write_u32_le(0)?; // H offset
+    result += writer.write_u32_le(0)?; // V offset
+    result += writer.write_u32_le(0)?; // H sep
+    result += writer.write_u32_le(0)?; // V sep
+
+    result += writer.write_u32_le(800)?;
+    result += writer.write_u32_le(background.width)?;
+    result += writer.write_u32_le(background.height)?;
+    if background.width * background.height != 0 {
+        if let Some(data) = &background.data {
+            result += writer.write_u32_le(data.len() as u32)?;
+            result += writer.write_buffer(&data)?;
+        } else {
+            result += writer.write_u32_le(0)?;
+        }
+    }
+    Ok(result)
+}
