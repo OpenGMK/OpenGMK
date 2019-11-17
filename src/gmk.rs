@@ -2,7 +2,7 @@ use crate::zlib::ZlibWriter;
 use gm8x::reader::Settings;
 use gm8x::{asset, GameVersion};
 use minio::WritePrimitives;
-use std::io::{self, Write};
+use std::io;
 use std::u32;
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
@@ -12,6 +12,14 @@ pub trait WritePascalString: io::Write + minio::WritePrimitives {
     }
 }
 impl<W> WritePascalString for W where W: io::Write {}
+
+pub trait WriteBuffer: io::Write {
+    fn write_buffer(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.write_all(buf)?;
+        Ok(buf.len())
+    }
+}
+impl<W> WriteBuffer for W where W: io::Write {}
 
 // Writes GMK file header
 pub fn write_header<W>(
@@ -88,7 +96,7 @@ where
             Some(data) => {
                 enc.write_u32_le(1)?;
                 let mut backdata_enc = ZlibWriter::new();
-                backdata_enc.write_all(&data)?;
+                backdata_enc.write_buffer(&data)?;
                 backdata_enc.finish(&mut enc)?;
             }
             None => {
@@ -100,7 +108,7 @@ where
             Some(data) => {
                 enc.write_u32_le(1)?;
                 let mut frontdata_enc = ZlibWriter::new();
-                frontdata_enc.write_all(&data)?;
+                frontdata_enc.write_buffer(&data)?;
                 frontdata_enc.finish(&mut enc)?;
             }
             None => {
@@ -117,7 +125,7 @@ where
             enc.write_u32_le(1)?;
             enc.write_u32_le(1)?;
             let mut ci_enc = ZlibWriter::new();
-            ci_enc.write_all(&data)?;
+            ci_enc.write_buffer(&data)?;
             ci_enc.finish(&mut enc)?;
         }
         None => {
@@ -130,7 +138,7 @@ where
     enc.write_u32_le(settings.scale_progress_bar as u32)?;
 
     enc.write_u32_le(ico_file.len() as u32)?;
-    enc.write_all(&ico_file)?;
+    enc.write_buffer(&ico_file)?;
 
     enc.write_u32_le(settings.show_error_messages as u32)?;
     enc.write_u32_le(settings.log_errors as u32)?;
@@ -245,7 +253,8 @@ where
     match &sound.data {
         Some(data) => {
             result += writer.write_u32_le(true as u32)?;
-            result += writer.write(data)?;
+            result += writer.write_u32_le(data.len() as u32)?;
+            result += writer.write_buffer(data)?;
         }
         None => {
             result += writer.write_u32_le(false as u32)?;
@@ -286,7 +295,7 @@ where
         result += writer.write_u32_le(frame.height)?;
         if frame.width * frame.height != 0 {
             let mut enc = ZlibWriter::new();
-            enc.write_all(&frame.data)?;
+            enc.write_buffer(&frame.data)?;
             result += enc.finish(writer)?;
         }
         // TODO: calculate shape and alpha tolerance, bounding box type
