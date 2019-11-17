@@ -463,3 +463,41 @@ where
     }
     Ok(result)
 }
+
+// Writes an Object (uncompressed data)
+pub fn write_object<W>(
+    writer: &mut W,
+    object: &asset::Object,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&object.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(430)?;
+    result += writer.write_i32_le(object.sprite_index)?;
+    result += writer.write_u32_le(object.solid as u32)?;
+    result += writer.write_u32_le(object.visible as u32)?;
+    result += writer.write_i32_le(object.depth)?;
+    result += writer.write_u32_le(object.persistent as u32)?;
+    result += writer.write_i32_le(object.parent_index)?;
+    result += writer.write_i32_le(object.mask_index)?;
+    result += writer.write_u32_le(if object.events.len() == 0 {
+        0
+    } else {
+        (object.events.len() - 1) as u32
+    })?;
+    for ev_list in &object.events {
+        for (sub, actions) in ev_list {
+            result += writer.write_u32_le(*sub)?;
+            result += writer.write_u32_le(400)?;
+            result += writer.write_u32_le(actions.len() as u32)?;
+            for action in actions.iter() {
+                result += write_action(writer, action)?;
+            }
+        }
+        result += writer.write_i32_le(-1)?;
+    }
+    Ok(result)
+}
