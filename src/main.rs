@@ -142,7 +142,7 @@ fn main() {
     };
 
     // write gmk - I wrapped this in a function so we can catch any io errors here.
-    match write_gmk(&gmk_filename, assets) {
+    match write_gmk(&gmk_filename, assets, verbose) {
         Ok(_) => {
             // successful
             // press any key to continue?
@@ -154,16 +154,22 @@ fn main() {
     }
 }
 
-fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
+fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Result<()> {
     println!("Writing to '{}'", filename);
 
     // Set up a writer to write to our output file
     let mut gmk = fs::File::create(filename)?;
 
     // Write GMK header
+    if verbose {
+        println!("Writing GMK header...");
+    }
     gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)?;
 
     // Write settings
+    if verbose {
+        println!("Writing GMK settings...");
+    }
     gmk::write_settings(
         &mut gmk,
         assets.settings,
@@ -172,6 +178,9 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     )?;
 
     // Write triggers
+    if verbose {
+        println!("Writing {} triggers...", assets.triggers.len());
+    }
     gmk::write_asset_list(
         &mut gmk,
         &assets.triggers,
@@ -182,9 +191,15 @@ fn write_gmk(filename: &str, assets: GameAssets) -> std::io::Result<()> {
     gmk::write_timestamp(&mut gmk)?;
 
     // Write constants
+    if verbose {
+        println!("Writing {} constants...", assets.constants.len());
+    }
     gmk::write_constants(&mut gmk, &assets.constants)?;
 
     // Write sounds
+    if verbose {
+        println!("Writing {} sounds...", assets.sounds.len());
+    }
     gmk::write_asset_list(
         &mut gmk,
         &assets.sounds,
