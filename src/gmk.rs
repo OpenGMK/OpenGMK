@@ -294,9 +294,8 @@ where
         result += writer.write_u32_le(frame.width)?;
         result += writer.write_u32_le(frame.height)?;
         if frame.width * frame.height != 0 {
-            let mut enc = ZlibWriter::new();
-            enc.write_buffer(&frame.data)?;
-            result += enc.finish(writer)?;
+            result += writer.write_u32_le(frame.data.len() as u32)?;
+            result += writer.write_buffer(&frame.data)?;
         }
     }
     // TODO: calculate shape and alpha tolerance, bounding box type, bbox bounds
