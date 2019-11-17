@@ -408,3 +408,58 @@ where
     result += writer.write_u32_le(font.range_end)?;
     Ok(result)
 }
+
+// Writes a DnD Code Action
+pub fn write_action<W>(writer: &mut W, action: &asset::etc::CodeAction) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(440)?;
+    result += writer.write_u32_le(action.lib_id)?;
+    result += writer.write_u32_le(action.id)?;
+    result += writer.write_u32_le(action.action_kind)?;
+    result += writer.write_u32_le(action.can_be_relative)?;
+    result += writer.write_u32_le(action.is_condition as u32)?;
+    result += writer.write_u32_le(action.applies_to_something as u32)?;
+    result += writer.write_u32_le(action.action_idx)?;
+    result += writer.write_pas_string(&action.fn_name)?;
+    result += writer.write_pas_string(&action.fn_code)?;
+
+    result += writer.write_u32_le(action.param_count as u32)?;
+    result += writer.write_u32_le(8)?;
+    for i in &action.param_types {
+        result += writer.write_u32_le(*i)?;
+    }
+    result += writer.write_i32_le(action.applies_to)?;
+    result += writer.write_u32_le(action.is_relative as u32)?;
+    result += writer.write_u32_le(8)?;
+    for i in &action.param_strings {
+        result += writer.write_pas_string(i)?;
+    }
+    result += writer.write_u32_le(action.invert_condition as u32)?;
+    Ok(result)
+}
+
+// Writes a Timeline (uncompressed data)
+pub fn write_timeline<W>(
+    writer: &mut W,
+    timeline: &asset::Timeline,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&timeline.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(500)?;
+    result += writer.write_u32_le(timeline.moments.len() as u32)?;
+    for (moment, actions) in &timeline.moments {
+        result += writer.write_u32_le(*moment)?;
+        result += writer.write_u32_le(400)?;
+        result += writer.write_u32_le(actions.len() as u32)?;
+        for action in actions {
+            result += write_action(writer, action)?;
+        }
+    }
+    Ok(result)
+}

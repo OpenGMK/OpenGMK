@@ -268,6 +268,18 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write timelines
+    if verbose {
+        println!("Writing {} timelines...", assets.timelines.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.timelines,
+        gmk::write_timeline,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }
