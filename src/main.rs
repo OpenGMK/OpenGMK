@@ -244,6 +244,30 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write scripts
+    if verbose {
+        println!("Writing {} scripts...", assets.scripts.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.scripts,
+        gmk::write_script,
+        800,
+        assets.version,
+    )?;
+
+    // Write fonts
+    if verbose {
+        println!("Writing {} fonts...", assets.fonts.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.fonts,
+        gmk::write_font,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }

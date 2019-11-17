@@ -347,11 +347,7 @@ where
 }
 
 // Writes a Path (uncompressed data)
-pub fn write_path<W>(
-    writer: &mut W,
-    path: &asset::Path,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_path<W>(writer: &mut W, path: &asset::Path, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -370,5 +366,45 @@ where
         result += writer.write_f64_le(point.y)?;
         result += writer.write_f64_le(point.speed)?;
     }
+    Ok(result)
+}
+
+// Writes a Script (uncompressed data)
+pub fn write_script<W>(
+    writer: &mut W,
+    script: &asset::Script,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&script.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(800)?;
+    result += writer.write_pas_string(&script.source)?;
+    Ok(result)
+}
+
+// Writes a Font (uncompressed data)
+pub fn write_font<W>(writer: &mut W, font: &asset::Font, version: GameVersion) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&font.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(800)?;
+    result += writer.write_pas_string(&font.sys_name)?;
+    result += writer.write_u32_le(font.size)?;
+    result += writer.write_u32_le(font.bold as u32)?;
+    result += writer.write_u32_le(font.italic as u32)?;
+    result += match version {
+        GameVersion::GameMaker8_0 => writer.write_u32_le(font.range_start)?,
+        GameVersion::GameMaker8_1 => writer.write_u32_le(
+            ((font.charset & 0xFF) << 24)
+                | ((font.aa_level & 0xFF) << 16)
+                | (font.range_start & 0xFFFF),
+        )?,
+    };
+    result += writer.write_u32_le(font.range_end)?;
     Ok(result)
 }
