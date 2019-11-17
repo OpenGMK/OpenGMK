@@ -264,3 +264,44 @@ where
 
     Ok(result)
 }
+
+// Writes a Sprite (uncompressed data)
+pub fn write_sprite<W>(
+    writer: &mut W,
+    sprite: &asset::Sprite,
+    _version: GameVersion,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&sprite.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(800)?;
+    result += writer.write_i32_le(sprite.origin_x)?;
+    result += writer.write_i32_le(sprite.origin_y)?;
+    result += writer.write_u32_le(sprite.frames.len() as u32)?;
+    for (i, frame) in sprite.frames.iter().enumerate() {
+        result += writer.write_u32_le(800)?;
+        result += writer.write_u32_le(frame.width)?;
+        result += writer.write_u32_le(frame.height)?;
+        if frame.width * frame.height != 0 {
+            let mut enc = ZlibWriter::new();
+            enc.write_all(&frame.data)?;
+            result += enc.finish(writer)?;
+        }
+        // TODO: calculate shape and alpha tolerance, bounding box type
+        result += writer.write_u32_le(2)?; // shape
+        result += writer.write_u32_le(0)?; // alpha tolerance
+        result += writer.write_u32_le(sprite.per_frame_colliders as u32)?;
+        result += writer.write_u32_le(2)?; // bounding box type - 2 = manual
+        let collision_data = sprite
+            .colliders
+            .get(if sprite.per_frame_colliders { i } else { 0 })
+            .unwrap();
+        result += writer.write_u32_le(collision_data.bbox_left)?;
+        result += writer.write_u32_le(collision_data.bbox_right)?;
+        result += writer.write_u32_le(collision_data.bbox_bottom)?;
+        result += writer.write_u32_le(collision_data.bbox_top)?;
+    }
+    Ok(result)
+}
