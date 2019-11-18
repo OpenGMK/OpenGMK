@@ -662,3 +662,16 @@ where
     }
     Ok(result)
 }
+
+// Write extensions to GMK (names only)
+pub fn write_extensions<W>(writer: &mut W, extensions: &[asset::Extension]) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(700)?;
+    result += writer.write_u32_le(extensions.len() as u32)?;
+    for ext in extensions {
+        result += writer.write_pas_string(&ext.name)?;
+    }
+    Ok(result)
+}

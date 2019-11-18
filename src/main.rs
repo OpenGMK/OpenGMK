@@ -319,6 +319,12 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_included_files(&mut gmk, &assets.included_files)?;
 
+    // Write extensions
+    if verbose {
+        println!("Writing {} extensions...", assets.extensions.len());
+    }
+    gmk::write_extensions(&mut gmk, &assets.extensions)?;
+
     // TODO: the rest
     Ok(())
 }
