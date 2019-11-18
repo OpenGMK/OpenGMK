@@ -304,6 +304,15 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write room editor metadata
+    if verbose {
+        println!(
+            "Writing room editor metadata (last instance: {}, last tile: {})...",
+            assets.last_instance_id, assets.last_tile_id
+        );
+    }
+    gmk::write_room_editor_meta(&mut gmk, assets.last_instance_id, assets.last_tile_id)?;
+
     // TODO: the rest
     Ok(())
 }

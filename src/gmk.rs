@@ -598,3 +598,17 @@ where
 
     Ok(result)
 }
+
+// Write GMK's room editor metadata
+pub fn write_room_editor_meta<W>(
+    writer: &mut W,
+    last_instance_id: i32,
+    last_tile_id: i32,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_i32_le(last_instance_id)?;
+    result += writer.write_i32_le(last_tile_id)?;
+    Ok(result)
+}
