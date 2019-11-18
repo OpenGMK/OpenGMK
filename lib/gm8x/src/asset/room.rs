@@ -74,15 +74,15 @@ pub struct Instance {
 }
 
 pub struct Tile {
-    x: i32,
-    y: i32,
-    source_bg: ID,
-    tile_x: bool,
-    tile_y: bool,
-    width: u32,
-    height: u32,
-    depth: i32,
-    id: ID,
+    pub x: i32,
+    pub y: i32,
+    pub source_bg: ID,
+    pub tile_x: bool,
+    pub tile_y: bool,
+    pub width: u32,
+    pub height: u32,
+    pub depth: i32,
+    pub id: ID,
 }
 
 pub struct View {
