@@ -676,6 +676,7 @@ where
     Ok(result)
 }
 
+// Write game information (help dialog) block to GMK
 pub fn write_game_information<W>(
     writer: &mut W,
     info: &gm8x::reader::GameHelpDialog,
@@ -699,5 +700,31 @@ where
     write_timestamp(&mut enc)?;
     enc.write_pas_string(&info.info)?;
     result += enc.finish(writer)?;
+    Ok(result)
+}
+
+// Write library initialization code strings to GMK
+pub fn write_library_init_code<W>(writer: &mut W, init_code: &[String]) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(500)?;
+    result += writer.write_u32_le(init_code.len() as u32)?;
+    for string in init_code {
+        result += writer.write_pas_string(&string)?;
+    }
+    Ok(result)
+}
+
+// Write room order to GMK
+pub fn write_room_order<W>(writer: &mut W, room_order: &[i32]) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(700)?;
+    result += writer.write_u32_le(room_order.len() as u32)?;
+    for room in room_order {
+        result += writer.write_i32_le(*room)?;
+    }
     Ok(result)
 }

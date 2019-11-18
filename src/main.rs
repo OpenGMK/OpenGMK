@@ -331,6 +331,22 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_game_information(&mut gmk, &assets.help_dialog)?;
 
-    // TODO: the rest
+    // Write library initialization code
+    if verbose {
+        println!(
+            "Writing {} library initialization strings...",
+            assets.library_init_strings.len()
+        );
+    }
+    gmk::write_library_init_code(&mut gmk, &assets.library_init_strings)?;
+
+    // Write room order
+    if verbose {
+        println!("Writing room order ({} rooms)...", assets.room_order.len());
+    }
+    gmk::write_room_order(&mut gmk, &assets.room_order)?;
+
+    // TODO: write resource tree
+
     Ok(())
 }
