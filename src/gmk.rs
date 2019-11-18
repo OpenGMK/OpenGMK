@@ -777,27 +777,28 @@ where
     }
     result += write_rt_heading(writer, "Paths", 8, assets.paths.len())?;
     for (i, path) in assets.paths.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &path.name, 6, i as u32)?;
+        result += write_rt_asset(writer, &path.name, 8, i as u32)?;
     }
-    result += write_rt_heading(writer, "Scripts", 2, assets.scripts.len())?;
+    result += write_rt_heading(writer, "Scripts", 7, assets.scripts.len())?;
     for (i, script) in assets.scripts.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &script.name, 2, i as u32)?;
+        result += write_rt_asset(writer, &script.name, 7, i as u32)?;
     }
-    result += write_rt_heading(writer, "Fonts", 3, assets.fonts.len())?;
+    result += write_rt_heading(writer, "Fonts", 9, assets.fonts.len())?;
     for (i, font) in assets.fonts.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &font.name, 3, i as u32)?;
+        result += write_rt_asset(writer, &font.name, 9, i as u32)?;
     }
-    result += write_rt_heading(writer, "Time Lines", 6, assets.timelines.len())?;
+    result += write_rt_heading(writer, "Time Lines", 12, assets.timelines.len())?;
     for (i, timeline) in assets.timelines.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &timeline.name, 6, i as u32)?;
+        result += write_rt_asset(writer, &timeline.name, 12, i as u32)?;
     }
-    result += write_rt_heading(writer, "Objects", 8, assets.objects.len())?;
+    result += write_rt_heading(writer, "Objects", 1, assets.objects.len())?;
     for (i, object) in assets.objects.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &object.name, 6, i as u32)?;
+        result += write_rt_asset(writer, &object.name, 1, i as u32)?;
     }
-    result += write_rt_heading(writer, "Rooms", 8, assets.rooms.len())?;
+    result += write_rt_heading(writer, "Rooms", 4, assets.rooms.len())?;
     for (i, room) in assets.rooms.iter().flatten().enumerate() {
-        result += write_rt_asset(writer, &room.name, 6, i as u32)?;
+        // TODO: write these according to room order instead
+        result += write_rt_asset(writer, &room.name, 4, i as u32)?;
     }
     write_rt_asset(writer, "Game Information", 10, 0)?;
     write_rt_asset(writer, "Global Game Settings", 11, 0)?;
