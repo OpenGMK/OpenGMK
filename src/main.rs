@@ -292,6 +292,18 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         assets.version,
     )?;
 
+    // Write rooms
+    if verbose {
+        println!("Writing {} rooms...", assets.rooms.len());
+    }
+    gmk::write_asset_list(
+        &mut gmk,
+        &assets.rooms,
+        gmk::write_room,
+        800,
+        assets.version,
+    )?;
+
     // TODO: the rest
     Ok(())
 }

@@ -501,3 +501,100 @@ where
     }
     Ok(result)
 }
+
+// Writes an Room (uncompressed data)
+pub fn write_room<W>(writer: &mut W, room: &asset::Room, _version: GameVersion) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_pas_string(&room.name)?;
+    result += write_timestamp(writer)?;
+    result += writer.write_u32_le(541)?;
+    result += writer.write_pas_string(&room.caption)?;
+    result += writer.write_u32_le(room.width)?;
+    result += writer.write_u32_le(room.height)?;
+    result += writer.write_u32_le(32)?; // snap X
+    result += writer.write_u32_le(32)?; // snap X
+    result += writer.write_u32_le(false as u32)?; // isometric grid
+    result += writer.write_u32_le(room.speed)?;
+    result += writer.write_u32_le(room.persistent as u32)?;
+    result += writer.write_u32_le(room.bg_colour.into())?;
+    result += writer.write_u32_le(room.clear_screen as u32)?;
+    result += writer.write_pas_string(&room.creation_code)?;
+
+    result += writer.write_u32_le(room.backgrounds.len() as u32)?;
+    for background in &room.backgrounds {
+        result += writer.write_u32_le(background.visible_on_start as u32)?;
+        result += writer.write_u32_le(background.is_foreground as u32)?;
+        result += writer.write_i32_le(background.source_bg)?;
+        result += writer.write_i32_le(background.xoffset)?;
+        result += writer.write_i32_le(background.yoffset)?;
+        result += writer.write_u32_le(background.tile_horz as u32)?;
+        result += writer.write_u32_le(background.tile_vert as u32)?;
+        result += writer.write_i32_le(background.hspeed)?;
+        result += writer.write_i32_le(background.vspeed)?;
+        result += writer.write_u32_le(background.stretch as u32)?;
+    }
+
+    result += writer.write_u32_le(room.views_enabled as u32)?;
+    result += writer.write_u32_le(room.views.len() as u32)?;
+    for view in &room.views {
+        result += writer.write_u32_le(view.visible as u32)?;
+        result += writer.write_i32_le(view.source_x)?;
+        result += writer.write_i32_le(view.source_y)?;
+        result += writer.write_u32_le(view.source_w)?;
+        result += writer.write_u32_le(view.source_h)?;
+        result += writer.write_i32_le(view.port_x)?;
+        result += writer.write_i32_le(view.port_y)?;
+        result += writer.write_u32_le(view.port_w)?;
+        result += writer.write_u32_le(view.port_h)?;
+        result += writer.write_i32_le(view.following.hborder)?;
+        result += writer.write_i32_le(view.following.vborder)?;
+        result += writer.write_i32_le(view.following.hspeed)?;
+        result += writer.write_i32_le(view.following.vspeed)?;
+        result += writer.write_i32_le(view.following.target)?;
+    }
+
+    result += writer.write_u32_le(room.instances.len() as u32)?;
+    for instance in &room.instances {
+        result += writer.write_i32_le(instance.x)?;
+        result += writer.write_i32_le(instance.y)?;
+        result += writer.write_i32_le(instance.object)?;
+        result += writer.write_i32_le(instance.id)?;
+        result += writer.write_pas_string(&instance.creation_code)?;
+        result += writer.write_u32_le(false as u32)?; // locked in editor
+    }
+
+    result += writer.write_u32_le(room.tiles.len() as u32)?;
+    for tile in &room.tiles {
+        result += writer.write_i32_le(tile.x)?;
+        result += writer.write_i32_le(tile.y)?;
+        result += writer.write_i32_le(tile.source_bg)?;
+        result += writer.write_u32_le(tile.tile_x as u32)?;
+        result += writer.write_u32_le(tile.tile_y as u32)?;
+        result += writer.write_u32_le(tile.width)?;
+        result += writer.write_u32_le(tile.height)?;
+        result += writer.write_i32_le(tile.depth)?;
+        result += writer.write_i32_le(tile.id)?;
+        result += writer.write_u32_le(false as u32)?; // locked in editor
+    }
+
+    // All these settings are 0/false by default when creating a new room in the IDE.
+    // Commented with Zach's names for the variables, I haven't verified what they do
+    result += writer.write_u32_le(false as u32)?; // remember room editor info
+    result += writer.write_u32_le(0)?; // editor width
+    result += writer.write_u32_le(0)?; // editor height
+    result += writer.write_u32_le(false as u32)?; // show grid
+    result += writer.write_u32_le(false as u32)?; // show objects
+    result += writer.write_u32_le(false as u32)?; // show tiles
+    result += writer.write_u32_le(false as u32)?; // show backgrounds
+    result += writer.write_u32_le(false as u32)?; // show foregrounds
+    result += writer.write_u32_le(false as u32)?; // show views
+    result += writer.write_u32_le(false as u32)?; // delete underlying objects
+    result += writer.write_u32_le(false as u32)?; // delete underlying tiles
+    result += writer.write_u32_le(0)?; // tab
+    result += writer.write_u32_le(0)?; // x position scroll
+    result += writer.write_u32_le(0)?; // y position scroll
+
+    Ok(result)
+}
