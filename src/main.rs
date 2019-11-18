@@ -172,7 +172,7 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_settings(
         &mut gmk,
-        assets.settings,
+        &assets.settings,
         &assets.ico_file_raw,
         assets.version,
     )?;
@@ -351,8 +351,7 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         println!("Writing resource tree...");
     }
 
-    // TODO: fix a bunch of move errors
-    //gmk::write_resource_tree(&mut gmk, &assets)?;
+    gmk::write_resource_tree(&mut gmk, &assets)?;
 
     Ok(())
 }

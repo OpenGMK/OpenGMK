@@ -58,8 +58,8 @@ where
 // Writes a settings block to GMK
 pub fn write_settings<W>(
     writer: &mut W,
-    settings: Settings,
-    ico_file: Vec<u8>,
+    settings: &Settings,
+    ico_file: &[u8],
     version: GameVersion,
 ) -> io::Result<usize>
 where
@@ -95,7 +95,7 @@ where
     if settings.loading_bar == 2 {
         // 2 = custom loading bar - otherwise don't write anything here
 
-        match settings.backdata {
+        match &settings.backdata {
             Some(data) => {
                 enc.write_u32_le(1)?;
                 let mut backdata_enc = ZlibWriter::new();
@@ -107,7 +107,7 @@ where
             }
         }
 
-        match settings.frontdata {
+        match &settings.frontdata {
             Some(data) => {
                 enc.write_u32_le(1)?;
                 let mut frontdata_enc = ZlibWriter::new();
@@ -120,7 +120,7 @@ where
         }
     }
 
-    match settings.custom_load_image {
+    match &settings.custom_load_image {
         Some(data) => {
             // In GMK format, the first bool is for whether there's a custom load image and the second is for
             // whether there's actually any data following it. There is only one bool in exe format, thus
@@ -141,7 +141,7 @@ where
     enc.write_u32_le(settings.scale_progress_bar as u32)?;
 
     enc.write_u32_le(ico_file.len() as u32)?;
-    enc.write_buffer(&ico_file)?;
+    enc.write_buffer(ico_file)?;
 
     enc.write_u32_le(settings.show_error_messages as u32)?;
     enc.write_u32_le(settings.log_errors as u32)?;
@@ -779,7 +779,7 @@ where
     for (i, path) in assets.paths.iter().flatten().enumerate() {
         result += write_rt_asset(writer, &path.name, 6, i as u32)?;
     }
-    let mut result = write_rt_heading(writer, "Scripts", 2, assets.scripts.len())?;
+    result += write_rt_heading(writer, "Scripts", 2, assets.scripts.len())?;
     for (i, script) in assets.scripts.iter().flatten().enumerate() {
         result += write_rt_asset(writer, &script.name, 2, i as u32)?;
     }
