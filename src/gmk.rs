@@ -801,6 +801,6 @@ where
     }
     write_rt_asset(writer, "Game Information", 10, 0)?;
     write_rt_asset(writer, "Global Game Settings", 11, 0)?;
-    write_rt_asset(writer, "Extention Packages", 13, 0)?;
+    write_rt_asset(writer, "Extension Packages", 13, 0)?;
     Ok(result)
 }
