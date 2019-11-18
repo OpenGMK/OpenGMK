@@ -1,6 +1,9 @@
 use crate::zlib::ZlibWriter;
 use gm8x::reader::Settings;
-use gm8x::{asset, GameVersion};
+use gm8x::{
+    asset::{self, includedfile::ExportSetting},
+    GameVersion,
+};
 use minio::WritePrimitives;
 use std::io;
 use std::u32;
@@ -610,5 +613,52 @@ where
 {
     let mut result = writer.write_i32_le(last_instance_id)?;
     result += writer.write_i32_le(last_tile_id)?;
+    Ok(result)
+}
+
+// Write included files to gmk
+// Note: not compatible with write_asset_list because included files can't not exist
+pub fn write_included_files<W>(writer: &mut W, files: &[asset::IncludedFile]) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(800)?;
+    result += writer.write_u32_le(files.len() as u32)?;
+    for file in files {
+        let mut enc = ZlibWriter::new();
+        write_timestamp(&mut enc)?;
+        enc.write_u32_le(800)?;
+        enc.write_pas_string(&file.file_name)?;
+        enc.write_pas_string(&file.source_path)?;
+        enc.write_u32_le(file.data_exists as u32)?;
+        enc.write_u32_le(file.source_length as u32)?;
+        enc.write_u32_le(file.stored_in_gmk as u32)?;
+        if let Some(data) = &file.embedded_data {
+            enc.write_u32_le(data.len() as u32)?;
+            enc.write_buffer(data)?;
+        }
+        match &file.export_settings {
+            ExportSetting::NoExport => {
+                enc.write_u32_le(0)?;
+                enc.write_pas_string("")?;
+            }
+            ExportSetting::TempFolder => {
+                enc.write_u32_le(1)?;
+                enc.write_pas_string("")?;
+            }
+            ExportSetting::GameFolder => {
+                enc.write_u32_le(2)?;
+                enc.write_pas_string("")?;
+            }
+            ExportSetting::CustomFolder(f) => {
+                enc.write_u32_le(3)?;
+                enc.write_pas_string(f)?;
+            }
+        }
+        enc.write_u32_le(file.overwrite_file as u32)?;
+        enc.write_u32_le(file.free_memory as u32)?;
+        enc.write_u32_le(file.remove_at_end as u32)?;
+        result += enc.finish(writer)?;
+    }
     Ok(result)
 }

@@ -313,6 +313,12 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_room_editor_meta(&mut gmk, assets.last_instance_id, assets.last_tile_id)?;
 
+    // Write included files
+    if verbose {
+        println!("Writing {} included files...", assets.included_files.len());
+    }
+    gmk::write_included_files(&mut gmk, &assets.included_files)?;
+
     // TODO: the rest
     Ok(())
 }
