@@ -13,6 +13,9 @@ pub struct IncludedFile {
     /// The path of the source file (from the developer's PC).
     pub source_path: String,
 
+    /// Whether the file data exists.
+    pub data_exists: bool,
+
     /// The length of the source file.
     pub source_length: usize,
 
@@ -97,6 +100,7 @@ impl Asset for IncludedFile {
         Ok(IncludedFile {
             file_name,
             source_path,
+            data_exists,
             source_length,
             stored_in_gmk,
             embedded_data,
