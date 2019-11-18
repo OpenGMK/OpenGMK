@@ -173,7 +173,7 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     gmk::write_settings(
         &mut gmk,
         assets.settings,
-        assets.ico_file_raw,
+        &assets.ico_file_raw,
         assets.version,
     )?;
 
@@ -346,7 +346,13 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_room_order(&mut gmk, &assets.room_order)?;
 
-    // TODO: write resource tree
+    // Write resource tree
+    if verbose {
+        println!("Writing resource tree...");
+    }
+
+    // TODO: fix a bunch of move errors
+    //gmk::write_resource_tree(&mut gmk, &assets)?;
 
     Ok(())
 }

@@ -1,5 +1,5 @@
 use crate::zlib::ZlibWriter;
-use gm8x::reader::Settings;
+use gm8x::reader::{GameAssets, Settings};
 use gm8x::{
     asset::{self, includedfile::ExportSetting},
     GameVersion,
@@ -726,5 +726,81 @@ where
     for room in room_order {
         result += writer.write_i32_le(*room)?;
     }
+    Ok(result)
+}
+
+// Write resource tree to GMK
+pub fn write_resource_tree<W>(writer: &mut W, assets: &GameAssets) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    fn write_rt_heading<W>(
+        writer: &mut W,
+        name: &str,
+        index: u32,
+        count: usize,
+    ) -> io::Result<usize>
+    where
+        W: io::Write,
+    {
+        let mut result = writer.write_u32_le(1)?;
+        result += writer.write_u32_le(index)?;
+        result += writer.write_u32_le(0)?;
+        result += writer.write_pas_string(name)?;
+        result += writer.write_u32_le(count as u32)?;
+        Ok(result)
+    }
+
+    fn write_rt_asset<W>(writer: &mut W, name: &str, group: u32, index: u32) -> io::Result<usize>
+    where
+        W: io::Write,
+    {
+        let mut result = writer.write_u32_le(3)?;
+        result += writer.write_u32_le(group)?;
+        result += writer.write_u32_le(index)?;
+        result += writer.write_pas_string(name)?;
+        result += writer.write_u32_le(0)?;
+        Ok(result)
+    }
+
+    let mut result = write_rt_heading(writer, "Sprites", 2, assets.sprites.len())?;
+    for (i, sprite) in assets.sprites.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &sprite.name, 2, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Sounds", 3, assets.sounds.len())?;
+    for (i, sound) in assets.sounds.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &sound.name, 3, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Backgrounds", 6, assets.backgrounds.len())?;
+    for (i, background) in assets.backgrounds.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &background.name, 6, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Paths", 8, assets.paths.len())?;
+    for (i, path) in assets.paths.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &path.name, 6, i as u32)?;
+    }
+    let mut result = write_rt_heading(writer, "Scripts", 2, assets.scripts.len())?;
+    for (i, script) in assets.scripts.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &script.name, 2, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Fonts", 3, assets.fonts.len())?;
+    for (i, font) in assets.fonts.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &font.name, 3, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Time Lines", 6, assets.timelines.len())?;
+    for (i, timeline) in assets.timelines.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &timeline.name, 6, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Objects", 8, assets.objects.len())?;
+    for (i, object) in assets.objects.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &object.name, 6, i as u32)?;
+    }
+    result += write_rt_heading(writer, "Rooms", 8, assets.rooms.len())?;
+    for (i, room) in assets.rooms.iter().flatten().enumerate() {
+        result += write_rt_asset(writer, &room.name, 6, i as u32)?;
+    }
+    write_rt_asset(writer, "Game Information", 10, 0)?;
+    write_rt_asset(writer, "Global Game Settings", 11, 0)?;
+    write_rt_asset(writer, "Extention Packages", 13, 0)?;
     Ok(result)
 }
