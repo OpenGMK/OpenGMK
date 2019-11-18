@@ -675,3 +675,29 @@ where
     }
     Ok(result)
 }
+
+pub fn write_game_information<W>(
+    writer: &mut W,
+    info: &gm8x::reader::GameHelpDialog,
+) -> io::Result<usize>
+where
+    W: io::Write,
+{
+    let mut result = writer.write_u32_le(800)?;
+    let mut enc = ZlibWriter::new();
+    enc.write_u32_le(info.bg_color.into())?;
+    enc.write_u32_le(info.new_window as u32)?;
+    enc.write_pas_string(&info.caption)?;
+    enc.write_i32_le(info.left)?;
+    enc.write_i32_le(info.top)?;
+    enc.write_u32_le(info.width)?;
+    enc.write_u32_le(info.height)?;
+    enc.write_u32_le(info.border as u32)?;
+    enc.write_u32_le(info.resizable as u32)?;
+    enc.write_u32_le(info.window_on_top as u32)?;
+    enc.write_u32_le(info.freeze_game as u32)?;
+    write_timestamp(&mut enc)?;
+    enc.write_pas_string(&info.info)?;
+    result += enc.finish(writer)?;
+    Ok(result)
+}

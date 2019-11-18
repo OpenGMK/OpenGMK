@@ -325,6 +325,12 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     }
     gmk::write_extensions(&mut gmk, &assets.extensions)?;
 
+    // Write game information
+    if verbose {
+        println!("Writing game information...");
+    }
+    gmk::write_game_information(&mut gmk, &assets.help_dialog)?;
+
     // TODO: the rest
     Ok(())
 }
