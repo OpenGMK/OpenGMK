@@ -804,9 +804,13 @@ where
         result += write_rt_asset(writer, &object.name, 1, i as u32)?;
     }
     result += write_rt_heading(writer, "Rooms", 4, assets.rooms.iter().flatten().count())?;
-    for (i, room) in existing(&assets.rooms) {
-        // TODO: write these according to room order instead
-        result += write_rt_asset(writer, &room.name, 4, i as u32)?;
+    for room_id in &assets.room_order {
+        if let Some(Some(room)) = assets.rooms.get(*room_id as usize) {
+            result += write_rt_asset(writer, &room.name, 4, *room_id as u32)?;
+        }
+        else {
+            println!("WARNING: non-existent room id {} referenced in Room Order; skipping it", *room_id);
+        }
     }
     write_rt_asset(writer, "Game Information", 10, 0)?;
     write_rt_asset(writer, "Global Game Settings", 11, 0)?;
