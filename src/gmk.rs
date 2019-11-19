@@ -573,8 +573,8 @@ where
         result += writer.write_i32_le(tile.x)?;
         result += writer.write_i32_le(tile.y)?;
         result += writer.write_i32_le(tile.source_bg)?;
-        result += writer.write_u32_le(tile.tile_x as u32)?;
-        result += writer.write_u32_le(tile.tile_y as u32)?;
+        result += writer.write_u32_le(tile.tile_x)?;
+        result += writer.write_u32_le(tile.tile_y)?;
         result += writer.write_u32_le(tile.width)?;
         result += writer.write_u32_le(tile.height)?;
         result += writer.write_i32_le(tile.depth)?;
