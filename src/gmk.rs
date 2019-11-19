@@ -763,7 +763,17 @@ where
         Ok(result)
     }
 
-    fn existing<'a, I, T>(iter: I) -> impl Iterator<Item = (usize, &'a T)>
+    /// Counts how many assets in the iterator are assets that "exist" in the gamedata.
+    fn count_existing<'a, I, T>(iter: I) -> usize
+    where
+        I: IntoIterator<Item = &'a Option<T>>,
+        T: 'a,
+    {
+        iter.into_iter().filter(|opt| opt.is_some()).count()
+    }
+
+    /// Enumerates "existing" assets with their index in the entire iterator (asset ID).
+    fn enumerate_existing<'a, I, T>(iter: I) -> impl Iterator<Item = (usize, &'a T)>
     where
         I: IntoIterator<Item = &'a Option<T>>,
         T: 'a,
@@ -771,39 +781,39 @@ where
         iter.into_iter().enumerate().filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
     }
 
-    let mut result = write_rt_heading(writer, "Sprites", 2, assets.sprites.iter().flatten().count())?;
-    for (i, sprite) in existing(&assets.sprites) {
+    let mut result = write_rt_heading(writer, "Sprites", 2, count_existing(&assets.sprites))?;
+    for (i, sprite) in enumerate_existing(&assets.sprites) {
         result += write_rt_asset(writer, &sprite.name, 2, i as u32)?;
     }
-    result += write_rt_heading(writer, "Sounds", 3, assets.sounds.iter().flatten().count())?;
-    for (i, sound) in existing(&assets.sounds) {
+    result += write_rt_heading(writer, "Sounds", 3, count_existing(&assets.sounds))?;
+    for (i, sound) in enumerate_existing(&assets.sounds) {
         result += write_rt_asset(writer, &sound.name, 3, i as u32)?;
     }
-    result += write_rt_heading(writer, "Backgrounds", 6, assets.backgrounds.iter().flatten().count())?;
-    for (i, background) in existing(&assets.backgrounds) {
+    result += write_rt_heading(writer, "Backgrounds", 6, count_existing(&assets.backgrounds))?;
+    for (i, background) in enumerate_existing(&assets.backgrounds) {
         result += write_rt_asset(writer, &background.name, 6, i as u32)?;
     }
-    result += write_rt_heading(writer, "Paths", 8, assets.paths.iter().flatten().count())?;
-    for (i, path) in existing(&assets.paths) {
+    result += write_rt_heading(writer, "Paths", 8, count_existing(&assets.paths))?;
+    for (i, path) in enumerate_existing(&assets.paths) {
         result += write_rt_asset(writer, &path.name, 8, i as u32)?;
     }
-    result += write_rt_heading(writer, "Scripts", 7, assets.scripts.iter().flatten().count())?;
-    for (i, script) in existing(&assets.scripts) {
+    result += write_rt_heading(writer, "Scripts", 7, count_existing(&assets.scripts))?;
+    for (i, script) in enumerate_existing(&assets.scripts) {
         result += write_rt_asset(writer, &script.name, 7, i as u32)?;
     }
-    result += write_rt_heading(writer, "Fonts", 9, assets.fonts.iter().flatten().count())?;
-    for (i, font) in existing(&assets.fonts) {
+    result += write_rt_heading(writer, "Fonts", 9, count_existing(&assets.fonts))?;
+    for (i, font) in enumerate_existing(&assets.fonts) {
         result += write_rt_asset(writer, &font.name, 9, i as u32)?;
     }
-    result += write_rt_heading(writer, "Time Lines", 12, assets.timelines.iter().flatten().count())?;
-    for (i, timeline) in existing(&assets.timelines){
+    result += write_rt_heading(writer, "Time Lines", 12, count_existing(&assets.timelines))?;
+    for (i, timeline) in enumerate_existing(&assets.timelines){
         result += write_rt_asset(writer, &timeline.name, 12, i as u32)?;
     }
-    result += write_rt_heading(writer, "Objects", 1, assets.objects.iter().flatten().count())?;
-    for (i, object) in existing(&assets.objects) {
+    result += write_rt_heading(writer, "Objects", 1, count_existing(&assets.objects))?;
+    for (i, object) in enumerate_existing(&assets.objects) {
         result += write_rt_asset(writer, &object.name, 1, i as u32)?;
     }
-    result += write_rt_heading(writer, "Rooms", 4, assets.rooms.iter().flatten().count())?;
+    result += write_rt_heading(writer, "Rooms", 4, count_existing(&assets.rooms))?;
     for room_id in &assets.room_order {
         if let Some(Some(room)) = assets.rooms.get(*room_id as usize) {
             result += write_rt_asset(writer, &room.name, 4, *room_id as u32)?;
