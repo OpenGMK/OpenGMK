@@ -763,85 +763,48 @@ where
         Ok(result)
     }
 
-    let mut result = write_rt_heading(writer, "Sprites", 2, assets.sprites.iter().flatten().count())?;
-    for (i, sprite) in assets
-        .sprites
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
+    fn existing<'a, I, T>(iter: I) -> impl Iterator<Item = (usize, &'a T)>
+    where
+        I: IntoIterator<Item = &'a Option<T>>,
+        T: 'a,
     {
+        iter.into_iter().enumerate().filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
+    }
+
+    let mut result = write_rt_heading(writer, "Sprites", 2, assets.sprites.iter().flatten().count())?;
+    for (i, sprite) in existing(&assets.sprites) {
         result += write_rt_asset(writer, &sprite.name, 2, i as u32)?;
     }
     result += write_rt_heading(writer, "Sounds", 3, assets.sounds.iter().flatten().count())?;
-    for (i, sound) in assets
-        .sounds
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, sound) in existing(&assets.sounds) {
         result += write_rt_asset(writer, &sound.name, 3, i as u32)?;
     }
     result += write_rt_heading(writer, "Backgrounds", 6, assets.backgrounds.iter().flatten().count())?;
-    for (i, background) in assets
-        .backgrounds
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, background) in existing(&assets.backgrounds) {
         result += write_rt_asset(writer, &background.name, 6, i as u32)?;
     }
     result += write_rt_heading(writer, "Paths", 8, assets.paths.iter().flatten().count())?;
-    for (i, path) in assets
-        .paths
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, path) in existing(&assets.paths) {
         result += write_rt_asset(writer, &path.name, 8, i as u32)?;
     }
     result += write_rt_heading(writer, "Scripts", 7, assets.scripts.iter().flatten().count())?;
-    for (i, script) in assets
-        .scripts
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, script) in existing(&assets.scripts) {
         result += write_rt_asset(writer, &script.name, 7, i as u32)?;
     }
     result += write_rt_heading(writer, "Fonts", 9, assets.fonts.iter().flatten().count())?;
-    for (i, font) in assets
-        .fonts
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, font) in existing(&assets.fonts) {
         result += write_rt_asset(writer, &font.name, 9, i as u32)?;
     }
     result += write_rt_heading(writer, "Time Lines", 12, assets.timelines.iter().flatten().count())?;
-    for (i, timeline) in assets
-        .timelines
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, timeline) in existing(&assets.timelines){
         result += write_rt_asset(writer, &timeline.name, 12, i as u32)?;
     }
     result += write_rt_heading(writer, "Objects", 1, assets.objects.iter().flatten().count())?;
-    for (i, object) in assets
-        .objects
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, object) in existing(&assets.objects) {
         result += write_rt_asset(writer, &object.name, 1, i as u32)?;
     }
     result += write_rt_heading(writer, "Rooms", 4, assets.rooms.iter().flatten().count())?;
-    for (i, room) in assets
-        .rooms
-        .iter()
-        .enumerate()
-        .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
-    {
+    for (i, room) in existing(&assets.rooms) {
         // TODO: write these according to room order instead
         result += write_rt_asset(writer, &room.name, 4, i as u32)?;
     }
