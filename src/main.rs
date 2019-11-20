@@ -185,7 +185,6 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         &mut gmk,
         &assets.triggers,
         gmk::write_trigger,
-        800,
         assets.version,
     )?;
     gmk::write_timestamp(&mut gmk)?;
@@ -200,25 +199,13 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     if verbose {
         println!("Writing {} sounds...", assets.sounds.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.sounds,
-        gmk::write_sound,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version)?;
 
     // Write sprites
     if verbose {
         println!("Writing {} sprites...", assets.sprites.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.sprites,
-        gmk::write_sprite,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.sprites, gmk::write_sprite, assets.version)?;
 
     // Write backgrounds
     if verbose {
@@ -228,7 +215,6 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         &mut gmk,
         &assets.backgrounds,
         gmk::write_background,
-        800,
         assets.version,
     )?;
 
@@ -236,37 +222,19 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     if verbose {
         println!("Writing {} paths...", assets.paths.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.paths,
-        gmk::write_path,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version)?;
 
     // Write scripts
     if verbose {
         println!("Writing {} scripts...", assets.scripts.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.scripts,
-        gmk::write_script,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.scripts, gmk::write_script, assets.version)?;
 
     // Write fonts
     if verbose {
         println!("Writing {} fonts...", assets.fonts.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.fonts,
-        gmk::write_font,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version)?;
 
     // Write timelines
     if verbose {
@@ -276,7 +244,6 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
         &mut gmk,
         &assets.timelines,
         gmk::write_timeline,
-        800,
         assets.version,
     )?;
 
@@ -284,25 +251,13 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     if verbose {
         println!("Writing {} objects...", assets.objects.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.objects,
-        gmk::write_object,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.objects, gmk::write_object, assets.version)?;
 
     // Write rooms
     if verbose {
         println!("Writing {} rooms...", assets.rooms.len());
     }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.rooms,
-        gmk::write_room,
-        800,
-        assets.version,
-    )?;
+    gmk::write_asset_list(&mut gmk, &assets.rooms, gmk::write_room, assets.version)?;
 
     // Write room editor metadata
     if verbose {
@@ -350,7 +305,6 @@ fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Resu
     if verbose {
         println!("Writing resource tree...");
     }
-
     gmk::write_resource_tree(&mut gmk, &assets)?;
 
     Ok(())

@@ -180,14 +180,13 @@ pub fn write_asset_list<W, T, F>(
     writer: &mut W,
     list: &[Option<Box<T>>],
     write_fn: F,
-    gmk_version: u32,
     version: GameVersion,
 ) -> io::Result<usize>
 where
     W: io::Write,
     F: Fn(&mut ZlibWriter, &T, GameVersion) -> io::Result<usize>,
 {
-    let mut result = writer.write_u32_le(gmk_version)?;
+    let mut result = writer.write_u32_le(800)?;
     result += writer.write_u32_le(list.len() as u32)?;
     for asset in list.iter() {
         let mut enc = ZlibWriter::new();
@@ -778,7 +777,9 @@ where
         I: IntoIterator<Item = &'a Option<T>>,
         T: 'a,
     {
-        iter.into_iter().enumerate().filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
+        iter.into_iter()
+            .enumerate()
+            .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
     }
 
     let mut result = write_rt_heading(writer, "Sprites", 2, count_existing(&assets.sprites))?;
@@ -817,9 +818,11 @@ where
     for room_id in &assets.room_order {
         if let Some(Some(room)) = assets.rooms.get(*room_id as usize) {
             result += write_rt_asset(writer, &room.name, 4, *room_id as u32)?;
-        }
-        else {
-            println!("WARNING: non-existent room id {} referenced in Room Order; skipping it", *room_id);
+        } else {
+            println!(
+                "WARNING: non-existent room id {} referenced in Room Order; skipping it",
+                *room_id
+            );
         }
     }
     write_rt_asset(writer, "Game Information", 10, 0)?;
