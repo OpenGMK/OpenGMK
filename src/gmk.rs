@@ -69,9 +69,9 @@ where
     let mut result = writer.write_u32_le(800)?;
     let mut enc = ZlibWriter::new();
     enc.write_u32_le(settings.fullscreen as u32)?;
+    enc.write_u32_le(settings.interpolate_pixels as u32)?;
     enc.write_u32_le(settings.dont_draw_border as u32)?;
     enc.write_u32_le(settings.display_cursor as u32)?;
-    enc.write_u32_le(settings.interpolate_pixels as u32)?;
     enc.write_i32_le(settings.scaling)?;
     enc.write_u32_le(settings.allow_resize as u32)?;
     enc.write_u32_le(settings.window_on_top as u32)?;
