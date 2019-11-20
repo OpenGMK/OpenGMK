@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+pub mod collision;
 pub mod gmk;
 pub mod zlib;
 

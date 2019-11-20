@@ -1,3 +1,4 @@
+use crate::collision;
 use crate::zlib::ZlibWriter;
 use gm8x::reader::{GameAssets, Settings};
 use gm8x::{
@@ -285,6 +286,7 @@ pub fn write_sprite<W>(
 where
     W: io::Write,
 {
+    let gmk_collision = collision::resolve_map(sprite);
     let mut result = writer.write_pas_string(&sprite.name)?;
     result += write_timestamp(writer)?;
     result += writer.write_u32_le(800)?;
@@ -300,15 +302,27 @@ where
             result += writer.write_buffer(&frame.data)?;
         }
     }
-    // TODO: calculate shape and alpha tolerance, bounding box type, bbox bounds
-    result += writer.write_u32_le(0)?; // shape - 0 = precise
-    result += writer.write_u32_le(0)?; // alpha tolerance
-    result += writer.write_u32_le(sprite.per_frame_colliders as u32)?;
-    result += writer.write_u32_le(2)?; // bounding box type - 2 = manual
-    result += writer.write_u32_le(0)?; // bbox left
-    result += writer.write_u32_le(32)?; // bbox right
-    result += writer.write_u32_le(32)?; // bbox bottom
-    result += writer.write_u32_le(0)?; // bbox top
+
+    if let Some(map) = gmk_collision {
+        result += writer.write_u32_le(map.shape as u32)?; // shape - 0 = precise
+        result += writer.write_u32_le(map.alpha_tolerance)?; // alpha tolerance
+        result += writer.write_u32_le(sprite.per_frame_colliders as u32)?;
+        result += writer.write_u32_le(2)?; // bounding box type - 2 = manual
+        result += writer.write_u32_le(map.bbox_left)?; // bbox left
+        result += writer.write_u32_le(map.bbox_right)?; // bbox right
+        result += writer.write_u32_le(map.bbox_bottom)?; // bbox bottom
+        result += writer.write_u32_le(map.bbox_top)?; // bbox top
+    } else {
+        // Defaults
+        result += writer.write_u32_le(0)?; // shape - 0 = precise
+        result += writer.write_u32_le(0)?; // alpha tolerance
+        result += writer.write_u32_le(sprite.per_frame_colliders as u32)?;
+        result += writer.write_u32_le(2)?; // bounding box type - 2 = manual
+        result += writer.write_u32_le(0)?; // bbox left
+        result += writer.write_u32_le(32)?; // bbox right
+        result += writer.write_u32_le(32)?; // bbox bottom
+        result += writer.write_u32_le(0)?; // bbox top
+    }
     Ok(result)
 }
 
