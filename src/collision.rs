@@ -58,7 +58,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
         for x in left..=right {
             // Check if there are any pixels with no collision
             for map in maps {
-                all_have_collision &= map.data[(y * map.bbox_width + x) as usize];
+                all_have_collision &= map.data[(y * map.width + x) as usize];
             }
 
             // Check relationships between collision and pixel alpha
@@ -66,7 +66,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
                 // Per frame colliders - easy to check each map against each frame one-by-one
                 for (i, frame) in sprite.frames.iter().enumerate() {
                     let map = &sprite.colliders[i];
-                    let has_collision = map.data[(y * map.bbox_width + x) as usize];
+                    let has_collision = map.data[(y * map.width + x) as usize];
                     let alpha = alpha_at(&frame, x, y);
                     if has_collision && (alpha < lowest_alpha_with_col) {
                         lowest_alpha_with_col = alpha;
@@ -85,7 +85,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
                     x,
                     y,
                 );
-                let has_collision = map.data[(y * map.bbox_width + x) as usize];
+                let has_collision = map.data[(y * map.width + x) as usize];
 
                 if has_collision && (alpha < lowest_alpha_with_col) {
                     lowest_alpha_with_col = alpha;
