@@ -313,6 +313,9 @@ where
         result += writer.write_u32_le(map.bbox_bottom)?; // bbox bottom
         result += writer.write_u32_le(map.bbox_top)?; // bbox top
     } else {
+        if sprite.frames.len() != 0 {
+            println!("WARNING: couldn't resolve collision for sprite {}", sprite.name);
+        }
         // Defaults
         result += writer.write_u32_le(0)?; // shape - 0 = precise
         result += writer.write_u32_le(0)?; // alpha tolerance
