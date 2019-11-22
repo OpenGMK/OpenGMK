@@ -102,8 +102,20 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     } else if lowest_alpha_with_col > highest_alpha_no_col {
         (Shape::Precise, highest_alpha_no_col)
     } else {
-        // TODO: circle or diamond
-        (Shape::Disk, 0)
+        // Decide between circle or diamond using the % of pixels which have collision
+        // Note: I use map[0] here because all maps are guaranteed to be the same
+        // for all shapes except Precise.
+        let map = &maps[0];
+        let collision_count = map.data.iter().filter(|x| **x).count();
+        let ratio = (collision_count as f64)
+            / (((map.bbox_right + 1 - map.bbox_left) * (map.bbox_bottom + 1 - map.bbox_top))
+                as f64);
+        // Highest diamond ratio I've seen is 0.5454.. Lowest disk ratio I've seen is 0.777..
+        if ratio < 0.65 {
+            (Shape::Diamond, 0)
+        } else {
+            (Shape::Disk, 0)
+        }
     };
 
     Some(GmkCollision {
