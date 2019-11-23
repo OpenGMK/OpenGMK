@@ -204,15 +204,14 @@ where
                     enc.write_u32_le(false as u32)?;
                 }
             }
-            Ok(enc)
+            enc.finish()
         })
         .collect::<Result<Vec<_>, io::Error>>()?
         .into_iter()
-        .fold(Ok(0usize), |res: Result<_, io::Error>, enc| {
-            let buffer = enc.finish()?;
-            let len_res = writer.write_u32_le(buffer.len() as u32)?;
-            writer.write_all(&buffer)?;
-            res.map(|r| r + len_res + buffer.len())
+        .fold(Ok(0usize), |res: io::Result<_>, enc| {
+            let result = writer.write_u32_le(enc.len() as u32)?;
+            writer.write_all(&enc)?;
+            res.map(|r| r + result + enc.len())
         })?;
 
     Ok(result)
