@@ -462,8 +462,8 @@ where
             }
         }
         None => {
-            // Check for antidec2 protection in the base exe (so without UPX on top of it)
             if let Some(antidec_settings) = check_antidec2(exe)? {
+                // antidec2 protection in the base exe (so without UPX on top of it)
                 if logger.is_some() {
                     log!(
                         logger,
@@ -483,6 +483,53 @@ where
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
                     exe.seek(SeekFrom::Current(12))?;
                     Ok(GameVersion::GameMaker8_0)
+                } else {
+                    // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
+                    Err(ReaderError::UnknownFormat)
+                }
+            } else if let Some(antidec_settings) = check_antidec81(exe)? {
+                // antidec81 protection in the base exe (so without UPX on top of it)
+                if logger.is_some() {
+                    log!(
+                        logger,
+                        "Found antidec81 loading sequence [no UPX], decrypting with the following values:"
+                    );
+                    log!(
+                        logger,
+                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                        antidec_settings.exe_load_offset,
+                        antidec_settings.header_start,
+                        antidec_settings.xor_mask,
+                        antidec_settings.add_mask,
+                        antidec_settings.sub_mask
+                    );
+                }
+                if decrypt_antidec(exe, antidec_settings)? {
+                    let found_header = {
+                        let mut i = antidec_settings.header_start + antidec_settings.exe_load_offset;
+                        loop {
+                            exe.set_position(i as u64);
+                            let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                            if val == 0xF7140067 {
+                                break true;
+                            }
+                            i += 1;
+                            if ((i + 8) as usize) >= exe.get_ref().len() {
+                                break false;
+                            }
+                        }
+                    };
+                    if found_header {
+                        decrypt_gm81(exe, logger, Gm81XorMethod::Normal)?;
+                        exe.seek(SeekFrom::Current(20))?;
+                        Ok(GameVersion::GameMaker8_1)
+                    } else {
+                        log!(
+                            logger,
+                            "Didn't find GM81 magic value (0xF7640017) before EOF, so giving up"
+                        );
+                        Err(ReaderError::UnknownFormat)
+                    }
                 } else {
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
                     Err(ReaderError::UnknownFormat)
