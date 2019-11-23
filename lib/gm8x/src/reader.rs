@@ -356,6 +356,7 @@ pub struct Settings {
 }
 
 /// The settings used to decrypt antidec2-protected data, usually extracted from machine code
+#[derive(Copy, Clone)]
 pub struct AntidecMetadata {
     pub exe_load_offset: u32,
     pub header_start: u32,
@@ -365,6 +366,7 @@ pub struct AntidecMetadata {
 }
 
 const GM80_HEADER_START_POS: u64 = 0x144AC0;
+const GM81_HEADER_START_POS: u64 = 0x1F0C53;
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
 /// Also removes any version-specific encryptions.
@@ -385,7 +387,7 @@ where
             let mut unpacked = io::Cursor::new(&mut *unpacked);
 
             // UPX unpacked, now check if this is a supported data format
-            if let Some(antidec_settings) = check_antidec(&mut unpacked)? {
+            if let Some(antidec_settings) = check_antidec2(&mut unpacked)? {
                 if logger.is_some() {
                     log!(
                         logger,
@@ -409,13 +411,58 @@ where
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
                     Err(ReaderError::UnknownFormat)
                 }
+            } else if let Some(antidec_settings) = check_antidec81(&mut unpacked)? {
+                log!(
+                    logger,
+                    "Found antidec81 loading sequence, decrypting with the following values:"
+                );
+                log!(
+                    logger,
+                    "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+                    antidec_settings.exe_load_offset,
+                    antidec_settings.header_start,
+                    antidec_settings.xor_mask,
+                    antidec_settings.add_mask,
+                    antidec_settings.sub_mask
+                );
+                if decrypt_antidec(exe, antidec_settings)? {
+                    // Search for header
+                    let found_header = {
+                        let mut i = antidec_settings.header_start + antidec_settings.exe_load_offset;
+                        loop {
+                            exe.set_position(i as u64);
+                            let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                            if val == 0xF7140067 {
+                                break true;
+                            }
+                            i += 1;
+                            if ((i + 8) as usize) >= exe.get_ref().len() {
+                                break false;
+                            }
+                        }
+                    };
+                    if found_header {
+                        decrypt_gm81(exe, logger, Gm81XorMethod::Normal)?;
+                        exe.seek(SeekFrom::Current(20))?;
+                        Ok(GameVersion::GameMaker8_1)
+                    } else {
+                        log!(
+                            logger,
+                            "Didn't find GM81 magic value (0xF7640017) before EOF, so giving up"
+                        );
+                        Err(ReaderError::UnknownFormat)
+                    }
+                } else {
+                    // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
+                    Err(ReaderError::UnknownFormat)
+                }
             } else {
                 Err(ReaderError::UnknownFormat)
             }
         }
         None => {
             // Check for antidec2 protection in the base exe (so without UPX on top of it)
-            if let Some(antidec_settings) = check_antidec(exe)? {
+            if let Some(antidec_settings) = check_antidec2(exe)? {
                 if logger.is_some() {
                     log!(
                         logger,
@@ -909,7 +956,7 @@ where
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe.
 /// If so, returns the relevant vars to decrypt the data stream
 /// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
-fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
+fn check_antidec2(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (GM80_HEADER_START_POS as usize) + 4 {
         return Ok(None);
@@ -940,6 +987,51 @@ fn check_antidec(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetada
         let add_mask = exe.read_u32_le()? ^ dword_xor_mask;
         // sub mask
         exe.set_position(0x000322E4);
+        let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        Ok(Some(AntidecMetadata {
+            exe_load_offset,
+            header_start,
+            xor_mask,
+            add_mask,
+            sub_mask,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Helper function for checking whether a data stream looks like an antidec81-protected exe.
+/// If so, returns the relevant vars to decrypt the data stream
+/// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
+fn check_antidec81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
+    // Verify size is large enough to do the following checks - otherwise it can't be antidec
+    if exe.get_ref().len() < GM81_HEADER_START_POS as usize {
+        return Ok(None);
+    }
+
+    // Check for the loading sequence
+    exe.set_position(0x000462CC);
+    let mut buf = [0u8; 7];
+    exe.read_exact(&mut buf)?;
+
+    let byte_xor_mask = buf[3];
+    if buf == [0x80, 0x34, 0x08, byte_xor_mask, 0xE2, 0xFA, 0xE9] {
+        // Convert mask into a u32 mask so we can apply it easily to dwords
+        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        // Next, the file offset for loading gamedata bytes
+        exe.set_position(0x00046255);
+        let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
+        // Now the header_start from later in the file
+        exe.set_position(GM81_HEADER_START_POS);
+        let header_start = exe.read_u32_le()?;
+        // xor mask
+        exe.set_position(0x00046283);
+        let xor_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        // add mask
+        exe.set_position(0x00046274);
+        let add_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        // sub mask
+        exe.set_position(0x00046293);
         let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
         Ok(Some(AntidecMetadata {
             exe_load_offset,
