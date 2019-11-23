@@ -44,8 +44,8 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
         .bbox_top;
 
     // Little helper function for later
-    fn alpha_at(frame: &Frame, x: u32, y: u32) -> u8 {
-        frame.data[((y * frame.width + x) * 4 + 3) as usize]
+    fn alpha_at(frame: &Frame, x: u32, y: u32) -> Option<u8> {
+        frame.data.get(((y * frame.width + x) * 4 + 3) as usize).map(|a| *a)
     }
 
     // The various bits of data we want to collect:
@@ -67,7 +67,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
                 for (i, frame) in sprite.frames.iter().enumerate() {
                     let map = &sprite.colliders[i];
                     let has_collision = map.data[(y * map.width + x) as usize];
-                    let alpha = alpha_at(&frame, x, y);
+                    let alpha = alpha_at(&frame, x, y)?;
                     if has_collision && (alpha < lowest_alpha_with_col) {
                         lowest_alpha_with_col = alpha;
                     } else if !has_collision && (alpha > highest_alpha_no_col) {
@@ -77,14 +77,13 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
             } else {
                 // Not per-frame colliders - the highest alpha value from each pixel is used
                 let map = &sprite.colliders[0];
-                let alpha = alpha_at(
-                    sprite
-                        .frames
-                        .iter()
-                        .max_by(|f1, f2| alpha_at(f1, x, y).cmp(&alpha_at(f2, x, y)))?,
-                    x,
-                    y,
-                );
+                let alpha = sprite
+                    .frames
+                    .iter()
+                    .map(|f| alpha_at(f, x, y).map(|a| (f, a)))
+                    .flatten()
+                    .max_by(|(_, a1), (_, a2)| a1.cmp(&a2))?
+                    .1;
                 let has_collision = map.data[(y * map.width + x) as usize];
 
                 if has_collision && (alpha < lowest_alpha_with_col) {
