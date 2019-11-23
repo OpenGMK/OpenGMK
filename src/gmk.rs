@@ -9,10 +9,10 @@ use minio::WritePrimitives;
 use std::io;
 use std::u32;
 
-pub trait WritePascalString: io::Write + minio::WritePrimitives {
+pub trait WritePascalString: WriteBuffer + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
         self.write_u32_le(s.len() as u32)
-            .and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
+            .and_then(|x| self.write_buffer(s.as_bytes()).map(|y| y + x))
     }
 }
 impl<W> WritePascalString for W where W: io::Write {}
