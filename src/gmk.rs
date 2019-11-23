@@ -321,10 +321,10 @@ where
         result += writer.write_u32_le(0)?; // alpha tolerance
         result += writer.write_u32_le(sprite.per_frame_colliders as u32)?;
         result += writer.write_u32_le(2)?; // bounding box type - 2 = manual
-        result += writer.write_u32_le(0)?; // bbox left
-        result += writer.write_u32_le(32)?; // bbox right
-        result += writer.write_u32_le(32)?; // bbox bottom
-        result += writer.write_u32_le(0)?; // bbox top
+        result += writer.write_u32_le(31)?; // bbox left
+        result += writer.write_u32_le(0)?; // bbox right
+        result += writer.write_u32_le(0)?; // bbox bottom
+        result += writer.write_u32_le(31)?; // bbox top
     }
     Ok(result)
 }
