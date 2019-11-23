@@ -21,7 +21,7 @@ pub enum Shape {
 pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     let maps = &sprite.colliders;
     // Return None if empty
-    if sprite.frames.is_empty() || maps.is_empty() {
+    if sprite.frames.is_empty() || maps.is_empty() || sprite.colliders.len() < sprite.frames.len() {
         return None;
     }
 
@@ -64,8 +64,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
             // Check relationships between collision and pixel alpha
             if sprite.per_frame_colliders {
                 // Per frame colliders - easy to check each map against each frame one-by-one
-                for (i, frame) in sprite.frames.iter().enumerate() {
-                    let map = &sprite.colliders[i];
+                for (frame, map) in sprite.frames.iter().zip(sprite.colliders.iter()) {
                     let has_collision = map.data[(y * map.width + x) as usize];
                     let alpha = alpha_at(&frame, x, y)?;
                     if has_collision && (alpha < lowest_alpha_with_col) {
