@@ -5,6 +5,7 @@ use gm8x::{
     asset::{self, includedfile::ExportSetting},
     GameVersion,
 };
+use flate2::{Compression, write::ZlibEncoder};
 use minio::WritePrimitives;
 use rayon::prelude::*;
 use std::io;
@@ -187,13 +188,13 @@ pub fn write_asset_list<W, T, F>(
 where
     T: Send + Sync,
     W: io::Write,
-    F: Fn(&mut ZlibWriter, &T, GameVersion) -> io::Result<usize> + Send + Sync,
+    F: Fn(&mut ZlibEncoder<Vec<u8>>, &T, GameVersion) -> io::Result<usize> + Send + Sync,
 {
     let mut result = writer.write_u32_le(800)?;
     result += writer.write_u32_le(list.len() as u32)?;
     result += list.par_iter()
         .map(|asset| {
-            let mut enc = ZlibWriter::new();
+            let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
             match asset {
                 Some(a) => {
                     enc.write_u32_le(true as u32)?;
@@ -207,9 +208,11 @@ where
         })
         .collect::<Result<Vec<_>, io::Error>>()?
         .into_iter()
-        .fold(Ok(0usize), |res, enc| match enc.finish(writer) {
-            Ok(len) => res.map(|r| r + len),
-            e @ Err(_) => e,
+        .fold(Ok(0usize), |res: Result<_, io::Error>, enc| {
+            let buffer = enc.finish()?;
+            let len_res = writer.write_u32_le(buffer.len() as u32)?;
+            writer.write_all(&buffer)?;
+            res.map(|r| r + len_res + buffer.len())
         })?;
 
     Ok(result)
