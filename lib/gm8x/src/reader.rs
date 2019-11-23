@@ -819,7 +819,7 @@ where
     //   .. it's complicated
     let mut a: u8;
     let mut b: u32;
-    for i in (pos..pos + len - 1).rev() {
+    for i in (pos..pos + len).rev() {
         b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
         if b < pos as u32 {
             b = pos as u32;
