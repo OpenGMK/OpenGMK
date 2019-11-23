@@ -51,7 +51,7 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
 
     // Little helper function for later
     fn alpha_at(frame: &Frame, x: u32, y: u32) -> Option<u8> {
-        frame.data.get(((y * frame.width + x) * 4 + 3) as usize).map(|a| *a)
+        frame.data.get(((y * frame.width + x) * 4 + 3) as usize).copied()
     }
 
     // The various bits of data we want to collect:
