@@ -546,16 +546,27 @@ where
         // Check the header magic numbers are what we read them as
         match gm80_magic {
             Some(n) => {
-                let header1 = exe.read_u32_le()?;
-                if header1 != n {
-                    log!(
-                        logger,
-                        "Failed to read GM8.0 header: expected {} at {}, got {}",
-                        n,
-                        header_start,
-                        header1
-                    );
-                    return Ok(false);
+                loop {
+                    let header1 = match exe.read_u32_le() {
+                        Ok(h) => h,
+                        _ => {
+                            log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
+                            return Ok(false);
+                        }
+                    };
+                    if header1 == n {
+                        break;
+                    } else {
+                        log!(
+                            logger,
+                            "Didn't find GM8.0 header at {}: expected {}, got {}",
+                            exe.position() - 4,
+                            n,
+                            header1
+                        );
+                        // Skip ahead 10000 bytes in the file and try again - this is what the GM8 runner does
+                        exe.seek(SeekFrom::Current(10000 - 4))?;
+                    }
                 }
             }
             None => {
