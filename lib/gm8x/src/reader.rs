@@ -7,6 +7,7 @@ use minio::{ReadPrimitives, WritePrimitives};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use std::{
+    cmp::max,
     convert::TryInto,
     error::Error,
     fmt::{self, Display},
@@ -816,15 +817,10 @@ where
     }
 
     // decryption: second pass
-    //   .. it's complicated
-    let mut a: u8;
-    let mut b: u32;
+    //   for each byte from end of the file, calculate a byte position to swap with, then swap them over
     for i in (pos..pos + len).rev() {
-        b = i as u32 - swap_table[(i - pos) & 0xFF] as u32;
-        if b < pos as u32 {
-            b = pos as u32;
-        }
-        a = data[i];
+        let b = max(i as u32 - swap_table[(i - pos) & 0xFF] as u32, pos as u32);
+        let a = data[i];
         data[i] = data[b as usize];
         data[b as usize] = a;
     }
