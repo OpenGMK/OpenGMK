@@ -107,9 +107,9 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
         (Shape::Precise, highest_alpha_no_col)
     } else {
         // Decide between circle or diamond using the % of pixels which have collision
-        // Note: I use map[0] here because all maps are guaranteed to be the same
+        // Note: I use the first map here because all maps are guaranteed to be the same
         // for all shapes except Precise.
-        let map = &maps[0];
+        let map = maps.first()?;
         let collision_count = map.data.iter().filter(|x| **x).count();
         let ratio = (collision_count as f64)
             / (((map.bbox_right + 1 - map.bbox_left) * (map.bbox_bottom + 1 - map.bbox_top))
