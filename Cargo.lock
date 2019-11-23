@@ -106,7 +106,7 @@ dependencies = [
 [[package]]
 name = "gm8x"
 version = "0.1.0"
-source = "git+https://github.com/OpenGM8/GM8Emulator#e7a800443de5a41292b9641be4754d7fde353731"
+source = "git+https://github.com/OpenGM8/GM8Emulator#ed95d4d10d25b3c1828883f68a4cad7267c9a8eb"
 dependencies = [
  "flate2 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "minio 1.0.0 (git+https://github.com/notviri/minio)",
