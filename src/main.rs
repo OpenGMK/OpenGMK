@@ -19,11 +19,11 @@ fn main() {
         Ok(m) => m,
         Err(f) => {
             match f {
-                getopts::Fail::ArgumentMissing(arg) => println!("Missing argument: {}", arg),
-                getopts::Fail::UnrecognizedOption(opt) => println!("Unrecognized option: {}", opt),
-                getopts::Fail::OptionMissing(opt) => println!("Missing option: {}", opt),
-                getopts::Fail::OptionDuplicated(opt) => println!("Duplicated option: {}", opt),
-                getopts::Fail::UnexpectedArgument(arg) => println!("Unexpected argument: {}", arg),
+                getopts::Fail::ArgumentMissing(arg) => eprintln!("Missing argument: {}", arg),
+                getopts::Fail::UnrecognizedOption(opt) => eprintln!("Unrecognized option: {}", opt),
+                getopts::Fail::OptionMissing(opt) => eprintln!("Missing option: {}", opt),
+                getopts::Fail::OptionDuplicated(opt) => eprintln!("Duplicated option: {}", opt),
+                getopts::Fail::UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
             }
             return;
         }
@@ -44,7 +44,7 @@ fn main() {
 
     // Print this slightly less helpful error message if multiple filenames were provided
     if matches.free.len() > 1 {
-        println!("Unexpected input: {}", matches.free[1]);
+        eprintln!("Unexpected input: {}", matches.free[1]);
         return;
     }
 
@@ -65,7 +65,7 @@ fn main() {
     let input_filename = match Path::new(input).file_name() {
         Some(f) => f.to_string_lossy(),
         None => {
-            println!("Failed to open '{}': not a file name", input);
+            eprintln!("Failed to open '{}': not a file name", input);
             return;
         }
     };
@@ -74,7 +74,7 @@ fn main() {
     let mut file = match fs::read(&input) {
         Ok(f) => f,
         Err(e) => {
-            println!("Failed to open '{}': {}", input, e);
+            eprintln!("Failed to open '{}': {}", input, e);
             return;
         }
     };
@@ -92,7 +92,7 @@ fn main() {
     ) {
         Ok(a) => a,
         Err(e) => {
-            println!("Error parsing exe: {}", e);
+            eprintln!("Error parsing exe: {}", e);
             return;
         }
     };
@@ -140,15 +140,9 @@ fn main() {
     };
 
     // write gmk - I wrapped this in a function so we can catch any io errors here.
-    match write_gmk(&gmk_filename, assets, verbose) {
-        Ok(_) => {
-            // successful
-            // press any key to continue?
-        }
-        Err(e) => {
-            println!("Error writing gmk: {}", e);
-            return;
-        }
+    if let Err(e) =  write_gmk(&gmk_filename, assets, verbose) {
+        eprintln!("Error writing gmk: {}", e);
+        // return;
     }
 }
 
