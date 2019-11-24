@@ -206,7 +206,7 @@ fn decompile(
         .map_err(|e| format!("Failed to write settings block: {}", e))?;
     
     println!("Writing {} triggers...", assets.triggers.len());
-    gmk::write_asset_list(&mut gmk, &assets.triggers, gmk::write_trigger, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.triggers, gmk::write_trigger, assets.version, multithread)
         .map_err(|e| format!("Failed to write triggers: {}", e))?;
 
     gmk::write_timestamp(&mut gmk)
@@ -217,39 +217,39 @@ fn decompile(
         .map_err(|e| format!("Failed to write constants: {}", e))?;
 
     println!("Writing {} sounds...", assets.sounds.len());
-    gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version, multithread)
         .map_err(|e| format!("Failed to write sounds: {}", e))?;
 
     println!("Writing {} sprites...", assets.sprites.len());
-    gmk::write_asset_list(&mut gmk, &assets.sprites, gmk::write_sprite, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.sprites, gmk::write_sprite, assets.version, multithread)
         .map_err(|e| format!("Failed to write sprites: {}", e))?;
 
     println!("Writing {} backgrounds...", assets.backgrounds.len());
-    gmk::write_asset_list(&mut gmk, &assets.backgrounds, gmk::write_background, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.backgrounds, gmk::write_background, assets.version, multithread)
         .map_err(|e| format!("Failed to write backgrounds: {}", e))?;
     
     println!("Writing {} paths...", assets.paths.len());
-    gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version, multithread)
         .map_err(|e| format!("Failed to write paths: {}", e))?;
 
     println!("Writing {} scripts...", assets.scripts.len());
-    gmk::write_asset_list(&mut gmk, &assets.scripts, gmk::write_script, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.scripts, gmk::write_script, assets.version, multithread)
         .map_err(|e| format!("Failed to write scripts: {}", e))?;
 
     println!("Writing {} fonts...", assets.fonts.len());
-    gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version, multithread)
         .map_err(|e| format!("Failed to write fonts: {}", e))?;
     
     println!("Writing {} timelines...", assets.timelines.len());
-    gmk::write_asset_list(&mut gmk, &assets.timelines, gmk::write_timeline, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.timelines, gmk::write_timeline, assets.version, multithread)
         .map_err(|e| format!("Failed to write timelines: {}", e))?;
 
     println!("Writing {} objects...", assets.objects.len());
-    gmk::write_asset_list(&mut gmk, &assets.objects, gmk::write_object, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.objects, gmk::write_object, assets.version, multithread)
         .map_err(|e| format!("Failed to write objects: {}", e))?;
 
     println!("Writing {} rooms...", assets.rooms.len());
-    gmk::write_asset_list(&mut gmk, &assets.rooms, gmk::write_room, assets.version)
+    gmk::write_asset_list(&mut gmk, &assets.rooms, gmk::write_room, assets.version, multithread)
         .map_err(|e| format!("Failed to write rooms: {}", e))?;
 
     println!(

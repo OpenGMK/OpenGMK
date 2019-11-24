@@ -182,6 +182,7 @@ pub fn write_asset_list<W, T, F>(
     list: &[Option<Box<T>>],
     write_fn: F,
     version: GameVersion,
+    multithread: bool,
 ) -> io::Result<usize>
 where
     T: Send + Sync,
@@ -190,28 +191,47 @@ where
 {
     let mut result = writer.write_u32_le(800)?;
     result += writer.write_u32_le(list.len() as u32)?;
-    result += list
-        .par_iter()
-        .map(|asset| {
+
+    if multithread {
+        result += list
+            .par_iter()
+            .map(|asset| {
+                let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
+                match asset {
+                    Some(a) => {
+                        enc.write_u32_le(true as u32)?;
+                        write_fn(&mut enc, a.as_ref(), version)?;
+                    }
+                    None => {
+                        enc.write_u32_le(false as u32)?;
+                    }
+                }
+                enc.finish()
+            })
+            .collect::<Result<Vec<_>, io::Error>>()?
+            .into_iter()
+            .fold(Ok(0usize), |res: io::Result<_>, enc| {
+                let mut result = writer.write_u32_le(enc.len() as u32)?;
+                result += writer.write_buffer(&enc)?;
+                res.map(|r| r + result)
+            })?;
+    } else {
+        for asset in list {
             let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
             match asset {
-                Some(a) => {
+                Some(asset) => {
                     enc.write_u32_le(true as u32)?;
-                    write_fn(&mut enc, a.as_ref(), version)?;
+                    write_fn(&mut enc, asset, version)?;
                 }
                 None => {
                     enc.write_u32_le(false as u32)?;
                 }
             }
-            enc.finish()
-        })
-        .collect::<Result<Vec<_>, io::Error>>()?
-        .into_iter()
-        .fold(Ok(0usize), |res: io::Result<_>, enc| {
-            let result = writer.write_u32_le(enc.len() as u32)?;
-            writer.write_all(&enc)?;
-            res.map(|r| r + result + enc.len())
-        })?;
+            let buf = enc.finish()?;
+            result += writer.write_u32_le(buf.len() as u32)?;
+            result += writer.write_buffer(&buf)?;
+        }
+    }
 
     Ok(result)
 }
