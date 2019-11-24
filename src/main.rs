@@ -4,7 +4,6 @@
 use gm8exe::GameVersion;
 use std::{
     env, fs,
-    os::raw::c_int,
     path::{Path, PathBuf},
     process,
 };
@@ -118,13 +117,9 @@ fn main() {
     #[cfg(target_os = "windows")]
     let press_any_key = || {
         if !no_pause {
-            // I am not adding a stupid dependency for this.
-            extern "C" {
-                fn getch() -> c_int; // "nonstandard" C <conio.h> function, works on my machine™
-            }
-
+            let ch = getch::Getch::new();
             println!("\n< Press Any Key >");
-            let _ = unsafe { getch() };
+            let _ = ch.getch();
         }
     };
 
