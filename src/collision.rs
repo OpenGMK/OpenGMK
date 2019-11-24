@@ -1,4 +1,4 @@
-use gm8x::asset::sprite::{Frame, Sprite};
+use gm8exe::asset::sprite::{Frame, Sprite};
 
 pub struct GmkCollision {
     pub bbox_top: u32,

@@ -1,8 +1,8 @@
 use crate::collision;
 use crate::zlib::ZlibWriter;
-use gm8x::reader::{GameAssets, Settings};
-use gm8x::{
+use gm8exe::{
     asset::{self, includedfile::ExportSetting},
+    reader::{GameAssets, GameHelpDialog, Settings},
     GameVersion,
 };
 use flate2::{Compression, write::ZlibEncoder};
@@ -707,7 +707,7 @@ where
 // Write game information (help dialog) block to GMK
 pub fn write_game_information<W>(
     writer: &mut W,
-    info: &gm8x::reader::GameHelpDialog,
+    info: &GameHelpDialog,
 ) -> io::Result<usize>
 where
     W: io::Write,

@@ -1,4 +1,4 @@
-use gm8x::GameVersion;
+use gm8exe::GameVersion;
 use std::{
     env, fs,
     os::raw::c_int,
@@ -136,7 +136,7 @@ fn decompile(
 
     // parse (entire) gamedata
     let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
-    let assets = gm8x::reader::from_exe(file, logger, strict, multithread)
+    let assets = gm8exe::reader::from_exe(file, logger, strict, multithread)
         .map_err(|e| format!("Reader error: {}", e))?;
     
     println!("Successfully parsed game!");
