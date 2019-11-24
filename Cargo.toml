@@ -5,6 +5,9 @@ authors = ["Adamcake", "viri"]
 license = "GPL-2.0-only"
 edition = "2018"
 
+[build-dependencies]
+chrono = "0.4"
+
 [dependencies]
 flate2 = { version = "1.0.12", features = ["zlib"] }
 getopts = "0.2.21"
