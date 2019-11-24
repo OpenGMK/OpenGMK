@@ -8,7 +8,7 @@ edition = "2018"
 gl = { path = "lib/gl" }
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
-gm8x = { path = "lib/gm8x" }
+gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
 rect_packer = "0.2.1"
 
 [profile.release]
@@ -17,7 +17,4 @@ lto = true
 panic = "abort"
 
 [workspace]
-members = [
-    "lib/gl",
-    "lib/gm8x",
-]
+members = ["lib/gl"]
