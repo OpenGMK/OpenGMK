@@ -4,7 +4,7 @@
 environment:
   global:
     RUST_VERSION: stable
-    CRATE_NAME: gm8emu
+    CRATE_NAME: gm8emulator
 
   matrix:
     # MinGW
