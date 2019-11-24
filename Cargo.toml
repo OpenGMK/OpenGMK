@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 flate2 = { version = "1.0.12", features = ["zlib"] }
 getopts = "0.2.21"
-gm8x = { git = "https://github.com/OpenGM8/GM8Emulator" }
+gm8x = { path = "gm8x" }
 minio  = { git = "https://github.com/notviri/minio" }
 rayon = "1.2"
 
@@ -15,3 +15,6 @@ rayon = "1.2"
 codegen-units = 1
 lto = true
 panic = "abort"
+
+[workspace]
+members = ["gm8x"]
