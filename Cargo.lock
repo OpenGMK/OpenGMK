@@ -99,13 +99,13 @@ version = "2.0.0"
 dependencies = [
  "flate2 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "gm8x 0.1.0",
+ "gm8exe 0.1.0",
  "minio 1.0.0 (git+https://github.com/notviri/minio)",
  "rayon 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "gm8x"
+name = "gm8exe"
 version = "0.1.0"
 dependencies = [
  "flate2 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",

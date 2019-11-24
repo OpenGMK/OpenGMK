@@ -7,8 +7,8 @@ edition = "2018"
 [dependencies]
 flate2 = { version = "1.0.12", features = ["zlib"] }
 getopts = "0.2.21"
-gm8x = { path = "gm8x" }
-minio  = { git = "https://github.com/notviri/minio" }
+gm8exe = { path = "gm8exe" }
+minio = { git = "https://github.com/notviri/minio" }
 rayon = "1.2"
 
 [profile.release]
@@ -17,4 +17,4 @@ lto = true
 panic = "abort"
 
 [workspace]
-members = ["gm8x"]
+members = ["gm8exe"]
