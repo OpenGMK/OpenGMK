@@ -139,7 +139,6 @@ fn main() {
         process::exit(1);
     }
 
-    println!("Success!");
     press_any_key();
 }
 
@@ -291,6 +290,12 @@ fn decompile(
     println!("Writing resource tree...");
     gmk::write_resource_tree(&mut gmk, &assets)
         .map_err(|e| format!("Failed to write resource tree: {}", e))?;
+
+    println!(
+        "Successfully written {} to '{}'",
+        out_expected_ext,
+        out_path.file_name().and_then(|oss| oss.to_str()).unwrap_or("<INVALID UTF-8>"),
+    );
 
     Ok(())
 }
