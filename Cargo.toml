@@ -9,11 +9,14 @@ edition = "2018"
 chrono = "0.4"
 
 [dependencies]
-flate2 = { version = "1.0.12", features = ["zlib"] }
+flate2 = "1.0.12"
 getopts = "0.2.21"
 gm8exe = { path = "gm8exe" }
 minio = { git = "https://github.com/notviri/minio" }
 rayon = "1.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+getch = "0.2.1"
 
 [profile.release]
 codegen-units = 1
