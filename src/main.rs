@@ -1,8 +1,5 @@
-use gm8x::reader::GameAssets;
-use gm8x::GameVersion;
-use std::env;
-use std::fs;
-use std::path::Path;
+use gm8x::{GameVersion, reader::GameAssets};
+use std::{env, fs, path::Path};
 
 pub mod collision;
 pub mod gmk;
