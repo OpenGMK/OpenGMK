@@ -256,11 +256,15 @@ impl Extension {
                     let pos = reader.position() as usize;
 
                     reader.seek(SeekFrom::Current(len as i64))?; // pre-check for next get
-                    file.contents =
-                        match inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())) {
-                            Ok(x) => x.into_boxed_slice(),
-                            Err(_) => return Err(AssetDataError::MalformedData),
-                        };
+                    file.contents = match inflate(
+                        reader
+                            .get_ref()
+                            .get(pos..pos + len)
+                            .unwrap_or_else(|| unreachable!()),
+                    ) {
+                        Ok(x) => x.into_boxed_slice(),
+                        Err(_) => return Err(AssetDataError::MalformedData),
+                    };
                 }
             }
 

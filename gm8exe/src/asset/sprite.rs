@@ -108,7 +108,10 @@ impl Asset for Sprite {
                 });
             }
 
-            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, AssetDataError>
+            fn read_collision<T>(
+                reader: &mut io::Cursor<T>,
+                strict: bool,
+            ) -> Result<CollisionMap, AssetDataError>
             where
                 T: AsRef<[u8]>,
             {
@@ -129,20 +132,21 @@ impl Asset for Sprite {
                 let mask_size = width as usize * height as usize;
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
-                    Some(b) => b
-                        .chunks_exact(4)
-                        .map(|ch| {
-                            // until we get const generics we need to do this to get an exact array
-                            let chunk: &[u8; 4] = ch
-                                .try_into()
-                                .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() });
-                            // nonzero value indicates collision pixel present
-                            u32::from_le_bytes(*chunk) != 0
-                        })
-                        .collect(),
-                    None => return Err(AssetDataError::MalformedData),
-                };
+                let mask: Vec<bool> =
+                    match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
+                        Some(b) => b
+                            .chunks_exact(4)
+                            .map(|ch| {
+                                // until we get const generics we need to do this to get an exact array
+                                let chunk: &[u8; 4] = ch.try_into().unwrap_or_else(|_| unsafe {
+                                    std::hint::unreachable_unchecked()
+                                });
+                                // nonzero value indicates collision pixel present
+                                u32::from_le_bytes(*chunk) != 0
+                            })
+                            .collect(),
+                        None => return Err(AssetDataError::MalformedData),
+                    };
 
                 Ok(CollisionMap {
                     width,

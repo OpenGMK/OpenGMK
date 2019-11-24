@@ -1,4 +1,4 @@
-use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString /* WritePascalString */};
+use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, /* WritePascalString */};
 use crate::GameVersion;
 
 use minio::ReadPrimitives;

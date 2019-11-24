@@ -1,11 +1,11 @@
 use crate::collision;
 use crate::zlib::ZlibWriter;
+use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
     asset::{self, includedfile::ExportSetting},
     reader::{GameAssets, GameHelpDialog, Settings},
     GameVersion,
 };
-use flate2::{Compression, write::ZlibEncoder};
 use minio::WritePrimitives;
 use rayon::prelude::*;
 use std::io;
@@ -192,7 +192,8 @@ where
 {
     let mut result = writer.write_u32_le(800)?;
     result += writer.write_u32_le(list.len() as u32)?;
-    result += list.par_iter()
+    result += list
+        .par_iter()
         .map(|asset| {
             let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
             match asset {
@@ -326,7 +327,10 @@ where
         result += writer.write_u32_le(map.bbox_top)?; // bbox top
     } else {
         if sprite.frames.len() != 0 {
-            println!("WARNING: couldn't resolve collision for sprite {}", sprite.name);
+            println!(
+                "WARNING: couldn't resolve collision for sprite {}",
+                sprite.name
+            );
         }
         // Defaults
         result += writer.write_u32_le(0)?; // shape - 0 = precise
@@ -705,10 +709,7 @@ where
 }
 
 // Write game information (help dialog) block to GMK
-pub fn write_game_information<W>(
-    writer: &mut W,
-    info: &GameHelpDialog,
-) -> io::Result<usize>
+pub fn write_game_information<W>(writer: &mut W, info: &GameHelpDialog) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -819,7 +820,12 @@ where
     for (i, sound) in enumerate_existing(&assets.sounds) {
         result += write_rt_asset(writer, &sound.name, 3, i as u32)?;
     }
-    result += write_rt_heading(writer, "Backgrounds", 6, count_existing(&assets.backgrounds))?;
+    result += write_rt_heading(
+        writer,
+        "Backgrounds",
+        6,
+        count_existing(&assets.backgrounds),
+    )?;
     for (i, background) in enumerate_existing(&assets.backgrounds) {
         result += write_rt_asset(writer, &background.name, 6, i as u32)?;
     }
@@ -836,7 +842,7 @@ where
         result += write_rt_asset(writer, &font.name, 9, i as u32)?;
     }
     result += write_rt_heading(writer, "Time Lines", 12, count_existing(&assets.timelines))?;
-    for (i, timeline) in enumerate_existing(&assets.timelines){
+    for (i, timeline) in enumerate_existing(&assets.timelines) {
         result += write_rt_asset(writer, &timeline.name, 12, i as u32)?;
     }
     result += write_rt_heading(writer, "Objects", 1, count_existing(&assets.objects))?;

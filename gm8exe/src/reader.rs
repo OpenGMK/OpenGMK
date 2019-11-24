@@ -97,7 +97,8 @@ impl Display for ReaderError {
                 ReaderError::AssetError(err) => format!("asset data error: {}", err),
                 ReaderError::InvalidExeHeader => "invalid exe header".into(),
                 ReaderError::IO(err) => format!("io error: {}", err),
-                ReaderError::PartialUPXPacking => "looks upx protected, can't locate headers".into(),
+                ReaderError::PartialUPXPacking =>
+                    "looks upx protected, can't locate headers".into(),
                 ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
             }
         )
@@ -383,7 +384,11 @@ where
         Some((max_size, disk_offset)) => {
             // UPX in use, let's unpack it
             let mut unpacked = unpack_upx(exe, max_size, disk_offset, logger)?;
-            log!(logger, "Successfully unpacked UPX - output is {} bytes", unpacked.len());
+            log!(
+                logger,
+                "Successfully unpacked UPX - output is {} bytes",
+                unpacked.len()
+            );
             let mut unpacked = io::Cursor::new(&mut *unpacked);
 
             // UPX unpacked, now check if this is a supported data format
@@ -428,10 +433,12 @@ where
                 if decrypt_antidec(exe, antidec_settings)? {
                     // Search for header
                     let found_header = {
-                        let mut i = antidec_settings.header_start + antidec_settings.exe_load_offset;
+                        let mut i =
+                            antidec_settings.header_start + antidec_settings.exe_load_offset;
                         loop {
                             exe.set_position(i as u64);
-                            let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                            let val = (exe.read_u32_le()? & 0xFF00FF00)
+                                + (exe.read_u32_le()? & 0x00FF00FF);
                             if val == 0xF7140067 {
                                 break true;
                             }
@@ -505,10 +512,12 @@ where
                 }
                 if decrypt_antidec(exe, antidec_settings)? {
                     let found_header = {
-                        let mut i = antidec_settings.header_start + antidec_settings.exe_load_offset;
+                        let mut i =
+                            antidec_settings.header_start + antidec_settings.exe_load_offset;
                         loop {
                             exe.set_position(i as u64);
-                            let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                            let val = (exe.read_u32_le()? & 0xFF00FF00)
+                                + (exe.read_u32_le()? & 0x00FF00FF);
                             if val == 0xF7140067 {
                                 break true;
                             }
@@ -578,7 +587,11 @@ where
                 let mut buf = [0u8; 6];
                 exe.read_exact(&mut buf)?;
                 if buf == [0x0F, 0x85, 0x18, 0x01, 0x00, 0x00] {
-                    log!(logger, "GM8.0 magic check looks intact - value is {}", magic);
+                    log!(
+                        logger,
+                        "GM8.0 magic check looks intact - value is {}",
+                        magic
+                    );
                     Some(magic)
                 } else {
                     log!(logger, "GM8.0 magic check's JNZ is patched out");
@@ -608,7 +621,11 @@ where
                         let mut buf = [0u8; 6];
                         exe.read_exact(&mut buf)?;
                         if buf == [0x0F, 0x85, 0xF5, 0x00, 0x00, 0x00] {
-                            log!(logger, "GM8.0 header version check looks intact - value is {}", magic);
+                            log!(
+                                logger,
+                                "GM8.0 header version check looks intact - value is {}",
+                                magic
+                            );
                             Some(magic)
                         } else {
                             println!("GM8.0 header version check's JNZ is patched out");
@@ -644,7 +661,10 @@ where
                     let header1 = match exe.read_u32_le() {
                         Ok(h) => h,
                         _ => {
-                            log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
+                            log!(
+                                logger,
+                                "Passed end of stream looking for GM8.0 header, so quitting"
+                            );
                             return Ok(false);
                         }
                     };
@@ -727,7 +747,11 @@ where
             [0x81, 0x7D, 0xEC] => {
                 let magic = exe.read_u32_le()?;
                 if exe.read_u8()? == 0x74 {
-                    log!(logger, "GM8.1 magic check looks intact - value is 0x{:X}", magic);
+                    log!(
+                        logger,
+                        "GM8.1 magic check looks intact - value is 0x{:X}",
+                        magic
+                    );
                     Some(magic)
                 } else {
                     log!(logger, "GM8.1 magic check's JE is patched out");
@@ -766,7 +790,8 @@ where
                     let mut i = header_start as u64;
                     loop {
                         exe.set_position(i);
-                        let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
+                        let val =
+                            (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
                         if val == n {
                             break true;
                         }
@@ -800,7 +825,10 @@ where
 
 /// Check if this is a standard gm8.1 game by looking for the default header (last-resort method)
 /// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
-fn check_gm81_lazy<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
+fn check_gm81_lazy<F>(
+    exe: &mut io::Cursor<&mut [u8]>,
+    logger: Option<F>,
+) -> Result<bool, ReaderError>
 where
     F: Copy + Fn(&str),
 {
@@ -858,8 +886,8 @@ where
     // decryption: first pass
     //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
     for i in (pos..=pos + len).rev() {
-        data[i - 1] =
-            reverse_table[data[i - 1] as usize].wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+        data[i - 1] = reverse_table[data[i - 1] as usize]
+            .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
     }
 
     // decryption: second pass
@@ -875,7 +903,11 @@ where
 }
 
 /// Removes GM8.1 encryption in-place.
-fn decrypt_gm81<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>, xor_method: Gm81XorMethod) -> io::Result<()>
+fn decrypt_gm81<F>(
+    data: &mut io::Cursor<&mut [u8]>,
+    logger: Option<F>,
+    xor_method: Gm81XorMethod,
+) -> io::Result<()>
 where
     F: Copy + Fn(&str),
 {
@@ -900,7 +932,10 @@ where
 
     let sudalv_magic_point = (data.position() - 12) as u32;
     let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
-    let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
+    let hash_key_utf16: Vec<u8> = hash_key
+        .bytes()
+        .flat_map(|c| once(c).chain(once(0)))
+        .collect();
 
     // generate crc table
     let mut crc_table = [0u32; 256];
@@ -908,7 +943,12 @@ where
     for (i, val) in crc_table.iter_mut().enumerate() {
         *val = crc_32_reflect(i as u32, 8) << 24;
         for _ in 0..8 {
-            *val = (*val << 1) ^ if *val & (1 << 31) != 0 { crc_polynomial } else { 0 };
+            *val = (*val << 1)
+                ^ if *val & (1 << 31) != 0 {
+                    crc_polynomial
+                } else {
+                    0
+                };
         }
         *val = crc_32_reflect(*val, 32);
     }
@@ -962,7 +1002,12 @@ where
     Ok(())
 }
 
-fn sudalv_magic(seed: u32, data: &mut io::Cursor<&mut [u8]>, magic_point: u32, x20: &mut u32) -> io::Result<u32> {
+fn sudalv_magic(
+    seed: u32,
+    data: &mut io::Cursor<&mut [u8]>,
+    magic_point: u32,
+    x20: &mut u32,
+) -> io::Result<u32> {
     let t = seed & 0xFFFF;
     let start_pos = data.position();
 
@@ -1014,7 +1059,8 @@ fn check_antidec2(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetad
         exe.seek(SeekFrom::Current(-9))?;
         let byte_xor_mask = exe.read_u8()?;
         // Convert it into a u32 mask so we can apply it easily to dwords
-        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        let dword_xor_mask =
+            u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x000322A9);
         let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
@@ -1045,7 +1091,9 @@ fn check_antidec2(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetad
 /// Helper function for checking whether a data stream looks like an antidec81-protected exe.
 /// If so, returns the relevant vars to decrypt the data stream
 /// (exe_load_offset, header_start, xor_mask, add_mask, sub_mask).
-fn check_antidec81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
+fn check_antidec81(
+    exe: &mut io::Cursor<&mut [u8]>,
+) -> Result<Option<AntidecMetadata>, ReaderError> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < GM81_HEADER_START_POS as usize {
         return Ok(None);
@@ -1059,7 +1107,8 @@ fn check_antidec81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMeta
     let byte_xor_mask = buf[3];
     if buf == [0x80, 0x34, 0x08, byte_xor_mask, 0xE2, 0xFA, 0xE9] {
         // Convert mask into a u32 mask so we can apply it easily to dwords
-        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        let dword_xor_mask =
+            u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x00046255);
         let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
@@ -1090,7 +1139,10 @@ fn check_antidec81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMeta
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
 /// Returns true on success, or false indicating that the provided settings are incompatible with the data.
-fn decrypt_antidec(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> Result<bool, ReaderError> {
+fn decrypt_antidec(
+    data: &mut io::Cursor<&mut [u8]>,
+    settings: AntidecMetadata,
+) -> Result<bool, ReaderError> {
     let game_data = match data.get_mut().get_mut(settings.exe_load_offset as usize..) {
         Some(d) => d,
         None => return Ok(false),
@@ -1210,7 +1262,8 @@ where
             pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
         } else {
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in it.
-            u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
+            u_var12 =
+                ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
             }
@@ -1380,7 +1433,8 @@ fn find_rsrc_icons(
 
                 let raw_header_size = (6 + (image_count * 16)) as usize;
                 let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
-                let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
+                let mut raw_file: Vec<u8> =
+                    Vec::with_capacity(raw_header_size + (raw_body_size as usize));
                 let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
                 raw_file.extend_from_slice(&v[0..6]);
                 for _ in 0..image_count {
@@ -1400,7 +1454,9 @@ fn find_rsrc_icons(
                     // Match this ordinal name with an icon resource
                     for icon in &icons {
                         if icon.0 == ordinal as u32 && icon.2 >= 40 {
-                            if let Some(v) = extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
+                            if let Some(v) =
+                                extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)?
+                            {
                                 raw_file_body.extend_from_slice(&v);
                                 if let Some(i) = make_icon(width, height, v)? {
                                     icon_group.push(i);
@@ -1426,7 +1482,12 @@ pub struct PESection {
     pub disk_address: u32,
 }
 
-pub fn from_exe<I, F>(mut exe: I, logger: Option<F>, strict: bool, multithread: bool) -> Result<GameAssets, ReaderError>
+pub fn from_exe<I, F>(
+    mut exe: I,
+    logger: Option<F>,
+    strict: bool,
+    multithread: bool,
+) -> Result<GameAssets, ReaderError>
 where
     F: Copy + Fn(&str),
     I: AsRef<[u8]> + AsMut<[u8]>,
@@ -1537,7 +1598,10 @@ where
                 if got == expected {
                     Ok(())
                 } else {
-                    Err(ReaderError::AssetError(AssetDataError::VersionError { expected, got }))
+                    Err(ReaderError::AssetError(AssetDataError::VersionError {
+                        expected,
+                        got,
+                    }))
                 }
             } else {
                 Ok(())
@@ -1551,16 +1615,27 @@ where
     exe.seek(SeekFrom::Current(settings_len as i64))?;
     let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?;
 
-    log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
+    log!(
+        logger,
+        "Reading settings chunk... (size: {})",
+        settings_chunk.len(),
+    );
 
     let settings = {
-        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<[u8]>>, ReaderError> {
+        fn read_data_maybe(
+            cfg: &mut io::Cursor<Vec<u8>>,
+        ) -> Result<Option<Box<[u8]>>, ReaderError> {
             if cfg.read_u32_le()? != 0 {
                 let len = cfg.read_u32_le()? as usize;
                 let pos = cfg.position() as usize;
                 cfg.seek(SeekFrom::Current(len as i64))?;
                 Ok(Some(
-                    inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice(),
+                    inflate(
+                        cfg.get_ref()
+                            .get(pos..pos + len)
+                            .unwrap_or_else(|| unreachable!()),
+                    )?
+                    .into_boxed_slice(),
                 ))
             } else {
                 Ok(None)
@@ -1605,15 +1680,20 @@ where
         let show_error_messages = cfg.read_u32_le()? != 0;
         let log_errors = cfg.read_u32_le()? != 0;
         let always_abort = cfg.read_u32_le()? != 0;
-        let (zero_uninitalized_vars, error_on_uninitalized_args) = match (game_ver, cfg.read_u32_le()?) {
-            (GameVersion::GameMaker8_0, x) => (x != 0, true),
-            (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
-        };
+        let (zero_uninitalized_vars, error_on_uninitalized_args) =
+            match (game_ver, cfg.read_u32_le()?) {
+                (GameVersion::GameMaker8_0, x) => (x != 0, true),
+                (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
+            };
 
         log!(logger, " + Loaded settings structure");
         log!(logger, "   - Start in full-screen mode: {}", fullscreen);
 
-        log!(logger, "   - Interpolate colors between pixels: {}", interpolate_pixels);
+        log!(
+            logger,
+            "   - Interpolate colors between pixels: {}",
+            interpolate_pixels
+        );
 
         log!(
             logger,
@@ -1631,11 +1711,23 @@ where
             allow_resize
         );
 
-        log!(logger, "   - Let the game window always stay on top: {}", window_on_top);
+        log!(
+            logger,
+            "   - Let the game window always stay on top: {}",
+            window_on_top
+        );
 
-        log!(logger, "   - Colour outside the room region (RGBA): #{:0>8X}", 0x1234);
+        log!(
+            logger,
+            "   - Colour outside the room region (RGBA): #{:0>8X}",
+            0x1234
+        );
 
-        log!(logger, "   - Set the resolution of the screen: {}", set_resolution);
+        log!(
+            logger,
+            "   - Set the resolution of the screen: {}",
+            set_resolution
+        );
 
         log!(
             logger,
@@ -1680,7 +1772,11 @@ where
             dont_show_buttons
         );
 
-        log!(logger, "   - Use synchronization to avoid tearing: {}", vsync);
+        log!(
+            logger,
+            "   - Use synchronization to avoid tearing: {}",
+            vsync
+        );
 
         log!(
             logger,
@@ -1696,7 +1792,11 @@ where
             treat_close_as_esc
         );
 
-        log!(logger, "   - Let <F1> show the game information: {}", f1_help_menu);
+        log!(
+            logger,
+            "   - Let <F1> show the game information: {}",
+            f1_help_menu
+        );
 
         log!(
             logger,
@@ -1710,7 +1810,11 @@ where
             f5_save_f6_load
         );
 
-        log!(logger, "   - Let <F9> take a screenshot of the game: {}", f9_screenshot);
+        log!(
+            logger,
+            "   - Let <F9> take a screenshot of the game: {}",
+            f9_screenshot
+        );
 
         log!(
             logger,
@@ -1744,13 +1848,29 @@ where
             custom_load_image.is_some()
         );
 
-        log!(logger, "   -   -> Make image partially translucent: {}", transparent);
+        log!(
+            logger,
+            "   -   -> Make image partially translucent: {}",
+            transparent
+        );
 
-        log!(logger, "   -   -> Make translucent with alpha value: {}", translucency);
+        log!(
+            logger,
+            "   -   -> Make translucent with alpha value: {}",
+            translucency
+        );
 
-        log!(logger, "   - Scale progress bar image: {}", scale_progress_bar);
+        log!(
+            logger,
+            "   - Scale progress bar image: {}",
+            scale_progress_bar
+        );
 
-        log!(logger, "   - Display error messages: {}", show_error_messages);
+        log!(
+            logger,
+            "   - Display error messages: {}",
+            show_error_messages
+        );
 
         log!(
             logger,
@@ -1908,7 +2028,12 @@ where
     let mut extensions = Vec::with_capacity(extension_count);
     for _ in 0..extension_count {
         let ext = Extension::read(&mut exe, a_strict)?;
-        log!(logger, "+ Added extension '{}' (files: {})", ext.name, ext.files.len());
+        log!(
+            logger,
+            "+ Added extension '{}' (files: {})",
+            ext.name,
+            ext.files.len()
+        );
         extensions.push(ext);
     }
 
@@ -1943,7 +2068,12 @@ where
     for _ in 0..constant_count {
         let name = exe.read_pas_string()?;
         let expression = exe.read_pas_string()?;
-        log!(logger, " + Added constant '{}' (expression: {})", name, expression);
+        log!(
+            logger,
+            " + Added constant '{}' (expression: {})",
+            name,
+            expression
+        );
         constants.push(Constant { name, expression });
     }
 
@@ -2099,7 +2229,11 @@ where
                 object.name,
                 if object.solid { "solid; " } else { "" },
                 if object.visible { "visible; " } else { "" },
-                if object.persistent { "persistent; " } else { "" },
+                if object.persistent {
+                    "persistent; "
+                } else {
+                    ""
+                },
                 object.depth,
             );
         });
@@ -2135,7 +2269,9 @@ where
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into()))
+            inflate(chunk).and_then(|data| {
+                IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into())
+            })
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
@@ -2182,13 +2318,21 @@ where
     };
 
     // Action library initialization code. These are GML strings which get run at game start, in order.
-    assert_ver!("action library initialization code header", 500, exe.read_u32_le()?)?;
+    assert_ver!(
+        "action library initialization code header",
+        500,
+        exe.read_u32_le()?
+    )?;
     let str_count = exe.read_u32_le()? as usize;
     let mut library_init_strings = Vec::with_capacity(str_count);
     for _ in 0..str_count {
         library_init_strings.push(exe.read_pas_string()?);
     }
-    log!(logger, " + Read {} action library initialization strings", str_count);
+    log!(
+        logger,
+        " + Read {} action library initialization strings",
+        str_count
+    );
 
     // Room Order
     assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;

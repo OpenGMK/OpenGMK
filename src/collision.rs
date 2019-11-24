@@ -26,7 +26,11 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     }
 
     // Return None if there are less colliders than there should be
-    let n_colliders = if sprite.per_frame_colliders { sprite.frames.len() } else { 1 };
+    let n_colliders = if sprite.per_frame_colliders {
+        sprite.frames.len()
+    } else {
+        1
+    };
     if sprite.colliders.len() < n_colliders {
         return None;
     }
@@ -51,7 +55,10 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
 
     // Little helper function for later
     fn alpha_at(frame: &Frame, x: u32, y: u32) -> Option<u8> {
-        frame.data.get(((y * frame.width + x) * 4 + 3) as usize).copied()
+        frame
+            .data
+            .get(((y * frame.width + x) * 4 + 3) as usize)
+            .copied()
     }
 
     // The various bits of data we want to collect:
