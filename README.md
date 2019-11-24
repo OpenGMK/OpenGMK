@@ -1,4 +1,5 @@
 [![Build Status (Travis)](https://travis-ci.com/OpenGM8/GM8Decompiler.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Decompiler)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 # GM8Decompiler
 An open-source decompiler for GameMaker 8 executables. Reverts any GM8 game back to .gmk or .gm81 format.
