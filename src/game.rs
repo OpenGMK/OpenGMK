@@ -9,7 +9,7 @@ use glutin::{
     window::{Fullscreen, Icon, WindowBuilder},
     ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
-use gm8x::{
+use gm8exe::{
     asset::Room,
     reader::{GameAssets, Settings as ExeSettings, WindowsIcon},
 };
