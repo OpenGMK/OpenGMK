@@ -10,10 +10,8 @@ use std::{
     convert::TryInto,
     error::Error,
     fmt::{self, Display},
-    fs,
     io::{self, Read, Seek, SeekFrom},
     iter::once,
-    path,
 };
 
 macro_rules! log {
@@ -50,6 +48,7 @@ pub struct GameAssets {
     // Extensions
     pub version: GameVersion,
 
+    pub dx_dll: Vec<u8>,
     pub icon_data: Vec<WindowsIcon>,
     pub ico_file_raw: Vec<u8>,
     pub help_dialog: GameHelpDialog,
@@ -1281,13 +1280,7 @@ pub struct PESection {
     pub disk_address: u32,
 }
 
-pub fn from_exe<I, F>(
-    mut exe: I,
-    strict: bool,
-    logger: Option<F>,
-    dump_dll: Option<&path::Path>,
-    multithread: bool,
-) -> Result<GameAssets, ReaderError>
+pub fn from_exe<I, F>(mut exe: I, logger: Option<F>, strict: bool, multithread: bool) -> Result<GameAssets, ReaderError>
 where
     F: Copy + Fn(&str),
     I: AsRef<[u8]> + AsMut<[u8]>,
@@ -1686,14 +1679,8 @@ where
 
     // skip or dump embedded dll data chunk
     let dll_len = exe.read_u32_le()? as i64;
-    if let Some(out_path) = dump_dll {
-        println!("Dumping DirectX DLL to {}...", out_path.display());
-        let mut dll_data = vec![0u8; dll_len as usize];
-        exe.read_exact(&mut dll_data)?;
-        fs::write(out_path, &dll_data)?;
-    } else {
-        exe.seek(SeekFrom::Current(dll_len))?;
-    }
+    let mut dx_dll = vec![0u8; dll_len as usize];
+    exe.read_exact(&mut dx_dll)?;
 
     // yeah
     decrypt_gm80(&mut exe, logger)?;
@@ -2085,6 +2072,7 @@ where
         rooms,
         included_files,
 
+        dx_dll,
         icon_data,
         ico_file_raw,
         version: game_ver,
