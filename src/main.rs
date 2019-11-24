@@ -1,303 +1,277 @@
-use gm8x::{GameVersion, reader::GameAssets};
-use std::{env, fs, path::Path};
+use gm8x::GameVersion;
+use std::{
+    env, fs,
+    os::raw::c_int,
+    path::{Path, PathBuf},
+    process,
+};
 
 pub mod collision;
 pub mod gmk;
 pub mod zlib;
 
 fn main() {
-    // Set up getopts to parse our command line args
     let args: Vec<String> = env::args().collect();
+    assert!(!args.is_empty());
+    let process_path = args[0].as_str();
 
+    // set up getopts to parse our command line args
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "prints this help message");
     opts.optflag("l", "lazy", "disables various data integrity checks");
+    opts.optflag("t", "singlethread", "parse gamedata synchronously"); // todo: apply to writer
     opts.optflag("v", "verbose", "enables verbose output");
     opts.optopt("o", "output", "specify an output file", "mygame.gmk");
+    opts.optflag(
+        "p",
+        "no-pause",
+        "(windows only) does not wait for a keypress after running",
+    );
 
+    // parse command line arguments
     let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => {
-            match f {
-                getopts::Fail::ArgumentMissing(arg) => eprintln!("Missing argument: {}", arg),
-                getopts::Fail::UnrecognizedOption(opt) => eprintln!("Unrecognized option: {}", opt),
-                getopts::Fail::OptionMissing(opt) => eprintln!("Missing option: {}", opt),
-                getopts::Fail::OptionDuplicated(opt) => eprintln!("Duplicated option: {}", opt),
-                getopts::Fail::UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
+        Ok(matches) => matches,
+        Err(err) => {
+            use getopts::Fail::*;
+            match err {
+                ArgumentMissing(arg) => eprintln!("Missing argument: {}", arg),
+                UnrecognizedOption(opt) => eprintln!("Unrecognized option: {}", opt),
+                OptionMissing(opt) => eprintln!("Missing option: {}", opt),
+                OptionDuplicated(opt) => eprintln!("Duplicated option: {}", opt),
+                UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
             }
-            return;
+            process::exit(1);
         }
     };
 
-    // Print this helpful message if no filename was provided, or if -h/--help was specified
-    if matches.free.len() == 0 || matches.opt_present("h") {
+    // print help message if requested OR no input files
+    if matches.opt_present("h") || matches.free.is_empty() {
         println!(
-            "{}",
-            opts.usage(&format!("Command usage: {} FILENAME [options]", &args[0]))
+            "{}\nTip: to decompile a game, click and drag it on top of {}.",
+            opts.usage(&format!(
+                "Command usage: {} FILENAME [options]",
+                process_path
+            )),
+            args[0],
         );
-        println!(
-            "Tip: to decompile a game, click and drag it on top of {}.",
-            args[0]
-        );
-        return;
+        process::exit(0); // once the user RTFM they can run it again
     }
 
-    // Print this slightly less helpful error message if multiple filenames were provided
+    // print error message if multiple inputs were provided
     if matches.free.len() > 1 {
-        eprintln!("Unexpected input: {}", matches.free[1]);
-        return;
+        eprintln!(
+            concat!(
+                "Unexpected input: {}\n",
+                "Tip: Only one input gamefile is expected at a time!",
+            ),
+            matches.free[1]
+        );
+        process::exit(1);
     }
 
-    // Get our options and then repeat them back to the user
-    let lazy = matches.opt_present("l");
-    let verbose = matches.opt_present("v");
+    // extract flags & input path
     let input = &matches.free[0];
+    let lazy = matches.opt_present("l");
+    let singlethread = matches.opt_present("t");
+    let verbose = matches.opt_present("v");
+    let out_path = matches.opt_str("o");
+    let no_pause = matches.opt_present("p");
 
-    println!("Input file: '{}'", input);
+    // print flags for confirmation
+    println!("Input file: {}", input);
     if lazy {
-        println!("Option: lazy mode (--lazy, -l): data integrity checking disabled");
+        println!("Lazy mode ON: data integrity checking disabled");
     }
     if verbose {
-        println!("Option: verbose mode (--verbose, -v): verbose console output enabled");
+        println!("Verbose logging ON: verbose console output enabled");
     }
 
-    // Figure out the name of our input file minus path
-    let input_filename = match Path::new(input).file_name() {
-        Some(f) => f.to_string_lossy(),
-        None => {
-            eprintln!("Failed to open '{}': not a file name", input);
-            return;
+    // resolve input path
+    let input_path = Path::new(input);
+    if !input_path.is_file() {
+        eprintln!("Input file '{}' does not exist.", input);
+        process::exit(1);
+    }
+
+    // Since windows is stupid and pops up a terminal instead of handling terminals
+    // like every other system does, we add a pause at the end in case you aren't
+    // running it from a terminal already.
+    #[cfg(target_os = "windows")]
+    let press_any_key = || {
+        if !no_pause {
+            // I am not adding a stupid dependency for this.
+            extern "C" {
+                fn getch() -> c_int; // "nonstandard" C <conio.h> function, works on my machine™
+            }
+
+            println!("\n< Press Any Key >");
+            let _ = unsafe { getch() };
         }
     };
 
-    // Open the input file and parse it with gm8x
-    let mut file = match fs::read(&input) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("Failed to open '{}': {}", input, e);
-            return;
-        }
-    };
+    // Not needed on good operating systems.
+    #[cfg(not(target_os = "windows"))]
+    let press_any_key = || ();
 
-    let assets = match gm8x::reader::from_exe(
-        &mut file,
-        !lazy,
-        if verbose {
-            Some(|s: &str| println!("[gm8x] {}", s))
-        } else {
-            None
-        },
-        None, // dump_dll
-        true, // multithread
-    ) {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("Error parsing exe: {}", e);
-            return;
-        }
-    };
+    // allow decompile to handle the rest of main
+    if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose) {
+        eprintln!("Error parsing gamedata:\n{}", e);
+        press_any_key();
+        process::exit(1);
+    }
 
-    println!("Successfully parsed assets from '{}'", input);
+    println!("Success!");
+    press_any_key();
+}
 
-    // Work out what our output filename should be
-    let expected_ext = match assets.version {
-        GameVersion::GameMaker8_0 => ".gmk",
-        GameVersion::GameMaker8_1 => ".gm81",
+#[rustfmt::skip]
+fn decompile(
+    in_path: &Path,
+    out_path: Option<String>,
+    strict: bool,
+    multithread: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    // slurp in file contents
+    let file = fs::read(&in_path)
+        .map_err(|e| format!("Failed to read '{}': {}", in_path.display(), e))?;
+
+    // parse (entire) gamedata
+    let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
+    let assets = gm8x::reader::from_exe(file, logger, strict, multithread)
+        .map_err(|e| format!("Reader error: {}", e))?;
+    
+    println!("Successfully parsed game!");
+
+    // warn user if they specified .gmk for 8.0 or .gm81 for 8.0
+    let out_expected_ext = match assets.version {
+        GameVersion::GameMaker8_0 => "gmk",
+        GameVersion::GameMaker8_1 => "gm81",
     };
-    let gmk_filename = match matches.opt_str("o") {
-        Some(o) => {
-            // warn user if they specified .gmk for 8.1 or .gm81 for 8.0
-            let opath = Path::new(&o);
-            let ext = opath.extension().and_then(|oss| oss.to_str());
-            let stem = opath.file_stem().and_then(|oss| oss.to_str());
-            match (ext, assets.version) {
-                (Some(ext @ "gm81"), GameVersion::GameMaker8_0)
-                | (Some(ext @ "gmk"), GameVersion::GameMaker8_1) => {
+    let out_path = match out_path {
+        Some(p) => {
+            let path = PathBuf::from(p);
+            match (assets.version, path.extension().and_then(|oss| oss.to_str())) {
+                (GameVersion::GameMaker8_0, Some(extension @ "gm81")) 
+                | (GameVersion::GameMaker8_1, Some(extension @ "gmk")) => {
                     println!(
                         concat!(
-                            "***WARNING*** You've specified an output file '{}', a .{} file, for a {} game. ",
-                            "I suggest using '-o {}{}' instead, otherwise you won't be able to load the file with GameMaker.",
+                            "***WARNING*** You've specified an output file '{}'",
+                            "a .{} file, for a {} game.\nYou should use '-o {}.{}' instead, ",
+                            "otherwise you won't be able to load the file with GameMaker.",
                         ),
-                        o,
-                        ext,
+                        path.display(),
+                        extension,
                         match assets.version {
                             GameVersion::GameMaker8_0 => "GameMaker 8.0",
                             GameVersion::GameMaker8_1 => "GameMaker 8.1",
                         },
-                        stem.unwrap(),
-                        expected_ext
+                        path.file_stem().and_then(|oss| oss.to_str()).unwrap_or("filename"),
+                        out_expected_ext,
                     );
-                }
+                },
                 _ => (),
             }
-            o
+            path
+        },
+        None => {
+            let mut path = PathBuf::from(in_path);
+            path.set_extension(out_expected_ext);
+            path
         }
-        None => format!(
-            "{}{}",
-            input_filename.trim_end_matches(".exe"),
-            expected_ext
-        ),
     };
 
-    // write gmk - I wrapped this in a function so we can catch any io errors here.
-    if let Err(e) =  write_gmk(&gmk_filename, assets, verbose) {
-        eprintln!("Error writing gmk: {}", e);
-        // return;
-    }
-}
+    let mut gmk = fs::File::create(&out_path)
+        .map_err(|e| format!("Failed to create output file '{}': {}", out_path.display(), e))?;
+    
+    println!("Writing {} header...", out_expected_ext);
+    gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)
+        .map_err(|e| format!("Failed to write header: {}", e))?;
+    
+    println!("Writing {} settings...", out_expected_ext);
+    gmk::write_settings(&mut gmk, &assets.settings, &assets.ico_file_raw, assets.version)
+        .map_err(|e| format!("Failed to write settings block: {}", e))?;
+    
+    println!("Writing {} triggers...", assets.triggers.len());
+    gmk::write_asset_list(&mut gmk, &assets.triggers, gmk::write_trigger, assets.version)
+        .map_err(|e| format!("Failed to write triggers: {}", e))?;
 
-fn write_gmk(filename: &str, assets: GameAssets, verbose: bool) -> std::io::Result<()> {
-    println!("Writing to '{}'", filename);
+    gmk::write_timestamp(&mut gmk)
+        .map_err(|e| format!("Failed to write timestamp: {}", e))?;
 
-    // Set up a writer to write to our output file
-    let mut gmk = fs::File::create(filename)?;
+    println!("Writing {} constants...", assets.constants.len());
+    gmk::write_constants(&mut gmk, &assets.constants)
+        .map_err(|e| format!("Failed to write constants: {}", e))?;
 
-    // Write GMK header
-    if verbose {
-        println!("Writing GMK header...");
-    }
-    gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)?;
+    println!("Writing {} sounds...", assets.sounds.len());
+    gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version)
+        .map_err(|e| format!("Failed to write sounds: {}", e))?;
 
-    // Write settings
-    if verbose {
-        println!("Writing GMK settings...");
-    }
-    gmk::write_settings(
-        &mut gmk,
-        &assets.settings,
-        &assets.ico_file_raw,
-        assets.version,
-    )?;
+    println!("Writing {} sprites...", assets.sprites.len());
+    gmk::write_asset_list(&mut gmk, &assets.sprites, gmk::write_sprite, assets.version)
+        .map_err(|e| format!("Failed to write sprites: {}", e))?;
 
-    // Write triggers
-    if verbose {
-        println!("Writing {} triggers...", assets.triggers.len());
-    }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.triggers,
-        gmk::write_trigger,
-        assets.version,
-    )?;
-    gmk::write_timestamp(&mut gmk)?;
+    println!("Writing {} backgrounds...", assets.backgrounds.len());
+    gmk::write_asset_list(&mut gmk, &assets.backgrounds, gmk::write_background, assets.version)
+        .map_err(|e| format!("Failed to write backgrounds: {}", e))?;
+    
+    println!("Writing {} paths...", assets.paths.len());
+    gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version)
+        .map_err(|e| format!("Failed to write paths: {}", e))?;
 
-    // Write constants
-    if verbose {
-        println!("Writing {} constants...", assets.constants.len());
-    }
-    gmk::write_constants(&mut gmk, &assets.constants)?;
+    println!("Writing {} scripts...", assets.scripts.len());
+    gmk::write_asset_list(&mut gmk, &assets.scripts, gmk::write_script, assets.version)
+        .map_err(|e| format!("Failed to write scripts: {}", e))?;
 
-    // Write sounds
-    if verbose {
-        println!("Writing {} sounds...", assets.sounds.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version)?;
+    println!("Writing {} fonts...", assets.fonts.len());
+    gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version)
+        .map_err(|e| format!("Failed to write fonts: {}", e))?;
+    
+    println!("Writing {} timelines...", assets.timelines.len());
+    gmk::write_asset_list(&mut gmk, &assets.timelines, gmk::write_timeline, assets.version)
+        .map_err(|e| format!("Failed to write timelines: {}", e))?;
 
-    // Write sprites
-    if verbose {
-        println!("Writing {} sprites...", assets.sprites.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.sprites, gmk::write_sprite, assets.version)?;
+    println!("Writing {} objects...", assets.objects.len());
+    gmk::write_asset_list(&mut gmk, &assets.objects, gmk::write_object, assets.version)
+        .map_err(|e| format!("Failed to write objects: {}", e))?;
 
-    // Write backgrounds
-    if verbose {
-        println!("Writing {} backgrounds...", assets.backgrounds.len());
-    }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.backgrounds,
-        gmk::write_background,
-        assets.version,
-    )?;
+    println!("Writing {} rooms...", assets.rooms.len());
+    gmk::write_asset_list(&mut gmk, &assets.rooms, gmk::write_room, assets.version)
+        .map_err(|e| format!("Failed to write rooms: {}", e))?;
 
-    // Write paths
-    if verbose {
-        println!("Writing {} paths...", assets.paths.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version)?;
+    println!(
+        "Writing room editor metadata... (last instance: {}, last tile: {})",
+        assets.last_instance_id, assets.last_tile_id
+    );
+    gmk::write_room_editor_meta(&mut gmk, assets.last_instance_id, assets.last_tile_id)
+        .map_err(|e| format!("Failed to write room editor metadata: {}", e))?;
 
-    // Write scripts
-    if verbose {
-        println!("Writing {} scripts...", assets.scripts.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.scripts, gmk::write_script, assets.version)?;
+    println!("Writing {} included files...", assets.included_files.len());
+    gmk::write_included_files(&mut gmk, &assets.included_files)
+        .map_err(|e| format!("Failed to write included files: {}", e))?;
 
-    // Write fonts
-    if verbose {
-        println!("Writing {} fonts...", assets.fonts.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version)?;
+    println!("Writing {} extensions...", assets.extensions.len());
+    gmk::write_extensions(&mut gmk, &assets.extensions)
+        .map_err(|e| format!("Failed to write extensions: {}", e))?;
 
-    // Write timelines
-    if verbose {
-        println!("Writing {} timelines...", assets.timelines.len());
-    }
-    gmk::write_asset_list(
-        &mut gmk,
-        &assets.timelines,
-        gmk::write_timeline,
-        assets.version,
-    )?;
+    println!("Writing game information...");
+    gmk::write_game_information(&mut gmk, &assets.help_dialog)
+        .map_err(|e| format!("Failed to write game information: {}", e))?;
 
-    // Write objects
-    if verbose {
-        println!("Writing {} objects...", assets.objects.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.objects, gmk::write_object, assets.version)?;
+    println!(
+        "Writing {} library initialization strings...",
+        assets.library_init_strings.len()
+    );
+    gmk::write_library_init_code(&mut gmk, &assets.library_init_strings)
+        .map_err(|e| format!("Failed to write library initialization code: {}", e))?;
 
-    // Write rooms
-    if verbose {
-        println!("Writing {} rooms...", assets.rooms.len());
-    }
-    gmk::write_asset_list(&mut gmk, &assets.rooms, gmk::write_room, assets.version)?;
+    println!("Writing room order ({} rooms)...", assets.room_order.len());
+    gmk::write_room_order(&mut gmk, &assets.room_order)
+        .map_err(|e| format!("Failed to write room order: {}", e))?;
 
-    // Write room editor metadata
-    if verbose {
-        println!(
-            "Writing room editor metadata (last instance: {}, last tile: {})...",
-            assets.last_instance_id, assets.last_tile_id
-        );
-    }
-    gmk::write_room_editor_meta(&mut gmk, assets.last_instance_id, assets.last_tile_id)?;
-
-    // Write included files
-    if verbose {
-        println!("Writing {} included files...", assets.included_files.len());
-    }
-    gmk::write_included_files(&mut gmk, &assets.included_files)?;
-
-    // Write extensions
-    if verbose {
-        println!("Writing {} extensions...", assets.extensions.len());
-    }
-    gmk::write_extensions(&mut gmk, &assets.extensions)?;
-
-    // Write game information
-    if verbose {
-        println!("Writing game information...");
-    }
-    gmk::write_game_information(&mut gmk, &assets.help_dialog)?;
-
-    // Write library initialization code
-    if verbose {
-        println!(
-            "Writing {} library initialization strings...",
-            assets.library_init_strings.len()
-        );
-    }
-    gmk::write_library_init_code(&mut gmk, &assets.library_init_strings)?;
-
-    // Write room order
-    if verbose {
-        println!("Writing room order ({} rooms)...", assets.room_order.len());
-    }
-    gmk::write_room_order(&mut gmk, &assets.room_order)?;
-
-    // Write resource tree
-    if verbose {
-        println!("Writing resource tree...");
-    }
-    gmk::write_resource_tree(&mut gmk, &assets)?;
+    println!("Writing resource tree...");
+    gmk::write_resource_tree(&mut gmk, &assets)
+        .map_err(|e| format!("Failed to write resource tree: {}", e))?;
 
     Ok(())
 }
