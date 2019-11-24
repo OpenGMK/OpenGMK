@@ -76,7 +76,7 @@ fn main() {
     }
 
     #[rustfmt::skip]
-    let assets = gm8x::reader::from_exe(
+    let assets = gm8exe::reader::from_exe(
         &mut file,                              // mut exe: AsRef<[u8]>
         if verbose {                            // logger: Option<Fn(&str)>
             Some(|s: &str| println!("{}", s))
