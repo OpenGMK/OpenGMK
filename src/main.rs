@@ -78,13 +78,12 @@ fn main() {
     #[rustfmt::skip]
     let assets = gm8x::reader::from_exe(
         &mut file,                              // mut exe: AsRef<[u8]>
-        strict,                                 // strict: bool
         if verbose {                            // logger: Option<Fn(&str)>
             Some(|s: &str| println!("{}", s))
         } else {
             None
         },
-        None,                                   // dump_dll: Option<&Path>
+        strict,                                 // strict: bool
         multithread,                            // multithread: bool
     )
     .unwrap_or_else(|e| {
