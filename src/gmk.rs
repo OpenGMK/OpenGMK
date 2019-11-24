@@ -198,9 +198,9 @@ where
             .map(|asset| {
                 let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
                 match asset {
-                    Some(a) => {
+                    Some(asset) => {
                         enc.write_u32_le(true as u32)?;
-                        write_fn(&mut enc, a.as_ref(), version)?;
+                        write_fn(&mut enc, asset, version)?;
                     }
                     None => {
                         enc.write_u32_le(false as u32)?;
