@@ -14,19 +14,21 @@ pub mod trigger;
 
 pub mod etc;
 
-pub use self::background::Background;
-pub use self::constant::Constant;
-pub use self::extension::Extension;
-pub use self::font::Font;
-pub use self::includedfile::IncludedFile;
-pub use self::object::Object;
-pub use self::path::Path;
-pub use self::room::Room;
-pub use self::script::Script;
-pub use self::sound::{Sound, SoundKind};
-pub use self::sprite::Sprite;
-pub use self::timeline::Timeline;
-pub use self::trigger::{Trigger, TriggerKind};
+pub use self::{
+    background::Background,
+    constant::Constant,
+    extension::Extension,
+    font::Font,
+    includedfile::IncludedFile,
+    object::Object,
+    path::Path,
+    room::Room,
+    script::Script,
+    sound::{Sound, SoundKind},
+    sprite::Sprite,
+    timeline::Timeline,
+    trigger::{Trigger, TriggerKind},
+};
 
 use crate::GameVersion;
 use std::{

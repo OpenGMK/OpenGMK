@@ -1,7 +1,9 @@
-use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString};
-use crate::colour::Colour;
-use crate::def::ID;
-use crate::GameVersion;
+use crate::{
+    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    colour::Colour,
+    def::ID,
+    GameVersion,
+};
 
 use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Seek, SeekFrom};

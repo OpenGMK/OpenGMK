@@ -1,5 +1,7 @@
-use crate::asset::{assert_ver, AssetDataError, ReadPascalString, WritePascalString};
-use crate::def::ID;
+use crate::{
+    asset::{assert_ver, AssetDataError, ReadPascalString, WritePascalString},
+    def::ID,
+};
 
 use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Cursor, Seek, SeekFrom};

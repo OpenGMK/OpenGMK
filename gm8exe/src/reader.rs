@@ -1,6 +1,4 @@
-use crate::asset::{AssetDataError, *};
-use crate::colour::Colour;
-use crate::GameVersion;
+use crate::{asset::*, colour::Colour, GameVersion};
 
 use flate2::read::ZlibDecoder;
 use minio::{ReadPrimitives, WritePrimitives};

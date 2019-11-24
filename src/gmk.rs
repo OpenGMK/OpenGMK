@@ -1,5 +1,4 @@
-use crate::collision;
-use crate::zlib::ZlibWriter;
+use crate::{collision, zlib::ZlibWriter};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
     asset::{self, includedfile::ExportSetting},
@@ -8,8 +7,7 @@ use gm8exe::{
 };
 use minio::WritePrimitives;
 use rayon::prelude::*;
-use std::io;
-use std::u32;
+use std::{io, u32};
 
 pub trait WritePascalString: WriteBuffer + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {

@@ -1,5 +1,7 @@
-use crate::asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString};
-use crate::GameVersion;
+use crate::{
+    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    GameVersion,
+};
 
 use minio::{ReadPrimitives, WritePrimitives};
 use std::convert::TryInto;

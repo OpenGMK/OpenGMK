@@ -1,7 +1,9 @@
-use crate::asset::{
-    assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString,
+use crate::{
+    asset::{
+        assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString,
+    },
+    GameVersion,
 };
-use crate::GameVersion;
 
 use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Seek, SeekFrom};
