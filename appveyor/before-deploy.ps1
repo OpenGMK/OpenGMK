@@ -1,3 +1,5 @@
+# Helper script to package up releases for deploying.
+
 $SRC_DIR = $PWD.Path
 $STAGE = [System.Guid]::NewGuid().ToString()
 
