@@ -17,16 +17,14 @@ fn main() {
 
     // set up getopts to parse our command line args
     let mut opts = getopts::Options::new();
-    opts.optflag("h", "help", "prints this help message");
-    opts.optflag("l", "lazy", "disables various data integrity checks");
-    opts.optflag("t", "singlethread", "parse gamedata synchronously"); // todo: apply to writer
-    opts.optflag("v", "verbose", "enables verbose output");
-    opts.optopt("o", "output", "specify an output file", "mygame.gmk");
-    opts.optflag(
-        "p",
-        "no-pause",
-        "(windows only) does not wait for a keypress after running",
-    );
+    opts.optflag("h", "help", "print this help message");
+    opts.optflag("l", "lazy", "disable various data integrity checks");
+    opts.optflag("v", "verbose", "enable verbose logging for decompilation");
+    opts.optflag("t", "singlethread", "decompile gamedata synchronously");
+    opts.optopt("o", "output", "specify output filename", "FILE");
+
+    #[rustfmt::skip] // doesn't do anything unless you're on windows - read more below
+    opts.optflag("p", "no-pause", "do not wait for a keypress after running (windows)");
 
     // parse command line arguments
     let matches = match opts.parse(&args[1..]) {
