@@ -37,12 +37,25 @@ pub struct Frame {
 }
 
 pub struct CollisionMap {
-    pub bbox_width: u32,
-    pub bbox_height: u32,
+    // width of the boolean map
+    pub width: u32,
+
+    // height of the boolean map
+    pub height: u32,
+
+    // left-most x coordinate in the map which has collision
     pub bbox_left: u32,
+
+    // right-most x coordinate in the map which has collision
     pub bbox_right: u32,
-    pub bbox_bottom: u32,
+
+    // top-most (lowest value) y coordinate in the map which has collision
     pub bbox_top: u32,
+
+    // bottom-most (highest value) y coordinate in the map which has collision
+    pub bbox_bottom: u32,
+
+    // Map of collision data - boolean for whether each pixel has collision
     pub data: Box<[bool]>,
 }
 
@@ -106,14 +119,14 @@ impl Asset for Sprite {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let bbox_width = reader.read_u32_le()?;
-                let bbox_height = reader.read_u32_le()?;
+                let width = reader.read_u32_le()?;
+                let height = reader.read_u32_le()?;
                 let bbox_left = reader.read_u32_le()?;
                 let bbox_right = reader.read_u32_le()?;
                 let bbox_bottom = reader.read_u32_le()?;
                 let bbox_top = reader.read_u32_le()?;
 
-                let mask_size = bbox_width as usize * bbox_height as usize;
+                let mask_size = width as usize * height as usize;
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
                 let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
@@ -132,12 +145,12 @@ impl Asset for Sprite {
                 };
 
                 Ok(CollisionMap {
-                    bbox_width,
-                    bbox_height,
-                    bbox_top,
-                    bbox_bottom,
+                    width,
+                    height,
                     bbox_left,
                     bbox_right,
+                    bbox_bottom,
+                    bbox_top,
                     data: mask.into_boxed_slice(),
                 })
             }
@@ -189,8 +202,8 @@ impl Asset for Sprite {
             result += writer.write_u32_le(self.per_frame_colliders as u32)?;
             for collider in self.colliders.iter() {
                 result += writer.write_u32_le(VERSION_COLLISION)?;
-                result += writer.write_u32_le(collider.bbox_width)?;
-                result += writer.write_u32_le(collider.bbox_height)?;
+                result += writer.write_u32_le(collider.width)?;
+                result += writer.write_u32_le(collider.height)?;
                 result += writer.write_u32_le(collider.bbox_left)?;
                 result += writer.write_u32_le(collider.bbox_right)?;
                 result += writer.write_u32_le(collider.bbox_bottom)?;

@@ -74,15 +74,15 @@ pub struct Instance {
 }
 
 pub struct Tile {
-    x: i32,
-    y: i32,
-    source_bg: ID,
-    tile_x: bool,
-    tile_y: bool,
-    width: u32,
-    height: u32,
-    depth: i32,
-    id: ID,
+    pub x: i32,
+    pub y: i32,
+    pub source_bg: ID,
+    pub tile_x: u32,
+    pub tile_y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub depth: i32,
+    pub id: ID,
 }
 
 pub struct View {
@@ -191,8 +191,8 @@ impl Asset for Room {
                 x: reader.read_i32_le()?,
                 y: reader.read_i32_le()?,
                 source_bg: reader.read_i32_le()?,
-                tile_x: reader.read_u32_le()? != 0,
-                tile_y: reader.read_u32_le()? != 0,
+                tile_x: reader.read_u32_le()?,
+                tile_y: reader.read_u32_le()?,
                 width: reader.read_u32_le()?,
                 height: reader.read_u32_le()?,
                 depth: reader.read_i32_le()?,
@@ -280,8 +280,8 @@ impl Asset for Room {
             result += writer.write_i32_le(tile.x)?;
             result += writer.write_i32_le(tile.y)?;
             result += writer.write_i32_le(tile.source_bg)?;
-            result += writer.write_u32_le(tile.tile_x as u32)?;
-            result += writer.write_u32_le(tile.tile_y as u32)?;
+            result += writer.write_u32_le(tile.tile_x)?;
+            result += writer.write_u32_le(tile.tile_y)?;
             result += writer.write_u32_le(tile.width)?;
             result += writer.write_u32_le(tile.height)?;
             result += writer.write_i32_le(tile.depth)?;
