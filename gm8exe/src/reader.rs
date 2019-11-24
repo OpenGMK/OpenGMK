@@ -894,9 +894,7 @@ where
     //   for each byte from end of the file, calculate a byte position to swap with, then swap them over
     for i in (pos..pos + len).rev() {
         let b = max(i as u32 - swap_table[(i - pos) & 0xFF] as u32, pos as u32);
-        let a = data[i];
-        data[i] = data[b as usize];
-        data[b as usize] = a;
+        data.swap(i, b as usize);
     }
 
     Ok(())

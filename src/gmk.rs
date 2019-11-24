@@ -326,7 +326,7 @@ where
         result += writer.write_u32_le(map.bbox_bottom)?; // bbox bottom
         result += writer.write_u32_le(map.bbox_top)?; // bbox top
     } else {
-        if sprite.frames.len() != 0 {
+        if !sprite.frames.is_empty() {
             println!(
                 "WARNING: couldn't resolve collision for sprite {}",
                 sprite.name
@@ -518,7 +518,7 @@ where
     result += writer.write_u32_le(object.persistent as u32)?;
     result += writer.write_i32_le(object.parent_index)?;
     result += writer.write_i32_le(object.mask_index)?;
-    result += writer.write_u32_le(if object.events.len() == 0 {
+    result += writer.write_u32_le(if object.events.is_empty() {
         0
     } else {
         (object.events.len() - 1) as u32

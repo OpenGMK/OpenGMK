@@ -1,3 +1,6 @@
+#![allow(clippy::cognitive_complexity)]
+#![allow(clippy::unreadable_literal)]
+
 pub mod asset;
 pub mod def;
 pub mod reader;
