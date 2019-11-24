@@ -95,6 +95,15 @@ fn main() {
     if verbose {
         println!("Verbose logging ON: verbose console output enabled");
     }
+    if singlethread {
+        println!("Single-threaded mode ON: process will not start new threads (slow)");
+    }
+    if no_pause {
+        println!("No-pause ON: program will not pause after completing");
+    }
+    if let Some(path) = &out_path {
+        println!("Specified output path: {}", path);
+    }
 
     // resolve input path
     let input_path = Path::new(input);
