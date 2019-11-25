@@ -63,9 +63,11 @@ fn main() {
     #[cfg(target_os = "windows")]
     let press_any_key = || {
         if !no_pause {
-            let ch = getch::Getch::new();
+            extern "C" {
+                fn _getch() -> std::os::raw::c_int;
+            }
             println!("\n< Press Any Key >");
-            let _ = ch.getch();
+            let _ = unsafe { _getch() };
         }
     };
 
