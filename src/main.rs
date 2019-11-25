@@ -14,12 +14,13 @@ pub mod zlib;
 
 const BUILD_DATE: &'static str = env!("BUILD_DATE");
 const COMMIT_HASH: &'static str = env!("GIT_HASH");
+const TARGET_TRIPLE: &'static str = env!("TARGET_TRIPLE");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     println!(
-        "GM8Decompiler v{} - built on {}, commit #{}",
-        VERSION, BUILD_DATE, COMMIT_HASH
+        "GM8Decompiler v{} for {} - built on {}, #{}",
+        VERSION, TARGET_TRIPLE, BUILD_DATE, COMMIT_HASH
     );
 
     let args: Vec<String> = env::args().collect();

@@ -1,5 +1,5 @@
 use chrono::{Datelike, Local};
-use std::{error::Error, process::Command};
+use std::{env, error::Error, process::Command};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // build date
@@ -17,6 +17,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .output()?;
     let git_hash = String::from_utf8(output.stdout)?;
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
+
+    // target triple
+    let target_triple = env::var("TARGET")?;
+    println!("cargo:rustc-env=TARGET_TRIPLE={}", target_triple);
 
     Ok(())
 }
