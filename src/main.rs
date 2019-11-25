@@ -35,7 +35,7 @@ fn main() {
     opts.optopt("o", "output", "specify output filename", "FILE");
 
     #[rustfmt::skip] // doesn't do anything unless you're on windows - read more below
-    opts.optflag("p", "no-pause", "do not wait for a keypress after running (windows)");
+    opts.optflag("p", "no-pause", "do not wait for a keypress after running / help (windows)");
 
     // parse command line arguments
     let matches = match opts.parse(&args[1..]) {
@@ -53,6 +53,25 @@ fn main() {
         }
     };
 
+    // We extract this flag early for usage in the below function -
+    let no_pause = matches.opt_present("p");
+
+    // Since windows is stupid and pops up a terminal instead of handling terminals
+    // like every other system does, we add a pause at the end in case you aren't
+    // running it from a terminal already.
+    #[cfg(target_os = "windows")]
+    let press_any_key = || {
+        if !no_pause {
+            let ch = getch::Getch::new();
+            println!("\n< Press Any Key >");
+            let _ = ch.getch();
+        }
+    };
+
+    // Not needed on good operating systems.
+    #[cfg(not(target_os = "windows"))]
+    let press_any_key = || ();
+
     // print help message if requested OR no input files
     if matches.opt_present("h") || matches.free.is_empty() {
         println!(
@@ -63,6 +82,7 @@ fn main() {
             )),
             args[0],
         );
+        press_any_key();
         process::exit(0); // once the user RTFM they can run it again
     }
 
@@ -84,7 +104,7 @@ fn main() {
     let singlethread = matches.opt_present("t");
     let verbose = matches.opt_present("v");
     let out_path = matches.opt_str("o");
-    let no_pause = matches.opt_present("p");
+    // no_pause extracted before help
 
     // print flags for confirmation
     println!("Input file: {}", input);
@@ -110,22 +130,6 @@ fn main() {
         eprintln!("Input file '{}' does not exist.", input);
         process::exit(1);
     }
-
-    // Since windows is stupid and pops up a terminal instead of handling terminals
-    // like every other system does, we add a pause at the end in case you aren't
-    // running it from a terminal already.
-    #[cfg(target_os = "windows")]
-    let press_any_key = || {
-        if !no_pause {
-            let ch = getch::Getch::new();
-            println!("\n< Press Any Key >");
-            let _ = ch.getch();
-        }
-    };
-
-    // Not needed on good operating systems.
-    #[cfg(not(target_os = "windows"))]
-    let press_any_key = || ();
 
     // allow decompile to handle the rest of main
     if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose) {
