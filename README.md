@@ -1,3 +1,4 @@
+[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/8e3gqib3d6er2p2l?svg=true)](https://ci.appveyor.com/project/viri/gm8decompiler)
 [![Build Status (Travis)](https://travis-ci.com/OpenGM8/GM8Decompiler.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Decompiler)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
