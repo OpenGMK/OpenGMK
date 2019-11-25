@@ -45,7 +45,7 @@ test_script:
 
 before_deploy:
   - cargo rustc --target %TARGET% --release --bin gm8decompiler
-  - ps: appveyor\before_deploy.ps1
+  - ps: .\appveyor\before_deploy.ps1
 
 deploy:
   artifact: /.*\.zip/
