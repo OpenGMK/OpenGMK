@@ -1,5 +1,5 @@
-[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/ncr1f6vp2r76iah2?svg=true)](https://ci.appveyor.com/project/notviri/gm8emu)
-[![Build Status](https://travis-ci.com/OpenGM8/GM8Emulator.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Emulator)
+[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/5kad3dbn2q1jqs5i?svg=true)](https://ci.appveyor.com/project/viri/gm8emulator)
+[![Build Status (Travis-CI)](https://travis-ci.com/OpenGM8/GM8Emulator.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Emulator)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 # GM8Emulator
