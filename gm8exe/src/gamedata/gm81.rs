@@ -82,21 +82,7 @@ where
                     n,
                     header_start
                 );
-                let found_header = {
-                    let mut i = header_start as u64;
-                    loop {
-                        exe.set_position(i);
-                        let val =
-                            (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
-                        if val == n {
-                            break true;
-                        }
-                        i += 1;
-                        if ((i + 8) as usize) >= exe.get_ref().len() {
-                            break false;
-                        }
-                    }
-                };
+                let found_header = seek_value(exe, n)?.is_some();
                 if !found_header {
                     log!(
                         logger,
@@ -129,18 +115,27 @@ where
     F: Copy + Fn(&str),
 {
     log!(logger, "Searching for default GM8.1 data header");
-    let mut i = 3800004;
+    exe.set_position(3800004);
+    Ok(seek_value(exe, 0xF7140067)?.is_some())
+}
+
+/// Seeks for a GM81-style magic value from its current position.
+/// Returns the associated xor value within the magic if it was found; returns None otherwise.
+/// On success, the cursor will have been advanced just past the eight bytes from which the value was parsed.
+pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> Result<Option<u32>, ReaderError> {
+    let mut pos = exe.position();
     loop {
-        exe.set_position(i);
-        let val = (exe.read_u32_le()? & 0xFF00FF00) + (exe.read_u32_le()? & 0x00FF00FF);
-        if val == 0xF7140067 {
-            decrypt(exe, logger, XorMethod::Normal)?;
-            exe.seek(SeekFrom::Current(20))?;
-            break Ok(true);
+        exe.set_position(pos);
+        let d1 = exe.read_u32_le()?;
+        let d2 = exe.read_u32_le()?;
+        let parsed_value = (d1 & 0xFF00FF00) | (d2 & 0x00FF00FF);
+        let parsed_xor = (d1 & 0x00FF00FF) | (d2 & 0xFF00FF00);
+        if parsed_value == value {
+            break Ok(Some(parsed_xor));
         }
-        i += 1;
-        if ((i + 8) as usize) >= exe.get_ref().len() {
-            break Ok(false);
+        pos += 1;
+        if ((pos + 8) as usize) >= exe.get_ref().len() {
+            break Ok(None);
         }
     }
 }

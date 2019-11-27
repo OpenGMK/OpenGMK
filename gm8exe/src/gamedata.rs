@@ -3,7 +3,6 @@ pub mod gm80;
 pub mod gm81;
 
 use crate::{reader::ReaderError, upx, GameVersion};
-use minio::ReadPrimitives;
 use std::io::{self, Seek, SeekFrom};
 
 /// Identifies the game version and start of gamedata header, given a data cursor.
@@ -66,22 +65,11 @@ where
                 log_antidec(antidec_settings);
                 if antidec::decrypt(exe, antidec_settings)? {
                     // Search for header
-                    let found_header = {
-                        let mut i =
-                            antidec_settings.header_start + antidec_settings.exe_load_offset;
-                        loop {
-                            exe.set_position(i as u64);
-                            let val = (exe.read_u32_le()? & 0xFF00FF00)
-                                + (exe.read_u32_le()? & 0x00FF00FF);
-                            if val == 0xF7140067 {
-                                break true;
-                            }
-                            i += 1;
-                            if ((i + 8) as usize) >= exe.get_ref().len() {
-                                break false;
-                            }
-                        }
-                    };
+                    exe.set_position(
+                        (antidec_settings.header_start + antidec_settings.exe_load_offset) as u64,
+                    );
+                    let found_header = gm81::seek_value(exe, 0xF7140067)?.is_some();
+
                     if found_header {
                         gm81::decrypt(exe, logger, gm81::XorMethod::Normal)?;
                         exe.seek(SeekFrom::Current(20))?;
@@ -123,22 +111,11 @@ where
                     log_antidec(antidec_settings);
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
-                    let found_header = {
-                        let mut i =
-                            antidec_settings.header_start + antidec_settings.exe_load_offset;
-                        loop {
-                            exe.set_position(i as u64);
-                            let val = (exe.read_u32_le()? & 0xFF00FF00)
-                                + (exe.read_u32_le()? & 0x00FF00FF);
-                            if val == 0xF7140067 {
-                                break true;
-                            }
-                            i += 1;
-                            if ((i + 8) as usize) >= exe.get_ref().len() {
-                                break false;
-                            }
-                        }
-                    };
+                    exe.set_position(
+                        (antidec_settings.header_start + antidec_settings.exe_load_offset) as u64,
+                    );
+                    let found_header = gm81::seek_value(exe, 0xF7140067)?.is_some();
+
                     if found_header {
                         gm81::decrypt(exe, logger, gm81::XorMethod::Normal)?;
                         exe.seek(SeekFrom::Current(20))?;
