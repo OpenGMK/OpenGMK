@@ -1,62 +1,18 @@
-use crate::{asset::*, colour::Colour, GameVersion};
-
-use crate::gamedata::{self, gm80};
+use crate::{
+    asset::*,
+    gamedata::{self, gm80},
+    rsrc,
+    settings::{GameHelpDialog, Settings},
+    GameAssets, GameVersion,
+};
 use flate2::read::ZlibDecoder;
-use minio::{ReadPrimitives, WritePrimitives};
+use minio::ReadPrimitives;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-
 use std::{
     error::Error,
     fmt::{self, Display},
     io::{self, Read, Seek, SeekFrom},
 };
-
-pub struct GameAssets {
-    pub extensions: Vec<Extension>,
-    pub sprites: Vec<Option<Box<Sprite>>>,
-    pub sounds: Vec<Option<Box<Sound>>>,
-    pub backgrounds: Vec<Option<Box<Background>>>,
-    pub paths: Vec<Option<Box<Path>>>,
-    pub scripts: Vec<Option<Box<Script>>>,
-    pub fonts: Vec<Option<Box<Font>>>,
-    pub timelines: Vec<Option<Box<Timeline>>>,
-    pub objects: Vec<Option<Box<Object>>>,
-    pub rooms: Vec<Option<Box<Room>>>,
-    pub included_files: Vec<IncludedFile>,
-    pub triggers: Vec<Option<Box<Trigger>>>,
-    pub constants: Vec<Constant>,
-    // Extensions
-    pub version: GameVersion,
-
-    pub dx_dll: Vec<u8>,
-    pub icon_data: Vec<WindowsIcon>,
-    pub ico_file_raw: Vec<u8>,
-    pub help_dialog: GameHelpDialog,
-    pub last_instance_id: i32,
-    pub last_tile_id: i32,
-    pub library_init_strings: Vec<String>,
-    pub room_order: Vec<i32>,
-
-    pub settings: Settings,
-    pub game_id: u32,
-    pub guid: [u32; 4],
-}
-
-#[derive(Debug)]
-pub struct GameHelpDialog {
-    pub bg_color: Colour,
-    pub new_window: bool,
-    pub caption: String,
-    pub left: i32,
-    pub top: i32,
-    pub width: u32,
-    pub height: u32,
-    pub border: bool,
-    pub resizable: bool,
-    pub window_on_top: bool,
-    pub freeze_game: bool,
-    pub info: String,
-}
 
 #[derive(Debug)]
 pub enum ReaderError {
@@ -98,239 +54,6 @@ macro_rules! from_err {
 from_err!(ReaderError, AssetDataError, AssetError);
 from_err!(ReaderError, io::Error, IO);
 
-pub struct WindowsIcon {
-    pub width: u32,
-    pub height: u32,
-    pub original_bpp: u16,
-    pub bgra_data: Vec<u8>,
-}
-
-fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> Result<Option<WindowsIcon>, ReaderError> {
-    let mut data = io::Cursor::new(&blob);
-    let data_start = data.read_u32_le()? as usize;
-    data.set_position(14);
-    let bpp = data.read_u16_le()?;
-    data.set_position(data_start as u64);
-
-    // 0 size actually means 256
-    let ico_wh = |n| if n == 0 { 256 } else { u32::from(n) };
-
-    match bpp {
-        32 => {
-            match data
-                .into_inner()
-                .get(data_start..data_start + (width as usize * height as usize * 4))
-            {
-                Some(d) => Ok(Some(WindowsIcon {
-                    width: ico_wh(width),
-                    height: ico_wh(height),
-                    original_bpp: bpp,
-                    bgra_data: d.to_vec(),
-                })),
-                None => Ok(None),
-            }
-        }
-        8 => {
-            let pixel_count = width as usize * height as usize;
-            let mut bgra_data = Vec::with_capacity(pixel_count * 4);
-            data.seek(SeekFrom::Current(1024))?; // skip LUT
-
-            for _ in 0..pixel_count {
-                let lut_pos = data_start as usize + (data.read_u8()? as usize * 4);
-                bgra_data.extend_from_slice(&blob[lut_pos..lut_pos + 4]);
-            }
-
-            // read alpha bits - start by reading bitmask bytes which will be used fully
-            let mut cursor = 0;
-            while cursor + (4 * 8) <= bgra_data.len() {
-                let mut bitmask = data.read_u8()?;
-                for _ in 0..8 {
-                    let (m, b) = bitmask.overflowing_add(bitmask);
-                    bitmask = m;
-                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                    cursor += 4;
-                }
-            }
-
-            // check if there are any pixels left to fill in
-            if cursor < bgra_data.len() {
-                let mut bitmask = data.read_u8()?;
-                while cursor < bgra_data.len() {
-                    let (m, b) = bitmask.overflowing_add(bitmask);
-                    bitmask = m;
-                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                    cursor += 4;
-                }
-            }
-
-            Ok(Some(WindowsIcon {
-                width: ico_wh(width),
-                height: ico_wh(height),
-                original_bpp: bpp,
-                bgra_data,
-            }))
-        }
-        _ => Ok(None),
-    }
-}
-
-pub struct Settings {
-    /// Start in full-screen mode
-    pub fullscreen: bool,
-
-    /// Interpolate colors between pixels
-    pub interpolate_pixels: bool,
-
-    /// Don't draw a border in windowed mode
-    pub dont_draw_border: bool,
-
-    /// Display the cursor
-    pub display_cursor: bool,
-
-    /// Scaling
-    ///
-    /// Fixed scale, in %.
-    /// If it's negative (usually `-1`), Keep aspect ratio.
-    /// Otherwise if it's `0`, Full scale.
-    pub scaling: i32,
-
-    /// Allow the player to resize the game window
-    pub allow_resize: bool,
-
-    /// Let the game window always stay on top
-    pub window_on_top: bool,
-
-    /// Colour outside the room region (RGBA)
-    pub clear_colour: u32,
-
-    /// Set the resolution of the screen
-    pub set_resolution: bool,
-
-    /// Sub-var of `set_resolution` - Color Depth
-    ///
-    /// 0 - No Change
-    ///
-    /// 1 - 16-Bit
-    ///
-    /// 2 - 32-Bit
-    pub colour_depth: u32,
-
-    /// Sub-var of `set_resolution` - Resolution
-    ///
-    /// 0 - No change
-    ///
-    /// 1 - 320x240
-    ///
-    /// 2 - 640x480
-    ///
-    /// 3 - 800x600
-    ///
-    /// 4 - 1024x768
-    ///
-    /// 5 - 1280x1024
-    ///
-    /// 6 - 1600x1200
-    pub resolution: u32,
-
-    /// Sub-var of `set_resolution` - Frequency
-    ///
-    /// 0 - No Change
-    ///
-    /// 1 - 60Hz
-    ///
-    /// 2 - 70Hz
-    ///
-    /// 3 - 85Hz
-    ///
-    /// 4 - 100Hz
-    ///
-    /// 5 - 120Hz
-    pub frequency: u32,
-
-    /// Don't show the buttons in the window captions
-    pub dont_show_buttons: bool,
-
-    /// Use synchronization to avoid tearing
-    pub vsync: bool,
-
-    /// Disable screensavers and power saving actions
-    pub disable_screensaver: bool,
-
-    /// Let <Esc> end the game
-    pub esc_close_game: bool,
-
-    /// Treat the close button as the <Esc> key
-    pub treat_close_as_esc: bool,
-
-    /// Let <F1> show the game information
-    pub f1_help_menu: bool,
-
-    /// Let <F4> switch between screen modes
-    pub f4_fullscreen_toggle: bool,
-
-    /// Let <F5> save the game and <F6> load a game
-    pub f5_save_f6_load: bool,
-
-    /// Let <F9> take a screenshot of the game
-    pub f9_screenshot: bool,
-
-    /// Game Process Priority
-    ///
-    /// 0 - Normal
-    ///
-    /// 1 - High
-    ///
-    /// 2 - Highest
-    ///
-    pub priority: u32,
-
-    /// Freeze the game window when the window loses focus
-    pub freeze_on_lose_focus: bool,
-
-    /// 0 - No loading progress bar
-    ///
-    /// 1 - Default loading progress bar
-    ///
-    /// 2 - Own loading progress bar
-    pub loading_bar: u32,
-
-    /// Loading bar - (Custom) Back Image
-    pub backdata: Option<Box<[u8]>>,
-
-    /// Loading bar - (Custom) Front Image
-    pub frontdata: Option<Box<[u8]>>,
-
-    /// Show your own image while loading (data)
-    pub custom_load_image: Option<Box<[u8]>>,
-
-    /// Sub-value of `custom_load_image`:
-    /// Make image partially translucent
-    pub transparent: bool,
-
-    /// Sub-value of `custom_load_image` + `transparent`
-    ///
-    /// Make translucent with alpha value: x
-    pub translucency: u32,
-
-    /// Scale progress bar image
-    pub scale_progress_bar: bool,
-
-    /// Display error messages
-    pub show_error_messages: bool,
-
-    /// Write error messages to file game_errors.log
-    pub log_errors: bool,
-
-    /// Abort on all error messages
-    pub always_abort: bool,
-
-    /// Treat uninitialized variables as value 0
-    pub zero_uninitalized_vars: bool,
-
-    /// Throw an error when arguments aren't initialized correctly
-    pub error_on_uninitalized_args: bool,
-}
-
 /// Helper function for inflating zlib data.
 pub(crate) fn inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
 where
@@ -343,155 +66,7 @@ where
     Ok(buf)
 }
 
-/// Extracts some bytes from the file from their location in the initialized exe's memory
-fn extract_virtual_bytes(
-    data: &mut io::Cursor<&mut [u8]>,
-    pe_sections: &[PESection],
-    rva: u32,
-    size: usize,
-) -> Result<Option<Vec<u8>>, ReaderError> {
-    for section in pe_sections {
-        if rva >= section.virtual_address
-            && ((rva as usize) + size) < ((section.virtual_address + section.virtual_size) as usize)
-        {
-            // data is in this section
-            let offset_on_disk = rva - section.virtual_address;
-            let data_location = (section.disk_address + offset_on_disk) as usize;
-            return Ok(data
-                .get_ref()
-                .get(data_location..data_location + size)
-                .map(|chunk| chunk.to_vec()));
-        }
-    }
-
-    Ok(None)
-}
-
-/// Finds the icon group from the exe file which will be used for the window icon.
-fn find_rsrc_icons(
-    data: &mut io::Cursor<&mut [u8]>,
-    pe_sections: &[PESection],
-) -> Result<(Vec<WindowsIcon>, Vec<u8>), ReaderError> {
-    // top level header
-    let rsrc_base = data.position();
-    data.seek(SeekFrom::Current(12))?;
-    let name_count = data.read_u16_le()?;
-    let id_count = data.read_u16_le()?;
-    // skip over any names in the top-level
-    data.seek(SeekFrom::Current((name_count as i64) * 8))?;
-
-    let mut icons: Vec<(u32, u32, u32)> = Vec::new(); // id, rva, size
-
-    // read IDs until we find 3 (RT_ICON) or 14 (RT_GROUP_ICON)
-    // Windows guarantees that these IDs will be in ascending order, so we'll find 3 before 14.
-    for _ in 0..id_count {
-        let id = data.read_u32_le()?;
-        let offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
-
-        if id == 3 {
-            // 3 = RT_ICON
-            let top_level_pos = data.position();
-            // Go down to next layer
-            data.set_position((offset as u64) + rsrc_base + 14);
-            let leaf_count = data.read_u16_le()?;
-            if leaf_count == 0 {
-                // No leaves under RT_ICON, so no icon
-                return Ok((vec![], vec![]));
-            }
-
-            // Get each leaf
-            for _ in 0..leaf_count {
-                // Store where we are in the leaf index
-                let leaf_pos = data.position();
-
-                // Go down yet another layer
-                let icon_id = data.read_u32_le()?;
-                let language_offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
-                data.set_position((language_offset as u64) + rsrc_base + 20);
-                let leaf = data.read_u32_le()?;
-
-                // Finally we get to the leaf, which has a pointer to our icon data + size
-                data.set_position((leaf as u64) + rsrc_base);
-                let rva = data.read_u32_le()?;
-                let size = data.read_u32_le()?;
-                icons.push((icon_id, rva, size));
-
-                // Go back to the leaf index and go to the next item
-                data.set_position(leaf_pos);
-                data.seek(SeekFrom::Current(8))?;
-            }
-            data.set_position(top_level_pos);
-        } else if id == 14 {
-            // 14 = RT_GROUP_ICON
-            data.set_position((offset as u64) + rsrc_base + 12);
-            let leaf_count = data.read_u16_le()? + data.read_u16_le()?;
-            if leaf_count == 0 {
-                // No leaves under RT_GROUP_ICON, so no icon
-                return Ok((vec![], vec![]));
-            }
-
-            data.seek(SeekFrom::Current(4))?;
-            let language_offset = data.read_u32_le()? & 0x7FFFFFFF; // high bit is 1
-            data.set_position((language_offset as u64) + rsrc_base + 20);
-            let leaf = data.read_u32_le()?;
-
-            // Finally the leaf
-            data.set_position((leaf as u64) + rsrc_base);
-            let rva = data.read_u32_le()?;
-            let size = data.read_u32_le()?;
-
-            if let Some(v) = extract_virtual_bytes(data, pe_sections, rva, size as usize)? {
-                // Read the ico header
-                let mut ico_header = io::Cursor::new(&v);
-                ico_header.seek(SeekFrom::Current(4))?;
-                let image_count = usize::from(ico_header.read_u16_le()?);
-
-                let mut icon_group: Vec<WindowsIcon> = vec![];
-
-                let raw_header_size = (6 + (image_count * 16)) as usize;
-                let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
-                let mut raw_file: Vec<u8> =
-                    Vec::with_capacity(raw_header_size + (raw_body_size as usize));
-                let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
-                raw_file.extend_from_slice(&v[0..6]);
-                for _ in 0..image_count {
-                    // Copy data to raw file header
-                    let pos = ico_header.position() as usize;
-                    raw_file.extend_from_slice(&v[pos..pos + 12]);
-                    raw_file.write_u32_le((raw_header_size + raw_file_body.len()) as u32)?;
-
-                    // Read the details of one icon in this group
-                    let width = ico_header.read_u8()?;
-                    let height = ico_header.read_u8()?;
-                    ico_header.seek(SeekFrom::Current(4))?;
-                    let _bits_per_pixel = ico_header.read_u16_le()?; // seems to be wrong sometimes...
-                    ico_header.seek(SeekFrom::Current(4))?;
-                    let ordinal = ico_header.read_u16_le()?;
-
-                    // Match this ordinal name with an icon resource
-                    for icon in &icons {
-                        if icon.0 == ordinal as u32 && icon.2 >= 40 {
-                            if let Some(v) =
-                                extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)?
-                            {
-                                raw_file_body.extend_from_slice(&v);
-                                if let Some(i) = make_icon(width, height, v)? {
-                                    icon_group.push(i);
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
-                raw_file.append(&mut raw_file_body);
-                return Ok((icon_group, raw_file));
-            }
-        }
-    }
-
-    Ok((vec![], vec![]))
-}
-
+/// A windows PE Section header - https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers
 pub struct PESection {
     pub virtual_size: u32,
     pub virtual_address: u32,
@@ -540,7 +115,6 @@ where
     let mut upx0_virtual_len: Option<u32> = None;
     let mut upx1_data: Option<(u32, u32)> = None; // virtual size, position on disk
     let mut rsrc_location: Option<u32> = None;
-    //let mut icon_data: Vec<WindowsIcon> = vec![];
 
     let mut sections: Vec<PESection> = Vec::with_capacity(section_count as usize);
 
@@ -584,7 +158,7 @@ where
     let (icon_data, ico_file_raw) = if let Some(rsrc) = rsrc_location {
         let temp_pos = exe.position();
         exe.set_position(rsrc as u64);
-        let icons = find_rsrc_icons(&mut exe, &sections)?;
+        let icons = rsrc::find_icons(&mut exe, &sections)?;
         exe.set_position(temp_pos);
         icons
     } else {
