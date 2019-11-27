@@ -1,4 +1,3 @@
-use crate::reader::ReaderError;
 use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::iter::once;
@@ -10,7 +9,7 @@ pub enum XorMethod {
 
 /// Check if this is a standard gm8.1 game by looking for the loading sequence
 /// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
-pub fn check<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
+pub fn check<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<bool>
 where
     F: Copy + Fn(&str),
 {
@@ -107,10 +106,7 @@ where
 
 /// Check if this is a standard gm8.1 game by looking for the default header (last-resort method)
 /// If so, removes gm81 encryption and sets the cursor to the start of the gamedata.
-pub fn check_lazy<F>(
-    exe: &mut io::Cursor<&mut [u8]>,
-    logger: Option<F>,
-) -> Result<bool, ReaderError>
+pub fn check_lazy<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<bool>
 where
     F: Copy + Fn(&str),
 {
@@ -122,7 +118,7 @@ where
 /// Seeks for a GM81-style magic value from its current position.
 /// Returns the associated xor value within the magic if it was found; returns None otherwise.
 /// On success, the cursor will have been advanced just past the eight bytes from which the value was parsed.
-pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> Result<Option<u32>, ReaderError> {
+pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> io::Result<Option<u32>> {
     let mut pos = exe.position();
     loop {
         exe.set_position(pos);

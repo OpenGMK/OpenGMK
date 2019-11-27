@@ -1,4 +1,3 @@
-use crate::reader::ReaderError;
 use minio::ReadPrimitives;
 use std::{
     convert::TryInto,
@@ -17,7 +16,7 @@ pub struct AntidecMetadata {
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe (GM8.0).
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
-pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
+pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMetadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (0x144AC0 as usize) + 4 {
         return Ok(None);
@@ -64,7 +63,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe (GM8.1).
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
-pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
+pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMetadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x1F0C53 as usize {
         return Ok(None);
@@ -110,10 +109,7 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
 /// Returns true on success, or false indicating that the provided settings are incompatible with the data.
-pub fn decrypt(
-    data: &mut io::Cursor<&mut [u8]>,
-    settings: AntidecMetadata,
-) -> Result<bool, ReaderError> {
+pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> io::Result<bool> {
     let game_data = match data.get_mut().get_mut(settings.exe_load_offset as usize..) {
         Some(d) => d,
         None => return Ok(false),

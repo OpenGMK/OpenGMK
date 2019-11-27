@@ -1,4 +1,3 @@
-use crate::reader::ReaderError;
 use minio::ReadPrimitives;
 use std::{
     cmp::max,
@@ -7,7 +6,7 @@ use std::{
 
 /// Check if this is a standard gm8.0 game by looking for the loading sequence
 /// If so, sets the cursor to the start of the gamedata.
-pub fn check<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> Result<bool, ReaderError>
+pub fn check<F>(exe: &mut io::Cursor<&mut [u8]>, logger: Option<F>) -> io::Result<bool>
 where
     F: Copy + Fn(&str),
 {
