@@ -2,11 +2,7 @@ pub mod antidec;
 pub mod gm80;
 pub mod gm81;
 
-use crate::{
-    GameVersion,
-    reader::ReaderError,
-    upx,
-};
+use crate::{reader::ReaderError, upx, GameVersion};
 use minio::ReadPrimitives;
 use std::io::{self, Seek, SeekFrom};
 

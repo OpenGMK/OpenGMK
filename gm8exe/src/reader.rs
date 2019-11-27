@@ -1,7 +1,7 @@
 use crate::{asset::*, colour::Colour, GameVersion};
 
-use flate2::read::ZlibDecoder;
 use crate::gamedata::{self, gm80};
+use flate2::read::ZlibDecoder;
 use minio::{ReadPrimitives, WritePrimitives};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
@@ -76,8 +76,9 @@ impl Display for ReaderError {
                 ReaderError::AssetError(err) => format!("asset data error: {}", err),
                 ReaderError::InvalidExeHeader => "invalid exe header".into(),
                 ReaderError::IO(err) => format!("io error: {}", err),
-                ReaderError::PartialUPXPacking =>
-                    "looks upx protected, can't locate headers".into(),
+                ReaderError::PartialUPXPacking => {
+                    "looks upx protected, can't locate headers".into()
+                }
                 ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
             }
         )

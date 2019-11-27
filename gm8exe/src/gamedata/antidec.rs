@@ -64,9 +64,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe (GM8.1).
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
-pub fn check81(
-    exe: &mut io::Cursor<&mut [u8]>,
-) -> Result<Option<AntidecMetadata>, ReaderError> {
+pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> Result<Option<AntidecMetadata>, ReaderError> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x1F0C53 as usize {
         return Ok(None);
