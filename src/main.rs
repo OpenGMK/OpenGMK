@@ -12,10 +12,10 @@ pub mod collision;
 pub mod gmk;
 pub mod zlib;
 
-const BUILD_DATE: &'static str = env!("BUILD_DATE");
-const COMMIT_HASH: &'static str = env!("GIT_HASH");
-const TARGET_TRIPLE: &'static str = env!("TARGET_TRIPLE");
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const BUILD_DATE: &str = env!("BUILD_DATE");
+const COMMIT_HASH: &str = env!("GIT_HASH");
+const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     println!(
