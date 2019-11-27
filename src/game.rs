@@ -11,7 +11,9 @@ use glutin::{
 };
 use gm8exe::{
     asset::Room,
-    reader::{GameAssets, Settings as ExeSettings, WindowsIcon},
+    GameAssets,
+    settings::Settings as ExeSettings,
+    rsrc::WindowsIcon,
 };
 
 use std::convert::identity;
