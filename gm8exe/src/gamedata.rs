@@ -51,7 +51,7 @@ where
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-                    exe.seek(SeekFrom::Current(12))?;
+                    exe.seek(SeekFrom::Current(16))?;
                     Ok(GameVersion::GameMaker8_0)
                 } else {
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
@@ -65,9 +65,6 @@ where
                 log_antidec(antidec_settings);
                 if antidec::decrypt(exe, antidec_settings)? {
                     // Search for header
-                    exe.set_position(
-                        (antidec_settings.header_start + antidec_settings.exe_load_offset) as u64,
-                    );
                     let found_header = gm81::seek_value(exe, 0xF7140067)?.is_some();
 
                     if found_header {
@@ -98,7 +95,7 @@ where
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
-                    exe.seek(SeekFrom::Current(12))?;
+                    exe.seek(SeekFrom::Current(16))?;
                     Ok(GameVersion::GameMaker8_0)
                 } else {
                     // Antidec couldn't be decrypted with the settings we read, so we must have got the format wrong
@@ -111,9 +108,6 @@ where
                     log_antidec(antidec_settings);
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
-                    exe.set_position(
-                        (antidec_settings.header_start + antidec_settings.exe_load_offset) as u64,
-                    );
                     let found_header = gm81::seek_value(exe, 0xF7140067)?.is_some();
 
                     if found_header {

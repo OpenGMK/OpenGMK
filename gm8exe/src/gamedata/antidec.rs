@@ -110,7 +110,10 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
 /// Also sets the cursor to the start of the gamedata.
 /// Returns true on success, or false indicating that the provided settings are incompatible with the data.
 pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> io::Result<bool> {
-    let game_data = match data.get_mut().get_mut(settings.exe_load_offset as usize..) {
+    // Offset in the file where the header is
+    let offset = settings.exe_load_offset + settings.header_start;
+    // Subtract 4 from that position to make sure the first chunk gets decrypted, in case it isn't 4-byte aligned
+    let game_data = match data.get_mut().get_mut((offset - 4) as usize..) {
         Some(d) => d,
         None => return Ok(false),
     };
@@ -138,6 +141,6 @@ pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> i
         *chunk = value.to_le_bytes();
     }
 
-    data.set_position((settings.exe_load_offset + settings.header_start + 4) as u64);
+    data.set_position(offset as u64);
     Ok(true)
 }
