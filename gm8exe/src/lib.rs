@@ -1,9 +1,29 @@
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::unreadable_literal)]
 
+#[macro_use]
+macro_rules! log {
+    ($logger: expr, $x: expr) => {
+        if let Some(logger) = &$logger {
+            logger($x.into());
+        }
+    };
+    ($logger: expr, $format: expr, $($x: expr),*) => {
+        if let Some(logger) = &$logger {
+            logger(&format!(
+                $format,
+                $($x),*
+            ));
+        }
+    };
+    ($($x:expr,)*) => (log![$($x),*]); // leveraged from vec![]
+}
+
 pub mod asset;
 pub mod def;
+pub mod gamedata;
 pub mod reader;
+pub mod upx;
 
 mod colour;
 
