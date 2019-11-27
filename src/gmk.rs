@@ -2,8 +2,8 @@ use crate::{collision, zlib::ZlibWriter};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
     asset::{self, includedfile::ExportSetting},
-    reader::{GameAssets, GameHelpDialog, Settings},
-    GameVersion,
+    settings::{GameHelpDialog, Settings},
+    GameAssets, GameVersion,
 };
 use minio::WritePrimitives;
 use rayon::prelude::*;
