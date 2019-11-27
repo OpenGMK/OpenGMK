@@ -16,6 +16,19 @@ pub fn find<F>(
 where
     F: Copy + Fn(&str),
 {
+    // helper fn for logging antidec settings
+    let log_antidec = |data: antidec::AntidecMetadata| {
+        log!(
+            logger,
+            "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
+            data.exe_load_offset,
+            data.header_start,
+            data.xor_mask,
+            data.add_mask,
+            data.sub_mask
+        );
+    };
+
     // Check if UPX is in use first
     match upx_data {
         Some((max_size, disk_offset)) => {
@@ -33,17 +46,9 @@ where
                 if logger.is_some() {
                     log!(
                         logger,
-                        "Found antidec2 loading sequence, decrypting with the following values:"
+                        "Found GM8.0 antidec2 loading sequence, decrypting with these settings:"
                     );
-                    log!(
-                        logger,
-                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                        antidec_settings.exe_load_offset,
-                        antidec_settings.header_start,
-                        antidec_settings.xor_mask,
-                        antidec_settings.add_mask,
-                        antidec_settings.sub_mask
-                    );
+                    log_antidec(antidec_settings);
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
@@ -56,17 +61,9 @@ where
             } else if let Some(antidec_settings) = antidec::check81(&mut unpacked)? {
                 log!(
                     logger,
-                    "Found antidec81 loading sequence, decrypting with the following values:"
+                    "Found GM8.1 antidec2 loading sequence, decrypting with these settings:"
                 );
-                log!(
-                    logger,
-                    "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                    antidec_settings.exe_load_offset,
-                    antidec_settings.header_start,
-                    antidec_settings.xor_mask,
-                    antidec_settings.add_mask,
-                    antidec_settings.sub_mask
-                );
+                log_antidec(antidec_settings);
                 if antidec::decrypt(exe, antidec_settings)? {
                     // Search for header
                     let found_header = {
@@ -92,7 +89,7 @@ where
                     } else {
                         log!(
                             logger,
-                            "Didn't find GM81 magic value (0xF7640017) before EOF, so giving up"
+                            "Didn't find GM81 magic value (0xF7140017) before EOF, so giving up"
                         );
                         Err(ReaderError::UnknownFormat)
                     }
@@ -108,19 +105,8 @@ where
             if let Some(antidec_settings) = antidec::check80(exe)? {
                 // antidec2 protection in the base exe (so without UPX on top of it)
                 if logger.is_some() {
-                    log!(
-                        logger,
-                        "Found antidec2 loading sequence [no UPX], decrypting with the following values:"
-                    );
-                    log!(
-                        logger,
-                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                        antidec_settings.exe_load_offset,
-                        antidec_settings.header_start,
-                        antidec_settings.xor_mask,
-                        antidec_settings.add_mask,
-                        antidec_settings.sub_mask
-                    );
+                    log!(logger, "Found GM8.0 antidec2 loading sequence [no UPX], decrypting with these settings:");
+                    log_antidec(antidec_settings);
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
                     // 8.0-specific header, but no point strict-checking it because antidec puts random garbage there.
@@ -133,19 +119,8 @@ where
             } else if let Some(antidec_settings) = antidec::check81(exe)? {
                 // antidec81 protection in the base exe (so without UPX on top of it)
                 if logger.is_some() {
-                    log!(
-                        logger,
-                        "Found antidec81 loading sequence [no UPX], decrypting with the following values:"
-                    );
-                    log!(
-                        logger,
-                        "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",
-                        antidec_settings.exe_load_offset,
-                        antidec_settings.header_start,
-                        antidec_settings.xor_mask,
-                        antidec_settings.add_mask,
-                        antidec_settings.sub_mask
-                    );
+                    log!(logger, "Found GM8.1 antidec2 loading sequence [no UPX], decrypting with these settings:");
+                    log_antidec(antidec_settings);
                 }
                 if antidec::decrypt(exe, antidec_settings)? {
                     let found_header = {
@@ -171,7 +146,7 @@ where
                     } else {
                         log!(
                             logger,
-                            "Didn't find GM81 magic value (0xF7640017) before EOF, so giving up"
+                            "Didn't find GM81 magic value (0xF7140017) before EOF, so giving up"
                         );
                         Err(ReaderError::UnknownFormat)
                     }
