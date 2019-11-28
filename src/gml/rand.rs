@@ -24,6 +24,7 @@ impl Random {
     }
 
     pub fn next(&mut self, bound: f64) -> f64 {
+        self.cycle(); // cycle seed
         (self.0 as u32 as f64) * f64::from_bits(INT_STEP) * bound
     }
 }
