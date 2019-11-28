@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod lexer;
+pub mod rand;
 pub mod token;
 
 #[derive(Debug)]
