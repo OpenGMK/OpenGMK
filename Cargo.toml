@@ -9,7 +9,6 @@ edition = "2018"
 gl_generator = "0.14.0"
 
 [dependencies]
-gl = { path = "lib/gl" }
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
@@ -19,6 +18,3 @@ rect_packer = "0.2.1"
 codegen-units = 1
 lto = true
 panic = "abort"
-
-[workspace]
-members = ["lib/gl"]
