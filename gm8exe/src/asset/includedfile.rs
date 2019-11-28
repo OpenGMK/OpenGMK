@@ -1,9 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString /* WritePascalString */},
+    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
-use minio::ReadPrimitives;
+use minio::{ReadPrimitives, WritePrimitives};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
@@ -71,6 +71,7 @@ impl Asset for IncludedFile {
         let stored_in_gmk = reader.read_u32_le()? != 0;
 
         let embedded_data = if stored_in_gmk && data_exists {
+            // TODO: this should be minio::read_buffer? Does that function exist yet?
             let len = reader.read_u32_le()? as usize;
             let pos = reader.position() as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
@@ -113,10 +114,43 @@ impl Asset for IncludedFile {
         })
     }
 
-    fn serialize<W>(&self, _writer: &mut W) -> io::Result<usize>
+    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
     where
         W: io::Write,
     {
-        Ok(0)
+        let mut result = writer.write_u32_le(VERSION)?;
+        result += writer.write_pas_string(&self.file_name)?;
+        result += writer.write_pas_string(&self.source_path)?;
+        result += writer.write_u32_le(self.data_exists as u32)?;
+        result += writer.write_u32_le(self.source_length as u32)?;
+        result += writer.write_u32_le(self.stored_in_gmk as u32)?;
+        if let Some(data) = &self.embedded_data {
+            result += writer.write_u32_le(data.len() as u32)?;
+            // TODO: minio.write_buffer?
+            writer.write_all(data)?;
+            result += data.len();
+        }
+        match &self.export_settings {
+            ExportSetting::NoExport => {
+                result += writer.write_u32_le(0)?;
+                result += writer.write_pas_string("")?;
+            }
+            ExportSetting::TempFolder => {
+                result += writer.write_u32_le(1)?;
+                result += writer.write_pas_string("")?;
+            }
+            ExportSetting::GameFolder => {
+                result += writer.write_u32_le(2)?;
+                result += writer.write_pas_string("")?;
+            }
+            ExportSetting::CustomFolder(folder) => {
+                result += writer.write_u32_le(3)?;
+                result += writer.write_pas_string(folder)?;
+            }
+        }
+        result += writer.write_u32_le(self.overwrite_file as u32)?;
+        result += writer.write_u32_le(self.free_memory as u32)?;
+        result += writer.write_u32_le(self.remove_at_end as u32)?;
+        Ok(result)
     }
 }
