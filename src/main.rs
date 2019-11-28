@@ -3,6 +3,7 @@
 mod atlas;
 mod game;
 mod gml;
+mod render;
 mod types;
 mod util;
 
