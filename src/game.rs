@@ -1,4 +1,5 @@
 use crate::atlas::AtlasBuilder;
+use crate::render::opengl::gl;
 
 use glutin::{
     dpi::LogicalSize,
