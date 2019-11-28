@@ -1,6 +1,13 @@
+//! Simple implementation of pseudo-random numbers with a Linear Congruential Generator (LCG) algorithm.
+//!
+//! The modulus is 32, the increment & multiplier are exposed in constants.
+
 pub struct Random(i32);
 
+/// Increment value in the LCG algorithm.
 pub const INCREMENT: i32 = 1;
+
+/// Multiplier value in the LCG algorithm.
 pub const MULTIPLIER: i32 = 0x8088405;
 
 /// Constant representing 1/2^32, used in distributing the seed onto a random float.
