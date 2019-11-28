@@ -32,10 +32,14 @@ impl Random {
     }
 
     #[inline]
-    pub fn next_int(&mut self, bound: i32) -> i32 {
+    /// Equivalent to GML irandom(n).
+    ///
+    /// The input needs to be cast to unsigned because of weird UB with negative integers.
+    /// The output can still be signed, if the input was a signed number (but cast to unsigned).
+    pub fn next_int(&mut self, bound: u32) -> i32 {
         self.cycle(); // cycle seed
         let ls = (self.0 as u64) & 0xFFFFFFFF;
-        let lb = i64::from(bound).wrapping_add(1);
-        ((ls.wrapping_mul(lb as u64)) >> 32) as i32
+        let lb = u64::from(bound).wrapping_add(1);
+        ((ls.wrapping_mul(lb)) >> 32) as _
     }
 }
