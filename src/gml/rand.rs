@@ -23,7 +23,7 @@ impl Random {
     }
 
     /// Equivalent to GML random_get_seed().
-    /// 
+    ///
     /// Returns the current LCG seed.
     #[inline]
     pub const fn seed(&self) -> i32 {
@@ -31,7 +31,7 @@ impl Random {
     }
 
     /// Equivalent to random_set_seed(n).
-    /// 
+    ///
     /// Sets the current LCG seed.
     #[inline]
     pub fn set_seed(&mut self, seed: i32) {
@@ -39,7 +39,7 @@ impl Random {
     }
 
     /// Implementation of GML randomize().
-    /// 
+    ///
     /// Randomizes the LCG seed.
     pub fn randomize(&mut self) {
         use rand::Rng;
