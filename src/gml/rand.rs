@@ -41,19 +41,9 @@ impl Random {
     /// Implementation of GML randomize().
     /// 
     /// Randomizes the LCG seed.
-    /// 
-    /// GameMaker 8 uses Win32 QueryPerformanceCounter() for the random value,
-    /// with a fallback of checking the unix epoch. This implementation uses the
-    /// nanoseconds part of the duration since unix epoch for the random value.
-    /// If the duration check fails (aka, clock before 1970) it uses the nanoseconds
-    /// part from the duration between that and unix epoch start.
     pub fn randomize(&mut self) {
-        use std::time::SystemTime;
-
-        self.set_seed(match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-            Ok(dur) => dur.subsec_nanos() as _,
-            Err(err) => err.duration().subsec_nanos() as _,
-        });
+        use rand::Rng;
+        self.set_seed(rand::thread_rng().gen());
     }
 
     /// Cycles the randomizer seed. This is done automatically every call to next/next_int.
