@@ -12,6 +12,7 @@ gl_generator = "0.14.0"
 glutin = "0.22.0-alpha2"
 getopts = "0.2.21"
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
+rand = "0.7.2" # for seeding, not generating
 rect_packer = "0.2.1"
 
 [profile.release]
