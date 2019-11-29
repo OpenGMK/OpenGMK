@@ -41,6 +41,7 @@ impl Random {
     /// Implementation of GML randomize().
     ///
     /// Randomizes the LCG seed.
+    #[inline]
     pub fn randomize(&mut self) {
         use rand::Rng;
         self.set_seed(rand::thread_rng().gen());
