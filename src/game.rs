@@ -1,7 +1,4 @@
-use crate::{
-    atlas::AtlasBuilder,
-    render::opengl::gl,
-};
+use crate::{atlas::AtlasBuilder, render::opengl::gl};
 
 use glutin::{
     dpi::LogicalSize,
@@ -12,12 +9,7 @@ use glutin::{
     window::{Fullscreen, Icon, WindowBuilder},
     ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
-use gm8exe::{
-    asset::Room,
-    GameAssets,
-    settings::Settings as ExeSettings,
-    rsrc::WindowsIcon,
-};
+use gm8exe::{asset::Room, rsrc::WindowsIcon, settings::Settings as ExeSettings, GameAssets};
 
 use std::convert::identity;
 
