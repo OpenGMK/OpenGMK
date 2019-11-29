@@ -1,4 +1,4 @@
-use minio::{ReadPrimitives, WritePrimitives};
+use minio::ReadPrimitives;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::iter::once;
 
@@ -188,8 +188,8 @@ where
     }
 
     // get our two seeds for generating xor masks
-    let mut seed1 = data.read_u32_le()?;
-    let mut seed2 = crc_32(&hash_key_utf16, &crc_table);
+    let seed1 = data.read_u32_le()?;
+    let seed2 = crc_32(&hash_key_utf16, &crc_table);
 
     log!(
         logger,
@@ -199,65 +199,73 @@ where
         seed2
     );
 
-    // skip to where gm81 encryption starts
-    let old_position = data.position();
-    data.seek(SeekFrom::Current(((seed2 & 0xFF) + 0xA) as i64))?;
+    // work out where gm81 encryption starts
+    let encryption_start = data.position() + u64::from(seed2 & 0xFF) + 10;
 
-    // Decrypt stream from here
-    match xor_method {
+    // Make the seed-cycling iterator
+    let mut generator = match xor_method {
         XorMethod::Normal => {
-            // Normal xor generation
-            while let Ok(dword) = data.read_u32_le() {
-                data.set_position(data.position() - 4);
-                seed1 = (0xFFFF & seed1) * 0x9069 + (seed1 >> 16);
-                seed2 = (0xFFFF & seed2) * 0x4650 + (seed2 >> 16);
-                let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
-                data.write_u32_le(xor_mask ^ dword)?;
-            }
+            Box::new(NormalMaskGenerator { seed1, seed2 }) as Box<dyn Iterator<Item = u32>>
         }
         XorMethod::Sudalv => {
-            // SUDALV xor generation
-            let pos = data.position();
-            data.set_position(0x20);
-            let mut x20: u32 = data.read_u32_le()?;
-            data.set_position(pos);
-
-            while let Ok(dword) = data.read_u32_le() {
-                data.set_position(data.position() - 4);
-                seed1 = sudalv_magic(seed1, data, sudalv_magic_point, &mut x20)?;
-                seed2 = sudalv_magic(seed2, data, sudalv_magic_point, &mut x20)?;
-                let xor_mask = (seed1 << 16) + (seed2 & 0xFFFF);
-                data.write_u32_le(xor_mask ^ dword)?;
-            }
+            let mask_data = &data.get_ref()[..(sudalv_magic_point + 4) as usize];
+            let mask_count = mask_data
+                .rchunks_exact(2)
+                .skip(1)
+                .zip(mask_data.rchunks_exact(2))
+                .position(|xy| xy == (&[0, 0], &[0, 0]))
+                .unwrap();
+            let iter = mask_data
+                .rchunks_exact(2)
+                .skip(1)
+                .map(|x| u16::from_le_bytes([x[0], x[1]]))
+                .take(mask_count + 1)
+                .collect::<Vec<u16>>()
+                .into_iter()
+                .cycle();
+            Box::new(SudalvMaskGenerator { seed1, seed2, iter }) as Box<dyn Iterator<Item = u32>>
         }
+    };
+
+    // Decrypt stream from encryption_start
+    let game_data = &mut data.get_mut()[encryption_start as usize..];
+    for chunk in game_data
+        .chunks_exact_mut(4)
+        .map(|s| unsafe { &mut *(s as *mut _ as *mut u32) })
+    {
+        *chunk ^= generator.next().unwrap();
     }
 
-    data.set_position(old_position);
     Ok(())
 }
 
-fn sudalv_magic(
-    seed: u32,
-    data: &mut io::Cursor<&mut [u8]>,
-    magic_point: u32,
-    x20: &mut u32,
-) -> io::Result<u32> {
-    let t = seed & 0xFFFF;
-    let start_pos = data.position();
+// it's all just xor mask generator code below here
 
-    if *x20 == 0 {
-        *x20 = magic_point;
+struct NormalMaskGenerator {
+    seed1: u32,
+    seed2: u32,
+}
+impl Iterator for NormalMaskGenerator {
+    type Item = u32;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.seed1 = (0xFFFF & self.seed1) * 0x9069 + (self.seed1 >> 16);
+        self.seed2 = (0xFFFF & self.seed2) * 0x4650 + (self.seed2 >> 16);
+        Some((self.seed1 << 16) + (self.seed2 & 0xFFFF))
     }
+}
 
-    data.set_position(*x20 as u64);
-    let ecx = data.read_u32_le()?;
-
-    if ecx == 0 {
-        *x20 = magic_point;
-    } else {
-        *x20 -= 2;
+struct SudalvMaskGenerator<I: Iterator<Item = u16>> {
+    seed1: u32,
+    seed2: u32,
+    iter: I,
+}
+impl<I: Iterator<Item = u16>> Iterator for SudalvMaskGenerator<I> {
+    type Item = u32;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.seed1 =
+            (0xFFFF & self.seed1) * u32::from(self.iter.next().unwrap()) + (self.seed1 >> 16);
+        self.seed2 =
+            (0xFFFF & self.seed2) * u32::from(self.iter.next().unwrap()) + (self.seed2 >> 16);
+        Some((self.seed1 << 16) + (self.seed2 & 0xFFFF))
     }
-
-    data.set_position(start_pos);
-    Ok(t.wrapping_mul(ecx & 0xFFFF).wrapping_add(seed >> 16))
 }
