@@ -3,7 +3,7 @@ sudo: false
 cache: cargo
 
 git:
-  depth: 1
+  depth: 5
 
 env:
   - ARCH=x86_64
