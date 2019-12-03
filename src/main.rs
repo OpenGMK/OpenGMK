@@ -73,7 +73,7 @@ fn main() {
         if !no_pause {
             // msys2 or derivatives (git bash for example) lock up on getch
             // however if you're using it you know what you're doing and don't need a `pause`
-            if env::var("MSYSTEM").is_err() {
+            if !msys2 {
                 extern "C" {
                     fn _getch() -> std::os::raw::c_int;
                 }
