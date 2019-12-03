@@ -121,11 +121,11 @@ pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> i
     let mut xor_mask = settings.xor_mask;
     let mut add_mask = settings.add_mask;
 
-    for chunk in game_data.rchunks_exact_mut(4) {
-        // TODO: fix this when const generics start existing
-        let chunk: &mut [u8; 4] = chunk
-            .try_into()
-            .unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() });
+    // panic is unreachable, optimized out. const generics should make this cleaner
+    for chunk in game_data
+        .rchunks_exact_mut(4)
+        .map(|x| <&mut [u8] as TryInto<&mut [u8; 4]>>::try_into(x).unwrap())
+    {
         let mut value = u32::from_le_bytes(*chunk);
 
         // apply masks, bswap

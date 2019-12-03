@@ -139,12 +139,11 @@ impl Asset for Sprite {
                         Some(b) => b
                             .chunks_exact(4)
                             .map(|ch| {
-                                // until we get const generics we need to do this to get an exact array
-                                let chunk: &[u8; 4] = ch.try_into().unwrap_or_else(|_| unsafe {
-                                    std::hint::unreachable_unchecked()
-                                });
-                                // nonzero value indicates collision pixel present
-                                u32::from_le_bytes(*chunk) != 0
+                                // until we get const generics we need to do this to get an exact array.
+                                // panic is unreachable and is optimized out.
+                                u32::from_le_bytes(
+                                    *<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap(),
+                                ) != 0
                             })
                             .collect(),
                         None => return Err(AssetDataError::MalformedData),
