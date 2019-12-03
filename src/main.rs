@@ -63,11 +63,15 @@ fn main() {
     #[cfg(target_os = "windows")]
     let press_any_key = || {
         if !no_pause {
-            extern "C" {
-                fn _getch() -> std::os::raw::c_int;
+            // msys2 or derivatives (git bash for example) lock up on getch
+            // however if you're using it you know what you're doing and don't need a `pause`
+            if env::var("MSYSTEM").is_err() {
+                extern "C" {
+                    fn _getch() -> std::os::raw::c_int;
+                }
+                println!("\n< Press Any Key >");
+                let _ = unsafe { _getch() };
             }
-            println!("\n< Press Any Key >");
-            let _ = unsafe { _getch() };
         }
     };
 
