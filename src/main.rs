@@ -26,17 +26,25 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     assert!(!args.is_empty());
     let process_path = args[0].as_str();
+    let msys2 = env::var("MSYSTEM").is_ok();
 
     // set up getopts to parse our command line args
     let mut opts = getopts::Options::new();
-    opts.optflag("h", "help", "print this help message");
-    opts.optflag("l", "lazy", "disable various data integrity checks");
-    opts.optflag("v", "verbose", "enable verbose logging for decompilation");
-    opts.optflag("t", "singlethread", "decompile gamedata synchronously");
-    opts.optopt("o", "output", "specify output filename", "FILE");
+    opts.optflag("h", "help", "print this help message")
+        .optflag("l", "lazy", "disable various data integrity checks")
+        .optflag("v", "verbose", "enable verbose logging for decompilation")
+        .optflag("t", "singlethread", "decompile gamedata synchronously")
+        .optopt("o", "output", "specify output filename", "FILE");
 
-    #[rustfmt::skip] // doesn't do anything unless you're on windows - read more below
-    opts.optflag("p", "no-pause", "do not wait for a keypress after running / help (windows)");
+    if !msys2 {
+        opts.optflag(
+            "p",
+            "no-pause",
+            "do not wait for a keypress after running / help (cmd)",
+        );
+    } else {
+        opts.optflag("p", "no-pause", ""); // ignored, omitted from usage string
+    }
 
     // parse command line arguments
     let matches = match opts.parse(&args[1..]) {
@@ -82,12 +90,19 @@ fn main() {
     // print help message if requested OR no input files
     if matches.opt_present("h") || matches.free.is_empty() {
         println!(
-            "{}\nTip: to decompile a game, click and drag it on top of {}.",
-            opts.usage(&format!(
-                "Command usage: {} FILENAME [options]",
-                process_path
-            )),
-            args[0],
+            concat!(
+                "Usage: {} FILENAME [options]\n",
+                "{}\n\n", // usage string
+                "Tip: to decompile a game, click and drag it on top of the executable.",
+            ),
+            process_path,
+            opts.usage_with_format(|iter| iter.fold(String::new(), |acc, s| {
+                if msys2 && s.contains("no-pause") {
+                    acc
+                } else {
+                    acc + "\n" + &s
+                }
+            })),
         );
         press_any_key();
         process::exit(0); // once the user RTFM they can run it again
