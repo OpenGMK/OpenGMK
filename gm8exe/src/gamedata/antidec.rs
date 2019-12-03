@@ -129,9 +129,7 @@ pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> i
         let mut value = u32::from_le_bytes(*chunk);
 
         // apply masks, bswap
-        value ^= xor_mask;
-        value = value.wrapping_add(add_mask);
-        value = value.swap_bytes();
+        value = (value ^ xor_mask).wrapping_add(add_mask).swap_bytes();
 
         // cycle masks
         xor_mask = xor_mask.wrapping_sub(settings.sub_mask);
