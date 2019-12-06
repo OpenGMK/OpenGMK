@@ -95,22 +95,22 @@ pub fn launch(assets: GameAssets) {
     //     spriterefs.push((&font.pixel_map, atlases.add(font.map_width as _, font.map_height as _)));
     // }
 
-    let mut frames = atlases
-        .into_frames()
-        .iter()
-        .map(|(maxx, maxy)| (vec![0u8; ((*maxx * *maxy) * 4) as usize], *maxx, *maxy))
-        .collect::<Vec<_>>();
-    for (f, r) in pixelrefs {
-        let maxx = frames[r.atlas_id as usize].1;
-        let out_buf = &mut frames[r.atlas_id as usize].0;
+    // let mut frames = atlases
+    //     .into_frames()
+    //     .iter()
+    //     .map(|(maxx, maxy)| (vec![0u8; ((*maxx * *maxy) * 4) as usize], *maxx, *maxy))
+    //     .collect::<Vec<_>>();
+    // for (f, r) in pixelrefs {
+    //     let maxx = frames[r.atlas_id as usize].1;
+    //     let out_buf = &mut frames[r.atlas_id as usize].0;
 
-        for (i, y) in ((r.y as usize)..(r.y as usize + r.h as usize)).enumerate() {
-            let dst_len = (maxx as usize * y as usize * 4) + (r.x as usize * 4);
-            let dst = &mut out_buf[dst_len..dst_len + (r.w as usize * 4)];
-            let src = &f[(r.w as usize * 4) * i..((r.w as usize * 4) * (i + 1))];
-            dst.copy_from_slice(src);
-        }
-    }
+    //     for (i, y) in ((r.y as usize)..(r.y as usize + r.h as usize)).enumerate() {
+    //         let dst_len = (maxx as usize * y as usize * 4) + (r.x as usize * 4);
+    //         let dst = &mut out_buf[dst_len..dst_len + (r.w as usize * 4)];
+    //         let src = &f[(r.w as usize * 4) * i..((r.w as usize * 4) * (i + 1))];
+    //         dst.copy_from_slice(src);
+    //     }
+    // }
 
     // `frames` contains the full atlases at this point --
 }

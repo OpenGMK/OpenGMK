@@ -46,13 +46,14 @@ impl AtlasBuilder {
         self.add(w, h)
     }
 
-    pub fn into_frames(self) -> Vec<(i32, i32)> {
-        self.packers
-            .iter()
-            .map(|(_, x, y)| {
-                let next_pow2 = |n: f32| 2i32.pow(n.log2().ceil() as _);
-                (next_pow2(*x as _) as _, next_pow2(*y as _) as _)
-            })
-            .collect()
+    /// Resizes all atlases to nearest powers of 2.
+    pub fn harden(&mut self) {
+        fn next_pow2(n: f32) -> i32 {
+            2_i32.pow(n.log2().ceil() as _)
+        }
+
+        for (packer, w, h) in &mut self.packers {
+            packer.resize(next_pow2(*w as _) as _, next_pow2(*h as _) as _);
+        }
     }
 }
