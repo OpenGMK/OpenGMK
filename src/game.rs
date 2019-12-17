@@ -47,48 +47,48 @@ pub fn launch(assets: GameAssets) {
     let icon = get_icon(&assets.icon_data, 32);
 
     // more renderers later?
-    let _renderer = OpenGLRenderer::new(
-        &room1.caption,
-        (room1.width, room1.height),
-        icon,
-        assets.settings.allow_resize,
-        assets.settings.window_on_top,
-        !assets.settings.dont_draw_border,
-        assets.settings.fullscreen,
-        assets.settings.vsync,
-    );
+    // let _renderer = OpenGLRenderer::new(
+    //     &room1.caption,
+    //     (room1.width, room1.height),
+    //     icon,
+    //     assets.settings.allow_resize,
+    //     assets.settings.window_on_top,
+    //     !assets.settings.dont_draw_border,
+    //     assets.settings.fullscreen,
+    //     assets.settings.vsync,
+    // );
 
     let max_size = 69;
 
-    // multi-atlas builder/manager
-    let mut atlases = AtlasBuilder::new(max_size);
+    // // multi-atlas builder/manager
+    // let mut atlases = AtlasBuilder::new(max_size);
 
-    // image-ref to atl-ref map
-    let mut pixelrefs = Vec::new();
+    // // image-ref to atl-ref map
+    // let mut pixelrefs = Vec::new();
 
-    // background associations
-    let mut _bgrefs = Vec::new();
+    // // background associations
+    // let mut _bgrefs = Vec::new();
 
-    // sprite associations
-    let mut _spriterefs = Vec::new();
+    // // sprite associations
+    // let mut _spriterefs = Vec::new();
 
-    for sprite in assets.sprites.iter().flatten().map(|s| &**s) {
-        for frame in &sprite.frames {
-            let atl_ref = atlases.add(frame.width as _, frame.height as _);
+    // for sprite in assets.sprites.iter().flatten().map(|s| &**s) {
+    //     for frame in &sprite.frames {
+    //         let atl_ref = atlases.add(frame.width as _, frame.height as _);
 
-            pixelrefs.push((&frame.data, atl_ref.clone()));
-            _spriterefs.push((sprite, frame, atl_ref));
-        }
-    }
+    //         pixelrefs.push((&frame.data, atl_ref.clone()));
+    //         _spriterefs.push((sprite, frame, atl_ref));
+    //     }
+    // }
 
-    for bg in assets.backgrounds.iter().flatten().map(|b| &**b) {
-        if let Some(data) = &bg.data {
-            let atl_ref = atlases.add(bg.width as _, bg.height as _);
+    // for bg in assets.backgrounds.iter().flatten().map(|b| &**b) {
+    //     if let Some(data) = &bg.data {
+    //         let atl_ref = atlases.add(bg.width as _, bg.height as _);
 
-            pixelrefs.push((data, atl_ref.clone()));
-            _bgrefs.push((bg, atl_ref));
-        }
-    }
+    //         pixelrefs.push((data, atl_ref.clone()));
+    //         _bgrefs.push((bg, atl_ref));
+    //     }
+    // }
 
     // not done - needs A to RGBA
     // for font in assets.fonts.iter().flatten().map(|f| &**f) {
