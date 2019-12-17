@@ -9,11 +9,11 @@ pub struct Random(i32);
 pub const INCREMENT: i32 = 1;
 
 /// Multiplier value in the LCG algorithm.
-pub const MULTIPLIER: i32 = 0x8088405;
+pub const MULTIPLIER: i32 = 0x0808_8405;
 
 /// Constant representing 1/2^32, used in distributing the seed onto a random float.
 /// This is the f64 value represented in raw bits for maximum accuracy.
-pub const INT_STEP: u64 = 0x3DF0000000000000;
+pub const INT_STEP: u64 = 0x3DF0_0000_0000_0000;
 
 impl Random {
     /// Creates a new LCG with a given seed.
@@ -71,7 +71,7 @@ impl Random {
     #[inline]
     pub fn next_int(&mut self, bound: u32) -> i32 {
         self.cycle(); // cycle seed
-        let ls = (self.0 as u64) & 0xFFFFFFFF;
+        let ls = (self.0 as u64) & 0xFFFF_FFFF;
         let lb = u64::from(bound).wrapping_add(1);
         ((ls.wrapping_mul(lb)) >> 32) as _
     }
