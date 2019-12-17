@@ -21,27 +21,29 @@ pub struct OpenGLRenderer {
     window: Window,
 }
 
+pub struct OpenGLRendererOptions<'a> {
+    title: &'a str,
+    size: (u32, u32),
+    icon: Option<(Vec<u8>, u32, u32)>,
+    resizable: bool,
+    on_top: bool,
+    decorations: bool,
+    fullscreen: bool,
+    vsync: bool,
+}
+
 impl OpenGLRenderer {
-    pub fn new(
-        title: &str,
-        size: (u32, u32),
-        icon: Option<(Vec<u8>, u32, u32)>,
-        resizable: bool,
-        on_top: bool,
-        decorations: bool,
-        fullscreen: bool,
-        vsync: bool,
-    ) -> Result<Self, String> {
+    pub fn new(options: OpenGLRendererOptions) -> Result<Self, String> {
         let el = EventLoop::new();
         let wb = WindowBuilder::new()
-            .with_title(title)
-            .with_window_icon(icon.and_then(|(data, w, h)| Icon::from_rgba(data, w, h).ok()))
-            .with_inner_size(size.into())
-            .with_resizable(resizable)
-            .with_always_on_top(on_top)
-            .with_decorations(decorations)
+            .with_title(options.title)
+            .with_window_icon(options.icon.and_then(|(data, w, h)| Icon::from_rgba(data, w, h).ok()))
+            .with_inner_size(options.size.into())
+            .with_resizable(options.resizable)
+            .with_always_on_top(options.on_top)
+            .with_decorations(options.decorations)
             .with_visible(false)
-            .with_fullscreen(if fullscreen {
+            .with_fullscreen(if options.fullscreen {
                 // TODO: Allow overriding primary monitor
                 Some(Fullscreen::Borderless(el.primary_monitor()))
             } else {
@@ -52,7 +54,7 @@ impl OpenGLRenderer {
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
             .with_gl_profile(GlProfile::Core)
             .with_hardware_acceleration(Some(true))
-            .with_vsync(vsync)
+            .with_vsync(options.vsync)
             .build_windowed(wb, &el)
             .map_err(|err| err.to_string())?;
 
