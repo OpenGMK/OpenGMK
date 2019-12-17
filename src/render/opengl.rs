@@ -4,21 +4,30 @@
 
 /// Auto-generated OpenGL bindings from gl_generator
 #[allow(clippy::all)]
-pub mod gl {
+mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use super::Renderer;
+use crate::{
+    atlas::{AtlasBuilder, AtlasRef},
+    render::{Renderer, Texture},
+};
 use glutin::{
     event_loop::EventLoop,
     window::{Fullscreen, Icon, Window, WindowBuilder},
     ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
+use rect_packer::DensePacker;
 
 pub struct OpenGLRenderer {
     ctx: ContextWrapper<PossiblyCurrent, ()>,
     el: EventLoop<()>,
     window: Window,
+
+    // texture atlases
+    atlases_initialized: bool,
+    atlas_packers: Vec<DensePacker>,
+    atlas_refs: Vec<AtlasRef>, // `Texture` indexes this
 }
 
 pub struct OpenGLRendererOptions<'a> {
@@ -62,8 +71,26 @@ impl OpenGLRenderer {
 
         gl::load_with(|s| ctx.get_proc_address(s) as *const _);
 
-        Ok(Self { ctx, el, window })
+        Ok(Self {
+            ctx,
+            el,
+            window,
+
+            atlases_initialized: false,
+            atlas_packers: Vec::new(),
+            atlas_refs: Vec::new(),
+        })
     }
 }
 
-impl Renderer for OpenGLRenderer {}
+impl Renderer for OpenGLRenderer {
+    fn process_atlases(&mut self, atl: AtlasBuilder) -> Vec<Texture> {
+        assert!(!self.atlases_initialized, "atlases should be initialized only once");
+
+        let (packers, textures) = atl.into_inner();
+
+        // TODO
+
+        unimplemented!()
+    }
+}

@@ -31,34 +31,34 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
     .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
 }
 
-pub fn launch(assets: GameAssets) {
+pub fn launch(_assets: GameAssets) {
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
     // the window size, and title, etc. is based on it.
-    let room1 = assets
-        .room_order
-        .first() // first index
-        .map(|x| assets.rooms.get(*x as usize))
-        .and_then(identity) // Option<Option<T>> -> Option<T>
-        .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
-        .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
-        .unwrap();
+    // let room1 = assets
+    //     .room_order
+    //     .first() // first index
+    //     .map(|x| assets.rooms.get(*x as usize))
+    //     .and_then(identity) // Option<Option<T>> -> Option<T>
+    //     .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
+    //     .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
+    //     .unwrap();
 
-    let icon = get_icon(&assets.icon_data, 32);
+    // let icon = get_icon(&assets.icon_data, 32);
 
-    // more renderers later?
-    // let _renderer = OpenGLRenderer::new(
-    //     &room1.caption,
-    //     (room1.width, room1.height),
-    //     icon,
-    //     assets.settings.allow_resize,
-    //     assets.settings.window_on_top,
-    //     !assets.settings.dont_draw_border,
-    //     assets.settings.fullscreen,
-    //     assets.settings.vsync,
-    // );
+    // // more renderers later?
+    // // let _renderer = OpenGLRenderer::new(
+    // //     &room1.caption,
+    // //     (room1.width, room1.height),
+    // //     icon,
+    // //     assets.settings.allow_resize,
+    // //     assets.settings.window_on_top,
+    // //     !assets.settings.dont_draw_border,
+    // //     assets.settings.fullscreen,
+    // //     assets.settings.vsync,
+    // // );
 
-    let max_size = 69;
+    // let max_size = 69;
 
     // // multi-atlas builder/manager
     // let mut atlases = AtlasBuilder::new(max_size);
