@@ -92,5 +92,5 @@ fn main() {
         exit(1);
     });
 
-    println!("Parsing OK! Ver: {:?}", assets.version);
+    game::launch(assets);
 }
