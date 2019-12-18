@@ -83,5 +83,5 @@ pub fn launch(assets: GameAssets) {
     // }
 
     println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
-    renderer.process_atlases(atlases);
+    renderer.upload_atlases(atlases).unwrap();
 }

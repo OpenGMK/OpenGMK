@@ -96,7 +96,7 @@ impl Renderer for OpenGLRenderer {
         }
     }
 
-    fn process_atlases(&mut self, atl: AtlasBuilder) -> Vec<Texture> {
+    fn upload_atlases(&mut self, atl: AtlasBuilder) -> Result<Vec<Texture>, String> {
         assert!(!self.atlases_initialized, "atlases should be initialized only once");
 
         let (packers, sprites) = atl.into_inner();
@@ -165,6 +165,12 @@ impl Renderer for OpenGLRenderer {
                 );
 
                 writer.write_image_data(&buf).unwrap();
+            }
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
             }
 
             // delete the textures
