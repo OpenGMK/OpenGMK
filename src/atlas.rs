@@ -55,19 +55,17 @@ impl AtlasBuilder {
                 self.textures.push(to_texture(id as _, rect, data));
                 return Some((self.textures.len() - 1).into());
             } else {
-                let mut clone = packer.clone();
                 loop {
-                    let (pwidth, pheight) = clone.size();
+                    let (pwidth, pheight) = packer.size();
                     if pwidth <= pheight && (pwidth * 2) <= self.max_size {
-                        clone.resize(pwidth * 2, pheight);
+                        packer.resize(pwidth * 2, pheight);
                     } else if (pheight * 2) <= self.max_size {
-                        clone.resize(pwidth, pheight * 2);
+                        packer.resize(pwidth, pheight * 2);
                     } else {
                         break;
                     }
 
-                    if let Some(rect) = clone.pack(width, height, false) {
-                        *packer = clone;
+                    if let Some(rect) = packer.pack(width, height, false) {
                         self.textures.push(to_texture(id as _, rect, data));
                         return Some((self.textures.len() - 1).into());
                     }
