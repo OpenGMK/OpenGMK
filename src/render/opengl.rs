@@ -18,7 +18,13 @@ use glutin::{
     ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
 use rect_packer::DensePacker;
-use std::{ops::Drop, ptr};
+use std::{
+    fs,
+    io::{self, BufWriter},
+    ops::Drop,
+    path::PathBuf,
+    ptr,
+};
 
 // OpenGL typedefs
 use gl::types::{GLint, GLuint};
@@ -151,30 +157,6 @@ impl Renderer for OpenGLRenderer {
                 );
             }
 
-            // -- ATLAS DUMPER, DEBUGGING ONLY! UNCOMMENT --
-            // for ((i, texture), packer) in textures.iter().enumerate().zip(packers.iter()) {
-            //     gl::BindTexture(gl::TEXTURE_2D, *texture);
-            //     let w = std::io::BufWriter::new(
-            //         std::fs::File::create(format!("./atlas{}.png", i)).unwrap()
-            //     );
-            //     let (width, height) = packer.size();
-            //     let mut encoder = png::Encoder::new(w, width as _, height as _);
-            //     encoder.set_color(png::ColorType::RGBA);
-            //     encoder.set_depth(png::BitDepth::Eight);
-            //     let mut writer = encoder.write_header().unwrap();
-
-            //     let mut buf = vec![0u8; width as usize * height as usize * 4];
-            //     gl::GetTexImage(
-            //         gl::TEXTURE_2D,
-            //         0,
-            //         gl::RGBA,
-            //         gl::UNSIGNED_BYTE,
-            //         buf.as_mut_ptr() as *mut _,
-            //     );
-
-            //     writer.write_image_data(&buf).unwrap();
-            // }
-
             // verify it actually worked
             match gl::GetError() {
                 0 => (),
@@ -191,6 +173,31 @@ impl Renderer for OpenGLRenderer {
 
         // generate texture handles
         self.atlases_initialized = true;
+        Ok(())
+    }
+
+    fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
+        for ((i, texture), packer) in self.texture_ids.iter().enumerate().zip(self.atlas_packers.iter()) {
+            let w = BufWriter::new(fs::File::create(&path(i))?);
+            let (width, height) = packer.size();
+            let mut encoder = png::Encoder::new(w, width as _, height as _);
+            encoder.set_color(png::ColorType::RGBA);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().unwrap();
+            let mut buf = vec![0u8; width as usize * height as usize * 4];
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, *texture);
+                gl::GetTexImage(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    buf.as_mut_ptr() as *mut _,
+                );
+            }
+            writer.write_image_data(&buf).unwrap();
+        }
+
         Ok(())
     }
 }

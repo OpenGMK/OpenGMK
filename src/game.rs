@@ -84,4 +84,6 @@ pub fn launch(assets: GameAssets) {
 
     println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
     renderer.upload_atlases(atlases).unwrap();
+
+    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i))).unwrap();
 }

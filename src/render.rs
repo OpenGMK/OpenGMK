@@ -3,6 +3,7 @@
 pub mod opengl;
 
 use crate::atlas::AtlasBuilder;
+use std::{io, path::PathBuf};
 
 pub trait Renderer {
     /// Stores & uploads atlases to the GPU.
@@ -10,6 +11,9 @@ pub trait Renderer {
     ///
     /// Returns a handle to each inserted texture (in insertion order).
     fn upload_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
+
+    /// Dumps atlases to filepaths provided by `Fn(index: usize) -> PathBuf`.
+    fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()>;
 
     /// Returns the max texture size the GPU can hold.
     fn max_gpu_texture_size(&self) -> usize;
