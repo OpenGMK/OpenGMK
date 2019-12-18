@@ -1,5 +1,5 @@
-use rect_packer::DensePacker;
 use crate::render::Texture;
+use rect_packer::DensePacker;
 
 #[inline]
 fn next_pow2(n: i32) -> i32 {
@@ -57,7 +57,7 @@ impl AtlasBuilder {
             } else {
                 let mut clone = packer.clone();
                 loop {
-                    let (pwidth, pheight) = packer.size();
+                    let (pwidth, pheight) = clone.size();
                     if pwidth <= pheight && (pwidth * 2) < self.max_size {
                         clone.resize(pwidth * 2, pheight);
                     } else if (pheight * 2) < self.max_size {
