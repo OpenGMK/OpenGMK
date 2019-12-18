@@ -10,7 +10,7 @@ mod gl {
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{Renderer, Texture},
+    render::Renderer,
 };
 use glutin::{
     event_loop::EventLoop,
@@ -18,27 +18,42 @@ use glutin::{
     ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
 };
 use rect_packer::DensePacker;
+use std::{
+    fs,
+    io::{self, BufWriter},
+    ops::Drop,
+    path::PathBuf,
+    ptr,
+};
+
+// OpenGL typedefs
+use gl::types::{GLint, GLuint};
 
 pub struct OpenGLRenderer {
     ctx: ContextWrapper<PossiblyCurrent, ()>,
     el: EventLoop<()>,
     window: Window,
 
-    // texture atlases
+    // -- TEXTURE ATLASES --
+    /// Whether the initial atlases have been uploaded (see upload_atlases).
     atlases_initialized: bool,
+    /// Atlases' rectangle packers to be reused for dynamic sprite loading.
     atlas_packers: Vec<DensePacker>,
-    atlas_refs: Vec<AtlasRef>, // `Texture` indexes this
+    /// Atlas references (xywh + idx) to be indexed by `Texture`s.
+    atlas_refs: Vec<AtlasRef>,
+    /// OpenGL's texture handles in identical order to the atlases.
+    texture_ids: Vec<GLuint>,
 }
 
 pub struct OpenGLRendererOptions<'a> {
-    title: &'a str,
-    size: (u32, u32),
-    icon: Option<(Vec<u8>, u32, u32)>,
-    resizable: bool,
-    on_top: bool,
-    decorations: bool,
-    fullscreen: bool,
-    vsync: bool,
+    pub title: &'a str,
+    pub size: (u32, u32),
+    pub icon: Option<(Vec<u8>, u32, u32)>,
+    pub resizable: bool,
+    pub on_top: bool,
+    pub decorations: bool,
+    pub fullscreen: bool,
+    pub vsync: bool,
 }
 
 impl OpenGLRenderer {
@@ -79,18 +94,118 @@ impl OpenGLRenderer {
             atlases_initialized: false,
             atlas_packers: Vec::new(),
             atlas_refs: Vec::new(),
+            texture_ids: Vec::new(),
         })
     }
 }
 
 impl Renderer for OpenGLRenderer {
-    fn process_atlases(&mut self, atl: AtlasBuilder) -> Vec<Texture> {
+    fn max_gpu_texture_size(&self) -> usize {
+        unsafe {
+            let mut v: GLint = 0;
+            gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut v as _);
+            v as _
+        }
+    }
+
+    fn upload_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
         assert!(!self.atlases_initialized, "atlases should be initialized only once");
 
-        let (packers, textures) = atl.into_inner();
+        let (packers, sprites) = atl.into_inner();
 
-        // TODO
+        unsafe {
+            let textures: Vec<GLuint> = {
+                let mut buf = vec![0 as GLuint; packers.len()];
+                gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
+                for (tex_id, packer) in buf.iter().copied().zip(&packers) {
+                    let (width, height) = packer.size();
 
-        unimplemented!()
+                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,    // target
+                        0,                 // level
+                        gl::RGBA as _,     // internalformat
+                        width as _,        // width
+                        height as _,       // height
+                        0,                 // border ("must be 0")
+                        gl::BGRA,          // format
+                        gl::UNSIGNED_BYTE, // type
+                        ptr::null(),       // data
+                    );
+                }
+                buf
+            };
+
+            // upload textures
+            let mut current_texture: GLint = 0;
+            for (atl_ref, pixels) in &sprites {
+                if current_texture != atl_ref.atlas_id as _ {
+                    gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
+                    current_texture = atl_ref.atlas_id as _;
+                }
+
+                gl::TexSubImage2D(
+                    gl::TEXTURE_2D,       // target
+                    0,                    // level
+                    atl_ref.x as _,       // xoffset
+                    atl_ref.y as _,       // yoffset
+                    atl_ref.w as _,       // width
+                    atl_ref.h as _,       // height
+                    gl::BGRA,             // format
+                    gl::UNSIGNED_BYTE,    // type
+                    pixels.as_ptr() as _, // pixels
+                );
+            }
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
+            }
+
+            // store opengl texture handles
+            self.texture_ids = textures;
+        }
+
+        // store packers, discard pixeldata
+        self.atlas_packers = packers;
+        self.atlas_refs = sprites.into_iter().map(|(x, _)| x).collect();
+
+        // generate texture handles
+        self.atlases_initialized = true;
+        Ok(())
+    }
+
+    fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
+        for ((i, texture), packer) in self.texture_ids.iter().enumerate().zip(self.atlas_packers.iter()) {
+            let w = BufWriter::new(fs::File::create(&path(i))?);
+            let (width, height) = packer.size();
+            let mut encoder = png::Encoder::new(w, width as _, height as _);
+            encoder.set_color(png::ColorType::RGBA);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().unwrap();
+            let mut buf = vec![0u8; width as usize * height as usize * 4];
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, *texture);
+                gl::GetTexImage(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    buf.as_mut_ptr() as *mut _,
+                );
+            }
+            writer.write_image_data(&buf).unwrap();
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for OpenGLRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(self.texture_ids.len() as _, self.texture_ids.as_mut_ptr() as *mut _);
+        }
     }
 }
