@@ -112,7 +112,15 @@ where
 {
     log!(logger, "Searching for default GM8.1 data header");
     exe.set_position(3800004);
-    Ok(seek_value(exe, 0xF7140067)?.is_some())
+    let found_header = seek_value(exe, 0xF7140067)?.is_some();
+    if found_header {
+        decrypt(exe, logger, XorMethod::Normal)?;
+        exe.seek(SeekFrom::Current(20))?;
+        Ok(true)
+    }
+    else {
+        Ok(false)
+    }
 }
 
 /// Seeks for a GM81-style magic value from its current position.
