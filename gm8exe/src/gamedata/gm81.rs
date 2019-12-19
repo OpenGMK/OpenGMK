@@ -117,8 +117,7 @@ where
         decrypt(exe, logger, XorMethod::Normal)?;
         exe.seek(SeekFrom::Current(20))?;
         Ok(true)
-    }
-    else {
+    } else {
         Ok(false)
     }
 }
