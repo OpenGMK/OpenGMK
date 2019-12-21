@@ -1,8 +1,11 @@
 #![allow(dead_code)] // Shut up.
 
+mod asset;
 mod atlas;
 mod game;
 mod gml;
+mod instance;
+mod instancelist;
 mod render;
 mod types;
 mod util;
