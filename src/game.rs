@@ -1,11 +1,13 @@
 use crate::{
+    asset::Object,
     atlas::AtlasBuilder,
+    instancelist::InstanceList,
     render::{
         opengl::{OpenGLRenderer, OpenGLRendererOptions},
         Renderer,
     },
 };
-use gm8exe::{rsrc::WindowsIcon, GameAssets};
+use gm8exe::{rsrc::WindowsIcon, GameAssets, asset::Room};
 
 use std::convert::identity;
 
@@ -66,9 +68,9 @@ pub fn launch(assets: GameAssets) {
 
     for frame in assets
         .sprites
-        .into_iter()
+        .iter()
         .flatten()
-        .map(|s| s.frames.into_iter())
+        .map(|s| s.frames.iter())
         .flatten()
     {
         atlases
@@ -84,6 +86,14 @@ pub fn launch(assets: GameAssets) {
 
     println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
     renderer.upload_atlases(atlases).unwrap();
+
+    let objects = assets.objects.into_iter().map(|o| o.map(|b| Box::new(Object::from(*b)))).collect::<Vec<_>>();
+
+    let mut instance_list = InstanceList::new();
+
+    for instance in &room1.instances {
+
+    }
 
     // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i))).unwrap();
 }
