@@ -1,7 +1,11 @@
 use super::lexer::Lexer;
 use super::token::{Keyword, Operator, Separator, Token};
 
-use std::{error, fmt, iter::Peekable, ops::{Deref, DerefMut}};
+use std::{
+    error, fmt,
+    iter::Peekable,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, PartialEq)]
 pub struct AST<'a>(Vec<Expr<'a>>);
@@ -204,7 +208,6 @@ macro_rules! expect_token {
         }
     });
 }
-
 
 impl<'a> Default for AST<'a> {
     fn default() -> Self {

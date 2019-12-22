@@ -10,15 +10,15 @@ pub struct Object {
 }
 
 impl From<gm8exe::asset::Object> for Object {
-    fn from(exe_object: gm8exe::asset::Object) -> Self {
+    fn from(other: gm8exe::asset::Object) -> Self {
         Self {
-            name: exe_object.name,
-            solid: exe_object.solid,
-            visible: exe_object.visible,
-            persistent: exe_object.persistent,
-            depth: exe_object.depth,
-            sprite_index: exe_object.sprite_index,
-            mask_index: exe_object.mask_index,
+            name: other.name,
+            solid: other.solid,
+            visible: other.visible,
+            persistent: other.persistent,
+            depth: other.depth,
+            sprite_index: other.sprite_index,
+            mask_index: other.mask_index,
         }
     }
 }
