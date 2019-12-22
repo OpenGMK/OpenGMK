@@ -1,13 +1,14 @@
 use crate::{
     asset::Object,
     atlas::AtlasBuilder,
+    instance::Instance,
     instancelist::InstanceList,
     render::{
         opengl::{OpenGLRenderer, OpenGLRendererOptions},
         Renderer,
     },
 };
-use gm8exe::{rsrc::WindowsIcon, GameAssets, asset::Room};
+use gm8exe::{rsrc::WindowsIcon, GameAssets};
 
 use std::convert::identity;
 
@@ -40,13 +41,21 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
 }
 
 pub fn launch(assets: GameAssets) {
+    // destructure assets
+    let GameAssets {
+        room_order,
+        rooms,
+        sprites,
+        objects,
+        ..
+    } = assets;
+
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
     // the window size, and title, etc. is based on it.
-    let room1 = assets
-        .room_order
+    let room1 = room_order
         .first() // first index
-        .map(|x| assets.rooms.get(*x as usize))
+        .map(|x| rooms.get(*x as usize))
         .and_then(identity) // Option<Option<T>> -> Option<T>
         .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
         .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
@@ -66,13 +75,7 @@ pub fn launch(assets: GameAssets) {
     let mut renderer = OpenGLRenderer::new(options).unwrap();
     let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
-    for frame in assets
-        .sprites
-        .iter()
-        .flatten()
-        .map(|s| s.frames.iter())
-        .flatten()
-    {
+    for frame in sprites.into_iter().flatten().map(|s| s.frames.into_iter()).flatten() {
         atlases
             .texture(frame.width as _, frame.height as _, frame.data)
             .unwrap();
@@ -87,12 +90,31 @@ pub fn launch(assets: GameAssets) {
     println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
     renderer.upload_atlases(atlases).unwrap();
 
-    let objects = assets.objects.into_iter().map(|o| o.map(|b| Box::new(Object::from(*b)))).collect::<Vec<_>>();
+    let objects = objects
+        .into_iter()
+        .map(|o| o.map(|b| Box::new(Object::from(*b))))
+        .collect::<Vec<_>>();
 
     let mut instance_list = InstanceList::new();
 
-    for instance in &room1.instances {
+    for (i, instance) in room1.instances.iter().enumerate() {
+        let object = match objects.get(instance.object as usize) {
+            Some(&Some(ref o)) => o.as_ref(),
+            _ => panic!("what the fuck"),
+        };
 
+        println!(
+            "Instance #{} ID {} @ (x {}, y {}) with object ID {} ({})",
+            i, instance.id, instance.x, instance.y, instance.object, object.name,
+        );
+
+        instance_list.insert(Instance::new(
+            instance.id as _,
+            f64::from(instance.x),
+            f64::from(instance.y),
+            instance.object,
+            object,
+        ));
     }
 
     // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i))).unwrap();

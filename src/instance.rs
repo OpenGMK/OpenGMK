@@ -56,8 +56,8 @@ impl Instance {
     pub fn new(id: usize, x: f64, y: f64, object_index: i32, object: &Object) -> Self {
         Self {
             exists: true,
-            id: id,
-            object_index: object_index,
+            id,
+            object_index,
             solid: object.solid,
             visible: object.visible,
             persistent: object.persistent,
