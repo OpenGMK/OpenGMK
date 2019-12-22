@@ -1,15 +1,10 @@
 use super::lexer::Lexer;
 use super::token::{Keyword, Operator, Separator, Token};
 
-use std::error;
-use std::fmt;
-
-use std::iter::Peekable;
+use std::{error, fmt, iter::Peekable, ops::{Deref, DerefMut}};
 
 #[derive(Debug, PartialEq)]
-pub struct AST<'a> {
-    pub expressions: Vec<Expr<'a>>,
-}
+pub struct AST<'a>(Vec<Expr<'a>>);
 
 #[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
@@ -210,14 +205,28 @@ macro_rules! expect_token {
     });
 }
 
-impl<'a> AST<'a> {
-    // TODO: make this const fn when Vec::new() const fn is stabilized
-    pub fn empty() -> Self {
-        AST {
-            expressions: Vec::new(),
-        }
-    }
 
+impl<'a> Default for AST<'a> {
+    fn default() -> Self {
+        AST(Vec::new())
+    }
+}
+
+impl<'a> Deref for AST<'a> {
+    type Target = Vec<Expr<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for AST<'a> {
+    fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> AST<'a> {
     pub fn new(source: &'a str) -> Result<Self, Error> {
         let mut lex = Lexer::new(source).peekable();
         let mut expressions = Vec::new();
@@ -232,7 +241,7 @@ impl<'a> AST<'a> {
             }
         }
 
-        Ok(AST { expressions })
+        Ok(AST(expressions))
     }
 
     fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
@@ -865,7 +874,7 @@ mod tests {
         match AST::new(input) {
             Ok(ast) => {
                 if let Some(e) = expected_output {
-                    assert_eq!(ast.expressions, e);
+                    assert_eq!(*ast, e);
                 }
             }
             Err(e) => panic!("AST test encountered error: '{}' for input: {}", e, input),
