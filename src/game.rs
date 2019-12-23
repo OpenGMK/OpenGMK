@@ -1,5 +1,5 @@
 use crate::{
-    asset::Object,
+    asset::{Object, Sprite},
     atlas::AtlasBuilder,
     instance::Instance,
     instancelist::InstanceList,
@@ -75,25 +75,47 @@ pub fn launch(assets: GameAssets) {
     let mut renderer = OpenGLRenderer::new(options).unwrap();
     let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
-    for frame in sprites.into_iter().flatten().map(|s| s.frames.into_iter()).flatten() {
-        atlases
-            .texture(frame.width as _, frame.height as _, frame.data)
-            .unwrap();
-    }
+    //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
-    // let (packers, _) = atlases.into_inner();
-    // for (i, packer) in packers.iter().enumerate() {
-    //     let (w,h) = packer.size();
-    //     println!("packer #{} size: {}, {}", i, w, h);
-    // }
-
-    println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
-    renderer.upload_atlases(atlases).unwrap();
+    let sprites = sprites
+        .into_iter()
+        .map(|o| {
+            o.map(|b| {
+                let (w, h) = b.frames.first().map_or((0, 0), |f| (f.width, f.height));
+                Box::new(Sprite {
+                    name: b.name,
+                    frames: b
+                        .frames
+                        .into_iter()
+                        .map(|f| atlases.texture(f.width as _, f.height as _, f.data).unwrap())
+                        .collect(),
+                    width: w,
+                    height: h,
+                    origin_x: b.origin_x,
+                    origin_y: b.origin_y,
+                })
+            })
+        })
+        .collect::<Vec<_>>();
 
     let objects = objects
         .into_iter()
-        .map(|o| o.map(|b| Box::new(Object::from(*b))))
+        .map(|o| {
+            o.map(|b| {
+                Box::new(Object {
+                    name: b.name,
+                    solid: b.solid,
+                    visible: b.visible,
+                    persistent: b.persistent,
+                    depth: b.depth,
+                    sprite_index: b.sprite_index,
+                    mask_index: b.mask_index,
+                })
+            })
+        })
         .collect::<Vec<_>>();
+
+    renderer.upload_atlases(atlases).unwrap();
 
     let mut instance_list = InstanceList::new();
 
