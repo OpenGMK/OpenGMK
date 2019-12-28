@@ -77,7 +77,7 @@ pub fn launch(assets: GameAssets) {
 
     //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
-    let sprites = sprites
+    let _sprites = sprites
         .into_iter()
         .map(|o| {
             o.map(|b| {
@@ -119,17 +119,11 @@ pub fn launch(assets: GameAssets) {
 
     let mut instance_list = InstanceList::new();
 
-    for (i, instance) in room1.instances.iter().enumerate() {
+    for instance in &room1.instances {
         let object = match objects.get(instance.object as usize) {
             Some(&Some(ref o)) => o.as_ref(),
-            _ => panic!("what the fuck"),
+            _ => panic!("Instance of invalid Object in room {}", room1.name),
         };
-
-        println!(
-            "Instance #{} ID {} @ (x {}, y {}) with object ID {} ({})",
-            i, instance.id, instance.x, instance.y, instance.object, object.name,
-        );
-
         instance_list.insert(Instance::new(
             instance.id as _,
             f64::from(instance.x),
