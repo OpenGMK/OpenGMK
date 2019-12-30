@@ -17,6 +17,12 @@ pub trait Renderer {
 
     /// Returns the max texture size the GPU can hold.
     fn max_gpu_texture_size(&self) -> usize;
+
+    /// Indicates whether the window wants to close.
+    fn should_close(&self) -> bool;
+
+    /// Updates the screen with new drawings for the current frame.
+    fn draw(&mut self);
 }
 
 pub struct Texture(usize);
