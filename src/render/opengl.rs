@@ -2,7 +2,7 @@
 //!
 //! The raw bindings are generated at build time, see build.rs
 
-/// Auto-generated OpenGL bindings from gl_generator
+// Auto-generated OpenGL bindings from gl_generator
 #[allow(clippy::all)]
 mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
@@ -12,11 +12,7 @@ use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::Renderer,
 };
-use glutin::{
-    event_loop::EventLoop,
-    window::{Fullscreen, Icon, Window, WindowBuilder},
-    ContextWrapper, PossiblyCurrent, {Api, ContextBuilder, GlProfile, GlRequest},
-};
+use glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
 use rect_packer::DensePacker;
 use std::{
     fs,
@@ -24,15 +20,16 @@ use std::{
     ops::Drop,
     path::PathBuf,
     ptr,
+    sync::mpsc::Receiver,
 };
 
 // OpenGL typedefs
-use gl::types::{GLint, GLuint};
+use ::gl::types::{GLint, GLuint};
 
 pub struct OpenGLRenderer {
-    ctx: ContextWrapper<PossiblyCurrent, ()>,
-    el: EventLoop<()>,
+    glfw: Glfw,
     window: Window,
+    events: Receiver<(f64, WindowEvent)>,
 
     // -- TEXTURE ATLASES --
     /// Whether the initial atlases have been uploaded (see upload_atlases).
@@ -58,38 +55,40 @@ pub struct OpenGLRendererOptions<'a> {
 
 impl OpenGLRenderer {
     pub fn new(options: OpenGLRendererOptions) -> Result<Self, String> {
-        let el = EventLoop::new();
-        let wb = WindowBuilder::new()
-            .with_title(options.title)
-            .with_window_icon(options.icon.and_then(|(data, w, h)| Icon::from_rgba(data, w, h).ok()))
-            .with_inner_size(options.size.into())
-            .with_resizable(options.resizable)
-            .with_always_on_top(options.on_top)
-            .with_decorations(options.decorations)
-            .with_visible(false)
-            .with_fullscreen(if options.fullscreen {
-                // TODO: Allow overriding primary monitor
-                Some(Fullscreen::Borderless(el.primary_monitor()))
-            } else {
-                None
-            });
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
 
-        let ctx = ContextBuilder::new()
-            .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
-            .with_gl_profile(GlProfile::Core)
-            .with_hardware_acceleration(Some(true))
-            .with_vsync(options.vsync)
-            .build_windowed(wb, &el)
-            .map_err(|err| err.to_string())?;
+        let (mut window, events) = glfw
+            .create_window(
+                options.size.0,
+                options.size.1,
+                options.title,
+                if options.fullscreen {
+                    // TODO: not possible to do this safely with current glfw bindings - maybe unsafe it?
+                     unimplemented!()
+                } else {
+                    glfw::WindowMode::Windowed
+                },
+            )
+            .expect("Failed to create GLFW window");
 
-        let (ctx, window) = unsafe { ctx.make_current().map_err(|(_self, err)| err.to_string())?.split() };
+        window.set_key_polling(true);
+        window.set_framebuffer_size_polling(true);
 
-        gl::load_with(|s| ctx.get_proc_address(s) as *const _);
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+
+        let mut render_context = window.render_context();
+        render_context.make_current();
+
+        glfw.set_swap_interval(if options.vsync {
+            glfw::SwapInterval::Sync(1)
+        } else {
+            glfw::SwapInterval::None
+        });
 
         Ok(Self {
-            ctx,
-            el,
+            glfw,
             window,
+            events,
 
             atlases_initialized: false,
             atlas_packers: Vec::new(),
@@ -176,6 +175,25 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
+    fn draw(&mut self) {
+        unsafe {
+            gl::ClearColor(0.2, 0.3, 0.3, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+        self.window.render_context().swap_buffers();
+
+        // TODO: keyboard events have to be polled every frame for GLFW to work, but
+        // should eventually be moved into their own module
+        self.glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&self.events) {
+            println!("Got event {:?}", event);
+            match event {
+                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => self.window.set_should_close(true),
+                _ => {}
+            }
+        }
+    }
+
     fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
         for ((i, texture), packer) in self.texture_ids.iter().enumerate().zip(self.atlas_packers.iter()) {
             let w = BufWriter::new(fs::File::create(&path(i))?);
@@ -199,6 +217,10 @@ impl Renderer for OpenGLRenderer {
         }
 
         Ok(())
+    }
+
+    fn should_close(&self) -> bool {
+        self.window.should_close()
     }
 }
 

@@ -133,5 +133,9 @@ pub fn launch(assets: GameAssets) {
         ));
     }
 
+    while !renderer.should_close() {
+        renderer.draw();
+    }
+
     // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i))).unwrap();
 }
