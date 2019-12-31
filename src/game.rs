@@ -77,7 +77,7 @@ pub fn launch(assets: GameAssets) {
 
     //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
-    let _sprites = sprites
+    let sprites = sprites
         .into_iter()
         .map(|o| {
             o.map(|b| {
@@ -134,6 +134,11 @@ pub fn launch(assets: GameAssets) {
     }
 
     while !renderer.should_close() {
+        for (_, instance) in instance_list.iter() {
+            if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
+                renderer.draw_sprite(sprite.frames.first().unwrap(), instance.x, instance.y, instance.image_xscale, instance.image_yscale, instance.image_angle, instance.image_blend, instance.image_alpha)
+            }
+        }
         renderer.draw();
     }
 
