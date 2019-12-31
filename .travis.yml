@@ -19,7 +19,8 @@ matrix:
     - rust: nightly
 
 before_install:
-  - sudo apt-get update
+  - sudo apt update
+  - sudo apt install -y xorg-dev
 script:
   - cargo build --verbose
   - cargo test --verbose
