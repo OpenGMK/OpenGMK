@@ -2,12 +2,11 @@
 //!
 //! The raw bindings are generated at build time, see build.rs
 
-// Auto-generated OpenGL bindings from gl_generator
-#[allow(clippy::all)]
-mod gl {
-    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-}
-
+/// Auto-generated OpenGL bindings from gl_generator
+//#[allow(clippy::all)]
+//mod gl {
+//    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+//}
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::Renderer,
@@ -64,12 +63,24 @@ impl OpenGLRenderer {
                 options.title,
                 if options.fullscreen {
                     // TODO: not possible to do this safely with current glfw bindings - maybe unsafe it?
-                     unimplemented!()
+                    unimplemented!()
                 } else {
                     glfw::WindowMode::Windowed
                 },
             )
             .expect("Failed to create GLFW window");
+
+        // TODO: glfw can accept more than one icon, we should pass them all in instead of just this one.
+        if let Some((data, width, height)) = options.icon {
+            window.set_icon_from_pixels(vec![glfw::PixelImage {
+                width,
+                height,
+                pixels: data
+                    .chunks_exact(4)
+                    .map(|r| u32::from_le_bytes([r[0], r[1], r[2], r[3]]))
+                    .collect(),
+            }]);
+        }
 
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
