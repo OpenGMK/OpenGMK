@@ -9,7 +9,7 @@
 //}
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::Renderer,
+    render::{Renderer, Texture},
 };
 use glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
 use rect_packer::DensePacker;
@@ -184,6 +184,24 @@ impl Renderer for OpenGLRenderer {
         // generate texture handles
         self.atlases_initialized = true;
         Ok(())
+    }
+
+    fn draw_sprite(
+        &self,
+        texture: &Texture,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+    ) {
+        let atlas_ref = self.atlas_refs.get(texture.0).expect("Invalid Texture provided to renderer");
+        let tex = self.texture_ids.get(atlas_ref.atlas_id as usize).expect("Invalid Texture provided to renderer (texture_ids)");
+
+        // todo
+        println!("Drawing: [atlas ref: {:?}]; [tex: {}]; x: {}, y: {}, xscale: {}, yscale: {}, angle: {}, colour: {}, alpha: {}", atlas_ref, tex, x, y, xscale, yscale, angle, colour, alpha);
     }
 
     fn draw(&mut self) {
