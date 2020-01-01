@@ -10,10 +10,7 @@ mod render;
 mod types;
 mod util;
 
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::process::exit;
+use std::{env, fs, path::Path, process};
 
 fn help(argv0: &str, opts: getopts::Options) {
     print!(
@@ -47,7 +44,7 @@ fn main() {
             OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
             UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
         }
-        exit(1);
+        process::exit(1); // todo: dtors
     });
 
     if args.len() < 2 || matches.opt_present("h") {
@@ -63,16 +60,16 @@ fn main() {
             &matches.free[0]
         } else if matches.free.len() > 1 {
             eprintln!("unexpected second input {}", matches.free[1]);
-            exit(1);
+            process::exit(1); // todo: dtors
         } else {
             eprintln!("no input file");
-            exit(1);
+            process::exit(1); // todo: dtors
         }
     };
 
     let mut file = fs::read(&input).unwrap_or_else(|e| {
         eprintln!("failed to open '{}': {}", input, e);
-        exit(1);
+        process::exit(1); // todo: dtors
     });
 
     if verbose {
