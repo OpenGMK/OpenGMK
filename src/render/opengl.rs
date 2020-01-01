@@ -5,14 +5,14 @@
 /// Auto-generated OpenGL bindings from gl_generator
 #[allow(clippy::all)]
 mod gl {
-   include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions, Texture},
 };
-use glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
+use glfw::Context;
 use rect_packer::DensePacker;
 use std::{
     fs,
@@ -20,16 +20,13 @@ use std::{
     ops::Drop,
     path::PathBuf,
     ptr,
-    sync::mpsc::Receiver,
 };
 
 // OpenGL typedefs
 use gl::types::{GLint, GLuint};
 
 pub struct OpenGLRenderer {
-    glfw: Glfw,
-    window: Window,
-    events: Receiver<(f64, WindowEvent)>,
+    window: glfw::Window,
 
     // -- TEXTURE ATLASES --
     /// Whether the initial atlases have been uploaded (see upload_atlases).
@@ -43,23 +40,7 @@ pub struct OpenGLRenderer {
 }
 
 impl OpenGLRenderer {
-    pub fn new(options: RendererOptions) -> Result<Self, String> {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
-
-        let (mut window, events) = glfw
-            .create_window(
-                options.size.0,
-                options.size.1,
-                options.title,
-                if options.fullscreen {
-                    // TODO: not possible to do this safely with current glfw bindings - maybe unsafe it?
-                    unimplemented!()
-                } else {
-                    glfw::WindowMode::Windowed
-                },
-            )
-            .expect("Failed to create GLFW window");
-
+    pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
         // TODO: glfw can accept more than one icon, we should pass them all in instead of just this one.
         if let Some((data, width, height)) = options.icon {
             window.set_icon_from_pixels(vec![glfw::PixelImage {
@@ -80,16 +61,8 @@ impl OpenGLRenderer {
         let mut render_context = window.render_context();
         render_context.make_current();
 
-        glfw.set_swap_interval(if options.vsync {
-            glfw::SwapInterval::Sync(1)
-        } else {
-            glfw::SwapInterval::None
-        });
-
         Ok(Self {
-            glfw,
             window,
-            events,
 
             atlases_initialized: false,
             atlas_packers: Vec::new(),
@@ -208,18 +181,7 @@ impl Renderer for OpenGLRenderer {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-        self.window.render_context().swap_buffers();
-
-        // TODO: keyboard events have to be polled every frame for GLFW to work, but
-        // should eventually be moved into their own module
-        self.glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&self.events) {
-            println!("Got event {:?}", event);
-            match event {
-                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => self.window.set_should_close(true),
-                _ => {}
-            }
-        }
+        self.window.swap_buffers();
     }
 
     fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
@@ -250,6 +212,14 @@ impl Renderer for OpenGLRenderer {
     fn should_close(&self) -> bool {
         self.window.should_close()
     }
+
+    fn set_should_close(&mut self, b: bool) {
+        self.window.set_should_close(b)
+    }
+
+    fn show_window(&mut self) {
+        self.window.show()
+    }
 }
 
 impl Drop for OpenGLRenderer {
@@ -257,5 +227,6 @@ impl Drop for OpenGLRenderer {
         unsafe {
             gl::DeleteTextures(self.texture_ids.len() as _, self.texture_ids.as_mut_ptr() as *mut _);
         }
+        self.window.set_should_close(true);
     }
 }

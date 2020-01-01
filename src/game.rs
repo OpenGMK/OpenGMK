@@ -64,7 +64,32 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         vsync: assets.settings.vsync, // TODO: Overrideable
     };
 
-    let mut renderer = OpenGLRenderer::new(options)?;
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
+    glfw.window_hint(glfw::WindowHint::Visible(false));
+
+    let (window, events) = glfw
+        .create_window(
+            options.size.0,
+            options.size.1,
+            options.title,
+            if options.fullscreen {
+                // TODO: not possible to do this safely with current glfw bindings - maybe unsafe it?
+                unimplemented!()
+            } else {
+                glfw::WindowMode::Windowed
+            },
+        )
+        .expect("Failed to create GLFW window");
+
+    let mut renderer = OpenGLRenderer::new(options, window)?;
+
+    // needs to be done after renderer sets context
+    glfw.set_swap_interval(if assets.settings.vsync {
+        glfw::SwapInterval::Sync(1)
+    } else {
+        glfw::SwapInterval::None
+    });
+
     let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
     //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
@@ -125,7 +150,24 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
 
+    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i)))?;
+
+    // Important: show window
+    renderer.show_window();
+
     while !renderer.should_close() {
+        glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&events) {
+            println!("Got event {:?}", event);
+            match event {
+                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+                    renderer.set_should_close(true);
+                    continue; // So no draw events are fired while the window should be closing
+                }
+                _ => {}
+            }
+        }
+
         for (_, instance) in instance_list.iter() {
             if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
                 renderer.draw_sprite(
@@ -142,8 +184,6 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         }
         renderer.draw();
     }
-
-    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i)))?;
 
     Ok(())
 }
