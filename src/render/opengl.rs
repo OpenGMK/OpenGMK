@@ -227,6 +227,5 @@ impl Drop for OpenGLRenderer {
         unsafe {
             gl::DeleteTextures(self.texture_ids.len() as _, self.texture_ids.as_mut_ptr() as *mut _);
         }
-        self.window.set_should_close(true);
     }
 }
