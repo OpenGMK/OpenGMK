@@ -17,6 +17,25 @@ pub trait Renderer {
 
     /// Returns the max texture size the GPU can hold.
     fn max_gpu_texture_size(&self) -> usize;
+
+    /// Indicates whether the window wants to close.
+    fn should_close(&self) -> bool;
+
+    /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
+    fn draw_sprite(
+        &self,
+        texture: &Texture,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+    );
+
+    /// Updates the screen with new drawings for the current frame.
+    fn draw(&mut self);
 }
 
 pub struct Texture(usize);

@@ -9,9 +9,11 @@ edition = "2018"
 gl_generator = "0.14.0"
 
 [dependencies]
-glutin = "0.22.0-alpha2"
+#glutin = "0.22.0-alpha2"
 generational-arena = "0.2"
 getopts = "0.2.21"
+gl = "0.10"
+glfw = { git = "https://github.com/bjz/glfw-rs.git" }
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
 png = "0.15.2"
 rand = "0.7.2" # for seeding, not generating
