@@ -3,10 +3,11 @@
 //! The raw bindings are generated at build time, see build.rs
 
 /// Auto-generated OpenGL bindings from gl_generator
-//#[allow(clippy::all)]
-//mod gl {
-//    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-//}
+#[allow(clippy::all)]
+mod gl {
+   include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
+
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions, Texture},
@@ -23,7 +24,7 @@ use std::{
 };
 
 // OpenGL typedefs
-use ::gl::types::{GLint, GLuint};
+use gl::types::{GLint, GLuint};
 
 pub struct OpenGLRenderer {
     glfw: Glfw,
