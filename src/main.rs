@@ -89,7 +89,7 @@ fn main() {
     )
     .unwrap_or_else(|e| {
         eprintln!("failed to load '{}' - {}", input, e);
-        exit(1);
+        process::exit(1); // todo: dtors
     });
 
     game::launch(assets);
