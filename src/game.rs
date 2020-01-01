@@ -35,7 +35,7 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
     .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
 }
 
-pub fn launch(assets: GameAssets) {
+pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // destructure assets
     let GameAssets {
         room_order,
@@ -51,7 +51,7 @@ pub fn launch(assets: GameAssets) {
     let room1 = room_order
         .first()
         .and_then(|i| rooms.get(*i as usize).and_then(|o| o.as_ref()))
-        .unwrap();
+        .ok_or("first room not present in gamedata")?;
 
     let options = RendererOptions {
         title: &room1.caption,
@@ -64,7 +64,7 @@ pub fn launch(assets: GameAssets) {
         vsync: assets.settings.vsync, // TODO: Overrideable
     };
 
-    let mut renderer = OpenGLRenderer::new(options).unwrap();
+    let mut renderer = OpenGLRenderer::new(options)?;
     let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
     //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
@@ -107,14 +107,14 @@ pub fn launch(assets: GameAssets) {
         })
         .collect::<Vec<_>>();
 
-    renderer.upload_atlases(atlases).unwrap();
+    renderer.upload_atlases(atlases)?;
 
     let mut instance_list = InstanceList::new();
 
     for instance in &room1.instances {
         let object = match objects.get(instance.object as usize) {
             Some(&Some(ref o)) => o.as_ref(),
-            _ => panic!("Instance of invalid Object in room {}", room1.name),
+            _ => return Err(format!("Instance of invalid Object in room {}", room1.name).into()),
         };
         instance_list.insert(Instance::new(
             instance.id as _,
@@ -143,5 +143,7 @@ pub fn launch(assets: GameAssets) {
         renderer.draw();
     }
 
-    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i))).unwrap();
+    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i)))?;
+
+    Ok(())
 }

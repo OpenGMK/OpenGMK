@@ -108,7 +108,7 @@ fn xmain() -> i32 {
         }
     };
 
-    game::launch(assets);
+    game::launch(assets).unwrap();
 
     EXIT_SUCCESS
 }
