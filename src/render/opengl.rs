@@ -9,7 +9,7 @@
 //}
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{Renderer, Texture},
+    render::{Renderer, RendererOptions, Texture},
 };
 use glfw::{Action, Context, Glfw, Key, Window, WindowEvent};
 use rect_packer::DensePacker;
@@ -41,19 +41,8 @@ pub struct OpenGLRenderer {
     texture_ids: Vec<GLuint>,
 }
 
-pub struct OpenGLRendererOptions<'a> {
-    pub title: &'a str,
-    pub size: (u32, u32),
-    pub icon: Option<(Vec<u8>, u32, u32)>,
-    pub resizable: bool,
-    pub on_top: bool,
-    pub decorations: bool,
-    pub fullscreen: bool,
-    pub vsync: bool,
-}
-
 impl OpenGLRenderer {
-    pub fn new(options: OpenGLRendererOptions) -> Result<Self, String> {
+    pub fn new(options: RendererOptions) -> Result<Self, String> {
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
 
         let (mut window, events) = glfw
@@ -197,11 +186,20 @@ impl Renderer for OpenGLRenderer {
         colour: i32,
         alpha: f64,
     ) {
-        let atlas_ref = self.atlas_refs.get(texture.0).expect("Invalid Texture provided to renderer");
-        let tex = self.texture_ids.get(atlas_ref.atlas_id as usize).expect("Invalid Texture provided to renderer (texture_ids)");
+        let atlas_ref = self
+            .atlas_refs
+            .get(texture.0)
+            .expect("Invalid Texture provided to renderer");
+        let tex = self
+            .texture_ids
+            .get(atlas_ref.atlas_id as usize)
+            .expect("Invalid Texture provided to renderer (texture_ids)");
 
         // todo
-        println!("Drawing: [atlas ref: {:?}]; [tex: {}]; x: {}, y: {}, xscale: {}, yscale: {}, angle: {}, colour: {}, alpha: {}", atlas_ref, tex, x, y, xscale, yscale, angle, colour, alpha);
+        println!(
+            "Drawing: [atlas ref: {:?}]; [tex: {}]; x: {}, y: {}, xscale: {}, yscale: {}, angle: {}, colour: {}, alpha: {}",
+            atlas_ref, tex, x, y, xscale, yscale, angle, colour, alpha
+        );
     }
 
     fn draw(&mut self) {
