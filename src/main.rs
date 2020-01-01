@@ -12,6 +12,9 @@ mod util;
 
 use std::{env, fs, path::Path, process};
 
+const EXIT_SUCCESS: i32 = 0;
+const EXIT_FAILURE: i32 = 1;
+
 fn help(argv0: &str, opts: getopts::Options) {
     print!(
         "{}",
@@ -26,6 +29,10 @@ fn help(argv0: &str, opts: getopts::Options) {
 }
 
 fn main() {
+    process::exit(xmain());
+}
+
+fn xmain() -> i32 {
     let args: Vec<String> = env::args().collect();
     let process = args[0].clone();
 
@@ -35,21 +42,24 @@ fn main() {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
 
-    let matches = opts.parse(&args[1..]).unwrap_or_else(|f| {
-        use getopts::Fail::*;
-        match f {
-            ArgumentMissing(arg) => eprintln!("missing argument {}", arg),
-            UnrecognizedOption(opt) => eprintln!("unrecognized option {}", opt),
-            OptionMissing(opt) => eprintln!("missing option {}", opt),
-            OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
-            UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
+    let matches = match opts.parse(&args[1..]) {
+        Ok(matches) => matches,
+        Err(fail) => {
+            use getopts::Fail::*;
+            match fail {
+                ArgumentMissing(arg) => eprintln!("missing argument {}", arg),
+                UnrecognizedOption(opt) => eprintln!("unrecognized option {}", opt),
+                OptionMissing(opt) => eprintln!("missing option {}", opt),
+                OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
+                UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
+            }
+            return EXIT_FAILURE;
         }
-        process::exit(1); // todo: dtors
-    });
+    };
 
     if args.len() < 2 || matches.opt_present("h") {
         help(&process, opts);
-        return;
+        return EXIT_SUCCESS;
     }
 
     let strict = matches.opt_present("s");
@@ -60,17 +70,20 @@ fn main() {
             &matches.free[0]
         } else if matches.free.len() > 1 {
             eprintln!("unexpected second input {}", matches.free[1]);
-            process::exit(1); // todo: dtors
+            return EXIT_FAILURE;
         } else {
             eprintln!("no input file");
-            process::exit(1); // todo: dtors
+            return EXIT_FAILURE;
         }
     };
 
-    let mut file = fs::read(&input).unwrap_or_else(|e| {
-        eprintln!("failed to open '{}': {}", input, e);
-        process::exit(1); // todo: dtors
-    });
+    let mut file = match fs::read(&input) {
+        Ok(data) => data,
+        Err(err) => {
+            eprintln!("failed to open '{}': {}", input, err);
+            return EXIT_FAILURE;
+        }
+    };
 
     if verbose {
         println!("loading '{}'...", input);
@@ -86,11 +99,16 @@ fn main() {
         },
         strict,                                 // strict: bool
         multithread,                            // multithread: bool
-    )
-    .unwrap_or_else(|e| {
-        eprintln!("failed to load '{}' - {}", input, e);
-        process::exit(1); // todo: dtors
-    });
+    );
+    let assets = match assets {
+        Ok(assets) => assets,
+        Err(err) => {
+            eprintln!("failed to load '{}' - {}", input, err);
+            return EXIT_FAILURE;
+        }
+    };
 
     game::launch(assets);
+
+    EXIT_SUCCESS
 }
