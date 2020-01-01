@@ -21,6 +21,12 @@ pub trait Renderer {
     /// Indicates whether the window wants to close.
     fn should_close(&self) -> bool;
 
+    /// Instructs the window to close. This sucks.
+    fn set_should_close(&mut self, b: bool);
+
+    /// Indicates that the window should be shown.
+    fn show_window(&mut self);
+
     /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
     fn draw_sprite(
         &self,
