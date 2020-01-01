@@ -3,10 +3,7 @@ use crate::{
     atlas::AtlasBuilder,
     instance::Instance,
     instancelist::InstanceList,
-    render::{
-        opengl::{OpenGLRenderer, OpenGLRendererOptions},
-        Renderer,
-    },
+    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
 };
 use gm8exe::{rsrc::WindowsIcon, GameAssets};
 
@@ -61,7 +58,7 @@ pub fn launch(assets: GameAssets) {
         .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
         .unwrap();
 
-    let options = OpenGLRendererOptions {
+    let options = RendererOptions {
         title: &room1.caption,
         size: (room1.width, room1.height),
         icon: get_icon(&assets.icon_data, 32),
@@ -136,7 +133,16 @@ pub fn launch(assets: GameAssets) {
     while !renderer.should_close() {
         for (_, instance) in instance_list.iter() {
             if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
-                renderer.draw_sprite(sprite.frames.first().unwrap(), instance.x, instance.y, instance.image_xscale, instance.image_yscale, instance.image_angle, instance.image_blend, instance.image_alpha)
+                renderer.draw_sprite(
+                    sprite.frames.first().unwrap(),
+                    instance.x,
+                    instance.y,
+                    instance.image_xscale,
+                    instance.image_yscale,
+                    instance.image_angle,
+                    instance.image_blend,
+                    instance.image_alpha,
+                )
             }
         }
         renderer.draw();
