@@ -7,8 +7,6 @@ use crate::{
 };
 use gm8exe::{rsrc::WindowsIcon, GameAssets};
 
-use std::convert::identity;
-
 /// Resolves icon closest to preferred_width and converts it from a WindowsIcon to proper RGBA pixels.
 fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32, u32)> {
     fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(preferred_width: i32, i: I) -> Option<&'a WindowsIcon> {
@@ -51,11 +49,8 @@ pub fn launch(assets: GameAssets) {
     // We need a lot of the initialization info from the first room,
     // the window size, and title, etc. is based on it.
     let room1 = room_order
-        .first() // first index
-        .map(|x| rooms.get(*x as usize))
-        .and_then(identity) // Option<Option<T>> -> Option<T>
-        .and_then(|x| x.as_ref()) // Option<&Option<T>> -> Option<&T>
-        .map(|r| r.as_ref()) // Option<&Box<T>> -> Option<&T>
+        .first()
+        .and_then(|i| rooms.get(*i as usize).and_then(|o| o.as_ref()))
         .unwrap();
 
     let options = RendererOptions {
