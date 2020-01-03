@@ -118,9 +118,11 @@ pub fn find_icons(
                                 raw_file_body.extend_from_slice(&v);
                                 if let Some(i) = make_icon(v)? {
                                     icon_group.push(i);
-                                }
-                                else {
-                                    println!("WARNING: Failed to recover an icon: id {}, rva 0x{:X}", icon.0, icon.1);
+                                } else {
+                                    println!(
+                                        "WARNING: Failed to recover an icon: id {}, rva 0x{:X}",
+                                        icon.0, icon.1
+                                    );
                                 }
                             }
                             break;
@@ -160,8 +162,7 @@ fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
         32 => {
             // 32 bpp: just BGRA pixels followed by mask data.
             // Mask is pointless as far as I can see.
-            match blob.get(data_start..data_start + (ico_wh as usize * ico_wh as usize * 4))
-            {
+            match blob.get(data_start..data_start + (ico_wh as usize * ico_wh as usize * 4)) {
                 Some(d) => Ok(Some(WindowsIcon {
                     width: ico_wh,
                     height: ico_wh,
