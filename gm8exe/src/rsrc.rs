@@ -104,12 +104,9 @@ pub fn find_icons(
                     raw_file.extend_from_slice(&v[pos..pos + 12]);
                     raw_file.write_u32_le((raw_header_size + raw_file_body.len()) as u32)?;
 
-                    // Read the details of one icon in this group
-                    let width = ico_header.read_u8()?;
-                    let height = ico_header.read_u8()?;
-                    ico_header.seek(SeekFrom::Current(4))?;
-                    let _bits_per_pixel = ico_header.read_u16_le()?; // seems to be wrong sometimes...
-                    ico_header.seek(SeekFrom::Current(4))?;
+                    // Skip over the ICO file header
+                    // This contains width, height, bpp etc - but these are allowed to be wrong, so we ignore them
+                    ico_header.seek(SeekFrom::Current(12))?;
                     let ordinal = ico_header.read_u16_le()?;
 
                     // Match this ordinal name with an icon resource
@@ -119,8 +116,13 @@ pub fn find_icons(
                                 extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)?
                             {
                                 raw_file_body.extend_from_slice(&v);
-                                if let Some(i) = make_icon(width, height, v)? {
+                                if let Some(i) = make_icon(v)? {
                                     icon_group.push(i);
+                                } else {
+                                    println!(
+                                        "WARNING: Failed to recover an icon: id {}, rva 0x{:X}",
+                                        icon.0, icon.1
+                                    );
                                 }
                             }
                             break;
@@ -136,25 +138,34 @@ pub fn find_icons(
     Ok((vec![], vec![]))
 }
 
-fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
+fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
     let mut data = io::Cursor::new(&blob);
     let data_start = data.read_u32_le()? as usize;
-    data.set_position(14);
+    let width = data.read_u32_le()?;
+    let double_height = data.read_u32_le()?;
+    let reserved = data.read_u16_le()?;
     let bpp = data.read_u16_le()?;
     data.set_position(data_start as u64);
 
-    // 0 size actually means 256
-    let ico_wh = |n| if n == 0 { 256 } else { u32::from(n) };
+    // Checks to make sure this is a valid icon
+    if width * 2 != double_height {
+        return Ok(None);
+    }
+    if reserved != 1 {
+        return Ok(None);
+    }
+
+    // Rename this for clarity
+    let ico_wh = width;
 
     match bpp {
         32 => {
-            match data
-                .into_inner()
-                .get(data_start..data_start + (width as usize * height as usize * 4))
-            {
+            // 32 bpp: just BGRA pixels followed by mask data.
+            // Mask is pointless as far as I can see.
+            match blob.get(data_start..data_start + (ico_wh as usize * ico_wh as usize * 4)) {
                 Some(d) => Ok(Some(WindowsIcon {
-                    width: ico_wh(width),
-                    height: ico_wh(height),
+                    width: ico_wh,
+                    height: ico_wh,
                     original_bpp: bpp,
                     bgra_data: d.to_vec(),
                 })),
@@ -162,7 +173,9 @@ fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> io::Result<Option<WindowsI
             }
         }
         8 => {
-            let pixel_count = width as usize * height as usize;
+            // 8 bpp: BGRX lookup table with 256 colours in it, followed by pixel bytes - each byte is a colour index.
+            // After pixels is mask data, which indicates whether each pixel is visible or not.
+            let pixel_count = ico_wh as usize * ico_wh as usize;
             let mut bgra_data = Vec::with_capacity(pixel_count * 4);
             data.seek(SeekFrom::Current(1024))?; // skip LUT
 
@@ -183,20 +196,18 @@ fn make_icon(width: u8, height: u8, blob: Vec<u8>) -> io::Result<Option<WindowsI
                 }
             }
 
-            // check if there are any pixels left to fill in
-            if cursor < bgra_data.len() {
-                let mut bitmask = data.read_u8()?;
-                while cursor < bgra_data.len() {
-                    let (m, b) = bitmask.overflowing_add(bitmask);
-                    bitmask = m;
-                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                    cursor += 4;
-                }
+            // Apply mask
+            let mut bitmask = data.read_u8()?;
+            while cursor < bgra_data.len() {
+                let (m, b) = bitmask.overflowing_add(bitmask);
+                bitmask = m;
+                bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
+                cursor += 4;
             }
 
             Ok(Some(WindowsIcon {
-                width: ico_wh(width),
-                height: ico_wh(height),
+                width: ico_wh,
+                height: ico_wh,
                 original_bpp: bpp,
                 bgra_data,
             }))
