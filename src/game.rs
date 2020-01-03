@@ -1,5 +1,8 @@
 use crate::{
-    asset::{Object, Sprite},
+    asset::{
+        sprite::{Collider, Frame, Sprite},
+        Object,
+    },
     atlas::AtlasBuilder,
     instance::Instance,
     instancelist::InstanceList,
@@ -104,12 +107,30 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     frames: b
                         .frames
                         .into_iter()
-                        .map(|f| atlases.texture(f.width as _, f.height as _, f.data).unwrap())
+                        .map(|f| Frame {
+                            width: f.width,
+                            height: f.height,
+                            texture: atlases.texture(f.width as _, f.height as _, f.data).unwrap(),
+                        })
+                        .collect(),
+                    colliders: b
+                        .colliders
+                        .into_iter()
+                        .map(|c| Collider {
+                            width: c.width,
+                            height: c.height,
+                            bbox_left: c.bbox_left,
+                            bbox_right: c.bbox_right,
+                            bbox_top: c.bbox_top,
+                            bbox_bottom: c.bbox_bottom,
+                            data: c.data,
+                        })
                         .collect(),
                     width: w,
                     height: h,
                     origin_x: b.origin_x,
                     origin_y: b.origin_y,
+                    per_frame_colliders: b.per_frame_colliders,
                 })
             })
         })
@@ -171,7 +192,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         for (_, instance) in instance_list.iter() {
             if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
                 renderer.draw_sprite(
-                    sprite.frames.first().unwrap(),
+                    &sprite.frames.first().unwrap().texture,
                     instance.x,
                     instance.y,
                     instance.image_xscale,
