@@ -106,7 +106,7 @@ pub fn find_icons(
 
                     // Skip over the ICO file header
                     // This contains width, height, bpp etc - but these are allowed to be wrong, so we ignore them
-                    ico_header.seek(SeekFrom::Current(18))?;
+                    ico_header.seek(SeekFrom::Current(12))?;
                     let ordinal = ico_header.read_u16_le()?;
 
                     // Match this ordinal name with an icon resource
