@@ -196,13 +196,15 @@ fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
                 }
             }
 
-            // Apply mask
-            let mut bitmask = data.read_u8()?;
-            while cursor < bgra_data.len() {
-                let (m, b) = bitmask.overflowing_add(bitmask);
-                bitmask = m;
-                bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                cursor += 4;
+            // Apply any leftover bits
+            if cursor < bgra_data.len() {
+                let mut bitmask = data.read_u8()?;
+                while cursor < bgra_data.len() {
+                    let (m, b) = bitmask.overflowing_add(bitmask);
+                    bitmask = m;
+                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
+                    cursor += 4;
+                }
             }
 
             Ok(Some(WindowsIcon {
