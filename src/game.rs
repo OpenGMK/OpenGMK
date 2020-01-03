@@ -1,5 +1,6 @@
 use crate::{
     asset::{
+        font::{Character, Font},
         sprite::{Collider, Frame, Sprite},
         Object,
     },
@@ -9,6 +10,7 @@ use crate::{
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
 };
 use gm8exe::{rsrc::WindowsIcon, GameAssets};
+use std::iter::repeat;
 
 /// Resolves icon closest to preferred_width and converts it from a WindowsIcon to proper RGBA pixels.
 fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32, u32)> {
@@ -44,6 +46,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         room_order,
         rooms,
         sprites,
+        fonts,
         objects,
         ..
     } = assets;
@@ -135,6 +138,27 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
             })
         })
         .collect::<Vec<_>>();
+
+    let _fonts = fonts.into_iter().map(|o| {o.map(|b| {
+        Font {
+            name: b.name,
+            sys_name: b.sys_name,
+            size: b.size,
+            bold: b.bold,
+            italic: b.italic,
+            first: b.range_start,
+            last: b.range_end,
+            texture: atlases.texture(b.map_width as _, b.map_height as _, b.pixel_map.into_iter().flat_map(|x| repeat(0xFF).take(3).chain(Some(*x))).collect::<Vec<u8>>().into_boxed_slice()).unwrap(),
+            chars: b.dmap.chunks_exact(6).skip(b.range_start as usize).take(((b.range_end - b.range_start) + 1) as usize).map(|x| Character {
+                x: x[0],
+                y: x[1],
+                width: x[2],
+                height: x[3],
+                offset: x[4],
+                distance: x[5],
+            }).collect(),
+        }
+    })});
 
     let objects = objects
         .into_iter()
