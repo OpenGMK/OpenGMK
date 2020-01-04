@@ -9,10 +9,11 @@ use crate::{
     instancelist::InstanceList,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
 };
-use gm8exe::{rsrc::WindowsIcon, GameAssets};
+use gm8exe::GameAssets;
 use std::iter::repeat;
 
 /// Resolves icon closest to preferred_width and converts it from a WindowsIcon to proper RGBA pixels.
+/*
 fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32, u32)> {
     fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(preferred_width: i32, i: I) -> Option<&'a WindowsIcon> {
         i.min_by(|a, b| {
@@ -39,11 +40,13 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
     .or_else(|| closest(preferred_width, icons.iter()))
     .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
 }
+*/
 
 pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // destructure assets
     let GameAssets {
         room_order,
+        icon_data,
         rooms,
         sprites,
         fonts,
@@ -62,7 +65,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     let options = RendererOptions {
         title: &room1.caption,
         size: (room1.width, room1.height),
-        icon: get_icon(&assets.icon_data, 32),
+        icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
         resizable: assets.settings.allow_resize,
         on_top: assets.settings.window_on_top,
         decorations: !assets.settings.dont_draw_border,

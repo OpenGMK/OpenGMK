@@ -41,17 +41,16 @@ pub struct OpenGLRenderer {
 
 impl OpenGLRenderer {
     pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
-        // TODO: glfw can accept more than one icon, we should pass them all in instead of just this one.
-        if let Some((data, width, height)) = options.icon {
-            window.set_icon_from_pixels(vec![glfw::PixelImage {
-                width,
-                height,
-                pixels: data
+        window.set_icon_from_pixels(options.icons.iter().map(|x| glfw::PixelImage {
+            width: x.1,
+            height: x.2,
+            pixels: x.0
+                .rchunks_exact(x.1 as usize * 4)
+                .flat_map(|x| x
                     .chunks_exact(4)
-                    .map(|r| u32::from_le_bytes([r[0], r[1], r[2], r[3]]))
-                    .collect(),
-            }]);
-        }
+                    .map(|r| u32::from_le_bytes([r[2], r[1], r[0], r[3]]))
+                ).collect::<Vec<_>>(),
+        }).collect());
 
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);

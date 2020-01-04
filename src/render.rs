@@ -47,7 +47,7 @@ pub trait Renderer {
 pub struct RendererOptions<'a> {
     pub title: &'a str,
     pub size: (u32, u32),
-    pub icon: Option<(Vec<u8>, u32, u32)>,
+    pub icons: Vec<(Vec<u8>, u32, u32)>,
     pub resizable: bool,
     pub on_top: bool,
     pub decorations: bool,
