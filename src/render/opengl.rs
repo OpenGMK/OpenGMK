@@ -26,7 +26,11 @@ use std::{
 use gl::types::{GLint, GLuint};
 
 pub struct OpenGLRenderer {
+    // GLFW
     window: glfw::Window,
+
+    // Draw command queue
+    draw_commands: Vec<DrawCommand>,
 
     // -- TEXTURE ATLASES --
     /// Whether the initial atlases have been uploaded (see upload_atlases).
@@ -39,18 +43,35 @@ pub struct OpenGLRenderer {
     texture_ids: Vec<GLuint>,
 }
 
+// A command to draw a sprite or section of a sprite. These are queued and executed
+pub struct DrawCommand {
+    pub texture: usize,
+    pub x: f64,
+    pub y: f64,
+    pub xscale: f64,
+    pub yscale: f64,
+    pub angle: f64,
+    pub colour: i32,
+    pub alpha: f64,
+}
+
 impl OpenGLRenderer {
     pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
-        window.set_icon_from_pixels(options.icons.iter().map(|x| glfw::PixelImage {
-            width: x.1,
-            height: x.2,
-            pixels: x.0
-                .rchunks_exact(x.1 as usize * 4)
-                .flat_map(|x| x
-                    .chunks_exact(4)
-                    .map(|r| u32::from_le_bytes([r[2], r[1], r[0], r[3]]))
-                ).collect::<Vec<_>>(),
-        }).collect());
+        window.set_icon_from_pixels(
+            options
+                .icons
+                .iter()
+                .map(|x| glfw::PixelImage {
+                    width: x.1,
+                    height: x.2,
+                    pixels: x
+                        .0
+                        .rchunks_exact(x.1 as usize * 4)
+                        .flat_map(|x| x.chunks_exact(4).map(|r| u32::from_le_bytes([r[2], r[1], r[0], r[3]])))
+                        .collect::<Vec<_>>(),
+                })
+                .collect(),
+        );
 
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
@@ -62,6 +83,8 @@ impl OpenGLRenderer {
 
         Ok(Self {
             window,
+
+            draw_commands: Vec::with_capacity(256),
 
             atlases_initialized: false,
             atlas_packers: Vec::new(),
@@ -149,7 +172,7 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn draw_sprite(
-        &self,
+        &mut self,
         texture: &Texture,
         x: f64,
         y: f64,
@@ -159,20 +182,16 @@ impl Renderer for OpenGLRenderer {
         colour: i32,
         alpha: f64,
     ) {
-        let atlas_ref = self
-            .atlas_refs
-            .get(texture.0)
-            .expect("Invalid Texture provided to renderer");
-        let tex = self
-            .texture_ids
-            .get(atlas_ref.atlas_id as usize)
-            .expect("Invalid Texture provided to renderer (texture_ids)");
-
-        // todo
-        println!(
-            "Drawing: [atlas ref: {:?}]; [tex: {}]; x: {}, y: {}, xscale: {}, yscale: {}, angle: {}, colour: {}, alpha: {}",
-            atlas_ref, tex, x, y, xscale, yscale, angle, colour, alpha
-        );
+        self.draw_commands.push(DrawCommand {
+            texture: texture.0,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            colour,
+            alpha,
+        });
     }
 
     fn draw(&mut self) {
@@ -180,6 +199,11 @@ impl Renderer for OpenGLRenderer {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+
+        // TODO: draw all the draw_commands
+        println!("There are {} queued draw commands", self.draw_commands.len());
+
+        self.draw_commands.clear();
         self.window.swap_buffers();
     }
 
