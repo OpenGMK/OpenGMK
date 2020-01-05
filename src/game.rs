@@ -1,5 +1,6 @@
 use crate::{
     asset::{
+        Background,
         font::{Character, Font},
         sprite::{Collider, Frame, Sprite},
         Object,
@@ -49,6 +50,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         icon_data,
         rooms,
         sprites,
+        backgrounds,
         fonts,
         objects,
         ..
@@ -65,7 +67,10 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     let options = RendererOptions {
         title: &room1.caption,
         size: (room1.width, room1.height),
-        icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
+        icons: icon_data
+            .into_iter()
+            .map(|x| (x.bgra_data, x.width, x.height))
+            .collect(),
         resizable: assets.settings.allow_resize,
         on_top: assets.settings.window_on_top,
         decorations: !assets.settings.dont_draw_border,
@@ -141,6 +146,19 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
             })
         })
         .collect::<Vec<_>>();
+
+    let _backgrounds = backgrounds.into_iter().map(|o| {
+        o.map(|b| {
+            let width = b.width;
+            let height = b.height;
+            Background {
+                name: b.name,
+                width,
+                height,
+                texture: b.data.map(|d| atlases.texture(width as _, height as _, d).unwrap()),
+            }
+        })
+    });
 
     let _fonts = fonts.into_iter().map(|o| {
         o.map(|b| Font {
