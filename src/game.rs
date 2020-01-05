@@ -1,9 +1,8 @@
 use crate::{
     asset::{
-        Background,
         font::{Character, Font},
         sprite::{Collider, Frame, Sprite},
-        Object,
+        Background, Object,
     },
     atlas::AtlasBuilder,
     instance::Instance,
@@ -147,55 +146,61 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
-    let _backgrounds = backgrounds.into_iter().map(|o| {
-        o.map(|b| {
-            let width = b.width;
-            let height = b.height;
-            Background {
-                name: b.name,
-                width,
-                height,
-                texture: b.data.map(|d| atlases.texture(width as _, height as _, d).unwrap()),
-            }
+    let _backgrounds = backgrounds
+        .into_iter()
+        .map(|o| {
+            o.map(|b| {
+                let width = b.width;
+                let height = b.height;
+                Background {
+                    name: b.name,
+                    width,
+                    height,
+                    texture: b.data.map(|d| atlases.texture(width as _, height as _, d).unwrap()),
+                }
+            })
         })
-    });
+        .collect::<Vec<_>>();
 
-    let _fonts = fonts.into_iter().map(|o| {
-        o.map(|b| Font {
-            name: b.name,
-            sys_name: b.sys_name,
-            size: b.size,
-            bold: b.bold,
-            italic: b.italic,
-            first: b.range_start,
-            last: b.range_end,
-            texture: atlases
-                .texture(
-                    b.map_width as _,
-                    b.map_height as _,
-                    b.pixel_map
-                        .into_iter()
-                        .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
-                        .collect::<Vec<u8>>()
-                        .into_boxed_slice(),
-                )
-                .unwrap(),
-            chars: b
-                .dmap
-                .chunks_exact(6)
-                .skip(b.range_start as usize)
-                .take(((b.range_end - b.range_start) + 1) as usize)
-                .map(|x| Character {
-                    x: x[0],
-                    y: x[1],
-                    width: x[2],
-                    height: x[3],
-                    offset: x[4],
-                    distance: x[5],
-                })
-                .collect(),
+    let _fonts = fonts
+        .into_iter()
+        .map(|o| {
+            o.map(|b| Font {
+                name: b.name,
+                sys_name: b.sys_name,
+                size: b.size,
+                bold: b.bold,
+                italic: b.italic,
+                first: b.range_start,
+                last: b.range_end,
+                texture: atlases
+                    .texture(
+                        b.map_width as _,
+                        b.map_height as _,
+                        b.pixel_map
+                            .into_iter()
+                            .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
+                            .collect::<Vec<u8>>()
+                            .into_boxed_slice(),
+                    )
+                    .unwrap(),
+                chars: b
+                    .dmap
+                    .chunks_exact(6)
+                    .skip(b.range_start as usize)
+                    .take(((b.range_end - b.range_start) + 1) as usize)
+                    .map(|x| Character {
+                        x: x[0],
+                        y: x[1],
+                        width: x[2],
+                        height: x[3],
+                        offset: x[4],
+                        distance: x[5],
+                    })
+                    .collect(),
+            })
         })
-    });
+        .collect::<Vec<_>>();
 
     let objects = objects
         .into_iter()
