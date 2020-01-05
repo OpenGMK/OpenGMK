@@ -247,6 +247,9 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         for (_, event) in glfw::flush_messages(&events) {
             println!("Got event {:?}", event);
             match event {
+                glfw::WindowEvent::FramebufferSize(width, height) => {
+                    renderer.set_viewport(width, height);
+                }
                 glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                     renderer.set_should_close(true);
                     continue; // So no draw events are fired while the window should be closing

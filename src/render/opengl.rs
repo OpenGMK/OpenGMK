@@ -23,7 +23,7 @@ use std::{
 };
 
 // OpenGL typedefs
-use gl::types::{GLint, GLuint};
+use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 pub struct OpenGLRenderer {
     // GLFW
@@ -31,6 +31,11 @@ pub struct OpenGLRenderer {
 
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
+
+    // Shaders and OpenGL objects
+    program: u32,
+    vao: u32,
+    vbo: u32,
 
     // -- TEXTURE ATLASES --
     /// Whether the initial atlases have been uploaded (see upload_atlases).
@@ -54,6 +59,24 @@ pub struct DrawCommand {
     pub colour: i32,
     pub alpha: f64,
 }
+
+// Vertex shader
+const VERTEX_SHADER_SOURCE: &str = r#"
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main() {
+       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    }
+"#;
+
+// Fragment shader
+const FRAGMENT_SHADER_SOURCE: &str = r#"
+    #version 330 core
+    out vec4 FragColour;
+    void main() {
+       FragColour = vec4(1.0f, 0.0f, 0.0f, 0.2f);
+    }
+"#;
 
 impl OpenGLRenderer {
     pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
@@ -81,10 +104,129 @@ impl OpenGLRenderer {
         let mut render_context = window.render_context();
         render_context.make_current();
 
+        let (program, vao, vbo) = unsafe {
+            use std::ffi::CString;
+
+            // Compile vertex shader
+            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+            let c_str_vert = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
+            gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
+            gl::CompileShader(vertex_shader);
+
+            // Check for vertex shader compile errors
+            let mut success = gl::FALSE as GLint;
+            let mut info_log = Vec::with_capacity(512);
+            info_log.set_len(512 - 1); // subtract 1 to skip the trailing null character
+            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+            if success != gl::TRUE as GLint {
+                gl::GetShaderInfoLog(
+                    vertex_shader,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut GLchar,
+                );
+                println!(
+                    "Failed to compile vertex shader, compiler output:\n{}",
+                    std::str::from_utf8(&info_log).unwrap()
+                );
+            }
+
+            // Compile fragment shader
+            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+            let c_str_frag = CString::new(FRAGMENT_SHADER_SOURCE.as_bytes()).unwrap();
+            gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
+            gl::CompileShader(fragment_shader);
+
+            // Check for fragment shader compile errors
+            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+            if success != gl::TRUE as GLint {
+                gl::GetShaderInfoLog(
+                    fragment_shader,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut GLchar,
+                );
+                println!(
+                    "Failed to compile fragment shader, compiler output:\n{}",
+                    std::str::from_utf8(&info_log).unwrap(),
+                );
+            }
+
+            // Link shaders
+            let shader_program = gl::CreateProgram();
+            gl::AttachShader(shader_program, vertex_shader);
+            gl::AttachShader(shader_program, fragment_shader);
+            gl::LinkProgram(shader_program);
+
+            // Check for linking errors
+            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
+            if success != gl::TRUE as GLint {
+                gl::GetProgramInfoLog(
+                    shader_program,
+                    512,
+                    ptr::null_mut(),
+                    info_log.as_mut_ptr() as *mut GLchar,
+                );
+                println!(
+                    "Failed to link shaders, compiler output:\n{}",
+                    std::str::from_utf8(&info_log).unwrap()
+                );
+            }
+            gl::DeleteShader(vertex_shader);
+            gl::DeleteShader(fragment_shader);
+
+            // set up vertex data and configure vertex attributes
+            let vertices: [f32; 12] = [
+                0.0, 0.0, 0.0, // bottom left
+                1.0, 0.0, 0.0, // bottom right
+                0.0, 1.0, 0.0, // top left
+                1.0, 1.0, 0.0, // top right
+            ];
+            let (mut vbo, mut vao) = (0, 0);
+            gl::GenVertexArrays(1, &mut vao);
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindVertexArray(vao);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertices.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+                &vertices[0] as *const f32 as *const std::os::raw::c_void,
+                gl::STATIC_DRAW,
+            );
+
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                3 * std::mem::size_of::<GLfloat>() as GLsizei,
+                ptr::null(),
+            );
+            gl::EnableVertexAttribArray(0);
+
+            // Enable and disable GL features
+            gl::Enable(gl::TEXTURE_2D);
+            gl::Enable(gl::CULL_FACE);
+            gl::Enable(gl::BLEND);
+            gl::Disable(gl::DEPTH_TEST);
+
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
+            // Unbind VBO
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+
+            (shader_program, vao, vbo)
+        };
+
         Ok(Self {
             window,
 
             draw_commands: Vec::with_capacity(256),
+
+            program,
+            vao,
+            vbo,
 
             atlases_initialized: false,
             atlas_packers: Vec::new(),
@@ -198,6 +340,9 @@ impl Renderer for OpenGLRenderer {
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::UseProgram(self.program);
+            gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
         }
 
         // TODO: draw all the draw_commands
@@ -242,6 +387,12 @@ impl Renderer for OpenGLRenderer {
 
     fn show_window(&mut self) {
         self.window.show()
+    }
+
+    fn set_viewport(&self, width: i32, height: i32) {
+        unsafe {
+            gl::Viewport(0, 0, width, height);
+        }
     }
 }
 

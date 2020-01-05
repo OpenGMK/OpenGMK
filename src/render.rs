@@ -27,6 +27,9 @@ pub trait Renderer {
     /// Indicates that the window should be shown.
     fn show_window(&mut self);
 
+    /// Change window viewport size - typically called after the window is resized
+    fn set_viewport(&self, width: i32, height: i32);
+
     /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
     fn draw_sprite(
         &mut self,
