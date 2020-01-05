@@ -29,7 +29,7 @@ pub trait Renderer {
 
     /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
     fn draw_sprite(
-        &self,
+        &mut self,
         texture: &Texture,
         x: f64,
         y: f64,
