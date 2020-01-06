@@ -187,6 +187,7 @@ dependencies = [
  "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glfw 0.34.0 (git+https://github.com/bjz/glfw-rs.git)",
  "gm8exe 0.1.0 (git+https://github.com/OpenGM8/GM8Decompiler.git)",
+ "memoffset 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "png 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rect_packer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
