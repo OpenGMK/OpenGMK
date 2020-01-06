@@ -17,11 +17,11 @@ use crate::{
 use glfw::Context;
 use rect_packer::DensePacker;
 use std::{
-    ffi::CString,
     fs,
     io::{self, BufWriter},
     mem::size_of,
     ops::Drop,
+    os::raw::c_char,
     path::PathBuf,
     ptr,
 };
@@ -61,23 +61,23 @@ pub struct DrawCommand {
 }
 
 // Vertex shader
-const VERTEX_SHADER_SOURCE: &str = r#"
+const VERTEX_SHADER_SOURCE: &[u8] = br#"
     #version 330 core
     layout (location = 0) in vec3 aPos;
     in mat4 project;
     void main() {
        gl_Position = project * vec4(aPos.x, aPos.y, aPos.z, 1.0);
     }
-"#;
+\0"#;
 
 // Fragment shader
-const FRAGMENT_SHADER_SOURCE: &str = r#"
+const FRAGMENT_SHADER_SOURCE: &[u8] = br#"
     #version 330 core
     out vec4 FragColour;
     void main() {
        FragColour = vec4(1.0f, 0.0f, 0.0f, 0.2f);
     }
-"#;
+\0"#;
 
 impl OpenGLRenderer {
     pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
@@ -108,8 +108,7 @@ impl OpenGLRenderer {
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            let c_str_vert = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
-            gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
+            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
             gl::CompileShader(vertex_shader);
 
             // Check for vertex shader compile errors
@@ -132,8 +131,7 @@ impl OpenGLRenderer {
 
             // Compile fragment shader
             let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            let c_str_frag = CString::new(FRAGMENT_SHADER_SOURCE.as_bytes()).unwrap();
-            gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
+            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
             gl::CompileShader(fragment_shader);
 
             // Check for fragment shader compile errors
@@ -349,7 +347,7 @@ impl Renderer for OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             gl::BufferData(gl::ARRAY_BUFFER, (size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
 
-            let project = gl::GetAttribLocation(self.program, CString::new("project".as_bytes()).unwrap().as_ptr()) as u32;
+            let project = gl::GetAttribLocation(self.program, b"project\0".as_ptr() as *const c_char) as u32;
             gl::EnableVertexAttribArray(project);
             gl::VertexAttribPointer(project, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, projection_matrix) as *const _);
             gl::EnableVertexAttribArray(project + 1);
