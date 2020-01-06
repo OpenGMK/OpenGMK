@@ -8,6 +8,8 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+use memoffset::offset_of;
+
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions, Texture},
@@ -15,6 +17,7 @@ use crate::{
 use glfw::Context;
 use rect_packer::DensePacker;
 use std::{
+    ffi::CString,
     fs,
     io::{self, BufWriter},
     ops::Drop,
@@ -51,11 +54,7 @@ pub struct OpenGLRenderer {
 // A command to draw a sprite or section of a sprite. These are queued and executed
 pub struct DrawCommand {
     pub texture: usize,
-    pub x: f64,
-    pub y: f64,
-    pub xscale: f64,
-    pub yscale: f64,
-    pub angle: f64,
+    pub projection_matrix: [f32; 16],
     pub colour: i32,
     pub alpha: f64,
 }
@@ -64,8 +63,9 @@ pub struct DrawCommand {
 const VERTEX_SHADER_SOURCE: &str = r#"
     #version 330 core
     layout (location = 0) in vec3 aPos;
+    in mat4 project;
     void main() {
-       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+       gl_Position = project * vec4(aPos.x, aPos.y, aPos.z, 1.0);
     }
 "#;
 
@@ -105,8 +105,6 @@ impl OpenGLRenderer {
         render_context.make_current();
 
         let (program, vao, vbo) = unsafe {
-            use std::ffi::CString;
-
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
             let c_str_vert = CString::new(VERTEX_SHADER_SOURCE.as_bytes()).unwrap();
@@ -316,21 +314,24 @@ impl Renderer for OpenGLRenderer {
     fn draw_sprite(
         &mut self,
         texture: &Texture,
-        x: f64,
-        y: f64,
-        xscale: f64,
-        yscale: f64,
-        angle: f64,
+        _x: f64,
+        _y: f64,
+        _xscale: f64,
+        _yscale: f64,
+        _angle: f64,
         colour: i32,
         alpha: f64,
     ) {
+        let projection_matrix: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+
         self.draw_commands.push(DrawCommand {
             texture: texture.0,
-            x,
-            y,
-            xscale,
-            yscale,
-            angle,
+            projection_matrix,
             colour,
             alpha,
         });
@@ -340,13 +341,32 @@ impl Renderer for OpenGLRenderer {
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-
             gl::UseProgram(self.program);
-            gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
-        }
 
-        // TODO: draw all the draw_commands
-        println!("There are {} queued draw commands", self.draw_commands.len());
+            let mut commands_vbo: GLuint = 0;
+            gl::GenBuffers(1, &mut commands_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, (std::mem::size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
+
+            let project = gl::GetAttribLocation(self.program, CString::new("project".as_bytes()).unwrap().as_ptr()) as u32;
+            gl::EnableVertexAttribArray(project);
+            gl::VertexAttribPointer(project, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, projection_matrix) as *const _);
+            gl::EnableVertexAttribArray(project + 1);
+            gl::VertexAttribPointer(project + 1, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (4  * std::mem::size_of::<f32>())) as *const _);
+            gl::EnableVertexAttribArray(project + 2);
+            gl::VertexAttribPointer(project + 2, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (8  * std::mem::size_of::<f32>())) as *const _);
+            gl::EnableVertexAttribArray(project + 3);
+            gl::VertexAttribPointer(project + 3, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (12 * std::mem::size_of::<f32>())) as *const _);
+            gl::VertexAttribDivisor(project, 1);
+            gl::VertexAttribDivisor(project + 1, 1);
+            gl::VertexAttribDivisor(project + 2, 1);
+            gl::VertexAttribDivisor(project + 3, 1);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
+
+            gl::DeleteBuffers(1, &commands_vbo);
+        }
 
         self.draw_commands.clear();
         self.window.swap_buffers();
