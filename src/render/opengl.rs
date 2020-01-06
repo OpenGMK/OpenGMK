@@ -20,6 +20,7 @@ use std::{
     ffi::CString,
     fs,
     io::{self, BufWriter},
+    mem::size_of,
     ops::Drop,
     path::PathBuf,
     ptr,
@@ -188,7 +189,7 @@ impl OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (vertices.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+                (vertices.len() * size_of::<GLfloat>()) as GLsizeiptr,
                 &vertices[0] as *const f32 as *const std::os::raw::c_void,
                 gl::STATIC_DRAW,
             );
@@ -198,7 +199,7 @@ impl OpenGLRenderer {
                 3,
                 gl::FLOAT,
                 gl::FALSE,
-                3 * std::mem::size_of::<GLfloat>() as GLsizei,
+                3 * size_of::<GLfloat>() as GLsizei,
                 ptr::null(),
             );
             gl::EnableVertexAttribArray(0);
@@ -346,17 +347,17 @@ impl Renderer for OpenGLRenderer {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, (std::mem::size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
+            gl::BufferData(gl::ARRAY_BUFFER, (size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
 
             let project = gl::GetAttribLocation(self.program, CString::new("project".as_bytes()).unwrap().as_ptr()) as u32;
             gl::EnableVertexAttribArray(project);
-            gl::VertexAttribPointer(project, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, projection_matrix) as *const _);
+            gl::VertexAttribPointer(project, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, projection_matrix) as *const _);
             gl::EnableVertexAttribArray(project + 1);
-            gl::VertexAttribPointer(project + 1, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (4  * std::mem::size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(project + 1, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (4  * size_of::<f32>())) as *const _);
             gl::EnableVertexAttribArray(project + 2);
-            gl::VertexAttribPointer(project + 2, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (8  * std::mem::size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(project + 2, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (8  * size_of::<f32>())) as *const _);
             gl::EnableVertexAttribArray(project + 3);
-            gl::VertexAttribPointer(project + 3, 4, gl::FLOAT, gl::FALSE, std::mem::size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (12 * std::mem::size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(project + 3, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (12 * size_of::<f32>())) as *const _);
             gl::VertexAttribDivisor(project, 1);
             gl::VertexAttribDivisor(project + 1, 1);
             gl::VertexAttribDivisor(project + 2, 1);
