@@ -21,7 +21,7 @@ use std::{
     io::{self, BufWriter},
     mem::size_of,
     ops::Drop,
-    os::raw::c_char,
+    os::raw::{c_char, c_void},
     path::PathBuf,
     ptr,
 };
@@ -198,7 +198,7 @@ impl OpenGLRenderer {
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (vertices.len() * size_of::<GLfloat>()) as GLsizeiptr,
-                &vertices[0] as *const f32 as *const std::os::raw::c_void,
+                vertices.as_ptr() as *const c_void,
                 gl::STATIC_DRAW,
             );
 
