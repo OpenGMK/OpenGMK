@@ -37,6 +37,7 @@ install:
   # fuck mingw so much. god damn why
   - set PATH=%PATH:C:\Program Files (x86)\Git\bin;=%
   - set PATH=%PATH:C:\Program Files\Git\usr\bin\;=%
+  - echo PATH is %PATH%
 
 test_script:
   # we don't run the "test phase" when doing deploys
