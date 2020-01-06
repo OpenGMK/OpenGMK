@@ -55,7 +55,7 @@ pub struct OpenGLRenderer {
 // A command to draw a sprite or section of a sprite. These are queued and executed
 pub struct DrawCommand {
     pub texture: usize,
-    pub projection_matrix: [f32; 16],
+    pub model_view_matrix: [f32; 16],
     pub colour: i32,
     pub alpha: f64,
 }
@@ -319,7 +319,7 @@ impl Renderer for OpenGLRenderer {
         colour: i32,
         alpha: f64,
     ) {
-        let projection_matrix: [f32; 16] = [
+        let model_view_matrix: [f32; 16] = [
             1.0, 0.0, 0.0, 0.0,
             0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
@@ -328,7 +328,7 @@ impl Renderer for OpenGLRenderer {
 
         self.draw_commands.push(DrawCommand {
             texture: texture.0,
-            projection_matrix,
+            model_view_matrix,
             colour,
             alpha,
         });
@@ -345,21 +345,30 @@ impl Renderer for OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             gl::BufferData(gl::ARRAY_BUFFER, (size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
 
-            let project = gl::GetAttribLocation(self.program, b"project\0".as_ptr() as *const c_char) as u32;
-            gl::EnableVertexAttribArray(project);
-            gl::VertexAttribPointer(project, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, projection_matrix) as *const _);
-            gl::EnableVertexAttribArray(project + 1);
-            gl::VertexAttribPointer(project + 1, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (4  * size_of::<f32>())) as *const _);
-            gl::EnableVertexAttribArray(project + 2);
-            gl::VertexAttribPointer(project + 2, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (8  * size_of::<f32>())) as *const _);
-            gl::EnableVertexAttribArray(project + 3);
-            gl::VertexAttribPointer(project + 3, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, projection_matrix) + (12 * size_of::<f32>())) as *const _);
-            gl::VertexAttribDivisor(project, 1);
-            gl::VertexAttribDivisor(project + 1, 1);
-            gl::VertexAttribDivisor(project + 2, 1);
-            gl::VertexAttribDivisor(project + 3, 1);
+            let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
+            gl::EnableVertexAttribArray(glsl_model_view);
+            gl::VertexAttribPointer(glsl_model_view, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, model_view_matrix) as *const _);
+            gl::EnableVertexAttribArray(glsl_model_view + 1);
+            gl::VertexAttribPointer(glsl_model_view + 1, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (4  * size_of::<f32>())) as *const _);
+            gl::EnableVertexAttribArray(glsl_model_view + 2);
+            gl::VertexAttribPointer(glsl_model_view + 2, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (8  * size_of::<f32>())) as *const _);
+            gl::EnableVertexAttribArray(glsl_model_view + 3);
+            gl::VertexAttribPointer(glsl_model_view + 3, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _);
+            gl::VertexAttribDivisor(glsl_model_view, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 1, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 2, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 3, 1);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+
+            let projection: [f32; 16] = [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ];
+            gl::UniformMatrix4fv(gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _), 1, gl::FALSE, &projection as _);
+
             gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
 
             gl::DeleteBuffers(1, &commands_vbo);
