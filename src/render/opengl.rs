@@ -124,6 +124,7 @@ impl OpenGLRenderer {
                     ptr::null_mut(),
                     info.as_mut_ptr() as *mut GLchar,
                 );
+                info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
                 return Err(format!(
                     "Failed to compile vertex shader, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
@@ -147,6 +148,7 @@ impl OpenGLRenderer {
                     ptr::null_mut(),
                     info.as_mut_ptr() as *mut GLchar,
                 );
+                info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
                 return Err(format!(
                     "Failed to compile fragment shader, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
@@ -171,6 +173,7 @@ impl OpenGLRenderer {
                     ptr::null_mut(),
                     info.as_mut_ptr() as *mut GLchar,
                 );
+                info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
                 return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
