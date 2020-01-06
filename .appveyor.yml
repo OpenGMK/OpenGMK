@@ -31,9 +31,12 @@ install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
-  - set PATH=%PATH:C:\Program Files (x86)\Git\bin;=% # fuck mingw
   - rustc -Vv
   - cargo -V
+
+  # fuck mingw so much. god damn why
+  - set PATH=%PATH:C:\Program Files (x86)\Git\bin;=%
+  - set PATH=%PATH:C:\Program Files\Git\usr\bin\;=%
 
 test_script:
   # we don't run the "test phase" when doing deploys
