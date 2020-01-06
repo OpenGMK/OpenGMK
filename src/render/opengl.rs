@@ -113,20 +113,21 @@ impl OpenGLRenderer {
 
             // Check for vertex shader compile errors
             let mut success = gl::FALSE as GLint;
-            let mut info_log = Vec::with_capacity(512);
-            info_log.set_len(512 - 1); // subtract 1 to skip the trailing null character
             gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
+                let mut info_len: GLint = 0;
+                gl::GetShaderiv(vertex_shader, gl::INFO_LOG_LENGTH, &mut info_len);
+                let mut info = vec![0u8; info_len as usize];
                 gl::GetShaderInfoLog(
                     vertex_shader,
-                    512,
+                    info_len as GLsizei,
                     ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut GLchar,
+                    info.as_mut_ptr() as *mut GLchar,
                 );
-                println!(
+                return Err(format!(
                     "Failed to compile vertex shader, compiler output:\n{}",
-                    std::str::from_utf8(&info_log).unwrap()
-                );
+                    std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
+                ));
             }
 
             // Compile fragment shader
@@ -137,16 +138,19 @@ impl OpenGLRenderer {
             // Check for fragment shader compile errors
             gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
+                let mut info_len: GLint = 0;
+                gl::GetShaderiv(fragment_shader, gl::INFO_LOG_LENGTH, &mut info_len);
+                let mut info = vec![0u8; info_len as usize];
                 gl::GetShaderInfoLog(
                     fragment_shader,
-                    512,
+                    info_len as GLsizei,
                     ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut GLchar,
+                    info.as_mut_ptr() as *mut GLchar,
                 );
-                println!(
+                return Err(format!(
                     "Failed to compile fragment shader, compiler output:\n{}",
-                    std::str::from_utf8(&info_log).unwrap(),
-                );
+                    std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
+                ));
             }
 
             // Link shaders
@@ -158,16 +162,19 @@ impl OpenGLRenderer {
             // Check for linking errors
             gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
             if success != gl::TRUE as GLint {
+                let mut info_len: GLint = 0;
+                gl::GetProgramiv(shader_program, gl::INFO_LOG_LENGTH, &mut info_len);
+                let mut info = vec![0u8; info_len as usize];
                 gl::GetProgramInfoLog(
                     shader_program,
-                    512,
+                    info_len as GLsizei,
                     ptr::null_mut(),
-                    info_log.as_mut_ptr() as *mut GLchar,
+                    info.as_mut_ptr() as *mut GLchar,
                 );
-                println!(
+                return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
-                    std::str::from_utf8(&info_log).unwrap()
-                );
+                    std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
+                ));
             }
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
