@@ -22,21 +22,24 @@ environment:
       RUST_VERSION: nightly
 
 install:
-  - ps: >-
-      If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw64\bin'
-      } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw32\bin'
-      }
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
 
-  # fuck mingw so much. god damn why
-  - set PATH=%PATH:C:\Program Files (x86)\Git\bin;=%
-  - set PATH=%PATH:C:\Program Files\Git\usr\bin;=%
+  # fuck mingw and fuck gnu on windows. what a nightmare
+  - set PATH=%PATH:C:\Program Files (x86)\Git\bin;=% # *REMOVES* these paths, special cmd syntax
+  - set PATH=%PATH:C:\Program Files\Git\usr\bin;=%   # oops more paths from the x86_64 git haha
+  # add compiler paths and fix mystery 20 page long linker errors about _imp_wassert
+  - ps: >-
+      If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw64\bin'
+        $Env:RUSTFLAGS = '-Clink-arg=C:\msys64\mingw64\x86_64-w64-mingw32\lib\libmsvcrt.a'
+      } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw32\bin'
+        $Env:RUSTFLAGS = '-Clink-arg=C:\msys64\mingw32\i686-w64-mingw32\lib\libmsvcrt.a'
+      }
 
 test_script:
   # we don't run the "test phase" when doing deploys
