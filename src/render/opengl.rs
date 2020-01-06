@@ -60,24 +60,12 @@ pub struct DrawCommand {
     pub alpha: f64,
 }
 
-// Vertex shader
-const VERTEX_SHADER_SOURCE: &[u8] = b"
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    in mat4 project;
-    void main() {
-       gl_Position = project * vec4(aPos.x, aPos.y, aPos.z, 1.0);
-    }
-\0";
+macro_rules! shader_file {
+    ($path: expr) => { concat!(include_str!($path), "\0").as_bytes() };
+}
 
-// Fragment shader
-const FRAGMENT_SHADER_SOURCE: &[u8] = b"
-    #version 330 core
-    out vec4 FragColour;
-    void main() {
-       FragColour = vec4(1.0f, 0.0f, 0.0f, 0.2f);
-    }
-\0";
+const VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
+const FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
 
 impl OpenGLRenderer {
     pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
