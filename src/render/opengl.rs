@@ -394,7 +394,7 @@ impl Renderer for OpenGLRenderer {
         });
     }
 
-    fn draw(&mut self) {
+    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32) {
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -455,20 +455,20 @@ impl Renderer for OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
             let projection: [f32; 16] = [
-                2.0 / 800.0,
+                2.0 / src_w as f32,
                 0.0,
                 0.0,
                 0.0,
                 0.0,
-                -2.0 / 608.0,
+                -2.0 / src_h as f32,
                 0.0,
                 0.0,
                 0.0,
                 0.0,
                 1.0,
                 0.0,
-                -1.0,
-                1.0,
+                -(2.0 * (src_x as f32) / (src_w as f32) + 1.0),
+                2.0 * (src_y as f32) / (src_h as f32) + 1.0,
                 0.0,
                 1.0,
             ];
