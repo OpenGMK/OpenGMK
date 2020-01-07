@@ -280,7 +280,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                 )
             }
         }
-        renderer.draw();
+        renderer.draw(0, 0, room1.width as i32, room1.height as i32);
     }
 
     Ok(())

@@ -44,7 +44,7 @@ pub trait Renderer {
     );
 
     /// Updates the screen with new drawings for the current frame.
-    fn draw(&mut self);
+    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32);
 }
 
 pub struct RendererOptions<'a> {
