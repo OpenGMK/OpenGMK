@@ -394,7 +394,7 @@ impl Renderer for OpenGLRenderer {
         });
     }
 
-    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32) {
+    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32, angle: f32) {
         unsafe {
             gl::ClearColor(0.2, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -454,24 +454,31 @@ impl Renderer for OpenGLRenderer {
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-            let projection: [f32; 16] = [
-                2.0 / src_w as f32,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                -2.0 / src_h as f32,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                -(2.0 * (src_x as f32) / (src_w as f32) + 1.0),
-                2.0 * (src_y as f32) / (src_h as f32) + 1.0,
-                0.0,
-                1.0,
-            ];
+            let sin_angle = angle.sin();
+            let cos_angle = angle.cos();
+            let projection: [f32; 16] = mat4mult(
+                // translate middle of view to [0 0], rotate it, then squish it to screen size
+                mat4mult(
+                    [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        -((src_x as f32) + (src_w as f32 / 2.0)), -((src_y as f32) + (src_h as f32 / 2.0)), 0.0, 1.0,
+                    ],
+                    [
+                        cos_angle, sin_angle, 0.0, 0.0,
+                        -sin_angle, cos_angle, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0.0, 0.0, 0.0, 1.0,
+                    ]
+                ),
+                [
+                    2.0 / src_w as f32, 0.0, 0.0, 0.0,
+                    0.0, -2.0 / src_h as f32, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ]
+            );
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
                 1,
