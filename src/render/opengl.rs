@@ -331,19 +331,36 @@ impl Renderer for OpenGLRenderer {
         colour: i32,
         alpha: f64,
     ) {
-        // TODO: we need to store sprite origin for this
+        // Get atlas ref so we can check width, height and origin
+        // This unwrap is lazy, yes, but it'll be removed when we get rid of Texture handles anyway
+        let atlas_ref = self.atlas_refs.get(texture.0).unwrap();
+
         let translate_to_center: [f32; 16] = [
-            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, -0.5, 0.0, 1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            -atlas_ref.origin_x,
+            -atlas_ref.origin_y,
+            0.0,
+            1.0,
         ];
 
-        // TODO: need texture width for this one
         let scale: [f32; 16] = [
-            xscale as f32 * 64.0,
+            xscale as f32 * atlas_ref.w as f32,
             0.0,
             0.0,
             0.0,
             0.0,
-            yscale as f32 * 64.0,
+            yscale as f32 * atlas_ref.h as f32,
             0.0,
             0.0,
             0.0,
