@@ -61,7 +61,9 @@ pub struct DrawCommand {
 }
 
 macro_rules! shader_file {
-    ($path: expr) => { concat!(include_str!($path), "\0").as_bytes() };
+    ($path: expr) => {
+        concat!(include_str!($path), "\0").as_bytes()
+    };
 }
 
 const VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -96,7 +98,12 @@ impl OpenGLRenderer {
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
+            gl::ShaderSource(
+                vertex_shader,
+                1,
+                &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char),
+                ptr::null(),
+            );
             gl::CompileShader(vertex_shader);
 
             // Check for vertex shader compile errors
@@ -121,7 +128,12 @@ impl OpenGLRenderer {
 
             // Compile fragment shader
             let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
+            gl::ShaderSource(
+                fragment_shader,
+                1,
+                &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char),
+                ptr::null(),
+            );
             gl::CompileShader(fragment_shader);
 
             // Check for fragment shader compile errors
@@ -202,7 +214,7 @@ impl OpenGLRenderer {
 
             // Enable and disable GL features
             gl::Enable(gl::TEXTURE_2D);
-            gl::Enable(gl::CULL_FACE);
+            gl::Disable(gl::CULL_FACE);
             gl::Enable(gl::BLEND);
             gl::Disable(gl::DEPTH_TEST);
 
@@ -311,24 +323,55 @@ impl Renderer for OpenGLRenderer {
     fn draw_sprite(
         &mut self,
         texture: &Texture,
-        _x: f64,
-        _y: f64,
-        _xscale: f64,
-        _yscale: f64,
-        _angle: f64,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
         colour: i32,
         alpha: f64,
     ) {
-        let model_view_matrix: [f32; 16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+        // TODO: we need to store sprite origin for this
+        let translate_to_center: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, -0.5, 0.0, 1.0,
+        ];
+
+        // TODO: need texture width for this one
+        let scale: [f32; 16] = [
+            xscale as f32 * 64.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            yscale as f32 * 64.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        ];
+
+        let angle_sin = angle.sin() as f32;
+        let angle_cos = angle.cos() as f32;
+        let rotate: [f32; 16] = [
+            angle_cos, angle_sin, 0.0, 0.0, -angle_sin, angle_cos, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+
+        let translate_to_world: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x as f32, y as f32, 0.0, 1.0,
         ];
 
         self.draw_commands.push(DrawCommand {
             texture: texture.0,
-            model_view_matrix,
+            model_view_matrix: mat4mult(
+                mat4mult(mat4mult(translate_to_center, scale), rotate),
+                translate_to_world,
+            ),
             colour,
             alpha,
         });
@@ -343,17 +386,50 @@ impl Renderer for OpenGLRenderer {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, (size_of::<DrawCommand>() * self.draw_commands.len()) as _, self.draw_commands.as_ptr() as _, gl::STATIC_DRAW);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<DrawCommand>() * self.draw_commands.len()) as _,
+                self.draw_commands.as_ptr() as _,
+                gl::STATIC_DRAW,
+            );
 
             let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
             gl::EnableVertexAttribArray(glsl_model_view);
-            gl::VertexAttribPointer(glsl_model_view, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, offset_of!(DrawCommand, model_view_matrix) as *const _);
+            gl::VertexAttribPointer(
+                glsl_model_view,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                offset_of!(DrawCommand, model_view_matrix) as *const _,
+            );
             gl::EnableVertexAttribArray(glsl_model_view + 1);
-            gl::VertexAttribPointer(glsl_model_view + 1, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (4  * size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(
+                glsl_model_view + 1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
+            );
             gl::EnableVertexAttribArray(glsl_model_view + 2);
-            gl::VertexAttribPointer(glsl_model_view + 2, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (8  * size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(
+                glsl_model_view + 2,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
+            );
             gl::EnableVertexAttribArray(glsl_model_view + 3);
-            gl::VertexAttribPointer(glsl_model_view + 3, 4, gl::FLOAT, gl::FALSE, size_of::<DrawCommand>() as i32, (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _);
+            gl::VertexAttribPointer(
+                glsl_model_view + 3,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
+            );
             gl::VertexAttribDivisor(glsl_model_view, 1);
             gl::VertexAttribDivisor(glsl_model_view + 1, 1);
             gl::VertexAttribDivisor(glsl_model_view + 2, 1);
@@ -362,12 +438,29 @@ impl Renderer for OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
             let projection: [f32; 16] = [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 1.0,
+                2.0 / 800.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -2.0 / 608.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                -1.0,
+                1.0,
+                0.0,
+                1.0,
             ];
-            gl::UniformMatrix4fv(gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _), 1, gl::FALSE, &projection as _);
+            gl::UniformMatrix4fv(
+                gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
+                1,
+                gl::FALSE,
+                &projection as _,
+            );
 
             gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
 
@@ -428,4 +521,26 @@ impl Drop for OpenGLRenderer {
             gl::DeleteTextures(self.texture_ids.len() as _, self.texture_ids.as_mut_ptr() as *mut _);
         }
     }
+}
+
+// Helper fn - multiply two mat4s together
+fn mat4mult(m1: [f32; 16], m2: [f32; 16]) -> [f32; 16] {
+    [
+        (m1[0] * m2[0]) + (m1[1] * m2[4]) + (m1[2] * m2[8]) + (m1[3] * m2[12]),
+        (m1[0] * m2[1]) + (m1[1] * m2[5]) + (m1[2] * m2[9]) + (m1[3] * m2[13]),
+        (m1[0] * m2[2]) + (m1[1] * m2[6]) + (m1[2] * m2[10]) + (m1[3] * m2[14]),
+        (m1[0] * m2[3]) + (m1[1] * m2[7]) + (m1[2] * m2[11]) + (m1[3] * m2[15]),
+        (m1[4] * m2[0]) + (m1[5] * m2[4]) + (m1[6] * m2[8]) + (m1[7] * m2[12]),
+        (m1[4] * m2[1]) + (m1[5] * m2[5]) + (m1[6] * m2[9]) + (m1[7] * m2[13]),
+        (m1[4] * m2[2]) + (m1[5] * m2[6]) + (m1[6] * m2[10]) + (m1[7] * m2[14]),
+        (m1[4] * m2[3]) + (m1[5] * m2[7]) + (m1[6] * m2[11]) + (m1[7] * m2[15]),
+        (m1[8] * m2[0]) + (m1[9] * m2[4]) + (m1[10] * m2[8]) + (m1[11] * m2[12]),
+        (m1[8] * m2[1]) + (m1[9] * m2[5]) + (m1[10] * m2[9]) + (m1[11] * m2[13]),
+        (m1[8] * m2[2]) + (m1[9] * m2[6]) + (m1[10] * m2[10]) + (m1[11] * m2[14]),
+        (m1[8] * m2[3]) + (m1[9] * m2[7]) + (m1[10] * m2[11]) + (m1[11] * m2[15]),
+        (m1[12] * m2[0]) + (m1[13] * m2[4]) + (m1[14] * m2[8]) + (m1[15] * m2[12]),
+        (m1[12] * m2[1]) + (m1[13] * m2[5]) + (m1[14] * m2[9]) + (m1[15] * m2[13]),
+        (m1[12] * m2[2]) + (m1[13] * m2[6]) + (m1[14] * m2[10]) + (m1[15] * m2[14]),
+        (m1[12] * m2[3]) + (m1[13] * m2[7]) + (m1[14] * m2[11]) + (m1[15] * m2[15]),
+    ]
 }
