@@ -112,6 +112,8 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         .map(|o| {
             o.map(|b| {
                 let (w, h) = b.frames.first().map_or((0, 0), |f| (f.width, f.height));
+                let origin_x = b.origin_x;
+                let origin_y = b.origin_y;
                 Box::new(Sprite {
                     name: b.name,
                     frames: b
@@ -120,7 +122,9 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                         .map(|f| Frame {
                             width: f.width,
                             height: f.height,
-                            texture: atlases.texture(f.width as _, f.height as _, f.data).unwrap(),
+                            texture: atlases
+                                .texture(f.width as _, f.height as _, origin_x, origin_y, f.data)
+                                .unwrap(),
                         })
                         .collect(),
                     colliders: b
@@ -138,8 +142,8 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                         .collect(),
                     width: w,
                     height: h,
-                    origin_x: b.origin_x,
-                    origin_y: b.origin_y,
+                    origin_x,
+                    origin_y,
                     per_frame_colliders: b.per_frame_colliders,
                 })
             })
@@ -156,7 +160,9 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     name: b.name,
                     width,
                     height,
-                    texture: b.data.map(|d| atlases.texture(width as _, height as _, d).unwrap()),
+                    texture: b
+                        .data
+                        .map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
                 }
             })
         })
@@ -177,6 +183,8 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     .texture(
                         b.map_width as _,
                         b.map_height as _,
+                        0,
+                        0,
                         b.pixel_map
                             .into_iter()
                             .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))

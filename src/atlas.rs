@@ -20,6 +20,10 @@ pub struct AtlasRef {
     pub h: i32,
     pub x: i32,
     pub y: i32,
+
+    // Normalized to 0-1 by texture width and height
+    pub origin_x: f32,
+    pub origin_y: f32,
 }
 
 impl AtlasBuilder {
@@ -32,8 +36,21 @@ impl AtlasBuilder {
         }
     }
 
-    pub fn texture(&mut self, width: i32, height: i32, data: Box<[u8]>) -> Option<Texture> {
-        fn to_texture(id: u32, rect: rect_packer::Rect, data: Box<[u8]>) -> (AtlasRef, Box<[u8]>) {
+    pub fn texture(
+        &mut self,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+        data: Box<[u8]>,
+    ) -> Option<Texture> {
+        fn to_texture(
+            id: u32,
+            rect: rect_packer::Rect,
+            data: Box<[u8]>,
+            origin_x: i32,
+            origin_y: i32,
+        ) -> (AtlasRef, Box<[u8]>) {
             (
                 AtlasRef {
                     atlas_id: id,
@@ -41,6 +58,8 @@ impl AtlasBuilder {
                     h: rect.height,
                     x: rect.x,
                     y: rect.y,
+                    origin_x: (origin_x as f32 / rect.width as f32),
+                    origin_y: (origin_y as f32 / rect.height as f32),
                 },
                 data,
             )
@@ -52,7 +71,7 @@ impl AtlasBuilder {
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
             if let Some(rect) = packer.pack(width, height, false) {
-                self.textures.push(to_texture(id as _, rect, data));
+                self.textures.push(to_texture(id as _, rect, data, origin_x, origin_y));
                 return Some((self.textures.len() - 1).into());
             } else {
                 loop {
@@ -66,7 +85,7 @@ impl AtlasBuilder {
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
-                        self.textures.push(to_texture(id as _, rect, data));
+                        self.textures.push(to_texture(id as _, rect, data, origin_x, origin_y));
                         return Some((self.textures.len() - 1).into());
                     }
                 }
@@ -75,7 +94,7 @@ impl AtlasBuilder {
 
         let size = 4096.min(self.max_size);
         self.packers.push(DensePacker::new(size, size));
-        self.texture(width, height, data)
+        self.texture(width, height, origin_x, origin_y, data)
     }
 
     #[allow(clippy::type_complexity)] // It's for the Renderer only.
