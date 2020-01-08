@@ -335,60 +335,48 @@ impl Renderer for OpenGLRenderer {
         // This unwrap is lazy, yes, but it'll be removed when we get rid of Texture handles anyway
         let atlas_ref = self.atlas_refs.get(texture.0).unwrap();
 
-        let translate_to_center: [f32; 16] = [
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            -atlas_ref.origin_x,
-            -atlas_ref.origin_y,
-            0.0,
-            1.0,
-        ];
-
-        let scale: [f32; 16] = [
-            xscale as f32 * atlas_ref.w as f32,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            yscale as f32 * atlas_ref.h as f32,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-        ];
-
         let angle_sin = angle.sin() as f32;
         let angle_cos = angle.cos() as f32;
-        let rotate: [f32; 16] = [
-            angle_cos, angle_sin, 0.0, 0.0, -angle_sin, angle_cos, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-        ];
 
-        let translate_to_world: [f32; 16] = [
-            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x as f32, y as f32, 0.0, 1.0,
-        ];
+        #[rustfmt::skip]
+        let model_view_matrix = mat4mult(
+            mat4mult(
+                mat4mult(
+                    // Translate so sprite origin is at [0,0]
+                    [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
+                    ],
+                    // Scale according to image size and xscale/yscale
+                    [
+                        xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
+                        0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0.0, 0.0, 0.0, 1.0,
+                    ]
+                ),
+                // Rotate by image_angle
+                [
+                    angle_cos, angle_sin, 0.0, 0.0,
+                    -angle_sin, angle_cos, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ]
+            ),
+            // Move the image into "world coordinates"
+            [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                x as f32, y as f32, 0.0, 1.0,
+            ]
+        );
 
         self.draw_commands.push(DrawCommand {
             texture: texture.0,
-            model_view_matrix: mat4mult(
-                mat4mult(mat4mult(translate_to_center, scale), rotate),
-                translate_to_world,
-            ),
+            model_view_matrix,
             colour,
             alpha,
         });
@@ -456,15 +444,18 @@ impl Renderer for OpenGLRenderer {
 
             let sin_angle = angle.sin();
             let cos_angle = angle.cos();
+
+            #[rustfmt::skip]
             let projection: [f32; 16] = mat4mult(
-                // translate middle of view to [0 0], rotate it, then squish it to screen size
                 mat4mult(
+                    // Translate world so center of view is at [0,0]
                     [
                         1.0, 0.0, 0.0, 0.0,
                         0.0, 1.0, 0.0, 0.0,
                         0.0, 0.0, 1.0, 0.0,
                         -((src_x as f32) + (src_w as f32 / 2.0)), -((src_y as f32) + (src_h as f32 / 2.0)), 0.0, 1.0,
                     ],
+                    // Rotate to view_angle
                     [
                         cos_angle, sin_angle, 0.0, 0.0,
                         -sin_angle, cos_angle, 0.0, 0.0,
@@ -472,6 +463,7 @@ impl Renderer for OpenGLRenderer {
                         0.0, 0.0, 0.0, 1.0,
                     ]
                 ),
+                // Squish to screen (and flip upside down)
                 [
                     2.0 / src_w as f32, 0.0, 0.0, 0.0,
                     0.0, -2.0 / src_h as f32, 0.0, 0.0,
