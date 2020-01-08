@@ -250,10 +250,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // Important: show window
     renderer.show_window();
 
-    let mut angle = 0.0;
-
     while !renderer.should_close() {
-        angle += 0.0005;
         glfw.poll_events();
         for (_, event) in glfw::flush_messages(&events) {
             println!("Got event {:?}", event);
@@ -283,7 +280,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                 )
             }
         }
-        renderer.draw(0, 0, room1.width as i32, room1.height as i32, angle);
+        renderer.draw(0, 0, room1.width as i32, room1.height as i32, 0.0);
     }
 
     Ok(())
