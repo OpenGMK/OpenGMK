@@ -27,8 +27,22 @@ pub trait Renderer {
     /// Indicates that the window should be shown.
     fn show_window(&mut self);
 
-    /// Change window viewport size - typically called after the window is resized
-    fn set_viewport(&self, width: i32, height: i32);
+    /// Clears the current view rectangle. Colour channels are normalized between 0 and 1.
+    fn clear(&self, red: f32, green: f32, blue: f32);
+
+    /// Updates the view (source rectangle, angle and viewport) to use when drawing things.
+    fn set_view(
+        &mut self,
+        src_x: i32,
+        src_y: i32,
+        src_w: i32,
+        src_h: i32,
+        src_angle: f64,
+        port_x: i32,
+        port_y: i32,
+        port_w: i32,
+        port_h: i32,
+    );
 
     /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
     fn draw_sprite(
@@ -43,8 +57,8 @@ pub trait Renderer {
         alpha: f64,
     );
 
-    /// Updates the screen with new drawings for the current frame.
-    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32, angle: f32);
+    /// Updates the screen. Should be called only after drawing everything that should be in the current frame.
+    fn finish(&mut self);
 }
 
 pub struct RendererOptions<'a> {

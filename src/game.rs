@@ -255,9 +255,6 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         for (_, event) in glfw::flush_messages(&events) {
             println!("Got event {:?}", event);
             match event {
-                glfw::WindowEvent::FramebufferSize(width, height) => {
-                    renderer.set_viewport(width, height);
-                }
                 glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                     renderer.set_should_close(true);
                     continue; // So no draw events are fired while the window should be closing
@@ -266,6 +263,24 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
+        renderer.set_view(
+            0,
+            0,
+            room1.width as i32,
+            room1.height as i32,
+            0.0,
+            0,
+            0,
+            room1.width as i32,
+            room1.height as i32,
+        );
+        if room1.clear_screen {
+            renderer.clear(
+                room1.bg_colour.r as f32 / 255.0,
+                room1.bg_colour.g as f32 / 255.0,
+                room1.bg_colour.b as f32 / 255.0,
+            );
+        }
         for (_, instance) in instance_list.iter() {
             if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
                 renderer.draw_sprite(
@@ -280,7 +295,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                 )
             }
         }
-        renderer.draw(0, 0, room1.width as i32, room1.height as i32, 0.0);
+        renderer.finish();
     }
 
     Ok(())
