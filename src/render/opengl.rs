@@ -213,6 +213,7 @@ impl OpenGLRenderer {
             gl::EnableVertexAttribArray(0);
 
             // Enable and disable GL features
+            gl::Enable(gl::SCISSOR_TEST);
             gl::Enable(gl::TEXTURE_2D);
             gl::Disable(gl::CULL_FACE);
             gl::Enable(gl::BLEND);
@@ -240,6 +241,71 @@ impl OpenGLRenderer {
             atlas_refs: Vec::new(),
             texture_ids: Vec::new(),
         })
+    }
+
+    /// Does anything that's queued to be done.
+    fn flush(&mut self) {
+        unsafe {
+            let mut commands_vbo: GLuint = 0;
+            gl::GenBuffers(1, &mut commands_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<DrawCommand>() * self.draw_commands.len()) as _,
+                self.draw_commands.as_ptr() as _,
+                gl::STATIC_DRAW,
+            );
+
+            let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
+            gl::EnableVertexAttribArray(glsl_model_view);
+            gl::VertexAttribPointer(
+                glsl_model_view,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                offset_of!(DrawCommand, model_view_matrix) as *const _,
+            );
+            gl::EnableVertexAttribArray(glsl_model_view + 1);
+            gl::VertexAttribPointer(
+                glsl_model_view + 1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
+            );
+            gl::EnableVertexAttribArray(glsl_model_view + 2);
+            gl::VertexAttribPointer(
+                glsl_model_view + 2,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
+            );
+            gl::EnableVertexAttribArray(glsl_model_view + 3);
+            gl::VertexAttribPointer(
+                glsl_model_view + 3,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
+            );
+            gl::VertexAttribDivisor(glsl_model_view, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 1, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 2, 1);
+            gl::VertexAttribDivisor(glsl_model_view + 3, 1);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+
+            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
+
+            gl::DeleteBuffers(1, &commands_vbo);
+        }
+
+        self.draw_commands.clear();
     }
 }
 
@@ -382,109 +448,87 @@ impl Renderer for OpenGLRenderer {
         });
     }
 
-    fn draw(&mut self, src_x: i32, src_y: i32, src_w: i32, src_h: i32, angle: f32) {
+    fn clear(&self, red: f32, green: f32, blue: f32) {
         unsafe {
-            gl::ClearColor(0.2, 0.3, 0.3, 1.0);
+            gl::ClearColor(red, green, blue, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::UseProgram(self.program);
+        }
+    }
 
-            let mut commands_vbo: GLuint = 0;
-            gl::GenBuffers(1, &mut commands_vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<DrawCommand>() * self.draw_commands.len()) as _,
-                self.draw_commands.as_ptr() as _,
-                gl::STATIC_DRAW,
-            );
+    fn set_view(
+        &mut self,
+        src_x: i32,
+        src_y: i32,
+        src_w: i32,
+        src_h: i32,
+        src_angle: f64,
+        port_x: i32,
+        port_y: i32,
+        port_w: i32,
+        port_h: i32,
+    ) {
+        // Draw anything that was meant to be drawn with the old view first
+        self.flush();
 
-            let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
-            gl::EnableVertexAttribArray(glsl_model_view);
-            gl::VertexAttribPointer(
-                glsl_model_view,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, model_view_matrix) as *const _,
-            );
-            gl::EnableVertexAttribArray(glsl_model_view + 1);
-            gl::VertexAttribPointer(
-                glsl_model_view + 1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
-            );
-            gl::EnableVertexAttribArray(glsl_model_view + 2);
-            gl::VertexAttribPointer(
-                glsl_model_view + 2,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
-            );
-            gl::EnableVertexAttribArray(glsl_model_view + 3);
-            gl::VertexAttribPointer(
-                glsl_model_view + 3,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
-            );
-            gl::VertexAttribDivisor(glsl_model_view, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 1, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 2, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 3, 1);
+        // Make projection matrix for new view
+        let sin_angle = src_angle.sin() as f32;
+        let cos_angle = src_angle.cos() as f32;
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-
-            let sin_angle = angle.sin();
-            let cos_angle = angle.cos();
-
-            #[rustfmt::skip]
-            let projection: [f32; 16] = mat4mult(
-                mat4mult(
-                    // Translate world so center of view is at [0,0]
-                    [
-                        1.0, 0.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        -((src_x as f32) + (src_w as f32 / 2.0)), -((src_y as f32) + (src_h as f32 / 2.0)), 0.0, 1.0,
-                    ],
-                    // Rotate to view_angle
-                    [
-                        cos_angle, sin_angle, 0.0, 0.0,
-                        -sin_angle, cos_angle, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        0.0, 0.0, 0.0, 1.0,
-                    ]
-                ),
-                // Squish to screen (and flip upside down)
+        #[rustfmt::skip]
+        let projection: [f32; 16] = mat4mult(
+            mat4mult(
+                // Translate world so center of view is at [0,0]
                 [
-                    2.0 / src_w as f32, 0.0, 0.0, 0.0,
-                    0.0, -2.0 / src_h as f32, 0.0, 0.0,
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    -((src_x as f32) + (src_w as f32 / 2.0)), -((src_y as f32) + (src_h as f32 / 2.0)), 0.0, 1.0,
+                ],
+                // Rotate to view_angle
+                [
+                    cos_angle, sin_angle, 0.0, 0.0,
+                    -sin_angle, cos_angle, 0.0, 0.0,
                     0.0, 0.0, 1.0, 0.0,
                     0.0, 0.0, 0.0, 1.0,
                 ]
-            );
+            ),
+            // Squish to screen (and flip upside down)
+            [
+                2.0 / src_w as f32, 0.0, 0.0, 0.0,
+                0.0, -2.0 / src_h as f32, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ]
+        );
+
+        // Set viewport (gl::Viewport) and projection matrix (shader uniform)
+        // TODO: scale these if window is resized (self.window.get_size()), also they're upside down I think?
+        unsafe {
+            gl::Viewport(port_x, port_y, port_w, port_h);
+            gl::Scissor(port_x, port_y, port_w, port_h);
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
                 1,
                 gl::FALSE,
                 &projection as _,
             );
-
-            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
-
-            gl::DeleteBuffers(1, &commands_vbo);
         }
+    }
 
-        self.draw_commands.clear();
+    fn finish(&mut self) {
+        // Finish drawing frame
+        self.flush();
         self.window.swap_buffers();
+
+        // Start next frame
+        let (window_w, window_h) = self.window.get_size();
+        unsafe {
+            gl::Viewport(0, 0, window_w, window_h);
+            gl::Scissor(0, 0, window_w, window_h);
+            gl::ClearColor(0.2, 0.3, 0.3, 1.0); // TODO: use clear_colour setting
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::UseProgram(self.program);
+        }
     }
 
     fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
@@ -522,12 +566,6 @@ impl Renderer for OpenGLRenderer {
 
     fn show_window(&mut self) {
         self.window.show()
-    }
-
-    fn set_viewport(&self, width: i32, height: i32) {
-        unsafe {
-            gl::Viewport(0, 0, width, height);
-        }
     }
 }
 
