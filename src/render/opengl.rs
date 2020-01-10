@@ -501,11 +501,12 @@ impl Renderer for OpenGLRenderer {
             ]
         );
 
-        // Set viewport (gl::Viewport) and projection matrix (shader uniform)
-        // TODO: scale these if window is resized (self.window.get_size()), also they're upside down I think?
+        // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
+        // TODO: scale these according to scaling setting if window is resized
+        let (_width, height) = self.window.get_size();
         unsafe {
-            gl::Viewport(port_x, port_y, port_w, port_h);
-            gl::Scissor(port_x, port_y, port_w, port_h);
+            gl::Viewport(port_x, height - (port_y + port_h), port_w, port_h);
+            gl::Scissor(port_x, height - (port_y + port_h), port_w, port_h);
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
                 1,
