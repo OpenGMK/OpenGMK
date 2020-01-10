@@ -33,6 +33,11 @@ pub struct OpenGLRenderer {
     // GLFW
     window: glfw::Window,
 
+    // Width the window is supposed to have, assuming it hasn't been resized by the user
+    unscaled_width: u32,
+    // Height the window is supposed to have, assuming it hasn't been resized by the user
+    unscaled_height: u32,
+
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
 
@@ -229,6 +234,9 @@ impl OpenGLRenderer {
 
         Ok(Self {
             window,
+
+            unscaled_width: options.size.0,
+            unscaled_height: options.size.1,
 
             draw_commands: Vec::with_capacity(256),
 
@@ -501,12 +509,18 @@ impl Renderer for OpenGLRenderer {
             ]
         );
 
+        // Do scaling by comparing unscaled window size to actual size
+        // TODO: use the scaling setting correctly
+        let (width, height) = self.window.get_size();
+        let port_w = ((port_w * width) as f64 / self.unscaled_width as f64) as i32;
+        let port_h = ((port_h * height) as f64 / self.unscaled_height as f64) as i32;
+        let port_x = ((port_x * width) as f64 / self.unscaled_width as f64) as i32;
+        let port_y = height - (((port_y * height) as f64 / self.unscaled_height as f64) as i32 + port_h);
+
         // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
-        // TODO: scale these according to scaling setting if window is resized
-        let (_width, height) = self.window.get_size();
         unsafe {
-            gl::Viewport(port_x, height - (port_y + port_h), port_w, port_h);
-            gl::Scissor(port_x, height - (port_y + port_h), port_w, port_h);
+            gl::Viewport(port_x, port_y, port_w, port_h);
+            gl::Scissor(port_x, port_y, port_w, port_h);
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
                 1,
@@ -567,6 +581,15 @@ impl Renderer for OpenGLRenderer {
 
     fn show_window(&mut self) {
         self.window.show()
+    }
+
+    fn resize_window(&mut self, width: u32, height: u32) {
+        // GameMaker only actually resizes the window if the expected (unscaled) size is changing.
+        if self.unscaled_width != width || self.unscaled_height != height {
+            self.unscaled_width = width;
+            self.unscaled_height = height;
+            self.window.set_size(width as _, height as _);
+        }
     }
 }
 
