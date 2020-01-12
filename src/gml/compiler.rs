@@ -10,18 +10,22 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new() -> Self {
+    pub fn new(constants_size_hint: usize) -> Self {
+        let mut constants = HashMap::with_capacity(constants_size_hint + super::CONSTANTS.len());
+        super::CONSTANTS.iter().for_each(|(name, value)| {
+            constants.insert(String::from(*name), Value::Real(*value));
+        });
         Self {
-            constants: HashMap::new(),
+            constants,
             fields: vec![],
         }
     }
 
     pub fn compile(source: &str) -> Result<Vec<Instruction>, String> {
-        let my_ast = ast::AST::new(source).map_err(|e| e.message)?; // I can't call it "ast", so...
+        let ast = ast::AST::new(source).map_err(|e| e.message)?;
 
         let instructions = Vec::new();
-        for _node in my_ast.into_iter() {
+        for _node in ast.into_iter() {
             // TODO: this
         }
         Ok(instructions)
