@@ -430,17 +430,17 @@ impl Renderer for OpenGLRenderer {
                 ),
                 // Rotate by image_angle
                 [
-                    angle_cos, angle_sin, 0.0, 0.0,
+                    angle_cos,  angle_sin, 0.0, 0.0,
                     -angle_sin, angle_cos, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0,
+                    0.0,        0.0,       1.0, 0.0,
+                    0.0,        0.0,       0.0, 1.0,
                 ]
             ),
             // Move the image into "world coordinates"
             [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
+                1.0,      0.0,      0.0, 0.0,
+                0.0,      1.0,      0.0, 0.0,
+                0.0,      0.0,      1.0, 0.0,
                 x as f32, y as f32, 0.0, 1.0,
             ]
         );
