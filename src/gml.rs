@@ -8,8 +8,8 @@ pub use compiler::Compiler;
 
 pub const SELF: i32 = -1;
 pub const OTHER: i32 = -2;
-pub const NOONE: i32 = -3;
-pub const ALL: i32 = -4;
+pub const ALL: i32 = -3;
+pub const NOONE: i32 = -4;
 pub const GLOBAL: i32 = -5;
 pub const LOCAL: i32 = -7;
 
