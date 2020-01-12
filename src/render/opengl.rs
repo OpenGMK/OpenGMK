@@ -483,31 +483,36 @@ impl Renderer for OpenGLRenderer {
         let cos_angle = src_angle.cos() as f32;
 
         #[rustfmt::skip]
-        let projection: [f32; 16] = mat4mult(
+        let projection: [f32; 16] = {
+            // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
+            let scx = -((src_x as f32) + (src_w as f32 / 2.0));
+            let scy = -((src_y as f32) + (src_h as f32 / 2.0));
             mat4mult(
-                // Translate world so center of view is at [0,0]
+                mat4mult(
+                    // Translate world so center of view is at [0,0]
+                    [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        scx, scy, 0.0, 1.0,
+                    ],
+                    // Rotate to view_angle
+                    [
+                        cos_angle,  sin_angle, 0.0, 0.0,
+                        -sin_angle, cos_angle, 0.0, 0.0,
+                        0.0,        0.0,       1.0, 0.0,
+                        0.0,        0.0,       0.0, 1.0,
+                    ]
+                ),
+                // Squish to screen (and flip upside down)
                 [
-                    1.0, 0.0, 0.0, 0.0,
-                    0.0, 1.0, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    -((src_x as f32) + (src_w as f32 / 2.0)), -((src_y as f32) + (src_h as f32 / 2.0)), 0.0, 1.0,
-                ],
-                // Rotate to view_angle
-                [
-                    cos_angle, sin_angle, 0.0, 0.0,
-                    -sin_angle, cos_angle, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0,
+                    2.0 / src_w as f32, 0.0,                 0.0, 0.0,
+                    0.0,                -2.0 / src_h as f32, 0.0, 0.0,
+                    0.0,                0.0,                 1.0, 0.0,
+                    0.0,                0.0,                 0.0, 1.0,
                 ]
-            ),
-            // Squish to screen (and flip upside down)
-            [
-                2.0 / src_w as f32, 0.0, 0.0, 0.0,
-                0.0, -2.0 / src_h as f32, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 1.0,
-            ]
-        );
+            )
+        };
 
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
@@ -522,7 +527,7 @@ impl Renderer for OpenGLRenderer {
             gl::Viewport(port_x, port_y, port_w, port_h);
             gl::Scissor(port_x, port_y, port_w, port_h);
             gl::UniformMatrix4fv(
-                gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as _),
+                gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as *const c_char),
                 1,
                 gl::FALSE,
                 &projection as _,
