@@ -122,7 +122,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                         .map(|f| Frame {
                             width: f.width,
                             height: f.height,
-                            texture: atlases
+                            atlas_ref: atlases
                                 .texture(f.width as _, f.height as _, origin_x, origin_y, f.data)
                                 .unwrap(),
                         })
@@ -160,7 +160,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     name: b.name,
                     width,
                     height,
-                    texture: b
+                    atlas_ref: b
                         .data
                         .map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
                 }
@@ -179,7 +179,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                 italic: b.italic,
                 first: b.range_start,
                 last: b.range_end,
-                texture: atlases
+                atlas_ref: atlases
                     .texture(
                         b.map_width as _,
                         b.map_height as _,
@@ -284,7 +284,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         for (_, instance) in instance_list.iter() {
             if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
                 renderer.draw_sprite(
-                    &sprite.frames.first().unwrap().texture,
+                    &sprite.frames.first().unwrap().atlas_ref,
                     instance.x,
                     instance.y,
                     instance.image_xscale,

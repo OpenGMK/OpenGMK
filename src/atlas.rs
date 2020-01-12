@@ -1,4 +1,3 @@
-use crate::render::Texture;
 use rect_packer::DensePacker;
 
 #[inline]
@@ -43,7 +42,7 @@ impl AtlasBuilder {
         origin_x: i32,
         origin_y: i32,
         data: Box<[u8]>,
-    ) -> Option<Texture> {
+    ) -> Option<AtlasRef> {
         fn to_texture(
             id: u32,
             rect: rect_packer::Rect,
@@ -71,8 +70,9 @@ impl AtlasBuilder {
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
             if let Some(rect) = packer.pack(width, height, false) {
-                self.textures.push(to_texture(id as _, rect, data, origin_x, origin_y));
-                return Some((self.textures.len() - 1).into());
+                let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                self.textures.push((atlas_ref.clone(), data));
+                return Some(atlas_ref);
             } else {
                 loop {
                     let (pwidth, pheight) = packer.size();
@@ -85,8 +85,9 @@ impl AtlasBuilder {
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
-                        self.textures.push(to_texture(id as _, rect, data, origin_x, origin_y));
-                        return Some((self.textures.len() - 1).into());
+                        let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                        self.textures.push((atlas_ref.clone(), data));
+                        return Some(atlas_ref);
                     }
                 }
             }
