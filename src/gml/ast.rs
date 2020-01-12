@@ -3,7 +3,7 @@ use super::token::{Keyword, Operator, Separator, Token};
 
 use std::{
     error, fmt,
-    iter::Peekable,
+    iter::{IntoIterator, Peekable},
     ops::{Deref, DerefMut},
 };
 
@@ -226,6 +226,14 @@ impl<'a> Deref for AST<'a> {
 impl<'a> DerefMut for AST<'a> {
     fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
         &mut self.0
+    }
+}
+
+impl<'a> IntoIterator for AST<'a> {
+    type Item = Expr<'a>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
