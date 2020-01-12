@@ -1,7 +1,10 @@
 pub mod ast;
+pub mod compiler;
 pub mod lexer;
 pub mod rand;
 pub mod token;
+
+pub use compiler::Compiler;
 
 pub const SELF: i32 = -1;
 pub const OTHER: i32 = -2;
