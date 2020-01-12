@@ -22,4 +22,4 @@ rect_packer = "0.2.1"
 [profile.release]
 codegen-units = 1
 lto = true
-panic = "abort"
+opt-level = 3
