@@ -231,7 +231,8 @@ impl<'a> DerefMut for AST<'a> {
 
 impl<'a> IntoIterator for AST<'a> {
     type Item = Expr<'a>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = <Vec<Self::Item> as IntoIterator>::IntoIter;
+
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
