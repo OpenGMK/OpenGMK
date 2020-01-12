@@ -1,4 +1,4 @@
-use crate::render::Texture;
+use crate::render::AtlasRef;
 
 pub struct Font {
     pub name: String,
@@ -8,7 +8,7 @@ pub struct Font {
     pub italic: bool,
     pub first: u32,
     pub last: u32,
-    pub texture: Texture,
+    pub atlas_ref: AtlasRef,
     pub chars: Box<[Character]>,
 }
 

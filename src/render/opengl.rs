@@ -12,7 +12,7 @@ use memoffset::offset_of;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{Renderer, RendererOptions, Texture},
+    render::{Renderer, RendererOptions},
 };
 use glfw::Context;
 use rect_packer::DensePacker;
@@ -59,7 +59,7 @@ pub struct OpenGLRenderer {
 
 // A command to draw a sprite or section of a sprite. These are queued and executed
 pub struct DrawCommand {
-    pub texture: usize,
+    pub atlas_ref: AtlasRef,
     pub model_view_matrix: [f32; 16],
     pub colour: i32,
     pub alpha: f64,
@@ -396,7 +396,7 @@ impl Renderer for OpenGLRenderer {
 
     fn draw_sprite(
         &mut self,
-        texture: &Texture,
+        atlas_ref: &AtlasRef,
         x: f64,
         y: f64,
         xscale: f64,
@@ -405,10 +405,7 @@ impl Renderer for OpenGLRenderer {
         colour: i32,
         alpha: f64,
     ) {
-        // Get atlas ref so we can check width, height and origin
-        // This unwrap is lazy, yes, but it'll be removed when we get rid of Texture handles anyway
-        let atlas_ref = self.atlas_refs.get(texture.0).unwrap();
-
+        let atlas_ref = atlas_ref.clone();
         let angle_sin = angle.sin() as f32;
         let angle_cos = angle.cos() as f32;
 
@@ -449,7 +446,7 @@ impl Renderer for OpenGLRenderer {
         );
 
         self.draw_commands.push(DrawCommand {
-            texture: texture.0,
+            atlas_ref,
             model_view_matrix,
             colour,
             alpha,

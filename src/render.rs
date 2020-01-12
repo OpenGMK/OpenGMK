@@ -5,6 +5,9 @@ pub mod opengl;
 use crate::atlas::AtlasBuilder;
 use std::{io, path::PathBuf};
 
+// Re-export for more logical module pathing
+pub use crate::atlas::AtlasRef;
+
 pub trait Renderer {
     /// Stores & uploads atlases to the GPU.
     /// This function is for initializing, and should be called only once.
@@ -50,7 +53,7 @@ pub trait Renderer {
     /// Draws a sprite to the screen. Parameters are similar to those of GML's draw_sprite_ext.
     fn draw_sprite(
         &mut self,
-        texture: &Texture,
+        texture: &AtlasRef,
         x: f64,
         y: f64,
         xscale: f64,
@@ -73,12 +76,4 @@ pub struct RendererOptions<'a> {
     pub decorations: bool,
     pub fullscreen: bool,
     pub vsync: bool,
-}
-
-pub struct Texture(usize);
-
-impl From<usize> for Texture {
-    fn from(n: usize) -> Self {
-        Texture(n)
-    }
 }

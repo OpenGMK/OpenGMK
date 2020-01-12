@@ -1,8 +1,8 @@
-use crate::render::Texture;
+use crate::render::AtlasRef;
 
 pub struct Background {
     pub name: String,
     pub width: u32,
     pub height: u32,
-    pub texture: Option<Texture>,
+    pub atlas_ref: Option<AtlasRef>,
 }

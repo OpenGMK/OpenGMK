@@ -1,4 +1,4 @@
-use crate::render::Texture;
+use crate::render::AtlasRef;
 
 pub struct Sprite {
     pub name: String,
@@ -14,7 +14,7 @@ pub struct Sprite {
 pub struct Frame {
     pub width: u32,
     pub height: u32,
-    pub texture: Texture,
+    pub atlas_ref: AtlasRef,
 }
 
 pub struct Collider {
