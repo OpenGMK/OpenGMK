@@ -31,11 +31,11 @@ pub struct CodeAction {
     /// What action library the action is loaded from (GameMaker 8 Runner).
     pub lib_id: u32,
 
-    /// What tab it appears in inside the GameMaker 8 IDE.
+    /// What type of drag-n-drop action this is.
     pub action_kind: u32,
 
-    /// What offset appears in the GameMaker 8 IDE in its respective tab.
-    pub action_idx: u32,
+    /// How this action will be executed: None, Function or Code.
+    pub execution_type: u32,
 
     /// Whether the relative checkbox appears in the GameMaker 8 IDE.
     pub can_be_relative: u32,
@@ -72,7 +72,7 @@ impl CodeAction {
         let can_be_relative = reader.read_u32_le()?;
         let is_condition = reader.read_u32_le()? != 0;
         let applies_to_something = reader.read_u32_le()? != 0;
-        let action_idx = reader.read_u32_le()?;
+        let execution_type = reader.read_u32_le()?;
 
         let fn_name = reader.read_pas_string()?;
         let fn_code = reader.read_pas_string()?;
@@ -117,7 +117,7 @@ impl CodeAction {
             action_kind,
             can_be_relative,
             applies_to_something,
-            action_idx,
+            execution_type,
             fn_name,
             fn_code,
             param_count,
@@ -137,7 +137,7 @@ impl CodeAction {
         result += writer.write_u32_le(self.can_be_relative)?;
         result += writer.write_u32_le(self.is_condition as u32)?;
         result += writer.write_u32_le(self.applies_to_something as u32)?;
-        result += writer.write_u32_le(self.action_idx)?;
+        result += writer.write_u32_le(self.execution_type)?;
         result += writer.write_pas_string(&self.fn_name)?;
         result += writer.write_pas_string(&self.fn_code)?;
         result += writer.write_u32_le(self.param_count as u32)?;

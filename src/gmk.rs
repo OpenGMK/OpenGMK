@@ -474,7 +474,7 @@ where
     result += writer.write_u32_le(action.can_be_relative)?;
     result += writer.write_u32_le(action.is_condition as u32)?;
     result += writer.write_u32_le(action.applies_to_something as u32)?;
-    result += writer.write_u32_le(action.action_idx)?;
+    result += writer.write_u32_le(action.execution_type)?;
     result += writer.write_pas_string(&action.fn_name)?;
     result += writer.write_pas_string(&action.fn_code)?;
 
