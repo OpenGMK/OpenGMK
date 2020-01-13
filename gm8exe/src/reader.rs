@@ -311,7 +311,7 @@ where
         log!(
             logger,
             "   - Colour outside the room region (RGBA): #{:0>8X}",
-            0x1234
+            clear_colour
         );
 
         log!(
