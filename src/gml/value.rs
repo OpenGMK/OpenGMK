@@ -8,6 +8,18 @@ pub enum Value {
 
 pub(self) use Value::*;
 
+impl Value {
+    /// GML-like comparison, fails if self and other are different types.
+    fn almost_equals(&self, other: &Self) -> Result<bool, &'static str> {
+        match (self, other) {
+            (Real(a), Real(b)) => Ok((a - b).abs() <= 1e-14),
+            (Str(a), Str(b)) => Ok(a.as_ref() == b.as_ref()),
+            (Real(_), Str(_)) => Err("cannot compare arguments (real == string)"),
+            (Str(_), Real(_)) => Err("cannot compare arguments (string == real)"),
+        }
+    }
+}
+
 impl Add for Value {
     type Output = Result<Self, &'static str>;
 
@@ -26,16 +38,6 @@ impl Add for Value {
     }
 }
 
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Real(a), Real(b)) => a == b,
-            (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
-            _ => false,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -44,11 +46,21 @@ mod tests {
     fn op_add() {
         let a = Real(0.1);
         let b = Real(0.2);
-        assert_eq!(a + b, Ok(Real(0.30000000000000004)));
+        assert!(
+            (a + b)
+                .unwrap()
+                .almost_equals(&Real(0.30000000000000004))
+                .unwrap_or(false)
+        );
 
         let c = Str("Hello, ".to_string().into());
         let d = Str("world!".to_string().into());
-        assert_eq!(c + d, Ok(Str("Hello, world!".to_string().into())));
+        assert!(
+            (c + d)
+                .unwrap()
+                .almost_equals(&Str("Hello, world!".to_string().into()))
+                .unwrap_or(false)
+        );
 
         assert!((Real(0.1) + Str("hi".to_string().into())).is_err());
         assert!((Str("hi".to_string().into()) + Real(0.1)).is_err());
