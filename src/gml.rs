@@ -1,3 +1,12 @@
+#[macro_use]
+macro_rules! gml_panic {
+    ($message: expr) => {
+        panic!($crate::gml::RuntimeError {
+            reason: $message.into()
+        })
+    };
+}
+
 pub mod ast;
 pub mod compiler;
 pub mod lexer;
@@ -34,6 +43,11 @@ pub mod ev {
 pub enum Instruction {
     // TODO: GML runtime instructions
     InterpretationError { error: String },
+}
+
+pub struct RuntimeError {
+    reason: String,
+    // Probably could add more useful things later.
 }
 
 /// Default numerical constants for GML
