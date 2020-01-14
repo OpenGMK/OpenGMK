@@ -12,7 +12,6 @@ pub struct Compiler {
 pub enum Error {
     ASTError(String),
     GMLError(String),
-    DnDError(String),
 }
 
 impl Compiler {
@@ -24,16 +23,11 @@ impl Compiler {
         });
         Self {
             constants,
-            fields: vec![],
+            fields: Vec::new(),
         }
     }
 
-    /// Compile the basic components of a drag-and-drop action into a list of Instructions.
-    pub fn compile_action(&mut self) -> Result<Vec<Instruction>, Error> {
-        // TODO: this
-        Ok(vec![])
-    }
-
+    /// Compile a GML string into instructions.
     pub fn compile(&mut self, source: &str) -> Result<Vec<Instruction>, Error> {
         let ast = ast::AST::new(source).map_err(|e| Error::ASTError(e.message))?;
 
