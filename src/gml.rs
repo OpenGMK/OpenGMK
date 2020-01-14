@@ -3,8 +3,10 @@ pub mod compiler;
 pub mod lexer;
 pub mod rand;
 pub mod token;
+pub mod value;
 
 pub use compiler::Compiler;
+pub use value::Value;
 
 pub const SELF: i32 = -1;
 pub const OTHER: i32 = -2;
@@ -26,12 +28,6 @@ pub mod ev {
     pub const KEYPRESS: usize = 9;
     pub const KEYRELEASE: usize = 10;
     pub const TRIGGER: usize = 11;
-}
-
-#[derive(Debug)]
-pub enum Value {
-    Real(f64),
-    String(String),
 }
 
 #[derive(Debug)]
