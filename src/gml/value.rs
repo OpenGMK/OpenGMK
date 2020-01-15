@@ -1,4 +1,10 @@
-use std::{ops::Add, rc::Rc};
+use std::{
+    ops::{
+        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign,
+        Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    },
+    rc::Rc,
+};
 
 #[derive(Debug)]
 pub enum Value {
@@ -32,8 +38,24 @@ impl Add for Value {
                 string.push_str(rhs.as_ref());
                 Rc::from(string)
             }),
-            (Real(_), Str(_)) => gml_panic!("invalid operands to add (real + string)"),
-            (Str(_), Real(_)) => gml_panic!("invalid operands to add (string + real)"),
+            (Real(_), Str(_)) => gml_panic!("invalid arguments to + (real + string)"),
+            (Str(_), Real(_)) => gml_panic!("invalid arguments to + (string + real)"),
+        }
+    }
+}
+
+impl AddAssign for Value {
+    fn add_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs += rhs,
+            (Str(lhs), Str(ref rhs)) => {
+                let mut string = String::with_capacity(lhs.len() + rhs.len());
+                string.push_str(lhs.as_ref());
+                string.push_str(rhs.as_ref());
+                *lhs = string.into();
+            },
+            (Real(_), Str(_)) => gml_panic!("invalid arguments to += (real += string)"),
+            (Str(_), Real(_)) => gml_panic!("invalid arguments to += (string += real)"),
         }
     }
 }
