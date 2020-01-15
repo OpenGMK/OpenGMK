@@ -1516,4 +1516,47 @@ mod tests {
         // var syntax - invalid comma
         assert_ast("var, a;", None)
     }
+
+    #[test]
+    fn expression_literal_real() {
+        // expression - single literal real
+        assert_eq!(
+            AST::expression("1").unwrap(),
+            Expr::LiteralReal(1.0),
+        );
+    }
+
+    #[test]
+    fn expression_literal_identifier() {
+        // expression - literal identifier
+        assert_eq!(
+            AST::expression("a").unwrap(),
+            Expr::LiteralIdentifier("a"),
+        );
+    }
+
+    #[test]
+    fn expression_with_operators() {
+        // expression - unary and binary operators
+        assert_eq!(
+            AST::expression("1 * -2").unwrap(),
+            Expr::Binary(Box::new(BinaryExpr {
+                op: Operator::Multiply,
+                left: Expr::LiteralReal(1.0),
+                right: Expr::Unary(Box::new(UnaryExpr {
+                    op: Operator::Subtract,
+                    child: Expr::LiteralReal(2.0),
+                })),
+            }))
+        );
+    }
+
+    #[test]
+    fn expression_with_overrun() {
+        // expression with extra code after it - extra code should be dropped
+        assert_eq!(
+            AST::expression("0; a=1; game_end()").unwrap(),
+            Expr::LiteralReal(0.0),
+        );
+    }
 }
