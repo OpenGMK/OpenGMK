@@ -256,6 +256,13 @@ impl<'a> AST<'a> {
         Ok(Self(expressions))
     }
 
+    pub fn expression(source: &'a str) -> Result<Expr<'a>, Error> {
+        let mut lex = Lexer::new(source).peekable();
+        let mut line = 1;
+        let (expr, _) = AST::read_binary_tree(&mut lex, &mut line, None, false, 0)?;
+        Ok(expr)
+    }
+
     fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
         let token = loop {
             match lex.next() {
