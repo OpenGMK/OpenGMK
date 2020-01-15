@@ -51,8 +51,6 @@ pub struct OpenGLRenderer {
     atlases_initialized: bool,
     /// Atlases' rectangle packers to be reused for dynamic sprite loading.
     atlas_packers: Vec<DensePacker>,
-    /// Atlas references (xywh + idx) to be indexed by `Texture`s.
-    atlas_refs: Vec<AtlasRef>,
     /// OpenGL's texture handles in identical order to the atlases.
     texture_ids: Vec<GLuint>,
 }
@@ -246,7 +244,6 @@ impl OpenGLRenderer {
 
             atlases_initialized: false,
             atlas_packers: Vec::new(),
-            atlas_refs: Vec::new(),
             texture_ids: Vec::new(),
         })
     }
@@ -387,7 +384,6 @@ impl Renderer for OpenGLRenderer {
 
         // store packers, discard pixeldata
         self.atlas_packers = packers;
-        self.atlas_refs = sprites.into_iter().map(|(x, _)| x).collect();
 
         // generate texture handles
         self.atlases_initialized = true;
