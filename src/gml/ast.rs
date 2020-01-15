@@ -253,7 +253,7 @@ impl<'a> AST<'a> {
             }
         }
 
-        Ok(AST(expressions))
+        Ok(Self(expressions))
     }
 
     fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
