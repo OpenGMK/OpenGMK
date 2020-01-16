@@ -25,7 +25,7 @@ impl Value {
             (Str(_), Real(_)) => gml_panic!("cannot compare arguments (string == real)"),
         }
     }
-    
+
     /// The default way to round as defined by IEEE 754 - nearest, ties to even. Fuck yourself.
     fn ieee_round(real: f64) -> i32 {
         let floor = real.floor();
@@ -39,7 +39,7 @@ impl Value {
             floori + (floori & 1)
         }
     }
-    
+
     /// Formats the value as a number or a string with quotes around it so you can see that it is.
     /// Used in generating error messages.
     fn log_fmt(&self) -> String {
@@ -62,8 +62,7 @@ impl Add for Value {
                 string.push_str(rhs.as_ref());
                 Rc::from(string)
             }),
-            (Real(_), Str(_)) => gml_panic!("invalid arguments to + (real + string)"),
-            (Str(_), Real(_)) => gml_panic!("invalid arguments to + (string + real)"),
+            (x, y) => gml_panic!("invalid arguments to + operator ({} + {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
@@ -77,9 +76,19 @@ impl AddAssign for Value {
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
                 *lhs = string.into();
-            },
-            (Real(_), Str(_)) => gml_panic!("invalid arguments to += (real += string)"),
-            (Str(_), Real(_)) => gml_panic!("invalid arguments to += (string += real)"),
+            }
+            (x, y) => gml_panic!("invalid arguments to += operator ({} += {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl BitAnd for Value {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real((lhs as i32 & rhs as i32) as _),
+            (x, y) => gml_panic!("invalid arguments to & operator ({} & {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
