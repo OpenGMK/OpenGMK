@@ -87,7 +87,7 @@ impl BitAnd for Value {
 
     fn bitand(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((lhs as i32 & rhs as i32) as _),
+            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 & Self::ieee_round(rhs) as i32) as _),
             (x, y) => gml_panic!("invalid arguments to & operator ({} & {})", x.log_fmt(), y.log_fmt()),
         }
     }
