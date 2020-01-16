@@ -1,7 +1,7 @@
 #[macro_use]
 macro_rules! gml_panic {
     ($message: expr) => {
-        panic!($crate::gml::RuntimeError {
+        panic!($crate::gml::runtime::Error {
             reason: $message.into()
         })
     };
@@ -11,6 +11,7 @@ pub mod ast;
 pub mod compiler;
 pub mod lexer;
 pub mod rand;
+pub mod runtime;
 pub mod token;
 pub mod value;
 
@@ -37,17 +38,6 @@ pub mod ev {
     pub const KEYPRESS: usize = 9;
     pub const KEYRELEASE: usize = 10;
     pub const TRIGGER: usize = 11;
-}
-
-#[derive(Debug)]
-pub enum Instruction {
-    // TODO: GML runtime instructions
-    InterpretationError { error: String },
-}
-
-pub struct RuntimeError {
-    reason: String,
-    // Probably could add more useful things later.
 }
 
 /// Default numerical constants for GML
