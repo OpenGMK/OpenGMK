@@ -1520,19 +1520,13 @@ mod tests {
     #[test]
     fn expression_literal_real() {
         // expression - single literal real
-        assert_eq!(
-            AST::expression("1").unwrap(),
-            Expr::LiteralReal(1.0),
-        );
+        assert_eq!(AST::expression("1").unwrap(), Expr::LiteralReal(1.0),);
     }
 
     #[test]
     fn expression_literal_identifier() {
         // expression - literal identifier
-        assert_eq!(
-            AST::expression("a").unwrap(),
-            Expr::LiteralIdentifier("a"),
-        );
+        assert_eq!(AST::expression("a").unwrap(), Expr::LiteralIdentifier("a"),);
     }
 
     #[test]
@@ -1554,9 +1548,6 @@ mod tests {
     #[test]
     fn expression_with_overrun() {
         // expression with extra code after it - extra code should be dropped
-        assert_eq!(
-            AST::expression("0; a=1; game_end()").unwrap(),
-            Expr::LiteralReal(0.0),
-        );
+        assert_eq!(AST::expression("0; a=1; game_end()").unwrap(), Expr::LiteralReal(0.0),);
     }
 }

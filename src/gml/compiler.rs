@@ -1,4 +1,8 @@
-use super::{ast, Instruction, Value};
+use super::{
+    ast,
+    runtime::{Instruction, Node},
+    Value,
+};
 use std::collections::HashMap;
 
 pub struct Compiler {
@@ -36,5 +40,15 @@ impl Compiler {
             // TODO: this
         }
         Ok(instructions)
+    }
+
+    /// Compile an expression into a format which can be evaluated.
+    pub fn compile_expression(&mut self, source: &str) -> Result<Node, Error> {
+        let expr = ast::AST::expression(source).map_err(|e| Error::ASTError(e.message))?;
+        self.compile_ast_expr(expr)
+    }
+
+    fn compile_ast_expr(&mut self, _expr: ast::Expr) -> Result<Node, Error> {
+        unimplemented!()
     }
 }
