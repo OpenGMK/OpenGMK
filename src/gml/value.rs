@@ -12,6 +12,7 @@ pub enum Value {
     Str(Rc<str>),
 }
 
+// How many times do you think I want to write `Value::` in the `value` module?
 pub(self) use Value::*;
 
 impl Value {
@@ -22,6 +23,20 @@ impl Value {
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
             (Real(_), Str(_)) => gml_panic!("cannot compare arguments (real == string)"),
             (Str(_), Real(_)) => gml_panic!("cannot compare arguments (string == real)"),
+        }
+    }
+    
+    /// The default way to round as defined by IEEE 754 - nearest, ties to even. Fuck yourself.
+    fn ieee_round(real: f64) -> i32 {
+        let floor = real.floor();
+        let floori = floor as i32;
+        let diff = real - floor;
+        if diff < 0.5 {
+            floori
+        } else if diff > 0.5 {
+            floori + 1
+        } else {
+            floori + (floori & 1)
         }
     }
 }
@@ -81,5 +96,20 @@ mod tests {
         let a = Real(0.1);
         let b = Str("owo".to_string().into());
         let _ = a + b;
+    }
+
+    #[test]
+    fn ieee_round() {
+        assert_eq!(Value::ieee_round(-3.5), -4);
+        assert_eq!(Value::ieee_round(-2.5), -2);
+        assert_eq!(Value::ieee_round(-1.5), -2);
+        assert_eq!(Value::ieee_round(-0.5), 0);
+        assert_eq!(Value::ieee_round(0.5), 0);
+        assert_eq!(Value::ieee_round(1.5), 2);
+        assert_eq!(Value::ieee_round(2.5), 2);
+        assert_eq!(Value::ieee_round(3.5), 4);
+        for i in 0..1000 {
+            assert_eq!(Value::ieee_round(i as f64 + 0.5) % 2, 0);
+        }
     }
 }
