@@ -3,7 +3,7 @@ use super::{GameVariable, InstanceVariable, Value};
 #[derive(Debug)]
 pub enum Instruction {
     // TODO: GML runtime instructions
-    InterpretationError { error: String },
+    RuntimeError { error: String },
 }
 
 /// Node representing one value in an expression.
@@ -45,6 +45,9 @@ pub enum Node {
     Unary {
         child: Box<Node>,
         operator: fn(&Value) -> Value,
+    },
+    RuntimeError {
+        error: String,
     },
 }
 
