@@ -1,4 +1,4 @@
-use super::Value;
+use super::{GameVariable, InstanceVariable, Value};
 
 #[derive(Debug)]
 pub enum Instruction {
@@ -25,8 +25,18 @@ pub enum Node {
         owner: Box<Node>,
         value: Box<Node>,
     },
-    Variable, // TODO - need an instance variable enum
-    GlobalVariable, // TODO - need a global variable enum (is there even a list of these anywhere?)
+    Variable {
+        var: InstanceVariable,
+        array: Option<ArrayAccessor>,
+        owner: Box<Node>,
+        value: Box<Node>,
+    },
+    GameVariable {
+        var: GameVariable,
+        array: Option<ArrayAccessor>,
+        owner: Box<Node>,
+        value: Box<Node>,
+    },
     Binary {
         left: Box<Node>,
         right: Box<Node>,
