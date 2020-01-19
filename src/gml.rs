@@ -41,7 +41,7 @@ pub mod ev {
 }
 
 /// Default numerical constants for GML
-pub const CONSTANTS: [(&str, f64); 317] = [
+pub const GML_CONSTANTS: [(&str, f64); 317] = [
     ("ANSI_CHARSET", 0.0f64),
     ("ARABIC_CHARSET", 178.0),
     ("BALTIC_CHARSET", 186.0),

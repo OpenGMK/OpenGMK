@@ -7,10 +7,13 @@ use std::collections::HashMap;
 
 pub struct Compiler {
     /// List of identifiers which represent const values
-    pub constants: HashMap<String, Value>,
+    constants: HashMap<String, Value>,
+
+    /// Table of script names to IDs
+    script_names: HashMap<String, usize>,
 
     /// Lookup table of unique field names
-    pub fields: Vec<String>,
+    fields: Vec<String>,
 }
 
 pub enum Error {
@@ -19,15 +22,37 @@ pub enum Error {
 }
 
 impl Compiler {
-    /// Create a compiler. The size hint indicates how many constants are likely to be entered.
-    pub fn new(constants_size_hint: usize) -> Self {
-        let mut constants = HashMap::with_capacity(constants_size_hint + super::CONSTANTS.len());
-        super::CONSTANTS.iter().for_each(|(name, value)| {
-            constants.insert(String::from(*name), Value::Real(*value));
-        });
+    /// Create a compiler.
+    pub fn new() -> Self {
         Self {
-            constants,
+            constants: HashMap::new(),
+            script_names: HashMap::new(),
             fields: Vec::new(),
+        }
+    }
+
+    /// Reserve space to register at least the given number of constants.
+    pub fn reserve_constants(&mut self, size: usize) {
+        self.constants.reserve(size)
+    }
+
+    /// Reserve space to register at least the given number of script names.
+    pub fn reserve_scripts(&mut self, size: usize) {
+        self.script_names.reserve(size)
+    }
+
+    /// Add a constant and its associated f64 value, such as an asset name.
+    /// These constants will override built-in ones, such as c_red. However, if the same constant name is
+    /// registered twice, the old one will NOT be overwritten and the value will be dropped, as per GM8.
+    pub fn register_constant(&mut self, name: String, value: f64) {
+        self.constants.entry(name).or_insert(Value::Real(value));
+    }
+
+    /// Register a script name and its index.
+    /// Panics if two identical script names are registered - GM8 does not allow this.
+    pub fn register_script(&mut self, name: String, index: usize) {
+        if let Some(v) = self.script_names.insert(name, index) {
+            panic!("Two scripts with the same name registered: at index {} and {}", v, index);
         }
     }
 

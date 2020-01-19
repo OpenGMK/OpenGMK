@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use super::Value;
 
 #[derive(Debug)]
@@ -18,11 +17,16 @@ pub enum Node {
     },
     Script {
         args: Box<[Node]>,
-        script: Rc<[Instruction]>,
+        script_id: usize,
     },
-    Field, // TODO
-    Variable, // TODO
-    GlobalVariable, // TODO
+    Field {
+        index: usize,
+        array: Option<ArrayAccessor>,
+        owner: Box<Node>,
+        value: Box<Node>,
+    },
+    Variable, // TODO - need an instance variable enum
+    GlobalVariable, // TODO - need a global variable enum (is there even a list of these anywhere?)
     Binary {
         left: Box<Node>,
         right: Box<Node>,
@@ -33,6 +37,14 @@ pub enum Node {
         operator: fn(&Value) -> Value,
     }
 
+}
+
+/// Represents an array accessor, which can be either 1D or 2D.
+/// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
+/// Anything beyond a 2D array results in a runtime error.
+pub enum ArrayAccessor {
+    Single(Box<Node>),
+    Double(Box<Node>, Box<Node>),
 }
 
 pub struct Error {
