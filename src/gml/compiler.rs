@@ -16,11 +16,6 @@ pub struct Compiler {
     fields: Vec<String>,
 }
 
-pub enum Error {
-    ASTError(String),
-    GMLError(String),
-}
-
 impl Compiler {
     /// Create a compiler.
     pub fn new() -> Self {
@@ -60,8 +55,8 @@ impl Compiler {
     }
 
     /// Compile a GML string into instructions.
-    pub fn compile(&mut self, source: &str) -> Result<Vec<Instruction>, Error> {
-        let ast = ast::AST::new(source).map_err(|e| Error::ASTError(e.message))?;
+    pub fn compile(&mut self, source: &str) -> Result<Vec<Instruction>, ast::Error> {
+        let ast = ast::AST::new(source)?;
 
         let instructions = Vec::new();
         for _node in ast.into_iter() {
@@ -71,12 +66,17 @@ impl Compiler {
     }
 
     /// Compile an expression into a format which can be evaluated.
-    pub fn compile_expression(&mut self, source: &str) -> Result<Node, Error> {
-        let expr = ast::AST::expression(source).map_err(|e| Error::ASTError(e.message))?;
-        self.compile_ast_expr(expr)
+    pub fn compile_expression(&mut self, source: &str) -> Result<Node, ast::Error> {
+        let expr = ast::AST::expression(source)?;
+        Ok(self.compile_ast_expr(expr))
     }
 
-    fn compile_ast_expr(&mut self, _expr: ast::Expr) -> Result<Node, Error> {
-        unimplemented!()
+    fn compile_ast_expr(&mut self, expr: ast::Expr) -> Node {
+        match expr {
+            // TODO: this
+            _ => Node::RuntimeError {
+                error: format!("Unexpected type of AST Expr in expression: {:?}", expr),
+            },
+        }
     }
 }
