@@ -45,8 +45,7 @@ pub enum Node {
     Unary {
         child: Box<Node>,
         operator: fn(&Value) -> Value,
-    }
-
+    },
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.
