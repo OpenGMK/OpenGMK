@@ -1,4 +1,11 @@
-use std::{ops::Add, rc::Rc};
+use std::{
+    ops::{
+        Add,
+        Neg,
+        Not,
+    },
+    rc::Rc
+};
 
 #[derive(Debug)]
 pub enum Value {
@@ -18,6 +25,18 @@ impl Value {
             (Str(_), Real(_)) => gml_panic!("cannot compare arguments (string == real)"),
         }
     }
+
+    fn is_true(&self) -> bool {
+        match self {
+            Real(f) => *f >= 0.5, // What a confusing line.
+            Str(_) => false,
+        }
+    }
+
+    pub fn complement(self) -> Self {
+        // TODO: no FISTP round yet?
+        unimplemented!()
+    }
 }
 
 impl Add for Value {
@@ -34,6 +53,28 @@ impl Add for Value {
             }),
             (Real(_), Str(_)) => gml_panic!("invalid operands to add (real + string)"),
             (Str(_), Real(_)) => gml_panic!("invalid operands to add (string + real)"),
+        }
+    }
+}
+
+impl Neg for Value {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Real(f) => Real(-f),
+            Str(_) => gml_panic!("invalid operand to neg"),
+        }
+    }
+}
+
+impl Not for Value {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Real(_) => Real(self.is_true() as i8 as f64),
+            Str(_) => gml_panic!("invalid operand to neg"),
         }
     }
 }

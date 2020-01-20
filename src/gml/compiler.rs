@@ -1,9 +1,16 @@
 use super::{
     ast,
     runtime::{Instruction, Node},
+    token::Operator,
     Value,
 };
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{
+        Neg,
+        Not,
+    }
+};
 
 pub struct Compiler {
     /// List of identifiers which represent const values
@@ -73,7 +80,28 @@ impl Compiler {
 
     fn compile_ast_expr(&mut self, expr: ast::Expr) -> Node {
         match expr {
-            // TODO: this
+            ast::Expr::LiteralReal(real) => Node::Literal {
+                value: Value::Real(real),
+            },
+            ast::Expr::LiteralString(_) => unimplemented!(), // TODO: not possible to construct Rc<str>...
+            ast::Expr::Unary(unary_expr) => match unary_expr.op {
+                Operator::Add => self.compile_ast_expr(unary_expr.child),
+                Operator::Subtract => Node::Unary {
+                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
+                    operator: Value::neg,
+                },
+                Operator::Not => Node::Unary {
+                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
+                    operator: Value::not,
+                },
+                Operator::Complement => Node::Unary {
+                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
+                    operator: Value::complement,
+                },
+                _ => Node::RuntimeError {
+                    error: format!("Unknown unary operator: {:?}", unary_expr.op),
+                }
+            },
             _ => Node::RuntimeError {
                 error: format!("Unexpected type of AST Expr in expression: {:?}", expr),
             },
