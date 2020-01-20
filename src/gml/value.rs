@@ -55,9 +55,12 @@ impl Value {
         }
     }
 
+    /// Unary bit complement. Has its own operator in GML as ! is always boolean.
     pub fn complement(self) -> Self {
-        // TODO: no FISTP round yet?
-        unimplemented!()
+        match self {
+            Real(val) => Real(!(Self::ieee_round(val) as i32) as f64),
+            _ => gml_panic!("invalid arguments to ~ (complement)"),
+        }
     }
 }
 
