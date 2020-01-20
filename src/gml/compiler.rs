@@ -83,7 +83,9 @@ impl Compiler {
             ast::Expr::LiteralReal(real) => Node::Literal {
                 value: Value::Real(real),
             },
-            ast::Expr::LiteralString(_) => unimplemented!(), // TODO: not possible to construct Rc<str>...
+            ast::Expr::LiteralString(string) => Node::Literal {
+                value: Value::Str(string.into()),
+            },
             ast::Expr::Unary(unary_expr) => match unary_expr.op {
                 Operator::Add => self.compile_ast_expr(unary_expr.child),
                 Operator::Subtract => Node::Unary {
