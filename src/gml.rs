@@ -5,6 +5,11 @@ macro_rules! gml_panic {
             reason: $message.into()
         })
     };
+    ($format: expr, $($arg: expr),*) => {
+        panic!($crate::gml::runtime::Error {
+            reason: format!($format, $($arg),*)
+        })
+    };
 }
 
 pub mod ast;
