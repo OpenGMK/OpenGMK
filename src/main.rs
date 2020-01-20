@@ -163,7 +163,14 @@ fn main() {
     }
 
     // allow decompile to handle the rest of main
-    if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose) {
+    if let Err(e) = decompile(
+        input_path,
+        out_path,
+        !lazy,
+        !singlethread,
+        verbose,
+        !preserve,
+    ) {
         eprintln!("Error parsing gamedata:\n{}", e);
         press_any_key();
         process::exit(1);
@@ -179,6 +186,7 @@ fn decompile(
     strict: bool,
     multithread: bool,
     verbose: bool,
+    fix_events: bool,
 ) -> Result<(), String> {
     // slurp in file contents
     let file = fs::read(&in_path)
@@ -186,10 +194,30 @@ fn decompile(
 
     // parse (entire) gamedata
     let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
-    let assets = gm8exe::reader::from_exe(file, logger, strict, multithread)
+    let mut assets = gm8exe::reader::from_exe(file, logger, strict, multithread)
         .map_err(|e| format!("Reader error: {}", e))?;
     
     println!("Successfully parsed game!");
+
+    let fix_event = |ev: &mut gm8exe::asset::etc::CodeAction| {
+        // So far the only broken event type I know of is custom Execute Code actions.
+        // We can fix these by changing the act id and lib id to be a default Execute Code action instead.
+        if ev.action_kind == 7 && ev.execution_type == 2 {
+            // 7 = code block param, 2 = code execution
+            ev.id = 603;
+            ev.lib_id = 1;
+        }
+    };
+    if fix_events {
+        for ev in assets.objects.iter_mut().flatten().map(|x| x.events.iter_mut().flatten()).flatten().map(|(_, x)| x.iter_mut()).flatten()
+        {
+            fix_event(ev);
+        }
+
+        for ev in assets.timelines.iter_mut().flatten().map(|x| x.moments.iter_mut().map(|(_, x)| x.iter_mut()).flatten()).flatten() {
+            fix_event(ev);
+        }
+    }
 
     // warn user if they specified .gmk for 8.0 or .gm81 for 8.0
     let out_expected_ext = match assets.version {
