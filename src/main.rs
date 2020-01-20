@@ -34,6 +34,11 @@ fn main() {
         .optflag("l", "lazy", "disable various data integrity checks")
         .optflag("v", "verbose", "enable verbose logging for decompilation")
         .optflag("t", "singlethread", "decompile gamedata synchronously")
+        .optflag(
+            "P",
+            "preserve",
+            "preserve broken events instead of trying to fix them",
+        )
         .optopt("o", "output", "specify output filename", "FILE");
 
     if !msys2 {
@@ -126,6 +131,7 @@ fn main() {
     let singlethread = matches.opt_present("t");
     let verbose = matches.opt_present("v");
     let out_path = matches.opt_str("o");
+    let preserve = matches.opt_present("P");
     // no_pause extracted before help
 
     // print flags for confirmation
@@ -144,6 +150,9 @@ fn main() {
     }
     if let Some(path) = &out_path {
         println!("Specified output path: {}", path);
+    }
+    if preserve {
+        println!("Preserve mode ON: broken events will be preserved and will not be fixed");
     }
 
     // resolve input path
