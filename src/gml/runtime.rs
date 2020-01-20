@@ -40,11 +40,11 @@ pub enum Node {
     Binary {
         left: Box<Node>,
         right: Box<Node>,
-        operator: fn(&Value, &Value) -> Value,
+        operator: fn(Value, Value) -> Value,
     },
     Unary {
         child: Box<Node>,
-        operator: fn(&Value) -> Value,
+        operator: fn(Value) -> Value,
     },
     RuntimeError {
         error: String,
