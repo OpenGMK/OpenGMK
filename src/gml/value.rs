@@ -21,8 +21,7 @@ impl Value {
         match (self, other) {
             (Real(a), Real(b)) => (a - b).abs() <= 1e-14,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
-            (Real(_), Str(_)) => gml_panic!("cannot compare arguments (real == string)"),
-            (Str(_), Real(_)) => gml_panic!("cannot compare arguments (string == real)"),
+            (x, y) => gml_panic!("invalid arguments to == operator ({} == {})", x.log_fmt(), y.log_fmt()),
         }
     }
 
@@ -89,6 +88,15 @@ impl BitAnd for Value {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 & Self::ieee_round(rhs) as i32) as _),
             (x, y) => gml_panic!("invalid arguments to & operator ({} & {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl BitAndAssign for Value {
+    fn bitand_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 & Self::ieee_round(rhs) as i32) as _,
+            (x, y) => gml_panic!("invalid arguments to &= operator ({} &= {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
