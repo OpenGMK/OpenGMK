@@ -85,6 +85,19 @@ impl Compiler {
                 value: Value::Str(string.into()),
             },
 
+            ast::Expr::Function(function) => {
+                if let Some(script_id) = self.script_names.get(function.name) {
+                    let script_id = *script_id;
+                    Node::Script {
+                        args: function.params.into_iter().map(|x| self.compile_ast_expr(x)).collect::<Vec<_>>().into_boxed_slice(),
+                        script_id,
+                    }
+                }
+                else {
+                    todo!("Functions")
+                }
+            }
+
             ast::Expr::Unary(unary_expr) => {
                 let new_node = self.compile_ast_expr(unary_expr.child);
                 let operator = match unary_expr.op {
