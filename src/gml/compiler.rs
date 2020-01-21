@@ -6,10 +6,7 @@ use super::{
 };
 use std::{
     collections::HashMap,
-    ops::{
-        Neg,
-        Not,
-    }
+    ops::{Neg, Not},
 };
 
 pub struct Compiler {
@@ -83,27 +80,37 @@ impl Compiler {
             ast::Expr::LiteralReal(real) => Node::Literal {
                 value: Value::Real(real),
             },
+
             ast::Expr::LiteralString(string) => Node::Literal {
                 value: Value::Str(string.into()),
             },
-            ast::Expr::Unary(unary_expr) => match unary_expr.op {
-                Operator::Add => self.compile_ast_expr(unary_expr.child),
-                Operator::Subtract => Node::Unary {
-                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
-                    operator: Value::neg,
-                },
-                Operator::Not => Node::Unary {
-                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
-                    operator: Value::not,
-                },
-                Operator::Complement => Node::Unary {
-                    child: Box::new(self.compile_ast_expr(unary_expr.child)),
-                    operator: Value::complement,
-                },
-                _ => Node::RuntimeError {
-                    error: format!("Unknown unary operator: {:?}", unary_expr.op),
+
+            ast::Expr::Unary(unary_expr) => {
+                let new_node = self.compile_ast_expr(unary_expr.child);
+                let operator = match unary_expr.op {
+                    Operator::Add => return new_node,
+                    Operator::Subtract => Value::neg,
+                    Operator::Not => Value::not,
+                    Operator::Complement => Value::complement,
+                    _ => {
+                        return Node::RuntimeError {
+                            error: format!("Unknown unary operator: {:?}", unary_expr.op),
+                        };
+                    }
+                };
+                if let Node::Literal {
+                    value: v @ Value::Real(_),
+                } = new_node
+                {
+                    Node::Literal { value: operator(v) }
+                } else {
+                    Node::Unary {
+                        child: Box::new(new_node),
+                        operator,
+                    }
                 }
-            },
+            }
+
             _ => Node::RuntimeError {
                 error: format!("Unexpected type of AST Expr in expression: {:?}", expr),
             },
