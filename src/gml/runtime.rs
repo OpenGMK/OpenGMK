@@ -21,19 +21,19 @@ pub enum Node {
     },
     Field {
         index: usize,
-        array: Option<ArrayAccessor>,
+        array: ArrayAccessor,
         owner: Box<Node>,
         value: Box<Node>,
     },
     Variable {
         var: InstanceVariable,
-        array: Option<ArrayAccessor>,
+        array: ArrayAccessor,
         owner: Box<Node>,
         value: Box<Node>,
     },
     GameVariable {
         var: GameVariable,
-        array: Option<ArrayAccessor>,
+        array: ArrayAccessor,
         owner: Box<Node>,
         value: Box<Node>,
     },
@@ -55,6 +55,7 @@ pub enum Node {
 /// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
 /// Anything beyond a 2D array results in a runtime error.
 pub enum ArrayAccessor {
+    None,
     Single(Box<Node>),
     Double(Box<Node>, Box<Node>),
 }
