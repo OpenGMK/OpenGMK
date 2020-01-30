@@ -190,19 +190,19 @@ impl fmt::Display for Error {
 
 // TODO? This is not the prettiest.
 macro_rules! expect_token {
-    ( $token: expr, $line: expr, $($content: tt)* ) => ({
+    ( $token: expr, $($content: tt)* ) => ({
         match $token {
             Some(Token::$($content)*) => {},
             Some(t) => {
                 return Err(Error::new(format!(
-                    "Unexpected token {:?} on line {}; `{}` expected",
-                    t, $line, Token::$($content)*,
+                    "Unexpected token {:?}; `{}` expected",
+                    t, Token::$($content)*,
                 )));
             }
             None => {
                 return Err(Error::new(format!(
-                    "Unexpected EOF on line {}; `{}` expected",
-                    $line, Token::$($content)*,
+                    "Unexpected EOF; `{}` expected",
+                    Token::$($content)*,
                 )));
             }
         }
@@ -242,11 +242,10 @@ impl<'a> AST<'a> {
     pub fn new(source: &'a str) -> Result<Self, Error> {
         let mut lex = Lexer::new(source).peekable();
         let mut expressions = Vec::new();
-        let mut line: usize = 1;
 
         loop {
             // Get the first token from the iterator, or exit the loop if there are no more
-            match AST::read_line(&mut lex, &mut line) {
+            match AST::read_line(&mut lex) {
                 Ok(Some(expr)) => expressions.push(expr),
                 Ok(None) => break,
                 Err(e) => return Err(e),
@@ -258,12 +257,11 @@ impl<'a> AST<'a> {
 
     pub fn expression(source: &'a str) -> Result<Expr<'a>, Error> {
         let mut lex = Lexer::new(source).peekable();
-        let mut line = 1;
-        let (expr, _) = AST::read_binary_tree(&mut lex, &mut line, None, false, 0)?;
+        let (expr, _) = AST::read_binary_tree(&mut lex, None, false, 0)?;
         Ok(expr)
     }
 
-    fn read_line(lex: &mut Peekable<Lexer<'a>>, line: &mut usize) -> Result<Option<Expr<'a>>, Error> {
+    fn read_line(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
         let token = loop {
             match lex.next() {
                 Some(Token::Separator(Separator::Semicolon)) => continue,
@@ -308,10 +306,10 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::Do => {
-                        let body = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
-                        expect_token!(lex.next(), line, Keyword(Keyword::Until));
-                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let body = AST::read_line(lex)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword")))?;
+                        expect_token!(lex.next(), Keyword(Keyword::Until));
+                        let (cond, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
@@ -319,19 +317,19 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::If => {
-                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (cond, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
                         if lex.peek() == Some(&Token::Separator(Separator::Then)) {
                             lex.next();
                         }
-                        let body = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line)))?;
+                        let body = AST::read_line(lex)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'do' keyword")))?;
                         let else_body = if lex.peek() == Some(&Token::Keyword(Keyword::Else)) {
                             lex.next(); // consume 'else'
-                            Some(AST::read_line(lex, line)?.ok_or_else(|| {
-                                Error::new(format!("Unexpected EOF after 'do' keyword (line {})", line))
+                            Some(AST::read_line(lex)?.ok_or_else(|| {
+                                Error::new(format!("Unexpected EOF after 'do' keyword"))
                             })?)
                         } else {
                             None
@@ -340,27 +338,27 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::For => {
-                        expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
-                        let start = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
+                        expect_token!(lex.next(), Separator(Separator::ParenLeft));
+                        let start = AST::read_line(lex)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params")))?;
                         if lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
                             lex.next();
                         }
-                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (cond, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
                         if lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
                             lex.next();
                         }
-                        let step = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params (line {})", line)))?;
+                        let step = AST::read_line(lex)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF during 'for' params")))?;
                         while lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
                             lex.next();
                         }
-                        expect_token!(lex.next(), line, Separator(Separator::ParenRight));
-                        let body = AST::read_line(lex, line)?
-                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'for' params (line {})", line)))?;
+                        expect_token!(lex.next(), Separator(Separator::ParenRight));
+                        let body = AST::read_line(lex)?
+                            .ok_or_else(|| Error::new(format!("Unexpected EOF after 'for' params")))?;
                         Ok(Some(Expr::For(Box::new(ForExpr {
                             start,
                             cond,
@@ -370,60 +368,60 @@ impl<'a> AST<'a> {
                     }
 
                     Keyword::Repeat => {
-                        let (count, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (count, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
-                            Error::new(format!("Unexpected EOF after 'repeat' condition (line {})", line))
+                        let body = AST::read_line(lex)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'repeat' condition"))
                         })?;
                         Ok(Some(Expr::Repeat(Box::new(RepeatExpr { count, body }))))
                     }
 
                     Keyword::Switch => {
-                        let (input, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (input, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
-                            Error::new(format!("Unexpected EOF after 'repeat' condition (line {})", line))
+                        let body = AST::read_line(lex)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'repeat' condition"))
                         })?;
                         Ok(Some(Expr::Switch(Box::new(SwitchExpr { input, body }))))
                     }
 
                     Keyword::With => {
-                        let (target, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (target, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
-                            Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
+                        let body = AST::read_line(lex)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'with' condition"))
                         })?;
                         Ok(Some(Expr::With(Box::new(WithExpr { target, body }))))
                     }
 
                     Keyword::While => {
-                        let (cond, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (cond, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        let body = AST::read_line(lex, line)?.ok_or_else(|| {
-                            Error::new(format!("Unexpected EOF after 'with' condition (line {})", line))
+                        let body = AST::read_line(lex)?.ok_or_else(|| {
+                            Error::new(format!("Unexpected EOF after 'with' condition"))
                         })?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
                     }
 
                     Keyword::Case => {
-                        let (expr, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (expr, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
-                        expect_token!(lex.next(), line, Separator(Separator::Colon));
+                        expect_token!(lex.next(), Separator(Separator::Colon));
                         Ok(Some(Expr::Case(Box::new(expr))))
                     }
 
                     Keyword::Default => {
-                        expect_token!(lex.next(), line, Separator(Separator::Colon));
+                        expect_token!(lex.next(), Separator(Separator::Colon));
                         Ok(Some(Expr::Default))
                     }
 
@@ -434,7 +432,7 @@ impl<'a> AST<'a> {
                     Keyword::Exit => Ok(Some(Expr::Exit)),
 
                     Keyword::Return => {
-                        let (val, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                        let (val, op) = AST::read_binary_tree(lex, None, false, 0)?;
                         if op.is_some() {
                             unreachable!("read_binary_tree returned an operator");
                         }
@@ -443,8 +441,8 @@ impl<'a> AST<'a> {
 
                     _ => {
                         return Err(Error::new(format!(
-                            "Invalid Keyword at beginning of expression on line {}: {:?}",
-                            line, key
+                            "Invalid Keyword at beginning of expression: {:?}",
+                            key
                         )));
                     }
                 }
@@ -459,14 +457,14 @@ impl<'a> AST<'a> {
                 };
                 match next_token {
                     Token::Separator(ref sep) if *sep == Separator::ParenLeft => {
-                        Ok(Some(AST::read_function_call(lex, line, id)?))
+                        Ok(Some(AST::read_function_call(lex, id)?))
                     }
                     _ => {
-                        let binary_tree = AST::read_binary_tree(lex, line, Some(token), true, 0)?;
+                        let binary_tree = AST::read_binary_tree(lex, Some(token), true, 0)?;
                         if let Some(op) = binary_tree.1 {
                             Err(Error::new(format!(
-                                "Stray operator {:?} in expression on line {}",
-                                op, line,
+                                "Stray operator {:?} in expression",
+                                op,
                             )))
                         } else {
                             Ok(Some(binary_tree.0))
@@ -486,7 +484,7 @@ impl<'a> AST<'a> {
                                     lex.next();
                                     break Ok(Some(Expr::Group(inner_expressions)));
                                 }
-                                _ => match AST::read_line(lex, line) {
+                                _ => match AST::read_line(lex) {
                                     Ok(Some(e)) => inner_expressions.push(e),
                                     Ok(None) => break Err(Error::new("Unclosed brace at EOF".to_string())),
                                     Err(e) => break Err(e),
@@ -498,11 +496,11 @@ impl<'a> AST<'a> {
                     // An assignment may start with an open-parenthesis, eg: (1).x = 400;
                     Separator::ParenLeft => {
                         let binary_tree =
-                            AST::read_binary_tree(lex, line, Some(Token::Separator(Separator::ParenLeft)), true, 0)?;
+                            AST::read_binary_tree(lex, Some(Token::Separator(Separator::ParenLeft)), true, 0)?;
                         if let Some(op) = binary_tree.1 {
                             Err(Error::new(format!(
-                                "Stray operator {:?} in expression on line {}",
-                                op, line,
+                                "Stray operator {:?} in expression",
+                                op,
                             )))
                         } else {
                             Ok(Some(binary_tree.0))
@@ -512,8 +510,8 @@ impl<'a> AST<'a> {
                     // Default
                     _ => {
                         return Err(Error::new(format!(
-                            "Invalid Separator at beginning of expression on line {}: {:?}",
-                            line, sep
+                            "Invalid Separator at beginning of expression: {:?}",
+                            sep
                         )));
                     }
                 }
@@ -521,8 +519,8 @@ impl<'a> AST<'a> {
 
             _ => {
                 return Err(Error::new(format!(
-                    "Invalid token at beginning of expression on line {}: {:?}",
-                    line, token
+                    "Invalid token at beginning of expression: {:?}",
+                    token
                 )));
             }
         };
@@ -537,14 +535,13 @@ impl<'a> AST<'a> {
 
     fn read_binary_tree(
         lex: &mut Peekable<Lexer<'a>>,
-        line: &mut usize,
         first_token: Option<Token<'a>>, // Sometimes we've already parsed the first token, so it should be put here.
         expect_assignment: bool,        // Do we expect the first op to be an assignment?
         lowest_prec: u8,                // We are not allowed to go below this operator precedence in this tree.
                                         // If we do, we'll return the next op.
     ) -> Result<(Expr<'a>, Option<Operator>), Error> {
         // Get the first expression before any operators
-        let mut lhs = AST::read_btree_expression(lex, line, first_token)?;
+        let mut lhs = AST::read_btree_expression(lex, first_token)?;
 
         // Check if the next token is an operator
         let next_token = lex.peek();
@@ -566,8 +563,8 @@ impl<'a> AST<'a> {
                             // this op is invalid if an assignment is expected
                             if expect_assignment {
                                 break Err(Error::new(format!(
-                                    "Invalid operator {:?} found, expected assignment (line {})",
-                                    op, line,
+                                    "Invalid operator {:?} found, expected assignment",
+                                    op,
                                 )));
                             } else {
                                 // If this op has lower prec than we're allowed to read, we have to return it here.
@@ -579,7 +576,7 @@ impl<'a> AST<'a> {
                                     // "precedence" would make more sense, right?
                                     // Well, the difference is left-to-right vs right-to-left construction.
                                     // This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
-                                    let rhs = AST::read_binary_tree(lex, line, None, false, precedence + 1)?;
+                                    let rhs = AST::read_binary_tree(lex, None, false, precedence + 1)?;
                                     if let Some(next_op) = rhs.1 {
                                         // There's another operator even after the RHS.
                                         if let Some(next_prec) = AST::get_op_precedence(&next_op) {
@@ -625,16 +622,16 @@ impl<'a> AST<'a> {
                             // (those have no precedence so they pass the previous test.)
                             if !expect_assignment || op == Operator::Not || op == Operator::Complement {
                                 break Err(Error::new(format!(
-                                    "Invalid operator {:?} found, expected evaluable (line {})",
-                                    op, line,
+                                    "Invalid operator {:?} found, expected evaluable",
+                                    op,
                                 )));
                             } else {
                                 // No need to do precedence on an assignment, so just grab RHS and return
-                                let rhs = AST::read_binary_tree(lex, line, None, false, lowest_prec)?;
+                                let rhs = AST::read_binary_tree(lex, None, false, lowest_prec)?;
                                 if let Some(op) = rhs.1 {
                                     break Err(Error::new(format!(
-                                        "Stray operator {:?} in expression on line {}",
-                                        op, line,
+                                        "Stray operator {:?} in expression",
+                                        op,
                                     )));
                                 } else {
                                     break Ok((
@@ -656,8 +653,8 @@ impl<'a> AST<'a> {
             _ => {
                 if expect_assignment {
                     Err(Error::new(format!(
-                        "Invalid token {:?} when expecting assignment operator on line {}",
-                        next_token, line,
+                        "Invalid token {:?} when expecting assignment operator",
+                        next_token,
                     )))
                 } else {
                     Ok((lhs, None))
@@ -668,22 +665,18 @@ impl<'a> AST<'a> {
 
     fn read_btree_expression(
         lex: &mut Peekable<Lexer<'a>>,
-        line: &mut usize,
         first_token: Option<Token<'a>>,
     ) -> Result<Expr<'a>, Error> {
         // Get first token and match it
         let mut lhs = match if first_token.is_some() { first_token } else { lex.next() } {
             Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
-                let binary_tree = AST::read_binary_tree(lex, line, None, false, 0)?;
+                let binary_tree = AST::read_binary_tree(lex, None, false, 0)?;
                 if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
-                    return Err(Error::new(format!(
-                        "Unclosed parenthesis in binary tree on line {}",
-                        line
-                    )));
+                    return Err(Error::new("Unclosed parenthesis in binary tree".to_string()));
                 } else if let Some(op) = binary_tree.1 {
                     return Err(Error::new(format!(
-                        "Stray operator {:?} in expression on line {}",
-                        op, line,
+                        "Stray operator {:?} in expression",
+                        op,
                     )));
                 }
                 binary_tree.0
@@ -693,18 +686,18 @@ impl<'a> AST<'a> {
                 {
                     Expr::Unary(Box::new(UnaryExpr {
                         op,
-                        child: AST::read_btree_expression(lex, line, None)?,
+                        child: AST::read_btree_expression(lex, None)?,
                     }))
                 } else {
                     return Err(Error::new(format!(
-                        "Invalid unary operator {:?} in expression on line {}",
-                        op, line,
+                        "Invalid unary operator {:?} in expression",
+                        op,
                     )));
                 }
             }
             Some(Token::Identifier(t)) => {
                 if lex.peek() == Some(&Token::Separator(Separator::ParenLeft)) {
-                    AST::read_function_call(lex, line, t)?
+                    AST::read_function_call(lex, t)?
                 } else {
                     Expr::LiteralIdentifier(t)
                 }
@@ -714,15 +707,12 @@ impl<'a> AST<'a> {
             Some(Token::String(t)) => Expr::LiteralString(t),
             Some(t) => {
                 return Err(Error::new(format!(
-                    "Invalid token while scanning binary tree on line {}: {:?}",
-                    line, t
+                    "Invalid token while scanning binary tree: {:?}",
+                    t
                 )));
             }
             None => {
-                return Err(Error::new(format!(
-                    "Found EOF unexpectedly while reading binary tree (line {})",
-                    line
-                )));
+                return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()));
             }
         };
 
@@ -736,7 +726,7 @@ impl<'a> AST<'a> {
                         lex.next();
                     } else {
                         loop {
-                            let (dim, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                            let (dim, op) = AST::read_binary_tree(lex, None, false, 0)?;
                             if op.is_some() {
                                 unreachable!("read_binary_tree returned an operator");
                             }
@@ -751,15 +741,12 @@ impl<'a> AST<'a> {
                                 }
                                 Some(t) => {
                                     return Err(Error::new(format!(
-                                        "Invalid token {:?}, expected expression (line {})",
-                                        t, line
+                                        "Invalid token {:?}, expected expression",
+                                        t,
                                     )));
                                 }
                                 None => {
-                                    return Err(Error::new(format!(
-                                        "Found EOF unexpectedly while reading array accessor (line {})",
-                                        line
-                                    )));
+                                    return Err(Error::new("Found EOF unexpectedly while reading array accessor".to_string()));
                                 }
                             }
                         }
@@ -781,15 +768,12 @@ impl<'a> AST<'a> {
                         })),
                         Some(t) => {
                             return Err(Error::new(format!(
-                                "Unexpected token {:?} following deref on line {}",
-                                t, line
+                                "Unexpected token {:?} following deref",
+                                t
                             )));
                         }
                         None => {
-                            return Err(Error::new(format!(
-                                "Found EOF unexpectedly while reading binary tree (line {})",
-                                line
-                            )));
+                            return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()));
                         }
                     }
                 }
@@ -802,17 +786,16 @@ impl<'a> AST<'a> {
 
     fn read_function_call(
         lex: &mut Peekable<Lexer<'a>>,
-        line: &mut usize,
         function_name: &'a str,
     ) -> Result<Expr<'a>, Error> {
-        expect_token!(lex.next(), line, Separator(Separator::ParenLeft));
+        expect_token!(lex.next(), Separator(Separator::ParenLeft));
 
         let mut params = Vec::new();
         if lex.peek() == Some(&Token::Separator(Separator::ParenRight)) {
             lex.next();
         } else {
             loop {
-                let (param, op) = AST::read_binary_tree(lex, line, None, false, 0)?;
+                let (param, op) = AST::read_binary_tree(lex, None, false, 0)?;
                 if op.is_some() {
                     unreachable!("read_binary_tree returned an operator");
                 }
@@ -827,15 +810,12 @@ impl<'a> AST<'a> {
                     }
                     Some(t) => {
                         return Err(Error::new(format!(
-                            "Invalid token {:?}, expected expression (line {})",
-                            t, line
+                            "Invalid token {:?}, expected expression",
+                            t
                         )));
                     }
                     None => {
-                        return Err(Error::new(format!(
-                            "Found EOF unexpectedly while reading function call (line {})",
-                            line
-                        )));
+                        return Err(Error::new("Found EOF unexpectedly while reading function call".to_string()));
                     }
                 }
             }
