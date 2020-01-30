@@ -116,13 +116,93 @@ impl BitAndAssign for Value {
     }
 }
 
+impl BitOr for Value {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 | Self::ieee_round(rhs) as i32) as _),
+            (x, y) => gml_panic!("invalid arguments to | operator ({} | {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl BitOrAssign for Value {
+    fn bitor_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 | Self::ieee_round(rhs) as i32) as _,
+            (x, y) => gml_panic!("invalid arguments to |= operator ({} |= {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl BitXor for Value {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _),
+            (x, y) => gml_panic!("invalid arguments to ^ operator ({} ^ {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl BitXorAssign for Value {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _,
+            (x, y) => gml_panic!("invalid arguments to ^= operator ({} ^= {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl Div for Value {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real(lhs / rhs),
+            (x, y) => gml_panic!("invalid arguments to / operator ({} / {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl DivAssign for Value {
+    fn div_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs /= rhs,
+            (x, y) => gml_panic!("invalid arguments to /= operator ({} /= {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl Mul for Value {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real(lhs * rhs),
+            (x, y) => gml_panic!("invalid arguments to * operator ({} * {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl MulAssign for Value {
+    fn mul_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs *= rhs,
+            (x, y) => gml_panic!("invalid arguments to *= operator ({} *= {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
 impl Neg for Value {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
         match self {
             Real(f) => Real(-f),
-            Str(_) => gml_panic!("invalid operand to neg"),
+            Str(_) => gml_panic!("invalid operand to neg (-)"),
         }
     }
 }
@@ -132,8 +212,101 @@ impl Not for Value {
 
     fn not(self) -> Self::Output {
         match self {
-            Real(_) => Real(self.is_true() as i8 as f64),
-            Str(_) => gml_panic!("invalid operand to neg"),
+            Real(_) => Real((!self.is_true()) as i8 as f64),
+            Str(_) => gml_panic!("invalid operand to not (!)"),
+        }
+    }
+}
+
+impl Rem for Value {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real(lhs % rhs),
+            (x, y) => gml_panic!(
+                "invalid arguments to mod operator ({} mod {})",
+                x.log_fmt(),
+                y.log_fmt()
+            ),
+        }
+    }
+}
+
+// note: no RemAssign (%=) in GML, but I made it anyway
+impl RemAssign for Value {
+    fn rem_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs %= rhs,
+            (x, y) => gml_panic!("invalid arguments to RemAssign ({} %= {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl Shl for Value {
+    type Output = Self;
+
+    fn shl(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real(((Self::ieee_round(lhs) as i32) << Self::ieee_round(rhs) as i32) as _),
+            (x, y) => gml_panic!("invalid arguments to << operator ({} << {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl ShlAssign for Value {
+    fn shl_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs = ((Self::ieee_round(*lhs) as i32) << Self::ieee_round(rhs) as i32) as _,
+            (x, y) => gml_panic!(
+                "invalid arguments to <<= operator ({} <<= {})",
+                x.log_fmt(),
+                y.log_fmt()
+            ),
+        }
+    }
+}
+
+impl Shr for Value {
+    type Output = Self;
+
+    fn shr(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 >> Self::ieee_round(rhs) as i32) as _),
+            (x, y) => gml_panic!("invalid arguments to >> operator ({} >> {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl ShrAssign for Value {
+    fn shr_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 >> Self::ieee_round(rhs) as i32) as _,
+            (x, y) => gml_panic!(
+                "invalid arguments to >>= operator ({} >>= {})",
+                x.log_fmt(),
+                y.log_fmt()
+            ),
+        }
+    }
+}
+
+impl Sub for Value {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real(lhs - rhs),
+            (x, y) => gml_panic!("invalid arguments to - operator ({} - {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
+}
+
+impl SubAssign for Value {
+    fn sub_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => *lhs -= rhs,
+            (x, y) => gml_panic!("invalid arguments to -= operator ({} -= {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
