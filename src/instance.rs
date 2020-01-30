@@ -1,4 +1,5 @@
 use crate::asset::Object;
+use std::f64;
 
 pub struct Instance {
     pub exists: bool,
@@ -102,5 +103,41 @@ impl Instance {
             bbox_bottom: -100000,
             bbox_is_stale: true,
         }
+    }
+
+    // Sets direction, also updating hspeed and vspeed
+    pub fn set_direction(&mut self, direction: f64) {
+        self.direction = direction;
+        self.update_hvspeed()
+    }
+
+    // Sets speed, also updating hspeed and vspeed
+    pub fn set_speed(&mut self, speed: f64) {
+        self.speed = speed;
+        self.update_hvspeed()
+    }
+
+    // Sets hspeed, also updating direction and speed
+    pub fn set_hspeed(&mut self, hspeed: f64) {
+        self.hspeed = hspeed;
+        self.update_speed_direction()
+    }
+
+    // Sets vspeed, also updating direction and speed
+    pub fn set_vspeed(&mut self, vspeed: f64) {
+        self.vspeed = vspeed;
+        self.update_speed_direction()
+    }
+
+    // Sets hspeed and vspeed based on direction and speed
+    fn update_hvspeed(&mut self) {
+        self.hspeed = -self.direction.cos() * self.speed;
+        self.vspeed = self.direction.sin() * self.speed;
+    }
+
+    // Sets direction and speed based on hspeed and vspeed
+    fn update_speed_direction(&mut self) {
+        self.direction = (-self.vspeed).atan2(self.hspeed);
+        self.speed = (self.hspeed.powi(2) + self.vspeed.powi(2)).sqrt();
     }
 }
