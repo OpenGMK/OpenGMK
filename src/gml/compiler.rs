@@ -89,11 +89,15 @@ impl Compiler {
                 if let Some(script_id) = self.script_names.get(function.name) {
                     let script_id = *script_id;
                     Node::Script {
-                        args: function.params.into_iter().map(|x| self.compile_ast_expr(x)).collect::<Vec<_>>().into_boxed_slice(),
+                        args: function
+                            .params
+                            .into_iter()
+                            .map(|x| self.compile_ast_expr(x))
+                            .collect::<Vec<_>>()
+                            .into_boxed_slice(),
                         script_id,
                     }
-                }
-                else {
+                } else {
                     todo!("Functions")
                 }
             }
