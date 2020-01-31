@@ -21,11 +21,11 @@ impl InstanceList {
     }
 
     pub fn remove_deleted(&mut self) {
-        self.arena.retain(|_, x| x.exists)
+        self.arena.retain(|_, x| x.exists.get())
     }
 
     pub fn remove_non_persistent(&mut self) {
-        self.arena.retain(|_, x| x.persistent)
+        self.arena.retain(|_, x| x.persistent.get())
     }
 
     pub fn get(&self, index: Index) -> Option<&Instance> {
