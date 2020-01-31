@@ -1,54 +1,54 @@
 use crate::asset::Object;
-use std::f64;
+use std::{cell::Cell, f64};
 
 pub struct Instance {
-    pub exists: bool,
-    pub id: usize,
-    pub object_index: i32,
-    pub solid: bool,
-    pub visible: bool,
-    pub persistent: bool,
-    pub depth: i32,
-    pub sprite_index: i32,
-    pub image_alpha: f64,
-    pub image_blend: i32,
-    pub image_index: f64,
-    pub image_speed: f64,
-    pub image_xscale: f64,
-    pub image_yscale: f64,
-    pub image_angle: f64,
-    pub mask_index: i32,
-    pub direction: f64,
-    pub friction: f64,
-    pub gravity: f64,
-    pub gravity_direction: f64,
-    pub hspeed: f64,
-    pub vspeed: f64,
-    pub speed: f64,
-    pub x: f64,
-    pub y: f64,
-    pub xprevious: f64,
-    pub yprevious: f64,
-    pub xstart: f64,
-    pub ystart: f64,
-    pub path_index: i32,
-    pub path_position: f64, // Normalized from 0 to 1
-    pub path_positionprevious: f64,
-    pub path_speed: f64,
-    pub path_scale: f64,
-    pub path_orientation: f64,
-    pub path_endaction: i32, // https://docs.yoyogames.com/source/dadiospice/002_reference/paths/path_start.html
-    pub timeline_index: i32,
-    pub timeline_running: bool,
-    pub timeline_speed: f64,
-    pub timeline_position: f64,
-    pub timeline_loop: bool,
+    pub exists: Cell<bool>,
+    pub id: Cell<usize>,
+    pub object_index: Cell<i32>,
+    pub solid: Cell<bool>,
+    pub visible: Cell<bool>,
+    pub persistent: Cell<bool>,
+    pub depth: Cell<i32>,
+    pub sprite_index: Cell<i32>,
+    pub image_alpha: Cell<f64>,
+    pub image_blend: Cell<i32>,
+    pub image_index: Cell<f64>,
+    pub image_speed: Cell<f64>,
+    pub image_xscale: Cell<f64>,
+    pub image_yscale: Cell<f64>,
+    pub image_angle: Cell<f64>,
+    pub mask_index: Cell<i32>,
+    pub direction: Cell<f64>,
+    pub friction: Cell<f64>,
+    pub gravity: Cell<f64>,
+    pub gravity_direction: Cell<f64>,
+    pub hspeed: Cell<f64>,
+    pub vspeed: Cell<f64>,
+    pub speed: Cell<f64>,
+    pub x: Cell<f64>,
+    pub y: Cell<f64>,
+    pub xprevious: Cell<f64>,
+    pub yprevious: Cell<f64>,
+    pub xstart: Cell<f64>,
+    pub ystart: Cell<f64>,
+    pub path_index: Cell<i32>,
+    pub path_position: Cell<f64>, // Normalized from 0 to 1
+    pub path_positionprevious: Cell<f64>,
+    pub path_speed: Cell<f64>,
+    pub path_scale: Cell<f64>,
+    pub path_orientation: Cell<f64>,
+    pub path_endaction: Cell<i32>, // https://docs.yoyogames.com/source/dadiospice/002_reference/paths/path_start.html
+    pub timeline_index: Cell<i32>,
+    pub timeline_running: Cell<bool>,
+    pub timeline_speed: Cell<f64>,
+    pub timeline_position: Cell<f64>,
+    pub timeline_loop: Cell<bool>,
 
-    pub bbox_top: i32,
-    pub bbox_left: i32,
-    pub bbox_right: i32,
-    pub bbox_bottom: i32,
-    pub bbox_is_stale: bool,
+    pub bbox_top: Cell<i32>,
+    pub bbox_left: Cell<i32>,
+    pub bbox_right: Cell<i32>,
+    pub bbox_bottom: Cell<i32>,
+    pub bbox_is_stale: Cell<bool>,
     // TODO: fields map
     // TODO: alarms map
 }
@@ -56,88 +56,89 @@ pub struct Instance {
 impl Instance {
     pub fn new(id: usize, x: f64, y: f64, object_index: i32, object: &Object) -> Self {
         Self {
-            exists: true,
-            id,
-            object_index,
-            solid: object.solid,
-            visible: object.visible,
-            persistent: object.persistent,
-            depth: object.depth,
-            sprite_index: object.sprite_index,
-            image_alpha: 1.0,
-            image_blend: 0xFFFFFF,
-            image_index: 0.0,
-            image_speed: 1.0,
-            image_xscale: 1.0,
-            image_yscale: 1.0,
-            image_angle: 0.0,
-            mask_index: object.mask_index,
-            direction: 0.0,
-            gravity: 0.0,
-            gravity_direction: 0.0,
-            hspeed: 0.0,
-            vspeed: 0.0,
-            speed: 0.0,
-            friction: 0.0,
-            x: x,
-            y: y,
-            xprevious: x,
-            yprevious: y,
-            xstart: x,
-            ystart: y,
-            path_index: -1,
-            path_position: 0.0,
-            path_positionprevious: 0.0,
-            path_speed: 0.0,
-            path_scale: 1.0,
-            path_orientation: 0.0,
-            path_endaction: 0,
-            timeline_index: -1,
-            timeline_running: false,
-            timeline_speed: 1.0,
-            timeline_position: 0.0,
-            timeline_loop: false,
-            bbox_top: -100000,
-            bbox_left: -100000,
-            bbox_right: -100000,
-            bbox_bottom: -100000,
-            bbox_is_stale: true,
+            exists: Cell::new(true),
+            id: Cell::new(id),
+            object_index: Cell::new(object_index),
+            solid: Cell::new(object.solid),
+            visible: Cell::new(object.visible),
+            persistent: Cell::new(object.persistent),
+            depth: Cell::new(object.depth),
+            sprite_index: Cell::new(object.sprite_index),
+            image_alpha: Cell::new(1.0),
+            image_blend: Cell::new(0xFFFFFF),
+            image_index: Cell::new(0.0),
+            image_speed: Cell::new(1.0),
+            image_xscale: Cell::new(1.0),
+            image_yscale: Cell::new(1.0),
+            image_angle: Cell::new(0.0),
+            mask_index: Cell::new(object.mask_index),
+            direction: Cell::new(0.0),
+            gravity: Cell::new(0.0),
+            gravity_direction: Cell::new(0.0),
+            hspeed: Cell::new(0.0),
+            vspeed: Cell::new(0.0),
+            speed: Cell::new(0.0),
+            friction: Cell::new(0.0),
+            x: Cell::new(x),
+            y: Cell::new(y),
+            xprevious: Cell::new(x),
+            yprevious: Cell::new(y),
+            xstart: Cell::new(x),
+            ystart: Cell::new(y),
+            path_index: Cell::new(-1),
+            path_position: Cell::new(0.0),
+            path_positionprevious: Cell::new(0.0),
+            path_speed: Cell::new(0.0),
+            path_scale: Cell::new(1.0),
+            path_orientation: Cell::new(0.0),
+            path_endaction: Cell::new(0),
+            timeline_index: Cell::new(-1),
+            timeline_running: Cell::new(false),
+            timeline_speed: Cell::new(1.0),
+            timeline_position: Cell::new(0.0),
+            timeline_loop: Cell::new(false),
+            bbox_top: Cell::new(-100000),
+            bbox_left: Cell::new(-100000),
+            bbox_right: Cell::new(-100000),
+            bbox_bottom: Cell::new(-100000),
+            bbox_is_stale: Cell::new(true),
         }
     }
 
     // Sets direction, also updating hspeed and vspeed
-    pub fn set_direction(&mut self, direction: f64) {
-        self.direction = direction;
+    pub fn set_direction(&self, direction: f64) {
+        self.direction.set(direction);
         self.update_hvspeed()
     }
 
     // Sets speed, also updating hspeed and vspeed
-    pub fn set_speed(&mut self, speed: f64) {
-        self.speed = speed;
+    pub fn set_speed(&self, speed: f64) {
+        self.speed.set(speed);
         self.update_hvspeed()
     }
 
     // Sets hspeed, also updating direction and speed
-    pub fn set_hspeed(&mut self, hspeed: f64) {
-        self.hspeed = hspeed;
+    pub fn set_hspeed(&self, hspeed: f64) {
+        self.hspeed.set(hspeed);
         self.update_speed_direction()
     }
 
     // Sets vspeed, also updating direction and speed
-    pub fn set_vspeed(&mut self, vspeed: f64) {
-        self.vspeed = vspeed;
+    pub fn set_vspeed(&self, vspeed: f64) {
+        self.vspeed.set(vspeed);
         self.update_speed_direction()
     }
 
     // Sets hspeed and vspeed based on direction and speed
-    fn update_hvspeed(&mut self) {
-        self.hspeed = -self.direction.cos() * self.speed;
-        self.vspeed = self.direction.sin() * self.speed;
+    fn update_hvspeed(&self) {
+        self.hspeed.set(-self.direction.get().cos() * self.speed.get());
+        self.vspeed.set(self.direction.get().sin() * self.speed.get());
     }
 
     // Sets direction and speed based on hspeed and vspeed
-    fn update_speed_direction(&mut self) {
-        self.direction = (-self.vspeed).atan2(self.hspeed);
-        self.speed = (self.hspeed.powi(2) + self.vspeed.powi(2)).sqrt();
+    fn update_speed_direction(&self) {
+        self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()));
+        self.speed
+            .set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
     }
 }

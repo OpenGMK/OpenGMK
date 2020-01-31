@@ -282,16 +282,16 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         for (_, instance) in instance_list.iter() {
-            if let Some(Some(sprite)) = sprites.get(instance.sprite_index as usize) {
+            if let Some(Some(sprite)) = sprites.get(instance.sprite_index.get() as usize) {
                 renderer.draw_sprite(
                     &sprite.frames.first().unwrap().atlas_ref,
-                    instance.x,
-                    instance.y,
-                    instance.image_xscale,
-                    instance.image_yscale,
-                    instance.image_angle,
-                    instance.image_blend,
-                    instance.image_alpha,
+                    instance.x.get(),
+                    instance.y.get(),
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
                 )
             }
         }
