@@ -1,5 +1,9 @@
-use crate::asset::Object;
-use std::{cell::Cell, f64};
+use crate::{asset::Object, gml::Value};
+use std::collections::HashMap;
+use std::{
+    cell::{Cell, RefCell},
+    f64,
+};
 
 pub struct Instance {
     pub exists: Cell<bool>,
@@ -49,8 +53,9 @@ pub struct Instance {
     pub bbox_right: Cell<i32>,
     pub bbox_bottom: Cell<i32>,
     pub bbox_is_stale: Cell<bool>,
-    // TODO: fields map
-    // TODO: alarms map
+
+    pub fields: RefCell<HashMap<usize, HashMap<u32, Value>>>,
+    pub alarms: RefCell<HashMap<u32, Value>>,
 }
 
 impl Instance {
@@ -102,6 +107,8 @@ impl Instance {
             bbox_right: Cell::new(-100000),
             bbox_bottom: Cell::new(-100000),
             bbox_is_stale: Cell::new(true),
+            fields: RefCell::new(HashMap::new()),
+            alarms: RefCell::new(HashMap::new()),
         }
     }
 
