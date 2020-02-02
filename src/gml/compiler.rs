@@ -9,7 +9,7 @@ use super::{
 };
 use std::{
     collections::HashMap,
-    ops::{Neg, Not},
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub},
 };
 use token::Operator;
 
@@ -76,40 +76,105 @@ impl Compiler {
     /// Compile an expression into a format which can be evaluated.
     pub fn compile_expression(&mut self, source: &str) -> Result<Node, ast::Error> {
         let expr = ast::AST::expression(source)?;
-        Ok(self.compile_ast_expr(expr, &vec![]))
+        Ok(self.compile_ast_expr(&expr, &vec![]))
     }
 
-    fn compile_ast_expr(&mut self, expr: ast::Expr, locals: &[&str]) -> Node {
+    fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&str]) -> Node {
         match expr {
             ast::Expr::LiteralReal(real) => Node::Literal {
-                value: Value::Real(real),
+                value: Value::Real(*real),
             },
 
             ast::Expr::LiteralString(string) => Node::Literal {
-                value: Value::Str(string.into()),
+                value: Value::Str((*string).into()),
             },
 
             ast::Expr::LiteralIdentifier(string) => {
-                if let Some(entry) = self.constants.get(string) {
+                if let Some(entry) = self.constants.get(*string) {
                     Node::Literal { value: entry.clone() }
-                } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| *s == string).map(|(_, v)| v) {
+                } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| s == string).map(|(_, v)| v) {
                     Node::Literal { value: Value::Real(*f) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
             }
 
-            ast::Expr::Binary(binary_expr) => match binary_expr.op {
+            ast::Expr::Binary(binary_expr) => match &binary_expr.op {
                 Operator::Deref => match &binary_expr.right {
                     ast::Expr::LiteralIdentifier(var_name) => {
-                        let owner = self.make_varowner(binary_expr.left, locals);
+                        let owner = self.make_varowner(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
                     }
                     _ => Node::RuntimeError {
                         error: format!("Invalid deref RHS: {:?}", binary_expr.right),
                     },
                 },
-                _ => todo!(),
+
+                Operator::Index => match &binary_expr.right {
+                    ast::Expr::Group(dimensions) => {
+                        let accessor = match self.make_array_accessor(dimensions, locals) {
+                            Ok(a) => a,
+                            Err(e) => return Node::RuntimeError { error: e },
+                        };
+                        match &binary_expr.left {
+                            ast::Expr::LiteralIdentifier(string) => {
+                                self.identifier_to_variable(string, None, accessor, locals)
+                            }
+                            ast::Expr::Binary(binary_expr) => {
+                                if let ast::BinaryExpr {
+                                    left,
+                                    right: ast::Expr::LiteralIdentifier(i),
+                                    op: Operator::Deref,
+                                } = binary_expr.as_ref()
+                                {
+                                    let owner = self.make_varowner(left, locals);
+                                    self.identifier_to_variable(i, Some(owner), accessor, locals)
+                                } else {
+                                    Node::RuntimeError {
+                                        error: format!("Invalid LHS for indexing: {:?}", binary_expr),
+                                    }
+                                }
+                            }
+                            _ => Node::RuntimeError {
+                                error: format!("Invalid object for indexing: {:?}", binary_expr.left),
+                            },
+                        }
+                    }
+                    _ => Node::RuntimeError {
+                        error: format!("Invalid array accessor: {:?}", binary_expr.right),
+                    },
+                },
+
+                op => {
+                    let op_function = match op {
+                        Operator::Add => Value::add,
+                        Operator::BinaryAnd => Value::bitand,
+                        Operator::BinaryOr => Value::bitor,
+                        Operator::BinaryXor => Value::bitxor,
+                        Operator::IntDivide => Value::intdiv,
+                        Operator::Divide => Value::div,
+                        Operator::Multiply => Value::mul,
+                        Operator::Modulo => Value::rem,
+                        Operator::BinaryShiftLeft => Value::shl,
+                        Operator::BinaryShiftRight => Value::shr,
+                        Operator::Subtract => Value::sub,
+                        op => {
+                            return Node::RuntimeError {
+                                error: format!("Invalid binary operator: {}", op),
+                            };
+                        }
+                    };
+
+                    let left = self.compile_ast_expr(&binary_expr.left, locals);
+                    let right = self.compile_ast_expr(&binary_expr.right, locals);
+
+                    // TODO: optimize literals
+                    Node::Binary {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        operator: op_function,
+                    }
+                }
             },
 
             ast::Expr::Function(function) => {
@@ -118,8 +183,8 @@ impl Compiler {
                     Node::Script {
                         args: function
                             .params
-                            .into_iter()
-                            .map(|x| self.compile_ast_expr(x, locals))
+                            .iter()
+                            .map(|x| self.compile_ast_expr(&x, locals))
                             .collect::<Vec<_>>()
                             .into_boxed_slice(),
                         script_id,
@@ -130,7 +195,7 @@ impl Compiler {
             }
 
             ast::Expr::Unary(unary_expr) => {
-                let new_node = self.compile_ast_expr(unary_expr.child, locals);
+                let new_node = self.compile_ast_expr(&unary_expr.child, locals);
                 let operator = match unary_expr.op {
                     Operator::Add => return new_node,
                     Operator::Subtract => Value::neg,
@@ -220,9 +285,12 @@ impl Compiler {
     }
 
     /// Converts an AST node to a VarOwner.
-    fn make_varowner(&mut self, expression: ast::Expr, locals: &[&str]) -> VarOwner {
+    fn make_varowner(&mut self, expression: &ast::Expr, locals: &[&str]) -> VarOwner {
         let node = self.compile_ast_expr(expression, locals);
-        if let Node::Literal { value: v @ Value::Real(_) } = &node {
+        if let Node::Literal {
+            value: v @ Value::Real(_),
+        } = &node
+        {
             match v.round() {
                 -1 => VarOwner::Own,
                 -2 => VarOwner::Other,
@@ -230,9 +298,21 @@ impl Compiler {
                 -7 => VarOwner::Local,
                 _ => VarOwner::Expression(Box::new(node)),
             }
-        }
-        else {
+        } else {
             VarOwner::Expression(Box::new(node))
+        }
+    }
+
+    /// Converts a list of expressions into an array accessor (or an error message).
+    fn make_array_accessor(&mut self, expression_list: &[ast::Expr], locals: &[&str]) -> Result<ArrayAccessor, String> {
+        match expression_list {
+            [] => Ok(ArrayAccessor::None),
+            [d] => Ok(ArrayAccessor::Single(Box::new(self.compile_ast_expr(d, locals)))),
+            [d1, d2] => Ok(ArrayAccessor::Double(
+                Box::new(self.compile_ast_expr(d1, locals)),
+                Box::new(self.compile_ast_expr(d2, locals)),
+            )),
+            _ => Err(format!("Tried to access {}-dimensional array", expression_list.len())),
         }
     }
 }
