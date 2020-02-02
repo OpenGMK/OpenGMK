@@ -43,6 +43,7 @@ pub mod ev {
 }
 
 /// Enum for each instance variable
+#[derive(Clone, Copy)]
 pub enum InstanceVariable {
     Id,
     ObjectIndex,
@@ -95,6 +96,7 @@ pub enum InstanceVariable {
 }
 
 /// Enum for each game variable
+#[derive(Clone, Copy)]
 pub enum GameVariable {
     Argument,
     Argument0,

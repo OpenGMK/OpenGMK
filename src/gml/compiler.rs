@@ -4,7 +4,7 @@ pub mod mappings;
 pub mod token;
 
 use super::{
-    runtime::{Instruction, Node},
+    runtime::{ArrayAccessor, Instruction, Node, VarOwner},
     Value,
 };
 use std::{
@@ -76,10 +76,10 @@ impl Compiler {
     /// Compile an expression into a format which can be evaluated.
     pub fn compile_expression(&mut self, source: &str) -> Result<Node, ast::Error> {
         let expr = ast::AST::expression(source)?;
-        Ok(self.compile_ast_expr(expr))
+        Ok(self.compile_ast_expr(expr, &vec![]))
     }
 
-    fn compile_ast_expr(&mut self, expr: ast::Expr) -> Node {
+    fn compile_ast_expr(&mut self, expr: ast::Expr, locals: &[&str]) -> Node {
         match expr {
             ast::Expr::LiteralReal(real) => Node::Literal {
                 value: Value::Real(real),
@@ -95,7 +95,7 @@ impl Compiler {
                 } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| *s == string).map(|(_, v)| v) {
                     Node::Literal { value: Value::Real(*f) }
                 } else {
-                    todo!("Distinguish game vars, instance vars, fields")
+                    self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
             }
 
@@ -106,7 +106,7 @@ impl Compiler {
                         args: function
                             .params
                             .into_iter()
-                            .map(|x| self.compile_ast_expr(x))
+                            .map(|x| self.compile_ast_expr(x, locals))
                             .collect::<Vec<_>>()
                             .into_boxed_slice(),
                         script_id,
@@ -117,7 +117,7 @@ impl Compiler {
             }
 
             ast::Expr::Unary(unary_expr) => {
-                let new_node = self.compile_ast_expr(unary_expr.child);
+                let new_node = self.compile_ast_expr(unary_expr.child, locals);
                 let operator = match unary_expr.op {
                     Operator::Add => return new_node,
                     Operator::Subtract => Value::neg,
@@ -148,13 +148,61 @@ impl Compiler {
         }
     }
 
+    /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
     fn get_field_id(&mut self, name: &str) -> usize {
         if let Some(i) = self.fields.iter().position(|x| x == name) {
             i
         } else {
+            // Note: this isn't thread-safe. Add a mutex lock if you want it to be thread-safe.
             let i = self.fields.len();
             self.fields.push(String::from(name));
             i
+        }
+    }
+
+    /// Converts an identifier to a Field, Variable or GameVariable accessor.
+    /// If no VarOwner is provided (ie. the variable wasn't specified with one), this function will infer one.
+    fn identifier_to_variable(
+        &mut self,
+        identifier: &str,
+        owner: Option<VarOwner>,
+        array: ArrayAccessor,
+        locals: &[&str],
+    ) -> Node {
+        let owner = match owner {
+            Some(o) => o,
+            None => {
+                if locals.iter().position(|x| *x == identifier).is_some() {
+                    VarOwner::Local
+                } else {
+                    VarOwner::Own
+                }
+            }
+        };
+
+        if let Some(var) = mappings::GAME_VARIABLES
+            .iter()
+            .find(|(s, _)| *s == identifier)
+            .map(|(_, v)| v)
+        {
+            Node::GameVariable {
+                var: *var,
+                array,
+                owner,
+            }
+        } else if let Some(var) = mappings::INSTANCE_VARIABLES
+            .iter()
+            .find(|(s, _)| *s == identifier)
+            .map(|(_, v)| v)
+        {
+            Node::Variable {
+                var: *var,
+                array,
+                owner,
+            }
+        } else {
+            let index = self.get_field_id(identifier);
+            Node::Field { index, array, owner }
         }
     }
 }

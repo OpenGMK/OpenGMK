@@ -322,7 +322,7 @@ pub const CONSTANTS: [(&str, f64); 317] = [
 ];
 
 /// Mappings of instance variable names to their enum identifiers
-pub const INSTANCE_VARS: [(&str, InstanceVariable); 47] = [
+pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 47] = [
     ("id", InstanceVariable::Id),
     ("object_index", InstanceVariable::ObjectIndex),
     ("solid", InstanceVariable::Solid),
