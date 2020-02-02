@@ -39,6 +39,14 @@ impl Value {
         }
     }
 
+    /// Rounds the value to an i32. This is done very commonly by the GM8 runner.
+    pub fn round(&self) -> i32 {
+        match &self {
+            Real(f) => Value::ieee_round(*f),
+            Str(_) => 0,
+        }
+    }
+
     /// Formats the value as a number or a string with quotes around it so you can see that it is.
     /// Used in generating error messages.
     fn log_fmt(&self) -> String {
