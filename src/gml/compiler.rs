@@ -85,6 +85,18 @@ impl Compiler {
                 value: Value::Str(string.into()),
             },
 
+            ast::Expr::LiteralIdentifier(string) => {
+                if let Some(entry) = self.constants.get(string) {
+                    Node::Literal { value: entry.clone() }
+                }
+                else if let Some(f) = super::GML_CONSTANTS.iter().find(|(s, _)| *s == string).map(|(_, v)| v) {
+                    Node::Literal { value: Value::Real(*f) }
+                }
+                else {
+                    todo!("Distinguish game vars, instance vars, fields")
+                }
+            }
+
             ast::Expr::Function(function) => {
                 if let Some(script_id) = self.script_names.get(function.name) {
                     let script_id = *script_id;
@@ -131,6 +143,17 @@ impl Compiler {
             _ => Node::RuntimeError {
                 error: format!("Unexpected type of AST Expr in expression: {:?}", expr),
             },
+        }
+    }
+
+    fn get_field_id(&mut self, name: &str) -> usize {
+        if let Some(i) = self.fields.iter().position(|x| x == name) {
+            i
+        }
+        else {
+            let i = self.fields.len();
+            self.fields.push(String::from(name));
+            i
         }
     }
 }
