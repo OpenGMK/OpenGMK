@@ -92,11 +92,7 @@ impl Compiler {
             ast::Expr::LiteralIdentifier(string) => {
                 if let Some(entry) = self.constants.get(string) {
                     Node::Literal { value: entry.clone() }
-                } else if let Some(f) = mappings::GML_CONSTANTS
-                    .iter()
-                    .find(|(s, _)| *s == string)
-                    .map(|(_, v)| v)
-                {
+                } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| *s == string).map(|(_, v)| v) {
                     Node::Literal { value: Value::Real(*f) }
                 } else {
                     todo!("Distinguish game vars, instance vars, fields")
