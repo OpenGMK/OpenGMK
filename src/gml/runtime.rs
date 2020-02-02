@@ -23,19 +23,16 @@ pub enum Node {
         index: usize,
         array: ArrayAccessor,
         owner: VarOwner,
-        value: Box<Node>,
     },
     Variable {
         var: InstanceVariable,
         array: ArrayAccessor,
         owner: VarOwner,
-        value: Box<Node>,
     },
     GameVariable {
         var: GameVariable,
         array: ArrayAccessor,
         owner: VarOwner,
-        value: Box<Node>,
     },
     Binary {
         left: Box<Node>,
