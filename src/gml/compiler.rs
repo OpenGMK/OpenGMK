@@ -1,13 +1,17 @@
+pub mod ast;
+pub mod lexer;
+pub mod mappings;
+pub mod token;
+
 use super::{
-    ast,
     runtime::{Instruction, Node},
-    token::Operator,
     Value,
 };
 use std::{
     collections::HashMap,
     ops::{Neg, Not},
 };
+use token::Operator;
 
 pub struct Compiler {
     /// List of identifiers which represent const values
@@ -88,11 +92,13 @@ impl Compiler {
             ast::Expr::LiteralIdentifier(string) => {
                 if let Some(entry) = self.constants.get(string) {
                     Node::Literal { value: entry.clone() }
-                }
-                else if let Some(f) = super::GML_CONSTANTS.iter().find(|(s, _)| *s == string).map(|(_, v)| v) {
+                } else if let Some(f) = mappings::GML_CONSTANTS
+                    .iter()
+                    .find(|(s, _)| *s == string)
+                    .map(|(_, v)| v)
+                {
                     Node::Literal { value: Value::Real(*f) }
-                }
-                else {
+                } else {
                     todo!("Distinguish game vars, instance vars, fields")
                 }
             }
@@ -149,8 +155,7 @@ impl Compiler {
     fn get_field_id(&mut self, name: &str) -> usize {
         if let Some(i) = self.fields.iter().position(|x| x == name) {
             i
-        }
-        else {
+        } else {
             let i = self.fields.len();
             self.fields.push(String::from(name));
             i
