@@ -22,19 +22,19 @@ pub enum Node {
     Field {
         index: usize,
         array: ArrayAccessor,
-        owner: Box<Node>,
+        owner: VarOwner,
         value: Box<Node>,
     },
     Variable {
         var: InstanceVariable,
         array: ArrayAccessor,
-        owner: Box<Node>,
+        owner: VarOwner,
         value: Box<Node>,
     },
     GameVariable {
         var: GameVariable,
         array: ArrayAccessor,
-        owner: Box<Node>,
+        owner: VarOwner,
         value: Box<Node>,
     },
     Binary {
@@ -58,6 +58,17 @@ pub enum ArrayAccessor {
     None,
     Single(Box<Node>),
     Double(Box<Node>, Box<Node>),
+}
+
+/// Represents the owner of a field/variable.
+/// If we know at compile time that a variable is owned by a magic value (self, other, global, local)
+/// then we can represent it that way in the tree and skip evaluating it during runtime.
+pub enum VarOwner {
+    Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
+    Other,
+    Global,
+    Local,
+    Expression(Box<Node>),
 }
 
 pub struct Error {
