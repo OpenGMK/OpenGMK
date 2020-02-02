@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Real(f64),
     Str(Rc<str>),
