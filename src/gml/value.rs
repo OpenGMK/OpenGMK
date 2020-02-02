@@ -70,6 +70,14 @@ impl Value {
             _ => gml_panic!("invalid arguments to ~ (complement)"),
         }
     }
+
+    /// GML operator 'div' which gives the whole number of times RHS can go into LHS. In other words floor(lhs/rhs)
+    pub fn intdiv(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Real((lhs / rhs).floor()),
+            (x, y) => gml_panic!("invalid arguments to div operator ({} & {})", x.log_fmt(), y.log_fmt()),
+        }
+    }
 }
 
 impl Add for Value {
