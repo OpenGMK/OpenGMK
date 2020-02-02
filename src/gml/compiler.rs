@@ -99,6 +99,19 @@ impl Compiler {
                 }
             }
 
+            ast::Expr::Binary(binary_expr) => match binary_expr.op {
+                Operator::Deref => match &binary_expr.right {
+                    ast::Expr::LiteralIdentifier(var_name) => {
+                        let owner = self.make_varowner(binary_expr.left, locals);
+                        self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
+                    }
+                    _ => Node::RuntimeError {
+                        error: format!("Invalid deref RHS: {:?}", binary_expr.right),
+                    },
+                },
+                _ => todo!(),
+            },
+
             ast::Expr::Function(function) => {
                 if let Some(script_id) = self.script_names.get(function.name) {
                     let script_id = *script_id;
@@ -203,6 +216,23 @@ impl Compiler {
         } else {
             let index = self.get_field_id(identifier);
             Node::Field { index, array, owner }
+        }
+    }
+
+    /// Converts an AST node to a VarOwner.
+    fn make_varowner(&mut self, expression: ast::Expr, locals: &[&str]) -> VarOwner {
+        let node = self.compile_ast_expr(expression, locals);
+        if let Node::Literal { value: v @ Value::Real(_) } = &node {
+            match v.round() {
+                -1 => VarOwner::Own,
+                -2 => VarOwner::Other,
+                -5 => VarOwner::Global,
+                -7 => VarOwner::Local,
+                _ => VarOwner::Expression(Box::new(node)),
+            }
+        }
+        else {
+            VarOwner::Expression(Box::new(node))
         }
     }
 }
