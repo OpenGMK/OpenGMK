@@ -7,9 +7,7 @@ pub struct InstanceList {
 
 impl InstanceList {
     pub fn new() -> Self {
-        Self {
-            arena: Arena::with_capacity(1024),
-        }
+        Self { arena: Arena::with_capacity(1024) }
     }
 
     pub fn insert(&mut self, instance: Instance) -> Index {

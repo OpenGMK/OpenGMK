@@ -18,13 +18,10 @@ const EXIT_FAILURE: i32 = 1;
 fn help(argv0: &str, opts: getopts::Options) {
     print!(
         "{}",
-        opts.usage(&format!(
-            "Usage: {} FILE [options]",
-            match Path::new(argv0).file_name() {
-                Some(file) => file.to_str().unwrap_or(argv0),
-                None => argv0,
-            }
-        ))
+        opts.usage(&format!("Usage: {} FILE [options]", match Path::new(argv0).file_name() {
+            Some(file) => file.to_str().unwrap_or(argv0),
+            None => argv0,
+        }))
     );
 }
 
@@ -54,7 +51,7 @@ fn xmain() -> i32 {
                 UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
             }
             return EXIT_FAILURE;
-        }
+        },
     };
 
     if args.len() < 2 || matches.opt_present("h") {
@@ -82,7 +79,7 @@ fn xmain() -> i32 {
         Err(err) => {
             eprintln!("failed to open '{}': {}", input, err);
             return EXIT_FAILURE;
-        }
+        },
     };
 
     if verbose {
@@ -105,7 +102,7 @@ fn xmain() -> i32 {
         Err(err) => {
             eprintln!("failed to load '{}' - {}", input, err);
             return EXIT_FAILURE;
-        }
+        },
     };
 
     game::launch(assets).unwrap();

@@ -101,12 +101,7 @@ impl OpenGLRenderer {
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            gl::ShaderSource(
-                vertex_shader,
-                1,
-                &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char),
-                ptr::null(),
-            );
+            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
             gl::CompileShader(vertex_shader);
 
             // Check for vertex shader compile errors
@@ -131,12 +126,7 @@ impl OpenGLRenderer {
 
             // Compile fragment shader
             let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            gl::ShaderSource(
-                fragment_shader,
-                1,
-                &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char),
-                ptr::null(),
-            );
+            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
             gl::CompileShader(fragment_shader);
 
             // Check for fragment shader compile errors
@@ -205,14 +195,7 @@ impl OpenGLRenderer {
                 gl::STATIC_DRAW,
             );
 
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                3 * size_of::<GLfloat>() as GLsizei,
-                ptr::null(),
-            );
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 3 * size_of::<GLfloat>() as GLsizei, ptr::null());
             gl::EnableVertexAttribArray(0);
 
             // Enable and disable GL features
@@ -441,12 +424,7 @@ impl Renderer for OpenGLRenderer {
             ]
         );
 
-        self.draw_commands.push(DrawCommand {
-            atlas_ref,
-            model_view_matrix,
-            colour,
-            alpha,
-        });
+        self.draw_commands.push(DrawCommand { atlas_ref, model_view_matrix, colour, alpha });
     }
 
     fn clear(&self, red: f32, green: f32, blue: f32) {
@@ -555,13 +533,7 @@ impl Renderer for OpenGLRenderer {
             let mut buf = vec![0u8; width as usize * height as usize * 4];
             unsafe {
                 gl::BindTexture(gl::TEXTURE_2D, *texture);
-                gl::GetTexImage(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    buf.as_mut_ptr() as *mut _,
-                );
+                gl::GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, buf.as_mut_ptr() as *mut _);
             }
             writer.write_image_data(&buf).unwrap();
         }
