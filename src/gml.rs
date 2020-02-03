@@ -20,6 +20,9 @@ pub mod value;
 pub use compiler::Compiler;
 pub use value::Value;
 
+pub const TRUE: f64 = 1.0;
+pub const FALSE: f64 = 0.0;
+
 pub const SELF: i32 = -1;
 pub const OTHER: i32 = -2;
 pub const ALL: i32 = -3;
