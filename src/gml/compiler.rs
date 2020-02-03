@@ -174,11 +174,44 @@ impl Compiler {
                     let left = self.compile_ast_expr(&binary_expr.left, locals);
                     let right = self.compile_ast_expr(&binary_expr.right, locals);
 
-                    // TODO: optimize literals
-                    Node::Binary {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                        operator: op_function,
+                    match (left, right) {
+                        (
+                            Node::Literal {
+                                value: lhs @ Value::Real(_),
+                            },
+                            Node::Literal {
+                                value: rhs @ Value::Real(_),
+                            },
+                        ) => Node::Literal {
+                            value: op_function(lhs, rhs),
+                        },
+                        (
+                            Node::Literal {
+                                value: lhs @ Value::Str(_),
+                            },
+                            Node::Literal {
+                                value: rhs @ Value::Str(_),
+                            },
+                        ) if match *op {
+                            Operator::Add
+                            | Operator::Equal
+                            | Operator::NotEqual
+                            | Operator::GreaterThan
+                            | Operator::GreaterThanOrEqual
+                            | Operator::LessThan
+                            | Operator::LessThanOrEqual => true,
+                            _ => false,
+                        } =>
+                        {
+                            Node::Literal {
+                                value: op_function(lhs, rhs),
+                            }
+                        }
+                        (left, right) => Node::Binary {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            operator: op_function,
+                        },
                     }
                 }
             },
