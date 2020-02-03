@@ -28,11 +28,7 @@ pub struct AtlasRef {
 impl AtlasBuilder {
     pub fn new(max_size: i32) -> Self {
         assert_eq!(max_size, next_pow2(max_size));
-        AtlasBuilder {
-            max_size,
-            packers: Vec::new(),
-            textures: Vec::new(),
-        }
+        AtlasBuilder { max_size, packers: Vec::new(), textures: Vec::new() }
     }
 
     pub fn texture(

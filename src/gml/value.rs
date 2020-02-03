@@ -46,6 +46,33 @@ macro_rules! gml_cmp_impl {
 pub(self) use Value::*;
 
 impl Value {
+    // All the GML comparison operators (which return Value not bool).
+    #[rustfmt::skip] gml_cmp_impl! {
+        pub gml_eq aka "==":
+            real: |r1, r2| (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 == s2
+
+        pub gml_ne aka "!=":
+            real: |r1, r2| (r1 - r2).abs() > 1e-14,
+            string: |s1, s2| s1 != s2
+
+        pub gml_lt aka "<":
+            real: |r1, r2| r1 < r2,
+            string: |s1, s2| s1 < s2
+        
+        pub gml_lte aka "<=":
+            real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 <= s2
+        
+        pub gml_gt aka ">":
+            real: |r1, r2| r1 > r2,
+            string: |s1, s2| s1 > s2
+        
+        pub gml_gte aka ">=":
+            real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 >= s2
+    }
+
     /// GML-like comparison, fails if self and other are different types.
     fn almost_equals(&self, other: &Self) -> bool {
         match (self, other) {
@@ -108,33 +135,6 @@ impl Value {
             (x, y) => gml_panic!("invalid arguments to div operator ({} & {})", x.log_fmt(), y.log_fmt()),
         }
     }
-
-    // All the GML comparison operators (which return Value not bool).
-    #[rustfmt::skip] gml_cmp_impl! {
-        pub gml_eq aka "==":
-            real: |r1, r2| (r1 - r2).abs() <= 1e-14,
-            string: |s1, s2| s1 == s2
-
-        pub gml_ne aka "!=":
-            real: |r1, r2| (r1 - r2).abs() > 1e-14,
-            string: |s1, s2| s1 != s2
-
-        pub gml_lt aka "<":
-            real: |r1, r2| r1 < r2,
-            string: |s1, s2| s1 < s2
-        
-        pub gml_lte aka "<=":
-            real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
-            string: |s1, s2| s1 <= s2
-        
-        pub gml_gt aka ">":
-            real: |r1, r2| r1 > r2,
-            string: |s1, s2| s1 > s2
-        
-        pub gml_gte aka ">=":
-            real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
-            string: |s1, s2| s1 >= s2
-    }
 }
 
 impl Add for Value {
@@ -163,7 +163,7 @@ impl AddAssign for Value {
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
                 *lhs = string.into();
-            }
+            },
             (x, y) => gml_panic!("invalid arguments to += operator ({} += {})", x.log_fmt(), y.log_fmt()),
         }
     }
@@ -297,11 +297,7 @@ impl Rem for Value {
     fn rem(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => Real(lhs % rhs),
-            (x, y) => gml_panic!(
-                "invalid arguments to mod operator ({} mod {})",
-                x.log_fmt(),
-                y.log_fmt()
-            ),
+            (x, y) => gml_panic!("invalid arguments to mod operator ({} mod {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
@@ -331,11 +327,7 @@ impl ShlAssign for Value {
     fn shl_assign(&mut self, rhs: Self) {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => *lhs = ((Self::ieee_round(*lhs) as i32) << Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!(
-                "invalid arguments to <<= operator ({} <<= {})",
-                x.log_fmt(),
-                y.log_fmt()
-            ),
+            (x, y) => gml_panic!("invalid arguments to <<= operator ({} <<= {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }
@@ -355,11 +347,7 @@ impl ShrAssign for Value {
     fn shr_assign(&mut self, rhs: Self) {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 >> Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!(
-                "invalid arguments to >>= operator ({} >>= {})",
-                x.log_fmt(),
-                y.log_fmt()
-            ),
+            (x, y) => gml_panic!("invalid arguments to >>= operator ({} >>= {})", x.log_fmt(), y.log_fmt()),
         }
     }
 }

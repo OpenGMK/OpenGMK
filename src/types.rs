@@ -30,11 +30,7 @@ impl Color {
 
     /// Creates a tuple of (r, g, b) values from self.
     pub fn as_rgb(&self) -> (u8, u8, u8) {
-        (
-            (self.r * RGB_RANGE) as u8,
-            (self.g * RGB_RANGE) as u8,
-            (self.b * RGB_RANGE) as u8,
-        )
+        ((self.r * RGB_RANGE) as u8, (self.g * RGB_RANGE) as u8, (self.b * RGB_RANGE) as u8)
     }
 
     /// Formats self as an RGBA hexadecimal value.
@@ -70,11 +66,7 @@ impl From<Color> for u32 {
 
 impl From<(u8, u8, u8)> for Color {
     fn from(rgb: (u8, u8, u8)) -> Color {
-        Color {
-            r: rgb.0 as f64 / RGB_RANGE,
-            g: rgb.1 as f64 / RGB_RANGE,
-            b: rgb.2 as f64 / RGB_RANGE,
-        }
+        Color { r: rgb.0 as f64 / RGB_RANGE, g: rgb.1 as f64 / RGB_RANGE, b: rgb.2 as f64 / RGB_RANGE }
     }
 }
 

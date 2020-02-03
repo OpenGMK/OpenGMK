@@ -27,11 +27,7 @@ pub struct Compiler {
 impl Compiler {
     /// Create a compiler.
     pub fn new() -> Self {
-        Self {
-            constants: HashMap::new(),
-            script_names: HashMap::new(),
-            fields: Vec::new(),
-        }
+        Self { constants: HashMap::new(), script_names: HashMap::new(), fields: Vec::new() }
     }
 
     /// Reserve space to register at least the given number of constants.
@@ -55,10 +51,7 @@ impl Compiler {
     /// Panics if two identical script names are registered - GM8 does not allow this.
     pub fn register_script(&mut self, name: String, index: usize) {
         if let Some(v) = self.script_names.insert(name, index) {
-            panic!(
-                "Two scripts with the same name registered: at index {} and {}",
-                v, index
-            );
+            panic!("Two scripts with the same name registered: at index {} and {}", v, index);
         }
     }
 
@@ -81,13 +74,9 @@ impl Compiler {
 
     fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&str]) -> Node {
         match expr {
-            ast::Expr::LiteralReal(real) => Node::Literal {
-                value: Value::Real(*real),
-            },
+            ast::Expr::LiteralReal(real) => Node::Literal { value: Value::Real(*real) },
 
-            ast::Expr::LiteralString(string) => Node::Literal {
-                value: Value::Str((*string).into()),
-            },
+            ast::Expr::LiteralString(string) => Node::Literal { value: Value::Str((*string).into()) },
 
             ast::Expr::LiteralIdentifier(string) => {
                 if let Some(entry) = self.constants.get(*string) {
@@ -97,17 +86,15 @@ impl Compiler {
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
-            }
+            },
 
             ast::Expr::Binary(binary_expr) => match &binary_expr.op {
                 Operator::Deref => match &binary_expr.right {
                     ast::Expr::LiteralIdentifier(var_name) => {
                         let owner = self.make_varowner(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
-                    }
-                    _ => Node::RuntimeError {
-                        error: format!("Invalid deref RHS: {:?}", binary_expr.right),
                     },
+                    _ => Node::RuntimeError { error: format!("Invalid deref RHS: {:?}", binary_expr.right) },
                 },
 
                 Operator::Index => match &binary_expr.right {
@@ -119,7 +106,7 @@ impl Compiler {
                         match &binary_expr.left {
                             ast::Expr::LiteralIdentifier(string) => {
                                 self.identifier_to_variable(string, None, accessor, locals)
-                            }
+                            },
                             ast::Expr::Binary(binary_expr) => {
                                 if let ast::BinaryExpr {
                                     left,
@@ -130,19 +117,15 @@ impl Compiler {
                                     let owner = self.make_varowner(left, locals);
                                     self.identifier_to_variable(i, Some(owner), accessor, locals)
                                 } else {
-                                    Node::RuntimeError {
-                                        error: format!("Invalid LHS for indexing: {:?}", binary_expr),
-                                    }
+                                    Node::RuntimeError { error: format!("Invalid LHS for indexing: {:?}", binary_expr) }
                                 }
-                            }
+                            },
                             _ => Node::RuntimeError {
                                 error: format!("Invalid object for indexing: {:?}", binary_expr.left),
                             },
                         }
-                    }
-                    _ => Node::RuntimeError {
-                        error: format!("Invalid array accessor: {:?}", binary_expr.right),
                     },
+                    _ => Node::RuntimeError { error: format!("Invalid array accessor: {:?}", binary_expr.right) },
                 },
 
                 op => {
@@ -165,10 +148,8 @@ impl Compiler {
                         Operator::NotEqual => Value::gml_ne,
                         Operator::Subtract => Value::sub,
                         op => {
-                            return Node::RuntimeError {
-                                error: format!("Invalid binary operator: {}", op),
-                            };
-                        }
+                            return Node::RuntimeError { error: format!("Invalid binary operator: {}", op) };
+                        },
                     };
 
                     let left = self.compile_ast_expr(&binary_expr.left, locals);
@@ -176,22 +157,12 @@ impl Compiler {
 
                     match (left, right) {
                         (
-                            Node::Literal {
-                                value: lhs @ Value::Real(_),
-                            },
-                            Node::Literal {
-                                value: rhs @ Value::Real(_),
-                            },
-                        ) => Node::Literal {
-                            value: op_function(lhs, rhs),
-                        },
+                            Node::Literal { value: lhs @ Value::Real(_) },
+                            Node::Literal { value: rhs @ Value::Real(_) },
+                        ) => Node::Literal { value: op_function(lhs, rhs) },
                         (
-                            Node::Literal {
-                                value: lhs @ Value::Str(_),
-                            },
-                            Node::Literal {
-                                value: rhs @ Value::Str(_),
-                            },
+                            Node::Literal { value: lhs @ Value::Str(_) },
+                            Node::Literal { value: rhs @ Value::Str(_) },
                         ) if match *op {
                             Operator::Add
                             | Operator::Equal
@@ -203,17 +174,13 @@ impl Compiler {
                             _ => false,
                         } =>
                         {
-                            Node::Literal {
-                                value: op_function(lhs, rhs),
-                            }
-                        }
-                        (left, right) => Node::Binary {
-                            left: Box::new(left),
-                            right: Box::new(right),
-                            operator: op_function,
+                            Node::Literal { value: op_function(lhs, rhs) }
+                        },
+                        (left, right) => {
+                            Node::Binary { left: Box::new(left), right: Box::new(right), operator: op_function }
                         },
                     }
-                }
+                },
             },
 
             ast::Expr::Function(function) => {
@@ -231,7 +198,7 @@ impl Compiler {
                 } else {
                     todo!("Functions")
                 }
-            }
+            },
 
             ast::Expr::Unary(unary_expr) => {
                 let new_node = self.compile_ast_expr(&unary_expr.child, locals);
@@ -241,27 +208,17 @@ impl Compiler {
                     Operator::Not => Value::not,
                     Operator::Complement => Value::complement,
                     _ => {
-                        return Node::RuntimeError {
-                            error: format!("Unknown unary operator: {:?}", unary_expr.op),
-                        };
-                    }
+                        return Node::RuntimeError { error: format!("Unknown unary operator: {:?}", unary_expr.op) };
+                    },
                 };
-                if let Node::Literal {
-                    value: v @ Value::Real(_),
-                } = new_node
-                {
+                if let Node::Literal { value: v @ Value::Real(_) } = new_node {
                     Node::Literal { value: operator(v) }
                 } else {
-                    Node::Unary {
-                        child: Box::new(new_node),
-                        operator,
-                    }
+                    Node::Unary { child: Box::new(new_node), operator }
                 }
-            }
-
-            _ => Node::RuntimeError {
-                error: format!("Unexpected type of AST Expr in expression: {:?}", expr),
             },
+
+            _ => Node::RuntimeError { error: format!("Unexpected type of AST Expr in expression: {:?}", expr) },
         }
     }
 
@@ -294,29 +251,13 @@ impl Compiler {
                 } else {
                     VarOwner::Own
                 }
-            }
+            },
         };
 
-        if let Some(var) = mappings::GAME_VARIABLES
-            .iter()
-            .find(|(s, _)| *s == identifier)
-            .map(|(_, v)| v)
-        {
-            Node::GameVariable {
-                var: *var,
-                array,
-                owner,
-            }
-        } else if let Some(var) = mappings::INSTANCE_VARIABLES
-            .iter()
-            .find(|(s, _)| *s == identifier)
-            .map(|(_, v)| v)
-        {
-            Node::Variable {
-                var: *var,
-                array,
-                owner,
-            }
+        if let Some(var) = mappings::GAME_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+            Node::GameVariable { var: *var, array, owner }
+        } else if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+            Node::Variable { var: *var, array, owner }
         } else {
             let index = self.get_field_id(identifier);
             Node::Field { index, array, owner }
@@ -326,10 +267,7 @@ impl Compiler {
     /// Converts an AST node to a VarOwner.
     fn make_varowner(&mut self, expression: &ast::Expr, locals: &[&str]) -> VarOwner {
         let node = self.compile_ast_expr(expression, locals);
-        if let Node::Literal {
-            value: v @ Value::Real(_),
-        } = &node
-        {
+        if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
                 -1 => VarOwner::Own,
                 -2 => VarOwner::Other,

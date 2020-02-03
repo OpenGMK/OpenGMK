@@ -19,11 +19,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     /// Creates a new Lexer over GML source code.
     pub fn new(src: &'a str) -> Self {
-        Lexer {
-            src,
-            line_hint: 1,
-            iter: src.bytes().enumerate().peekable(),
-        }
+        Lexer { src, line_hint: 1, iter: src.bytes().enumerate().peekable() }
     }
 
     /// Returns the current line number in the source code.
@@ -42,7 +38,7 @@ impl<'a> Lexer<'a> {
                         lines_skipped += 1;
                     }
                     self.iter.next();
-                }
+                },
                 _ => break lines_skipped,
             }
         }
@@ -76,7 +72,7 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(&(tail, ch)) => match ch {
                                 b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' => {
                                     self.iter.next();
-                                }
+                                },
                                 _ => break sl(&self.src, head.0..tail),
                             },
                             None => break sl(&self.src, head.0..),
@@ -116,7 +112,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                     _ => Token::Identifier(identifier),
                 }
-            }
+            },
 
             // real literal or . operator
             // in a real literal, every dot after the first one is ignored
@@ -151,7 +147,7 @@ impl<'a> Iterator for Lexer<'a> {
                                 factor /= 10.0;
                             }
                             result = result * 10.0 + f64::from(dec);
-                        }
+                        },
                         b'.' => point_seen = true,
                         _ => break,
                     }
@@ -159,7 +155,7 @@ impl<'a> Iterator for Lexer<'a> {
                 }
 
                 Token::Real(result * factor)
-            }
+            },
 
             // string literal
             // note: unclosed string literals at eof are accepted, however each script ends in:
@@ -192,7 +188,7 @@ impl<'a> Iterator for Lexer<'a> {
                     }
                 };
                 Token::String(string)
-            }
+            },
 
             // hexadecimal real literal.
             // a single $ with no valid hexadecimal chars after it is equivalent to $0.
@@ -210,7 +206,7 @@ impl<'a> Iterator for Lexer<'a> {
                         Some(&(tail, ch)) => match ch {
                             b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                                 self.iter.next();
-                            }
+                            },
                             _ => break sl(&self.src, head..tail),
                         },
                         None => break sl(&self.src, head..),
@@ -225,7 +221,7 @@ impl<'a> Iterator for Lexer<'a> {
                         u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64,
                     )
                 }
-            }
+            },
 
             // operator, separator or possibly just an invalid character
             0x00..=b'~' => {
@@ -283,11 +279,11 @@ impl<'a> Iterator for Lexer<'a> {
                                         b'\n' | b'\r' => break,
                                         _ => {
                                             self.iter.next();
-                                        }
+                                        },
                                     }
                                 }
                                 return self.next();
-                            }
+                            },
 
                             _ => return Some(Token::Operator(op)),
                         };
@@ -330,10 +326,10 @@ impl<'a> Iterator for Lexer<'a> {
                                         self.iter.next();
                                         break;
                                     }
-                                }
+                                },
                                 _ => {
                                     self.iter.next();
-                                }
+                                },
                             }
                         }
                         return self.next();
@@ -351,13 +347,13 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     token1
                 }
-            }
+            },
 
             // invalid unicode
             _ => {
                 self.iter.next(); // skip (if possible)
                 Token::InvalidChar(head.0, head.1)
-            }
+            },
         })
     }
 }

@@ -44,16 +44,7 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
 
 pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // destructure assets
-    let GameAssets {
-        room_order,
-        icon_data,
-        rooms,
-        sprites,
-        backgrounds,
-        fonts,
-        objects,
-        ..
-    } = assets;
+    let GameAssets { room_order, icon_data, rooms, sprites, backgrounds, fonts, objects, .. } = assets;
 
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
@@ -66,10 +57,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     let options = RendererOptions {
         title: &room1.caption,
         size: (room1.width, room1.height),
-        icons: icon_data
-            .into_iter()
-            .map(|x| (x.bgra_data, x.width, x.height))
-            .collect(),
+        icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
         resizable: assets.settings.allow_resize,
         on_top: assets.settings.window_on_top,
         decorations: !assets.settings.dont_draw_border,
@@ -97,11 +85,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     let mut renderer = OpenGLRenderer::new(options, window)?;
 
     // needs to be done after renderer sets context
-    glfw.set_swap_interval(if assets.settings.vsync {
-        glfw::SwapInterval::Sync(1)
-    } else {
-        glfw::SwapInterval::None
-    });
+    glfw.set_swap_interval(if assets.settings.vsync { glfw::SwapInterval::Sync(1) } else { glfw::SwapInterval::None });
 
     let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
@@ -160,9 +144,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     name: b.name,
                     width,
                     height,
-                    atlas_ref: b
-                        .data
-                        .map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
+                    atlas_ref: b.data.map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
                 }
             })
         })
@@ -197,14 +179,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     .chunks_exact(6)
                     .skip(b.range_start as usize)
                     .take(((b.range_end - b.range_start) + 1) as usize)
-                    .map(|x| Character {
-                        x: x[0],
-                        y: x[1],
-                        width: x[2],
-                        height: x[3],
-                        offset: x[4],
-                        distance: x[5],
-                    })
+                    .map(|x| Character { x: x[0], y: x[1], width: x[2], height: x[3], offset: x[4], distance: x[5] })
                     .collect(),
             })
         })
@@ -258,8 +233,8 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                 glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                     renderer.set_should_close(true);
                     continue; // So no draw events are fired while the window should be closing
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
 

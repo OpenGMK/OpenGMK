@@ -8,44 +8,15 @@ pub enum Instruction {
 
 /// Node representing one value in an expression.
 pub enum Node {
-    Literal {
-        value: Value,
-    },
-    Function {
-        args: Box<[Node]>,
-        function: fn(&[Value]) -> Value,
-    },
-    Script {
-        args: Box<[Node]>,
-        script_id: usize,
-    },
-    Field {
-        index: usize,
-        array: ArrayAccessor,
-        owner: VarOwner,
-    },
-    Variable {
-        var: InstanceVariable,
-        array: ArrayAccessor,
-        owner: VarOwner,
-    },
-    GameVariable {
-        var: GameVariable,
-        array: ArrayAccessor,
-        owner: VarOwner,
-    },
-    Binary {
-        left: Box<Node>,
-        right: Box<Node>,
-        operator: fn(Value, Value) -> Value,
-    },
-    Unary {
-        child: Box<Node>,
-        operator: fn(Value) -> Value,
-    },
-    RuntimeError {
-        error: String,
-    },
+    Literal { value: Value },
+    Function { args: Box<[Node]>, function: fn(&[Value]) -> Value },
+    Script { args: Box<[Node]>, script_id: usize },
+    Field { index: usize, array: ArrayAccessor, owner: VarOwner },
+    Variable { var: InstanceVariable, array: ArrayAccessor, owner: VarOwner },
+    GameVariable { var: GameVariable, array: ArrayAccessor, owner: VarOwner },
+    Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> Value },
+    Unary { child: Box<Node>, operator: fn(Value) -> Value },
+    RuntimeError { error: String },
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.

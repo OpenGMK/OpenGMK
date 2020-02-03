@@ -1,7 +1,7 @@
 use crate::{asset::Object, gml::Value};
-use std::collections::HashMap;
 use std::{
     cell::{Cell, RefCell},
+    collections::HashMap,
     f64,
 };
 
@@ -145,7 +145,6 @@ impl Instance {
     // Sets direction and speed based on hspeed and vspeed
     fn update_speed_direction(&self) {
         self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()));
-        self.speed
-            .set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
+        self.speed.set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
     }
 }
