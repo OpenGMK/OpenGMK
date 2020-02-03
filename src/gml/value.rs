@@ -12,6 +12,36 @@ pub enum Value {
     Str(Rc<str>),
 }
 
+macro_rules! gml_cmp_impl {
+    ($($v: vis $fname: ident aka $op_str: literal: real: $r_cond: expr, string: $s_cond: expr)*) => {
+        $(
+            $v fn $fname(self, rhs: Self) -> Self {
+                let freal: fn(f64, f64) -> bool = $r_cond;
+                let fstr: fn(&str, &str) -> bool = $s_cond;
+                if match (self, rhs) {
+                    (Value::Real(a), Value::Real(b)) => freal(a, b),
+                    (Value::Str(a), Value::Str(b)) => fstr(a.as_ref(), b.as_ref()),
+                    (a, b) => gml_panic!(
+                        concat!(
+                            "invalid arguments to ",
+                            $op_str,
+                            " operator ({} ",
+                            $op_str,
+                            " {})",
+                        ),
+                        a.log_fmt(),
+                        b.log_fmt()
+                    )
+                } {
+                    Real(super::TRUE)
+                } else {
+                    Real(super::FALSE)
+                }
+            }
+        )*
+    };
+}
+
 // How many times do you think I want to write `Value::` in the `value` module?
 pub(self) use Value::*;
 
@@ -77,6 +107,33 @@ impl Value {
             (Real(lhs), Real(rhs)) => Real((lhs / rhs).floor()),
             (x, y) => gml_panic!("invalid arguments to div operator ({} & {})", x.log_fmt(), y.log_fmt()),
         }
+    }
+
+    // All the GML comparison operators (which return Value not bool).
+    #[rustfmt::skip] gml_cmp_impl! {
+        pub gml_eq aka "==":
+            real: |r1, r2| (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 == s2
+
+        pub gml_ne aka "!=":
+            real: |r1, r2| (r1 - r2).abs() > 1e-14,
+            string: |s1, s2| s1 != s2
+
+        pub gml_lt aka "<":
+            real: |r1, r2| r1 < r2,
+            string: |s1, s2| s1 < s2
+        
+        pub gml_lte aka "<=":
+            real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 <= s2
+        
+        pub gml_gt aka ">":
+            real: |r1, r2| r1 > r2,
+            string: |s1, s2| s1 > s2
+        
+        pub gml_gte aka ">=":
+            real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
+            string: |s1, s2| s1 >= s2
     }
 }
 
