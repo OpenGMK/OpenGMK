@@ -54,8 +54,14 @@ pub struct Instance {
     pub bbox_bottom: Cell<i32>,
     pub bbox_is_stale: Cell<bool>,
 
-    pub fields: RefCell<HashMap<usize, HashMap<u32, Value>>>,
+    pub fields: RefCell<HashMap<usize, Field>>,
     pub alarms: RefCell<HashMap<u32, Value>>,
+}
+
+#[derive(Debug)]
+pub enum Field {
+    Single(Value),
+    Array(HashMap<u32, Value>),
 }
 
 impl Instance {
@@ -146,5 +152,52 @@ impl Instance {
     fn update_speed_direction(&self) {
         self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()));
         self.speed.set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
+    }
+}
+
+impl Field {
+    pub fn new(index: u32, value: Value) -> Self {
+        match index {
+            0 => Self::Single(value),
+            i => {
+                let mut array = HashMap::new();
+                array.insert(i, value);
+                Self::Array(array)
+            },
+        }
+    }
+
+    pub fn get(&self, index: u32) -> Option<Value> {
+        match (self, index) {
+            (Self::Single(v), 0) => Some(v.clone()),
+            (Self::Array(m), i) => match m.get(&i) {
+                Some(v) => Some(v.clone()),
+                None => m
+                    .iter()
+                    .filter(|(k, _)| **k > i && **k < (((i / 32000) + 1) * 32000))
+                    .next()
+                    .map(|_| Value::Real(0.0)),
+            },
+            _ => None,
+        }
+    }
+
+    pub fn set(&mut self, index: u32, value: Value) {
+        match self {
+            Self::Single(v) => match index {
+                0 => {
+                    *v = value;
+                },
+                i => {
+                    let mut array = HashMap::with_capacity(2);
+                    array.insert(0, v.clone());
+                    array.insert(i, value);
+                    *self = Self::Array(array);
+                },
+            },
+            Self::Array(m) => {
+                m.insert(index, value);
+            },
+        }
     }
 }
