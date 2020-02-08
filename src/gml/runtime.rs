@@ -11,12 +11,33 @@ pub enum Node {
     Literal { value: Value },
     Function { args: Box<[Node]>, function: fn(&[Value]) -> Value },
     Script { args: Box<[Node]>, script_id: usize },
-    Field { index: usize, array: ArrayAccessor, owner: VarOwner },
-    Variable { var: InstanceVariable, array: ArrayAccessor, owner: VarOwner },
-    GameVariable { var: GameVariable, array: ArrayAccessor, owner: VarOwner },
+    Field { accessor: FieldAccessor },
+    Variable { accessor: VariableAccessor },
+    GameVariable { accessor: GameVariableAccessor },
     Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> Value },
     Unary { child: Box<Node>, operator: fn(Value) -> Value },
     RuntimeError { error: String },
+}
+
+/// Represents an owned field which can either be read or set.
+pub struct FieldAccessor {
+    pub index: usize,
+    pub array: ArrayAccessor,
+    pub owner: VarOwner,
+}
+
+/// Represents an owned field which can either be read or set.
+pub struct VariableAccessor {
+    pub var: InstanceVariable,
+    pub array: ArrayAccessor,
+    pub owner: VarOwner,
+}
+
+/// Represents a game variable which can either be read or set.
+pub struct GameVariableAccessor {
+    pub var: GameVariable,
+    pub array: ArrayAccessor,
+    pub owner: VarOwner,
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.
