@@ -4,7 +4,7 @@ pub mod mappings;
 pub mod token;
 
 use super::{
-    runtime::{ArrayAccessor, Instruction, Node, VarOwner},
+    runtime::{ArrayAccessor, FieldAccessor, GameVariableAccessor, Instruction, Node, VarOwner, VariableAccessor},
     Value,
 };
 use std::{
@@ -255,12 +255,12 @@ impl Compiler {
         };
 
         if let Some(var) = mappings::GAME_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Node::GameVariable { var: *var, array, owner }
+            Node::GameVariable { accessor: GameVariableAccessor { var: *var, array, owner } }
         } else if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Node::Variable { var: *var, array, owner }
+            Node::Variable { accessor: VariableAccessor { var: *var, array, owner } }
         } else {
             let index = self.get_field_id(identifier);
-            Node::Field { index, array, owner }
+            Node::Field { accessor: FieldAccessor { index, array, owner } }
         }
     }
 
