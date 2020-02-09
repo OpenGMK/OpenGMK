@@ -5,7 +5,7 @@ pub mod token;
 
 use super::{
     runtime::{
-        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, Instruction, Node, InstanceIdentifier,
+        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, InstanceIdentifier, Instruction, Node,
         VariableAccessor,
     },
     Value,
@@ -112,6 +112,14 @@ impl Compiler {
             // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
+            },
+
+            // "with" block
+            ast::Expr::With(with_expr) => {
+                let target = self.compile_ast_expr(&with_expr.target, locals);
+                let mut body = Vec::new();
+                self.compile_ast_line(&with_expr.body, &mut body, locals);
+                output.push(Instruction::With { target, body: body.into_boxed_slice() });
             },
 
             // Unknown/invalid AST
