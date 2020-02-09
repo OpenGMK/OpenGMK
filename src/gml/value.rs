@@ -113,7 +113,7 @@ impl Value {
         }
     }
 
-    fn is_true(&self) -> bool {
+    pub fn is_true(&self) -> bool {
         match self {
             Real(f) => *f >= 0.5, // What a confusing line.
             Str(_) => false,
