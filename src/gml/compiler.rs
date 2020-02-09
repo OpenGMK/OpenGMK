@@ -84,6 +84,23 @@ impl Compiler {
                 output.push(self.binary_to_instruction(binary_expr.as_ref(), &locals));
             },
 
+            // For loop
+            ast::Expr::For(for_expr) => {
+                self.compile_ast_line(&for_expr.start, output, locals);
+                let cond = self.compile_ast_expr(&for_expr.cond, locals);
+                let mut body = Vec::new();
+                self.compile_ast_line(&for_expr.body, &mut body, locals);
+                self.compile_ast_line(&for_expr.step, &mut body, locals);
+                output.push(Instruction::LoopWhile { cond, body: body.into_boxed_slice() });
+            },
+
+            // Group of expressions
+            ast::Expr::Group(group) => {
+                for expr in group {
+                    self.compile_ast_line(expr, output, locals);
+                }
+            },
+
             // If/else body
             ast::Expr::If(if_expr) => {
                 let cond = self.compile_ast_expr(&if_expr.cond, locals);
@@ -106,13 +123,6 @@ impl Compiler {
                         if_body: if_body.into_boxed_slice(),
                         else_body: else_body.into_boxed_slice(),
                     });
-                }
-            },
-
-            // Group of expressions
-            ast::Expr::Group(group) => {
-                for expr in group {
-                    self.compile_ast_line(expr, output, locals);
                 }
             },
 
