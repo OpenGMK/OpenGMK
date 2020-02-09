@@ -1,8 +1,9 @@
 use super::{GameVariable, InstanceVariable, Value};
 
-#[derive(Debug)]
 pub enum Instruction {
-    // TODO: GML runtime instructions
+    SetField { accessor: FieldAccessor, value: Node },
+    SetVariable { accessor: VariableAccessor, value: Node },
+    SetGameVariable { accessor: GameVariableAccessor, value: Node },
     RuntimeError { error: String },
 }
 
