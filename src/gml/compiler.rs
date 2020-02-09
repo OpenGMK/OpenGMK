@@ -64,19 +64,8 @@ impl Compiler {
 
         let mut instructions = Vec::new();
         let mut locals: Vec<&str> = Vec::new();
-        for node in ast.into_iter() {
-            match node {
-                ast::Expr::Binary(binary_expr) => {
-                    instructions.push(self.binary_to_instruction(*binary_expr, &locals));
-                },
-                ast::Expr::Var(var_expr) => {
-                    locals.extend_from_slice(&var_expr.vars);
-                },
-                _ => {
-                    instructions
-                        .push(Instruction::RuntimeError { error: format!("Invalid AST expression: {:?}", node) });
-                },
-            }
+        for node in ast.iter() {
+            self.compile_ast_line(node, &mut instructions, &mut locals);
         }
         Ok(instructions)
     }
@@ -87,6 +76,22 @@ impl Compiler {
         Ok(self.compile_ast_expr(&expr, &vec![]))
     }
 
+    /// Compile a single line of code from an AST expression.
+    fn compile_ast_line<'a>(&mut self, line: &'a ast::Expr, output: &mut Vec<Instruction>, locals: &mut Vec<&'a str>) {
+        match line {
+            ast::Expr::Binary(binary_expr) => {
+                output.push(self.binary_to_instruction(binary_expr.as_ref(), &locals));
+            },
+            ast::Expr::Var(var_expr) => {
+                locals.extend_from_slice(&var_expr.vars);
+            },
+            _ => {
+                output.push(Instruction::RuntimeError { error: format!("Invalid AST expression: {:?}", line) });
+            },
+        }
+    }
+
+    /// Compile an AST expression into a Node.
     fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&str]) -> Node {
         match expr {
             ast::Expr::LiteralReal(real) => Node::Literal { value: Value::Real(*real) },
@@ -250,7 +255,7 @@ impl Compiler {
     }
 
     /// Converts an AST BinaryExpr to an Instruction.
-    fn binary_to_instruction(&mut self, binary_expr: ast::BinaryExpr, locals: &[&str]) -> Instruction {
+    fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&str]) -> Instruction {
         let assignment_type = match binary_expr.op {
             Operator::Assign => AssignmentType::Set,
             Operator::AssignAdd => AssignmentType::Add,
@@ -266,7 +271,7 @@ impl Compiler {
         };
 
         let value = self.compile_ast_expr(&binary_expr.right, locals);
-        match binary_expr.left {
+        match &binary_expr.left {
             ast::Expr::LiteralIdentifier(string) => {
                 self.make_set_instruction(string, None, ArrayAccessor::None, assignment_type, value, locals)
             },
@@ -284,7 +289,7 @@ impl Compiler {
                         Ok(a) => a,
                         Err(e) => return Instruction::RuntimeError { error: e },
                     };
-                    match binary_expr.left {
+                    match &binary_expr.left {
                         ast::Expr::LiteralIdentifier(string) => {
                             self.make_set_instruction(string, None, accessor, assignment_type, value, locals)
                         },
