@@ -121,6 +121,14 @@ impl Compiler {
                 locals.extend_from_slice(&var_expr.vars);
             },
 
+            // "while" block
+            ast::Expr::While(while_expr) => {
+                let cond = self.compile_ast_expr(&while_expr.cond, locals);
+                let mut body = Vec::new();
+                self.compile_ast_line(&while_expr.body, &mut body, locals);
+                output.push(Instruction::LoopWhile { cond, body: body.into_boxed_slice() });
+            },
+
             // "with" block
             ast::Expr::With(with_expr) => {
                 let target = self.compile_ast_expr(&with_expr.target, locals);
