@@ -37,21 +37,21 @@ pub enum AssignmentType {
 pub struct FieldAccessor {
     pub index: usize,
     pub array: ArrayAccessor,
-    pub owner: VarOwner,
+    pub owner: InstanceIdentifier,
 }
 
 /// Represents an owned field which can either be read or set.
 pub struct VariableAccessor {
     pub var: InstanceVariable,
     pub array: ArrayAccessor,
-    pub owner: VarOwner,
+    pub owner: InstanceIdentifier,
 }
 
 /// Represents a game variable which can either be read or set.
 pub struct GameVariableAccessor {
     pub var: GameVariable,
     pub array: ArrayAccessor,
-    pub owner: VarOwner,
+    pub owner: InstanceIdentifier,
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.
@@ -63,10 +63,10 @@ pub enum ArrayAccessor {
     Double(Box<Node>, Box<Node>),
 }
 
-/// Represents the owner of a field/variable.
-/// If we know at compile time that a variable is owned by a magic value (self, other, global, local)
+/// Identifies an instance or multiple instances.
+/// If we know at compile time that this represents a magic value (self, other, global, local)
 /// then we can represent it that way in the tree and skip evaluating it during runtime.
-pub enum VarOwner {
+pub enum InstanceIdentifier {
     Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
     Other,
     Global,

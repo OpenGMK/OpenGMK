@@ -5,7 +5,7 @@ pub mod token;
 
 use super::{
     runtime::{
-        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, Instruction, Node, VarOwner,
+        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, Instruction, Node, InstanceIdentifier,
         VariableAccessor,
     },
     Value,
@@ -141,7 +141,7 @@ impl Compiler {
             ast::Expr::Binary(binary_expr) => match &binary_expr.op {
                 Operator::Deref => match &binary_expr.right {
                     ast::Expr::LiteralIdentifier(var_name) => {
-                        let owner = self.make_varowner(&binary_expr.left, locals);
+                        let owner = self.make_instance_identifier(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
                     },
                     _ => Node::RuntimeError { error: format!("Invalid deref RHS: {:?}", binary_expr.right) },
@@ -164,7 +164,7 @@ impl Compiler {
                                     op: Operator::Deref,
                                 } = binary_expr.as_ref()
                                 {
-                                    let owner = self.make_varowner(left, locals);
+                                    let owner = self.make_instance_identifier(left, locals);
                                     self.identifier_to_variable(i, Some(owner), accessor, locals)
                                 } else {
                                     Node::RuntimeError { error: format!("Invalid LHS for indexing: {:?}", binary_expr) }
@@ -307,7 +307,7 @@ impl Compiler {
             },
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                 if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
-                    let owner = self.make_varowner(&binary_expr.left, locals);
+                    let owner = self.make_instance_identifier(&binary_expr.left, locals);
                     self.make_set_instruction(string, Some(owner), ArrayAccessor::None, assignment_type, value, locals)
                 } else {
                     Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
@@ -325,7 +325,7 @@ impl Compiler {
                         },
                         ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                             if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
-                                let owner = self.make_varowner(&binary_expr.left, locals);
+                                let owner = self.make_instance_identifier(&binary_expr.left, locals);
                                 self.make_set_instruction(string, Some(owner), accessor, assignment_type, value, locals)
                             } else {
                                 Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
@@ -346,7 +346,7 @@ impl Compiler {
     fn identifier_to_variable(
         &mut self,
         identifier: &str,
-        owner: Option<VarOwner>,
+        owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
         locals: &[&str],
     ) -> Node {
@@ -354,9 +354,9 @@ impl Compiler {
             Some(o) => o,
             None => {
                 if locals.iter().position(|x| *x == identifier).is_some() {
-                    VarOwner::Local
+                    InstanceIdentifier::Local
                 } else {
-                    VarOwner::Own
+                    InstanceIdentifier::Own
                 }
             },
         };
@@ -376,7 +376,7 @@ impl Compiler {
     fn make_set_instruction(
         &mut self,
         identifier: &str,
-        owner: Option<VarOwner>,
+        owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
         assignment_type: AssignmentType,
         value: Node,
@@ -386,9 +386,9 @@ impl Compiler {
             Some(o) => o,
             None => {
                 if locals.iter().position(|x| *x == identifier).is_some() {
-                    VarOwner::Local
+                    InstanceIdentifier::Local
                 } else {
-                    VarOwner::Own
+                    InstanceIdentifier::Own
                 }
             },
         };
@@ -407,19 +407,19 @@ impl Compiler {
         }
     }
 
-    /// Converts an AST node to a VarOwner.
-    fn make_varowner(&mut self, expression: &ast::Expr, locals: &[&str]) -> VarOwner {
+    /// Converts an AST node to an InstanceIdentifier.
+    fn make_instance_identifier(&mut self, expression: &ast::Expr, locals: &[&str]) -> InstanceIdentifier {
         let node = self.compile_ast_expr(expression, locals);
         if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
-                -1 => VarOwner::Own,
-                -2 => VarOwner::Other,
-                -5 => VarOwner::Global,
-                -7 => VarOwner::Local,
-                _ => VarOwner::Expression(Box::new(node)),
+                -1 => InstanceIdentifier::Own,
+                -2 => InstanceIdentifier::Other,
+                -5 => InstanceIdentifier::Global,
+                -7 => InstanceIdentifier::Local,
+                _ => InstanceIdentifier::Expression(Box::new(node)),
             }
         } else {
-            VarOwner::Expression(Box::new(node))
+            InstanceIdentifier::Expression(Box::new(node))
         }
     }
 
