@@ -6,7 +6,7 @@ pub mod token;
 use super::{
     runtime::{
         ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, InstanceIdentifier, Instruction, Node,
-        VariableAccessor,
+        ReturnType, VariableAccessor,
     },
     Value,
 };
@@ -84,6 +84,21 @@ impl Compiler {
                 output.push(self.binary_to_instruction(binary_expr.as_ref(), &locals));
             },
 
+            // Break
+            ast::Expr::Break => {
+                output.push(Instruction::Return { return_type: ReturnType::Break });
+            },
+
+            // Continue
+            ast::Expr::Continue => {
+                output.push(Instruction::Return { return_type: ReturnType::Continue });
+            },
+
+            // Exit
+            ast::Expr::Exit => {
+                output.push(Instruction::Return { return_type: ReturnType::Exit });
+            },
+
             // For loop
             ast::Expr::For(for_expr) => {
                 self.compile_ast_line(&for_expr.start, output, locals);
@@ -124,6 +139,13 @@ impl Compiler {
                         else_body: else_body.into_boxed_slice(),
                     });
                 }
+            },
+
+            // Return
+            ast::Expr::Return(expr) => {
+                let value = self.compile_ast_expr(&expr, locals);
+                output.push(Instruction::SetReturnValue { value });
+                output.push(Instruction::Return { return_type: ReturnType::Exit });
             },
 
             // "var" declaration

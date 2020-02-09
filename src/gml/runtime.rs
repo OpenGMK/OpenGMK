@@ -6,6 +6,8 @@ pub enum Instruction {
     SetGameVariable { accessor: GameVariableAccessor, value: Node, assignment_type: AssignmentType },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopWhile { cond: Node, body: Box<[Instruction]> },
+    Return { return_type: ReturnType },
+    SetReturnValue { value: Node },
     With { target: Node, body: Box<[Instruction]> },
     RuntimeError { error: String },
 }
@@ -33,6 +35,13 @@ pub enum AssignmentType {
     BitAnd,
     BitOr,
     BitXor,
+}
+
+/// The reason for stopping execution of the current function.
+pub enum ReturnType {
+    Continue,
+    Break,
+    Exit,
 }
 
 /// Represents an owned field which can either be read or set.
