@@ -4,7 +4,10 @@ pub mod mappings;
 pub mod token;
 
 use super::{
-    runtime::{ArrayAccessor, FieldAccessor, GameVariableAccessor, Instruction, Node, VarOwner, VariableAccessor},
+    runtime::{
+        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, Instruction, Node, VarOwner,
+        VariableAccessor,
+    },
     Value,
 };
 use std::{
@@ -59,9 +62,21 @@ impl Compiler {
     pub fn compile(&mut self, source: &str) -> Result<Vec<Instruction>, ast::Error> {
         let ast = ast::AST::new(source)?;
 
-        let instructions = Vec::new();
-        for _node in ast.into_iter() {
-            // TODO: this
+        let mut instructions = Vec::new();
+        let mut locals: Vec<&str> = Vec::new();
+        for node in ast.into_iter() {
+            match node {
+                ast::Expr::Binary(binary_expr) => {
+                    instructions.push(self.binary_to_instruction(*binary_expr, &locals));
+                },
+                ast::Expr::Var(var_expr) => {
+                    locals.extend_from_slice(&var_expr.vars);
+                },
+                _ => {
+                    instructions
+                        .push(Instruction::RuntimeError { error: format!("Invalid AST expression: {:?}", node) });
+                },
+            }
         }
         Ok(instructions)
     }
@@ -234,6 +249,63 @@ impl Compiler {
         }
     }
 
+    /// Converts an AST BinaryExpr to an Instruction.
+    fn binary_to_instruction(&mut self, binary_expr: ast::BinaryExpr, locals: &[&str]) -> Instruction {
+        let assignment_type = match binary_expr.op {
+            Operator::Assign => AssignmentType::Set,
+            Operator::AssignAdd => AssignmentType::Add,
+            Operator::AssignSubtract => AssignmentType::Subtract,
+            Operator::AssignMultiply => AssignmentType::Multiply,
+            Operator::AssignDivide => AssignmentType::Divide,
+            Operator::AssignBinaryAnd => AssignmentType::BitAnd,
+            Operator::AssignBinaryOr => AssignmentType::BitOr,
+            Operator::AssignBinaryXor => AssignmentType::BitXor,
+            _ => {
+                return Instruction::RuntimeError { error: format!("Invalid assignment operator: {}", binary_expr.op) };
+            },
+        };
+
+        let value = self.compile_ast_expr(&binary_expr.right, locals);
+        match binary_expr.left {
+            ast::Expr::LiteralIdentifier(string) => {
+                self.make_set_instruction(string, None, ArrayAccessor::None, assignment_type, value, locals)
+            },
+            ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
+                if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
+                    let owner = self.make_varowner(&binary_expr.left, locals);
+                    self.make_set_instruction(string, Some(owner), ArrayAccessor::None, assignment_type, value, locals)
+                } else {
+                    Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
+                }
+            },
+            ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Index => {
+                if let ast::Expr::Group(dimensions) = &binary_expr.right {
+                    let accessor = match self.make_array_accessor(dimensions, locals) {
+                        Ok(a) => a,
+                        Err(e) => return Instruction::RuntimeError { error: e },
+                    };
+                    match binary_expr.left {
+                        ast::Expr::LiteralIdentifier(string) => {
+                            self.make_set_instruction(string, None, accessor, assignment_type, value, locals)
+                        },
+                        ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
+                            if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
+                                let owner = self.make_varowner(&binary_expr.left, locals);
+                                self.make_set_instruction(string, Some(owner), accessor, assignment_type, value, locals)
+                            } else {
+                                Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
+                            }
+                        },
+                        _ => Instruction::RuntimeError { error: format!("Invalid index LHS: {}", binary_expr.left) },
+                    }
+                } else {
+                    Instruction::RuntimeError { error: format!("Invalid index RHS: {}", binary_expr.right) }
+                }
+            },
+            _ => Instruction::RuntimeError { error: format!("Invalid assignment LHS: {}", binary_expr.left) },
+        }
+    }
+
     /// Converts an identifier to a Field, Variable or GameVariable accessor.
     /// If no VarOwner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn identifier_to_variable(
@@ -261,6 +333,42 @@ impl Compiler {
         } else {
             let index = self.get_field_id(identifier);
             Node::Field { accessor: FieldAccessor { index, array, owner } }
+        }
+    }
+
+    /// Converts an identifier, owner, array accessor and owner to an instruction.
+    /// If no VarOwner is provided (ie. the variable wasn't specified with one), this function will infer one.
+    fn make_set_instruction(
+        &mut self,
+        identifier: &str,
+        owner: Option<VarOwner>,
+        array: ArrayAccessor,
+        assignment_type: AssignmentType,
+        value: Node,
+        locals: &[&str],
+    ) -> Instruction {
+        let owner = match owner {
+            Some(o) => o,
+            None => {
+                if locals.iter().position(|x| *x == identifier).is_some() {
+                    VarOwner::Local
+                } else {
+                    VarOwner::Own
+                }
+            },
+        };
+
+        if let Some(var) = mappings::GAME_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+            Instruction::SetGameVariable {
+                accessor: GameVariableAccessor { var: *var, array, owner },
+                assignment_type,
+                value,
+            }
+        } else if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+            Instruction::SetVariable { accessor: VariableAccessor { var: *var, array, owner }, assignment_type, value }
+        } else {
+            let index = self.get_field_id(identifier);
+            Instruction::SetField { accessor: FieldAccessor { index, array, owner }, assignment_type, value }
         }
     }
 
