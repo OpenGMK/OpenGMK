@@ -109,6 +109,13 @@ impl Compiler {
                 }
             },
 
+            // Group of expressions
+            ast::Expr::Group(group) => {
+                for expr in group {
+                    self.compile_ast_line(expr, output, locals);
+                }
+            },
+
             // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
