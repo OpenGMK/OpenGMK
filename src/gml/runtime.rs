@@ -1,9 +1,9 @@
 use super::{GameVariable, InstanceVariable, Value};
 
 pub enum Instruction {
-    SetField { accessor: FieldAccessor, value: Node },
-    SetVariable { accessor: VariableAccessor, value: Node },
-    SetGameVariable { accessor: GameVariableAccessor, value: Node },
+    SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
+    SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
+    SetGameVariable { accessor: GameVariableAccessor, value: Node, assignment_type: AssignmentType },
     RuntimeError { error: String },
 }
 
@@ -18,6 +18,18 @@ pub enum Node {
     Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> Value },
     Unary { child: Box<Node>, operator: fn(Value) -> Value },
     RuntimeError { error: String },
+}
+
+/// Type of assignment.
+pub enum AssignmentType {
+    Set,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 
 /// Represents an owned field which can either be read or set.
