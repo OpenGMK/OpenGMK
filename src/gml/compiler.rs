@@ -79,12 +79,42 @@ impl Compiler {
     /// Compile a single line of code from an AST expression.
     fn compile_ast_line<'a>(&mut self, line: &'a ast::Expr, output: &mut Vec<Instruction>, locals: &mut Vec<&'a str>) {
         match line {
+            // Line of code identified by an assignment operator
             ast::Expr::Binary(binary_expr) => {
                 output.push(self.binary_to_instruction(binary_expr.as_ref(), &locals));
             },
+
+            // If/else body
+            ast::Expr::If(if_expr) => {
+                let cond = self.compile_ast_expr(&if_expr.cond, locals);
+                if let Node::Literal { value: v } = cond {
+                    // The "if" condition is constant, so we can optimize this away
+                    if v.is_true() {
+                        self.compile_ast_line(&if_expr.body, output, locals);
+                    } else if let Some(expr_else_body) = &if_expr.else_body {
+                        self.compile_ast_line(expr_else_body, output, locals);
+                    }
+                } else {
+                    let mut if_body = Vec::new();
+                    self.compile_ast_line(&if_expr.body, &mut if_body, locals);
+                    let mut else_body = Vec::new();
+                    if let Some(expr_else_body) = &if_expr.else_body {
+                        self.compile_ast_line(expr_else_body, &mut else_body, locals);
+                    }
+                    output.push(Instruction::IfElse {
+                        cond,
+                        if_body: if_body.into_boxed_slice(),
+                        else_body: else_body.into_boxed_slice(),
+                    });
+                }
+            },
+
+            // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
             },
+
+            // Unknown/invalid AST
             _ => {
                 output.push(Instruction::RuntimeError { error: format!("Invalid AST expression: {:?}", line) });
             },
