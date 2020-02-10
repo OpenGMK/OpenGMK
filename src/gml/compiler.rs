@@ -408,7 +408,7 @@ impl Compiler {
         let owner = match owner {
             Some(o) => o,
             None => {
-                if locals.iter().position(|x| *x == identifier).is_some() {
+                if locals.iter().any(|x| *x == identifier) {
                     InstanceIdentifier::Local
                 } else {
                     InstanceIdentifier::Own
@@ -440,7 +440,7 @@ impl Compiler {
         let owner = match owner {
             Some(o) => o,
             None => {
-                if locals.iter().position(|x| *x == identifier).is_some() {
+                if locals.iter().any(|x| *x == identifier) {
                     InstanceIdentifier::Local
                 } else {
                     InstanceIdentifier::Own
