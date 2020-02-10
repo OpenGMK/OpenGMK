@@ -172,11 +172,11 @@ impl Field {
             (Self::Single(v), 0) => Some(v.clone()),
             (Self::Array(m), i) => match m.get(&i) {
                 Some(v) => Some(v.clone()),
-                None => m
-                    .iter()
-                    .filter(|(k, _)| **k > i && **k < (((i / 32000) + 1) * 32000))
-                    .next()
-                    .map(|_| Value::Real(0.0)),
+                None => if m.iter().any(|(k, _)| *k > i && *k < (((i / 32000) + 1) * 32000)) {
+                    Some(Value::Real(0.0))
+                } else {
+                    None
+                },
             },
             _ => None,
         }
