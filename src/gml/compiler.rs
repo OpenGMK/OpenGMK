@@ -73,7 +73,7 @@ impl Compiler {
     /// Compile an expression into a format which can be evaluated.
     pub fn compile_expression(&mut self, source: &str) -> Result<Node, ast::Error> {
         let expr = ast::AST::expression(source)?;
-        Ok(self.compile_ast_expr(&expr, &vec![]))
+        Ok(self.compile_ast_expr(&expr, &[]))
     }
 
     /// Compile a single line of code from an AST expression.
