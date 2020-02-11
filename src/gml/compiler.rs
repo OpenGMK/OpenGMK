@@ -111,9 +111,7 @@ impl Compiler {
 
             // Function or Script
             f @ ast::Expr::Function(_) => {
-                output.push(Instruction::EvalExpression { node: 
-                    self.compile_ast_expr(f, locals)
-                });
+                output.push(Instruction::EvalExpression { node: self.compile_ast_expr(f, locals) });
             },
 
             // Group of expressions
@@ -169,9 +167,16 @@ impl Compiler {
                 if let ast::Expr::Group(group) = &switch_expr.body {
                     let mut cases = Vec::new();
                     let mut body = Vec::new();
+                    let mut default: Option<usize> = None;
                     for expr in group {
                         if let ast::Expr::Case(case_expr) = expr {
-                            cases.push((self.compile_ast_expr(case_expr, locals), body.len()));
+                            if default.is_none() {
+                                cases.push((self.compile_ast_expr(case_expr, locals), body.len()));
+                            }
+                        } else if let ast::Expr::Default = expr {
+                            if default.is_none() {
+                                default = Some(body.len());
+                            }
                         } else {
                             self.compile_ast_line(expr, &mut body, locals);
                         }
@@ -179,6 +184,7 @@ impl Compiler {
                     output.push(Instruction::Switch {
                         input,
                         cases: cases.into_boxed_slice(),
+                        default,
                         body: body.into_boxed_slice(),
                     });
                 } else {
