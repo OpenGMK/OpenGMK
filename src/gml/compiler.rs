@@ -148,6 +148,26 @@ impl Compiler {
                 output.push(Instruction::Return { return_type: ReturnType::Exit });
             },
 
+            // "switch" block
+            ast::Expr::Switch(switch_expr) => {
+                let input = self.compile_ast_expr(&switch_expr.input, locals);
+                if let ast::Expr::Group(group) = &switch_expr.body {
+                    let mut cases = Vec::new();
+                    let mut body = Vec::new();
+                    for expr in group {
+                        if let ast::Expr::Case(case_expr) = expr {
+                            cases.push((self.compile_ast_expr(case_expr, locals), body.len()));
+                        }
+                        else {
+                            self.compile_ast_line(expr, &mut body, locals);
+                        }
+                    }
+                    output.push(Instruction::Switch { input, cases: cases.into_boxed_slice(), body: body.into_boxed_slice() });
+                } else {
+                    output.push(Instruction::RuntimeError { error: format!("Invalid switch body: {:?}", switch_expr.body) });
+                }
+            }
+
             // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
