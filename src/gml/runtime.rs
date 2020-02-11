@@ -7,6 +7,7 @@ pub enum Instruction {
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopWhile { cond: Node, body: Box<[Instruction]> },
     Return { return_type: ReturnType },
+    Repeat { count: Node, body: Box<[Instruction]> },
     SetReturnValue { value: Node },
     Switch { input: Node, cases: Box<[(Node, usize)]>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },

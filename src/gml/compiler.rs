@@ -141,6 +141,14 @@ impl Compiler {
                 }
             },
 
+            // "repeat" block
+            ast::Expr::Repeat(repeat_expr) => {
+                let count = self.compile_ast_expr(&repeat_expr.count, locals);
+                let mut body = Vec::new();
+                self.compile_ast_line(&repeat_expr.body, &mut body, locals);
+                output.push(Instruction::Repeat { count, body: body.into_boxed_slice() });
+            },
+
             // Return
             ast::Expr::Return(expr) => {
                 let value = self.compile_ast_expr(&expr, locals);
@@ -157,16 +165,21 @@ impl Compiler {
                     for expr in group {
                         if let ast::Expr::Case(case_expr) = expr {
                             cases.push((self.compile_ast_expr(case_expr, locals), body.len()));
-                        }
-                        else {
+                        } else {
                             self.compile_ast_line(expr, &mut body, locals);
                         }
                     }
-                    output.push(Instruction::Switch { input, cases: cases.into_boxed_slice(), body: body.into_boxed_slice() });
+                    output.push(Instruction::Switch {
+                        input,
+                        cases: cases.into_boxed_slice(),
+                        body: body.into_boxed_slice(),
+                    });
                 } else {
-                    output.push(Instruction::RuntimeError { error: format!("Invalid switch body: {:?}", switch_expr.body) });
+                    output.push(Instruction::RuntimeError {
+                        error: format!("Invalid switch body: {:?}", switch_expr.body),
+                    });
                 }
-            }
+            },
 
             // "var" declaration
             ast::Expr::Var(var_expr) => {
