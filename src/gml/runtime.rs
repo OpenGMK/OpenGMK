@@ -11,7 +11,7 @@ pub enum Instruction {
     Return { return_type: ReturnType },
     Repeat { count: Node, body: Box<[Instruction]> },
     SetReturnValue { value: Node },
-    Switch { input: Node, cases: Box<[(Node, usize)]>, body: Box<[Instruction]> },
+    Switch { input: Node, cases: Box<[(Node, usize)]>, default: Option<usize>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },
     RuntimeError { error: String },
 }
