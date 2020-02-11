@@ -5,6 +5,7 @@ pub enum Instruction {
     SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
     SetGameVariable { accessor: GameVariableAccessor, value: Node, assignment_type: AssignmentType },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
+    LoopUntil { cond: Node, body: Box<[Instruction]> },
     LoopWhile { cond: Node, body: Box<[Instruction]> },
     Return { return_type: ReturnType },
     Repeat { count: Node, body: Box<[Instruction]> },

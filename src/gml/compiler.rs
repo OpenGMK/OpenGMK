@@ -181,6 +181,14 @@ impl Compiler {
                 }
             },
 
+            // "do-until" block
+            ast::Expr::DoUntil(while_expr) => {
+                let cond = self.compile_ast_expr(&while_expr.cond, locals);
+                let mut body = Vec::new();
+                self.compile_ast_line(&while_expr.body, &mut body, locals);
+                output.push(Instruction::LoopUntil { cond, body: body.into_boxed_slice() });
+            },
+
             // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
