@@ -4,6 +4,7 @@ pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
     SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
     SetGameVariable { accessor: GameVariableAccessor, value: Node, assignment_type: AssignmentType },
+    EvalExpression { node: Node },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopUntil { cond: Node, body: Box<[Instruction]> },
     LoopWhile { cond: Node, body: Box<[Instruction]> },

@@ -109,6 +109,13 @@ impl Compiler {
                 output.push(Instruction::LoopWhile { cond, body: body.into_boxed_slice() });
             },
 
+            // Function or Script
+            f @ ast::Expr::Function(_) => {
+                output.push(Instruction::EvalExpression { node: 
+                    self.compile_ast_expr(f, locals)
+                });
+            },
+
             // Group of expressions
             ast::Expr::Group(group) => {
                 for expr in group {
