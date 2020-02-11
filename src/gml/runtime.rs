@@ -8,6 +8,7 @@ pub enum Instruction {
     LoopWhile { cond: Node, body: Box<[Instruction]> },
     Return { return_type: ReturnType },
     SetReturnValue { value: Node },
+    Switch { input: Node, cases: Box<[(Node, usize)]>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },
     RuntimeError { error: String },
 }
