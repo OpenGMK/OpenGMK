@@ -426,8 +426,8 @@ impl Compiler {
         }
     }
 
-    /// Converts an identifier, owner, array accessor and owner to an instruction.
-    /// If no VarOwner is provided (ie. the variable wasn't specified with one), this function will infer one.
+    /// Converts an identifier, owner, array accessor, assignment-type and value into an instruction.
+    /// If no owner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn make_set_instruction(
         &mut self,
         identifier: &str,
