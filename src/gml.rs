@@ -13,11 +13,13 @@ macro_rules! gml_panic {
 }
 
 pub mod compiler;
+pub mod context;
 pub mod rand;
 pub mod runtime;
 pub mod value;
 
 pub use compiler::Compiler;
+pub use context::Context;
 pub use value::Value;
 
 pub const TRUE: f64 = 1.0;
