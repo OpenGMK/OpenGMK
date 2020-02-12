@@ -1,5 +1,7 @@
+use std::fmt;
 use super::{GameVariable, InstanceVariable, Value};
 
+#[derive(Debug)]
 pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
     SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
@@ -30,6 +32,7 @@ pub enum Node {
 }
 
 /// Type of assignment.
+#[derive(Debug)]
 pub enum AssignmentType {
     Set,
     Add,
@@ -42,6 +45,7 @@ pub enum AssignmentType {
 }
 
 /// The reason for stopping execution of the current function.
+#[derive(Debug)]
 pub enum ReturnType {
     Continue,
     Break,
@@ -49,6 +53,7 @@ pub enum ReturnType {
 }
 
 /// Represents an owned field which can either be read or set.
+#[derive(Debug)]
 pub struct FieldAccessor {
     pub index: usize,
     pub array: ArrayAccessor,
@@ -56,6 +61,7 @@ pub struct FieldAccessor {
 }
 
 /// Represents an owned field which can either be read or set.
+#[derive(Debug)]
 pub struct VariableAccessor {
     pub var: InstanceVariable,
     pub array: ArrayAccessor,
@@ -63,6 +69,7 @@ pub struct VariableAccessor {
 }
 
 /// Represents a game variable which can either be read or set.
+#[derive(Debug)]
 pub struct GameVariableAccessor {
     pub var: GameVariable,
     pub array: ArrayAccessor,
@@ -72,6 +79,7 @@ pub struct GameVariableAccessor {
 /// Represents an array accessor, which can be either 1D or 2D.
 /// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
 /// Anything beyond a 2D array results in a runtime error.
+#[derive(Debug)]
 pub enum ArrayAccessor {
     None,
     Single(Box<Node>),
@@ -81,6 +89,7 @@ pub enum ArrayAccessor {
 /// Identifies an instance or multiple instances.
 /// If we know at compile time that this represents a magic value (self, other, global, local)
 /// then we can represent it that way in the tree and skip evaluating it during runtime.
+#[derive(Debug)]
 pub enum InstanceIdentifier {
     Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
     Other,
@@ -92,4 +101,23 @@ pub enum InstanceIdentifier {
 pub struct Error {
     pub reason: String,
     // Probably could add more useful things later.
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Node::Literal { value } => match value {
+                Value::Real(r) => write!(f, "{:?}", r),
+                Value::Str(s) => write!(f, "{:?}", s),
+            }
+            Node::Function { args, function: _ } => write!(f, "<function: {:?}>", args),
+            Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
+            Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
+            Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
+            Node::GameVariable { accessor } => write!(f, "<gamevariable: {:?}>", accessor),
+            Node::Binary { left, right, operator: _ } => write!(f, "<binary: {:?}, {:?}>", left, right),
+            Node::Unary { child, operator: _ } => write!(f, "<unary: {:?}>", child),
+            Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
+        }
+    }
 }
