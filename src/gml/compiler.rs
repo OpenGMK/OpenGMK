@@ -545,3 +545,18 @@ impl Compiler {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut compiler = Compiler::new();
+        compiler.register_constant("objApple".to_string(), 100.0);
+        compiler.register_script("instance_create".to_string(), 1);
+        compiler.register_script("random".to_string(), 2);
+        let instructions = compiler.compile("var a; a = instance_create(400, \"304\", objApple); a.direction = random(360); a.speed = 5; (c_red - 256).apple = a;");
+        dbg!(instructions).unwrap();
+    }
+}
