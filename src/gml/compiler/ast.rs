@@ -313,12 +313,12 @@ impl<'a> AST<'a> {
                             lex.next();
                         }
                         let body = AST::read_line(lex)?
-                            .ok_or_else(|| Error::new("Unexpected EOF after 'do' keyword".to_string()))?;
+                            .ok_or_else(|| Error::new("Unexpected EOF after 'if' condition".to_string()))?;
                         let else_body = if lex.peek() == Some(&Token::Keyword(Keyword::Else)) {
                             lex.next(); // consume 'else'
                             Some(
                                 AST::read_line(lex)?
-                                    .ok_or_else(|| Error::new("Unexpected EOF after 'do' keyword".to_string()))?,
+                                    .ok_or_else(|| Error::new("Unexpected EOF after 'else' keyword".to_string()))?,
                             )
                         } else {
                             None
@@ -358,7 +358,7 @@ impl<'a> AST<'a> {
                     Keyword::Switch => {
                         let input = AST::read_binary_tree(lex, None, false)?;
                         let body = AST::read_line(lex)?
-                            .ok_or_else(|| Error::new("Unexpected EOF after 'repeat' condition".to_string()))?;
+                            .ok_or_else(|| Error::new("Unexpected EOF after 'switch' condition".to_string()))?;
                         Ok(Some(Expr::Switch(Box::new(SwitchExpr { input, body }))))
                     },
 
@@ -372,7 +372,7 @@ impl<'a> AST<'a> {
                     Keyword::While => {
                         let cond = AST::read_binary_tree(lex, None, false)?;
                         let body = AST::read_line(lex)?
-                            .ok_or_else(|| Error::new("Unexpected EOF after 'with' condition".to_string()))?;
+                            .ok_or_else(|| Error::new("Unexpected EOF after 'while' condition".to_string()))?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
                     },
 
@@ -472,10 +472,11 @@ impl<'a> AST<'a> {
         expect_assignment: bool,        // Do we expect the first op to be an assignment?
     ) -> Result<Expr<'a>, Error> {
         let (val, op) = AST::read_binary_tree_recursive(lex, first_token, expect_assignment, 0)?;
-        if op.is_some() {
-            unreachable!("read_binary_tree has stray operator");
+        if let Some(stray_op) = op {
+            Err(Error::new(format!("read_binary_tree has stray operator: {:?}", stray_op)))
+        } else {
+            Ok(val)
         }
-        Ok(val)
     }
 
     fn read_binary_tree_recursive(
@@ -491,84 +492,73 @@ impl<'a> AST<'a> {
         // Check if the next token is an operator
         let next_token = lex.peek();
         match next_token {
-            Some(&Token::Operator(_)) => {
-                if let Some(Token::Operator(mut op)) = lex.next() {
-                    // '=' can be either an assignment or equality check (==) in GML.
-                    // So if we're not expecting an assignment operator, it should be seen as a comparator instead.
-                    if (op == Operator::Assign) && (!expect_assignment) {
-                        op = Operator::Equal;
-                    }
+            Some(Token::Operator(op)) => {
+                // '=' can be either an assignment or equality check (==) in GML.
+                // So if we're not expecting an assignment operator, it should be seen as a comparator instead.
+                let mut op = if (op == &Operator::Assign) && (!expect_assignment) { Operator::Equal } else { *op };
 
-                    // Now, loop until there are no more buffered operators.
-                    loop {
-                        // Here, we get the precedence of the operator we found.
-                        // If this returns None, it's probably an assignment,
-                        // so we use that in conjunction with an if-let to check its validity.
-                        if let Some(precedence) = AST::get_op_precedence(&op) {
-                            // this op is invalid if an assignment is expected
-                            if expect_assignment {
-                                break Err(Error::new(format!("Invalid operator {:?} found, expected assignment", op)));
-                            } else {
-                                // If this op has lower prec than we're allowed to read, we have to return it here.
-                                if precedence < lowest_prec {
-                                    break Ok((lhs, Some(op)));
+                // Consume operator
+                lex.next();
+
+                // Now, loop until there are no more buffered operators.
+                loop {
+                    // Here, we get the precedence of the operator we found.
+                    // If this returns None, it's probably an assignment,
+                    // so we use that in conjunction with an if-let to check its validity.
+                    if let Some(precedence) = AST::get_op_precedence(&op) {
+                        // this op is invalid if an assignment is expected
+                        if expect_assignment {
+                            break Err(Error::new(format!("Invalid operator {:?} found, expected assignment", op)));
+                        }
+                        // If this op has lower prec than we're allowed to read, we have to return it here.
+                        if precedence < lowest_prec {
+                            break Ok((lhs, Some(op)));
+                        }
+                        // We're allowed to use the next operator. Let's read an RHS to put on after it.
+                        // We limit this tree to current precedence + 1 to prevent it using operators of our current precedence.
+                        // This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
+                        let (rhs, next_op) = AST::read_binary_tree_recursive(lex, None, false, precedence + 1)?;
+                        if let Some(next_op) = next_op {
+                            // There's another operator even after the RHS.
+                            if let Some(next_prec) = AST::get_op_precedence(&next_op) {
+                                if next_prec < lowest_prec {
+                                    // This next op is lower than we're allowed to go, so we must return it
+                                    break Ok((
+                                        Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })),
+                                        Some(next_op),
+                                    ));
                                 } else {
-                                    // We're allowed to use the next operator. Let's read an RHS to put on after it.
-                                    // You might be thinking "precedence + 1" is counter-intuitive -
-                                    // "precedence" would make more sense, right?
-                                    // Well, the difference is left-to-right vs right-to-left construction.
-                                    // This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
-                                    let rhs = AST::read_binary_tree_recursive(lex, None, false, precedence + 1)?;
-                                    if let Some(next_op) = rhs.1 {
-                                        // There's another operator even after the RHS.
-                                        if let Some(next_prec) = AST::get_op_precedence(&next_op) {
-                                            if next_prec < lowest_prec {
-                                                // This next op is lower than we're allowed to go, so we must return it
-                                                break Ok((
-                                                    Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs.0 })),
-                                                    Some(next_op),
-                                                ));
-                                            } else {
-                                                // Update LHS by sticking RHS onto it,
-                                                // set op to the new operator, and go round again.
-                                                lhs =
-                                                    Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs.0 }));
-                                                op = next_op;
-                                            }
-                                        } else {
-                                            // Precedence would already have been checked by the returning function.
-                                            unreachable!()
-                                        }
-                                    } else {
-                                        // No more operators so let's put our lhs and rhs together.
-                                        break Ok((
-                                            Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs.0 })),
-                                            None,
-                                        ));
-                                    }
+                                    // Update LHS by sticking RHS onto it,
+                                    // set op to the new operator, and go round again.
+                                    lhs = Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs }));
+                                    op = next_op;
                                 }
+                            } else {
+                                // Precedence would already have been checked by the returning function.
+                                break Err(Error::new(format!(
+                                    "read_binary_tree_recursive returned invalid operator: {}",
+                                    next_op
+                                )));
                             }
                         } else {
-                            // this op is invalid if assignment not expected, OR if it's a unary operator
-                            // (those have no precedence so they pass the previous test.)
-                            if !expect_assignment || op == Operator::Not || op == Operator::Complement {
-                                break Err(Error::new(format!("Invalid operator {:?} found, expected evaluable", op)));
+                            // No more operators so let's put our lhs and rhs together.
+                            break Ok((Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })), None));
+                        }
+                    } else {
+                        // this op is invalid if assignment not expected, OR if it's a unary operator
+                        // (those have no precedence so they pass the previous test.)
+                        if !expect_assignment || op == Operator::Not || op == Operator::Complement {
+                            break Err(Error::new(format!("Invalid operator {:?} found, expected evaluable", op)));
+                        } else {
+                            // No need to do precedence on an assignment, so just grab RHS and return
+                            let (rhs, stray_op) = AST::read_binary_tree_recursive(lex, None, false, lowest_prec)?;
+                            break if let Some(op) = stray_op {
+                                Err(Error::new(format!("Stray operator {:?} in expression", op)))
                             } else {
-                                // No need to do precedence on an assignment, so just grab RHS and return
-                                let rhs = AST::read_binary_tree_recursive(lex, None, false, lowest_prec)?;
-                                if let Some(op) = rhs.1 {
-                                    break Err(Error::new(format!("Stray operator {:?} in expression", op)));
-                                } else {
-                                    break Ok((
-                                        Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs.0 })),
-                                        None,
-                                    ));
-                                }
-                            }
+                                Ok((Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })), None))
+                            };
                         }
                     }
-                } else {
-                    unreachable!()
                 }
             },
             _ => {
