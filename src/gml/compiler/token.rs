@@ -14,7 +14,7 @@ pub enum Token<'a> {
     InvalidChar(usize, u8),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Debug, PartialEq)]
 pub enum Keyword {
     Var,
     If,
@@ -34,7 +34,7 @@ pub enum Keyword {
     Exit,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Debug, PartialEq)]
 pub enum Operator {
     /// `+` Add or unary positive (redundant)
     Add,
@@ -134,7 +134,7 @@ pub enum Operator {
     Index,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Debug, PartialEq)]
 pub enum Separator {
     /// `(` Parentheses Open
     ParenLeft,
