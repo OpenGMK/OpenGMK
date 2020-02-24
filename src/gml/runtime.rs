@@ -1,5 +1,5 @@
 use std::fmt;
-use super::{GameVariable, InstanceVariable, Value};
+use super::{Context, GameVariable, InstanceVariable, Value};
 
 pub mod kernel;
 
@@ -29,7 +29,7 @@ pub enum Instruction {
 /// Node representing one value in an expression.
 pub enum Node {
     Literal { value: Value },
-    Function { args: Box<[Node]>, function: fn(&[Value]) -> Value },
+    Function { args: Box<[Node]>, function: fn(&mut Runtime, &mut Context, &[Value]) -> Value },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
