@@ -354,8 +354,21 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else {
-                    todo!("Functions")
+                } else if let Some((_, f_ptr, constant)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
+                    Node::Function {
+                        args: function
+                            .params
+                            .iter()
+                            .map(|x| self.compile_ast_expr(&x, locals))
+                            .collect::<Vec<_>>()
+                            .into_boxed_slice(),
+                        function: *f_ptr,
+                    }
+                }
+                else {
+                    Node::RuntimeError {
+                        error: format!("Unknown script or function name: {}", function.name)
+                    }
                 }
             },
 
