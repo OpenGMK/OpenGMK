@@ -1,6 +1,14 @@
 use std::fmt;
 use super::{GameVariable, InstanceVariable, Value};
 
+pub mod kernel;
+
+/// Structure which holds all the GML runtime state. Responsible for executing all compiled GML code.
+pub struct Runtime {
+
+}
+
+/// A compiled runtime instruction. Generally represents a line of code.
 #[derive(Debug)]
 pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
