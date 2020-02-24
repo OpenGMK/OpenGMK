@@ -20,6 +20,7 @@ pub mod value;
 
 pub use compiler::Compiler;
 pub use context::Context;
+pub use runtime::Runtime;
 pub use value::Value;
 
 pub const TRUE: f64 = 1.0;
