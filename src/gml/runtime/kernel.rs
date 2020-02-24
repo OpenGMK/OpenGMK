@@ -2477,62 +2477,62 @@ impl Runtime {
         unimplemented!("Called unimplemented kernel function sleep")
     }
 
-    pub fn YoYo_GetPlatform(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_getplatform(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function YoYo_GetPlatform")
     }
 
-    pub fn YoYo_GetDevice(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_getdevice(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function YoYo_GetDevice")
     }
 
-    pub fn YoYo_OpenURL(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_openurl(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function YoYo_OpenURL")
     }
 
-    pub fn YoYo_OpenURL_ext(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_openurl_ext(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function YoYo_OpenURL_ext")
     }
 
-    pub fn YoYo_OpenURL_full(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_openurl_full(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 3
         unimplemented!("Called unimplemented kernel function YoYo_OpenURL_full")
     }
 
-    pub fn YoYo_GetDomain(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_getdomain(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function YoYo_GetDomain")
     }
 
-    pub fn YoYo_GetTimer(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_gettimer(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function YoYo_GetTimer")
     }
 
-    pub fn YoYo_AddVirtualKey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_addvirtualkey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 5
         unimplemented!("Called unimplemented kernel function YoYo_AddVirtualKey")
     }
 
-    pub fn YoYo_DeleteVirtualKey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_deletevirtualkey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function YoYo_DeleteVirtualKey")
     }
 
-    pub fn YoYo_ShowVirtualKey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_showvirtualkey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function YoYo_ShowVirtualKey")
     }
 
-    pub fn YoYo_HideVirtualKey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_hidevirtualkey(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function YoYo_HideVirtualKey")
     }
 
-    pub fn YoYo_EnableAlphaBlend(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn yoyo_enablealphablend(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function YoYo_EnableAlphaBlend")
     }
@@ -6010,7 +6010,7 @@ impl Runtime {
         unimplemented!("Called unimplemented kernel function cd_close_door")
     }
 
-    pub fn MCI_command(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
+    pub fn mci_command(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function MCI_command")
     }
