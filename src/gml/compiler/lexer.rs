@@ -131,7 +131,7 @@ impl<'a> Iterator for Lexer<'a> {
                     self.iter.next();
                     if let Some(&(_, ch)) = self.iter.peek() {
                         match ch {
-                            b'0'..=b'9' => (),
+                            b'0'..=b'9' => point_seen = true,
                             _ => return Some(Token::Separator(Separator::Period)),
                         }
                     }
