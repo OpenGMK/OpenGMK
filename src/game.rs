@@ -5,6 +5,10 @@ use crate::{
         Background, Object,
     },
     atlas::AtlasBuilder,
+    gml::{
+        Compiler,
+        Runtime,
+    },
     instance::Instance,
     instancelist::InstanceList,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -44,7 +48,7 @@ fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32
 
 pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // destructure assets
-    let GameAssets { room_order, icon_data, rooms, sprites, backgrounds, fonts, objects, .. } = assets;
+    let GameAssets { backgrounds, constants, fonts, icon_data, objects, paths, room_order, rooms, scripts, sounds, sprites, timelines, triggers, .. } = assets;
 
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
@@ -54,6 +58,39 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|i| rooms.get(*i as usize).and_then(|o| o.as_ref()))
         .ok_or("first room not present in gamedata")?;
 
+    // Set up a GML compiler
+    let mut compiler = Compiler::new();
+    compiler.reserve_scripts(scripts.iter().flatten().count());
+    compiler.reserve_constants(
+        backgrounds.iter().flatten().count() +
+        fonts.iter().flatten().count() +
+        objects.iter().flatten().count() +
+        paths.iter().flatten().count() +
+        rooms.iter().flatten().count() +
+        scripts.iter().flatten().count() +
+        sounds.iter().flatten().count() +
+        sprites.iter().flatten().count() +
+        timelines.iter().flatten().count() +
+        triggers.iter().flatten().count() + 
+        constants.len()
+    );
+    backgrounds.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    fonts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    objects.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    paths.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    rooms.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    scripts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    sounds.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    sprites.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    timelines.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    triggers.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.constant_name.clone(), i as f64));
+
+    // Set up GML Runtime
+    let mut _runtime = Runtime {
+        compiler,
+    };
+
+    // Set up a Renderer
     let options = RendererOptions {
         title: &room1.caption,
         size: (room1.width, room1.height),

@@ -1,11 +1,11 @@
 use std::fmt;
-use super::{Context, GameVariable, InstanceVariable, Value};
+use super::{Compiler, Context, GameVariable, InstanceVariable, Value};
 
 pub mod kernel;
 
 /// Structure which holds all the GML runtime state. Responsible for executing all compiled GML code.
 pub struct Runtime {
-
+    pub compiler: Compiler,
 }
 
 /// A compiled runtime instruction. Generally represents a line of code.
