@@ -15,6 +15,9 @@ pub struct Context<'a> {
     /// Index of the action currently being executed, starting at 0
     pub event_action: usize,
 
+    /// Whether the drag-n-drop "relative" box was checked - accessed in GML with argument_relative
+    pub relative: bool,
+
     /// Type of event (0-11) currently being executed
     pub event_type: usize,
 
