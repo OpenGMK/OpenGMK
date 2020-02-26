@@ -1,5 +1,6 @@
 #![allow(dead_code)] // Shut up.
 
+mod action;
 mod asset;
 mod atlas;
 mod game;
