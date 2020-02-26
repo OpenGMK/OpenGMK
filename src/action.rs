@@ -12,6 +12,9 @@ pub struct Action {
     /// The arguments to be passed to the function or code body
     pub args: Box<[Argument]>,
 
+    /// If this is a question action, this flag means the bool result will be inverted.
+    pub invert_condition: bool,
+
     /// The body of this action to be executed
     pub body: Body,
 
