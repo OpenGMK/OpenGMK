@@ -12,8 +12,7 @@ pub struct Context<'a> {
     /// Reference to the "other" instance
     pub other: &'a Instance,
 
-    /// Index of the action currently being executed
-    /// TODO: does this start at 0 or 1?
+    /// Index of the action currently being executed, starting at 0
     pub event_action: usize,
 
     /// Type of event (0-11) currently being executed
