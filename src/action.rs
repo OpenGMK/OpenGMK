@@ -2,6 +2,16 @@ use crate::gml::{compiler::mappings, Context, runtime::{Instruction, Node, Runti
 use gm8exe::asset::etc::CodeAction;
 
 /// Consts which match those used in GM8
+pub mod kind {
+    pub const NORMAL: u32 = 0;
+    pub const BEGIN_GROUP: u32 = 1;
+    pub const END_GROUP: u32 = 2;
+    pub const ELSE: u32 = 3;
+    pub const EXIT: u32 = 4;
+    pub const REPEAT: u32 = 5;
+    pub const VARIABLE: u32 = 6;
+    pub const CODE: u32 = 7;
+}
 pub mod execution_type {
     pub const NONE: u32 = 0;
     pub const FUNCTION: u32 = 1;
