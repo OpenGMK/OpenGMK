@@ -19,6 +19,7 @@ pub mod execution_type {
 }
 
 /// A drag-n-drop action.
+#[derive(Debug)]
 pub struct Action {
     /// The original index of this action in its list, starting at 0
     pub index: usize,
@@ -45,11 +46,21 @@ pub struct Action {
 
 /// Abstraction for a tree of Actions
 /// Note that Vec is necessary here due to functions such as object_event_add and object_event_clear
+#[derive(Debug)]
 pub struct Tree(Vec<Action>);
 
 pub enum Body {
     Function(fn(&mut Runtime, &mut Context, &[Value]) -> Value),
     Code(Vec<Instruction>),
+}
+
+impl std::fmt::Debug for Body {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            Body::Function(_) => write!(f, "Body::Function(..)"),
+            Body::Code(c) => write!(f, "Body::Code({:?})", c),
+        }
+    }
 }
 
 impl Tree {
