@@ -1,4 +1,4 @@
-use crate::gml::{compiler::mappings, Context, runtime::{Instruction, Node, Runtime}, Value};
+use crate::gml::{compiler::{Compiler, mappings}, Context, runtime::{Instruction, Node, Runtime}, Value};
 use gm8exe::asset::etc::CodeAction;
 
 /// Consts which match those used in GM8
@@ -28,7 +28,7 @@ pub struct Action {
     pub target: Option<i32>,
 
     /// The arguments to be passed to the function or code body
-    pub args: Box<[Argument]>,
+    pub args: Box<[Node]>,
 
     /// Whether the "relative" checkbox was used. This is always passed to Context, but usually ignored.
     pub relative: bool,
@@ -52,14 +52,9 @@ pub enum Body {
     Code(Vec<Instruction>),
 }
 
-pub enum Argument {
-    Constant(Value),
-    Expression(Node),
-}
-
 impl Tree {
     /// Turn a list of gm8exe CodeActions into an Action tree.
-    pub fn from_list(list: &[CodeAction]) -> Result<Self, String> {
+    pub fn from_list(list: &[CodeAction], compiler: &mut Compiler) -> Result<Self, String> {
         let mut iter = list.iter().peekable().enumerate();
         let mut output = Vec::new();
 
@@ -71,7 +66,7 @@ impl Tree {
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something {Some(action.applies_to)} else {None},
-                            args: Box::new([]),
+                            args: action.param_strings.iter().map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Function(*f_ptr),
