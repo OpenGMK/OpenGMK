@@ -55,10 +55,26 @@ pub enum Body {
 impl Tree {
     /// Turn a list of gm8exe CodeActions into an Action tree.
     pub fn from_list(list: &[CodeAction], compiler: &mut Compiler) -> Result<Self, String> {
-        let mut iter = list.iter().peekable().enumerate();
+        let mut iter = list.iter().enumerate().peekable();
+        Ok(Self(Self::from_iter(&mut iter, compiler, false)?))
+    }
+
+    fn from_iter<'a, T>(iter: &mut std::iter::Peekable<T>, compiler: &mut Compiler, stop_at_end_action: bool) -> Result<Vec<Action>, String> where T: Iterator<Item=(usize, &'a CodeAction)> {
         let mut output = Vec::new();
 
         while let Some((i, action)) = iter.next() {
+            let if_else = if action.is_condition {
+                let if_body = Self::from_iter(iter, compiler, true)?;
+                let else_body = if let Some((_, CodeAction {action_kind: kind::ELSE, ..})) = iter.peek() {
+                    Self::from_iter(iter, compiler, true)?
+                } else {
+                    Vec::new()
+                };
+                Some((if_body.into_boxed_slice(), else_body.into_boxed_slice()))
+            } else {
+                None
+            };
+
             match action.execution_type {
                 execution_type::NONE => (),
                 execution_type::FUNCTION => {
@@ -70,7 +86,7 @@ impl Tree {
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Function(*f_ptr),
-                            if_else: None, // TODO: handle action.is_condition
+                            if_else,
                         });
                     } else {
                         return Err(format!("Unknown function: {} in action {}", action.fn_name, i));
@@ -88,7 +104,7 @@ impl Tree {
                                 Some(code) => Body::Code(compiler.compile(code).map_err(|e| e.message)?),
                                 None => Body::Code(Vec::new()),
                             },
-                            if_else: None, // TODO: handle action.is_condition
+                            if_else,
                         });
                     }
                     else {
@@ -99,13 +115,17 @@ impl Tree {
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),
-                            if_else: None, // TODO: handle action.is_condition
+                            if_else,
                         });
                     }
                 },
             }
+
+            if action.action_kind == kind::END_GROUP && stop_at_end_action {
+                break;
+            }
         }
 
-        Ok(Self(output))
+        Ok(output)
     }
 }
