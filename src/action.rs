@@ -77,7 +77,31 @@ impl Tree {
                     }
                 },
                 execution_type::CODE | _ => {
-                    // TODO: handle code actions
+                    if action.action_kind == kind::CODE {
+                        output.push(Action {
+                            index: i,
+                            target: if action.applies_to_something {Some(action.applies_to)} else {None},
+                            args: Box::new([]),
+                            relative: action.is_relative,
+                            invert_condition: action.invert_condition,
+                            body: match action.param_strings.get(0) {
+                                Some(code) => Body::Code(compiler.compile(code).map_err(|e| e.message)?),
+                                None => Body::Code(Vec::new()),
+                            },
+                            if_else: None, // TODO: handle action.is_condition
+                        });
+                    }
+                    else {
+                        output.push(Action {
+                            index: i,
+                            target: if action.applies_to_something {Some(action.applies_to)} else {None},
+                            args: action.param_strings.iter().map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
+                            relative: action.is_relative,
+                            invert_condition: action.invert_condition,
+                            body: Body::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),
+                            if_else: None, // TODO: handle action.is_condition
+                        });
+                    }
                 },
             }
         }
