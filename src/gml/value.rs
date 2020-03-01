@@ -135,6 +135,33 @@ impl Value {
             (x, y) => gml_panic!("invalid arguments to div operator ({} & {})", x.log_fmt(), y.log_fmt()),
         }
     }
+
+    /// GML && operator
+    pub fn bool_and(self, rhs: Self) -> Self {
+        if self.is_true() || rhs.is_true() {
+            Real(1.0)
+        } else {
+            Real(0.0)
+        }
+    }
+
+    /// GML || operator
+    pub fn bool_or(self, rhs: Self) -> Self {
+        if self.is_true() && rhs.is_true() {
+            Real(1.0)
+        } else {
+            Real(0.0)
+        }
+    }
+
+    /// GML ^^ operator
+    pub fn bool_xor(self, rhs: Self) -> Self {
+        if self.is_true() != rhs.is_true() {
+            Real(1.0)
+        } else {
+            Real(0.0)
+        }
+    }
 }
 
 impl Add for Value {
