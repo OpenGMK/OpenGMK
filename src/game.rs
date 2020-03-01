@@ -3,7 +3,9 @@ use crate::{
     asset::{
         font::{Character, Font},
         sprite::{Collider, Frame, Sprite},
-        Background, Object,
+        Background,
+        Object,
+        Timeline,
     },
     atlas::AtlasBuilder,
     gml::Compiler,
@@ -227,7 +229,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     input.iter().for_each(|(sub, actions)| {
                         map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
                             Ok(t) => t,
-                            Err(e) => panic!(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e).into()),
+                            Err(e) => panic!(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e)),
                             // Have to panic here since not possible to return error
                         });
                     });
@@ -241,6 +243,26 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     sprite_index: b.sprite_index,
                     mask_index: b.mask_index,
                     events,
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let _timelines = timelines
+        .into_iter()
+        .map(|t| {
+            t.map(|b| {
+                let mut moments: HashMap<u32, Tree> = HashMap::with_capacity(b.moments.len());
+                for (moment, actions) in b.moments.iter() {
+                    match Tree::from_list(actions, &mut compiler) {
+                        Ok(t) => { moments.insert(*moment, t); },
+                        Err(e) => panic!(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e)),
+                        // Have to panic here since not possible to return error
+                    }
+                }
+                Box::new(Timeline {
+                    name: b.name,
+                    moments,
                 })
             })
         })
