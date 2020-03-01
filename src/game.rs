@@ -12,7 +12,7 @@ use crate::{
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
 };
 use gm8exe::GameAssets;
-use std::iter::repeat;
+use std::{collections::HashMap, iter::repeat};
 
 /// Resolves icon closest to preferred_width and converts it from a WindowsIcon to proper RGBA pixels.
 /*
@@ -221,6 +221,17 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         .into_iter()
         .map(|o| {
             o.map(|b| {
+                let mut events: [HashMap<u32, Tree>; 12] = std::default::Default::default();
+                events.iter_mut().enumerate().zip(b.events.iter()).for_each(|((i, map), input)| {
+                    map.reserve(input.len());
+                    input.iter().for_each(|(sub, actions)| {
+                        map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
+                            Ok(t) => t,
+                            Err(e) => panic!(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e).into()),
+                            // Have to panic here since not possible to return error
+                        });
+                    });
+                });
                 Box::new(Object {
                     name: b.name,
                     solid: b.solid,
@@ -229,6 +240,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
                     depth: b.depth,
                     sprite_index: b.sprite_index,
                     mask_index: b.mask_index,
+                    events,
                 })
             })
         })
