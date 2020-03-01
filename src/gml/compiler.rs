@@ -357,7 +357,7 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some((_, f_ptr, constant)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
+                } else if let Some((_, f_ptr, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
                     Node::Function {
                         args: function
                             .params
