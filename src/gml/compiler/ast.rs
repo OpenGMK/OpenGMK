@@ -706,9 +706,9 @@ impl<'a> AST<'a> {
             Operator::Multiply => Some(5),
             Operator::Divide => Some(5),
             Operator::IntDivide => Some(5),
-            Operator::BinaryAnd => Some(2),
-            Operator::BinaryOr => Some(2),
-            Operator::BinaryXor => Some(2),
+            Operator::BitwiseAnd => Some(2),
+            Operator::BitwiseOr => Some(2),
+            Operator::BitwiseXor => Some(2),
             Operator::Assign => None,
             Operator::Not => None,
             Operator::LessThan => Some(1),
@@ -717,9 +717,9 @@ impl<'a> AST<'a> {
             Operator::AssignSubtract => None,
             Operator::AssignMultiply => None,
             Operator::AssignDivide => None,
-            Operator::AssignBinaryAnd => None,
-            Operator::AssignBinaryOr => None,
-            Operator::AssignBinaryXor => None,
+            Operator::AssignBitwiseAnd => None,
+            Operator::AssignBitwiseOr => None,
+            Operator::AssignBitwiseXor => None,
             Operator::Equal => Some(1),
             Operator::NotEqual => Some(1),
             Operator::LessThanOrEqual => Some(1),
@@ -830,7 +830,7 @@ mod tests {
             // Simple assignment - AssignBinaryAnd
             "f &= 6",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
-                op: Operator::AssignBinaryAnd,
+                op: Operator::AssignBitwiseAnd,
                 left: Expr::LiteralIdentifier("f"),
                 right: Expr::LiteralReal(6.0),
             }))]),
@@ -843,7 +843,7 @@ mod tests {
             // Simple assignment - AssignBinaryOr
             "g |= 7",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
-                op: Operator::AssignBinaryOr,
+                op: Operator::AssignBitwiseOr,
                 left: Expr::LiteralIdentifier("g"),
                 right: Expr::LiteralReal(7.0),
             }))]),
@@ -856,7 +856,7 @@ mod tests {
             // Simple assignment - AssignBinaryXor
             "h ^= 8",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
-                op: Operator::AssignBinaryXor,
+                op: Operator::AssignBitwiseXor,
                 left: Expr::LiteralIdentifier("h"),
                 right: Expr::LiteralReal(8.0),
             }))]),

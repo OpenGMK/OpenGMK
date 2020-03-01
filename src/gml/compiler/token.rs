@@ -51,14 +51,14 @@ pub enum Operator {
     /// `div` Integer Divide (Divide, Floor)
     IntDivide,
 
-    /// `&` Binary AND
-    BinaryAnd,
+    /// `&` Bitwise AND
+    BitwiseAnd,
 
-    /// `|` Binary OR
-    BinaryOr,
+    /// `|` Bitwise OR
+    BitwiseOr,
 
-    /// `^` Binary XOR
-    BinaryXor,
+    /// `^` Bitwise XOR
+    BitwiseXor,
 
     /// `=` Assign
     /// NOTE: This operator means Equal (`==`) if read in an expression
@@ -85,14 +85,14 @@ pub enum Operator {
     /// `/=` Assignment Divide
     AssignDivide,
 
-    /// `&=` Assignment Binary AND
-    AssignBinaryAnd,
+    /// `&=` Assignment Bitwise AND
+    AssignBitwiseAnd,
 
-    /// `|=` Assignment Binary OR
-    AssignBinaryOr,
+    /// `|=` Assignment Bitwise OR
+    AssignBitwiseOr,
 
-    /// `^=` Assignment Binary XOR
-    AssignBinaryXor,
+    /// `^=` Assignment Bitwise XOR
+    AssignBitwiseXor,
 
     /// `==` Equal
     Equal,
@@ -215,9 +215,9 @@ impl fmt::Display for Operator {
             Operator::Multiply => write!(f, "*"),
             Operator::Divide => write!(f, "/"),
             Operator::IntDivide => write!(f, "div"),
-            Operator::BinaryAnd => write!(f, "&"),
-            Operator::BinaryOr => write!(f, "|"),
-            Operator::BinaryXor => write!(f, "^"),
+            Operator::BitwiseAnd => write!(f, "&"),
+            Operator::BitwiseOr => write!(f, "|"),
+            Operator::BitwiseXor => write!(f, "^"),
             Operator::Assign => write!(f, "="),
             Operator::Not => write!(f, "!"),
             Operator::LessThan => write!(f, "<"),
@@ -226,9 +226,9 @@ impl fmt::Display for Operator {
             Operator::AssignSubtract => write!(f, "-="),
             Operator::AssignMultiply => write!(f, "*="),
             Operator::AssignDivide => write!(f, "/="),
-            Operator::AssignBinaryAnd => write!(f, "&="),
-            Operator::AssignBinaryOr => write!(f, "|="),
-            Operator::AssignBinaryXor => write!(f, "^="),
+            Operator::AssignBitwiseAnd => write!(f, "&="),
+            Operator::AssignBitwiseOr => write!(f, "|="),
+            Operator::AssignBitwiseXor => write!(f, "^="),
             Operator::Equal => write!(f, "=="),
             Operator::NotEqual => write!(f, "!="),
             Operator::LessThanOrEqual => write!(f, "<="),
