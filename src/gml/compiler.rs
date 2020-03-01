@@ -290,6 +290,7 @@ impl Compiler {
                 op => {
                     let op_function = match op {
                         Operator::Add => Value::add,
+                        Operator::And => Value::bool_and,
                         Operator::BinaryAnd => Value::bitand,
                         Operator::BinaryOr => Value::bitor,
                         Operator::BinaryShiftLeft => Value::shl,
@@ -305,7 +306,9 @@ impl Compiler {
                         Operator::Multiply => Value::mul,
                         Operator::Modulo => Value::rem,
                         Operator::NotEqual => Value::gml_ne,
+                        Operator::Or => Value::bool_or,
                         Operator::Subtract => Value::sub,
+                        Operator::Xor => Value::bool_xor,
                         op => {
                             return Node::RuntimeError { error: format!("Invalid binary operator: {}", op) };
                         },
