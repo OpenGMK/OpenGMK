@@ -291,11 +291,11 @@ impl Compiler {
                     let op_function = match op {
                         Operator::Add => Value::add,
                         Operator::And => Value::bool_and,
-                        Operator::BinaryAnd => Value::bitand,
-                        Operator::BinaryOr => Value::bitor,
+                        Operator::BitwiseAnd => Value::bitand,
+                        Operator::BitwiseOr => Value::bitor,
                         Operator::BinaryShiftLeft => Value::shl,
                         Operator::BinaryShiftRight => Value::shr,
-                        Operator::BinaryXor => Value::bitxor,
+                        Operator::BitwiseXor => Value::bitxor,
                         Operator::Divide => Value::div,
                         Operator::Equal => Value::gml_eq,
                         Operator::GreaterThan => Value::gml_gt,
@@ -417,9 +417,9 @@ impl Compiler {
             Operator::AssignSubtract => AssignmentType::Subtract,
             Operator::AssignMultiply => AssignmentType::Multiply,
             Operator::AssignDivide => AssignmentType::Divide,
-            Operator::AssignBinaryAnd => AssignmentType::BitAnd,
-            Operator::AssignBinaryOr => AssignmentType::BitOr,
-            Operator::AssignBinaryXor => AssignmentType::BitXor,
+            Operator::AssignBitwiseAnd => AssignmentType::BitAnd,
+            Operator::AssignBitwiseOr => AssignmentType::BitOr,
+            Operator::AssignBitwiseXor => AssignmentType::BitXor,
             _ => {
                 return Instruction::RuntimeError { error: format!("Invalid assignment operator: {}", binary_expr.op) };
             },

@@ -227,7 +227,7 @@ impl<'a> Iterator for Lexer<'a> {
             0x00..=b'~' => {
                 let op_sep_ch = |ch| match ch & 0b0111_1111 {
                     b'!' => Token::Operator(Operator::Not),
-                    b'&' => Token::Operator(Operator::BinaryAnd),
+                    b'&' => Token::Operator(Operator::BitwiseAnd),
                     b'(' => Token::Separator(Separator::ParenLeft),
                     b')' => Token::Separator(Separator::ParenRight),
                     b'*' => Token::Operator(Operator::Multiply),
@@ -242,9 +242,9 @@ impl<'a> Iterator for Lexer<'a> {
                     b'>' => Token::Operator(Operator::GreaterThan),
                     b'[' => Token::Separator(Separator::BracketLeft),
                     b']' => Token::Separator(Separator::BracketRight),
-                    b'^' => Token::Operator(Operator::BinaryXor),
+                    b'^' => Token::Operator(Operator::BitwiseXor),
                     b'{' => Token::Separator(Separator::BraceLeft),
-                    b'|' => Token::Operator(Operator::BinaryOr),
+                    b'|' => Token::Operator(Operator::BitwiseOr),
                     b'}' => Token::Separator(Separator::BraceRight),
                     b'~' => Token::Operator(Operator::Complement),
                     _ => Token::InvalidChar(head.0, head.1),
@@ -263,9 +263,9 @@ impl<'a> Iterator for Lexer<'a> {
                     // such as && || ^^
                     if head.1 == ch2 {
                         let repeated_combo = match op {
-                            Operator::BinaryAnd => Operator::And,
-                            Operator::BinaryOr => Operator::Or,
-                            Operator::BinaryXor => Operator::Xor,
+                            Operator::BitwiseAnd => Operator::And,
+                            Operator::BitwiseOr => Operator::Or,
+                            Operator::BitwiseXor => Operator::Xor,
                             Operator::LessThan => Operator::BinaryShiftLeft,
                             Operator::GreaterThan => Operator::BinaryShiftRight,
 
@@ -306,9 +306,9 @@ impl<'a> Iterator for Lexer<'a> {
                             Operator::Subtract => Operator::AssignSubtract,
                             Operator::Multiply => Operator::AssignMultiply,
                             Operator::Divide => Operator::AssignDivide,
-                            Operator::BinaryAnd => Operator::AssignBinaryAnd,
-                            Operator::BinaryOr => Operator::AssignBinaryOr,
-                            Operator::BinaryXor => Operator::AssignBinaryXor,
+                            Operator::BitwiseAnd => Operator::AssignBitwiseAnd,
+                            Operator::BitwiseOr => Operator::AssignBitwiseOr,
+                            Operator::BitwiseXor => Operator::AssignBitwiseXor,
 
                             _ => return Some(Token::Operator(op)),
                         };
