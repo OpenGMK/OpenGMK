@@ -93,7 +93,7 @@ impl Tree {
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something {Some(action.applies_to)} else {None},
-                            args: action.param_strings.iter().map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
+                            args: action.param_strings.iter().take(action.param_count).map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Function(*f_ptr),
@@ -122,7 +122,7 @@ impl Tree {
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something {Some(action.applies_to)} else {None},
-                            args: action.param_strings.iter().map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
+                            args: action.param_strings.iter().take(action.param_count).map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),
