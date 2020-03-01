@@ -1,14 +1,12 @@
 use crate::{
+    action::Tree,
     asset::{
         font::{Character, Font},
         sprite::{Collider, Frame, Sprite},
         Background, Object,
     },
     atlas::AtlasBuilder,
-    gml::{
-        Compiler,
-        Runtime,
-    },
+    gml::Compiler,
     instance::Instance,
     instancelist::InstanceList,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -85,10 +83,7 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     timelines.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
     triggers.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.constant_name.clone(), i as f64));
 
-    // Set up GML Runtime
-    let mut _runtime = Runtime {
-        compiler,
-    };
+    scripts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
 
     // Set up a Renderer
     let options = RendererOptions {
