@@ -70,10 +70,19 @@ impl Tree {
         Ok(Self(Self::from_iter(&mut iter, compiler, false)?))
     }
 
-    fn from_iter<'a, T>(iter: &mut std::iter::Peekable<T>, compiler: &mut Compiler, stop_at_end_action: bool) -> Result<Vec<Action>, String> where T: Iterator<Item=(usize, &'a CodeAction)> {
+    fn from_iter<'a, T>(iter: &mut std::iter::Peekable<T>, compiler: &mut Compiler, single_group: bool) -> Result<Vec<Action>, String> where T: Iterator<Item=(usize, &'a CodeAction)> {
         let mut output = Vec::new();
 
+        // If we're only iterating a single group of actions, and the fvirst is not a BEGIN_GROUP action,
+        // Then we only want to collect one action.
+        let stop_immediately = if let Some((_, CodeAction {action_kind: kind::BEGIN_GROUP, ..})) = iter.peek() {
+            false
+        } else {
+            single_group
+        };
+
         while let Some((i, action)) = iter.next() {
+            // If the action we got is a condition then immediately parse its if/else bodies from the iterator
             let if_else = if action.is_condition {
                 let if_body = Self::from_iter(iter, compiler, true)?;
                 let else_body = if let Some((_, CodeAction {action_kind: kind::ELSE, ..})) = iter.peek() {
@@ -87,7 +96,11 @@ impl Tree {
             };
 
             match action.execution_type {
+                // Execution type NONE does nothing, so don't compile anything
                 execution_type::NONE => (),
+
+                // For the FUNCTION execution type, a built-in function name is provided in the action's fn_name.
+                // This is compiled to a function pointer.
                 execution_type::FUNCTION => {
                     if let Some((_, f_ptr, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &action.fn_name) {
                         output.push(Action {
@@ -103,8 +116,12 @@ impl Tree {
                         return Err(format!("Unknown function: {} in action {}", action.fn_name, i));
                     }
                 },
+
+                // Execution type CODE is a bit special depending on the action kind..
                 execution_type::CODE | _ => {
                     if action.action_kind == kind::CODE {
+                        // kind::CODE indicates that param 0 contains the GML code to be compiled here.
+                        // fn_code and any other params are completely ignored. The action is compiled with 0 params.
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something {Some(action.applies_to)} else {None},
@@ -119,6 +136,7 @@ impl Tree {
                         });
                     }
                     else {
+                        // The action's code is provided by its fn_code, so compile that.
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something {Some(action.applies_to)} else {None},
@@ -132,7 +150,8 @@ impl Tree {
                 },
             }
 
-            if action.action_kind == kind::END_GROUP && stop_at_end_action {
+            // Is it time to stop reading actions?
+            if (single_group && action.action_kind == kind::END_GROUP) || stop_immediately {
                 break;
             }
         }
