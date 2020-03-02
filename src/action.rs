@@ -73,8 +73,8 @@ impl Tree {
     fn from_iter<'a, T>(iter: &mut std::iter::Peekable<T>, compiler: &mut Compiler, single_group: bool) -> Result<Vec<Action>, String> where T: Iterator<Item=(usize, &'a CodeAction)> {
         let mut output = Vec::new();
 
-        // If we're only iterating a single group of actions, and the fvirst is not a BEGIN_GROUP action,
-        // Then we only want to collect one action.
+        // If we're only iterating a single group of actions, and the first is not a BEGIN_GROUP action,
+        // then we only want to collect one action.
         let stop_immediately = if let Some((_, CodeAction {action_kind: kind::BEGIN_GROUP, ..})) = iter.peek() {
             false
         } else {
