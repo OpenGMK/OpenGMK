@@ -1,4 +1,4 @@
-use crate::gml::{compiler::{Compiler, mappings}, Context, runtime::{Instruction, Node, Runtime}, Value};
+use crate::{game::Game, gml::{compiler::{Compiler, mappings}, Context, runtime::{Instruction, Node}, Value}};
 use gm8exe::asset::etc::CodeAction;
 
 /// Consts which match those used in GM8
@@ -50,7 +50,7 @@ pub struct Action {
 pub struct Tree(Vec<Action>);
 
 pub enum Body {
-    Function(fn(&mut Runtime, &mut Context, &[Value]) -> Value),
+    Function(fn(&mut Game, &mut Context, &[Value]) -> Value),
     Code(Vec<Instruction>),
 }
 

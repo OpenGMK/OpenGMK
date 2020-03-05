@@ -16,35 +16,10 @@ use crate::{
 use gm8exe::GameAssets;
 use std::{collections::HashMap, iter::repeat};
 
-/// Resolves icon closest to preferred_width and converts it from a WindowsIcon to proper RGBA pixels.
-/*
-fn get_icon(icons: &[WindowsIcon], preferred_width: i32) -> Option<(Vec<u8>, u32, u32)> {
-    fn closest<'a, I: Iterator<Item = &'a WindowsIcon>>(preferred_width: i32, i: I) -> Option<&'a WindowsIcon> {
-        i.min_by(|a, b| {
-            (a.width as i32 - preferred_width)
-                .abs()
-                .cmp(&(b.width as i32 - preferred_width).abs())
-        })
-    }
-
-    fn icon_from_win32(raw: &[u8], width: usize) -> Option<(Vec<u8>, u32, u32)> {
-        let mut rgba = Vec::with_capacity(raw.len());
-        for chunk in raw.rchunks_exact(width * 4) {
-            rgba.extend_from_slice(chunk);
-            let vlen = rgba.len();
-            crate::util::bgra2rgba(rgba.get_mut(vlen - (width * 4)..)?);
-        }
-        Some((rgba, width as u32, width as u32))
-    }
-
-    closest(
-        preferred_width,
-        icons.iter().filter(|i| i.original_bpp == 24 || i.original_bpp == 32),
-    )
-    .or_else(|| closest(preferred_width, icons.iter()))
-    .and_then(|i| icon_from_win32(&i.bgra_data, i.width as usize))
+/// Structure which contains all the components of a game.
+pub struct Game {
+    
 }
-*/
 
 pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
     // destructure assets
