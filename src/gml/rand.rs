@@ -18,7 +18,7 @@ pub const INT_STEP: u64 = 0x3DF0_0000_0000_0000;
 impl Random {
     /// Creates a new LCG with a random seed.
     #[inline]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         use rand::Rng;
         Self(rand::thread_rng().gen())
     }
