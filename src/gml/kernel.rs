@@ -1,8 +1,8 @@
 // This file was auto-generated based on a function table dump
 
-use crate::gml::{Context, Runtime, Value};
+use crate::{game::Game, gml::{Context, Value}};
 
-impl Runtime {
+impl Game {
     pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> Value {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_get_width")

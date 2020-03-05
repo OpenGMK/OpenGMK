@@ -1,12 +1,6 @@
 use std::fmt;
-use super::{Compiler, Context, GameVariable, InstanceVariable, Value};
-
-pub mod kernel;
-
-/// Structure which holds all the GML runtime state. Responsible for executing all compiled GML code.
-pub struct Runtime {
-    pub compiler: Compiler,
-}
+use crate::game::Game;
+use super::{Context, GameVariable, InstanceVariable, Value};
 
 /// A compiled runtime instruction. Generally represents a line of code.
 #[derive(Debug)]
@@ -29,7 +23,7 @@ pub enum Instruction {
 /// Node representing one value in an expression.
 pub enum Node {
     Literal { value: Value },
-    Function { args: Box<[Node]>, function: fn(&mut Runtime, &mut Context, &[Value]) -> Value },
+    Function { args: Box<[Node]>, function: fn(&mut Game, &mut Context, &[Value]) -> Value },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
