@@ -31,7 +31,11 @@ pub struct Game {
 }
 
 pub struct Assets {
+    pub backgrounds: Vec<Option<Box<Background>>>,
+    pub fonts: Vec<Option<Box<Font>>>,
+    pub objects: Vec<Option<Box<Object>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
+    pub timelines: Vec<Option<Box<Timeline>>>,
     // todo
 }
 
@@ -157,26 +161,26 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
-    let _backgrounds = backgrounds
+    let backgrounds = backgrounds
         .into_iter()
         .map(|o| {
             o.map(|b| {
                 let width = b.width;
                 let height = b.height;
-                Background {
+                Box::new(Background {
                     name: b.name,
                     width,
                     height,
                     atlas_ref: b.data.map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
-                }
+                })
             })
         })
         .collect::<Vec<_>>();
 
-    let _fonts = fonts
+    let fonts = fonts
         .into_iter()
         .map(|o| {
-            o.map(|b| Font {
+            o.map(|b| Box::new(Font {
                 name: b.name,
                 sys_name: b.sys_name,
                 size: b.size,
@@ -204,7 +208,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
                     .take(((b.range_end - b.range_start) + 1) as usize)
                     .map(|x| Character { x: x[0], y: x[1], width: x[2], height: x[3], offset: x[4], distance: x[5] })
                     .collect(),
-            })
+            }))
         })
         .collect::<Vec<_>>();
 
@@ -237,7 +241,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
-    let _timelines = timelines
+    let timelines = timelines
         .into_iter()
         .map(|t| {
             t.map(|b| {
@@ -286,7 +290,11 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         rand: Random::new(),
         renderer: Box::new(renderer),
         assets: Assets {
+            backgrounds,
+            fonts,
+            objects,
             sprites,
+            timelines,
         },
         room_width: room1.width as i32,
         room_height: room1.height as i32,
