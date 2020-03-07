@@ -16,7 +16,7 @@ pub trait Renderer {
     fn upload_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
 
     /// Dumps atlases to filepaths provided by `Fn(index: usize) -> PathBuf`.
-    fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()>;
+    fn dump_atlases(&self, path: fn(usize) -> PathBuf) -> io::Result<()>;
 
     /// Returns the max texture size the GPU can hold.
     fn max_gpu_texture_size(&self) -> usize;

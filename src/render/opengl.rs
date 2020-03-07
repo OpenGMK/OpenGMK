@@ -522,7 +522,7 @@ impl Renderer for OpenGLRenderer {
         }
     }
 
-    fn dump_atlases(&self, path: impl Fn(usize) -> PathBuf) -> io::Result<()> {
+    fn dump_atlases(&self, path: fn(usize) -> PathBuf) -> io::Result<()> {
         for ((i, texture), packer) in self.texture_ids.iter().enumerate().zip(self.atlas_packers.iter()) {
             let w = BufWriter::new(fs::File::create(&path(i))?);
             let (width, height) = packer.size();
