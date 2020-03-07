@@ -106,7 +106,45 @@ fn xmain() -> i32 {
         },
     };
 
-    game::launch(assets).unwrap();
+    let mut components = match game::launch(assets) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("Failed to launch game: {}", e);
+            return EXIT_FAILURE;
+        }
+    };
+
+    while !components.renderer.should_close() {
+        components.glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&components.glfw_events) {
+            println!("Got event {:?}", event);
+            match event {
+                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+                    components.renderer.set_should_close(true);
+                    continue; // So no draw events are fired while the window should be closing
+                },
+                _ => {},
+            }
+        }
+
+        components.renderer.set_view(0, 0, components.room_width, components.room_height, 0.0, 0, 0, components.room_width, components.room_height);
+
+        for (_, instance) in components.instance_list.iter() {
+            if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
+                components.renderer.draw_sprite(
+                    &sprite.frames.first().unwrap().atlas_ref,
+                    instance.x.get(),
+                    instance.y.get(),
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
+                )
+            }
+        }
+        components.renderer.finish();
+    }
 
     EXIT_SUCCESS
 }

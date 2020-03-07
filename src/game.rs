@@ -8,20 +8,34 @@ use crate::{
         Timeline,
     },
     atlas::AtlasBuilder,
-    gml::Compiler,
+    gml::{rand::Random, Compiler},
     instance::Instance,
     instancelist::InstanceList,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
 };
 use gm8exe::GameAssets;
-use std::{collections::HashMap, iter::repeat};
+use std::{collections::HashMap, iter::repeat, sync::mpsc::Receiver};
 
 /// Structure which contains all the components of a game.
 pub struct Game {
-    
+    pub compiler: Compiler,
+    pub glfw: glfw::Glfw,
+    pub glfw_events: Receiver<(f64, glfw::WindowEvent)>,
+    pub instance_list: InstanceList,
+    pub rand: Random,
+    pub renderer: Box<dyn Renderer>,
+    pub assets: Assets,
+
+    pub room_width: i32,
+    pub room_height: i32,
 }
 
-pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
+pub struct Assets {
+    pub sprites: Vec<Option<Box<Sprite>>>,
+    // todo
+}
+
+pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     // destructure assets
     let GameAssets { backgrounds, constants, fonts, icon_data, objects, paths, room_order, rooms, scripts, sounds, sprites, timelines, triggers, .. } = assets;
 
@@ -261,58 +275,20 @@ pub fn launch(assets: GameAssets) -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
 
-    // renderer.dump_atlases(|i| std::path::PathBuf::from(format!("./atl{}.png", i)))?;
-
     // Important: show window
     renderer.show_window();
 
-    while !renderer.should_close() {
-        glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&events) {
-            println!("Got event {:?}", event);
-            match event {
-                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
-                    renderer.set_should_close(true);
-                    continue; // So no draw events are fired while the window should be closing
-                },
-                _ => {},
-            }
-        }
-
-        renderer.set_view(
-            0,
-            0,
-            room1.width as i32,
-            room1.height as i32,
-            0.0,
-            0,
-            0,
-            room1.width as i32,
-            room1.height as i32,
-        );
-        if room1.clear_screen {
-            renderer.clear(
-                room1.bg_colour.r as f32 / 255.0,
-                room1.bg_colour.g as f32 / 255.0,
-                room1.bg_colour.b as f32 / 255.0,
-            );
-        }
-        for (_, instance) in instance_list.iter() {
-            if let Some(Some(sprite)) = sprites.get(instance.sprite_index.get() as usize) {
-                renderer.draw_sprite(
-                    &sprite.frames.first().unwrap().atlas_ref,
-                    instance.x.get(),
-                    instance.y.get(),
-                    instance.image_xscale.get(),
-                    instance.image_yscale.get(),
-                    instance.image_angle.get(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get(),
-                )
-            }
-        }
-        renderer.finish();
-    }
-
-    Ok(())
+    Ok(Game {
+        compiler,
+        glfw,
+        glfw_events: events,
+        instance_list,
+        rand: Random::new(),
+        renderer: Box::new(renderer),
+        assets: Assets {
+            sprites,
+        },
+        room_width: room1.width as i32,
+        room_height: room1.height as i32,
+    })
 }
