@@ -1,6 +1,7 @@
 pub mod background;
 pub mod font;
 pub mod object;
+pub mod script;
 pub mod sprite;
 pub mod timeline;
 
