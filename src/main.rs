@@ -172,7 +172,7 @@ fn decompile(
 
     println!("Successfully parsed game!");
 
-    let fix_event = |ev: &mut gm8exe::asset::etc::CodeAction| {
+    fn fix_event(ev: &mut gm8exe::asset::etc::CodeAction) {
         // So far the only broken event type I know of is custom Execute Code actions.
         // We can fix these by changing the act id and lib id to be a default Execute Code action instead.
         if ev.action_kind == 7 && ev.execution_type == 2 {
@@ -180,7 +180,8 @@ fn decompile(
             ev.id = 603;
             ev.lib_id = 1;
         }
-    };
+    }
+
     if fix_events {
         assets
             .objects
