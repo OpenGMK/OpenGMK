@@ -287,11 +287,11 @@ impl<'a> Iterator for Lexer<'a> {
 
                             _ => return Some(Token::Operator(op)),
                         };
-                        self.iter.next();
+                        self.iter.next(); // consume ch2
                         Token::Operator(repeated_combo)
-                    }
-                    // assignment operator combos such as += -= *= /=
-                    else if ch2 == b'=' {
+                    } else if ch2 == b'=' {
+                        // assignment operator combos such as += -= *= /=
+
                         let eq_combo = match op {
                             // boolean operators
                             // == is in above match condition since it's a repeated character
@@ -312,7 +312,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                             _ => return Some(Token::Operator(op)),
                         };
-                        self.iter.next();
+                        self.iter.next(); // consume ch2
                         Token::Operator(eq_combo)
                     } else if op == Operator::Divide && ch2 == b'*' {
                         // multi-line comments
@@ -333,11 +333,17 @@ impl<'a> Iterator for Lexer<'a> {
                             }
                         }
                         return self.next();
+                    } else if op == Operator::LessThan && ch2 == b'>' {
+                        // <> is the same as != (let's call it a diamond)
+
+                        self.iter.next(); // consume ch2
+                        Token::Operator(Operator::NotEqual)
                     } else {
                         Token::Operator(op)
                     }
                 } else if let Token::Separator(Separator::Colon) = token1 {
                     // pascal-style := init-assignments
+
                     if self.iter.peek().map(|(_, ch)| *ch == b'=').unwrap_or(false) {
                         self.iter.next();
                         Token::Operator(Operator::Assign)
