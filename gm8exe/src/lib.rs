@@ -29,8 +29,7 @@ pub mod upx;
 
 mod colour;
 
-use crate::asset::*;
-use crate::rsrc::WindowsIcon;
+use crate::{asset::*, rsrc::WindowsIcon};
 use settings::{GameHelpDialog, Settings};
 
 pub struct GameAssets {

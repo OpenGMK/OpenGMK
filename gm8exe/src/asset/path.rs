@@ -76,20 +76,10 @@ impl Asset for Path {
         let point_count = reader.read_u32_le()? as usize;
         let mut points = Vec::with_capacity(point_count);
         for _ in 0..point_count {
-            points.push(Point {
-                x: reader.read_f64_le()?,
-                y: reader.read_f64_le()?,
-                speed: reader.read_f64_le()?,
-            });
+            points.push(Point { x: reader.read_f64_le()?, y: reader.read_f64_le()?, speed: reader.read_f64_le()? });
         }
 
-        Ok(Path {
-            name,
-            connection,
-            precision,
-            closed,
-            points,
-        })
+        Ok(Path { name, connection, precision, closed, points })
     }
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>

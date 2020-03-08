@@ -75,14 +75,7 @@ impl Asset for IncludedFile {
             let len = reader.read_u32_le()? as usize;
             let pos = reader.position() as usize;
             reader.seek(SeekFrom::Current(len as i64))?;
-            Some(
-                reader
-                    .get_ref()
-                    .get(pos..pos + len)
-                    .unwrap_or_else(|| unreachable!())
-                    .to_vec()
-                    .into_boxed_slice(),
-            )
+            Some(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()).to_vec().into_boxed_slice())
         } else {
             None
         };
@@ -134,19 +127,19 @@ impl Asset for IncludedFile {
             ExportSetting::NoExport => {
                 result += writer.write_u32_le(0)?;
                 result += writer.write_pas_string("")?;
-            }
+            },
             ExportSetting::TempFolder => {
                 result += writer.write_u32_le(1)?;
                 result += writer.write_pas_string("")?;
-            }
+            },
             ExportSetting::GameFolder => {
                 result += writer.write_u32_le(2)?;
                 result += writer.write_pas_string("")?;
-            }
+            },
             ExportSetting::CustomFolder(folder) => {
                 result += writer.write_u32_le(3)?;
                 result += writer.write_pas_string(folder)?;
-            }
+            },
         }
         result += writer.write_u32_le(self.overwrite_file as u32)?;
         result += writer.write_u32_le(self.free_memory as u32)?;

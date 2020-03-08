@@ -9,9 +9,7 @@ pub struct ZlibWriter {
 
 impl ZlibWriter {
     pub fn new() -> ZlibWriter {
-        ZlibWriter {
-            encoder: ZlibEncoder::new(Vec::new(), flate2::Compression::default()),
-        }
+        ZlibWriter { encoder: ZlibEncoder::new(Vec::new(), flate2::Compression::default()) }
     }
 
     pub fn finish<W: Write>(self, cursor: &mut W) -> io::Result<usize> {

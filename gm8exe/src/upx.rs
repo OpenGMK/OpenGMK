@@ -12,12 +12,7 @@ pub fn unpack<F>(
 where
     F: Copy + Fn(&str),
 {
-    log!(
-        logger,
-        "Unpacking UPX with output size {}, data starting at {}",
-        max_size,
-        disk_offset
-    );
+    log!(logger, "Unpacking UPX with output size {}, data starting at {}", max_size, disk_offset);
 
     // set up output vector
     let mut output: Vec<u8> = Vec::with_capacity(max_size as usize);
@@ -89,8 +84,7 @@ where
             pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
         } else {
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in it.
-            u_var12 =
-                ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
+            u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
                 break; // This is the only exit point
             }

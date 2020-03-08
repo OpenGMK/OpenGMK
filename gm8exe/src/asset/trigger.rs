@@ -76,12 +76,7 @@ impl Asset for Trigger {
         let moment = TriggerKind::from(reader.read_u32_le()?);
         let constant_name = reader.read_pas_string()?;
 
-        Ok(Trigger {
-            name,
-            condition,
-            moment,
-            constant_name,
-        })
+        Ok(Trigger { name, condition, moment, constant_name })
     }
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>

@@ -25,19 +25,15 @@ pub enum ReaderError {
 impl Error for ReaderError {}
 impl Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ReaderError::AssetError(err) => format!("asset data error: {}", err),
-                ReaderError::InvalidExeHeader => "invalid exe header".into(),
-                ReaderError::IO(err) => format!("io error: {}", err),
-                ReaderError::PartialUPXPacking => {
-                    "looks upx protected, can't locate headers".into()
-                }
-                ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
-            }
-        )
+        write!(f, "{}", match self {
+            ReaderError::AssetError(err) => format!("asset data error: {}", err),
+            ReaderError::InvalidExeHeader => "invalid exe header".into(),
+            ReaderError::IO(err) => format!("io error: {}", err),
+            ReaderError::PartialUPXPacking => {
+                "looks upx protected, can't locate headers".into()
+            },
+            ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
+        })
     }
 }
 
@@ -66,7 +62,8 @@ where
     Ok(buf)
 }
 
-/// A windows PE Section header - https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers
+/// A windows PE Section header
+/// Just read this: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers
 pub struct PESection {
     pub virtual_size: u32,
     pub virtual_address: u32,
@@ -74,12 +71,7 @@ pub struct PESection {
     pub disk_address: u32,
 }
 
-pub fn from_exe<I, F>(
-    mut exe: I,
-    logger: Option<F>,
-    strict: bool,
-    multithread: bool,
-) -> Result<GameAssets, ReaderError>
+pub fn from_exe<I, F>(mut exe: I, logger: Option<F>, strict: bool, multithread: bool) -> Result<GameAssets, ReaderError>
 where
     F: Copy + Fn(&str),
     I: AsRef<[u8]> + AsMut<[u8]>,
@@ -134,25 +126,20 @@ where
                 // UPX0 section
                 upx0_virtual_len = Some(virtual_size);
                 log!(logger, "UPX0 section found, virtual len: {}", virtual_size);
-            }
+            },
             [0x55, 0x50, 0x58, 0x31, 0x00, 0x00, 0x00, 0x00] => {
                 // UPX1 section
                 upx1_data = Some((virtual_size, disk_address));
                 log!(logger, "UPX1 section found, virtual len: {}", virtual_size);
-            }
+            },
             [0x2E, 0x72, 0x73, 0x72, 0x63, 0x00, 0x00, 0x00] => {
                 // .rsrc section
                 log!(logger, "Found .rsrc section beginning at {}", disk_address);
                 rsrc_location = Some(disk_address);
-            }
-            _ => {}
+            },
+            _ => {},
         }
-        sections.push(PESection {
-            virtual_size,
-            virtual_address,
-            disk_size,
-            disk_address,
-        })
+        sections.push(PESection { virtual_size, virtual_address, disk_size, disk_address })
     }
 
     let (icon_data, ico_file_raw) = if let Some(rsrc) = rsrc_location {
@@ -189,10 +176,7 @@ where
                 if got == expected {
                     Ok(())
                 } else {
-                    Err(ReaderError::AssetError(AssetDataError::VersionError {
-                        expected,
-                        got,
-                    }))
+                    Err(ReaderError::AssetError(AssetDataError::VersionError { expected, got }))
                 }
             } else {
                 Ok(())
@@ -206,27 +190,16 @@ where
     exe.seek(SeekFrom::Current(settings_len as i64))?;
     let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?;
 
-    log!(
-        logger,
-        "Reading settings chunk... (size: {})",
-        settings_chunk.len(),
-    );
+    log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
 
     let settings = {
-        fn read_data_maybe(
-            cfg: &mut io::Cursor<Vec<u8>>,
-        ) -> Result<Option<Box<[u8]>>, ReaderError> {
+        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<[u8]>>, ReaderError> {
             if cfg.read_u32_le()? != 0 {
                 let len = cfg.read_u32_le()? as usize;
                 let pos = cfg.position() as usize;
                 cfg.seek(SeekFrom::Current(len as i64))?;
                 Ok(Some(
-                    inflate(
-                        cfg.get_ref()
-                            .get(pos..pos + len)
-                            .unwrap_or_else(|| unreachable!()),
-                    )?
-                    .into_boxed_slice(),
+                    inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice(),
                 ))
             } else {
                 Ok(None)
@@ -259,11 +232,8 @@ where
         let priority = cfg.read_u32_le()?;
         let freeze_on_lose_focus = cfg.read_u32_le()? != 0;
         let loading_bar = cfg.read_u32_le()?;
-        let (backdata, frontdata) = if loading_bar != 0 {
-            (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?)
-        } else {
-            (None, None)
-        };
+        let (backdata, frontdata) =
+            if loading_bar != 0 { (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?) } else { (None, None) };
         let custom_load_image = read_data_maybe(&mut cfg)?;
         let transparent = cfg.read_u32_le()? != 0;
         let translucency = cfg.read_u32_le()?;
@@ -271,217 +241,104 @@ where
         let show_error_messages = cfg.read_u32_le()? != 0;
         let log_errors = cfg.read_u32_le()? != 0;
         let always_abort = cfg.read_u32_le()? != 0;
-        let (zero_uninitalized_vars, error_on_uninitalized_args) =
-            match (game_ver, cfg.read_u32_le()?) {
-                (GameVersion::GameMaker8_0, x) => (x != 0, true),
-                (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
-            };
+        let (zero_uninitalized_vars, error_on_uninitalized_args) = match (game_ver, cfg.read_u32_le()?) {
+            (GameVersion::GameMaker8_0, x) => (x != 0, true),
+            (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
+        };
 
         log!(logger, " + Loaded settings structure");
         log!(logger, "   - Start in full-screen mode: {}", fullscreen);
 
-        log!(
-            logger,
-            "   - Interpolate colors between pixels: {}",
-            interpolate_pixels
-        );
+        log!(logger, "   - Interpolate colors between pixels: {}", interpolate_pixels);
 
-        log!(
-            logger,
-            "   - Don't draw a border in windowed mode: {}",
-            dont_draw_border
-        );
+        log!(logger, "   - Don't draw a border in windowed mode: {}", dont_draw_border);
 
         log!(logger, "   - Display the cursor: {}", display_cursor);
 
         log!(logger, "   - Scaling: {}", scaling);
 
-        log!(
-            logger,
-            "   - Allow the player to resize the game window: {}",
-            allow_resize
-        );
+        log!(logger, "   - Allow the player to resize the game window: {}", allow_resize);
 
-        log!(
-            logger,
-            "   - Let the game window always stay on top: {}",
-            window_on_top
-        );
+        log!(logger, "   - Let the game window always stay on top: {}", window_on_top);
 
-        log!(
-            logger,
-            "   - Colour outside the room region (RGBA): #{:0>8X}",
-            clear_colour
-        );
+        log!(logger, "   - Colour outside the room region (RGBA): #{:0>8X}", clear_colour);
 
-        log!(
-            logger,
-            "   - Set the resolution of the screen: {}",
-            set_resolution
-        );
+        log!(logger, "   - Set the resolution of the screen: {}", set_resolution);
 
-        log!(
-            logger,
-            "   -   -> Color Depth: {}",
-            match colour_depth {
-                0 => "No Change",
-                1 => "16-Bit",
-                2 | _ => "32-Bit",
-            }
-        );
+        log!(logger, "   -   -> Color Depth: {}", match colour_depth {
+            0 => "No Change",
+            1 => "16-Bit",
+            2 | _ => "32-Bit",
+        });
 
-        log!(
-            logger,
-            "   -   -> Resolution: {}",
-            match resolution {
-                0 => "No Change",
-                1 => "320x240",
-                2 => "640x480",
-                3 => "800x600",
-                4 => "1024x768",
-                5 => "1280x1024",
-                6 | _ => "1600x1200",
-            }
-        );
+        log!(logger, "   -   -> Resolution: {}", match resolution {
+            0 => "No Change",
+            1 => "320x240",
+            2 => "640x480",
+            3 => "800x600",
+            4 => "1024x768",
+            5 => "1280x1024",
+            6 | _ => "1600x1200",
+        });
 
-        log!(
-            logger,
-            "   -   -> Frequency: {}",
-            match frequency {
-                0 => "No Change",
-                1 => "60Hz",
-                2 => "70Hz",
-                3 => "85Hz",
-                4 => "100Hz",
-                5 | _ => "120Hz",
-            }
-        );
+        log!(logger, "   -   -> Frequency: {}", match frequency {
+            0 => "No Change",
+            1 => "60Hz",
+            2 => "70Hz",
+            3 => "85Hz",
+            4 => "100Hz",
+            5 | _ => "120Hz",
+        });
 
-        log!(
-            logger,
-            "   - Don't show the buttons in the window captions: {}",
-            dont_show_buttons
-        );
+        log!(logger, "   - Don't show the buttons in the window captions: {}", dont_show_buttons);
 
-        log!(
-            logger,
-            "   - Use synchronization to avoid tearing: {}",
-            vsync
-        );
+        log!(logger, "   - Use synchronization to avoid tearing: {}", vsync);
 
-        log!(
-            logger,
-            "   - Disable screensavers and power saving actions: {}",
-            disable_screensaver
-        );
+        log!(logger, "   - Disable screensavers and power saving actions: {}", disable_screensaver);
 
         log!(logger, "   - Let <Esc> end the game: {}", esc_close_game);
 
-        log!(
-            logger,
-            "   - Treat the close button as the <Esc> key: {}",
-            treat_close_as_esc
-        );
+        log!(logger, "   - Treat the close button as the <Esc> key: {}", treat_close_as_esc);
 
-        log!(
-            logger,
-            "   - Let <F1> show the game information: {}",
-            f1_help_menu
-        );
+        log!(logger, "   - Let <F1> show the game information: {}", f1_help_menu);
 
-        log!(
-            logger,
-            "   - Let <F4> switch between screen modes: {}",
-            f4_fullscreen_toggle
-        );
+        log!(logger, "   - Let <F4> switch between screen modes: {}", f4_fullscreen_toggle);
 
-        log!(
-            logger,
-            "   - Let <F5> save the game and <F6> load a game: {}",
-            f5_save_f6_load
-        );
+        log!(logger, "   - Let <F5> save the game and <F6> load a game: {}", f5_save_f6_load);
 
-        log!(
-            logger,
-            "   - Let <F9> take a screenshot of the game: {}",
-            f9_screenshot
-        );
+        log!(logger, "   - Let <F9> take a screenshot of the game: {}", f9_screenshot);
 
-        log!(
-            logger,
-            "   - Game Process Priority: {}",
-            match priority {
-                0 => "Normal",
-                1 => "High",
-                2 | _ => "Highest",
-            }
-        );
+        log!(logger, "   - Game Process Priority: {}", match priority {
+            0 => "Normal",
+            1 => "High",
+            2 | _ => "Highest",
+        });
 
-        log!(
-            logger,
-            "   - Freeze the game window when the window loses focus: {}",
-            freeze_on_lose_focus
-        );
+        log!(logger, "   - Freeze the game window when the window loses focus: {}", freeze_on_lose_focus);
 
-        log!(
-            logger,
-            "   - Loading bar: {}",
-            match loading_bar {
-                0 => "No loading progress bar",
-                1 => "Default loading progress bar",
-                2 | _ => "Own loading progress bar",
-            }
-        );
+        log!(logger, "   - Loading bar: {}", match loading_bar {
+            0 => "No loading progress bar",
+            1 => "Default loading progress bar",
+            2 | _ => "Own loading progress bar",
+        });
 
-        log!(
-            logger,
-            "   - Show your own image while loading: {}",
-            custom_load_image.is_some()
-        );
+        log!(logger, "   - Show your own image while loading: {}", custom_load_image.is_some());
 
-        log!(
-            logger,
-            "   -   -> Make image partially translucent: {}",
-            transparent
-        );
+        log!(logger, "   -   -> Make image partially translucent: {}", transparent);
 
-        log!(
-            logger,
-            "   -   -> Make translucent with alpha value: {}",
-            translucency
-        );
+        log!(logger, "   -   -> Make translucent with alpha value: {}", translucency);
 
-        log!(
-            logger,
-            "   - Scale progress bar image: {}",
-            scale_progress_bar
-        );
+        log!(logger, "   - Scale progress bar image: {}", scale_progress_bar);
 
-        log!(
-            logger,
-            "   - Display error messages: {}",
-            show_error_messages
-        );
+        log!(logger, "   - Display error messages: {}", show_error_messages);
 
-        log!(
-            logger,
-            "   - Write error messages to file game_errors.log: {}",
-            log_errors
-        );
+        log!(logger, "   - Write error messages to file game_errors.log: {}", log_errors);
 
         log!(logger, "   - Abort on all error messages: {}", always_abort);
 
-        log!(
-            logger,
-            "   - Treat uninitialized variables as value 0: {}",
-            zero_uninitalized_vars
-        );
+        log!(logger, "   - Treat uninitialized variables as value 0: {}", zero_uninitalized_vars);
 
-        log!(
-            logger,
-            "   - Throw an error when arguments aren't initialized correctly: {}",
-            error_on_uninitalized_args
-        );
+        log!(logger, "   - Throw an error when arguments aren't initialized correctly: {}", error_on_uninitalized_args);
 
         Settings {
             fullscreen,
@@ -554,12 +411,7 @@ where
     log!(logger, "Game ID: {}", game_id);
 
     // 16 random bytes...
-    let guid = [
-        exe.read_u32_le()?,
-        exe.read_u32_le()?,
-        exe.read_u32_le()?,
-        exe.read_u32_le()?,
-    ];
+    let guid = [exe.read_u32_le()?, exe.read_u32_le()?, exe.read_u32_le()?, exe.read_u32_le()?];
 
     fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
         let count = src.read_u32_le()? as usize;
@@ -589,24 +441,16 @@ where
                 match data.get(..4) {
                     Some(&[0, 0, 0, 0]) => Ok(None),
                     // If there are at least 4 bytes (Some) then [4..] will yield a 0-size slice.
-                    Some(_) => Ok(Some(Box::new(deserializer(
-                        data.get(4..).unwrap_or_else(|| unreachable!()),
-                    )?))),
+                    Some(_) => Ok(Some(Box::new(deserializer(data.get(4..).unwrap_or_else(|| unreachable!()))?))),
                     None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
                 }
             })
         };
 
         if multithread {
-            get_asset_refs(src)?
-                .par_iter()
-                .map(to_asset)
-                .collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.par_iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         } else {
-            get_asset_refs(src)?
-                .iter()
-                .map(to_asset)
-                .collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         }
     }
 
@@ -619,12 +463,7 @@ where
     let mut extensions = Vec::with_capacity(extension_count);
     for _ in 0..extension_count {
         let ext = Extension::read(&mut exe, a_strict)?;
-        log!(
-            logger,
-            "+ Added extension '{}' (files: {})",
-            ext.name,
-            ext.files.len()
-        );
+        log!(logger, "+ Added extension '{}' (files: {})", ext.name, ext.files.len());
         extensions.push(ext);
     }
 
@@ -635,11 +474,7 @@ where
 
     // Triggers
     assert_ver!("triggers header", 800, exe.read_u32_le()?)?;
-    let triggers = get_assets(
-        &mut exe,
-        |data| Trigger::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         triggers.iter().flatten().for_each(|trigger| {
             log!(
@@ -659,22 +494,13 @@ where
     for _ in 0..constant_count {
         let name = exe.read_pas_string()?;
         let expression = exe.read_pas_string()?;
-        log!(
-            logger,
-            " + Added constant '{}' (expression: {})",
-            name,
-            expression
-        );
+        log!(logger, " + Added constant '{}' (expression: {})", name, expression);
         constants.push(Constant { name, expression });
     }
 
     // Sounds
     assert_ver!("sounds header", 800, exe.read_u32_le()?)?;
-    let sounds = get_assets(
-        &mut exe,
-        |data| Sound::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         sounds.iter().flatten().for_each(|sound| {
             log!(logger, " + Added sound '{}' ({})", sound.name, sound.source);
@@ -683,11 +509,7 @@ where
 
     // Sprites
     assert_ver!("sprites header", 800, exe.read_u32_le()?)?;
-    let sprites = get_assets(
-        &mut exe,
-        |data| Sprite::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         sprites.iter().flatten().for_each(|sprite| {
             let framecount = sprite.frames.len();
@@ -709,30 +531,16 @@ where
 
     // Backgrounds
     assert_ver!("backgrounds header", 800, exe.read_u32_le()?)?;
-    let backgrounds = get_assets(
-        &mut exe,
-        |data| Background::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         backgrounds.iter().flatten().for_each(|background| {
-            log!(
-                logger,
-                " + Added background '{}' ({}x{})",
-                background.name,
-                background.width,
-                background.height
-            );
+            log!(logger, " + Added background '{}' ({}x{})", background.name, background.width, background.height);
         });
     }
 
     // Paths
     assert_ver!("paths header", 800, exe.read_u32_le()?)?;
-    let paths = get_assets(
-        &mut exe,
-        |data| Path::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let paths = get_assets(&mut exe, |data| Path::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         use crate::asset::path::ConnectionKind;
 
@@ -755,11 +563,7 @@ where
 
     // Scripts
     assert_ver!("scripts header", 800, exe.read_u32_le()?)?;
-    let scripts = get_assets(
-        &mut exe,
-        |data| Script::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let scripts = get_assets(&mut exe, |data| Script::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         scripts.iter().flatten().for_each(|script| {
             log!(logger, " + Added script '{}'", script.name);
@@ -768,11 +572,7 @@ where
 
     // Fonts
     assert_ver!("fonts header", 800, exe.read_u32_le()?)?;
-    let fonts = get_assets(
-        &mut exe,
-        |data| Font::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let fonts = get_assets(&mut exe, |data| Font::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         fonts.iter().flatten().for_each(|font| {
             log!(
@@ -789,29 +589,16 @@ where
 
     // Timelines
     assert_ver!("timelines header", 800, exe.read_u32_le()?)?;
-    let timelines = get_assets(
-        &mut exe,
-        |data| Timeline::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         timelines.iter().flatten().for_each(|timeline| {
-            log!(
-                logger,
-                " + Added timeline '{}' (moments: {})",
-                timeline.name,
-                timeline.moments.len()
-            );
+            log!(logger, " + Added timeline '{}' (moments: {})", timeline.name, timeline.moments.len());
         });
     }
 
     // Objects
     assert_ver!("objects header", 800, exe.read_u32_le()?)?;
-    let objects = get_assets(
-        &mut exe,
-        |data| Object::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let objects = get_assets(&mut exe, |data| Object::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         objects.iter().flatten().for_each(|object| {
             log!(
@@ -820,11 +607,7 @@ where
                 object.name,
                 if object.solid { "solid; " } else { "" },
                 if object.visible { "visible; " } else { "" },
-                if object.persistent {
-                    "persistent; "
-                } else {
-                    ""
-                },
+                if object.persistent { "persistent; " } else { "" },
                 object.depth,
             );
         });
@@ -832,11 +615,7 @@ where
 
     // Rooms
     assert_ver!("rooms header", 800, exe.read_u32_le()?)?;
-    let rooms = get_assets(
-        &mut exe,
-        |data| Room::deserialize(data, a_strict, a_version),
-        multithread,
-    )?;
+    let rooms = get_assets(&mut exe, |data| Room::deserialize(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         rooms.iter().flatten().for_each(|room| {
             log!(
@@ -860,9 +639,7 @@ where
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| {
-                IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into())
-            })
+            inflate(chunk).and_then(|data| IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
@@ -909,21 +686,13 @@ where
     };
 
     // Action library initialization code. These are GML strings which get run at game start, in order.
-    assert_ver!(
-        "action library initialization code header",
-        500,
-        exe.read_u32_le()?
-    )?;
+    assert_ver!("action library initialization code header", 500, exe.read_u32_le()?)?;
     let str_count = exe.read_u32_le()? as usize;
     let mut library_init_strings = Vec::with_capacity(str_count);
     for _ in 0..str_count {
         library_init_strings.push(exe.read_pas_string()?);
     }
-    log!(
-        logger,
-        " + Read {} action library initialization strings",
-        str_count
-    );
+    log!(logger, " + Read {} action library initialization strings", str_count);
 
     // Room Order
     assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;

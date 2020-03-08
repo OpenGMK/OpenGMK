@@ -1,6 +1,8 @@
 use minio::ReadPrimitives;
-use std::io::{self, Read, Seek, SeekFrom};
-use std::iter::once;
+use std::{
+    io::{self, Read, Seek, SeekFrom},
+    iter::once,
+};
 
 pub enum XorMethod {
     Normal,
@@ -17,11 +19,7 @@ where
 
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x226D8A {
-        log!(
-            logger,
-            "File too short for this format (0x{:X} bytes)",
-            exe.get_ref().len()
-        );
+        log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
         return Ok(false);
     }
 
@@ -42,21 +40,17 @@ where
             [0x81, 0x7D, 0xEC] => {
                 let magic = exe.read_u32_le()?;
                 if exe.read_u8()? == 0x74 {
-                    log!(
-                        logger,
-                        "GM8.1 magic check looks intact - value is 0x{:X}",
-                        magic
-                    );
+                    log!(logger, "GM8.1 magic check looks intact - value is 0x{:X}", magic);
                     Some(magic)
                 } else {
                     log!(logger, "GM8.1 magic check's JE is patched out");
                     None
                 }
-            }
+            },
             b => {
                 log!(logger, "GM8.1 magic check's CMP is patched out ({:?})", b);
                 None
-            }
+            },
         };
 
         // Check if SUDALV's re-encryption is in use
@@ -67,7 +61,7 @@ where
             [0x8B, 0x02, 0xC1, 0xE0, 0x10, 0x8B, 0x11, 0x81] => {
                 log!(logger, "Found SUDALV re-encryption");
                 XorMethod::Sudalv
-            }
+            },
             _ => XorMethod::Normal,
         };
 
@@ -75,25 +69,16 @@ where
         exe.set_position(header_start as u64);
         match gm81_magic {
             Some(n) => {
-                log!(
-                    logger,
-                    "Searching for GM8.1 magic number {} from position {}",
-                    n,
-                    header_start
-                );
+                log!(logger, "Searching for GM8.1 magic number {} from position {}", n, header_start);
                 let found_header = seek_value(exe, n)?.is_some();
                 if !found_header {
-                    log!(
-                        logger,
-                        "Didn't find GM81 magic value (0x{:X}) before EOF, so giving up",
-                        n
-                    );
+                    log!(logger, "Didn't find GM81 magic value (0x{:X}) before EOF, so giving up", n);
                     return Ok(false);
                 }
-            }
+            },
             None => {
                 exe.seek(SeekFrom::Current(8))?;
-            }
+            },
         }
 
         decrypt(exe, logger, xor_method)?;
@@ -144,11 +129,7 @@ pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> io::Result<Opt
 }
 
 /// Removes GM8.1 encryption in-place.
-pub fn decrypt<F>(
-    data: &mut io::Cursor<&mut [u8]>,
-    logger: Option<F>,
-    xor_method: XorMethod,
-) -> io::Result<()>
+pub fn decrypt<F>(data: &mut io::Cursor<&mut [u8]>, logger: Option<F>, xor_method: XorMethod) -> io::Result<()>
 where
     F: Copy + Fn(&str),
 {
@@ -173,10 +154,7 @@ where
 
     let sudalv_magic_point = (data.position() - 12) as u32;
     let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
-    let hash_key_utf16: Vec<u8> = hash_key
-        .bytes()
-        .flat_map(|c| once(c).chain(once(0)))
-        .collect();
+    let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
 
     // generate crc table
     let mut crc_table = [0u32; 256];
@@ -184,12 +162,7 @@ where
     for (i, val) in crc_table.iter_mut().enumerate() {
         *val = crc_32_reflect(i as u32, 8) << 24;
         for _ in 0..8 {
-            *val = (*val << 1)
-                ^ if *val & (1 << 31) != 0 {
-                    crc_polynomial
-                } else {
-                    0
-                };
+            *val = (*val << 1) ^ if *val & (1 << 31) != 0 { crc_polynomial } else { 0 };
         }
         *val = crc_32_reflect(*val, 32);
     }
@@ -198,22 +171,14 @@ where
     let seed1 = data.read_u32_le()?;
     let seed2 = crc_32(&hash_key_utf16, &crc_table);
 
-    log!(
-        logger,
-        "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})",
-        hash_key,
-        seed1,
-        seed2
-    );
+    log!(logger, "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})", hash_key, seed1, seed2);
 
     // work out where gm81 encryption starts
     let encryption_start = data.position() + u64::from(seed2 & 0xFF) + 10;
 
     // Make the seed-cycling iterator
     let mut generator = match xor_method {
-        XorMethod::Normal => {
-            Box::new(NormalMaskGenerator { seed1, seed2 }) as Box<dyn Iterator<Item = u32>>
-        }
+        XorMethod::Normal => Box::new(NormalMaskGenerator { seed1, seed2 }) as Box<dyn Iterator<Item = u32>>,
         XorMethod::Sudalv => {
             let mask_data = &data.get_ref()[..(sudalv_magic_point + 4) as usize];
             let mask_count = mask_data
@@ -231,15 +196,12 @@ where
                 .into_iter()
                 .cycle();
             Box::new(SudalvMaskGenerator { seed1, seed2, iter }) as Box<dyn Iterator<Item = u32>>
-        }
+        },
     };
 
     // Decrypt stream from encryption_start
     let game_data = &mut data.get_mut()[encryption_start as usize..];
-    for chunk in game_data
-        .chunks_exact_mut(4)
-        .map(|s| unsafe { &mut *(s as *mut _ as *mut u32) })
-    {
+    for chunk in game_data.chunks_exact_mut(4).map(|s| unsafe { &mut *(s as *mut _ as *mut u32) }) {
         *chunk ^= generator.next().unwrap();
     }
 
@@ -254,6 +216,7 @@ struct NormalMaskGenerator {
 }
 impl Iterator for NormalMaskGenerator {
     type Item = u32;
+
     fn next(&mut self) -> Option<Self::Item> {
         self.seed1 = (0xFFFF & self.seed1) * 0x9069 + (self.seed1 >> 16);
         self.seed2 = (0xFFFF & self.seed2) * 0x4650 + (self.seed2 >> 16);
@@ -268,11 +231,10 @@ struct SudalvMaskGenerator<I: Iterator<Item = u16>> {
 }
 impl<I: Iterator<Item = u16>> Iterator for SudalvMaskGenerator<I> {
     type Item = u32;
+
     fn next(&mut self) -> Option<Self::Item> {
-        self.seed1 =
-            (0xFFFF & self.seed1) * u32::from(self.iter.next().unwrap()) + (self.seed1 >> 16);
-        self.seed2 =
-            (0xFFFF & self.seed2) * u32::from(self.iter.next().unwrap()) + (self.seed2 >> 16);
+        self.seed1 = (0xFFFF & self.seed1) * u32::from(self.iter.next().unwrap()) + (self.seed1 >> 16);
+        self.seed2 = (0xFFFF & self.seed2) * u32::from(self.iter.next().unwrap()) + (self.seed2 >> 16);
         Some((self.seed1 << 16) + (self.seed2 & 0xFFFF))
     }
 }

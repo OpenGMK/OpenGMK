@@ -32,8 +32,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         exe.seek(SeekFrom::Current(-9))?;
         let byte_xor_mask = exe.read_u8()?;
         // Convert it into a u32 mask so we can apply it easily to dwords
-        let dword_xor_mask =
-            u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x000322A9);
         let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
@@ -49,13 +48,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         // sub mask
         exe.set_position(0x000322E4);
         let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
-        Ok(Some(AntidecMetadata {
-            exe_load_offset,
-            header_start,
-            xor_mask,
-            add_mask,
-            sub_mask,
-        }))
+        Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
     }
@@ -77,8 +70,7 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
     let byte_xor_mask = buf[3];
     if buf == [0x80, 0x34, 0x08, byte_xor_mask, 0xE2, 0xFA, 0xE9] {
         // Convert mask into a u32 mask so we can apply it easily to dwords
-        let dword_xor_mask =
-            u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
+        let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x00046255);
         let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
@@ -94,13 +86,7 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         // sub mask
         exe.set_position(0x00046293);
         let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
-        Ok(Some(AntidecMetadata {
-            exe_load_offset,
-            header_start,
-            xor_mask,
-            add_mask,
-            sub_mask,
-        }))
+        Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
     }
@@ -122,10 +108,7 @@ pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> i
     let mut add_mask = settings.add_mask;
 
     // panic is unreachable, optimized out. const generics should make this cleaner
-    for chunk in game_data
-        .rchunks_exact_mut(4)
-        .map(|x| <&mut [u8] as TryInto<&mut [u8; 4]>>::try_into(x).unwrap())
-    {
+    for chunk in game_data.rchunks_exact_mut(4).map(|x| <&mut [u8] as TryInto<&mut [u8; 4]>>::try_into(x).unwrap()) {
         let mut value = u32::from_le_bytes(*chunk);
 
         // apply masks, bswap

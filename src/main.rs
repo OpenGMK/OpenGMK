@@ -18,10 +18,7 @@ const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    println!(
-        "GM8Decompiler v{} for {} - built on {}, #{}",
-        VERSION, TARGET_TRIPLE, BUILD_DATE, COMMIT_HASH
-    );
+    println!("GM8Decompiler v{} for {} - built on {}, #{}", VERSION, TARGET_TRIPLE, BUILD_DATE, COMMIT_HASH);
 
     let args: Vec<String> = env::args().collect();
     assert!(!args.is_empty());
@@ -34,19 +31,11 @@ fn main() {
         .optflag("l", "lazy", "disable various data integrity checks")
         .optflag("v", "verbose", "enable verbose logging for decompilation")
         .optflag("t", "singlethread", "decompile gamedata synchronously")
-        .optflag(
-            "P",
-            "preserve",
-            "preserve broken events instead of trying to fix them",
-        )
+        .optflag("P", "preserve", "preserve broken events instead of trying to fix them")
         .optopt("o", "output", "specify output filename", "FILE");
 
     if !msys2 {
-        opts.optflag(
-            "p",
-            "no-pause",
-            "do not wait for a keypress after running / help (cmd)",
-        );
+        opts.optflag("p", "no-pause", "do not wait for a keypress after running / help (cmd)");
     } else {
         opts.optflag("p", "no-pause", ""); // ignored, omitted from usage string
     }
@@ -64,7 +53,7 @@ fn main() {
                 UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
             }
             process::exit(1);
-        }
+        },
     };
 
     // We extract this flag early for usage in the below function -
@@ -102,11 +91,7 @@ fn main() {
             ),
             process_path,
             opts.usage_with_format(|iter| iter.fold(String::new(), |acc, s| {
-                if msys2 && s.contains("no-pause") {
-                    acc
-                } else {
-                    acc + "\n" + &s
-                }
+                if msys2 && s.contains("no-pause") { acc } else { acc + "\n" + &s }
             })),
         );
         press_any_key();
@@ -116,10 +101,7 @@ fn main() {
     // print error message if multiple inputs were provided
     if matches.free.len() > 1 {
         eprintln!(
-            concat!(
-                "Unexpected input: {}\n",
-                "Tip: Only one input gamefile is expected at a time!",
-            ),
+            concat!("Unexpected input: {}\n", "Tip: Only one input gamefile is expected at a time!",),
             matches.free[1]
         );
         process::exit(1);
@@ -163,14 +145,7 @@ fn main() {
     }
 
     // allow decompile to handle the rest of main
-    if let Err(e) = decompile(
-        input_path,
-        out_path,
-        !lazy,
-        !singlethread,
-        verbose,
-        !preserve,
-    ) {
+    if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose, !preserve) {
         eprintln!("Error parsing gamedata:\n{}", e);
         press_any_key();
         process::exit(1);

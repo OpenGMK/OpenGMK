@@ -57,21 +57,17 @@ pub enum AssetDataError {
 impl Error for AssetDataError {}
 impl Display for AssetDataError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                AssetDataError::IO(err) => format!("io error: {}", err),
-                AssetDataError::VersionError { expected, got } => format!(
-                    "version error: expected {} ({}), found {} ({})",
-                    *expected,
-                    *expected as f32 / 100.0,
-                    *got,
-                    *got as f32 / 100.0
-                ),
-                AssetDataError::MalformedData => "malformed data while reading".into(),
-            }
-        )
+        write!(f, "{}", match self {
+            AssetDataError::IO(err) => format!("io error: {}", err),
+            AssetDataError::VersionError { expected, got } => format!(
+                "version error: expected {} ({}), found {} ({})",
+                *expected,
+                *expected as f32 / 100.0,
+                *got,
+                *got as f32 / 100.0
+            ),
+            AssetDataError::MalformedData => "malformed data while reading".into(),
+        })
     }
 }
 
@@ -83,20 +79,13 @@ impl From<io::Error> for AssetDataError {
 
 impl From<(u32, u32)> for AssetDataError {
     fn from(version_error: (u32, u32)) -> Self {
-        AssetDataError::VersionError {
-            expected: version_error.0,
-            got: version_error.1,
-        }
+        AssetDataError::VersionError { expected: version_error.0, got: version_error.1 }
     }
 }
 
 #[inline(always)]
 fn assert_ver(got: u32, expected: u32) -> Result<(), AssetDataError> {
-    if got != expected {
-        Err(AssetDataError::VersionError { expected, got })
-    } else {
-        Ok(())
-    }
+    if got != expected { Err(AssetDataError::VersionError { expected, got }) } else { Ok(()) }
 }
 
 // pascal-string extension for easy use
@@ -109,8 +98,7 @@ pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadString
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
-        self.write_u32_le(s.len() as u32)
-            .and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
+        self.write_u32_le(s.len() as u32).and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
     }
 }
 

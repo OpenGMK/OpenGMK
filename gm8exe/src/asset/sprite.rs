@@ -4,8 +4,10 @@ use crate::{
 };
 
 use minio::{ReadPrimitives, WritePrimitives};
-use std::convert::TryInto;
-use std::io::{self, Seek, SeekFrom};
+use std::{
+    convert::TryInto,
+    io::{self, Seek, SeekFrom},
+};
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -103,17 +105,10 @@ impl Asset for Sprite {
                     None => return Err(AssetDataError::MalformedData),
                 };
 
-                frames.push(Frame {
-                    width: frame_width,
-                    height: frame_height,
-                    data,
-                });
+                frames.push(Frame { width: frame_width, height: frame_height, data });
             }
 
-            fn read_collision<T>(
-                reader: &mut io::Cursor<T>,
-                strict: bool,
-            ) -> Result<CollisionMap, AssetDataError>
+            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, AssetDataError>
             where
                 T: AsRef<[u8]>,
             {
@@ -134,20 +129,17 @@ impl Asset for Sprite {
                 let mask_size = width as usize * height as usize;
                 let pos = reader.position() as usize;
                 reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                let mask: Vec<bool> =
-                    match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
-                        Some(b) => b
-                            .chunks_exact(4)
-                            .map(|ch| {
-                                // until we get const generics we need to do this to get an exact array.
-                                // panic is unreachable and is optimized out.
-                                u32::from_le_bytes(
-                                    *<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap(),
-                                ) != 0
-                            })
-                            .collect(),
-                        None => return Err(AssetDataError::MalformedData),
-                    };
+                let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
+                    Some(b) => b
+                        .chunks_exact(4)
+                        .map(|ch| {
+                            // until we get const generics we need to do this to get an exact array.
+                            // panic is unreachable and is optimized out.
+                            u32::from_le_bytes(*<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap()) != 0
+                        })
+                        .collect(),
+                    None => return Err(AssetDataError::MalformedData),
+                };
 
                 Ok(CollisionMap {
                     width,
@@ -175,14 +167,7 @@ impl Asset for Sprite {
             (Vec::new(), Vec::new(), false)
         };
 
-        Ok(Sprite {
-            name,
-            origin_x,
-            origin_y,
-            frames,
-            colliders,
-            per_frame_colliders,
-        })
+        Ok(Sprite { name, origin_x, origin_y, frames, colliders, per_frame_colliders })
     }
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>

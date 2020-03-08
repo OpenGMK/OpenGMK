@@ -14,11 +14,7 @@ where
 
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x144AC0 + 4 {
-        log!(
-            logger,
-            "File too short for this format (0x{:X} bytes)",
-            exe.get_ref().len()
-        );
+        log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
         return Ok(false);
     }
 
@@ -35,26 +31,22 @@ where
                 let mut buf = [0u8; 6];
                 exe.read_exact(&mut buf)?;
                 if buf == [0x0F, 0x85, 0x18, 0x01, 0x00, 0x00] {
-                    log!(
-                        logger,
-                        "GM8.0 magic check looks intact - value is {}",
-                        magic
-                    );
+                    log!(logger, "GM8.0 magic check looks intact - value is {}", magic);
                     Some(magic)
                 } else {
                     log!(logger, "GM8.0 magic check's JNZ is patched out");
                     None
                 }
-            }
+            },
             0x90 => {
                 exe.seek(SeekFrom::Current(4))?;
                 log!(logger, "GM8.0 magic check is patched out with NOP");
                 None
-            }
+            },
             i => {
                 log!(logger, "Unknown instruction in place of magic CMP: {}", i);
                 return Ok(false);
-            }
+            },
         };
 
         // There should be a CMP for the next dword, it's usually a version header (0x320)
@@ -69,26 +61,22 @@ where
                         let mut buf = [0u8; 6];
                         exe.read_exact(&mut buf)?;
                         if buf == [0x0F, 0x85, 0xF5, 0x00, 0x00, 0x00] {
-                            log!(
-                                logger,
-                                "GM8.0 header version check looks intact - value is {}",
-                                magic
-                            );
+                            log!(logger, "GM8.0 header version check looks intact - value is {}", magic);
                             Some(magic)
                         } else {
                             println!("GM8.0 header version check's JNZ is patched out");
                             None
                         }
-                    }
+                    },
                     0x90 => {
                         exe.seek(SeekFrom::Current(4))?;
                         log!(logger, "GM8.0 header version check is patched out with NOP");
                         None
-                    }
+                    },
                     i => {
                         log!(logger, "Unknown instruction in place of magic CMP: {}", i);
                         return Ok(false);
-                    }
+                    },
                 }
             } else {
                 log!(logger, "GM8.0 header version check appears patched out");
@@ -109,12 +97,9 @@ where
                     let header1 = match exe.read_u32_le() {
                         Ok(h) => h,
                         _ => {
-                            log!(
-                                logger,
-                                "Passed end of stream looking for GM8.0 header, so quitting"
-                            );
+                            log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
                             return Ok(false);
-                        }
+                        },
                     };
                     if header1 == n {
                         break;
@@ -130,27 +115,22 @@ where
                         exe.seek(SeekFrom::Current(10000 - 4))?;
                     }
                 }
-            }
+            },
             None => {
                 exe.seek(SeekFrom::Current(4))?;
-            }
+            },
         }
         match gm80_header_ver {
             Some(n) => {
                 let header2 = exe.read_u32_le()?;
                 if header2 != n {
-                    log!(
-                        logger,
-                        "Failed to read GM8.0 header: expected version {}, got {}",
-                        n,
-                        header2
-                    );
+                    log!(logger, "Failed to read GM8.0 header: expected version {}, got {}", n, header2);
                     return Ok(false);
                 }
-            }
+            },
             None => {
                 exe.seek(SeekFrom::Current(4))?;
-            }
+            },
         }
 
         exe.seek(SeekFrom::Current(8))?;
@@ -186,19 +166,13 @@ where
     // simplifying for expressions below
     let pos = data.position() as usize; // stream position
     let data = data.get_mut(); // mutable ref for writing
-    log!(
-        logger,
-        "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})",
-        len,
-        garbage1_size,
-        garbage2_size
-    );
+    log!(logger, "Decrypting asset data... (size: {}, garbage1: {}, garbage2: {})", len, garbage1_size, garbage2_size);
 
     // decryption: first pass
     //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
     for i in (pos..=pos + len).rev() {
-        data[i - 1] = reverse_table[data[i - 1] as usize]
-            .wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
+        data[i - 1] =
+            reverse_table[data[i - 1] as usize].wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
     }
 
     // decryption: second pass

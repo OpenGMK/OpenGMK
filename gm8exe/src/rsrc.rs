@@ -94,8 +94,7 @@ pub fn find_icons(
 
                 let raw_header_size = (6 + (image_count * 16)) as usize;
                 let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
-                let mut raw_file: Vec<u8> =
-                    Vec::with_capacity(raw_header_size + (raw_body_size as usize));
+                let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
                 let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
                 raw_file.extend_from_slice(&v[0..6]);
                 for _ in 0..image_count {
@@ -112,17 +111,12 @@ pub fn find_icons(
                     // Match this ordinal name with an icon resource
                     for icon in &icons {
                         if icon.0 == ordinal as u32 && icon.2 >= 40 {
-                            if let Some(v) =
-                                extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)?
-                            {
+                            if let Some(v) = extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                 raw_file_body.extend_from_slice(&v);
                                 if let Some(i) = make_icon(v)? {
                                     icon_group.push(i);
                                 } else {
-                                    println!(
-                                        "WARNING: Failed to recover an icon: id {}, rva 0x{:X}",
-                                        icon.0, icon.1
-                                    );
+                                    println!("WARNING: Failed to recover an icon: id {}, rva 0x{:X}", icon.0, icon.1);
                                 }
                             }
                             break;
@@ -163,15 +157,12 @@ fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
             // 32 bpp: just BGRA pixels followed by mask data.
             // Mask is pointless as far as I can see.
             match blob.get(data_start..data_start + (ico_wh as usize * ico_wh as usize * 4)) {
-                Some(d) => Ok(Some(WindowsIcon {
-                    width: ico_wh,
-                    height: ico_wh,
-                    original_bpp: bpp,
-                    bgra_data: d.to_vec(),
-                })),
+                Some(d) => {
+                    Ok(Some(WindowsIcon { width: ico_wh, height: ico_wh, original_bpp: bpp, bgra_data: d.to_vec() }))
+                },
                 None => Ok(None),
             }
-        }
+        },
         8 => {
             // 8 bpp: BGRX lookup table with 256 colours in it, followed by pixel bytes - each byte is a colour index.
             // After pixels is mask data, which indicates whether each pixel is visible or not.
@@ -207,13 +198,8 @@ fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
                 }
             }
 
-            Ok(Some(WindowsIcon {
-                width: ico_wh,
-                height: ico_wh,
-                original_bpp: bpp,
-                bgra_data,
-            }))
-        }
+            Ok(Some(WindowsIcon { width: ico_wh, height: ico_wh, original_bpp: bpp, bgra_data }))
+        },
         _ => Ok(None),
     }
 }
@@ -232,10 +218,7 @@ fn extract_virtual_bytes(
             // data is in this section
             let offset_on_disk = rva - section.virtual_address;
             let data_location = (section.disk_address + offset_on_disk) as usize;
-            return Ok(data
-                .get_ref()
-                .get(data_location..data_location + size)
-                .map(|chunk| chunk.to_vec()));
+            return Ok(data.get_ref().get(data_location..data_location + size).map(|chunk| chunk.to_vec()));
         }
     }
 

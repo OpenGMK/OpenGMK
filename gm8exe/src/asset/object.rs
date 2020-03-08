@@ -1,7 +1,5 @@
 use crate::{
-    asset::{
-        assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString,
-    },
+    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -108,17 +106,7 @@ impl Asset for Object {
             events.push(sub_event_list);
         }
 
-        Ok(Object {
-            name,
-            sprite_index,
-            solid,
-            visible,
-            depth,
-            persistent,
-            parent_index,
-            mask_index,
-            events,
-        })
+        Ok(Object { name, sprite_index, solid, visible, depth, persistent, parent_index, mask_index, events })
     }
 
     fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>

@@ -11,8 +11,7 @@ use std::{io, u32};
 
 pub trait WritePascalString: WriteBuffer + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
-        self.write_u32_le(s.len() as u32)
-            .and_then(|x| self.write_buffer(s.as_bytes()).map(|y| y + x))
+        self.write_u32_le(s.len() as u32).and_then(|x| self.write_buffer(s.as_bytes()).map(|y| y + x))
     }
 }
 impl<W> WritePascalString for W where W: io::Write {}
@@ -26,12 +25,7 @@ pub trait WriteBuffer: io::Write {
 impl<W> WriteBuffer for W where W: io::Write {}
 
 // Writes GMK file header
-pub fn write_header<W>(
-    writer: &mut W,
-    version: GameVersion,
-    game_id: u32,
-    guid: [u32; 4],
-) -> io::Result<usize>
+pub fn write_header<W>(writer: &mut W, version: GameVersion, game_id: u32, guid: [u32; 4]) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -102,10 +96,10 @@ where
                 let mut backdata_enc = ZlibWriter::new();
                 backdata_enc.write_buffer(&data)?;
                 backdata_enc.finish(&mut enc)?;
-            }
+            },
             None => {
                 enc.write_u32_le(0)?;
-            }
+            },
         }
 
         match &settings.frontdata {
@@ -114,10 +108,10 @@ where
                 let mut frontdata_enc = ZlibWriter::new();
                 frontdata_enc.write_buffer(&data)?;
                 frontdata_enc.finish(&mut enc)?;
-            }
+            },
             None => {
                 enc.write_u32_le(0)?;
-            }
+            },
         }
     }
 
@@ -131,10 +125,10 @@ where
             let mut ci_enc = ZlibWriter::new();
             ci_enc.write_buffer(&data)?;
             ci_enc.finish(&mut enc)?;
-        }
+        },
         None => {
             enc.write_u32_le(0)?;
-        }
+        },
     }
 
     enc.write_u32_le(settings.transparent as u32)?;
@@ -150,8 +144,7 @@ where
     match version {
         GameVersion::GameMaker8_0 => enc.write_u32_le(settings.zero_uninitalized_vars as u32)?,
         GameVersion::GameMaker8_1 => enc.write_u32_le(
-            ((settings.error_on_uninitalized_args as u32) << 1)
-                | (settings.zero_uninitalized_vars as u32),
+            ((settings.error_on_uninitalized_args as u32) << 1) | (settings.zero_uninitalized_vars as u32),
         )?,
     };
 
@@ -201,10 +194,10 @@ where
                     Some(asset) => {
                         enc.write_u32_le(true as u32)?;
                         write_fn(&mut enc, asset, version)?;
-                    }
+                    },
                     None => {
                         enc.write_u32_le(false as u32)?;
-                    }
+                    },
                 }
                 enc.finish()
             })
@@ -222,10 +215,10 @@ where
                 Some(asset) => {
                     enc.write_u32_le(true as u32)?;
                     write_fn(&mut enc, asset, version)?;
-                }
+                },
                 None => {
                     enc.write_u32_le(false as u32)?;
-                }
+                },
             }
             let buf = enc.finish()?;
             result += writer.write_u32_le(buf.len() as u32)?;
@@ -237,11 +230,7 @@ where
 }
 
 // Writes a trigger (uncompressed data)
-pub fn write_trigger<W>(
-    writer: &mut W,
-    trigger: &asset::Trigger,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_trigger<W>(writer: &mut W, trigger: &asset::Trigger, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -270,11 +259,7 @@ where
 }
 
 // Writes a Sound (uncompressed data)
-pub fn write_sound<W>(
-    writer: &mut W,
-    sound: &asset::Sound,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_sound<W>(writer: &mut W, sound: &asset::Sound, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -289,10 +274,10 @@ where
             result += writer.write_u32_le(true as u32)?;
             result += writer.write_u32_le(data.len() as u32)?;
             result += writer.write_buffer(data)?;
-        }
+        },
         None => {
             result += writer.write_u32_le(false as u32)?;
-        }
+        },
     }
     result += writer.write_u32_le(
         (sound.fx.chorus as u32)
@@ -309,11 +294,7 @@ where
 }
 
 // Writes a Sprite (uncompressed data)
-pub fn write_sprite<W>(
-    writer: &mut W,
-    sprite: &asset::Sprite,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_sprite<W>(writer: &mut W, sprite: &asset::Sprite, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -345,10 +326,7 @@ where
         result += writer.write_u32_le(map.bbox_top)?; // bbox top
     } else {
         if !sprite.frames.is_empty() {
-            println!(
-                "WARNING: couldn't resolve collision for sprite {}",
-                sprite.name
-            );
+            println!("WARNING: couldn't resolve collision for sprite {}", sprite.name);
         }
         // Defaults
         result += writer.write_u32_le(0)?; // shape - 0 = precise
@@ -364,11 +342,7 @@ where
 }
 
 // Writes a Background (uncompressed data)
-pub fn write_background<W>(
-    writer: &mut W,
-    background: &asset::Background,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_background<W>(writer: &mut W, background: &asset::Background, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -423,11 +397,7 @@ where
 }
 
 // Writes a Script (uncompressed data)
-pub fn write_script<W>(
-    writer: &mut W,
-    script: &asset::Script,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_script<W>(writer: &mut W, script: &asset::Script, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -453,9 +423,7 @@ where
     result += match version {
         GameVersion::GameMaker8_0 => writer.write_u32_le(font.range_start)?,
         GameVersion::GameMaker8_1 => writer.write_u32_le(
-            ((font.charset & 0xFF) << 24)
-                | ((font.aa_level & 0xFF) << 16)
-                | (font.range_start & 0xFFFF),
+            ((font.charset & 0xFF) << 24) | ((font.aa_level & 0xFF) << 16) | (font.range_start & 0xFFFF),
         )?,
     };
     result += writer.write_u32_le(font.range_end)?;
@@ -494,11 +462,7 @@ where
 }
 
 // Writes a Timeline (uncompressed data)
-pub fn write_timeline<W>(
-    writer: &mut W,
-    timeline: &asset::Timeline,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_timeline<W>(writer: &mut W, timeline: &asset::Timeline, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -518,11 +482,7 @@ where
 }
 
 // Writes an Object (uncompressed data)
-pub fn write_object<W>(
-    writer: &mut W,
-    object: &asset::Object,
-    _version: GameVersion,
-) -> io::Result<usize>
+pub fn write_object<W>(writer: &mut W, object: &asset::Object, _version: GameVersion) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -536,11 +496,7 @@ where
     result += writer.write_u32_le(object.persistent as u32)?;
     result += writer.write_i32_le(object.parent_index)?;
     result += writer.write_i32_le(object.mask_index)?;
-    result += writer.write_u32_le(if object.events.is_empty() {
-        0
-    } else {
-        (object.events.len() - 1) as u32
-    })?;
+    result += writer.write_u32_le(if object.events.is_empty() { 0 } else { (object.events.len() - 1) as u32 })?;
     for ev_list in &object.events {
         for (sub, actions) in ev_list {
             result += writer.write_u32_le(*sub)?;
@@ -653,11 +609,7 @@ where
 }
 
 // Write GMK's room editor metadata
-pub fn write_room_editor_meta<W>(
-    writer: &mut W,
-    last_instance_id: i32,
-    last_tile_id: i32,
-) -> io::Result<usize>
+pub fn write_room_editor_meta<W>(writer: &mut W, last_instance_id: i32, last_tile_id: i32) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -691,19 +643,19 @@ where
             ExportSetting::NoExport => {
                 enc.write_u32_le(0)?;
                 enc.write_pas_string("")?;
-            }
+            },
             ExportSetting::TempFolder => {
                 enc.write_u32_le(1)?;
                 enc.write_pas_string("")?;
-            }
+            },
             ExportSetting::GameFolder => {
                 enc.write_u32_le(2)?;
                 enc.write_pas_string("")?;
-            }
+            },
             ExportSetting::CustomFolder(f) => {
                 enc.write_u32_le(3)?;
                 enc.write_pas_string(f)?;
-            }
+            },
         }
         enc.write_u32_le(file.overwrite_file as u32)?;
         enc.write_u32_le(file.free_memory as u32)?;
@@ -781,12 +733,7 @@ pub fn write_resource_tree<W>(writer: &mut W, assets: &GameAssets) -> io::Result
 where
     W: io::Write,
 {
-    fn write_rt_heading<W>(
-        writer: &mut W,
-        name: &str,
-        index: u32,
-        count: usize,
-    ) -> io::Result<usize>
+    fn write_rt_heading<W>(writer: &mut W, name: &str, index: u32, count: usize) -> io::Result<usize>
     where
         W: io::Write,
     {
@@ -825,9 +772,7 @@ where
         I: IntoIterator<Item = &'a Option<T>>,
         T: 'a,
     {
-        iter.into_iter()
-            .enumerate()
-            .filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
+        iter.into_iter().enumerate().filter_map(|(i, opt)| opt.as_ref().map(|x| (i, x)))
     }
 
     let mut result = write_rt_heading(writer, "Sprites", 2, count_existing(&assets.sprites))?;
@@ -838,12 +783,7 @@ where
     for (i, sound) in enumerate_existing(&assets.sounds) {
         result += write_rt_asset(writer, &sound.name, 3, i as u32)?;
     }
-    result += write_rt_heading(
-        writer,
-        "Backgrounds",
-        6,
-        count_existing(&assets.backgrounds),
-    )?;
+    result += write_rt_heading(writer, "Backgrounds", 6, count_existing(&assets.backgrounds))?;
     for (i, background) in enumerate_existing(&assets.backgrounds) {
         result += write_rt_asset(writer, &background.name, 6, i as u32)?;
     }
@@ -872,10 +812,7 @@ where
         if let Some(Some(room)) = assets.rooms.get(*room_id as usize) {
             result += write_rt_asset(writer, &room.name, 4, *room_id as u32)?;
         } else {
-            println!(
-                "WARNING: non-existent room id {} referenced in Room Order; skipping it",
-                *room_id
-            );
+            println!("WARNING: non-existent room id {} referenced in Room Order; skipping it", *room_id);
         }
     }
     write_rt_asset(writer, "Game Information", 10, 0)?;

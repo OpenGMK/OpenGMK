@@ -60,19 +60,9 @@ impl Asset for Background {
                 None => return Err(AssetDataError::MalformedData),
             };
 
-            Ok(Background {
-                name,
-                width,
-                height,
-                data: Some(buf.into_boxed_slice()),
-            })
+            Ok(Background { name, width, height, data: Some(buf.into_boxed_slice()) })
         } else {
-            Ok(Background {
-                name,
-                width: 0,
-                height: 0,
-                data: None,
-            })
+            Ok(Background { name, width: 0, height: 0, data: None })
         }
     }
 

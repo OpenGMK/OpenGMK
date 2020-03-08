@@ -166,15 +166,7 @@ impl Extension {
                 }
                 let return_type: FunctionValueKind = reader.read_u32_le()?.into();
 
-                functions.push(FileFunction {
-                    name,
-                    external_name,
-                    convention,
-                    id,
-                    arg_count,
-                    arg_types,
-                    return_type,
-                });
+                functions.push(FileFunction { name, external_name, convention, id, arg_count, arg_types, return_type });
             }
 
             let const_count = reader.read_u32_le()? as usize;
@@ -187,21 +179,10 @@ impl Extension {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                consts.push(FileConst {
-                    name: reader.read_pas_string()?,
-                    value: reader.read_pas_string()?,
-                });
+                consts.push(FileConst { name: reader.read_pas_string()?, value: reader.read_pas_string()? });
             }
 
-            files.push(File {
-                name,
-                kind,
-                initializer,
-                finalizer,
-                functions,
-                consts,
-                contents: Box::new([]),
-            });
+            files.push(File { name, kind, initializer, finalizer, functions, consts, contents: Box::new([]) });
         }
 
         let contents_len = reader.read_u32_le()? as usize - 4;
@@ -256,25 +237,17 @@ impl Extension {
                     let pos = reader.position() as usize;
 
                     reader.seek(SeekFrom::Current(len as i64))?; // pre-check for next get
-                    file.contents = match inflate(
-                        reader
-                            .get_ref()
-                            .get(pos..pos + len)
-                            .unwrap_or_else(|| unreachable!()),
-                    ) {
-                        Ok(x) => x.into_boxed_slice(),
-                        Err(_) => return Err(AssetDataError::MalformedData),
-                    };
+                    file.contents =
+                        match inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())) {
+                            Ok(x) => x.into_boxed_slice(),
+                            Err(_) => return Err(AssetDataError::MalformedData),
+                        };
                 }
             }
 
             reader.set_position(end_pos as u64);
         }
 
-        Ok(Extension {
-            name,
-            folder_name,
-            files,
-        })
+        Ok(Extension { name, folder_name, files })
     }
 }

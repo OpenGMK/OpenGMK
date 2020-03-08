@@ -134,13 +134,7 @@ impl Asset for Sound {
             volume,
             pan,
             preload,
-            fx: SoundFX {
-                chorus,
-                echo,
-                flanger,
-                gargle,
-                reverb,
-            },
+            fx: SoundFX { chorus, echo, flanger, gargle, reverb },
         })
     }
 

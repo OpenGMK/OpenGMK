@@ -1,0 +1,44 @@
+# adapted from https://github.com/OpenGM8/GM8Emulator
+
+edition = "2018" # rust
+version = "Two"  # formatting preset
+max_width = 120  # line width
+
+# Error if cannot get line into `max_width` boundaries.
+error_on_line_overflow = true
+
+# Error if cannot get comments/string literals into `max_width`.
+error_on_unformatted = true
+
+# Trail commas *on blocks* in match arms as well as single line expressions (default).
+match_block_trailing_comma = true
+
+# If they're separated, it's probably for good reason.
+merge_derives = false
+
+# Very non-intrusive.
+merge_imports = true
+
+# Reformat all lines to LF (\n) in case they aren't for whatever reason.
+newline_style = "Unix"
+
+# Lets structs/arrays/blocks/macros etc. overflow when last argument in an expr list.
+# For example: foo(bar, baz, &[
+#     OVERFLOWING,
+#     EXPRESSION,
+# ])
+overflow_delimited_expr = true
+
+# Forces typedefs and consts to come before macros and methods in impl blocks.
+reorder_impl_items = true
+
+# Puts grouped (no extra newline, adjacent) imports in alphabetical order.
+reorder_imports = true
+
+# Enables the usage of "unstable" features.
+unstable_features = true
+
+# Use different formatting for items/expr if they satisfy "small".
+# A good example of this is needlessly breaking vec.iter().map(|x| y).collect() into 4 lines,
+# or breaking up a function call with simple expressions but many arguments overall.
+use_small_heuristics = "Max"

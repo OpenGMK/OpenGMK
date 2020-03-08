@@ -1,7 +1,5 @@
 use crate::{
-    asset::{
-        assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString,
-    },
+    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString},
     GameVersion,
 };
 

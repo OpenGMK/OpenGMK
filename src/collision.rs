@@ -26,39 +26,20 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     }
 
     // Return None if there are less colliders than there should be
-    let n_colliders = if sprite.per_frame_colliders {
-        sprite.frames.len()
-    } else {
-        1
-    };
+    let n_colliders = if sprite.per_frame_colliders { sprite.frames.len() } else { 1 };
     if sprite.colliders.len() < n_colliders {
         return None;
     }
 
     // Each map has its own bounds, so we need to find out the outmost bounds
-    let left = maps
-        .iter()
-        .min_by(|x, y| x.bbox_left.cmp(&y.bbox_left))?
-        .bbox_left;
-    let right = maps
-        .iter()
-        .max_by(|x, y| x.bbox_right.cmp(&y.bbox_right))?
-        .bbox_right;
-    let bottom = maps
-        .iter()
-        .min_by(|x, y| x.bbox_bottom.cmp(&y.bbox_bottom))?
-        .bbox_bottom;
-    let top = maps
-        .iter()
-        .max_by(|x, y| x.bbox_top.cmp(&y.bbox_top))?
-        .bbox_top;
+    let left = maps.iter().min_by(|x, y| x.bbox_left.cmp(&y.bbox_left))?.bbox_left;
+    let right = maps.iter().max_by(|x, y| x.bbox_right.cmp(&y.bbox_right))?.bbox_right;
+    let bottom = maps.iter().min_by(|x, y| x.bbox_bottom.cmp(&y.bbox_bottom))?.bbox_bottom;
+    let top = maps.iter().max_by(|x, y| x.bbox_top.cmp(&y.bbox_top))?.bbox_top;
 
     // Little helper function for later
     fn alpha_at(frame: &Frame, x: u32, y: u32) -> Option<u8> {
-        frame
-            .data
-            .get(((y * frame.width + x) * 4 + 3) as usize)
-            .copied()
+        frame.data.get(((y * frame.width + x) * 4 + 3) as usize).copied()
     }
 
     // The various bits of data we want to collect:
@@ -119,14 +100,9 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
         let map = maps.first()?;
         let collision_count = map.data.iter().filter(|x| **x).count();
         let ratio = (collision_count as f64)
-            / (((map.bbox_right + 1 - map.bbox_left) * (map.bbox_bottom + 1 - map.bbox_top))
-                as f64);
+            / (((map.bbox_right + 1 - map.bbox_left) * (map.bbox_bottom + 1 - map.bbox_top)) as f64);
         // Highest diamond ratio I've seen is 0.5454.. Lowest disk ratio I've seen is 0.777..
-        if ratio < 0.65 {
-            (Shape::Diamond, 0)
-        } else {
-            (Shape::Disk, 0)
-        }
+        if ratio < 0.65 { (Shape::Diamond, 0) } else { (Shape::Disk, 0) }
     };
 
     Some(GmkCollision {
