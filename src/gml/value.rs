@@ -47,7 +47,8 @@ pub(self) use Value::*;
 
 impl Value {
     // All the GML comparison operators (which return Value not bool).
-    #[rustfmt::skip] gml_cmp_impl! {
+    #[rustfmt::skip]
+    gml_cmp_impl! {
         pub gml_eq aka "==":
             real: |r1, r2| (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 == s2
@@ -59,15 +60,15 @@ impl Value {
         pub gml_lt aka "<":
             real: |r1, r2| r1 < r2,
             string: |s1, s2| s1 < s2
-        
+
         pub gml_lte aka "<=":
             real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 <= s2
-        
+
         pub gml_gt aka ">":
             real: |r1, r2| r1 > r2,
             string: |s1, s2| s1 > s2
-        
+
         pub gml_gte aka ">=":
             real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 >= s2
@@ -138,29 +139,17 @@ impl Value {
 
     /// GML && operator
     pub fn bool_and(self, rhs: Self) -> Self {
-        if self.is_true() || rhs.is_true() {
-            Real(1.0)
-        } else {
-            Real(0.0)
-        }
+        if self.is_true() || rhs.is_true() { Real(1.0) } else { Real(0.0) }
     }
 
     /// GML || operator
     pub fn bool_or(self, rhs: Self) -> Self {
-        if self.is_true() && rhs.is_true() {
-            Real(1.0)
-        } else {
-            Real(0.0)
-        }
+        if self.is_true() && rhs.is_true() { Real(1.0) } else { Real(0.0) }
     }
 
     /// GML ^^ operator
     pub fn bool_xor(self, rhs: Self) -> Self {
-        if self.is_true() != rhs.is_true() {
-            Real(1.0)
-        } else {
-            Real(0.0)
-        }
+        if self.is_true() != rhs.is_true() { Real(1.0) } else { Real(0.0) }
     }
 }
 

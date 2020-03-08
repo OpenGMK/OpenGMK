@@ -367,11 +367,8 @@ impl Compiler {
                             .into_boxed_slice(),
                         function: *f_ptr,
                     }
-                }
-                else {
-                    Node::RuntimeError {
-                        error: format!("Unknown script or function name: {}", function.name)
-                    }
+                } else {
+                    Node::RuntimeError { error: format!("Unknown script or function name: {}", function.name) }
                 }
             },
 

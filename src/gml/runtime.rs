@@ -1,6 +1,6 @@
-use std::fmt;
-use crate::game::Game;
 use super::{Context, GameVariable, InstanceVariable, Value};
+use crate::game::Game;
+use std::fmt;
 
 /// A compiled runtime instruction. Generally represents a line of code.
 #[derive(Debug)]
@@ -111,7 +111,7 @@ impl fmt::Debug for Node {
             Node::Literal { value } => match value {
                 Value::Real(r) => write!(f, "{:?}", r),
                 Value::Str(s) => write!(f, "{:?}", s),
-            }
+            },
             Node::Function { args, function: _ } => write!(f, "<function: {:?}>", args),
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
