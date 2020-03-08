@@ -154,7 +154,6 @@ fn main() {
     press_any_key();
 }
 
-#[rustfmt::skip]
 fn decompile(
     in_path: &Path,
     out_path: Option<String>,
@@ -164,14 +163,13 @@ fn decompile(
     fix_events: bool,
 ) -> Result<(), String> {
     // slurp in file contents
-    let file = fs::read(&in_path)
-        .map_err(|e| format!("Failed to read '{}': {}", in_path.display(), e))?;
+    let file = fs::read(&in_path).map_err(|e| format!("Failed to read '{}': {}", in_path.display(), e))?;
 
     // parse (entire) gamedata
     let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
-    let mut assets = gm8exe::reader::from_exe(file, logger, strict, multithread)
-        .map_err(|e| format!("Reader error: {}", e))?;
-    
+    let mut assets =
+        gm8exe::reader::from_exe(file, logger, strict, multithread).map_err(|e| format!("Reader error: {}", e))?;
+
     println!("Successfully parsed game!");
 
     let fix_event = |ev: &mut gm8exe::asset::etc::CodeAction| {
@@ -184,12 +182,25 @@ fn decompile(
         }
     };
     if fix_events {
-        for ev in assets.objects.iter_mut().flatten().map(|x| x.events.iter_mut().flatten()).flatten().map(|(_, x)| x.iter_mut()).flatten()
+        for ev in assets
+            .objects
+            .iter_mut()
+            .flatten()
+            .map(|x| x.events.iter_mut().flatten())
+            .flatten()
+            .map(|(_, x)| x.iter_mut())
+            .flatten()
         {
             fix_event(ev);
         }
 
-        for ev in assets.timelines.iter_mut().flatten().map(|x| x.moments.iter_mut().map(|(_, x)| x.iter_mut()).flatten()).flatten() {
+        for ev in assets
+            .timelines
+            .iter_mut()
+            .flatten()
+            .map(|x| x.moments.iter_mut().map(|(_, x)| x.iter_mut()).flatten())
+            .flatten()
+        {
             fix_event(ev);
         }
     }
@@ -203,7 +214,7 @@ fn decompile(
         Some(p) => {
             let path = PathBuf::from(p);
             match (assets.version, path.extension().and_then(|oss| oss.to_str())) {
-                (GameVersion::GameMaker8_0, Some(extension @ "gm81")) 
+                (GameVersion::GameMaker8_0, Some(extension @ "gm81"))
                 | (GameVersion::GameMaker8_1, Some(extension @ "gmk")) => {
                     println!(
                         concat!(
@@ -229,30 +240,28 @@ fn decompile(
             let mut path = PathBuf::from(in_path);
             path.set_extension(out_expected_ext);
             path
-        }
+        },
     };
 
     let mut gmk = fs::File::create(&out_path)
         .map_err(|e| format!("Failed to create output file '{}': {}", out_path.display(), e))?;
-    
+
     println!("Writing {} header...", out_expected_ext);
     gmk::write_header(&mut gmk, assets.version, assets.game_id, assets.guid)
         .map_err(|e| format!("Failed to write header: {}", e))?;
-    
+
     println!("Writing {} settings...", out_expected_ext);
     gmk::write_settings(&mut gmk, &assets.settings, &assets.ico_file_raw, assets.version)
         .map_err(|e| format!("Failed to write settings block: {}", e))?;
-    
+
     println!("Writing {} triggers...", assets.triggers.len());
     gmk::write_asset_list(&mut gmk, &assets.triggers, gmk::write_trigger, assets.version, multithread)
         .map_err(|e| format!("Failed to write triggers: {}", e))?;
 
-    gmk::write_timestamp(&mut gmk)
-        .map_err(|e| format!("Failed to write timestamp: {}", e))?;
+    gmk::write_timestamp(&mut gmk).map_err(|e| format!("Failed to write timestamp: {}", e))?;
 
     println!("Writing {} constants...", assets.constants.len());
-    gmk::write_constants(&mut gmk, &assets.constants)
-        .map_err(|e| format!("Failed to write constants: {}", e))?;
+    gmk::write_constants(&mut gmk, &assets.constants).map_err(|e| format!("Failed to write constants: {}", e))?;
 
     println!("Writing {} sounds...", assets.sounds.len());
     gmk::write_asset_list(&mut gmk, &assets.sounds, gmk::write_sound, assets.version, multithread)
@@ -265,7 +274,7 @@ fn decompile(
     println!("Writing {} backgrounds...", assets.backgrounds.len());
     gmk::write_asset_list(&mut gmk, &assets.backgrounds, gmk::write_background, assets.version, multithread)
         .map_err(|e| format!("Failed to write backgrounds: {}", e))?;
-    
+
     println!("Writing {} paths...", assets.paths.len());
     gmk::write_asset_list(&mut gmk, &assets.paths, gmk::write_path, assets.version, multithread)
         .map_err(|e| format!("Failed to write paths: {}", e))?;
@@ -277,7 +286,7 @@ fn decompile(
     println!("Writing {} fonts...", assets.fonts.len());
     gmk::write_asset_list(&mut gmk, &assets.fonts, gmk::write_font, assets.version, multithread)
         .map_err(|e| format!("Failed to write fonts: {}", e))?;
-    
+
     println!("Writing {} timelines...", assets.timelines.len());
     gmk::write_asset_list(&mut gmk, &assets.timelines, gmk::write_timeline, assets.version, multithread)
         .map_err(|e| format!("Failed to write timelines: {}", e))?;
@@ -302,27 +311,21 @@ fn decompile(
         .map_err(|e| format!("Failed to write included files: {}", e))?;
 
     println!("Writing {} extensions...", assets.extensions.len());
-    gmk::write_extensions(&mut gmk, &assets.extensions)
-        .map_err(|e| format!("Failed to write extensions: {}", e))?;
+    gmk::write_extensions(&mut gmk, &assets.extensions).map_err(|e| format!("Failed to write extensions: {}", e))?;
 
     println!("Writing game information...");
     gmk::write_game_information(&mut gmk, &assets.help_dialog)
         .map_err(|e| format!("Failed to write game information: {}", e))?;
 
-    println!(
-        "Writing {} library initialization strings...",
-        assets.library_init_strings.len()
-    );
+    println!("Writing {} library initialization strings...", assets.library_init_strings.len());
     gmk::write_library_init_code(&mut gmk, &assets.library_init_strings)
         .map_err(|e| format!("Failed to write library initialization code: {}", e))?;
 
     println!("Writing room order ({} rooms)...", assets.room_order.len());
-    gmk::write_room_order(&mut gmk, &assets.room_order)
-        .map_err(|e| format!("Failed to write room order: {}", e))?;
+    gmk::write_room_order(&mut gmk, &assets.room_order).map_err(|e| format!("Failed to write room order: {}", e))?;
 
     println!("Writing resource tree...");
-    gmk::write_resource_tree(&mut gmk, &assets)
-        .map_err(|e| format!("Failed to write resource tree: {}", e))?;
+    gmk::write_resource_tree(&mut gmk, &assets).map_err(|e| format!("Failed to write resource tree: {}", e))?;
 
     println!(
         "Successfully written {} to '{}'",
