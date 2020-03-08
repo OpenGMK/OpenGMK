@@ -2,6 +2,7 @@ use crate::{
     action::Tree,
     asset::{
         font::{Character, Font},
+        Script,
         sprite::{Collider, Frame, Sprite},
         Background,
         Object,
@@ -35,6 +36,7 @@ pub struct Assets {
     pub backgrounds: Vec<Option<Box<Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
     pub objects: Vec<Option<Box<Object>>>,
+    pub scripts: Vec<Option<Box<Script>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     // todo
@@ -263,6 +265,23 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
+    let scripts = scripts
+        .into_iter()
+        .map(|t| {
+            t.map(|b| {
+                let compiled = match compiler.compile(&b.source) {
+                    Ok(s) => s,
+                    Err(e) => panic!(format!("Compiler error in script {}: {}", b.name, e)),
+                    // Have to panic here since not possible to return error
+                };
+                Box::new(Script {
+                    name: b.name,
+                    source: b.source,
+                    compiled,
+                })
+            })
+        }).collect::<Vec<_>>();
+
     renderer.upload_atlases(atlases)?;
 
     let mut instance_list = InstanceList::new();
@@ -295,6 +314,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
             backgrounds,
             fonts,
             objects,
+            scripts,
             sprites,
             timelines,
         },
