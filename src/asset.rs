@@ -8,5 +8,6 @@ pub mod timeline;
 pub use background::Background;
 pub use font::Font;
 pub use object::Object;
+pub use script::Script;
 pub use sprite::Sprite;
 pub use timeline::Timeline;
