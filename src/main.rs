@@ -167,8 +167,8 @@ fn decompile(
 
     // parse (entire) gamedata
     let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
-    let mut assets =
-        gm8exe::reader::from_exe(file, logger, strict, multithread).map_err(|e| format!("Reader error: {}", e))?;
+    let mut assets = gm8exe::reader::from_exe(file, logger, strict, multithread) // huge call
+        .map_err(|e| format!("Reader error: {}", e))?;
 
     println!("Successfully parsed game!");
 
@@ -182,27 +182,20 @@ fn decompile(
         }
     };
     if fix_events {
-        for ev in assets
+        assets
             .objects
             .iter_mut()
             .flatten()
-            .map(|x| x.events.iter_mut().flatten())
-            .flatten()
-            .map(|(_, x)| x.iter_mut())
-            .flatten()
-        {
-            fix_event(ev);
-        }
+            .flat_map(|x| x.events.iter_mut().flatten())
+            .flat_map(|(_, x)| x.iter_mut())
+            .for_each(|ev| fix_event(ev));
 
-        for ev in assets
+        assets
             .timelines
             .iter_mut()
             .flatten()
-            .map(|x| x.moments.iter_mut().map(|(_, x)| x.iter_mut()).flatten())
-            .flatten()
-        {
-            fix_event(ev);
-        }
+            .flat_map(|x| x.moments.iter_mut().flat_map(|(_, x)| x.iter_mut()))
+            .for_each(|ev| fix_event(ev));
     }
 
     // warn user if they specified .gmk for 8.0 or .gm81 for 8.0
