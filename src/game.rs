@@ -286,17 +286,18 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         .map(|o| {
             o.map(|b| {
                 let mut events: [HashMap<u32, Tree>; 12] = std::default::Default::default();
-                events.iter_mut().enumerate().zip(b.events.iter()).for_each(|((i, map), input)| {
+                for ((i, map), input) in events.iter_mut().enumerate().zip(b.events.iter()) {
                     map.reserve(input.len());
-                    input.iter().for_each(|(sub, actions)| {
+                    for (sub, actions) in input {
                         map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
                             Ok(t) => t,
-                            Err(e) => panic!(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e)),
-                            // Have to panic here since not possible to return error
+                            Err(e) => {
+                                return Err(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e));
+                            },
                         });
-                    });
-                });
-                Box::new(Object {
+                    }
+                }
+                Ok(Box::new(Object {
                     name: b.name,
                     solid: b.solid,
                     visible: b.visible,
@@ -305,10 +306,11 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
                     sprite_index: b.sprite_index,
                     mask_index: b.mask_index,
                     events,
-                })
+                }))
             })
+            .transpose()
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let timelines = timelines
         .into_iter()
@@ -320,14 +322,16 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
                         Ok(t) => {
                             moments.insert(*moment, t);
                         },
-                        Err(e) => panic!(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e)),
-                        // Have to panic here since not possible to return error
-                    }
+                        Err(e) => {
+                            return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e));
+                        },
+                    };
                 }
-                Box::new(Timeline { name: b.name, moments })
+                Ok(Box::new(Timeline { name: b.name, moments }))
             })
+            .transpose()
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let scripts = scripts
         .into_iter()
@@ -335,13 +339,13 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
             t.map(|b| {
                 let compiled = match compiler.compile(&b.source) {
                     Ok(s) => s,
-                    Err(e) => panic!(format!("Compiler error in script {}: {}", b.name, e)),
-                    // Have to panic here since not possible to return error
+                    Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
                 };
-                Box::new(Script { name: b.name, source: b.source, compiled })
+                Ok(Box::new(Script { name: b.name, source: b.source, compiled }))
             })
+            .transpose()
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     renderer.upload_atlases(atlases)?;
 
