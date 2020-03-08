@@ -26,6 +26,7 @@ pub struct Game {
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
 
+    pub room_id: i32,
     pub room_width: i32,
     pub room_height: i32,
 }
@@ -46,10 +47,11 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
     // the window size, and title, etc. is based on it.
-    let room1 = room_order
-        .first()
-        .and_then(|i| rooms.get(*i as usize).and_then(|o| o.as_ref()))
-        .ok_or("first room not present in gamedata")?;
+    let room1_id = *room_order.first().ok_or("Room order is empty")?;
+    let room1 = match rooms.get(room1_id as usize) {
+        Some(Some(r)) => r,
+        _ => return Err("First room does not exist".into()),
+    };
 
     // Set up a GML compiler
     let mut compiler = Compiler::new();
@@ -296,6 +298,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
             sprites,
             timelines,
         },
+        room_id: room1_id,
         room_width: room1.width as i32,
         room_height: room1.height as i32,
     })
