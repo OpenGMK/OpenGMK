@@ -1,4 +1,7 @@
-use crate::{game::Game, gml::{Context, GameVariable, InstanceVariable, Value}};
+use crate::{
+    game::Game,
+    gml::{Context, GameVariable, InstanceVariable, Value},
+};
 
 /// Default numerical constants for GML
 pub const CONSTANTS: [(&str, f64); 317] = [

@@ -1,4 +1,11 @@
-use crate::{game::Game, gml::{compiler::{Compiler, mappings}, Context, runtime::{Instruction, Node}, Value}};
+use crate::{
+    game::Game,
+    gml::{
+        compiler::{mappings, Compiler},
+        runtime::{Instruction, Node},
+        Context, Value,
+    },
+};
 use gm8exe::asset::etc::CodeAction;
 
 /// Consts which match those used in GM8
@@ -70,12 +77,19 @@ impl Tree {
         Ok(Self(Self::from_iter(&mut iter, compiler, false)?))
     }
 
-    fn from_iter<'a, T>(iter: &mut std::iter::Peekable<T>, compiler: &mut Compiler, single_group: bool) -> Result<Vec<Action>, String> where T: Iterator<Item=(usize, &'a CodeAction)> {
+    fn from_iter<'a, T>(
+        iter: &mut std::iter::Peekable<T>,
+        compiler: &mut Compiler,
+        single_group: bool,
+    ) -> Result<Vec<Action>, String>
+    where
+        T: Iterator<Item = (usize, &'a CodeAction)>,
+    {
         let mut output = Vec::new();
 
         // If we're only iterating a single group of actions, and the first is not a BEGIN_GROUP action,
         // then we only want to collect one action.
-        let stop_immediately = if let Some((_, CodeAction {action_kind: kind::BEGIN_GROUP, ..})) = iter.peek() {
+        let stop_immediately = if let Some((_, CodeAction { action_kind: kind::BEGIN_GROUP, .. })) = iter.peek() {
             false
         } else {
             single_group
@@ -85,7 +99,7 @@ impl Tree {
             // If the action we got is a condition then immediately parse its if/else bodies from the iterator
             let if_else = if action.is_condition {
                 let if_body = Self::from_iter(iter, compiler, true)?;
-                let else_body = if let Some((_, CodeAction {action_kind: kind::ELSE, ..})) = iter.peek() {
+                let else_body = if let Some((_, CodeAction { action_kind: kind::ELSE, .. })) = iter.peek() {
                     Self::from_iter(iter, compiler, true)?
                 } else {
                     Vec::new()
@@ -105,8 +119,15 @@ impl Tree {
                     if let Some((_, f_ptr, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &action.fn_name) {
                         output.push(Action {
                             index: i,
-                            target: if action.applies_to_something {Some(action.applies_to)} else {None},
-                            args: action.param_strings.iter().take(action.param_count).map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
+                            target: if action.applies_to_something { Some(action.applies_to) } else { None },
+                            args: action
+                                .param_strings
+                                .iter()
+                                .take(action.param_count)
+                                .map(|x| compiler.compile_expression(x))
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|e| e.message)?
+                                .into_boxed_slice(),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Function(*f_ptr),
@@ -124,7 +145,7 @@ impl Tree {
                         // fn_code and any other params are completely ignored. The action is compiled with 0 params.
                         output.push(Action {
                             index: i,
-                            target: if action.applies_to_something {Some(action.applies_to)} else {None},
+                            target: if action.applies_to_something { Some(action.applies_to) } else { None },
                             args: Box::new([]),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
@@ -134,13 +155,19 @@ impl Tree {
                             },
                             if_else,
                         });
-                    }
-                    else {
+                    } else {
                         // The action's code is provided by its fn_code, so compile that.
                         output.push(Action {
                             index: i,
-                            target: if action.applies_to_something {Some(action.applies_to)} else {None},
-                            args: action.param_strings.iter().take(action.param_count).map(|x| compiler.compile_expression(x)).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice(),
+                            target: if action.applies_to_something { Some(action.applies_to) } else { None },
+                            args: action
+                                .param_strings
+                                .iter()
+                                .take(action.param_count)
+                                .map(|x| compiler.compile_expression(x))
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|e| e.message)?
+                                .into_boxed_slice(),
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),

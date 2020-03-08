@@ -515,8 +515,8 @@ impl<'a> AST<'a> {
                             break Ok((lhs, Some(op)));
                         }
                         // We're allowed to use the next operator. Let's read an RHS to put on after it.
-                        // We limit this tree to current precedence + 1 to prevent it using operators of our current precedence.
-                        // This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
+                        // We limit this tree to current precedence + 1 to prevent it using operators of our
+                        // current precedence.  This way, 1/2/3 is correctly built as (1/2)/3 rather than 1/(2/3).
                         let (rhs, next_op) = AST::read_binary_tree_recursive(lex, None, false, precedence + 1)?;
                         if let Some(next_op) = next_op {
                             // There's another operator even after the RHS.

@@ -1,6 +1,9 @@
 // This file was auto-generated based on a function table dump
 
-use crate::{game::Game, gml::{Context, Value}};
+use crate::{
+    game::Game,
+    gml::{Context, Value},
+};
 
 impl Game {
     pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> Value {

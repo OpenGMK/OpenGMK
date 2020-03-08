@@ -111,7 +111,7 @@ fn xmain() -> i32 {
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
             return EXIT_FAILURE;
-        }
+        },
     };
 
     while !components.renderer.should_close() {
@@ -127,7 +127,17 @@ fn xmain() -> i32 {
             }
         }
 
-        components.renderer.set_view(0, 0, components.room_width, components.room_height, 0.0, 0, 0, components.room_width, components.room_height);
+        components.renderer.set_view(
+            0,
+            0,
+            components.room_width,
+            components.room_height,
+            0.0,
+            0,
+            0,
+            components.room_width,
+            components.room_height,
+        );
 
         for (_, instance) in components.instance_list.iter() {
             if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {

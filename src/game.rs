@@ -2,11 +2,8 @@ use crate::{
     action::Tree,
     asset::{
         font::{Character, Font},
-        Script,
         sprite::{Collider, Frame, Sprite},
-        Background,
-        Object,
-        Timeline,
+        Background, Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
     gml::{rand::Random, Compiler},
@@ -44,7 +41,22 @@ pub struct Assets {
 
 pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     // destructure assets
-    let GameAssets { backgrounds, constants, fonts, icon_data, objects, paths, room_order, rooms, scripts, sounds, sprites, timelines, triggers, .. } = assets;
+    let GameAssets {
+        backgrounds,
+        constants,
+        fonts,
+        icon_data,
+        objects,
+        paths,
+        room_order,
+        rooms,
+        scripts,
+        sounds,
+        sprites,
+        timelines,
+        triggers,
+        ..
+    } = assets;
 
     // If there are no rooms, you can't build a GM8 game. Fatal error.
     // We need a lot of the initialization info from the first room,
@@ -59,30 +71,74 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     let mut compiler = Compiler::new();
     compiler.reserve_scripts(scripts.iter().flatten().count());
     compiler.reserve_constants(
-        backgrounds.iter().flatten().count() +
-        fonts.iter().flatten().count() +
-        objects.iter().flatten().count() +
-        paths.iter().flatten().count() +
-        rooms.iter().flatten().count() +
-        scripts.iter().flatten().count() +
-        sounds.iter().flatten().count() +
-        sprites.iter().flatten().count() +
-        timelines.iter().flatten().count() +
-        triggers.iter().flatten().count() + 
-        constants.len()
+        backgrounds.iter().flatten().count()
+            + fonts.iter().flatten().count()
+            + objects.iter().flatten().count()
+            + paths.iter().flatten().count()
+            + rooms.iter().flatten().count()
+            + scripts.iter().flatten().count()
+            + sounds.iter().flatten().count()
+            + sprites.iter().flatten().count()
+            + timelines.iter().flatten().count()
+            + triggers.iter().flatten().count()
+            + constants.len(),
     );
-    backgrounds.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    fonts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    objects.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    paths.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    rooms.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    scripts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    sounds.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    sprites.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    timelines.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-    triggers.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_constant(x.constant_name.clone(), i as f64));
+    backgrounds
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    fonts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    objects
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    paths
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    rooms
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    scripts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    sounds
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    sprites
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    timelines
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
+    triggers
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_constant(x.constant_name.clone(), i as f64));
 
-    scripts.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, x))).for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
+    scripts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+        .for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
 
     // Set up a Renderer
     let options = RendererOptions {
@@ -184,35 +240,44 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     let fonts = fonts
         .into_iter()
         .map(|o| {
-            o.map(|b| Box::new(Font {
-                name: b.name,
-                sys_name: b.sys_name,
-                size: b.size,
-                bold: b.bold,
-                italic: b.italic,
-                first: b.range_start,
-                last: b.range_end,
-                atlas_ref: atlases
-                    .texture(
-                        b.map_width as _,
-                        b.map_height as _,
-                        0,
-                        0,
-                        b.pixel_map
-                            .into_iter()
-                            .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
-                            .collect::<Vec<u8>>()
-                            .into_boxed_slice(),
-                    )
-                    .unwrap(),
-                chars: b
-                    .dmap
-                    .chunks_exact(6)
-                    .skip(b.range_start as usize)
-                    .take(((b.range_end - b.range_start) + 1) as usize)
-                    .map(|x| Character { x: x[0], y: x[1], width: x[2], height: x[3], offset: x[4], distance: x[5] })
-                    .collect(),
-            }))
+            o.map(|b| {
+                Box::new(Font {
+                    name: b.name,
+                    sys_name: b.sys_name,
+                    size: b.size,
+                    bold: b.bold,
+                    italic: b.italic,
+                    first: b.range_start,
+                    last: b.range_end,
+                    atlas_ref: atlases
+                        .texture(
+                            b.map_width as _,
+                            b.map_height as _,
+                            0,
+                            0,
+                            b.pixel_map
+                                .into_iter()
+                                .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
+                                .collect::<Vec<u8>>()
+                                .into_boxed_slice(),
+                        )
+                        .unwrap(),
+                    chars: b
+                        .dmap
+                        .chunks_exact(6)
+                        .skip(b.range_start as usize)
+                        .take(((b.range_end - b.range_start) + 1) as usize)
+                        .map(|x| Character {
+                            x: x[0],
+                            y: x[1],
+                            width: x[2],
+                            height: x[3],
+                            offset: x[4],
+                            distance: x[5],
+                        })
+                        .collect(),
+                })
+            })
         })
         .collect::<Vec<_>>();
 
@@ -252,15 +317,14 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
                 let mut moments: HashMap<u32, Tree> = HashMap::with_capacity(b.moments.len());
                 for (moment, actions) in b.moments.iter() {
                     match Tree::from_list(actions, &mut compiler) {
-                        Ok(t) => { moments.insert(*moment, t); },
+                        Ok(t) => {
+                            moments.insert(*moment, t);
+                        },
                         Err(e) => panic!(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e)),
                         // Have to panic here since not possible to return error
                     }
                 }
-                Box::new(Timeline {
-                    name: b.name,
-                    moments,
-                })
+                Box::new(Timeline { name: b.name, moments })
             })
         })
         .collect::<Vec<_>>();
@@ -274,13 +338,10 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
                     Err(e) => panic!(format!("Compiler error in script {}: {}", b.name, e)),
                     // Have to panic here since not possible to return error
                 };
-                Box::new(Script {
-                    name: b.name,
-                    source: b.source,
-                    compiled,
-                })
+                Box::new(Script { name: b.name, source: b.source, compiled })
             })
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     renderer.upload_atlases(atlases)?;
 
@@ -310,14 +371,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         instance_list,
         rand: Random::new(),
         renderer: Box::new(renderer),
-        assets: Assets {
-            backgrounds,
-            fonts,
-            objects,
-            scripts,
-            sprites,
-            timelines,
-        },
+        assets: Assets { backgrounds, fonts, objects, scripts, sprites, timelines },
         room_id: room1_id,
         room_width: room1.width as i32,
         room_height: room1.height as i32,
