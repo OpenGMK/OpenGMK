@@ -3,6 +3,7 @@
 mod action;
 mod asset;
 mod atlas;
+mod background;
 mod game;
 mod gml;
 mod instance;
