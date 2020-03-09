@@ -30,10 +30,6 @@ impl InstanceList {
         self.arena.get(index)
     }
 
-    pub fn get_mut(&mut self, index: Index) -> Option<&mut Instance> {
-        self.arena.get_mut(index)
-    }
-
     pub fn iter(&self) -> generational_arena::Iter<Instance> {
         self.arena.iter()
     }
