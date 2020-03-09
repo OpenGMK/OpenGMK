@@ -8,6 +8,7 @@ mod gml;
 mod instance;
 mod instancelist;
 mod render;
+mod tile;
 mod types;
 mod util;
 
