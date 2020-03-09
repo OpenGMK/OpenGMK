@@ -140,7 +140,7 @@ fn xmain() -> i32 {
             components.room_height,
         );
 
-        for (_, instance) in components.instance_list.iter() {
+        for (_, instance) in components.instance_list.iter_instances() {
             if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
                 components.renderer.draw_sprite(
                     &sprite.frames.first().unwrap().atlas_ref,
