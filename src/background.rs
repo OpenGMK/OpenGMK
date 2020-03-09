@@ -1,4 +1,5 @@
 /// An instance of a background in a room
+#[derive(Clone, Copy)]
 pub struct Background {
     /// Whether to draw this background
     pub visible: bool,
