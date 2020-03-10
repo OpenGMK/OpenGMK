@@ -427,6 +427,41 @@ impl Renderer for OpenGLRenderer {
         self.draw_commands.push(DrawCommand { atlas_ref, model_view_matrix, colour, alpha });
     }
 
+    fn draw_sprite_partial(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: i32,
+        part_y: i32,
+        part_w: i32,
+        part_h: i32,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+    ) {
+        self.draw_sprite(
+            &AtlasRef {
+                atlas_id: texture.atlas_id,
+                w: part_w,
+                h: part_h,
+                x: texture.x + part_x,
+                y: texture.y + part_y,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            colour,
+            alpha,
+        )
+    }
+
     fn clear(&self, red: f32, green: f32, blue: f32) {
         unsafe {
             gl::ClearColor(red, green, blue, 1.0);

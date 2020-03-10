@@ -63,6 +63,23 @@ pub trait Renderer {
         alpha: f64,
     );
 
+    /// Draws part of a sprite to a screen. Useful for drawing background tiles, font characters etc.
+    fn draw_sprite_partial(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: i32,
+        part_y: i32,
+        part_w: i32,
+        part_h: i32,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+    );
+
     /// Updates the screen. Should be called only after drawing everything that should be in the current frame.
     fn finish(&mut self);
 }
