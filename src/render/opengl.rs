@@ -53,6 +53,8 @@ pub struct OpenGLRenderer {
     atlas_packers: Vec<DensePacker>,
     /// OpenGL's texture handles in identical order to the atlases.
     texture_ids: Vec<GLuint>,
+    /// The currently bound texture in OpenGL. Only valid after atlases have been initialized.
+    current_texture: GLint,
 }
 
 // A command to draw a sprite or section of a sprite. These are queued and executed
@@ -228,6 +230,7 @@ impl OpenGLRenderer {
             atlases_initialized: false,
             atlas_packers: Vec::new(),
             texture_ids: Vec::new(),
+            current_texture: 0,
         })
     }
 
@@ -319,6 +322,7 @@ impl Renderer for OpenGLRenderer {
                     let (width, height) = packer.size();
 
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.current_texture = tex_id as _;
                     gl::TexImage2D(
                         gl::TEXTURE_2D,    // target
                         0,                 // level
@@ -335,11 +339,10 @@ impl Renderer for OpenGLRenderer {
             };
 
             // upload textures
-            let mut current_texture: GLint = 0;
             for (atl_ref, pixels) in &sprites {
-                if current_texture != atl_ref.atlas_id as _ {
+                if self.current_texture != atl_ref.atlas_id as _ {
                     gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
-                    current_texture = atl_ref.atlas_id as _;
+                    self.current_texture = atl_ref.atlas_id as _;
                 }
 
                 gl::TexSubImage2D(
