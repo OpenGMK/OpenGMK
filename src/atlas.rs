@@ -12,13 +12,14 @@ pub struct AtlasBuilder {
 }
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub struct AtlasRef {
     pub atlas_id: u32,
 
-    pub w: i32,
-    pub h: i32,
     pub x: i32,
     pub y: i32,
+    pub w: i32,
+    pub h: i32,
 
     // Normalized to 0-1 by texture width and height
     pub origin_x: f32,
