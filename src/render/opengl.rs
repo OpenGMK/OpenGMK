@@ -250,6 +250,7 @@ impl OpenGLRenderer {
             gl::Uniform1i(gl::GetUniformLocation(self.program, "tex\0".as_ptr() as _), self.current_atlas as _);
 
             let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
+            let atlas_xywh = gl::GetAttribLocation(self.program, b"atlas_xywh\0".as_ptr() as *const c_char) as u32;
             gl::EnableVertexAttribArray(glsl_model_view);
             gl::VertexAttribPointer(
                 glsl_model_view,
@@ -286,10 +287,20 @@ impl OpenGLRenderer {
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
             );
+            gl::EnableVertexAttribArray(atlas_xywh);
+            gl::VertexAttribPointer(
+                atlas_xywh,
+                4,
+                gl::INT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                (offset_of!(DrawCommand, atlas_ref) + offset_of!(AtlasRef, x)) as *const _,
+            );
             gl::VertexAttribDivisor(glsl_model_view, 1);
             gl::VertexAttribDivisor(glsl_model_view + 1, 1);
             gl::VertexAttribDivisor(glsl_model_view + 2, 1);
             gl::VertexAttribDivisor(glsl_model_view + 3, 1);
+            gl::VertexAttribDivisor(atlas_xywh, 1);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
