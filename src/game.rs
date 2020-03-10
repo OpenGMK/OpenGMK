@@ -2,14 +2,17 @@ use crate::{
     action::Tree,
     asset::{
         font::{Character, Font},
+        room::{self, Room},
         sprite::{Collider, Frame, Sprite},
         Background, Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
+    background,
     gml::{rand::Random, Compiler},
     instance::Instance,
     instancelist::InstanceList,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    tile, view,
 };
 use gm8exe::GameAssets;
 use std::{collections::HashMap, iter::repeat, sync::mpsc::Receiver};
@@ -33,6 +36,7 @@ pub struct Assets {
     pub backgrounds: Vec<Option<Box<Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
     pub objects: Vec<Option<Box<Object>>>,
+    pub rooms: Vec<Option<Box<Room>>>,
     pub scripts: Vec<Option<Box<Script>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
@@ -66,6 +70,8 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         Some(Some(r)) => r,
         _ => return Err("First room does not exist".into()),
     };
+    let room1_width = room1.width;
+    let room1_height = room1.height;
 
     // Set up a GML compiler
     let mut compiler = Compiler::new();
@@ -143,7 +149,7 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
     // Set up a Renderer
     let options = RendererOptions {
         title: &room1.caption,
-        size: (room1.width, room1.height),
+        size: (room1_width, room1_height),
         icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
         resizable: assets.settings.allow_resize,
         on_top: assets.settings.window_on_top,
@@ -347,10 +353,113 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    let rooms = rooms
+        .into_iter()
+        .map(|t| {
+            t.map(|b| {
+                let creation_code = match compiler.compile(&b.creation_code) {
+                    Ok(c) => c,
+                    Err(e) => return Err(format!("Compiler error in room {} creation code: {}", b.name, e)),
+                };
+                Ok(Box::new(Room {
+                    name: b.name,
+                    caption: b.caption,
+                    width: b.width,
+                    height: b.height,
+                    speed: b.speed,
+                    persistent: b.persistent,
+                    bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b),
+                    clear_screen: b.clear_screen,
+                    creation_code,
+                    backgrounds: b
+                        .backgrounds
+                        .into_iter()
+                        .map(|bg| background::Background {
+                            visible: bg.visible_on_start,
+                            is_foreground: bg.is_foreground,
+                            background_id: bg.source_bg,
+                            x_offset: f64::from(bg.xoffset),
+                            y_offset: f64::from(bg.yoffset),
+                            tile_horizontal: bg.tile_horz,
+                            tile_vertical: bg.tile_vert,
+                            hspeed: f64::from(bg.hspeed),
+                            vspeed: f64::from(bg.vspeed),
+                            stretch: bg.stretch,
+                        })
+                        .collect(),
+                    views_enabled: b.views_enabled,
+                    views: b
+                        .views
+                        .into_iter()
+                        .map(|v| view::View {
+                            visible: v.visible,
+                            source_x: v.source_x,
+                            source_y: v.source_y,
+                            source_w: v.source_w,
+                            source_h: v.source_h,
+                            port_x: v.port_x,
+                            port_y: v.port_y,
+                            port_w: v.port_w,
+                            port_h: v.port_h,
+                            follow_target: v.following.target,
+                            follow_hborder: v.following.hborder,
+                            follow_vborder: v.following.vborder,
+                            follow_hspeed: v.following.hspeed,
+                            follow_vspeed: v.following.vspeed,
+                        })
+                        .collect(),
+                    instances: b
+                        .instances
+                        .into_iter()
+                        .map(|i| {
+                            Ok(room::Instance {
+                                x: i.x,
+                                y: i.y,
+                                object: i.object,
+                                id: i.id as usize,
+                                creation: match compiler.compile(&i.creation_code) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        return Err(format!(
+                                            "Compiler error in creation code of instance {}: {}",
+                                            i.id, e
+                                        ));
+                                    },
+                                },
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                    tiles: b
+                        .tiles
+                        .into_iter()
+                        .map(|t| tile::Tile {
+                            x: f64::from(t.x),
+                            y: f64::from(t.y),
+                            background_index: t.source_bg,
+                            tile_x: t.tile_x,
+                            tile_y: t.tile_y,
+                            width: t.width,
+                            height: t.height,
+                            depth: t.depth,
+                            id: t.id as usize,
+                            alpha: 1.0,
+                            blend: 0xFFFFFF,
+                            xscale: 1.0,
+                            yscale: 1.0,
+                            visible: true,
+                        })
+                        .collect(),
+                }))
+            })
+            .transpose()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
     renderer.upload_atlases(atlases)?;
 
     let mut instance_list = InstanceList::new();
 
+    /*
     for instance in &room1.instances {
         let object = match objects.get(instance.object as usize) {
             Some(&Some(ref o)) => o.as_ref(),
@@ -363,6 +472,24 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
             instance.object,
             object,
         ));
+    }*/
+
+    if let Some(Some(room1)) = rooms.get(room1_id as usize) {
+        for instance in room1.instances.iter() {
+            let object = match objects.get(instance.object as usize) {
+                Some(&Some(ref o)) => o.as_ref(),
+                _ => return Err(format!("Instance of invalid Object in room {}", room1.name).into()),
+            };
+            instance_list.insert(Instance::new(
+                instance.id as _,
+                f64::from(instance.x),
+                f64::from(instance.y),
+                instance.object,
+                object,
+            ));
+        }
+    } else {
+        panic!(format!("First room ({}) was present in gm8exe but is not present now", room1_id));
     }
 
     // Important: show window
@@ -375,9 +502,9 @@ pub fn launch(assets: GameAssets) -> Result<Game, Box<dyn std::error::Error>> {
         instance_list,
         rand: Random::new(),
         renderer: Box::new(renderer),
-        assets: Assets { backgrounds, fonts, objects, scripts, sprites, timelines },
+        assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
         room_id: room1_id,
-        room_width: room1.width as i32,
-        room_height: room1.height as i32,
+        room_width: room1_width as i32,
+        room_height: room1_height as i32,
     })
 }
