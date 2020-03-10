@@ -109,7 +109,7 @@ fn xmain() -> i32 {
         },
     };
 
-    let mut components = match game::launch(assets) {
+    let mut components = match game::Game::launch(assets) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
