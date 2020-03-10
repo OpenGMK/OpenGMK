@@ -1,4 +1,5 @@
 /// An instance of a background tile.
+#[derive(Clone, Copy)]
 pub struct Tile {
     /// The tile's x position in the room
     pub x: f64,
