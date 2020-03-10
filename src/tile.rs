@@ -32,7 +32,7 @@ pub struct Tile {
     pub alpha: f64,
 
     /// Colour blend value of this tile
-    pub blend: u32,
+    pub blend: i32,
 
     /// xscale with which to draw this tile
     pub xscale: f64,
