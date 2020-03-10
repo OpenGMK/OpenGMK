@@ -53,8 +53,8 @@ pub struct OpenGLRenderer {
     atlas_packers: Vec<DensePacker>,
     /// OpenGL's texture handles in identical order to the atlases.
     texture_ids: Vec<GLuint>,
-    /// The currently bound texture in OpenGL. Only valid after atlases have been initialized.
-    current_texture: GLint,
+    /// The currently bound texture atlas ID. Only valid after atlases have been initialized.
+    current_atlas: u32,
 }
 
 // A command to draw a sprite or section of a sprite. These are queued and executed
@@ -230,7 +230,7 @@ impl OpenGLRenderer {
             atlases_initialized: false,
             atlas_packers: Vec::new(),
             texture_ids: Vec::new(),
-            current_texture: 0,
+            current_atlas: 0,
         })
     }
 
@@ -246,6 +246,8 @@ impl OpenGLRenderer {
                 self.draw_commands.as_ptr() as _,
                 gl::STATIC_DRAW,
             );
+
+            gl::Uniform1i(gl::GetUniformLocation(self.program, "tex\0".as_ptr() as _), self.current_atlas as _);
 
             let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
             gl::EnableVertexAttribArray(glsl_model_view);
@@ -291,6 +293,10 @@ impl OpenGLRenderer {
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
+            let tex_coord = gl::GetAttribLocation(self.program, "tex_coord\0".as_ptr() as _) as u32;
+            gl::EnableVertexAttribArray(tex_coord);
+            gl::VertexAttribPointer(tex_coord, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
+
             gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
 
             gl::DeleteBuffers(1, &commands_vbo);
@@ -318,11 +324,17 @@ impl Renderer for OpenGLRenderer {
             let textures: Vec<GLuint> = {
                 let mut buf = vec![0 as GLuint; packers.len()];
                 gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
-                for (tex_id, packer) in buf.iter().copied().zip(&packers) {
+                for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
                     let (width, height) = packer.size();
 
+                    gl::ActiveTexture(gl::TEXTURE0 + i as u32);
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
-                    self.current_texture = tex_id as _;
+                    self.current_atlas = i as u32;
+
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
                     gl::TexImage2D(
                         gl::TEXTURE_2D,    // target
                         0,                 // level
@@ -340,9 +352,9 @@ impl Renderer for OpenGLRenderer {
 
             // upload textures
             for (atl_ref, pixels) in &sprites {
-                if self.current_texture != atl_ref.atlas_id as _ {
+                if self.current_atlas != atl_ref.atlas_id {
                     gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
-                    self.current_texture = atl_ref.atlas_id as _;
+                    self.current_atlas = atl_ref.atlas_id;
                 }
 
                 gl::TexSubImage2D(
@@ -388,6 +400,16 @@ impl Renderer for OpenGLRenderer {
         alpha: f64,
     ) {
         let atlas_ref = atlas_ref.clone();
+
+        if atlas_ref.atlas_id != self.current_atlas {
+            self.flush();
+            unsafe {
+                gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
+                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize]);
+            }
+            self.current_atlas = atlas_ref.atlas_id;
+        }
+
         let angle_sin = angle.sin() as f32;
         let angle_cos = angle.cos() as f32;
 
