@@ -40,6 +40,8 @@ pub struct OpenGLRenderer {
 
     // Colour to clear the screen with at the start of each frame (RGB)
     global_clear_colour: (f32, f32, f32),
+    // Colour to clear each view rectangle (RGB; None means do not clear)
+    view_clear_colour: Option<(f32, f32, f32)>,
 
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
@@ -231,6 +233,7 @@ impl OpenGLRenderer {
                 (options.global_clear_colour.1 as f32) / 255.0,
                 (options.global_clear_colour.2 as f32) / 255.0,
             ),
+            view_clear_colour: None,
 
             program,
             vao,
@@ -430,6 +433,14 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
+    fn set_background_colour(&mut self, colour: Option<(u8, u8, u8)>) {
+        self.view_clear_colour = colour.map(|(r, g, b)| (
+            (r as f32) / 255.0,
+            (g as f32) / 255.0,
+            (b as f32) / 255.0,
+        ));
+    }
+
     fn draw_sprite(
         &mut self,
         atlas_ref: &AtlasRef,
@@ -538,13 +549,6 @@ impl Renderer for OpenGLRenderer {
         )
     }
 
-    fn clear(&self, red: f32, green: f32, blue: f32) {
-        unsafe {
-            gl::ClearColor(red, green, blue, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-    }
-
     fn set_view(
         &mut self,
         src_x: i32,
@@ -614,6 +618,12 @@ impl Renderer for OpenGLRenderer {
                 gl::FALSE,
                 &projection as _,
             );
+
+            // Clear view rectangle
+            if let Some((red, green, blue)) = self.view_clear_colour {
+                gl::ClearColor(red, green, blue, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
         }
     }
 
