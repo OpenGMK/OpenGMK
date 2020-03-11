@@ -61,8 +61,8 @@ pub struct OpenGLRenderer {
 pub struct DrawCommand {
     pub atlas_ref: AtlasRef,
     pub model_view_matrix: [f32; 16],
-    pub colour: i32,
-    pub alpha: f64,
+    pub blend: (f32, f32, f32),
+    pub alpha: f32,
 }
 
 macro_rules! shader_file {
@@ -251,6 +251,8 @@ impl OpenGLRenderer {
 
             let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
             let atlas_xywh = gl::GetAttribLocation(self.program, b"atlas_xywh\0".as_ptr() as *const c_char) as u32;
+            let glsl_blend = gl::GetAttribLocation(self.program, b"blend\0".as_ptr() as *const c_char) as u32;
+            let glsl_alpha = gl::GetAttribLocation(self.program, b"alpha\0".as_ptr() as *const c_char) as u32;
             gl::EnableVertexAttribArray(glsl_model_view);
             gl::VertexAttribPointer(
                 glsl_model_view,
@@ -296,11 +298,31 @@ impl OpenGLRenderer {
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, atlas_ref) + offset_of!(AtlasRef, x)) as *const _,
             );
+            gl::EnableVertexAttribArray(glsl_blend);
+            gl::VertexAttribPointer(
+                glsl_blend,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                offset_of!(DrawCommand, blend) as *const _,
+            );
+            gl::EnableVertexAttribArray(glsl_alpha);
+            gl::VertexAttribPointer(
+                glsl_alpha,
+                1,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<DrawCommand>() as i32,
+                offset_of!(DrawCommand, alpha) as *const _,
+            );
             gl::VertexAttribDivisor(glsl_model_view, 1);
             gl::VertexAttribDivisor(glsl_model_view + 1, 1);
             gl::VertexAttribDivisor(glsl_model_view + 2, 1);
             gl::VertexAttribDivisor(glsl_model_view + 3, 1);
             gl::VertexAttribDivisor(atlas_xywh, 1);
+            gl::VertexAttribDivisor(glsl_blend, 1);
+            gl::VertexAttribDivisor(glsl_alpha, 1);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
@@ -460,7 +482,16 @@ impl Renderer for OpenGLRenderer {
             ]
         );
 
-        self.draw_commands.push(DrawCommand { atlas_ref, model_view_matrix, colour, alpha });
+        self.draw_commands.push(DrawCommand {
+            atlas_ref,
+            model_view_matrix,
+            blend: (
+                ((colour & 0xFF) as f32) / 255.0,
+                (((colour >> 8) & 0xFF) as f32) / 255.0,
+                (((colour >> 16) & 0xFF) as f32) / 255.0,
+            ),
+            alpha: alpha as f32,
+        });
     }
 
     fn draw_sprite_partial(
