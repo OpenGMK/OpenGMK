@@ -38,6 +38,9 @@ pub struct OpenGLRenderer {
     // Height the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_height: u32,
 
+    // Colour to clear the screen with at the start of each frame (RGB)
+    global_clear_colour: (f32, f32, f32),
+
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
 
@@ -222,6 +225,12 @@ impl OpenGLRenderer {
             unscaled_height: options.size.1,
 
             draw_commands: Vec::with_capacity(256),
+
+            global_clear_colour: (
+                (options.global_clear_colour.0 as f32) / 255.0,
+                (options.global_clear_colour.1 as f32) / 255.0,
+                (options.global_clear_colour.2 as f32) / 255.0,
+            ),
 
             program,
             vao,
@@ -618,7 +627,7 @@ impl Renderer for OpenGLRenderer {
         unsafe {
             gl::Viewport(0, 0, window_w, window_h);
             gl::Scissor(0, 0, window_w, window_h);
-            gl::ClearColor(0.2, 0.3, 0.3, 1.0); // TODO: use clear_colour setting
+            gl::ClearColor(self.global_clear_colour.0, self.global_clear_colour.1, self.global_clear_colour.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::UseProgram(self.program);
         }
