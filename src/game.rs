@@ -152,6 +152,11 @@ impl Game {
             title: &room1.caption,
             size: (room1_width, room1_height),
             icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
+            global_clear_colour: (
+                assets.settings.clear_colour as u8,
+                (assets.settings.clear_colour >> 8) as u8,
+                (assets.settings.clear_colour >> 16) as u8,
+            ),
             resizable: assets.settings.allow_resize,
             on_top: assets.settings.window_on_top,
             decorations: !assets.settings.dont_draw_border,
