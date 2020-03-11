@@ -33,8 +33,9 @@ pub trait Renderer {
     /// Used to resize the window and change its expected (unscaled) size. Usually used after changing rooms.
     fn resize_window(&mut self, width: u32, height: u32);
 
-    /// Clears the current view rectangle. Colour channels are normalized between 0 and 1.
-    fn clear(&self, red: f32, green: f32, blue: f32);
+    /// Sets the colour (RGB) which will be used to clear the background rectangle after using set_view().
+    /// If None is provided, the background will not be cleared at all.
+    fn set_background_colour(&mut self, colour: Option<(u8, u8, u8)>);
 
     /// Updates the view (source rectangle, angle and viewport) to use when drawing things.
     fn set_view(

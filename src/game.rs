@@ -502,6 +502,7 @@ impl Game {
             for tile in room.tiles.iter() {
                 self.instance_list.insert_tile(*tile);
             }
+            self.renderer.set_background_colour(if room.clear_screen {Some(room.bg_colour)} else {None});
             Ok(())
         } else {
             Err(format!("Tried to load non-existent room with id {}", room_id).into())
