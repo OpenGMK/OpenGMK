@@ -485,6 +485,7 @@ impl Game {
     }
 
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
+        self.instance_list.remove_non_persistent();
         if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
             for instance in room.instances.iter() {
                 let object = match self.assets.objects.get(instance.object as usize) {
