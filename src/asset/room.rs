@@ -1,4 +1,4 @@
-use crate::{background::Background, view::View, tile::Tile, gml::runtime::Instruction};
+use crate::{background::Background, gml::runtime::Instruction, tile::Tile, view::View};
 
 pub struct Room {
     pub name: String,

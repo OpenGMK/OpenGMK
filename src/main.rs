@@ -142,27 +142,29 @@ fn xmain() -> i32 {
             components.room_height,
         );
 
-        for (_, tile) in components.instance_list.iter_tiles() {
-            if let Some(Some(background)) = components.assets.backgrounds.get(tile.background_index as usize) {
-                if let Some(atlas) = &background.atlas_ref {
-                    components.renderer.draw_sprite_partial(
-                        atlas,
-                        tile.tile_x as _,
-                        tile.tile_y as _,
-                        tile.width as _,
-                        tile.height as _,
-                        tile.x,
-                        tile.y,
-                        tile.xscale,
-                        tile.yscale,
-                        0.0,
-                        tile.blend,
-                        tile.alpha,
-                    )
-                }
-            }
-        }
-        for (_, instance) in components.instance_list.iter_instances() {
+        // for (_, tile) in components.instance_list.iter_tiles() {
+        //     if let Some(Some(background)) = components.assets.backgrounds.get(tile.background_index as usize) {
+        //         if let Some(atlas) = &background.atlas_ref {
+        //             components.renderer.draw_sprite_partial(
+        //                 atlas,
+        //                 tile.tile_x as _,
+        //                 tile.tile_y as _,
+        //                 tile.width as _,
+        //                 tile.height as _,
+        //                 tile.x,
+        //                 tile.y,
+        //                 tile.xscale,
+        //                 tile.yscale,
+        //                 0.0,
+        //                 tile.blend,
+        //                 tile.alpha,
+        //             )
+        //         }
+        //     }
+        // }
+        let mut iter = components.instance_list.iter();
+        while let Some(idx) = iter.next(&components.instance_list) {
+            let instance = components.instance_list.get(idx).expect("uh oh");
             if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
                 components.renderer.draw_sprite(
                     &sprite.frames.first().unwrap().atlas_ref,
