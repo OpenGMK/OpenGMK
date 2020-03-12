@@ -434,11 +434,7 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn set_background_colour(&mut self, colour: Option<(u8, u8, u8)>) {
-        self.view_clear_colour = colour.map(|(r, g, b)| (
-            (r as f32) / 255.0,
-            (g as f32) / 255.0,
-            (b as f32) / 255.0,
-        ));
+        self.view_clear_colour = colour.map(|(r, g, b)| ((r as f32) / 255.0, (g as f32) / 255.0, (b as f32) / 255.0));
     }
 
     fn draw_sprite(

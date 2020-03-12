@@ -184,7 +184,11 @@ impl Game {
         let mut renderer = OpenGLRenderer::new(options, window)?;
 
         // needs to be done after renderer sets context
-        glfw.set_swap_interval(if assets.settings.vsync { glfw::SwapInterval::Sync(1) } else { glfw::SwapInterval::None });
+        glfw.set_swap_interval(if assets.settings.vsync {
+            glfw::SwapInterval::Sync(1)
+        } else {
+            glfw::SwapInterval::None
+        });
 
         let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
@@ -304,7 +308,10 @@ impl Game {
                             map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
                                 Ok(t) => t,
                                 Err(e) => {
-                                    return Err(format!("Compiler error in object {} event {},{}: {}", b.name, i, sub, e));
+                                    return Err(format!(
+                                        "Compiler error in object {} event {},{}: {}",
+                                        b.name, i, sub, e
+                                    ));
                                 },
                             });
                         }
@@ -485,7 +492,7 @@ impl Game {
     }
 
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
-        self.instance_list.remove_non_persistent();
+        self.instance_list.remove_with(|instance| !instance.persistent.get());
         if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
             for instance in room.instances.iter() {
                 let object = match self.assets.objects.get(instance.object as usize) {
@@ -500,10 +507,10 @@ impl Game {
                     object,
                 ));
             }
-            for tile in room.tiles.iter() {
-                self.instance_list.insert_tile(*tile);
-            }
-            self.renderer.set_background_colour(if room.clear_screen {Some(room.bg_colour)} else {None});
+            // for tile in room.tiles.iter() {
+            //     self.instance_list.insert_tile(*tile);
+            // }
+            self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
             Ok(())
         } else {
             Err(format!("Tried to load non-existent room with id {}", room_id).into())
