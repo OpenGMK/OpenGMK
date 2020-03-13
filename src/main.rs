@@ -14,7 +14,7 @@ mod types;
 mod util;
 mod view;
 
-use std::{env, fs, path::Path, process};
+use std::{cmp::Ordering, env, fs, path::Path, process};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -142,13 +142,27 @@ fn xmain() -> i32 {
             components.room_height,
         );
 
-        let mut tile_iter = components.tile_list.iter_draw();
-        components.tile_list.draw_sort(); // sort by draw order!
-        while let Some(idx) = tile_iter.next(&components.tile_list) {
-            let tile = components.tile_list.get(idx).expect("uh oh");
-            if let Some(Some(background)) = components.assets.backgrounds.get(tile.background_index as usize) {
+        fn draw_instance(game: &mut game::Game, idx: usize) {
+            let instance = game.instance_list.get(idx).expect("OH NO I PANICKE'D");
+            if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
+                game.renderer.draw_sprite(
+                    &sprite.frames.first().unwrap().atlas_ref,
+                    instance.x.get(),
+                    instance.y.get(),
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
+                )
+            }
+        }
+
+        fn draw_tile(game: &mut game::Game, idx: usize) {
+            let tile = game.tile_list.get(idx).expect("OH NO");
+            if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index as usize) {
                 if let Some(atlas) = &background.atlas_ref {
-                    components.renderer.draw_sprite_partial(
+                    game.renderer.draw_sprite_partial(
                         atlas,
                         tile.tile_x as _,
                         tile.tile_y as _,
@@ -166,23 +180,46 @@ fn xmain() -> i32 {
             }
         }
 
-        let mut instance_iter = components.instance_list.iter_draw();
-        components.instance_list.draw_sort(); // sort by draw order!
-        while let Some(idx) = instance_iter.next(&components.instance_list) {
-            let instance = components.instance_list.get(idx).expect("uh oh");
-            if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
-                components.renderer.draw_sprite(
-                    &sprite.frames.first().unwrap().atlas_ref,
-                    instance.x.get(),
-                    instance.y.get(),
-                    instance.image_xscale.get(),
-                    instance.image_yscale.get(),
-                    instance.image_angle.get(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get(),
-                )
+        components.instance_list.draw_sort();
+        let mut iter_inst = components.instance_list.iter_draw();
+        let mut iter_inst_v = iter_inst.next(&components.instance_list);
+        components.tile_list.draw_sort();
+        let mut iter_tile = components.tile_list.iter_draw();
+        let mut iter_tile_v = iter_tile.next(&components.tile_list);
+        loop {
+            match (iter_inst_v, iter_tile_v) {
+                (Some(idx_inst), Some(idx_tile)) => {
+                    let inst = components.instance_list.get(idx_inst).expect("OH NO");
+                    let tile = components.tile_list.get(idx_tile).expect("OH NO");
+                    match inst.depth.get().cmp(&tile.depth) {
+                        Ordering::Greater | Ordering::Equal => {
+                            draw_instance(&mut components, idx_inst);
+                            iter_inst_v = iter_inst.next(&components.instance_list);
+                        },
+                        Ordering::Less => {
+                            draw_tile(&mut components, idx_tile);
+                            iter_tile_v = iter_tile.next(&components.tile_list);
+                        },
+                    }
+                },
+                (Some(idx_inst), None) => {
+                    draw_instance(&mut components, idx_inst);
+                    while let Some(idx_inst) = iter_inst.next(&components.instance_list) {
+                        draw_instance(&mut components, idx_inst);
+                    }
+                    break;
+                },
+                (None, Some(idx_tile)) => {
+                    draw_tile(&mut components, idx_tile);
+                    while let Some(idx_tile) = iter_tile.next(&components.tile_list) {
+                        draw_tile(&mut components, idx_tile);
+                    }
+                    break;
+                },
+                (None, None) => break,
             }
         }
+
         components.renderer.finish();
     }
 
