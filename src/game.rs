@@ -10,7 +10,7 @@ use crate::{
     background,
     gml::{rand::Random, Compiler},
     instance::Instance,
-    instancelist::InstanceList,
+    instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile, view,
 };
@@ -23,6 +23,7 @@ pub struct Game {
     pub glfw: glfw::Glfw,
     pub glfw_events: Receiver<(f64, glfw::WindowEvent)>,
     pub instance_list: InstanceList,
+    pub tile_list: TileList,
     pub rand: Random,
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
@@ -475,6 +476,7 @@ impl Game {
             glfw,
             glfw_events: events,
             instance_list: InstanceList::new(),
+            tile_list: TileList::new(),
             rand: Random::new(),
             renderer: Box::new(renderer),
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
@@ -507,9 +509,9 @@ impl Game {
                     object,
                 ));
             }
-            // for tile in room.tiles.iter() {
-            //     self.instance_list.insert_tile(*tile);
-            // }
+            for tile in room.tiles.iter() {
+                self.tile_list.insert(*tile);
+            }
             self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
             Ok(())
         } else {

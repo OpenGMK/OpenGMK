@@ -142,29 +142,33 @@ fn xmain() -> i32 {
             components.room_height,
         );
 
-        // for (_, tile) in components.instance_list.iter_tiles() {
-        //     if let Some(Some(background)) = components.assets.backgrounds.get(tile.background_index as usize) {
-        //         if let Some(atlas) = &background.atlas_ref {
-        //             components.renderer.draw_sprite_partial(
-        //                 atlas,
-        //                 tile.tile_x as _,
-        //                 tile.tile_y as _,
-        //                 tile.width as _,
-        //                 tile.height as _,
-        //                 tile.x,
-        //                 tile.y,
-        //                 tile.xscale,
-        //                 tile.yscale,
-        //                 0.0,
-        //                 tile.blend,
-        //                 tile.alpha,
-        //             )
-        //         }
-        //     }
-        // }
-        let mut iter = components.instance_list.iter_draw();
+        let mut tile_iter = components.tile_list.iter_draw();
+        components.tile_list.draw_sort(); // sort by draw order!
+        while let Some(idx) = tile_iter.next(&components.tile_list) {
+            let tile = components.tile_list.get(idx).expect("uh oh");
+            if let Some(Some(background)) = components.assets.backgrounds.get(tile.background_index as usize) {
+                if let Some(atlas) = &background.atlas_ref {
+                    components.renderer.draw_sprite_partial(
+                        atlas,
+                        tile.tile_x as _,
+                        tile.tile_y as _,
+                        tile.width as _,
+                        tile.height as _,
+                        tile.x,
+                        tile.y,
+                        tile.xscale,
+                        tile.yscale,
+                        0.0,
+                        tile.blend,
+                        tile.alpha,
+                    )
+                }
+            }
+        }
+
+        let mut instance_iter = components.instance_list.iter_draw();
         components.instance_list.draw_sort(); // sort by draw order!
-        while let Some(idx) = iter.next(&components.instance_list) {
+        while let Some(idx) = instance_iter.next(&components.instance_list) {
             let instance = components.instance_list.get(idx).expect("uh oh");
             if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
                 components.renderer.draw_sprite(
