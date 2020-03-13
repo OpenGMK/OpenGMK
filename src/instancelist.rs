@@ -1,4 +1,4 @@
-use crate::instance::Instance;
+use crate::{instance::Instance, tile::Tile};
 use std::{alloc, cmp::Ordering, ptr};
 
 /// Elements per Chunk (fixed size).
@@ -14,7 +14,7 @@ struct Chunk<T> {
     vacant: usize,
 }
 
-/// How many chunks ChunkList preallocates (16 + 102400 bytes each).
+/// How many chunks ChunkList preallocates (16 + 102400 bytes each for instances).
 static CHUNKS_PREALLOCATED: usize = 8;
 
 /// Growable container managing allocated Chunks.
@@ -99,41 +99,72 @@ impl<T> ChunkList<T> {
     }
 }
 
-pub struct InstanceList {
-    chunks: ChunkList<Instance>,
-    order: Vec<usize>,
-    draw_order: Vec<usize>,
+macro_rules! chunk_list_derivative {
+    ($name: ident, $iter: ident, $t: ty) => {
+        macro_rules! chunk_list_derivative_iter {
+            ($iter_name: ident, $iter_list: ty) => {
+                pub struct $iter_name {
+                    order_idx: usize,
+                    draw_order: bool,
+                }
+
+                impl $iter_name {
+                    pub fn next(&mut self, list: &$iter_list) -> Option<usize> {
+                        self.order_idx += 1;
+                        if self.draw_order {
+                            list.draw_order.get(self.order_idx).copied()
+                        } else {
+                            list.order.get(self.order_idx).copied()
+                        }
+                    }
+                }
+            };
+        }
+
+        chunk_list_derivative_iter!($iter, $name);
+
+        pub struct $name {
+            chunks: ChunkList<$t>,
+            order: Vec<usize>,
+            draw_order: Vec<usize>,
+        }
+
+        impl $name {
+            pub fn new() -> Self {
+                Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
+            }
+
+            pub fn get(&self, idx: usize) -> Option<&$t> {
+                self.chunks.get(idx)
+            }
+
+            pub fn iter_inserted(&self) -> $iter {
+                $iter { order_idx: 0, draw_order: false }
+            }
+
+            pub fn iter_draw(&self) -> $iter {
+                $iter { order_idx: 0, draw_order: true }
+            }
+
+            pub fn insert(&mut self, el: $t) -> usize {
+                let value = self.chunks.insert(el);
+                self.order.push(value);
+                self.draw_order.push(value);
+                value
+            }
+
+            pub fn remove_with(&mut self, f: impl Fn(&$t) -> bool) {
+                self.chunks.remove_with(f);
+                let chunks = &self.chunks;
+                self.order.retain(|idx| chunks.get(*idx).is_some());
+            }
+        }
+    };
 }
 
-pub struct Iter {
-    order_idx: usize,
-    draw: bool, // whether it's draw or insert ordering
-}
-
-impl Iter {
-    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        self.order_idx += 1;
-        if self.draw { list.draw_order.get(self.order_idx).copied() } else { list.order.get(self.order_idx).copied() }
-    }
-}
+chunk_list_derivative!(InstanceList, InstanceListIter, Instance);
 
 impl InstanceList {
-    pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
-    }
-
-    pub fn get(&self, idx: usize) -> Option<&Instance> {
-        self.chunks.get(idx)
-    }
-
-    pub fn iter(&self) -> Iter {
-        Iter { order_idx: 0, draw: false }
-    }
-
-    pub fn iter_draw(&self) -> Iter {
-        Iter { order_idx: 0, draw: true }
-    }
-
     pub fn draw_sort(&mut self) {
         let chunks = &self.chunks; // borrowck :)
         self.draw_order.sort_by(move |&idx1, &idx2| {
@@ -152,27 +183,21 @@ impl InstanceList {
             }
         })
     }
+}
 
-    pub fn insert(&mut self, instance: Instance) -> usize {
-        let value = self.chunks.insert(instance);
-        self.order.push(value);
-        self.draw_order.push(value);
-        value
-    }
+chunk_list_derivative!(TileList, TileListIter, Tile);
 
-    pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
-        for chunk in self.chunks.iter_mut() {
-            for slot in chunk.slots.iter_mut() {
-                if let Some(instance) = slot {
-                    if f(&*instance) {
-                        *slot = None;
-                        chunk.vacant += 1;
-                    }
-                }
-            }
-        }
+impl TileList {
+    pub fn draw_sort(&mut self) {
+        let chunks = &self.chunks; // borrowck :)
+        self.draw_order.sort_by(move |&idx1, &idx2| {
+            // TODO: (dupe) Bench if this is faster with unreachable_unchecked...
+            let left = chunks.get(idx1).unwrap();
+            let right = chunks.get(idx2).unwrap();
 
-        let chunks = &self.chunks;
-        self.order.retain(|idx| chunks.get(*idx).is_some());
+            left.depth.cmp(&right.depth)
+        })
     }
 }
+
+// TODO: Maybe preallocating order/draw_order would increase perf - test this!
