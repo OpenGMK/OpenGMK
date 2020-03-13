@@ -276,11 +276,18 @@ impl<'a> AST<'a> {
                             vars.push(id);
 
                             loop {
-                                // Check if next token is a comma, if so, we expect another var name afterwards
-                                if let Some(Token::Separator(Separator::Comma)) = lex.peek() {
-                                    lex.next();
-                                } else {
-                                    break;
+                                // Check next token
+                                match lex.peek() {
+                                    // If next token is a comma, skip it and expect another identifier after it
+                                    Some(Token::Separator(Separator::Comma)) => {
+                                        lex.next();
+                                    },
+
+                                    // If next token is an identifier, it's another var name
+                                    Some(Token::Identifier(_)) => (),
+
+                                    // Anything else (most likely a semicolon) means there are no more var names.
+                                    _ => break,
                                 }
 
                                 // Read one identifier and store it as a var name
