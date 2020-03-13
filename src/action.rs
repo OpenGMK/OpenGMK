@@ -120,14 +120,7 @@ impl Tree {
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something { Some(action.applies_to) } else { None },
-                            args: action
-                                .param_strings
-                                .iter()
-                                .take(action.param_count)
-                                .map(|x| compiler.compile_expression(x))
-                                .collect::<Result<Vec<_>, _>>()
-                                .map_err(|e| e.message)?
-                                .into_boxed_slice(),
+                            args: Self::compile_params(compiler, &action.param_strings, &action.param_types, action.param_count)?,
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Function(*f_ptr),
@@ -160,14 +153,7 @@ impl Tree {
                         output.push(Action {
                             index: i,
                             target: if action.applies_to_something { Some(action.applies_to) } else { None },
-                            args: action
-                                .param_strings
-                                .iter()
-                                .take(action.param_count)
-                                .map(|x| compiler.compile_expression(x))
-                                .collect::<Result<Vec<_>, _>>()
-                                .map_err(|e| e.message)?
-                                .into_boxed_slice(),
+                            args: Self::compile_params(compiler, &action.param_strings, &action.param_types, action.param_count)?,
                             relative: action.is_relative,
                             invert_condition: action.invert_condition,
                             body: Body::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),
@@ -184,5 +170,11 @@ impl Tree {
         }
 
         Ok(output)
+    }
+
+    fn compile_params(compiler: &mut Compiler, params: &[String], types: &[u32], count: usize) -> Result<Box<[Node]>, String> {
+        Ok(params.iter().zip(types.iter()).take(count).map(|(param, t)| {
+            compiler.compile_expression(param)
+        }).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice())
     }
 }
