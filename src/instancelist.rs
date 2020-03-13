@@ -172,8 +172,8 @@ impl InstanceList {
             let left = chunks.get(idx1).unwrap();
             let right = chunks.get(idx2).unwrap();
 
-            // First, draw order is sorted by depth...
-            match left.depth.get().cmp(&right.depth.get()) {
+            // First, draw order is sorted by depth (higher is lowest...)
+            match right.depth.get().cmp(&left.depth.get()) {
                 Ordering::Equal => {
                     // If they're equal then it's the ordering of object index.
                     // If those are equal it's in insertion order (aka, equal, this is stablesort).
@@ -195,7 +195,7 @@ impl TileList {
             let left = chunks.get(idx1).unwrap();
             let right = chunks.get(idx2).unwrap();
 
-            left.depth.cmp(&right.depth)
+            right.depth.cmp(&left.depth)
         })
     }
 }
