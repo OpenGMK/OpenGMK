@@ -172,9 +172,25 @@ impl Tree {
         Ok(output)
     }
 
-    fn compile_params(compiler: &mut Compiler, params: &[String], types: &[u32], count: usize) -> Result<Box<[Node]>, String> {
-        Ok(params.iter().zip(types.iter()).take(count).map(|(param, t)| {
-            compiler.compile_expression(param)
-        }).collect::<Result<Vec<_>, _>>().map_err(|e| e.message)?.into_boxed_slice())
+    fn compile_params(
+        compiler: &mut Compiler,
+        params: &[String],
+        types: &[u32],
+        count: usize,
+    ) -> Result<Box<[Node]>, String> {
+        Ok(params
+            .iter()
+            .zip(types.iter())
+            .take(count)
+            .map(|(param, t)| {
+                if *t == 2 {
+                    Ok(Node::Literal { value: Value::Str(param.as_str().into()) })
+                } else {
+                    compiler.compile_expression(param)
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.message)?
+            .into_boxed_slice())
     }
 }
