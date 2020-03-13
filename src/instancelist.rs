@@ -1,31 +1,93 @@
 use crate::instance::Instance;
+use std::{alloc, ptr};
 
-const INSTANCES_PER_CHUNK: usize = 256;
+/// Elements per Chunk (fixed size).
+const CHUNK_SIZE: usize = 256;
 
-fn chunk_insert<'a, T>(chunks: &'a mut Vec<InstanceChunk<T>>, t: T) -> usize {
-    match chunks.iter_mut().enumerate().find(|(_, chunk)| chunk.vacant != 0) {
-        Some((idx, chunk)) => {
-            chunk.vacant -= 1;
-            match chunk.slots.iter_mut().enumerate().find(|(_, slot)| slot.is_none()) {
-                Some((slot_idx, slot @ None)) => {
-                    *slot = Some(t);
-                    (idx * INSTANCES_PER_CHUNK) + slot_idx
-                },
-                _ => unreachable!(),
+/// Typedef to not have to write `[Option<T>; CHUNK_SIZE]` everywhere.
+/// Array of CHUNK_SIZE with either vacant or occupied (T) slots.
+type ChunkArray<T> = [Option<T>; CHUNK_SIZE];
+
+/// Slab-like fixed size memory chunk with standard vacant/occupied system.
+struct Chunk<T> {
+    slots: Box<ChunkArray<T>>,
+    vacant: usize,
+}
+
+/// How many chunks ChunkList preallocates (16 + 102400 bytes each).
+static CHUNKS_PREALLOCATED: usize = 8;
+
+/// Growable container managing allocated Chunks.
+struct ChunkList<T>(Vec<Chunk<T>>);
+
+impl<T> Chunk<T> {
+    pub fn new() -> Self {
+        Self {
+            slots: unsafe {
+                // manual alloc since T isn't Copy... but it's all None anyway
+                let memory = alloc::alloc(alloc::Layout::new::<ChunkArray<T>>()) as *mut ChunkArray<T>;
+                let mut slots = Box::from_raw(memory);
+
+                // initialize memory, using ptr::write to avoid Drop running on uninitialized memory
+                slots.iter_mut().for_each(|slot| ptr::write(slot, None));
+                slots
+            },
+            vacant: CHUNK_SIZE,
+        }
+    }
+}
+
+impl<T> ChunkList<T> {
+    fn new() -> Self {
+        Self({
+            let mut chunks = Vec::with_capacity(CHUNKS_PREALLOCATED);
+            for _ in 0..CHUNKS_PREALLOCATED {
+                chunks.push(Chunk::new());
             }
-        },
-        None => {
-            let mut chunk = InstanceChunk::new();
-            chunk.vacant -= 1;
-            chunk.slots[0] = Some(t);
-            chunks.push(chunk);
-            (chunks.len() - 1) * INSTANCES_PER_CHUNK
-        },
+            chunks
+        })
+    }
+
+    fn get(&self, idx: usize) -> Option<&T> {
+        // Calculating these right next to each other guarantees they'll be optimized to a single div op.
+        let idx_div = idx / CHUNK_SIZE;
+        let idx_mod = idx % CHUNK_SIZE;
+        self.0.get(idx_div).and_then(|chunk| chunk.slots.get(idx_mod)).and_then(|slot| slot.as_ref())
+    }
+
+    fn insert(&mut self, t: T) -> usize {
+        match self.0.iter_mut().enumerate().find(|(_, chunk)| chunk.vacant != 0) {
+            Some((idx, chunk)) => {
+                chunk.vacant -= 1;
+                match chunk.slots.iter_mut().enumerate().find(|(_, slot)| slot.is_none()) {
+                    Some((slot_idx, slot @ None)) => {
+                        *slot = Some(t);
+                        (idx * CHUNK_SIZE) + slot_idx
+                    },
+                    _ => unreachable!(),
+                }
+            },
+            None => {
+                let mut chunk = Chunk::new();
+                chunk.vacant -= 1;
+                chunk.slots[0] = Some(t);
+                self.0.push(chunk);
+                (self.0.len() - 1) * CHUNK_SIZE
+            },
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &Chunk<T>> {
+        self.0.iter()
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut Chunk<T>> {
+        self.0.iter_mut()
     }
 }
 
 pub struct InstanceList {
-    chunks: Vec<InstanceChunk<Instance>>,
+    chunks: ChunkList<Instance>,
     order: Vec<usize>,
     order_depth: Vec<usize>,
 }
@@ -41,49 +103,13 @@ impl Iter {
     }
 }
 
-struct InstanceChunk<T> {
-    slots: Box<[Option<T>; INSTANCES_PER_CHUNK]>,
-    vacant: usize,
-}
-
-impl<T> InstanceChunk<T> {
-    pub fn new() -> Self {
-        Self {
-            // TODO: fix this, please
-            slots: Box::new([
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None,
-            ]),
-            vacant: INSTANCES_PER_CHUNK,
-        }
-    }
-}
-
 impl InstanceList {
     pub fn new() -> Self {
-        Self { chunks: vec![InstanceChunk::new()], order: Vec::new(), order_depth: Vec::new() }
+        Self { chunks: ChunkList::new(), order: Vec::new(), order_depth: Vec::new() }
     }
 
     pub fn get(&self, idx: usize) -> Option<&Instance> {
-        // TODO: does LLVM optimize out div/mod ?
-        self.chunks
-            .get(idx / INSTANCES_PER_CHUNK)
-            .and_then(|chunk| chunk.slots.get(idx % INSTANCES_PER_CHUNK))
-            .and_then(|slot| slot.as_ref())
+        self.chunks.get(idx)
     }
 
     pub fn iter(&self) -> Iter {
@@ -91,14 +117,14 @@ impl InstanceList {
     }
 
     pub fn insert(&mut self, instance: Instance) -> usize {
-        let value = chunk_insert(&mut self.chunks, instance);
+        let value = self.chunks.insert(instance);
         self.order.push(value);
         self.order_depth.push(value);
         value
     }
 
     pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
-        for chunk in &mut self.chunks {
+        for chunk in self.chunks.iter_mut() {
             for slot in chunk.slots.iter_mut() {
                 if let Some(instance) = slot {
                     if f(&*instance) {
@@ -108,7 +134,8 @@ impl InstanceList {
                 }
             }
         }
-        let chunks = &mut self.chunks; // borrowck :)
+
+        let chunks = &self.chunks;
         self.order.retain(|idx| chunks.get(*idx).is_some());
     }
 }
