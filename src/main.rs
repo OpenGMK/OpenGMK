@@ -162,7 +162,8 @@ fn xmain() -> i32 {
         //         }
         //     }
         // }
-        let mut iter = components.instance_list.iter();
+        let mut iter = components.instance_list.iter_draw();
+        components.instance_list.draw_sort(); // sort by draw order!
         while let Some(idx) = iter.next(&components.instance_list) {
             let instance = components.instance_list.get(idx).expect("uh oh");
             if let Some(Some(sprite)) = components.assets.sprites.get(instance.sprite_index.get() as usize) {
