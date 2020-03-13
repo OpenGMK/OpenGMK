@@ -94,12 +94,13 @@ pub struct InstanceList {
 
 pub struct Iter {
     order_idx: usize,
+    draw: bool, // whether it's draw or insert ordering
 }
 
 impl Iter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         self.order_idx += 1;
-        list.order.get(self.order_idx).copied()
+        if self.draw { list.draw_order.get(self.order_idx).copied() } else { list.order.get(self.order_idx).copied() }
     }
 }
 
@@ -113,7 +114,11 @@ impl InstanceList {
     }
 
     pub fn iter(&self) -> Iter {
-        Iter { order_idx: 0 }
+        Iter { order_idx: 0, draw: false }
+    }
+
+    pub fn iter_draw(&self) -> Iter {
+        Iter { order_idx: 0, draw: true }
     }
 
     pub fn draw_sort(&mut self) {
