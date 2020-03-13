@@ -2,7 +2,7 @@ use crate::instance::Instance;
 
 const INSTANCES_PER_CHUNK: usize = 256;
 
-struct ChunkList<T> (Vec<InstanceChunk<T>>);
+struct ChunkList<T>(Vec<InstanceChunk<T>>);
 
 impl<T> ChunkList<T> {
     fn new() -> Self {
@@ -13,10 +13,7 @@ impl<T> ChunkList<T> {
         // Calculating these right next to each other guarantees they'll be optimized to a single div op.
         let idx_div = idx / INSTANCES_PER_CHUNK;
         let idx_mod = idx % INSTANCES_PER_CHUNK;
-        self.0
-            .get(idx_div)
-            .and_then(|chunk| chunk.slots.get(idx_mod))
-            .and_then(|slot| slot.as_ref())
+        self.0.get(idx_div).and_then(|chunk| chunk.slots.get(idx_mod)).and_then(|slot| slot.as_ref())
     }
 
     fn insert(&mut self, t: T) -> usize {
