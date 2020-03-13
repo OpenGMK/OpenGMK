@@ -84,6 +84,19 @@ impl<T> ChunkList<T> {
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Chunk<T>> {
         self.0.iter_mut()
     }
+
+    fn remove_with(&mut self, f: impl Fn(&T) -> bool) {
+        for chunk in self.iter_mut() {
+            for slot in chunk.slots.iter_mut() {
+                if let Some(t) = slot {
+                    if f(&*t) {
+                        *slot = None;
+                        chunk.vacant += 1;
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub struct InstanceList {
