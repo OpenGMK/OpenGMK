@@ -14,6 +14,9 @@ struct Chunk<T> {
     vacant: usize,
 }
 
+/// How many chunks ChunkList preallocates (16 + 102400 bytes each).
+static CHUNKS_PREALLOCATED: usize = 8;
+
 /// Growable container managing allocated Chunks.
 struct ChunkList<T>(Vec<Chunk<T>>);
 
@@ -36,7 +39,13 @@ impl<T> Chunk<T> {
 
 impl<T> ChunkList<T> {
     fn new() -> Self {
-        Self(vec![Chunk::new()])
+        Self({
+            let mut chunks = Vec::with_capacity(CHUNKS_PREALLOCATED);
+            for _ in 0..CHUNKS_PREALLOCATED {
+                chunks.push(Chunk::new());
+            }
+            chunks
+        })
     }
 
     fn get(&self, idx: usize) -> Option<&T> {
