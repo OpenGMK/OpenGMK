@@ -1,36 +1,34 @@
 use crate::instance::Instance;
+use std::{alloc, ptr};
 
+/// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
 
-struct ChunkList<T>(Vec<Chunk<T>>);
+/// Typedef to not have to write `[Option<T>; CHUNK_SIZE]` everywhere.
+/// Array of CHUNK_SIZE with either vacant or occupied (T) slots.
+type ChunkArray<T> = [Option<T>; CHUNK_SIZE];
 
+/// Slab-like fixed size memory chunk with standard vacant/occupied system.
 struct Chunk<T> {
-    slots: Box<[Option<T>; CHUNK_SIZE]>,
+    slots: Box<ChunkArray<T>>,
     vacant: usize,
 }
+
+/// Growable container managing allocated Chunks.
+struct ChunkList<T>(Vec<Chunk<T>>);
 
 impl<T> Chunk<T> {
     pub fn new() -> Self {
         Self {
-            // TODO: fix this, please
-            slots: Box::new([
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-                None,
-            ]),
+            slots: unsafe {
+                // manual alloc since T isn't Copy... but it's all None anyway
+                let memory = alloc::alloc(alloc::Layout::new::<ChunkArray<T>>()) as *mut ChunkArray<T>;
+                let mut slots = Box::from_raw(memory);
+
+                // initialize memory, using ptr::write to avoid Drop running on uninitialized memory
+                slots.iter_mut().for_each(|slot| ptr::write(slot, None));
+                slots
+            },
             vacant: CHUNK_SIZE,
         }
     }
