@@ -1,5 +1,5 @@
 use crate::instance::Instance;
-use std::{alloc, ptr};
+use std::{alloc, cmp::Ordering, ptr};
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
@@ -89,7 +89,7 @@ impl<T> ChunkList<T> {
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
     order: Vec<usize>,
-    order_depth: Vec<usize>,
+    draw_order: Vec<usize>,
 }
 
 pub struct Iter {
@@ -105,7 +105,7 @@ impl Iter {
 
 impl InstanceList {
     pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), order: Vec::new(), order_depth: Vec::new() }
+        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
     }
 
     pub fn get(&self, idx: usize) -> Option<&Instance> {
@@ -116,10 +116,29 @@ impl InstanceList {
         Iter { order_idx: 0 }
     }
 
+    pub fn draw_sort(&mut self) {
+        let chunks = &self.chunks; // borrowck :)
+        self.draw_order.sort_by(move |&idx1, &idx2| {
+            // TODO: Bench if this is faster with unreachable_unchecked...
+            let left = chunks.get(idx1).unwrap();
+            let right = chunks.get(idx2).unwrap();
+
+            // First, draw order is sorted by depth...
+            match left.depth.get().cmp(&right.depth.get()) {
+                Ordering::Equal => {
+                    // If they're equal then it's the ordering of object index.
+                    // If those are equal it's in insertion order (aka, equal, this is stablesort).
+                    left.object_index.get().cmp(&right.object_index.get())
+                },
+                other => other,
+            }
+        })
+    }
+
     pub fn insert(&mut self, instance: Instance) -> usize {
         let value = self.chunks.insert(instance);
         self.order.push(value);
-        self.order_depth.push(value);
+        self.draw_order.push(value);
         value
     }
 
