@@ -110,12 +110,9 @@ macro_rules! chunk_list_derivative {
 
                 impl $iter_name {
                     pub fn next(&mut self, list: &$iter_list) -> Option<usize> {
+                        let idx = self.order_idx;
                         self.order_idx += 1;
-                        if self.draw_order {
-                            list.draw_order.get(self.order_idx).copied()
-                        } else {
-                            list.order.get(self.order_idx).copied()
-                        }
+                        if self.draw_order { list.draw_order.get(idx).copied() } else { list.order.get(idx).copied() }
                     }
                 }
             };
