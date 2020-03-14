@@ -50,9 +50,10 @@ impl<T> ChunkList<T> {
 
     fn get(&self, idx: usize) -> Option<&T> {
         // Calculating these right next to each other guarantees they'll be optimized to a single div op.
+        // Using [] in chunk.slots won't be bounds checked since LLVM will see %CHUNK_SIZE.
         let idx_div = idx / CHUNK_SIZE;
         let idx_mod = idx % CHUNK_SIZE;
-        self.0.get(idx_div).and_then(|chunk| chunk.slots.get(idx_mod)).and_then(|slot| slot.as_ref())
+        self.0.get(idx_div).and_then(|chunk| chunk.slots[idx_mod].as_ref())
     }
 
     fn insert(&mut self, t: T) -> usize {
