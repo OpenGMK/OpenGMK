@@ -157,11 +157,7 @@ impl Game {
             title: &room1.caption,
             size: (room1_width, room1_height),
             icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
-            global_clear_colour: (
-                assets.settings.clear_colour as u8,
-                (assets.settings.clear_colour >> 8) as u8,
-                (assets.settings.clear_colour >> 16) as u8,
-            ),
+            global_clear_colour: assets.settings.clear_colour.into(),
             resizable: assets.settings.allow_resize,
             on_top: assets.settings.window_on_top,
             decorations: !assets.settings.dont_draw_border,
@@ -434,7 +430,7 @@ impl Game {
                         height: b.height,
                         speed: b.speed,
                         persistent: b.persistent,
-                        bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b),
+                        bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b).into(),
                         clear_screen: b.clear_screen,
                         creation_code,
                         backgrounds: b
