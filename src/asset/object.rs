@@ -1,5 +1,5 @@
 use crate::action::Tree;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct Object {
     pub name: String,
@@ -9,6 +9,9 @@ pub struct Object {
     pub depth: i32,
     pub sprite_index: i32,
     pub mask_index: i32,
+    pub parent_index: i32,
+
     pub events: [HashMap<u32, Tree>; 12],
-    // todo
+    pub identities: HashSet<i32>,
+    pub children: HashSet<i32>,
 }

@@ -15,7 +15,11 @@ use crate::{
     tile, view,
 };
 use gm8exe::GameAssets;
-use std::{collections::HashMap, iter::repeat, sync::mpsc::Receiver};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::repeat,
+    sync::mpsc::Receiver,
+};
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -298,39 +302,87 @@ impl Game {
             })
             .collect::<Vec<_>>();
 
-        let objects = objects
-            .into_iter()
-            .map(|o| {
-                o.map(|b| {
-                    let mut events: [HashMap<u32, Tree>; 12] = std::default::Default::default();
-                    for ((i, map), input) in events.iter_mut().enumerate().zip(b.events.iter()) {
-                        map.reserve(input.len());
-                        for (sub, actions) in input {
-                            map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
-                                Ok(t) => t,
-                                Err(e) => {
-                                    return Err(format!(
-                                        "Compiler error in object {} event {},{}: {}",
-                                        b.name, i, sub, e
-                                    ));
-                                },
-                            });
+        let objects = {
+            let mut object_parents: Vec<Option<i32>> = Vec::with_capacity(objects.len());
+            let mut objects = objects
+                .into_iter()
+                .map(|o| {
+                    object_parents.push(match &o {
+                        Some(b) => Some(b.parent_index),
+                        None => None,
+                    });
+                    o.map(|b| {
+                        let mut events: [HashMap<u32, Tree>; 12] = std::default::Default::default();
+                        for ((i, map), input) in events.iter_mut().enumerate().zip(b.events.iter()) {
+                            map.reserve(input.len());
+                            for (sub, actions) in input {
+                                map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
+                                    Ok(t) => t,
+                                    Err(e) => {
+                                        return Err(format!(
+                                            "Compiler error in object {} event {},{}: {}",
+                                            b.name, i, sub, e
+                                        ));
+                                    },
+                                });
+                            }
                         }
-                    }
-                    Ok(Box::new(Object {
-                        name: b.name,
-                        solid: b.solid,
-                        visible: b.visible,
-                        persistent: b.persistent,
-                        depth: b.depth,
-                        sprite_index: b.sprite_index,
-                        mask_index: b.mask_index,
-                        events,
-                    }))
+                        Ok(Box::new(Object {
+                            name: b.name,
+                            solid: b.solid,
+                            visible: b.visible,
+                            persistent: b.persistent,
+                            depth: b.depth,
+                            sprite_index: b.sprite_index,
+                            mask_index: b.mask_index,
+                            parent_index: b.parent_index,
+                            events,
+                            identities: HashSet::new(),
+                            children: HashSet::new(),
+                        }))
+                    })
+                    .transpose()
                 })
-                .transpose()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
+
+            // Populate identity lists
+            for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+                object.identities.insert(i as _);
+                let mut parent_index = object.parent_index;
+                while parent_index >= 0 {
+                    object.identities.insert(parent_index);
+                    if let Some(Some(parent)) = object_parents.get(parent_index as usize) {
+                        parent_index = *parent;
+                    } else {
+                        return Err(format!(
+                            "Invalid parent tree for object {}: non-existent object: {}",
+                            object.name, parent_index
+                        )
+                        .into());
+                    }
+                }
+            }
+
+            // Populate children lists
+            for (i, mut parent_index) in
+                object_parents.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, *x)))
+            {
+                while parent_index >= 0 {
+                    if let Some(Some(parent)) = objects.get_mut(parent_index as usize) {
+                        parent.children.insert(i as _);
+                        parent_index = parent.parent_index;
+                    } else {
+                        return Err(format!(
+                            "Invalid parent tree for object {}: non-existent object: {}",
+                            i, parent_index
+                        )
+                        .into());
+                    }
+                }
+            }
+
+            objects
+        };
 
         let timelines = timelines
             .into_iter()
