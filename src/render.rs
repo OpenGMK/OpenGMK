@@ -2,7 +2,7 @@
 
 pub mod opengl;
 
-use crate::atlas::AtlasBuilder;
+use crate::{atlas::AtlasBuilder, types::Color};
 use std::{io, path::PathBuf};
 
 // Re-export for more logical module pathing
@@ -35,7 +35,7 @@ pub trait Renderer {
 
     /// Sets the colour (RGB) which will be used to clear the background rectangle after using set_view().
     /// If None is provided, the background will not be cleared at all.
-    fn set_background_colour(&mut self, colour: Option<(u8, u8, u8)>);
+    fn set_background_colour(&mut self, colour: Option<Color>);
 
     /// Updates the view (source rectangle, angle and viewport) to use when drawing things.
     fn set_view(
@@ -89,7 +89,7 @@ pub struct RendererOptions<'a> {
     pub title: &'a str,
     pub size: (u32, u32),
     pub icons: Vec<(Vec<u8>, u32, u32)>,
-    pub global_clear_colour: (u8, u8, u8),
+    pub global_clear_colour: Color,
     pub resizable: bool,
     pub on_top: bool,
     pub decorations: bool,

@@ -1,4 +1,4 @@
-use crate::{background::Background, gml::runtime::Instruction, tile::Tile, view::View};
+use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types::Color, view::View};
 
 pub struct Room {
     pub name: String,
@@ -7,7 +7,7 @@ pub struct Room {
     pub height: u32,
     pub speed: u32,
     pub persistent: bool,
-    pub bg_colour: (u8, u8, u8),
+    pub bg_colour: Color,
     pub clear_screen: bool,
     pub creation_code: Vec<Instruction>,
 

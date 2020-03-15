@@ -13,6 +13,7 @@ use memoffset::offset_of;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions},
+    types::Color,
 };
 use glfw::Context;
 use rect_packer::DensePacker;
@@ -39,9 +40,9 @@ pub struct OpenGLRenderer {
     unscaled_height: u32,
 
     // Colour to clear the screen with at the start of each frame (RGB)
-    global_clear_colour: (f32, f32, f32),
+    global_clear_colour: Color,
     // Colour to clear each view rectangle (RGB; None means do not clear)
-    view_clear_colour: Option<(f32, f32, f32)>,
+    view_clear_colour: Option<Color>,
 
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
@@ -228,11 +229,7 @@ impl OpenGLRenderer {
 
             draw_commands: Vec::with_capacity(256),
 
-            global_clear_colour: (
-                (options.global_clear_colour.0 as f32) / 255.0,
-                (options.global_clear_colour.1 as f32) / 255.0,
-                (options.global_clear_colour.2 as f32) / 255.0,
-            ),
+            global_clear_colour: options.global_clear_colour,
             view_clear_colour: None,
 
             program,
@@ -433,8 +430,8 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn set_background_colour(&mut self, colour: Option<(u8, u8, u8)>) {
-        self.view_clear_colour = colour.map(|(r, g, b)| ((r as f32) / 255.0, (g as f32) / 255.0, (b as f32) / 255.0));
+    fn set_background_colour(&mut self, colour: Option<Color>) {
+        self.view_clear_colour = colour;
     }
 
     fn draw_sprite(
@@ -616,8 +613,8 @@ impl Renderer for OpenGLRenderer {
             );
 
             // Clear view rectangle
-            if let Some((red, green, blue)) = self.view_clear_colour {
-                gl::ClearColor(red, green, blue, 1.0);
+            if let Some(colour) = self.view_clear_colour {
+                gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
         }
@@ -633,7 +630,12 @@ impl Renderer for OpenGLRenderer {
         unsafe {
             gl::Viewport(0, 0, window_w, window_h);
             gl::Scissor(0, 0, window_w, window_h);
-            gl::ClearColor(self.global_clear_colour.0, self.global_clear_colour.1, self.global_clear_colour.2, 1.0);
+            gl::ClearColor(
+                self.global_clear_colour.r as f32,
+                self.global_clear_colour.g as f32,
+                self.global_clear_colour.b as f32,
+                1.0,
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::UseProgram(self.program);
         }
