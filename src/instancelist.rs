@@ -1,5 +1,5 @@
 use crate::{instance::Instance, tile::Tile};
-use std::{alloc, cmp::Ordering, ptr};
+use std::{alloc, cmp::Ordering, collections::HashMap, ptr};
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
@@ -86,7 +86,7 @@ impl<T> ChunkList<T> {
         self.0.iter_mut()
     }
 
-    fn remove_with(&mut self, f: impl Fn(&T) -> bool) {
+    fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) {
         for chunk in self.iter_mut() {
             for slot in chunk.slots.iter_mut() {
                 if let Some(t) = slot {
@@ -122,10 +122,6 @@ macro_rules! chunk_list_derivative {
         chunk_list_derivative_iter!($iter, $name);
 
         impl $name {
-            pub fn new() -> Self {
-                Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
-            }
-
             pub fn get(&self, idx: usize) -> Option<&$t> {
                 self.chunks.get(idx)
             }
@@ -137,19 +133,6 @@ macro_rules! chunk_list_derivative {
             pub fn iter_draw(&self) -> $iter {
                 $iter { order_idx: 0, draw_order: true }
             }
-
-            pub fn insert(&mut self, el: $t) -> usize {
-                let value = self.chunks.insert(el);
-                self.order.push(value);
-                self.draw_order.push(value);
-                value
-            }
-
-            pub fn remove_with(&mut self, f: impl Fn(&$t) -> bool) {
-                self.chunks.remove_with(f);
-                let chunks = &self.chunks;
-                self.order.retain(|idx| chunks.get(*idx).is_some());
-            }
         }
     };
 }
@@ -158,11 +141,16 @@ pub struct InstanceList {
     chunks: ChunkList<Instance>,
     order: Vec<usize>,
     draw_order: Vec<usize>,
+    id_map: HashMap<i32, usize>, // Object ID <-> Count
 }
 
 chunk_list_derivative!(InstanceList, InstanceListIter, Instance);
 
 impl InstanceList {
+    pub fn new() -> Self {
+        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
+    }
+
     pub fn draw_sort(&mut self) {
         let chunks = &self.chunks; // borrowck :)
         self.draw_order.sort_by(move |&idx1, &idx2| {
@@ -181,6 +169,37 @@ impl InstanceList {
             }
         })
     }
+
+    pub fn insert(&mut self, el: Instance) -> usize {
+        let object_id = el.object_index.get();
+        let value = self.chunks.insert(el);
+        self.order.push(value);
+        self.draw_order.push(value);
+        self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+        value
+    }
+
+    pub fn obj_count_hint(&mut self, n: usize) {
+        self.id_map.reserve((n as isize - self.id_map.len() as isize).max(0) as usize)
+    }
+
+    pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
+        let id_map = &mut self.id_map; // borrowck :)
+        self.chunks.remove_with(|x| {
+            let remove = f(x);
+            if remove {
+                let entry = id_map.entry(x.object_index.get()).and_modify(|n| *n -= 1);
+                if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                    if *occupied.get() == 0 {
+                        occupied.remove_entry();
+                    }
+                }
+            }
+            remove
+        });
+        let chunks = &self.chunks;
+        self.order.retain(|idx| chunks.get(*idx).is_some());
+    }
 }
 
 pub struct TileList {
@@ -192,6 +211,10 @@ pub struct TileList {
 chunk_list_derivative!(TileList, TileListIter, Tile);
 
 impl TileList {
+    pub fn new() -> Self {
+        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
+    }
+
     pub fn draw_sort(&mut self) {
         let chunks = &self.chunks; // borrowck :)
         self.draw_order.sort_by(move |&idx1, &idx2| {
@@ -201,6 +224,13 @@ impl TileList {
 
             right.depth.cmp(&left.depth)
         })
+    }
+
+    pub fn insert(&mut self, el: Tile) -> usize {
+        let value = self.chunks.insert(el);
+        self.order.push(value);
+        self.draw_order.push(value);
+        value
     }
 }
 
