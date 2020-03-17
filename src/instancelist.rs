@@ -121,12 +121,6 @@ macro_rules! chunk_list_derivative {
 
         chunk_list_derivative_iter!($iter, $name);
 
-        pub struct $name {
-            chunks: ChunkList<$t>,
-            order: Vec<usize>,
-            draw_order: Vec<usize>,
-        }
-
         impl $name {
             pub fn new() -> Self {
                 Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
@@ -160,6 +154,12 @@ macro_rules! chunk_list_derivative {
     };
 }
 
+pub struct InstanceList {
+    chunks: ChunkList<Instance>,
+    order: Vec<usize>,
+    draw_order: Vec<usize>,
+}
+
 chunk_list_derivative!(InstanceList, InstanceListIter, Instance);
 
 impl InstanceList {
@@ -181,6 +181,12 @@ impl InstanceList {
             }
         })
     }
+}
+
+pub struct TileList {
+    chunks: ChunkList<Tile>,
+    order: Vec<usize>,
+    draw_order: Vec<usize>,
 }
 
 chunk_list_derivative!(TileList, TileListIter, Tile);
