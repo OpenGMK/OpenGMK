@@ -146,6 +146,31 @@ pub struct InstanceList {
 
 chunk_list_derivative!(InstanceList, InstanceListIter, Instance);
 
+// iterator for iter_by_object(object_index)
+pub struct ObjectIter {
+    // count of objects (stored to optimize and match GM8 weird behaviour)
+    count: usize,
+    // position in the insert-order vec
+    position: usize,
+    // object index
+    object_index: i32,
+}
+
+impl ObjectIter {
+    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
+        if self.count > 0 {
+            for (idx, &instance) in list.order.get(self.position..)?.iter().enumerate() {
+                if list.get(instance)?.object_index.get() == self.object_index {
+                    self.count -= 1;
+                    self.position += idx + 1;
+                    return Some(instance);
+                }
+            }
+        }
+        None
+    }
+}
+
 impl InstanceList {
     pub fn new() -> Self {
         Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
@@ -168,6 +193,14 @@ impl InstanceList {
                 other => other,
             }
         })
+    }
+
+    pub fn iter_by_object(&self, object_index: i32) -> ObjectIter {
+        ObjectIter {
+            count: self.id_map.get(&object_index).copied().unwrap_or(0),
+            position: 0,
+            object_index: object_index,
+        }
     }
 
     pub fn insert(&mut self, el: Instance) -> usize {
