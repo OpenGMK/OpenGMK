@@ -1,4 +1,4 @@
-use super::{Context, GameVariable, InstanceVariable, Value};
+use super::{Context, GameVariable, InstanceVariable, Value, token::Operator};
 use crate::game::Game;
 use std::fmt;
 
@@ -100,9 +100,10 @@ pub enum InstanceIdentifier {
     Expression(Box<Node>),
 }
 
-pub struct Error {
-    pub reason: String,
-    // Probably could add more useful things later.
+#[derive(Debug)]
+pub enum Error {
+    InvalidOperandsUnary(Operator, Value),
+    InvalidOperandsBinary(Operator, Value, Value),
 }
 
 impl fmt::Debug for Node {
