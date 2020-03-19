@@ -10,7 +10,7 @@ pub use context::Context;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
-pub use runtime::Error as Error;
+pub use runtime::Error;
 
 pub const TRUE: f64 = 1.0;
 pub const FALSE: f64 = 0.0;

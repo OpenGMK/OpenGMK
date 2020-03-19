@@ -1,5 +1,5 @@
-use super::{Context, GameVariable, InstanceVariable, Value, token::Operator};
-use crate::game::Game;
+use super::{compiler::token::Operator, Context, GameVariable, InstanceVariable, Value};
+use crate::{game::Game, gml};
 use std::fmt;
 
 /// A compiled runtime instruction. Generally represents a line of code.
@@ -17,7 +17,7 @@ pub enum Instruction {
     SetReturnValue { value: Node },
     Switch { input: Node, cases: Box<[(Node, usize)]>, default: Option<usize>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },
-    RuntimeError { error: String },
+    RuntimeError { error: Error },
 }
 
 /// Node representing one value in an expression.
@@ -28,9 +28,9 @@ pub enum Node {
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
     GameVariable { accessor: GameVariableAccessor },
-    Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> Value },
-    Unary { child: Box<Node>, operator: fn(Value) -> Value },
-    RuntimeError { error: String },
+    Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> gml::Result<Value> },
+    Unary { child: Box<Node>, operator: fn(Value) -> gml::Result<Value> },
+    RuntimeError { error: Error },
 }
 
 /// Type of assignment.
@@ -104,6 +104,15 @@ pub enum InstanceIdentifier {
 pub enum Error {
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
+    InvalidUnaryOperator(Operator),
+    InvalidBinaryOperator(Operator),
+    InvalidArrayAccessor(String), // string repr. because Expr<'a>
+    InvalidDeref(String),         // string repr. because Expr<'a>
+    InvalidIndexLhs(String),      // string repr. because Expr<'a>
+    InvalidSwitchBody(String),    // string repr. because Expr<'a>
+    UnknownFunction(String),
+    UnexpectedASTExpr(String), // string repr. because Expr<'a>
+    TooManyArrayDimensions(usize),
 }
 
 impl fmt::Debug for Node {
