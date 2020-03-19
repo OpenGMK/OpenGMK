@@ -1,10 +1,5 @@
-use std::{
-    ops::{
-        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign,
-        Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
-    },
-    rc::Rc,
-};
+use crate::gml;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -12,64 +7,64 @@ pub enum Value {
     Str(Rc<str>),
 }
 
+// How many times do you think I want to write `Value::` in the `value` module?
+pub(self) use Value::*;
+
 macro_rules! gml_cmp_impl {
-    ($($v: vis $fname: ident aka $op_str: literal: real: $r_cond: expr, string: $s_cond: expr)*) => {
+
+    ($($v: vis $fname: ident aka $op_variant: ident: real: $r_cond: expr, string: $s_cond: expr)*) => {
         $(
-            $v fn $fname(self, rhs: Self) -> Self {
+            $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
                 let freal: fn(f64, f64) -> bool = $r_cond;
                 let fstr: fn(&str, &str) -> bool = $s_cond;
                 if match (self, rhs) {
                     (Value::Real(a), Value::Real(b)) => freal(a, b),
                     (Value::Str(a), Value::Str(b)) => fstr(a.as_ref(), b.as_ref()),
-                    (a, b) => gml_panic!(
-                        concat!(
-                            "invalid arguments to ",
-                            $op_str,
-                            " operator ({} ",
-                            $op_str,
-                            " {})",
-                        ),
-                        a.log_fmt(),
-                        b.log_fmt()
-                    )
+                    (a, b) => return invalid_op!($op_variant, a, b),
                 } {
-                    Real(super::TRUE)
+                    Ok(Real(super::TRUE))
                 } else {
-                    Real(super::FALSE)
+                    Ok(Real(super::FALSE))
                 }
             }
         )*
     };
 }
 
-// How many times do you think I want to write `Value::` in the `value` module?
-pub(self) use Value::*;
+macro_rules! invalid_op {
+    ($op: ident, $value: expr) => {
+        Err(gml::Error::InvalidOperandsUnary(gml::compiler::token::Operator::$op, $value))
+    };
+    ($op: ident, $left: expr, $right: expr) => {
+        Err(gml::Error::InvalidOperandsBinary(gml::compiler::token::Operator::$op, $left, $right))
+    };
+}
 
 impl Value {
     // All the GML comparison operators (which return Value not bool).
     #[rustfmt::skip]
     gml_cmp_impl! {
-        pub gml_eq aka "==":
+        pub gml_eq aka Equal:
             real: |r1, r2| (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 == s2
 
-        pub gml_ne aka "!=":
+        pub gml_ne aka NotEqual:
             real: |r1, r2| (r1 - r2).abs() > 1e-14,
             string: |s1, s2| s1 != s2
 
-        pub gml_lt aka "<":
+        pub gml_lt aka LessThan:
             real: |r1, r2| r1 < r2,
             string: |s1, s2| s1 < s2
 
-        pub gml_lte aka "<=":
+        pub gml_lte aka LessThanOrEqual:
             real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 <= s2
 
-        pub gml_gt aka ">":
+        pub gml_gt aka GreaterThan:
             real: |r1, r2| r1 > r2,
             string: |s1, s2| s1 > s2
 
-        pub gml_gte aka ">=":
+        pub gml_gte aka GreaterThanOrEqual:
             real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
             string: |s1, s2| s1 >= s2
     }
@@ -79,7 +74,7 @@ impl Value {
         match (self, other) {
             (Real(a), Real(b)) => (a - b).abs() <= 1e-14,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
-            (x, y) => gml_panic!("invalid arguments to == operator ({} == {})", x.log_fmt(), y.log_fmt()),
+            _ => false,
         }
     }
 
@@ -121,269 +116,181 @@ impl Value {
         }
     }
 
-    /// Unary bit complement. Has its own operator in GML as ! is always boolean.
-    pub fn complement(self) -> Self {
+    /// Unary bit complement.
+    pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Real(val) => Real(!(Self::ieee_round(val) as i32) as f64),
-            _ => gml_panic!("invalid arguments to ~ (complement)"),
+            Real(val) => Ok(Real(!(Self::ieee_round(val) as i32) as f64)),
+            _ => invalid_op!(Complement, self),
         }
     }
 
     /// GML operator 'div' which gives the whole number of times RHS can go into LHS. In other words floor(lhs/rhs)
-    pub fn intdiv(self, rhs: Self) -> Self {
+    pub fn intdiv(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((lhs / rhs).floor()),
-            (x, y) => gml_panic!("invalid arguments to div operator ({} & {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real((lhs / rhs).floor())),
+            (x, y) => invalid_op!(IntDivide, x, y),
         }
     }
 
     /// GML && operator
-    pub fn bool_and(self, rhs: Self) -> Self {
-        if self.is_true() || rhs.is_true() { Real(1.0) } else { Real(0.0) }
+    pub fn bool_and(self, rhs: Self) -> gml::Result<Self> {
+        Ok(if self.is_true() || rhs.is_true() { Real(1.0) } else { Real(0.0) })
     }
 
     /// GML || operator
-    pub fn bool_or(self, rhs: Self) -> Self {
-        if self.is_true() && rhs.is_true() { Real(1.0) } else { Real(0.0) }
+    pub fn bool_or(self, rhs: Self) -> gml::Result<Self> {
+        Ok(if self.is_true() && rhs.is_true() { Real(1.0) } else { Real(0.0) })
     }
 
     /// GML ^^ operator
-    pub fn bool_xor(self, rhs: Self) -> Self {
-        if self.is_true() != rhs.is_true() { Real(1.0) } else { Real(0.0) }
+    pub fn bool_xor(self, rhs: Self) -> gml::Result<Self> {
+        Ok(if self.is_true() != rhs.is_true() { Real(1.0) } else { Real(0.0) })
     }
-}
 
-impl Add for Value {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
+    pub fn add(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(lhs + rhs),
-            (Str(lhs), Str(rhs)) => Str({
+            (Real(lhs), Real(rhs)) => Ok(Real(lhs + rhs)),
+            (Str(lhs), Str(rhs)) => Ok(Str({
                 let mut string = String::with_capacity(lhs.len() + rhs.len());
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
                 Rc::from(string)
-            }),
-            (x, y) => gml_panic!("invalid arguments to + operator ({} + {})", x.log_fmt(), y.log_fmt()),
+            })),
+            (x, y) => invalid_op!(Add, x, y),
         }
     }
-}
 
-impl AddAssign for Value {
-    fn add_assign(&mut self, rhs: Self) {
+    pub fn add_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs += rhs,
+            (Real(lhs), Real(rhs)) => Ok(*lhs += rhs),
             (Str(lhs), Str(ref rhs)) => {
+                // TODO: a
                 let mut string = String::with_capacity(lhs.len() + rhs.len());
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
                 *lhs = string.into();
+                Ok(())
             },
-            (x, y) => gml_panic!("invalid arguments to += operator ({} += {})", x.log_fmt(), y.log_fmt()),
+            (x, y) => invalid_op!(AssignAdd, x.clone(), y),
         }
     }
-}
 
-impl BitAnd for Value {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
+    pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 & Self::ieee_round(rhs) as i32) as _),
-            (x, y) => gml_panic!("invalid arguments to & operator ({} & {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 & Self::ieee_round(rhs) as i32) as _)),
+            (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
-}
 
-impl BitAndAssign for Value {
-    fn bitand_assign(&mut self, rhs: Self) {
+    pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 & Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!("invalid arguments to &= operator ({} &= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 & Self::ieee_round(rhs) as i32) as _),
+            (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
-}
 
-impl BitOr for Value {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
+    pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 | Self::ieee_round(rhs) as i32) as _),
-            (x, y) => gml_panic!("invalid arguments to | operator ({} | {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 | Self::ieee_round(rhs) as i32) as _)),
+            (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
-}
 
-impl BitOrAssign for Value {
-    fn bitor_assign(&mut self, rhs: Self) {
+    pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 | Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!("invalid arguments to |= operator ({} |= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 | Self::ieee_round(rhs) as i32) as _),
+            (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
-}
 
-impl BitXor for Value {
-    type Output = Self;
-
-    fn bitxor(self, rhs: Self) -> Self::Output {
+    pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _),
-            (x, y) => gml_panic!("invalid arguments to ^ operator ({} ^ {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _)),
+            (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
-}
 
-impl BitXorAssign for Value {
-    fn bitxor_assign(&mut self, rhs: Self) {
+    pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!("invalid arguments to ^= operator ({} ^= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _),
+            (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
-}
 
-impl Div for Value {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self::Output {
+    pub fn div(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(lhs / rhs),
-            (x, y) => gml_panic!("invalid arguments to / operator ({} / {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real(lhs / rhs)),
+            (x, y) => invalid_op!(Divide, x, y),
         }
     }
-}
 
-impl DivAssign for Value {
-    fn div_assign(&mut self, rhs: Self) {
+    pub fn div_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs /= rhs,
-            (x, y) => gml_panic!("invalid arguments to /= operator ({} /= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(*lhs /= rhs),
+            (x, y) => invalid_op!(AssignDivide, x.clone(), y),
         }
     }
-}
 
-impl Mul for Value {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
+    pub fn modulo(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(lhs * rhs),
-            (x, y) => gml_panic!("invalid arguments to * operator ({} * {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real(lhs % rhs)),
+            (x, y) => invalid_op!(Modulo, x, y),
         }
     }
-}
 
-impl MulAssign for Value {
-    fn mul_assign(&mut self, rhs: Self) {
+    pub fn mul(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs *= rhs,
-            (x, y) => gml_panic!("invalid arguments to *= operator ({} *= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real(lhs * rhs)),
+            (x, y) => invalid_op!(Multiply, x, y),
         }
     }
-}
 
-impl Neg for Value {
-    type Output = Self;
+    pub fn mul_assign(&mut self, rhs: Self) -> gml::Result<()> {
+        match (self, rhs) {
+            (Real(lhs), Real(rhs)) => Ok(*lhs *= rhs),
+            (x, y) => invalid_op!(AssignMultiply, x.clone(), y),
+        }
+    }
 
-    fn neg(self) -> Self::Output {
+    pub fn neg(self) -> gml::Result<Self> {
         match self {
-            Real(f) => Real(-f),
-            Str(_) => gml_panic!("invalid operand to neg (-)"),
+            Real(f) => Ok(Real(-f)),
+            Str(_) => invalid_op!(Subtract, self),
         }
     }
-}
 
-impl Not for Value {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
+    pub fn not(self) -> gml::Result<Self> {
         match self {
-            Real(_) => Real((!self.is_true()) as i8 as f64),
-            Str(_) => gml_panic!("invalid operand to not (!)"),
+            Real(_) => Ok(Real((!self.is_true()) as i8 as f64)),
+            Str(_) => invalid_op!(Not, self),
         }
     }
-}
 
-impl Rem for Value {
-    type Output = Self;
-
-    fn rem(self, rhs: Self) -> Self::Output {
+    pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(lhs % rhs),
-            (x, y) => gml_panic!("invalid arguments to mod operator ({} mod {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real(((Self::ieee_round(lhs) as i32) << Self::ieee_round(rhs) as i32) as _)),
+            (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
-}
 
-// note: no RemAssign (%=) in GML, but I made it anyway
-impl RemAssign for Value {
-    fn rem_assign(&mut self, rhs: Self) {
+    pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs %= rhs,
-            (x, y) => gml_panic!("invalid arguments to RemAssign ({} %= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 >> Self::ieee_round(rhs) as i32) as _)),
+            (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
-}
 
-impl Shl for Value {
-    type Output = Self;
-
-    fn shl(self, rhs: Self) -> Self::Output {
+    pub fn sub(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(((Self::ieee_round(lhs) as i32) << Self::ieee_round(rhs) as i32) as _),
-            (x, y) => gml_panic!("invalid arguments to << operator ({} << {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(Real(lhs - rhs)),
+            (x, y) => invalid_op!(Subtract, x, y),
         }
     }
-}
 
-impl ShlAssign for Value {
-    fn shl_assign(&mut self, rhs: Self) {
+    pub fn sub_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs = ((Self::ieee_round(*lhs) as i32) << Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!("invalid arguments to <<= operator ({} <<= {})", x.log_fmt(), y.log_fmt()),
-        }
-    }
-}
-
-impl Shr for Value {
-    type Output = Self;
-
-    fn shr(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real((Self::ieee_round(lhs) as i32 >> Self::ieee_round(rhs) as i32) as _),
-            (x, y) => gml_panic!("invalid arguments to >> operator ({} >> {})", x.log_fmt(), y.log_fmt()),
-        }
-    }
-}
-
-impl ShrAssign for Value {
-    fn shr_assign(&mut self, rhs: Self) {
-        match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs = (Self::ieee_round(*lhs) as i32 >> Self::ieee_round(rhs) as i32) as _,
-            (x, y) => gml_panic!("invalid arguments to >>= operator ({} >>= {})", x.log_fmt(), y.log_fmt()),
-        }
-    }
-}
-
-impl Sub for Value {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Real(lhs - rhs),
-            (x, y) => gml_panic!("invalid arguments to - operator ({} - {})", x.log_fmt(), y.log_fmt()),
-        }
-    }
-}
-
-impl SubAssign for Value {
-    fn sub_assign(&mut self, rhs: Self) {
-        match (self, rhs) {
-            (Real(lhs), Real(rhs)) => *lhs -= rhs,
-            (x, y) => gml_panic!("invalid arguments to -= operator ({} -= {})", x.log_fmt(), y.log_fmt()),
+            (Real(lhs), Real(rhs)) => Ok(*lhs -= rhs),
+            (x, y) => invalid_op!(AssignSubtract, x.clone(), y),
         }
     }
 }
@@ -396,11 +303,11 @@ mod tests {
     fn op_add() {
         let a = Real(0.1);
         let b = Real(0.2);
-        assert!((a + b).almost_equals(&Real(0.30000000000000004)));
+        assert!((a.add(b).unwrap()).almost_equals(&Real(0.30000000000000004)));
 
         let c = Str("Hello, ".to_string().into());
         let d = Str("world!".to_string().into());
-        assert!((c + d).almost_equals(&Str("Hello, world!".to_string().into())));
+        assert!((c.add(d).unwrap()).almost_equals(&Str("Hello, world!".to_string().into())));
     }
 
     #[test]
@@ -408,7 +315,7 @@ mod tests {
     fn op_add_invalid() {
         let a = Real(0.1);
         let b = Str("owo".to_string().into());
-        let _ = a + b;
+        let _ = a.add(b).unwrap();
     }
 
     #[test]
