@@ -1,17 +1,3 @@
-#[macro_use]
-macro_rules! gml_panic {
-    ($message: expr) => {
-        panic!($crate::gml::runtime::Error {
-            reason: $message.into()
-        })
-    };
-    ($format: expr, $($arg: expr),*) => {
-        panic!($crate::gml::runtime::Error {
-            reason: format!($format, $($arg),*)
-        })
-    };
-}
-
 pub mod compiler;
 pub mod context;
 pub mod kernel;
