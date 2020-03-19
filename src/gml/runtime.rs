@@ -106,9 +106,11 @@ pub enum Error {
     InvalidOperandsBinary(Operator, Value, Value),
     InvalidUnaryOperator(Operator),
     InvalidBinaryOperator(Operator),
+    InvalidAssignment(String),    // string repr. because Expr<'a>
     InvalidArrayAccessor(String), // string repr. because Expr<'a>
     InvalidDeref(String),         // string repr. because Expr<'a>
     InvalidIndexLhs(String),      // string repr. because Expr<'a>
+    InvalidIndex(String),         // string repr. because Expr<'a>
     InvalidSwitchBody(String),    // string repr. because Expr<'a>
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
