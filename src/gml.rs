@@ -1,17 +1,3 @@
-#[macro_use]
-macro_rules! gml_panic {
-    ($message: expr) => {
-        panic!($crate::gml::runtime::Error {
-            reason: $message.into()
-        })
-    };
-    ($format: expr, $($arg: expr),*) => {
-        panic!($crate::gml::runtime::Error {
-            reason: format!($format, $($arg),*)
-        })
-    };
-}
-
 pub mod compiler;
 pub mod context;
 pub mod kernel;
@@ -22,6 +8,9 @@ pub mod value;
 pub use compiler::Compiler;
 pub use context::Context;
 pub use value::Value;
+
+pub type Result<T> = std::result::Result<T, runtime::Error>;
+pub use runtime::Error;
 
 pub const TRUE: f64 = 1.0;
 pub const FALSE: f64 = 0.0;

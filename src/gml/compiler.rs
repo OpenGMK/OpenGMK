@@ -10,10 +10,8 @@ use super::{
     },
     Value,
 };
-use std::{
-    collections::HashMap,
-    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub},
-};
+use crate::gml;
+use std::collections::HashMap;
 use token::Operator;
 
 pub struct Compiler {
@@ -189,7 +187,7 @@ impl Compiler {
                     });
                 } else {
                     output.push(Instruction::RuntimeError {
-                        error: format!("Invalid switch body: {:?}", switch_expr.body),
+                        error: gml::Error::InvalidSwitchBody(switch_expr.body.to_string()),
                     });
                 }
             },
@@ -225,7 +223,7 @@ impl Compiler {
 
             // Unknown/invalid AST
             _ => {
-                output.push(Instruction::RuntimeError { error: format!("Invalid AST expression: {:?}", line) });
+                output.push(Instruction::RuntimeError { error: gml::Error::UnexpectedASTExpr(line.to_string()) });
             },
         }
     }
@@ -253,14 +251,14 @@ impl Compiler {
                         let owner = self.make_instance_identifier(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
                     },
-                    _ => Node::RuntimeError { error: format!("Invalid deref RHS: {:?}", binary_expr.right) },
+                    _ => Node::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) },
                 },
 
                 Operator::Index => match &binary_expr.right {
                     ast::Expr::Group(dimensions) => {
                         let accessor = match self.make_array_accessor(dimensions, locals) {
                             Ok(a) => a,
-                            Err(e) => return Node::RuntimeError { error: e },
+                            Err(e) => return Node::RuntimeError { error: gml::Error::TooManyArrayDimensions(e) },
                         };
                         match &binary_expr.left {
                             ast::Expr::LiteralIdentifier(string) => {
@@ -276,15 +274,17 @@ impl Compiler {
                                     let owner = self.make_instance_identifier(left, locals);
                                     self.identifier_to_variable(i, Some(owner), accessor, locals)
                                 } else {
-                                    Node::RuntimeError { error: format!("Invalid LHS for indexing: {:?}", binary_expr) }
+                                    Node::RuntimeError {
+                                        error: gml::Error::InvalidIndexLhs(format!("{:?}", binary_expr)),
+                                    }
                                 }
                             },
-                            _ => Node::RuntimeError {
-                                error: format!("Invalid object for indexing: {:?}", binary_expr.left),
+                            _ => {
+                                Node::RuntimeError { error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()) }
                             },
                         }
                     },
-                    _ => Node::RuntimeError { error: format!("Invalid array accessor: {:?}", binary_expr.right) },
+                    _ => Node::RuntimeError { error: gml::Error::InvalidArrayAccessor(binary_expr.right.to_string()) },
                 },
 
                 op => {
@@ -304,13 +304,13 @@ impl Compiler {
                         Operator::LessThan => Value::gml_lt,
                         Operator::LessThanOrEqual => Value::gml_lte,
                         Operator::Multiply => Value::mul,
-                        Operator::Modulo => Value::rem,
+                        Operator::Modulo => Value::modulo,
                         Operator::NotEqual => Value::gml_ne,
                         Operator::Or => Value::bool_or,
                         Operator::Subtract => Value::sub,
                         Operator::Xor => Value::bool_xor,
                         op => {
-                            return Node::RuntimeError { error: format!("Invalid binary operator: {}", op) };
+                            return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) };
                         },
                     };
 
@@ -318,25 +318,11 @@ impl Compiler {
                     let right = self.compile_ast_expr(&binary_expr.right, locals);
 
                     match (left, right) {
-                        (
-                            Node::Literal { value: lhs @ Value::Real(_) },
-                            Node::Literal { value: rhs @ Value::Real(_) },
-                        ) => Node::Literal { value: op_function(lhs, rhs) },
-                        (
-                            Node::Literal { value: lhs @ Value::Str(_) },
-                            Node::Literal { value: rhs @ Value::Str(_) },
-                        ) if match *op {
-                            Operator::Add
-                            | Operator::Equal
-                            | Operator::NotEqual
-                            | Operator::GreaterThan
-                            | Operator::GreaterThanOrEqual
-                            | Operator::LessThan
-                            | Operator::LessThanOrEqual => true,
-                            _ => false,
-                        } =>
-                        {
-                            Node::Literal { value: op_function(lhs, rhs) }
+                        (Node::Literal { value: lhs @ _ }, Node::Literal { value: rhs @ _ }) => {
+                            match op_function(lhs, rhs) {
+                                Ok(value) => Node::Literal { value },
+                                Err(error) => Node::RuntimeError { error },
+                            }
                         },
                         (left, right) => {
                             Node::Binary { left: Box::new(left), right: Box::new(right), operator: op_function }
@@ -368,7 +354,7 @@ impl Compiler {
                         function: *f_ptr,
                     }
                 } else {
-                    Node::RuntimeError { error: format!("Unknown script or function name: {}", function.name) }
+                    Node::RuntimeError { error: gml::Error::UnknownFunction(function.name.to_string()) }
                 }
             },
 
@@ -380,17 +366,19 @@ impl Compiler {
                     Operator::Not => Value::not,
                     Operator::Complement => Value::complement,
                     _ => {
-                        return Node::RuntimeError { error: format!("Unknown unary operator: {:?}", unary_expr.op) };
+                        return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) };
                     },
                 };
-                if let Node::Literal { value: v @ Value::Real(_) } = new_node {
-                    Node::Literal { value: operator(v) }
-                } else {
-                    Node::Unary { child: Box::new(new_node), operator }
+                match new_node {
+                    Node::Literal { value } => match operator(value) {
+                        Ok(value) => Node::Literal { value },
+                        Err(error) => Node::RuntimeError { error },
+                    },
+                    node => Node::Unary { child: Box::new(node), operator },
                 }
             },
 
-            _ => Node::RuntimeError { error: format!("Unexpected type of AST Expr in expression: {:?}", expr) },
+            _ => Node::RuntimeError { error: gml::Error::UnexpectedASTExpr(expr.to_string()) },
         }
     }
 
@@ -417,9 +405,7 @@ impl Compiler {
             Operator::AssignBitwiseAnd => AssignmentType::BitAnd,
             Operator::AssignBitwiseOr => AssignmentType::BitOr,
             Operator::AssignBitwiseXor => AssignmentType::BitXor,
-            _ => {
-                return Instruction::RuntimeError { error: format!("Invalid assignment operator: {}", binary_expr.op) };
-            },
+            _ => unreachable!("Invalid assignment operator: {}", binary_expr.op),
         };
 
         let value = self.compile_ast_expr(&binary_expr.right, locals);
@@ -432,14 +418,14 @@ impl Compiler {
                     let owner = self.make_instance_identifier(&binary_expr.left, locals);
                     self.make_set_instruction(string, Some(owner), ArrayAccessor::None, assignment_type, value, locals)
                 } else {
-                    Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
+                    Instruction::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) }
                 }
             },
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Index => {
                 if let ast::Expr::Group(dimensions) = &binary_expr.right {
                     let accessor = match self.make_array_accessor(dimensions, locals) {
                         Ok(a) => a,
-                        Err(e) => return Instruction::RuntimeError { error: e },
+                        Err(e) => return Instruction::RuntimeError { error: gml::Error::TooManyArrayDimensions(e) },
                     };
                     match &binary_expr.left {
                         ast::Expr::LiteralIdentifier(string) => {
@@ -450,16 +436,20 @@ impl Compiler {
                                 let owner = self.make_instance_identifier(&binary_expr.left, locals);
                                 self.make_set_instruction(string, Some(owner), accessor, assignment_type, value, locals)
                             } else {
-                                Instruction::RuntimeError { error: format!("Invalid deref RHS: {}", binary_expr.right) }
+                                Instruction::RuntimeError {
+                                    error: gml::Error::InvalidDeref(binary_expr.right.to_string()),
+                                }
                             }
                         },
-                        _ => Instruction::RuntimeError { error: format!("Invalid index LHS: {}", binary_expr.left) },
+                        _ => Instruction::RuntimeError {
+                            error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()),
+                        },
                     }
                 } else {
-                    Instruction::RuntimeError { error: format!("Invalid index RHS: {}", binary_expr.right) }
+                    Instruction::RuntimeError { error: gml::Error::InvalidIndex(binary_expr.right.to_string()) }
                 }
             },
-            _ => Instruction::RuntimeError { error: format!("Invalid assignment LHS: {}", binary_expr.left) },
+            _ => Instruction::RuntimeError { error: gml::Error::InvalidAssignment(binary_expr.left.to_string()) },
         }
     }
 
@@ -546,7 +536,7 @@ impl Compiler {
     }
 
     /// Converts a list of expressions into an array accessor (or an error message).
-    fn make_array_accessor(&mut self, expression_list: &[ast::Expr], locals: &[&str]) -> Result<ArrayAccessor, String> {
+    fn make_array_accessor(&mut self, expression_list: &[ast::Expr], locals: &[&str]) -> Result<ArrayAccessor, usize> {
         match expression_list {
             [] => Ok(ArrayAccessor::None),
             [d] => Ok(ArrayAccessor::Single(Box::new(self.compile_ast_expr(d, locals)))),
@@ -554,7 +544,7 @@ impl Compiler {
                 Box::new(self.compile_ast_expr(d1, locals)),
                 Box::new(self.compile_ast_expr(d2, locals)),
             )),
-            _ => Err(format!("Tried to access {}-dimensional array", expression_list.len())),
+            _ => Err(expression_list.len()),
         }
     }
 }
