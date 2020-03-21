@@ -1,5 +1,8 @@
 use crate::action::Tree;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 pub struct Object {
     pub name: String,
@@ -12,6 +15,6 @@ pub struct Object {
     pub parent_index: i32,
 
     pub events: [HashMap<u32, Tree>; 12],
-    pub identities: HashSet<i32>,
-    pub children: HashSet<i32>,
+    pub identities: Rc<HashSet<i32>>,
+    pub children: Rc<HashSet<i32>>,
 }
