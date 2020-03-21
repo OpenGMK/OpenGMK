@@ -18,6 +18,7 @@ use gm8exe::GameAssets;
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat,
+    rc::Rc,
     sync::mpsc::Receiver,
 };
 
@@ -333,8 +334,8 @@ impl Game {
                             mask_index: b.mask_index,
                             parent_index: b.parent_index,
                             events,
-                            identities: HashSet::new(),
-                            children: HashSet::new(),
+                            identities: Rc::new(HashSet::new()),
+                            children: Rc::new(HashSet::new()),
                         }))
                     })
                     .transpose()
@@ -343,10 +344,11 @@ impl Game {
 
             // Populate identity lists
             for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
-                object.identities.insert(i as _);
+                Rc::get_mut(&mut object.identities).unwrap().insert(i as _);
+                Rc::get_mut(&mut object.children).unwrap().insert(i as _);
                 let mut parent_index = object.parent_index;
                 while parent_index >= 0 {
-                    object.identities.insert(parent_index);
+                    Rc::get_mut(&mut object.identities).unwrap().insert(parent_index);
                     if let Some(Some(parent)) = object_parents.get(parent_index as usize) {
                         parent_index = *parent;
                     } else {
@@ -358,14 +360,12 @@ impl Game {
                     }
                 }
             }
-
-            // Populate children lists
             for (i, mut parent_index) in
                 object_parents.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, *x)))
             {
                 while parent_index >= 0 {
                     if let Some(Some(parent)) = objects.get_mut(parent_index as usize) {
-                        parent.children.insert(i as _);
+                        Rc::get_mut(&mut parent.children).unwrap().insert(i as _);
                         parent_index = parent.parent_index;
                     } else {
                         return Err(format!(
