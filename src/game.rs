@@ -564,7 +564,6 @@ impl Game {
         for list in event_holders.iter_mut().map(|x| x.values_mut()).flatten() {
             list.sort();
         }
-        event_holders[ev::COLLISION].sort();
 
         renderer.upload_atlases(atlases)?;
 
