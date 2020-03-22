@@ -32,6 +32,7 @@ pub struct Game {
     pub rand: Random,
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
+    pub event_holders: [HashMap<u32, Vec<i32>>; 12],
 
     pub room_id: i32,
     pub room_width: i32,
@@ -517,6 +518,21 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        // Make event holder lists
+        let mut event_holders: [HashMap<u32, Vec<i32>>; 12] = Default::default();
+        for object in objects.iter().flatten() {
+            for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
+                for (sub, _) in object_events.iter() {
+                    let sub_list = holder_list.entry(*sub).or_insert(Vec::new());
+                    for object_id in object.children.iter() {
+                        if !sub_list.contains(object_id) {
+                            sub_list.push(*object_id);
+                        }
+                    }
+                }
+            }
+        }
+
         renderer.upload_atlases(atlases)?;
 
         let mut game = Self {
@@ -528,6 +544,7 @@ impl Game {
             rand: Random::new(),
             renderer: Box::new(renderer),
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
+            event_holders,
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
