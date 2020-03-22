@@ -8,7 +8,7 @@ use crate::{
     },
     atlas::AtlasBuilder,
     background,
-    gml::{rand::Random, Compiler},
+    gml::{ev, rand::Random, Compiler},
     instance::Instance,
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -532,6 +532,39 @@ impl Game {
                 }
             }
         }
+
+        // Swap collision events over to targets and their children etc...
+        // Yeah, this line allocates a lot of times, but there's no better way to do it.
+        // There would be in a good language, but this is Rust. Sorry.
+        let collision_holders = event_holders[ev::COLLISION].clone();
+        for key in collision_holders.keys() {
+            if let Some(Some(object)) = objects.get(*key as usize) {
+                for collider in collision_holders[key].iter().copied() {
+                    let sub_list = event_holders[ev::COLLISION].entry(collider as _).or_insert(Vec::new());
+                    for child in object.children.iter() {
+                        if !sub_list.contains(child) {
+                            sub_list.push(*child);
+                        }
+                    }
+                    for child in object.children.iter().copied() {
+                        let sub_list = event_holders[ev::COLLISION].entry(child as _).or_insert(Vec::new());
+                        if !sub_list.contains(&collider) {
+                            sub_list.push(collider);
+                        }
+                    }
+                }
+            }
+        }
+        for (sub, list) in event_holders[ev::COLLISION].iter_mut() {
+            list.retain(|x| *x >= *sub as _);
+        }
+        event_holders[ev::COLLISION].retain(|_, x| !x.is_empty());
+
+        // Sort all the event holder lists into ascending order
+        for list in event_holders.iter_mut().map(|x| x.values_mut()).flatten() {
+            list.sort();
+        }
+        event_holders[ev::COLLISION].sort();
 
         renderer.upload_atlases(atlases)?;
 
