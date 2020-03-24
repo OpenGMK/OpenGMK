@@ -12,6 +12,7 @@ gl_generator = "0.14.0"
 getopts = "0.2.21"
 glfw = { git = "https://github.com/bjz/glfw-rs.git" }
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
+indexmap = "1.3.2"
 memoffset = "0.5.3"
 png = "0.15.2"
 rand = "0.7.2" # for seeding, not generating

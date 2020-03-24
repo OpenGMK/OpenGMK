@@ -15,6 +15,7 @@ use crate::{
     tile, view,
 };
 use gm8exe::GameAssets;
+use indexmap::IndexMap;
 use std::{
     collections::{HashMap, HashSet},
     iter::repeat,
@@ -32,7 +33,7 @@ pub struct Game {
     pub rand: Random,
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
-    pub event_holders: [HashMap<u32, Vec<i32>>; 12],
+    pub event_holders: [IndexMap<u32, Vec<i32>>; 12],
 
     pub room_id: i32,
     pub room_width: i32,
@@ -519,7 +520,7 @@ impl Game {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Make event holder lists
-        let mut event_holders: [HashMap<u32, Vec<i32>>; 12] = Default::default();
+        let mut event_holders: [IndexMap<u32, Vec<i32>>; 12] = Default::default();
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
@@ -561,8 +562,11 @@ impl Game {
         event_holders[ev::COLLISION].retain(|_, x| !x.is_empty());
 
         // Sort all the event holder lists into ascending order
-        for list in event_holders.iter_mut().map(|x| x.values_mut()).flatten() {
-            list.sort();
+        for map in event_holders.iter_mut() {
+            map.sort_by(|x, _, y, _| x.cmp(y));
+            for list in map.values_mut() {
+                list.sort();
+            }
         }
 
         renderer.upload_atlases(atlases)?;
