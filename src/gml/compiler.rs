@@ -5,8 +5,8 @@ pub mod token;
 
 use super::{
     runtime::{
-        ArrayAccessor, AssignmentType, FieldAccessor, GameVariableAccessor, InstanceIdentifier, Instruction, Node,
-        ReturnType, VariableAccessor,
+        ArrayAccessor, AssignmentType, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType,
+        VariableAccessor,
     },
     Value,
 };
@@ -473,9 +473,7 @@ impl Compiler {
             },
         };
 
-        if let Some(var) = mappings::GAME_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Node::GameVariable { accessor: GameVariableAccessor { var: *var, array, owner } }
-        } else if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
             Node::Variable { accessor: VariableAccessor { var: *var, array, owner } }
         } else {
             let index = self.get_field_id(identifier);
@@ -505,13 +503,7 @@ impl Compiler {
             },
         };
 
-        if let Some(var) = mappings::GAME_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Instruction::SetGameVariable {
-                accessor: GameVariableAccessor { var: *var, array, owner },
-                assignment_type,
-                value,
-            }
-        } else if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
             Instruction::SetVariable { accessor: VariableAccessor { var: *var, array, owner }, assignment_type, value }
         } else {
             let index = self.get_field_id(identifier);

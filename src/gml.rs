@@ -88,11 +88,7 @@ pub enum InstanceVariable {
     BboxRight,
     BboxBottom,
     BboxTop,
-}
 
-/// Enum for each game variable
-#[derive(Clone, Copy, Debug)]
-pub enum GameVariable {
     Argument,
     Argument0,
     Argument1,
