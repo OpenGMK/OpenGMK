@@ -1,4 +1,4 @@
-use super::{compiler::token::Operator, Context, GameVariable, InstanceVariable, Value};
+use super::{compiler::token::Operator, Context, InstanceVariable, Value};
 use crate::{game::Game, gml};
 use std::fmt;
 
@@ -7,7 +7,6 @@ use std::fmt;
 pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
     SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
-    SetGameVariable { accessor: GameVariableAccessor, value: Node, assignment_type: AssignmentType },
     EvalExpression { node: Node },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopUntil { cond: Node, body: Box<[Instruction]> },
@@ -27,7 +26,6 @@ pub enum Node {
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
-    GameVariable { accessor: GameVariableAccessor },
     Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> gml::Result<Value> },
     Unary { child: Box<Node>, operator: fn(Value) -> gml::Result<Value> },
     RuntimeError { error: Error },
@@ -66,14 +64,6 @@ pub struct FieldAccessor {
 #[derive(Debug)]
 pub struct VariableAccessor {
     pub var: InstanceVariable,
-    pub array: ArrayAccessor,
-    pub owner: InstanceIdentifier,
-}
-
-/// Represents a game variable which can either be read or set.
-#[derive(Debug)]
-pub struct GameVariableAccessor {
-    pub var: GameVariable,
     pub array: ArrayAccessor,
     pub owner: InstanceIdentifier,
 }
@@ -128,7 +118,6 @@ impl fmt::Debug for Node {
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::GameVariable { accessor } => write!(f, "<gamevariable: {:?}>", accessor),
             Node::Binary { left, right, operator: _ } => write!(f, "<binary: {:?}, {:?}>", left, right),
             Node::Unary { child, operator: _ } => write!(f, "<unary: {:?}>", child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
