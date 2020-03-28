@@ -17,6 +17,7 @@ use crate::{
 use gm8exe::GameAssets;
 use indexmap::IndexMap;
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     iter::repeat,
     rc::Rc,
@@ -33,7 +34,7 @@ pub struct Game {
     pub rand: Random,
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
-    pub event_holders: [IndexMap<u32, Vec<i32>>; 12],
+    pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12],
 
     pub room_id: i32,
     pub room_width: i32,
@@ -336,8 +337,8 @@ impl Game {
                             mask_index: b.mask_index,
                             parent_index: b.parent_index,
                             events,
-                            identities: Rc::new(HashSet::new()),
-                            children: Rc::new(HashSet::new()),
+                            identities: Rc::new(RefCell::new(HashSet::new())),
+                            children: Rc::new(RefCell::new(HashSet::new())),
                         }))
                     })
                     .transpose()
@@ -346,11 +347,11 @@ impl Game {
 
             // Populate identity lists
             for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
-                Rc::get_mut(&mut object.identities).unwrap().insert(i as _);
-                Rc::get_mut(&mut object.children).unwrap().insert(i as _);
+                object.identities.borrow_mut().insert(i as _);
+                object.children.borrow_mut().insert(i as _);
                 let mut parent_index = object.parent_index;
                 while parent_index >= 0 {
-                    Rc::get_mut(&mut object.identities).unwrap().insert(parent_index);
+                    object.identities.borrow_mut().insert(parent_index);
                     if let Some(Some(parent)) = object_parents.get(parent_index as usize) {
                         parent_index = *parent;
                     } else {
@@ -367,7 +368,7 @@ impl Game {
             {
                 while parent_index >= 0 {
                     if let Some(Some(parent)) = objects.get_mut(parent_index as usize) {
-                        Rc::get_mut(&mut parent.children).unwrap().insert(i as _);
+                        parent.children.borrow_mut().insert(i as _);
                         parent_index = parent.parent_index;
                     } else {
                         return Err(format!(
@@ -520,12 +521,12 @@ impl Game {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Make event holder lists
-        let mut event_holders: [IndexMap<u32, Vec<i32>>; 12] = Default::default();
+        let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
-                    let sub_list = holder_list.entry(*sub).or_insert(Vec::new());
-                    for object_id in object.children.iter() {
+                    let mut sub_list = holder_list.entry(*sub).or_insert(Default::default()).borrow_mut();
+                    for object_id in object.children.borrow().iter() {
                         if !sub_list.contains(object_id) {
                             sub_list.push(*object_id);
                         }
@@ -535,37 +536,47 @@ impl Game {
         }
 
         // Swap collision events over to targets and their children etc...
-        // Yeah, this line allocates a lot of times, but there's no better way to do it.
-        // There would be in a good language, but this is Rust. Sorry.
-        let collision_holders = event_holders[ev::COLLISION].clone();
-        for key in collision_holders.keys() {
-            if let Some(Some(object)) = objects.get(*key as usize) {
-                for collider in collision_holders[key].iter().copied() {
-                    let sub_list = event_holders[ev::COLLISION].entry(collider as _).or_insert(Vec::new());
-                    for child in object.children.iter() {
-                        if !sub_list.contains(child) {
-                            sub_list.push(*child);
+        let collision_holders = &mut event_holders[ev::COLLISION];
+        let mut i = 0;
+        while let Some(key) = collision_holders.get_index(i).map(|(x, _)| *x) {
+            if let Some(Some(object)) = objects.get(key as usize) {
+                let list = collision_holders[&key].clone();
+                let mut j = 0;
+                while let Some(collider) = {
+                    let a = list.borrow();
+                    a.get(j).copied()
+                } {
+                    {
+                        let mut sub_list =
+                            collision_holders.entry(collider as _).or_insert(Default::default()).borrow_mut();
+                        for child in object.children.borrow().iter() {
+                            if !sub_list.contains(child) {
+                                sub_list.push(*child);
+                            }
                         }
                     }
-                    for child in object.children.iter().copied() {
-                        let sub_list = event_holders[ev::COLLISION].entry(child as _).or_insert(Vec::new());
+                    for child in object.children.borrow().iter().copied() {
+                        let mut sub_list =
+                            collision_holders.entry(child as _).or_insert(Default::default()).borrow_mut();
                         if !sub_list.contains(&collider) {
                             sub_list.push(collider);
                         }
                     }
+                    j += 1;
                 }
             }
+            i += 1;
         }
-        for (sub, list) in event_holders[ev::COLLISION].iter_mut() {
-            list.retain(|x| *x >= *sub as _);
+        for (sub, list) in collision_holders.iter() {
+            list.borrow_mut().retain(|x| *x >= *sub as _);
         }
-        event_holders[ev::COLLISION].retain(|_, x| !x.is_empty());
+        event_holders[ev::COLLISION].retain(|_, x| !x.borrow_mut().is_empty());
 
         // Sort all the event holder lists into ascending order
         for map in event_holders.iter_mut() {
             map.sort_by(|x, _, y, _| x.cmp(y));
             for list in map.values_mut() {
-                list.sort();
+                list.borrow_mut().sort();
             }
         }
 

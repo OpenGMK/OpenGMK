@@ -1,5 +1,6 @@
 use crate::action::Tree;
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     rc::Rc,
 };
@@ -15,6 +16,6 @@ pub struct Object {
     pub parent_index: i32,
 
     pub events: [HashMap<u32, Tree>; 12],
-    pub identities: Rc<HashSet<i32>>,
-    pub children: Rc<HashSet<i32>>,
+    pub identities: Rc<RefCell<HashSet<i32>>>,
+    pub children: Rc<RefCell<HashSet<i32>>>,
 }
