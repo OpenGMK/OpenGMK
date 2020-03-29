@@ -1,6 +1,7 @@
 use crate::{
     game::Game,
     gml::{
+        self,
         compiler::{mappings, Compiler},
         runtime::{Instruction, Node},
         Context, Value,
@@ -74,7 +75,7 @@ pub enum Body {
 }
 
 pub enum GmlBody {
-    Function(fn(&mut Game, &mut Context, &[Value]) -> Value),
+    Function(fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>),
     Code(Vec<Instruction>),
 }
 

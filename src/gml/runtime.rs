@@ -22,7 +22,7 @@ pub enum Instruction {
 /// Node representing one value in an expression.
 pub enum Node {
     Literal { value: Value },
-    Function { args: Box<[Node]>, function: fn(&mut Game, &mut Context, &[Value]) -> Value },
+    Function { args: Box<[Node]>, function: fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value> },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
@@ -47,6 +47,7 @@ pub enum AssignmentType {
 /// The reason for stopping execution of the current function.
 #[derive(Debug)]
 pub enum ReturnType {
+    Normal,
     Continue,
     Break,
     Exit,
