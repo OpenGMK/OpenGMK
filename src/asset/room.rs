@@ -1,4 +1,5 @@
 use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types::Color, view::View};
+use std::rc::Rc;
 
 pub struct Room {
     pub name: String,
@@ -9,7 +10,7 @@ pub struct Room {
     pub persistent: bool,
     pub bg_colour: Color,
     pub clear_screen: bool,
-    pub creation_code: Vec<Instruction>,
+    pub creation_code: Rc<[Instruction]>,
 
     pub backgrounds: Vec<Background>,
     pub views_enabled: bool,
@@ -24,5 +25,5 @@ pub struct Instance {
     pub y: i32,
     pub object: i32,
     pub id: usize,
-    pub creation: Vec<Instruction>,
+    pub creation: Rc<[Instruction]>,
 }

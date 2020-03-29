@@ -8,6 +8,7 @@ use crate::{
     },
 };
 use gm8exe::asset::etc::CodeAction;
+use std::rc::Rc;
 
 /// Consts which match those used in GM8
 pub mod kind {
@@ -76,7 +77,7 @@ pub enum Body {
 
 pub enum GmlBody {
     Function(fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>),
-    Code(Vec<Instruction>),
+    Code(Rc<[Instruction]>),
 }
 
 impl std::fmt::Debug for GmlBody {

@@ -11,7 +11,7 @@ use super::{
     Value,
 };
 use crate::gml;
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 use token::Operator;
 
 pub struct Compiler {
@@ -57,7 +57,7 @@ impl Compiler {
     }
 
     /// Compile a GML string into instructions.
-    pub fn compile(&mut self, source: &str) -> Result<Vec<Instruction>, ast::Error> {
+    pub fn compile(&mut self, source: &str) -> Result<Rc<[Instruction]>, ast::Error> {
         let ast = ast::AST::new(source)?;
 
         let mut instructions = Vec::new();
@@ -65,7 +65,7 @@ impl Compiler {
         for node in ast.iter() {
             self.compile_ast_line(node, &mut instructions, &mut locals);
         }
-        Ok(instructions)
+        Ok(instructions.into())
     }
 
     /// Compile an expression into a format which can be evaluated.

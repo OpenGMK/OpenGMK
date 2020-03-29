@@ -412,7 +412,7 @@ impl Game {
                         Ok(s) => s,
                         Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
                     };
-                    Ok(Box::new(Script { name: b.name, source: b.source, compiled: compiled.into() }))
+                    Ok(Box::new(Script { name: b.name, source: b.source, compiled }))
                 })
                 .transpose()
             })
@@ -435,7 +435,7 @@ impl Game {
                         persistent: b.persistent,
                         bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b).into(),
                         clear_screen: b.clear_screen,
-                        creation_code,
+                        creation_code: creation_code,
                         backgrounds: b
                             .backgrounds
                             .into_iter()
