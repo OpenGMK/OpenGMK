@@ -45,7 +45,7 @@ pub enum AssignmentType {
 }
 
 /// The reason for stopping execution of the current function.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReturnType {
     Normal,
     Continue,
@@ -91,7 +91,7 @@ pub enum InstanceIdentifier {
     Expression(Box<Node>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Error {
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
@@ -122,6 +122,104 @@ impl fmt::Debug for Node {
             Node::Binary { left, right, operator: _ } => write!(f, "<binary: {:?}, {:?}>", left, right),
             Node::Unary { child, operator: _ } => write!(f, "<unary: {:?}>", child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
+        }
+    }
+}
+
+impl Game {
+    pub fn execute(&mut self, instructions: &[Instruction], context: &mut Context) -> gml::Result<ReturnType> {
+        for instruction in instructions.iter() {
+            match self.exec_instruction(instruction, context)? {
+                ReturnType::Normal => (),
+                r => return Ok(r),
+            }
+        }
+        Ok(ReturnType::Normal)
+    }
+
+    fn exec_instruction(&mut self, instruction: &Instruction, context: &mut Context) -> gml::Result<ReturnType> {
+        match instruction {
+            Instruction::SetField { accessor: _, value: _, assignment_type: _ } => todo!(),
+            Instruction::SetVariable { accessor: _, value: _, assignment_type: _ } => todo!(),
+            Instruction::EvalExpression { node } => match self.eval(node, context) {
+                Err(e) => return Err(e),
+                _ => (),
+            },
+            Instruction::IfElse { cond, if_body, else_body } => {
+                let return_type = if self.eval(cond, context)?.is_true() {
+                    self.execute(if_body, context)
+                } else {
+                    self.execute(else_body, context)
+                }?;
+                if return_type != ReturnType::Normal {
+                    return Ok(return_type);
+                }
+            },
+            Instruction::LoopUntil { cond, body } => loop {
+                let return_type = self.execute(body, context)?;
+                if return_type != ReturnType::Normal {
+                    return Ok(return_type);
+                }
+                if self.eval(cond, context)?.is_true() {
+                    break;
+                }
+            },
+            Instruction::LoopWhile { cond, body } => {
+                while self.eval(cond, context)?.is_true() {
+                    let return_type = self.execute(body, context)?;
+                    if return_type != ReturnType::Normal {
+                        return Ok(return_type);
+                    }
+                }
+            },
+            Instruction::Return { return_type } => return Ok(*return_type),
+            Instruction::Repeat { count, body } => {
+                let mut count = self.eval(count, context)?.round();
+                while count > 0 {
+                    let return_type = self.execute(body, context)?;
+                    if return_type != ReturnType::Normal {
+                        return Ok(return_type);
+                    }
+                    count -= 1;
+                }
+            },
+            Instruction::SetReturnValue { value } => {
+                context.return_value = self.eval(value, context)?;
+            },
+            Instruction::Switch { input, cases, default, body } => {
+                let input = self.eval(input, context)?;
+                for (cond, start) in cases.iter() {
+                    if self.eval(cond, context)?.almost_equals(&input) {
+                        return self.execute(&body[*start..], context);
+                    }
+                }
+                if let Some(start) = default {
+                    return self.execute(&body[*start..], context);
+                }
+            },
+            Instruction::With { target: _, body: _ } => todo!(),
+            Instruction::RuntimeError { error } => return Err(error.clone()),
+        }
+
+        Ok(ReturnType::Normal)
+    }
+
+    fn eval(&mut self, node: &Node, context: &mut Context) -> gml::Result<Value> {
+        match node {
+            Node::Literal { value } => Ok(value.clone()),
+            Node::Function { args, function } => {
+                let mut arg_values: [Value; 16] = Default::default();
+                for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                    *dest = self.eval(src, context)?;
+                }
+                function(self, context, &arg_values[..args.len()])
+            },
+            Node::Script { args: _, script_id: _ } => todo!(),
+            Node::Field { accessor: _ } => todo!(),
+            Node::Variable { accessor: _ } => todo!(),
+            Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
+            Node::Unary { child, operator } => operator(self.eval(child, context)?),
+            Node::RuntimeError { error } => Err(error.clone()),
         }
     }
 }
