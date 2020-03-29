@@ -405,9 +405,7 @@ impl<'a> AST<'a> {
                         Ok(Some(Expr::Return(Box::new(val))))
                     },
 
-                    _ => {
-                        return Err(Error::new(format!("Invalid Keyword at beginning of expression: {:?}", key)))
-                    },
+                    _ => return Err(Error::new(format!("Invalid Keyword at beginning of expression: {:?}", key))),
                 }
             },
 
@@ -454,15 +452,11 @@ impl<'a> AST<'a> {
                     },
 
                     // Default
-                    _ => {
-                        return Err(Error::new(format!("Invalid Separator at beginning of expression: {:?}", sep)))
-                    },
+                    _ => return Err(Error::new(format!("Invalid Separator at beginning of expression: {:?}", sep))),
                 }
             },
 
-            _ => {
-                return Err(Error::new(format!("Invalid token at beginning of expression: {:?}", token)))
-            },
+            _ => return Err(Error::new(format!("Invalid token at beginning of expression: {:?}", token))),
         };
 
         // skip over trailing semicolons
@@ -607,12 +601,8 @@ impl<'a> AST<'a> {
 
             Some(Token::Real(t)) => Expr::LiteralReal(t),
             Some(Token::String(t)) => Expr::LiteralString(t),
-            Some(t) => {
-                return Err(Error::new(format!("Invalid token while scanning binary tree: {:?}", t)))
-            },
-            None => {
-                return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()))
-            },
+            Some(t) => return Err(Error::new(format!("Invalid token while scanning binary tree: {:?}", t))),
+            None => return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string())),
         };
 
         // Do we need to amend this LHS at all?
@@ -661,12 +651,8 @@ impl<'a> AST<'a> {
                             left: lhs,
                             right: Expr::LiteralIdentifier(id),
                         })),
-                        Some(t) => {
-                            return Err(Error::new(format!("Unexpected token {:?} following deref", t)))
-                        },
-                        None => {
-                            return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()))
-                        },
+                        Some(t) => return Err(Error::new(format!("Unexpected token {:?} following deref", t))),
+                        None => return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string())),
                     }
                 },
                 _ => break,
@@ -694,12 +680,8 @@ impl<'a> AST<'a> {
                             break
                         }
                     },
-                    Some(t) => {
-                        return Err(Error::new(format!("Invalid token {:?}, expected expression", t)))
-                    },
-                    None => {
-                        return Err(Error::new("Found EOF unexpectedly while reading function call".to_string()))
-                    },
+                    Some(t) => return Err(Error::new(format!("Invalid token {:?}, expected expression", t))),
+                    None => return Err(Error::new("Found EOF unexpectedly while reading function call".to_string())),
                 }
             }
         }

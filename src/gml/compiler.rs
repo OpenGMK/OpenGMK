@@ -309,9 +309,7 @@ impl Compiler {
                         Operator::Or => Value::bool_or,
                         Operator::Subtract => Value::sub,
                         Operator::Xor => Value::bool_xor,
-                        op => {
-                            return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) }
-                        },
+                        op => return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) },
                     };
 
                     let left = self.compile_ast_expr(&binary_expr.left, locals);
@@ -365,9 +363,7 @@ impl Compiler {
                     Operator::Subtract => Value::neg,
                     Operator::Not => Value::not,
                     Operator::Complement => Value::complement,
-                    _ => {
-                        return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) }
-                    },
+                    _ => return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) },
                 };
                 match new_node {
                     Node::Literal { value } => match operator(value) {
