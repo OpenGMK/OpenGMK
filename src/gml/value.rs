@@ -70,7 +70,7 @@ impl Value {
     }
 
     /// GML-like comparison, fails if self and other are different types.
-    fn almost_equals(&self, other: &Self) -> bool {
+    pub fn almost_equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Real(a), Real(b)) => (a - b).abs() <= 1e-14,
             (Str(a), Str(b)) => a.as_ref() == b.as_ref(),
