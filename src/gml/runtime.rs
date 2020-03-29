@@ -152,23 +152,23 @@ impl Game {
                     self.execute(else_body, context)
                 }?;
                 if return_type != ReturnType::Normal {
-                    return Ok(return_type);
+                    return Ok(return_type)
                 }
             },
             Instruction::LoopUntil { cond, body } => loop {
                 let return_type = self.execute(body, context)?;
                 if return_type != ReturnType::Normal {
-                    return Ok(return_type);
+                    return Ok(return_type)
                 }
                 if self.eval(cond, context)?.is_true() {
-                    break;
+                    break
                 }
             },
             Instruction::LoopWhile { cond, body } => {
                 while self.eval(cond, context)?.is_true() {
                     let return_type = self.execute(body, context)?;
                     if return_type != ReturnType::Normal {
-                        return Ok(return_type);
+                        return Ok(return_type)
                     }
                 }
             },
@@ -178,7 +178,7 @@ impl Game {
                 while count > 0 {
                     let return_type = self.execute(body, context)?;
                     if return_type != ReturnType::Normal {
-                        return Ok(return_type);
+                        return Ok(return_type)
                     }
                     count -= 1;
                 }
@@ -190,11 +190,11 @@ impl Game {
                 let input = self.eval(input, context)?;
                 for (cond, start) in cases.iter() {
                     if self.eval(cond, context)?.almost_equals(&input) {
-                        return self.execute(&body[*start..], context);
+                        return self.execute(&body[*start..], context)
                     }
                 }
                 if let Some(start) = default {
-                    return self.execute(&body[*start..], context);
+                    return self.execute(&body[*start..], context)
                 }
             },
             Instruction::With { target: _, body: _ } => todo!(),

@@ -310,7 +310,7 @@ impl Compiler {
                         Operator::Subtract => Value::sub,
                         Operator::Xor => Value::bool_xor,
                         op => {
-                            return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) };
+                            return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) }
                         },
                     };
 
@@ -366,7 +366,7 @@ impl Compiler {
                     Operator::Not => Value::not,
                     Operator::Complement => Value::complement,
                     _ => {
-                        return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) };
+                        return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) }
                     },
                 };
                 match new_node {

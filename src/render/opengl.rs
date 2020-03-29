@@ -129,7 +129,7 @@ impl OpenGLRenderer {
                 return Err(format!(
                     "Failed to compile vertex shader, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ));
+                ))
             }
 
             // Compile fragment shader
@@ -153,7 +153,7 @@ impl OpenGLRenderer {
                 return Err(format!(
                     "Failed to compile fragment shader, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ));
+                ))
             }
 
             // Link shaders
@@ -178,7 +178,7 @@ impl OpenGLRenderer {
                 return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ));
+                ))
             }
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);

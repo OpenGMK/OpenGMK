@@ -322,7 +322,7 @@ impl Game {
                                         return Err(format!(
                                             "Compiler error in object {} event {},{}: {}",
                                             b.name, i, sub, e
-                                        ));
+                                        ))
                                     },
                                 });
                             }
@@ -359,7 +359,7 @@ impl Game {
                             "Invalid parent tree for object {}: non-existent object: {}",
                             object.name, parent_index
                         )
-                        .into());
+                        .into())
                     }
                 }
             }
@@ -375,7 +375,7 @@ impl Game {
                             "Invalid parent tree for object {}: non-existent object: {}",
                             i, parent_index
                         )
-                        .into());
+                        .into())
                     }
                 }
             }
@@ -394,7 +394,7 @@ impl Game {
                                 moments.insert(*moment, t);
                             },
                             Err(e) => {
-                                return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e));
+                                return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))
                             },
                         };
                     }
@@ -488,7 +488,7 @@ impl Game {
                                             return Err(format!(
                                                 "Compiler error in creation code of instance {}: {}",
                                                 i.id, e
-                                            ));
+                                            ))
                                         },
                                     },
                                 })

@@ -54,13 +54,13 @@ fn xmain() -> i32 {
                 OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
                 UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
             }
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         },
     };
 
     if args.len() < 2 || matches.opt_present("h") {
         help(&process, opts);
-        return EXIT_SUCCESS;
+        return EXIT_SUCCESS
     }
 
     let strict = matches.opt_present("s");
@@ -71,10 +71,10 @@ fn xmain() -> i32 {
             &matches.free[0]
         } else if matches.free.len() > 1 {
             eprintln!("unexpected second input {}", matches.free[1]);
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         } else {
             eprintln!("no input file");
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         }
     };
 
@@ -82,7 +82,7 @@ fn xmain() -> i32 {
         Ok(data) => data,
         Err(err) => {
             eprintln!("failed to open '{}': {}", input, err);
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         },
     };
 
@@ -105,7 +105,7 @@ fn xmain() -> i32 {
         Ok(assets) => assets,
         Err(err) => {
             eprintln!("failed to load '{}' - {}", input, err);
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         },
     };
 
@@ -113,7 +113,7 @@ fn xmain() -> i32 {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         },
     };
 
@@ -124,7 +124,7 @@ fn xmain() -> i32 {
             match event {
                 glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
                     components.renderer.set_should_close(true);
-                    continue; // So no draw events are fired while the window should be closing
+                    continue // So no draw events are fired while the window should be closing
                 },
                 _ => {},
             }
@@ -207,14 +207,14 @@ fn xmain() -> i32 {
                     while let Some(idx_inst) = iter_inst.next(&components.instance_list) {
                         draw_instance(&mut components, idx_inst);
                     }
-                    break;
+                    break
                 },
                 (None, Some(idx_tile)) => {
                     draw_tile(&mut components, idx_tile);
                     while let Some(idx_tile) = iter_tile.next(&components.tile_list) {
                         draw_tile(&mut components, idx_tile);
                     }
-                    break;
+                    break
                 },
                 (None, None) => break,
             }

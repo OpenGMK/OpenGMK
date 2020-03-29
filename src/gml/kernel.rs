@@ -4224,7 +4224,11 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_get_height")
     }
 
-    pub fn background_set_alpha_from_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn background_set_alpha_from_background(
+        &mut self,
+        _context: &mut Context,
+        _args: &[Value],
+    ) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function background_set_alpha_from_background")
     }
@@ -6363,7 +6367,11 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal_texture")
     }
 
-    pub fn d3d_model_vertex_normal_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_model_vertex_normal_texture_color(
+        &mut self,
+        _context: &mut Context,
+        _args: &[Value],
+    ) -> gml::Result<Value> {
         // Expected arg count: 11
         unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal_texture_color")
     }

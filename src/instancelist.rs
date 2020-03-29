@@ -163,7 +163,7 @@ impl ObjectIter {
                 if list.get(instance)?.object_index.get() == self.object_index {
                     self.count -= 1;
                     self.position += idx + 1;
-                    return Some(instance);
+                    return Some(instance)
                 }
             }
         }
