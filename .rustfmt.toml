@@ -33,6 +33,9 @@ reorder_impl_items = true
 # Puts grouped (no extra newline, adjacent) imports in alphabetical order.
 reorder_imports = true
 
+# For break, continue, return...
+trailing_semicolon = false
+
 # Enables the usage of "unstable" features.
 unstable_features = true
 

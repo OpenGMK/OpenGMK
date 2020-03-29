@@ -282,7 +282,7 @@ impl<'a> Iterator for Lexer<'a> {
                                         },
                                     }
                                 }
-                                return self.next();
+                                return self.next()
                             },
 
                             _ => return Some(Token::Operator(op)),
@@ -324,7 +324,7 @@ impl<'a> Iterator for Lexer<'a> {
                                     self.iter.next();
                                     if let Some(&(_, b'/')) = self.iter.peek() {
                                         self.iter.next();
-                                        break;
+                                        break
                                     }
                                 },
                                 _ => {
@@ -332,7 +332,7 @@ impl<'a> Iterator for Lexer<'a> {
                                 },
                             }
                         }
-                        return self.next();
+                        return self.next()
                     } else if op == Operator::LessThan && ch2 == b'>' {
                         // <> is the same as != (let's call it a diamond)
 

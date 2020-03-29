@@ -62,14 +62,14 @@ impl AtlasBuilder {
         }
 
         if width > self.max_size || height > self.max_size {
-            return None;
+            return None
         }
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
             if let Some(rect) = packer.pack(width, height, false) {
                 let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
                 self.textures.push((atlas_ref.clone(), data));
-                return Some(atlas_ref);
+                return Some(atlas_ref)
             } else {
                 loop {
                     let (pwidth, pheight) = packer.size();
@@ -78,13 +78,13 @@ impl AtlasBuilder {
                     } else if (pheight * 2) <= self.max_size {
                         packer.resize(pwidth, pheight * 2);
                     } else {
-                        break;
+                        break
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
                         let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
                         self.textures.push((atlas_ref.clone(), data));
-                        return Some(atlas_ref);
+                        return Some(atlas_ref)
                     }
                 }
             }

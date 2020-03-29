@@ -157,7 +157,7 @@ impl Tree {
                                     },
                                 });
                             } else {
-                                return Err(format!("Unknown function: {} in action {}", action.fn_name, i));
+                                return Err(format!("Unknown function: {} in action {}", action.fn_name, i))
                             }
                         },
 
@@ -249,7 +249,7 @@ impl Tree {
 
             // Is it time to stop reading actions?
             if (single_group && action.action_kind == kind::END_GROUP) || stop_immediately {
-                break;
+                break
             }
         }
 

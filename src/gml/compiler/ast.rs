@@ -295,7 +295,7 @@ impl<'a> AST<'a> {
                                     vars.push(id);
                                     lex.next();
                                 } else {
-                                    break;
+                                    break
                                 }
                             }
 
@@ -406,7 +406,7 @@ impl<'a> AST<'a> {
                     },
 
                     _ => {
-                        return Err(Error::new(format!("Invalid Keyword at beginning of expression: {:?}", key)));
+                        return Err(Error::new(format!("Invalid Keyword at beginning of expression: {:?}", key)))
                     },
                 }
             },
@@ -435,7 +435,7 @@ impl<'a> AST<'a> {
                             match lex.peek() {
                                 Some(Token::Separator(Separator::BraceRight)) => {
                                     lex.next();
-                                    break Ok(Some(Expr::Group(inner_expressions)));
+                                    break Ok(Some(Expr::Group(inner_expressions)))
                                 },
                                 _ => match AST::read_line(lex) {
                                     Ok(Some(e)) => inner_expressions.push(e),
@@ -455,13 +455,13 @@ impl<'a> AST<'a> {
 
                     // Default
                     _ => {
-                        return Err(Error::new(format!("Invalid Separator at beginning of expression: {:?}", sep)));
+                        return Err(Error::new(format!("Invalid Separator at beginning of expression: {:?}", sep)))
                     },
                 }
             },
 
             _ => {
-                return Err(Error::new(format!("Invalid token at beginning of expression: {:?}", token)));
+                return Err(Error::new(format!("Invalid token at beginning of expression: {:?}", token)))
             },
         };
 
@@ -515,11 +515,11 @@ impl<'a> AST<'a> {
                     if let Some(precedence) = AST::get_op_precedence(&op) {
                         // this op is invalid if an assignment is expected
                         if expect_assignment {
-                            break Err(Error::new(format!("Invalid operator {:?} found, expected assignment", op)));
+                            break Err(Error::new(format!("Invalid operator {:?} found, expected assignment", op)))
                         }
                         // If this op has lower prec than we're allowed to read, we have to return it here.
                         if precedence < lowest_prec {
-                            break Ok((lhs, Some(op)));
+                            break Ok((lhs, Some(op)))
                         }
                         // We're allowed to use the next operator. Let's read an RHS to put on after it.
                         // We limit this tree to current precedence + 1 to prevent it using operators of our
@@ -533,7 +533,7 @@ impl<'a> AST<'a> {
                                     break Ok((
                                         Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })),
                                         Some(next_op),
-                                    ));
+                                    ))
                                 } else {
                                     // Update LHS by sticking RHS onto it,
                                     // set op to the new operator, and go round again.
@@ -545,17 +545,17 @@ impl<'a> AST<'a> {
                                 break Err(Error::new(format!(
                                     "read_binary_tree_recursive returned invalid operator: {}",
                                     next_op
-                                )));
+                                )))
                             }
                         } else {
                             // No more operators so let's put our lhs and rhs together.
-                            break Ok((Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })), None));
+                            break Ok((Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })), None))
                         }
                     } else {
                         // this op is invalid if assignment not expected, OR if it's a unary operator
                         // (those have no precedence so they pass the previous test.)
                         if !expect_assignment || op == Operator::Not || op == Operator::Complement {
-                            break Err(Error::new(format!("Invalid operator {:?} found, expected evaluable", op)));
+                            break Err(Error::new(format!("Invalid operator {:?} found, expected evaluable", op)))
                         } else {
                             // No need to do precedence on an assignment, so just grab RHS and return
                             let (rhs, stray_op) = AST::read_binary_tree_recursive(lex, None, false, lowest_prec)?;
@@ -563,7 +563,7 @@ impl<'a> AST<'a> {
                                 Err(Error::new(format!("Stray operator {:?} in expression", op)))
                             } else {
                                 Ok((Expr::Binary(Box::new(BinaryExpr { op, left: lhs, right: rhs })), None))
-                            };
+                            }
                         }
                     }
                 }
@@ -584,7 +584,7 @@ impl<'a> AST<'a> {
             Some(Token::Separator(ref sep)) if *sep == Separator::ParenLeft => {
                 let binary_tree = AST::read_binary_tree(lex, None, false)?;
                 if lex.next() != Some(Token::Separator(Separator::ParenRight)) {
-                    return Err(Error::new("Unclosed parenthesis in binary tree".to_string()));
+                    return Err(Error::new("Unclosed parenthesis in binary tree".to_string()))
                 } else {
                     binary_tree
                 }
@@ -594,7 +594,7 @@ impl<'a> AST<'a> {
                 {
                     Expr::Unary(Box::new(UnaryExpr { op, child: AST::read_btree_expression(lex, None)? }))
                 } else {
-                    return Err(Error::new(format!("Invalid unary operator {:?} in expression", op)));
+                    return Err(Error::new(format!("Invalid unary operator {:?} in expression", op)))
                 }
             },
             Some(Token::Identifier(t)) => {
@@ -608,10 +608,10 @@ impl<'a> AST<'a> {
             Some(Token::Real(t)) => Expr::LiteralReal(t),
             Some(Token::String(t)) => Expr::LiteralString(t),
             Some(t) => {
-                return Err(Error::new(format!("Invalid token while scanning binary tree: {:?}", t)));
+                return Err(Error::new(format!("Invalid token while scanning binary tree: {:?}", t)))
             },
             None => {
-                return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()));
+                return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()))
             },
         };
 
@@ -632,16 +632,16 @@ impl<'a> AST<'a> {
                                 Some(Token::Separator(Separator::Comma)) => {
                                     if lex.peek() == Some(&Token::Separator(Separator::BracketRight)) {
                                         lex.next();
-                                        break;
+                                        break
                                     }
                                 },
                                 Some(t) => {
-                                    return Err(Error::new(format!("Invalid token {:?}, expected expression", t)));
+                                    return Err(Error::new(format!("Invalid token {:?}, expected expression", t)))
                                 },
                                 None => {
                                     return Err(Error::new(
                                         "Found EOF unexpectedly while reading array accessor".to_string(),
-                                    ));
+                                    ))
                                 },
                             }
                         }
@@ -662,10 +662,10 @@ impl<'a> AST<'a> {
                             right: Expr::LiteralIdentifier(id),
                         })),
                         Some(t) => {
-                            return Err(Error::new(format!("Unexpected token {:?} following deref", t)));
+                            return Err(Error::new(format!("Unexpected token {:?} following deref", t)))
                         },
                         None => {
-                            return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()));
+                            return Err(Error::new("Found EOF unexpectedly while reading binary tree".to_string()))
                         },
                     }
                 },
@@ -691,14 +691,14 @@ impl<'a> AST<'a> {
                     Some(Token::Separator(Separator::Comma)) => {
                         if lex.peek() == Some(&Token::Separator(Separator::ParenRight)) {
                             lex.next();
-                            break;
+                            break
                         }
                     },
                     Some(t) => {
-                        return Err(Error::new(format!("Invalid token {:?}, expected expression", t)));
+                        return Err(Error::new(format!("Invalid token {:?}, expected expression", t)))
                     },
                     None => {
-                        return Err(Error::new("Found EOF unexpectedly while reading function call".to_string()));
+                        return Err(Error::new("Found EOF unexpectedly while reading function call".to_string()))
                     },
                 }
             }
