@@ -13,3 +13,17 @@ pub use room::Room;
 pub use script::Script;
 pub use sprite::Sprite;
 pub use timeline::Timeline;
+
+#[derive(Clone, Copy, Debug)]
+pub enum Type {
+    Background,
+    Font,
+    Object,
+    Path,
+    Room,
+    Script,
+    Sound,
+    Sprite,
+    Timeline,
+    Trigger,
+}
