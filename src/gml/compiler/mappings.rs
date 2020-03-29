@@ -1,6 +1,6 @@
 use crate::{
     game::Game,
-    gml::{Context, InstanceVariable, Value},
+    gml::{self, Context, InstanceVariable, Value},
 };
 
 /// Default numerical constants for GML
@@ -496,7 +496,7 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
 
 /// Mappings of function names to fn pointers
 /// The bool indicates whether the function is constant, ie. it doesn't read or write any internal state.
-pub const FUNCTIONS: [(&str, fn(&mut Game, &mut Context, &[Value]) -> Value, bool); 1281] = [
+pub const FUNCTIONS: [(&str, fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>, bool); 1281] = [
     ("display_get_width", Game::display_get_width, false),
     ("display_get_height", Game::display_get_height, false),
     ("display_get_colordepth", Game::display_get_colordepth, false),
