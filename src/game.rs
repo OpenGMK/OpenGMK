@@ -412,7 +412,7 @@ impl Game {
                         Ok(s) => s,
                         Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
                     };
-                    Ok(Box::new(Script { name: b.name, source: b.source, compiled }))
+                    Ok(Box::new(Script { name: b.name, source: b.source, compiled: compiled.into() }))
                 })
                 .transpose()
             })
