@@ -295,6 +295,12 @@ impl Value {
     }
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Self::Real(0.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
