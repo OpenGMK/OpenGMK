@@ -1,5 +1,5 @@
 use super::{compiler::token::Operator, Context, InstanceVariable, Value};
-use crate::{game::Game, gml};
+use crate::{asset, game::Game, gml, instance::DummyFieldHolder};
 use std::fmt;
 
 /// A compiled runtime instruction. Generally represents a line of code.
@@ -103,6 +103,7 @@ pub enum Error {
     InvalidIndexLhs(String),      // string repr. because Expr<'a>
     InvalidIndex(String),         // string repr. because Expr<'a>
     InvalidSwitchBody(String),    // string repr. because Expr<'a>
+    NonexistentAsset(asset::Type, usize),
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
     TooManyArrayDimensions(usize),
@@ -214,7 +215,33 @@ impl Game {
                 }
                 function(self, context, &arg_values[..args.len()])
             },
-            Node::Script { args: _, script_id: _ } => todo!(),
+            Node::Script { args, script_id } => {
+                if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
+                    let instructions = script.compiled.clone();
+
+                    let mut arg_values: [Value; 16] = Default::default();
+                    for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                        *dest = self.eval(src, context)?;
+                    }
+
+                    let mut new_context = Context {
+                        this: context.this,
+                        other: context.other,
+                        event_action: context.event_action,
+                        relative: context.relative,
+                        event_type: context.event_type,
+                        event_number: context.event_number,
+                        event_object: context.event_object,
+                        arguments: &arg_values[..args.len()],
+                        locals: DummyFieldHolder::new(),
+                        return_value: Default::default(),
+                    };
+                    self.execute(&instructions, &mut new_context)?;
+                    Ok(new_context.return_value)
+                } else {
+                    Err(Error::NonexistentAsset(asset::Type::Script, *script_id))
+                }
+            }
             Node::Field { accessor: _ } => todo!(),
             Node::Variable { accessor: _ } => todo!(),
             Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
