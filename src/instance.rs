@@ -1,4 +1,7 @@
-use crate::{asset::Object, gml::Value};
+use crate::{
+    asset::Object,
+    gml::{InstanceVariable, Value},
+};
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
@@ -62,6 +65,12 @@ pub struct Instance {
 pub enum Field {
     Single(Value),
     Array(HashMap<u32, Value>),
+}
+
+#[derive(Debug, Default)]
+pub struct DummyFieldHolder {
+    pub fields: HashMap<usize, Field>,
+    pub vars: HashMap<InstanceVariable, Field>,
 }
 
 impl Instance {
@@ -200,6 +209,15 @@ impl Field {
             Self::Array(m) => {
                 m.insert(index, value);
             },
+        }
+    }
+}
+
+impl DummyFieldHolder {
+    pub fn new() -> Self {
+        Self {
+            fields: HashMap::new(),
+            vars: HashMap::new(),
         }
     }
 }

@@ -38,7 +38,7 @@ pub mod ev {
 }
 
 /// Enum for each instance variable
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum InstanceVariable {
     X,
     Y,
