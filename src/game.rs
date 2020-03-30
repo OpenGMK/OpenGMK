@@ -9,7 +9,7 @@ use crate::{
     atlas::AtlasBuilder,
     background,
     gml::{ev, rand::Random, Compiler},
-    instance::Instance,
+    instance::{DummyFieldHolder, Instance},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile, view,
@@ -39,6 +39,7 @@ pub struct Game {
     pub room_id: i32,
     pub room_width: i32,
     pub room_height: i32,
+    pub globals: DummyFieldHolder,
 }
 
 pub struct Assets {
@@ -595,6 +596,7 @@ impl Game {
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
+            globals: DummyFieldHolder::new(),
         };
 
         game.load_room(room1_id)?;

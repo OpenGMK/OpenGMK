@@ -1,8 +1,7 @@
 use crate::{
     gml::Value,
-    instance::{Field, Instance},
+    instance::{DummyFieldHolder, Instance},
 };
-use std::collections::HashMap;
 
 pub struct Context<'a> {
     /// Reference to the "self" instance
@@ -32,7 +31,7 @@ pub struct Context<'a> {
 
     /// Local variables specific to this context
     /// TODO: replace this with a dummy field-holder object? Global behaves the same way.
-    pub locals: HashMap<usize, Field>,
+    pub locals: DummyFieldHolder,
 
     /// Return value from this execution - should be initialized to zero as it won't necessarily be written
     pub return_value: Value,
