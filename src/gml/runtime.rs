@@ -99,6 +99,7 @@ pub enum Error {
     InvalidBinaryOperator(Operator),
     InvalidAssignment(String),    // string repr. because Expr<'a>
     InvalidArrayAccessor(String), // string repr. because Expr<'a>
+    InvalidArrayIndex(i32),
     InvalidDeref(String),         // string repr. because Expr<'a>
     InvalidIndexLhs(String),      // string repr. because Expr<'a>
     InvalidIndex(String),         // string repr. because Expr<'a>
@@ -247,6 +248,31 @@ impl Game {
             Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
             Node::Unary { child, operator } => operator(self.eval(child, context)?),
             Node::RuntimeError { error } => Err(error.clone()),
+        }
+    }
+
+    fn get_array_index(&mut self, accessor: &ArrayAccessor, context: &mut Context) -> gml::Result<u32> {
+        match accessor {
+            ArrayAccessor::None => Ok(0),
+            ArrayAccessor::Single(node) => {
+                let index = self.eval(node, context)?.round();
+                if index < 0 || index >= 32000 {
+                    Err(Error::InvalidArrayIndex(index))
+                } else {
+                    Ok(index as u32)
+                }
+            },
+            ArrayAccessor::Double(node1, node2) => {
+                let index1 = self.eval(node1, context)?.round();
+                let index2 = self.eval(node2, context)?.round();
+                if index1 < 0 || index1 >= 32000 {
+                    Err(Error::InvalidArrayIndex(index1))
+                } else if index2 < 0 || index2 >= 32000 {
+                    Err(Error::InvalidArrayIndex(index2))
+                } else {
+                    Ok(((index1 * 32000) + index2) as u32)
+                }
+            },
         }
     }
 }
