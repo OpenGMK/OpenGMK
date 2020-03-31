@@ -1,5 +1,13 @@
-use super::{compiler::token::Operator, Context, InstanceVariable, Value};
-use crate::{asset, game::Game, gml, instance::DummyFieldHolder};
+use super::{
+    compiler::{mappings, token::Operator},
+    Context, InstanceVariable, Value,
+};
+use crate::{
+    asset,
+    game::Game,
+    gml,
+    instance::{DummyFieldHolder, Field, Instance},
+};
 use std::fmt;
 
 /// A compiled runtime instruction. Generally represents a line of code.
@@ -101,13 +109,15 @@ pub enum Error {
     InvalidAssignment(String),    // string repr. because Expr<'a>
     InvalidArrayAccessor(String), // string repr. because Expr<'a>
     InvalidArrayIndex(i32),
-    InvalidDeref(String),         // string repr. because Expr<'a>
-    InvalidIndexLhs(String),      // string repr. because Expr<'a>
-    InvalidIndex(String),         // string repr. because Expr<'a>
-    InvalidSwitchBody(String),    // string repr. because Expr<'a>
+    InvalidDeref(String),      // string repr. because Expr<'a>
+    InvalidIndexLhs(String),   // string repr. because Expr<'a>
+    InvalidIndex(String),      // string repr. because Expr<'a>
+    InvalidSwitchBody(String), // string repr. because Expr<'a>
     NonexistentAsset(asset::Type, usize),
+    ReadOnlyVariable(InstanceVariable),
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
+    UninitializedVariable(String, u32),
     TooManyArrayDimensions(usize),
 }
 
@@ -245,7 +255,7 @@ impl Game {
                 } else {
                     Err(Error::NonexistentAsset(asset::Type::Script, *script_id))
                 }
-            }
+            },
             Node::Field { accessor: _ } => todo!(),
             Node::Variable { accessor: _ } => todo!(),
             Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
@@ -254,16 +264,13 @@ impl Game {
         }
     }
 
+    // Resolves an ArrayAccessor to an index (u32)
     fn get_array_index(&mut self, accessor: &ArrayAccessor, context: &mut Context) -> gml::Result<u32> {
         match accessor {
             ArrayAccessor::None => Ok(0),
             ArrayAccessor::Single(node) => {
                 let index = self.eval(node, context)?.round();
-                if index < 0 || index >= 32000 {
-                    Err(Error::InvalidArrayIndex(index))
-                } else {
-                    Ok(index as u32)
-                }
+                if index < 0 || index >= 32000 { Err(Error::InvalidArrayIndex(index)) } else { Ok(index as u32) }
             },
             ArrayAccessor::Double(node1, node2) => {
                 let index1 = self.eval(node1, context)?.round();
@@ -276,6 +283,380 @@ impl Game {
                     Ok(((index1 * 32000) + index2) as u32)
                 }
             },
+        }
+    }
+
+    // Get a field value from an instance
+    fn get_instance_field(&self, instance: &Instance, field_id: usize, array_index: u32) -> gml::Result<Value> {
+        if let Some(Some(value)) = instance.fields.borrow().get(&field_id).map(|field| field.get(array_index)) {
+            Ok(value)
+        } else {
+            if self.uninit_fields_are_zero {
+                Ok(Value::Real(0.0))
+            } else {
+                Err(Error::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index))
+            }
+        }
+    }
+
+    // Set a field on an instance
+    fn set_instance_field(&self, instance: &Instance, field_id: usize, array_index: u32, value: Value) {
+        let mut fields = instance.fields.borrow_mut();
+        if let Some(field) = fields.get_mut(&field_id) {
+            field.set(array_index, value)
+        } else {
+            fields.insert(field_id, Field::new(array_index, value));
+        }
+    }
+
+    // Get an instance variable from an instance, converted into a Value
+    fn get_instance_var(
+        &self,
+        _instance: &Instance,
+        var: &InstanceVariable,
+        _array_index: u32,
+        _context: &Context,
+    ) -> gml::Result<Value> {
+        match var {
+            InstanceVariable::X => todo!(),
+            InstanceVariable::Y => todo!(),
+            InstanceVariable::Xprevious => todo!(),
+            InstanceVariable::Yprevious => todo!(),
+            InstanceVariable::Xstart => todo!(),
+            InstanceVariable::Ystart => todo!(),
+            InstanceVariable::Hspeed => todo!(),
+            InstanceVariable::Vspeed => todo!(),
+            InstanceVariable::Direction => todo!(),
+            InstanceVariable::Speed => todo!(),
+            InstanceVariable::Friction => todo!(),
+            InstanceVariable::Gravity => todo!(),
+            InstanceVariable::GravityDirection => todo!(),
+            InstanceVariable::ObjectIndex => todo!(),
+            InstanceVariable::Id => todo!(),
+            InstanceVariable::Alarm => todo!(),
+            InstanceVariable::Solid => todo!(),
+            InstanceVariable::Visible => todo!(),
+            InstanceVariable::Persistent => todo!(),
+            InstanceVariable::Depth => todo!(),
+            InstanceVariable::BboxLeft => todo!(),
+            InstanceVariable::BboxRight => todo!(),
+            InstanceVariable::BboxTop => todo!(),
+            InstanceVariable::BboxBottom => todo!(),
+            InstanceVariable::SpriteIndex => todo!(),
+            InstanceVariable::ImageIndex => todo!(),
+            InstanceVariable::ImageSingle => todo!(),
+            InstanceVariable::ImageNumber => todo!(),
+            InstanceVariable::SpriteWidth => todo!(),
+            InstanceVariable::SpriteHeight => todo!(),
+            InstanceVariable::SpriteXoffset => todo!(),
+            InstanceVariable::SpriteYoffset => todo!(),
+            InstanceVariable::ImageXscale => todo!(),
+            InstanceVariable::ImageYscale => todo!(),
+            InstanceVariable::ImageAngle => todo!(),
+            InstanceVariable::ImageAlpha => todo!(),
+            InstanceVariable::ImageBlend => todo!(),
+            InstanceVariable::ImageSpeed => todo!(),
+            InstanceVariable::MaskIndex => todo!(),
+            InstanceVariable::PathIndex => todo!(),
+            InstanceVariable::PathPosition => todo!(),
+            InstanceVariable::PathPositionprevious => todo!(),
+            InstanceVariable::PathSpeed => todo!(),
+            InstanceVariable::PathScale => todo!(),
+            InstanceVariable::PathOrientation => todo!(),
+            InstanceVariable::PathEndaction => todo!(),
+            InstanceVariable::TimelineIndex => todo!(),
+            InstanceVariable::TimelinePosition => todo!(),
+            InstanceVariable::TimelineSpeed => todo!(),
+            InstanceVariable::TimelineRunning => todo!(),
+            InstanceVariable::TimelineLoop => todo!(),
+            InstanceVariable::ArgumentRelative => todo!(),
+            InstanceVariable::Argument0 => todo!(),
+            InstanceVariable::Argument1 => todo!(),
+            InstanceVariable::Argument2 => todo!(),
+            InstanceVariable::Argument3 => todo!(),
+            InstanceVariable::Argument4 => todo!(),
+            InstanceVariable::Argument5 => todo!(),
+            InstanceVariable::Argument6 => todo!(),
+            InstanceVariable::Argument7 => todo!(),
+            InstanceVariable::Argument8 => todo!(),
+            InstanceVariable::Argument9 => todo!(),
+            InstanceVariable::Argument10 => todo!(),
+            InstanceVariable::Argument11 => todo!(),
+            InstanceVariable::Argument12 => todo!(),
+            InstanceVariable::Argument13 => todo!(),
+            InstanceVariable::Argument14 => todo!(),
+            InstanceVariable::Argument15 => todo!(),
+            InstanceVariable::Argument => todo!(),
+            InstanceVariable::ArgumentCount => todo!(),
+            InstanceVariable::Room => todo!(),
+            InstanceVariable::RoomFirst => todo!(),
+            InstanceVariable::RoomLast => todo!(),
+            InstanceVariable::TransitionKind => todo!(),
+            InstanceVariable::TransitionSteps => todo!(),
+            InstanceVariable::Score => todo!(),
+            InstanceVariable::Lives => todo!(),
+            InstanceVariable::Health => todo!(),
+            InstanceVariable::GameId => todo!(),
+            InstanceVariable::WorkingDirectory => todo!(),
+            InstanceVariable::TempDirectory => todo!(),
+            InstanceVariable::ProgramDirectory => todo!(),
+            InstanceVariable::InstanceCount => todo!(),
+            InstanceVariable::InstanceId => todo!(),
+            InstanceVariable::RoomWidth => todo!(),
+            InstanceVariable::RoomHeight => todo!(),
+            InstanceVariable::RoomCaption => todo!(),
+            InstanceVariable::RoomSpeed => todo!(),
+            InstanceVariable::RoomPersistent => todo!(),
+            InstanceVariable::BackgroundColor => todo!(),
+            InstanceVariable::BackgroundShowcolor => todo!(),
+            InstanceVariable::BackgroundVisible => todo!(),
+            InstanceVariable::BackgroundForeground => todo!(),
+            InstanceVariable::BackgroundIndex => todo!(),
+            InstanceVariable::BackgroundX => todo!(),
+            InstanceVariable::BackgroundY => todo!(),
+            InstanceVariable::BackgroundWidth => todo!(),
+            InstanceVariable::BackgroundHeight => todo!(),
+            InstanceVariable::BackgroundHtiled => todo!(),
+            InstanceVariable::BackgroundVtiled => todo!(),
+            InstanceVariable::BackgroundXscale => todo!(),
+            InstanceVariable::BackgroundYscale => todo!(),
+            InstanceVariable::BackgroundHspeed => todo!(),
+            InstanceVariable::BackgroundVspeed => todo!(),
+            InstanceVariable::BackgroundBlend => todo!(),
+            InstanceVariable::BackgroundAlpha => todo!(),
+            InstanceVariable::ViewEnabled => todo!(),
+            InstanceVariable::ViewCurrent => todo!(),
+            InstanceVariable::ViewVisible => todo!(),
+            InstanceVariable::ViewXview => todo!(),
+            InstanceVariable::ViewYview => todo!(),
+            InstanceVariable::ViewWview => todo!(),
+            InstanceVariable::ViewHview => todo!(),
+            InstanceVariable::ViewXport => todo!(),
+            InstanceVariable::ViewYport => todo!(),
+            InstanceVariable::ViewWport => todo!(),
+            InstanceVariable::ViewHport => todo!(),
+            InstanceVariable::ViewAngle => todo!(),
+            InstanceVariable::ViewHborder => todo!(),
+            InstanceVariable::ViewVborder => todo!(),
+            InstanceVariable::ViewHspeed => todo!(),
+            InstanceVariable::ViewVspeed => todo!(),
+            InstanceVariable::ViewObject => todo!(),
+            InstanceVariable::MouseX => todo!(),
+            InstanceVariable::MouseY => todo!(),
+            InstanceVariable::MouseButton => todo!(),
+            InstanceVariable::MouseLastbutton => todo!(),
+            InstanceVariable::KeyboardKey => todo!(),
+            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::KeyboardLastchar => todo!(),
+            InstanceVariable::KeyboardString => todo!(),
+            InstanceVariable::CursorSprite => todo!(),
+            InstanceVariable::ShowScore => todo!(),
+            InstanceVariable::ShowLives => todo!(),
+            InstanceVariable::ShowHealth => todo!(),
+            InstanceVariable::CaptionScore => todo!(),
+            InstanceVariable::CaptionLives => todo!(),
+            InstanceVariable::CaptionHealth => todo!(),
+            InstanceVariable::Fps => todo!(),
+            InstanceVariable::CurrentTime => todo!(),
+            InstanceVariable::CurrentYear => todo!(),
+            InstanceVariable::CurrentMonth => todo!(),
+            InstanceVariable::CurrentDay => todo!(),
+            InstanceVariable::CurrentWeekday => todo!(),
+            InstanceVariable::CurrentHour => todo!(),
+            InstanceVariable::CurrentMinute => todo!(),
+            InstanceVariable::CurrentSecond => todo!(),
+            InstanceVariable::EventType => todo!(),
+            InstanceVariable::EventNumber => todo!(),
+            InstanceVariable::EventObject => todo!(),
+            InstanceVariable::EventAction => todo!(),
+            InstanceVariable::SecureMode => todo!(),
+            InstanceVariable::DebugMode => todo!(),
+            InstanceVariable::ErrorOccurred => todo!(),
+            InstanceVariable::ErrorLast => todo!(),
+            InstanceVariable::GamemakerRegistered => todo!(),
+            InstanceVariable::GamemakerPro => todo!(),
+            InstanceVariable::GamemakerVersion => todo!(),
+            InstanceVariable::OsType => todo!(),
+            InstanceVariable::OsDevice => todo!(),
+            InstanceVariable::OsBrowser => todo!(),
+            InstanceVariable::OsVersion => todo!(),
+            InstanceVariable::BrowserWidth => todo!(),
+            InstanceVariable::BrowserHeight => todo!(),
+            InstanceVariable::DisplayAa => todo!(),
+            InstanceVariable::AsyncLoad => todo!(),
+        }
+    }
+
+    // Set an instance variable on an instance
+    fn set_instance_var(
+        &self,
+        _instance: &Instance,
+        var: &InstanceVariable,
+        _array_index: u32,
+        _value: Value,
+        _context: &mut Context,
+    ) -> gml::Result<()> {
+        match var {
+            InstanceVariable::X => todo!(),
+            InstanceVariable::Y => todo!(),
+            InstanceVariable::Xprevious => todo!(),
+            InstanceVariable::Yprevious => todo!(),
+            InstanceVariable::Xstart => todo!(),
+            InstanceVariable::Ystart => todo!(),
+            InstanceVariable::Hspeed => todo!(),
+            InstanceVariable::Vspeed => todo!(),
+            InstanceVariable::Direction => todo!(),
+            InstanceVariable::Speed => todo!(),
+            InstanceVariable::Friction => todo!(),
+            InstanceVariable::Gravity => todo!(),
+            InstanceVariable::GravityDirection => todo!(),
+            InstanceVariable::Alarm => todo!(),
+            InstanceVariable::Solid => todo!(),
+            InstanceVariable::Visible => todo!(),
+            InstanceVariable::Persistent => todo!(),
+            InstanceVariable::Depth => todo!(),
+            InstanceVariable::SpriteIndex => todo!(),
+            InstanceVariable::ImageIndex => todo!(),
+            InstanceVariable::ImageSingle => todo!(),
+            InstanceVariable::ImageXscale => todo!(),
+            InstanceVariable::ImageYscale => todo!(),
+            InstanceVariable::ImageAngle => todo!(),
+            InstanceVariable::ImageAlpha => todo!(),
+            InstanceVariable::ImageBlend => todo!(),
+            InstanceVariable::ImageSpeed => todo!(),
+            InstanceVariable::MaskIndex => todo!(),
+            InstanceVariable::PathPosition => todo!(),
+            InstanceVariable::PathPositionprevious => todo!(),
+            InstanceVariable::PathSpeed => todo!(),
+            InstanceVariable::PathScale => todo!(),
+            InstanceVariable::PathOrientation => todo!(),
+            InstanceVariable::PathEndaction => todo!(),
+            InstanceVariable::TimelineIndex => todo!(),
+            InstanceVariable::TimelinePosition => todo!(),
+            InstanceVariable::TimelineSpeed => todo!(),
+            InstanceVariable::TimelineRunning => todo!(),
+            InstanceVariable::TimelineLoop => todo!(),
+            InstanceVariable::Argument0 => todo!(),
+            InstanceVariable::Argument1 => todo!(),
+            InstanceVariable::Argument2 => todo!(),
+            InstanceVariable::Argument3 => todo!(),
+            InstanceVariable::Argument4 => todo!(),
+            InstanceVariable::Argument5 => todo!(),
+            InstanceVariable::Argument6 => todo!(),
+            InstanceVariable::Argument7 => todo!(),
+            InstanceVariable::Argument8 => todo!(),
+            InstanceVariable::Argument9 => todo!(),
+            InstanceVariable::Argument10 => todo!(),
+            InstanceVariable::Argument11 => todo!(),
+            InstanceVariable::Argument12 => todo!(),
+            InstanceVariable::Argument13 => todo!(),
+            InstanceVariable::Argument14 => todo!(),
+            InstanceVariable::Argument15 => todo!(),
+            InstanceVariable::Argument => todo!(),
+            InstanceVariable::Room => todo!(),
+            InstanceVariable::TransitionKind => todo!(),
+            InstanceVariable::TransitionSteps => todo!(),
+            InstanceVariable::Score => todo!(),
+            InstanceVariable::Lives => todo!(),
+            InstanceVariable::Health => todo!(),
+            InstanceVariable::RoomCaption => todo!(),
+            InstanceVariable::RoomSpeed => todo!(),
+            InstanceVariable::RoomPersistent => todo!(),
+            InstanceVariable::BackgroundColor => todo!(),
+            InstanceVariable::BackgroundShowcolor => todo!(),
+            InstanceVariable::BackgroundVisible => todo!(),
+            InstanceVariable::BackgroundForeground => todo!(),
+            InstanceVariable::BackgroundIndex => todo!(),
+            InstanceVariable::BackgroundX => todo!(),
+            InstanceVariable::BackgroundY => todo!(),
+            InstanceVariable::BackgroundHtiled => todo!(),
+            InstanceVariable::BackgroundVtiled => todo!(),
+            InstanceVariable::BackgroundXscale => todo!(),
+            InstanceVariable::BackgroundYscale => todo!(),
+            InstanceVariable::BackgroundHspeed => todo!(),
+            InstanceVariable::BackgroundVspeed => todo!(),
+            InstanceVariable::BackgroundBlend => todo!(),
+            InstanceVariable::BackgroundAlpha => todo!(),
+            InstanceVariable::ViewEnabled => todo!(),
+            InstanceVariable::ViewVisible => todo!(),
+            InstanceVariable::ViewXview => todo!(),
+            InstanceVariable::ViewYview => todo!(),
+            InstanceVariable::ViewWview => todo!(),
+            InstanceVariable::ViewHview => todo!(),
+            InstanceVariable::ViewXport => todo!(),
+            InstanceVariable::ViewYport => todo!(),
+            InstanceVariable::ViewWport => todo!(),
+            InstanceVariable::ViewHport => todo!(),
+            InstanceVariable::ViewAngle => todo!(),
+            InstanceVariable::ViewHborder => todo!(),
+            InstanceVariable::ViewVborder => todo!(),
+            InstanceVariable::ViewHspeed => todo!(),
+            InstanceVariable::ViewVspeed => todo!(),
+            InstanceVariable::ViewObject => todo!(),
+            InstanceVariable::MouseButton => todo!(),
+            InstanceVariable::MouseLastbutton => todo!(),
+            InstanceVariable::KeyboardKey => todo!(),
+            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::KeyboardLastchar => todo!(),
+            InstanceVariable::KeyboardString => todo!(),
+            InstanceVariable::CursorSprite => todo!(),
+            InstanceVariable::ShowScore => todo!(),
+            InstanceVariable::ShowLives => todo!(),
+            InstanceVariable::ShowHealth => todo!(),
+            InstanceVariable::CaptionScore => todo!(),
+            InstanceVariable::CaptionLives => todo!(),
+            InstanceVariable::CaptionHealth => todo!(),
+            InstanceVariable::ErrorOccurred => todo!(),
+            InstanceVariable::ErrorLast => todo!(),
+            _ => return Err(Error::ReadOnlyVariable(*var)),
+        }
+        //Ok(()) //uncomment this when it's not unreachable
+    }
+
+    // Get a field value from a DummyFieldHolder
+    fn get_dummy_field(&self, dummy: &DummyFieldHolder, field_id: usize, array_index: u32) -> gml::Result<Value> {
+        if let Some(Some(value)) = dummy.fields.get(&field_id).map(|field| field.get(array_index)) {
+            Ok(value)
+        } else {
+            if self.uninit_fields_are_zero {
+                Ok(Value::Real(0.0))
+            } else {
+                Err(Error::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index))
+            }
+        }
+    }
+
+    // Set a field on a DummyFieldHolder
+    fn set_dummy_field(&self, dummy: &mut DummyFieldHolder, field_id: usize, array_index: u32, value: Value) {
+        if let Some(field) = dummy.fields.get_mut(&field_id) {
+            field.set(array_index, value)
+        } else {
+            dummy.fields.insert(field_id, Field::new(array_index, value));
+        }
+    }
+
+    // Get an instance variable value from a DummyFieldHolder
+    fn get_dummy_var(&self, dummy: &DummyFieldHolder, var: &InstanceVariable, array_index: u32) -> gml::Result<Value> {
+        if let Some(Some(value)) = dummy.vars.get(var).map(|field| field.get(array_index)) {
+            Ok(value)
+        } else {
+            if self.uninit_fields_are_zero {
+                Ok(Value::Real(0.0))
+            } else {
+                Err(Error::UninitializedVariable(
+                    String::from(mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| x == var).unwrap().0),
+                    array_index,
+                ))
+            }
+        }
+    }
+
+    // Set an instance variable on a DummyFieldHolder
+    fn set_dummy_var(&self, dummy: &mut DummyFieldHolder, var: &InstanceVariable, array_index: u32, value: Value) {
+        if let Some(field) = dummy.vars.get_mut(var) {
+            field.set(array_index, value)
+        } else {
+            dummy.vars.insert(*var, Field::new(array_index, value));
         }
     }
 }
