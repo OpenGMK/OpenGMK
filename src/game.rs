@@ -166,12 +166,12 @@ impl Game {
             title: &room1.caption,
             size: (room1_width, room1_height),
             icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
-            global_clear_colour: assets.settings.clear_colour.into(),
-            resizable: assets.settings.allow_resize,
-            on_top: assets.settings.window_on_top,
-            decorations: !assets.settings.dont_draw_border,
-            fullscreen: assets.settings.fullscreen,
-            vsync: assets.settings.vsync, // TODO: Overrideable
+            global_clear_colour: settings.clear_colour.into(),
+            resizable: settings.allow_resize,
+            on_top: settings.window_on_top,
+            decorations: !settings.dont_draw_border,
+            fullscreen: settings.fullscreen,
+            vsync: settings.vsync, // TODO: Overrideable
         };
 
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
@@ -194,7 +194,7 @@ impl Game {
         let mut renderer = OpenGLRenderer::new(options, window)?;
 
         // needs to be done after renderer sets context
-        glfw.set_swap_interval(if assets.settings.vsync {
+        glfw.set_swap_interval(if settings.vsync {
             glfw::SwapInterval::Sync(1)
         } else {
             glfw::SwapInterval::None
