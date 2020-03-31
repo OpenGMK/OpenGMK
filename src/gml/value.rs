@@ -1,4 +1,4 @@
-use crate::gml;
+use crate::{gml, util};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -78,24 +78,10 @@ impl Value {
         }
     }
 
-    /// The default way to round as defined by IEEE 754 - nearest, ties to even. Fuck yourself.
-    fn ieee_round(real: f64) -> i32 {
-        let floor = real.floor();
-        let floori = floor as i32;
-        let diff = real - floor;
-        if diff < 0.5 {
-            floori
-        } else if diff > 0.5 {
-            floori + 1
-        } else {
-            floori + (floori & 1)
-        }
-    }
-
     /// Rounds the value to an i32. This is done very commonly by the GM8 runner.
     pub fn round(&self) -> i32 {
         match &self {
-            Real(f) => Value::ieee_round(*f),
+            Real(f) => util::ieee_round(*f),
             Str(_) => 0,
         }
     }
@@ -119,7 +105,7 @@ impl Value {
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Real(val) => Ok(Real(!(Self::ieee_round(val) as i32) as f64)),
+            Real(val) => Ok(Real(!(util::ieee_round(val) as i32) as f64)),
             _ => invalid_op!(Complement, self),
         }
     }
@@ -177,42 +163,42 @@ impl Value {
 
     pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 & Self::ieee_round(rhs) as i32) as _)),
+            (Real(lhs), Real(rhs)) => Ok(Real((util::ieee_round(lhs) as i32 & util::ieee_round(rhs) as i32) as _)),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
 
     pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 & Self::ieee_round(rhs) as i32) as _),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (util::ieee_round(*lhs) as i32 & util::ieee_round(rhs) as i32) as _),
             (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
 
     pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 | Self::ieee_round(rhs) as i32) as _)),
+            (Real(lhs), Real(rhs)) => Ok(Real((util::ieee_round(lhs) as i32 | util::ieee_round(rhs) as i32) as _)),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
 
     pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 | Self::ieee_round(rhs) as i32) as _),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (util::ieee_round(*lhs) as i32 | util::ieee_round(rhs) as i32) as _),
             (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
 
     pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _)),
+            (Real(lhs), Real(rhs)) => Ok(Real((util::ieee_round(lhs) as i32 ^ util::ieee_round(rhs) as i32) as _)),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
 
     pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(*lhs = (Self::ieee_round(*lhs) as i32 ^ Self::ieee_round(rhs) as i32) as _),
+            (Real(lhs), Real(rhs)) => Ok(*lhs = (util::ieee_round(*lhs) as i32 ^ util::ieee_round(rhs) as i32) as _),
             (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
@@ -268,14 +254,14 @@ impl Value {
 
     pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(Real(((Self::ieee_round(lhs) as i32) << Self::ieee_round(rhs) as i32) as _)),
+            (Real(lhs), Real(rhs)) => Ok(Real(((util::ieee_round(lhs) as i32) << util::ieee_round(rhs) as i32) as _)),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
     pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Real(lhs), Real(rhs)) => Ok(Real((Self::ieee_round(lhs) as i32 >> Self::ieee_round(rhs) as i32) as _)),
+            (Real(lhs), Real(rhs)) => Ok(Real((util::ieee_round(lhs) as i32 >> util::ieee_round(rhs) as i32) as _)),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
@@ -326,16 +312,16 @@ mod tests {
 
     #[test]
     fn ieee_round() {
-        assert_eq!(Value::ieee_round(-3.5), -4);
-        assert_eq!(Value::ieee_round(-2.5), -2);
-        assert_eq!(Value::ieee_round(-1.5), -2);
-        assert_eq!(Value::ieee_round(-0.5), 0);
-        assert_eq!(Value::ieee_round(0.5), 0);
-        assert_eq!(Value::ieee_round(1.5), 2);
-        assert_eq!(Value::ieee_round(2.5), 2);
-        assert_eq!(Value::ieee_round(3.5), 4);
+        assert_eq!(util::ieee_round(-3.5), -4);
+        assert_eq!(util::ieee_round(-2.5), -2);
+        assert_eq!(util::ieee_round(-1.5), -2);
+        assert_eq!(util::ieee_round(-0.5), 0);
+        assert_eq!(util::ieee_round(0.5), 0);
+        assert_eq!(util::ieee_round(1.5), 2);
+        assert_eq!(util::ieee_round(2.5), 2);
+        assert_eq!(util::ieee_round(3.5), 4);
         for i in 0..1000 {
-            assert_eq!(Value::ieee_round(i as f64 + 0.5) % 2, 0);
+            assert_eq!(util::ieee_round(i as f64 + 0.5) % 2, 0);
         }
     }
 }
