@@ -580,4 +580,9 @@ impl Compiler {
             _ => Err(expression_list.len()),
         }
     }
+
+    /// Get a field name by its ID. This clones the string; it should only be used in the case of an error.
+    pub fn get_field_name(&self, id: usize) -> Option<String> {
+        self.fields.get(id).map(String::clone)
+    }
 }
