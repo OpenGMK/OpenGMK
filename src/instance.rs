@@ -1,12 +1,18 @@
 use crate::{
-    asset::Object,
+    asset::{Object, Sprite},
     gml::{InstanceVariable, Value},
+    util,
 };
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     f64,
 };
+
+// Default in GameMaker 8
+const BBOX_DEFAULT: i32 = -100000;
+// Rust can't represent this many decimal places yet I think. In GM8 it's a TBYTE definition
+const PI: f64 = 3.1415926535897932380;
 
 pub struct Instance {
     pub exists: Cell<bool>,
@@ -117,10 +123,10 @@ impl Instance {
             timeline_speed: Cell::new(1.0),
             timeline_position: Cell::new(0.0),
             timeline_loop: Cell::new(false),
-            bbox_top: Cell::new(-100000),
-            bbox_left: Cell::new(-100000),
-            bbox_right: Cell::new(-100000),
-            bbox_bottom: Cell::new(-100000),
+            bbox_top: Cell::new(BBOX_DEFAULT),
+            bbox_left: Cell::new(BBOX_DEFAULT),
+            bbox_right: Cell::new(BBOX_DEFAULT),
+            bbox_bottom: Cell::new(BBOX_DEFAULT),
             bbox_is_stale: Cell::new(true),
             fields: RefCell::new(HashMap::new()),
             alarms: RefCell::new(HashMap::new()),
@@ -162,6 +168,85 @@ impl Instance {
         self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()));
         self.speed.set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
     }
+
+    // Updates the bbox variables if they're stale, otherwise does nothing
+    pub fn update_bbox(&self, sprite: Option<&Sprite>) {
+        // Do nothing if bbox isn't stale
+        if self.bbox_is_stale.get() {
+
+            // See if we can find a valid collider from the given sprite
+            if let Some((Some(collider), origin_x, origin_y)) = sprite.map(|sprite| {
+                // If sprite is Some, then we still need to get a collider out of it
+                // In theory this should never fail, but I combined it inline with the "if let" above
+                // so that it won't panic if that does ever happen.
+                (if sprite.per_frame_colliders {
+                    sprite.colliders.get((self.image_index.get().floor() as usize) % sprite.colliders.len())
+                } else {
+                    sprite.colliders.first()
+                }, sprite.origin_x as f64, sprite.origin_y as f64)
+            }) {
+                // Get coordinates of top-left and bottom-right corners of the collider at self's x and y,
+                // taking image scale (but not angle) into account
+                let x = self.x.get();
+                let y = self.y.get();
+                let xscale = self.image_xscale.get();
+                let yscale = self.image_yscale.get();
+                let mut top_left_x = (x - (origin_x * xscale)) + ((collider.bbox_left as f64) * xscale);
+                let mut top_left_y = (y - (origin_y * yscale)) + ((collider.bbox_top as f64) * yscale);
+                let mut bottom_right_x = top_left_x + ((((collider.bbox_right as i32) + 1 - (collider.bbox_left as i32)) as f64) * xscale) - 1.0;
+                let mut bottom_right_y = top_left_y + ((((collider.bbox_bottom as i32) + 1 - (collider.bbox_top as i32)) as f64) * yscale) - 1.0;
+
+                // Make sure left/right and top/bottom are the right way around
+                if xscale <= 0.0 {
+                    std::mem::swap(&mut top_left_x, &mut bottom_right_x);
+                }
+                if yscale <= 0.0 {
+                    std::mem::swap(&mut top_left_y, &mut bottom_right_y);
+                }
+
+                // Copy values for the other two corners (top-right, bottom-left)...
+                let mut top_right_x = bottom_right_x;
+                let mut top_right_y = top_left_y;
+                let mut bottom_left_x = top_left_x;
+                let mut bottom_left_y = bottom_right_y;
+
+                // Rotate these points
+                let angle = -self.image_angle.get() * PI / 180.0;
+                let sin = angle.sin();
+                let cos = angle.cos();
+                rotate_around(&mut top_left_x, &mut top_left_y, x, y, sin, cos);
+                rotate_around(&mut top_right_x, &mut top_right_y, x, y, sin, cos);
+                rotate_around(&mut bottom_left_x, &mut bottom_left_y, x, y, sin, cos);
+                rotate_around(&mut bottom_right_x, &mut bottom_right_y, x, y, sin, cos);
+
+                // Set left to whichever x is lowest, right to whichever x is highest,
+                // top to whichever y is lowest, and bottom to whichever y is highest.
+                self.bbox_left.set(util::ieee_round(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x)))));
+                self.bbox_right.set(util::ieee_round(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x)))));
+                self.bbox_top.set(util::ieee_round(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y)))));
+                self.bbox_bottom.set(util::ieee_round(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y)))));
+            } else {
+                // No valid collider provided - set default values and return
+                self.bbox_top.set(BBOX_DEFAULT);
+                self.bbox_left.set(BBOX_DEFAULT);
+                self.bbox_right.set(BBOX_DEFAULT);
+                self.bbox_bottom.set(BBOX_DEFAULT);
+            }
+
+            // Indicate bbox is no longer stale
+            self.bbox_is_stale.set(false);
+        }
+    }
+}
+
+// Helper fn: rotate mutable x and y around a center point, given sin and cos of the angle to rotate by
+fn rotate_around(x: &mut f64, y: &mut f64, center_x: f64, center_y: f64, sin: f64, cos: f64) {
+    *x -= center_x;
+    *y -= center_y;
+    let x_new = ((*x * cos) - (*y * sin)) + center_x;
+    let y_new = ((*x * sin) + (*y * cos)) + center_y;
+    *x = x_new;
+    *y = y_new;
 }
 
 impl Field {
