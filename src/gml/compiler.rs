@@ -5,7 +5,7 @@ pub mod token;
 
 use super::{
     runtime::{
-        ArrayAccessor, AssignmentType, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType,
+        ArrayAccessor, ModificationType, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType,
         VariableAccessor,
     },
     Value,
@@ -392,27 +392,35 @@ impl Compiler {
 
     /// Converts an AST BinaryExpr to an Instruction.
     fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&str]) -> Instruction {
-        let assignment_type = match binary_expr.op {
-            Operator::Assign => AssignmentType::Set,
-            Operator::AssignAdd => AssignmentType::Add,
-            Operator::AssignSubtract => AssignmentType::Subtract,
-            Operator::AssignMultiply => AssignmentType::Multiply,
-            Operator::AssignDivide => AssignmentType::Divide,
-            Operator::AssignBitwiseAnd => AssignmentType::BitAnd,
-            Operator::AssignBitwiseOr => AssignmentType::BitOr,
-            Operator::AssignBitwiseXor => AssignmentType::BitXor,
+        let modification_type = match binary_expr.op {
+            Operator::Assign => None,
+            Operator::AssignAdd => Some(ModificationType::Add),
+            Operator::AssignSubtract => Some(ModificationType::Subtract),
+            Operator::AssignMultiply => Some(ModificationType::Multiply),
+            Operator::AssignDivide => Some(ModificationType::Divide),
+            Operator::AssignBitwiseAnd => Some(ModificationType::BitAnd),
+            Operator::AssignBitwiseOr => Some(ModificationType::BitOr),
+            Operator::AssignBitwiseXor => Some(ModificationType::BitXor),
             _ => unreachable!("Invalid assignment operator: {}", binary_expr.op),
         };
 
         let value = self.compile_ast_expr(&binary_expr.right, locals);
         match &binary_expr.left {
             ast::Expr::LiteralIdentifier(string) => {
-                self.make_set_instruction(string, None, ArrayAccessor::None, assignment_type, value, locals)
+                if let Some(mod_type) = modification_type {
+                    self.make_modify_instruction(string, None, ArrayAccessor::None, mod_type, value, locals)
+                } else {
+                    self.make_set_instruction(string, None, ArrayAccessor::None, value, locals)
+                }
             },
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                 if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
                     let owner = self.make_instance_identifier(&binary_expr.left, locals);
-                    self.make_set_instruction(string, Some(owner), ArrayAccessor::None, assignment_type, value, locals)
+                    if let Some(mod_type) = modification_type {
+                        self.make_modify_instruction(string, Some(owner), ArrayAccessor::None, mod_type, value, locals)
+                    } else {
+                        self.make_set_instruction(string, Some(owner), ArrayAccessor::None, value, locals)
+                    }
                 } else {
                     Instruction::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) }
                 }
@@ -425,12 +433,20 @@ impl Compiler {
                     };
                     match &binary_expr.left {
                         ast::Expr::LiteralIdentifier(string) => {
-                            self.make_set_instruction(string, None, accessor, assignment_type, value, locals)
+                            if let Some(mod_type) = modification_type {
+                                self.make_modify_instruction(string, None, accessor, mod_type, value, locals)
+                            } else {
+                                self.make_set_instruction(string, None, accessor, value, locals)
+                            }
                         },
                         ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                             if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
                                 let owner = self.make_instance_identifier(&binary_expr.left, locals);
-                                self.make_set_instruction(string, Some(owner), accessor, assignment_type, value, locals)
+                                if let Some(mod_type) = modification_type {
+                                    self.make_modify_instruction(string, Some(owner), accessor, mod_type, value, locals)
+                                } else {
+                                    self.make_set_instruction(string, Some(owner), accessor, value, locals)
+                                }
                             } else {
                                 Instruction::RuntimeError {
                                     error: gml::Error::InvalidDeref(binary_expr.right.to_string()),
@@ -477,14 +493,13 @@ impl Compiler {
         }
     }
 
-    /// Converts an identifier, owner, array accessor, assignment-type and value into an instruction.
+    /// Converts an identifier, owner, array accessor and value into a set instruction.
     /// If no owner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn make_set_instruction(
         &mut self,
         identifier: &str,
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
-        assignment_type: AssignmentType,
         value: Node,
         locals: &[&str],
     ) -> Instruction {
@@ -500,10 +515,40 @@ impl Compiler {
         };
 
         if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Instruction::SetVariable { accessor: VariableAccessor { var: *var, array, owner }, assignment_type, value }
+            Instruction::SetVariable { accessor: VariableAccessor { var: *var, array, owner }, value }
         } else {
             let index = self.get_field_id(identifier);
-            Instruction::SetField { accessor: FieldAccessor { index, array, owner }, assignment_type, value }
+            Instruction::SetField { accessor: FieldAccessor { index, array, owner }, value }
+        }
+    }
+
+    /// Converts an identifier, owner, array accessor, modification-type and value into an instruction.
+    /// If no owner is provided (ie. the variable wasn't specified with one), this function will infer one.
+    fn make_modify_instruction(
+        &mut self,
+        identifier: &str,
+        owner: Option<InstanceIdentifier>,
+        array: ArrayAccessor,
+        modification_type: ModificationType,
+        value: Node,
+        locals: &[&str],
+    ) -> Instruction {
+        let owner = match owner {
+            Some(o) => o,
+            None => {
+                if locals.iter().any(|x| *x == identifier) {
+                    InstanceIdentifier::Local
+                } else {
+                    InstanceIdentifier::Own
+                }
+            },
+        };
+
+        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+            Instruction::ModifyVariable { accessor: VariableAccessor { var: *var, array, owner }, modification_type, value }
+        } else {
+            let index = self.get_field_id(identifier);
+            Instruction::ModifyField { accessor: FieldAccessor { index, array, owner }, modification_type, value }
         }
     }
 

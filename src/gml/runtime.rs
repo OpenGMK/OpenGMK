@@ -5,8 +5,10 @@ use std::fmt;
 /// A compiled runtime instruction. Generally represents a line of code.
 #[derive(Debug)]
 pub enum Instruction {
-    SetField { accessor: FieldAccessor, value: Node, assignment_type: AssignmentType },
-    SetVariable { accessor: VariableAccessor, value: Node, assignment_type: AssignmentType },
+    SetField { accessor: FieldAccessor, value: Node },
+    SetVariable { accessor: VariableAccessor, value: Node },
+    ModifyField { accessor: FieldAccessor, value: Node, modification_type: ModificationType },
+    ModifyVariable { accessor: VariableAccessor, value: Node, modification_type: ModificationType },
     EvalExpression { node: Node },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopUntil { cond: Node, body: Box<[Instruction]> },
@@ -31,10 +33,9 @@ pub enum Node {
     RuntimeError { error: Error },
 }
 
-/// Type of assignment.
+/// Type of variable modification.
 #[derive(Debug)]
-pub enum AssignmentType {
-    Set,
+pub enum ModificationType {
     Add,
     Subtract,
     Multiply,
@@ -141,8 +142,10 @@ impl Game {
 
     fn exec_instruction(&mut self, instruction: &Instruction, context: &mut Context) -> gml::Result<ReturnType> {
         match instruction {
-            Instruction::SetField { accessor: _, value: _, assignment_type: _ } => todo!(),
-            Instruction::SetVariable { accessor: _, value: _, assignment_type: _ } => todo!(),
+            Instruction::SetField { accessor: _, value: _ } => todo!(),
+            Instruction::SetVariable { accessor: _, value: _ } => todo!(),
+            Instruction::ModifyField { accessor: _, value: _, modification_type: _ } => todo!(),
+            Instruction::ModifyVariable { accessor: _, value: _, modification_type: _ } => todo!(),
             Instruction::EvalExpression { node } => match self.eval(node, context) {
                 Err(e) => return Err(e),
                 _ => (),
