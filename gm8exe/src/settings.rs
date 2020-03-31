@@ -152,10 +152,10 @@ pub struct Settings {
     pub always_abort: bool,
 
     /// Treat uninitialized variables as value 0
-    pub zero_uninitalized_vars: bool,
+    pub zero_uninitialized_vars: bool,
 
     /// Throw an error when arguments aren't initialized correctly
-    pub error_on_uninitalized_args: bool,
+    pub error_on_uninitialized_args: bool,
 }
 
 /// The help dialog box associated with a GM8 game

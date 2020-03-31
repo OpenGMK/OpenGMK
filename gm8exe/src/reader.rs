@@ -241,7 +241,7 @@ where
         let show_error_messages = cfg.read_u32_le()? != 0;
         let log_errors = cfg.read_u32_le()? != 0;
         let always_abort = cfg.read_u32_le()? != 0;
-        let (zero_uninitalized_vars, error_on_uninitalized_args) = match (game_ver, cfg.read_u32_le()?) {
+        let (zero_uninitialized_vars, error_on_uninitialized_args) = match (game_ver, cfg.read_u32_le()?) {
             (GameVersion::GameMaker8_0, x) => (x != 0, true),
             (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
         };
@@ -336,9 +336,9 @@ where
 
         log!(logger, "   - Abort on all error messages: {}", always_abort);
 
-        log!(logger, "   - Treat uninitialized variables as value 0: {}", zero_uninitalized_vars);
+        log!(logger, "   - Treat uninitialized variables as value 0: {}", zero_uninitialized_vars);
 
-        log!(logger, "   - Throw an error when arguments aren't initialized correctly: {}", error_on_uninitalized_args);
+        log!(logger, "   - Throw an error when arguments aren't initialized correctly: {}", error_on_uninitialized_args);
 
         Settings {
             fullscreen,
@@ -374,8 +374,8 @@ where
             show_error_messages,
             log_errors,
             always_abort,
-            zero_uninitalized_vars,
-            error_on_uninitalized_args,
+            zero_uninitialized_vars,
+            error_on_uninitialized_args,
         }
     };
 

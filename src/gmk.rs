@@ -142,9 +142,9 @@ where
     enc.write_u32_le(settings.log_errors as u32)?;
     enc.write_u32_le(settings.always_abort as u32)?;
     match version {
-        GameVersion::GameMaker8_0 => enc.write_u32_le(settings.zero_uninitalized_vars as u32)?,
+        GameVersion::GameMaker8_0 => enc.write_u32_le(settings.zero_uninitialized_vars as u32)?,
         GameVersion::GameMaker8_1 => enc.write_u32_le(
-            ((settings.error_on_uninitalized_args as u32) << 1) | (settings.zero_uninitalized_vars as u32),
+            ((settings.error_on_uninitialized_args as u32) << 1) | (settings.zero_uninitialized_vars as u32),
         )?,
     };
 
