@@ -293,6 +293,12 @@ impl From<i32> for Value {
     }
 }
 
+impl From<usize> for Value {
+    fn from(value: usize) -> Self {
+        Self::Real(value as f64)
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Real(if value { gml::TRUE } else { gml::FALSE })
