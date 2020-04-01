@@ -44,6 +44,13 @@ pub struct Game {
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+
+    pub transition_kind: i32, // default 0
+    pub transition_steps: i32, // default 80
+    pub score: i32, // default 0
+    pub lives: i32, // default -1
+    pub health: f64, // default 100.0
+    pub game_id: i32,
 }
 
 pub struct Assets {
@@ -61,6 +68,7 @@ impl Game {
     pub fn launch(assets: GameAssets) -> Result<Self, Box<dyn std::error::Error>> {
         // destructure assets
         let GameAssets {
+            game_id,
             backgrounds,
             constants,
             fonts,
@@ -605,6 +613,12 @@ impl Game {
             globals: DummyFieldHolder::new(),
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            transition_kind: 0,
+            transition_steps: 80,
+            score: 0,
+            lives: -1,
+            health: 100.0,
+            game_id: game_id as i32,
         };
 
         game.load_room(room1_id)?;
