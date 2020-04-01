@@ -281,6 +281,24 @@ impl Value {
     }
 }
 
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Self::Real(value)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
+        Self::Real(value.into())
+    }
+}
+
+impl From<Rc<str>> for Value {
+    fn from(value: Rc<str>) -> Self {
+        Self::Str(value)
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Self::Real(0.0)
@@ -308,20 +326,5 @@ mod tests {
         let a = Real(0.1);
         let b = Str("owo".to_string().into());
         let _ = a.add(b).unwrap();
-    }
-
-    #[test]
-    fn ieee_round() {
-        assert_eq!(util::ieee_round(-3.5), -4);
-        assert_eq!(util::ieee_round(-2.5), -2);
-        assert_eq!(util::ieee_round(-1.5), -2);
-        assert_eq!(util::ieee_round(-0.5), 0);
-        assert_eq!(util::ieee_round(0.5), 0);
-        assert_eq!(util::ieee_round(1.5), 2);
-        assert_eq!(util::ieee_round(2.5), 2);
-        assert_eq!(util::ieee_round(3.5), 4);
-        for i in 0..1000 {
-            assert_eq!(util::ieee_round(i as f64 + 0.5) % 2, 0);
-        }
     }
 }

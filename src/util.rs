@@ -23,7 +23,7 @@ pub fn ieee_round(real: f64) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{bgra2rgba, rgba2bgra};
+    use super::{bgra2rgba, rgba2bgra, ieee_round};
 
     #[test]
     fn bgra_rgba() {
@@ -35,5 +35,20 @@ mod tests {
         assert_eq!(cool_pixels, rgba_pixels);
         rgba2bgra(&mut cool_pixels);
         assert_eq!(cool_pixels, bgra_pixels);
+    }
+
+    #[test]
+    fn round() {
+        assert_eq!(ieee_round(-3.5), -4);
+        assert_eq!(ieee_round(-2.5), -2);
+        assert_eq!(ieee_round(-1.5), -2);
+        assert_eq!(ieee_round(-0.5), 0);
+        assert_eq!(ieee_round(0.5), 0);
+        assert_eq!(ieee_round(1.5), 2);
+        assert_eq!(ieee_round(2.5), 2);
+        assert_eq!(ieee_round(3.5), 4);
+        for i in 0..1000 {
+            assert_eq!(ieee_round(i as f64 + 0.5) % 2, 0);
+        }
     }
 }
