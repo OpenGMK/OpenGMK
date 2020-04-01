@@ -64,7 +64,7 @@ pub struct Instance {
     pub bbox_is_stale: Cell<bool>,
 
     pub fields: RefCell<HashMap<usize, Field>>,
-    pub alarms: RefCell<HashMap<u32, Value>>,
+    pub alarms: RefCell<HashMap<u32, i32>>,
 }
 
 #[derive(Debug)]
