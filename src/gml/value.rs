@@ -311,6 +311,16 @@ impl From<Rc<str>> for Value {
     }
 }
 
+impl From<Value> for i32 {
+    // For lazy-converting a value into an i32.
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Real(r) => r as i32,
+            Value::Str(_) => 0,
+        }
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Self::Real(0.0)
