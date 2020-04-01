@@ -39,6 +39,7 @@ pub struct Game {
     pub room_id: i32,
     pub room_width: i32,
     pub room_height: i32,
+    pub room_order: Box<[i32]>,
     pub globals: DummyFieldHolder,
 
     pub uninit_fields_are_zero: bool,
@@ -600,6 +601,7 @@ impl Game {
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
+            room_order: room_order.into_boxed_slice(),
             globals: DummyFieldHolder::new(),
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
