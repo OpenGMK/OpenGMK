@@ -216,6 +216,10 @@ impl InstanceList {
         self.chunks.get(idx)
     }
 
+    pub fn count(&self, object_index: ID) -> usize {
+        self.id_map.get(&object_index).copied().unwrap_or_default()
+    }
+
     pub fn draw_sort(&mut self) {
         let chunks = &self.chunks; // borrowck :)
         self.draw_order.sort_by(move |&idx1, &idx2| {
