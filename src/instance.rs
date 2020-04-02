@@ -1,6 +1,7 @@
 use crate::{
     asset::{Object, Sprite},
     gml::{InstanceVariable, Value},
+    types::ID,
     util,
 };
 use std::{
@@ -23,8 +24,8 @@ pub enum InstanceState {
 
 pub struct Instance {
     pub state: Cell<InstanceState>,
-    pub id: Cell<usize>,
-    pub object_index: Cell<i32>,
+    pub id: Cell<ID>,
+    pub object_index: Cell<ID>,
     pub solid: Cell<bool>,
     pub visible: Cell<bool>,
     pub persistent: Cell<bool>,
@@ -87,7 +88,7 @@ pub struct DummyFieldHolder {
 }
 
 impl Instance {
-    pub fn new(id: usize, x: f64, y: f64, object_index: i32, object: &Object) -> Self {
+    pub fn new(id: ID, x: f64, y: f64, object_index: i32, object: &Object) -> Self {
         Self {
             state: Cell::new(InstanceState::Active),
             id: Cell::new(id),

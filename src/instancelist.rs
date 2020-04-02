@@ -1,4 +1,5 @@
 use crate::{
+    gml,
     instance::{Instance, InstanceState},
     tile::Tile,
     types::ID,
@@ -227,6 +228,17 @@ impl InstanceList {
                 self.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
             })
             .count()
+    }
+
+    pub fn instance_at(&self, n: usize) -> ID {
+        self.insert_order
+            .iter()
+            .filter(|&&inst_idx| {
+                self.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
+            })
+            .nth(n)
+            .and_then(|inst_idx| self.get(*inst_idx).map(|inst| inst.id.get()))
+            .unwrap_or(gml::NOONE)
     }
 
     pub fn draw_sort(&mut self) {
