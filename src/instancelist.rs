@@ -144,7 +144,17 @@ pub struct IdentityIter {
     object_index: ID,
 }
 impl IdentityIter {
-    pub fn next(&mut self, _list: &InstanceList) -> Option<usize> {
+    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
+        if self.count > 0 {
+            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
+                let oidx = list.get(instance)?.object_index.get();
+                if self.object_index == oidx || self.children.borrow().contains(&oidx) {
+                    self.count -= 1;
+                    self.position += idx + 1;
+                    return Some(instance)
+                }
+            }
+        }
         None
     }
 }
