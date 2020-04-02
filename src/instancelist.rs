@@ -1,4 +1,8 @@
-use crate::{instance::Instance, tile::Tile, types::ID};
+use crate::{
+    instance::{Instance, InstanceState},
+    tile::Tile,
+    types::ID,
+};
 use std::{
     alloc,
     cell::RefCell,
@@ -107,7 +111,21 @@ impl<T> ChunkList<T> {
     }
 }
 
-// non-borrowing collection iterators yielding a copy
+// non-borrowing instancelist iterator things
+fn nb_il_iter(coll: &[usize], idx: &mut usize, list: &InstanceList) -> Option<usize> {
+    coll.get(*idx..)?
+        .iter()
+        .enumerate()
+        .find(|(_, &inst_idx)| {
+            list.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
+        })
+        .map(|(idx_offset, val)| {
+            *idx += idx_offset + 1;
+            *val
+        })
+}
+
+// the function above but more generic
 fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
     coll.get(*idx).map(|val| {
         *idx += 1;
@@ -127,12 +145,12 @@ pub struct ILIterDrawOrder(usize);
 pub struct ILIterInsertOrder(usize);
 impl ILIterDrawOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_coll_iter_advance(&list.draw_order, &mut self.0)
+        nb_il_iter(&list.draw_order, &mut self.0, &list)
     }
 }
 impl ILIterInsertOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_coll_iter_advance(&list.insert_order, &mut self.0)
+        nb_il_iter(&list.insert_order, &mut self.0, &list)
     }
 }
 
@@ -147,11 +165,14 @@ impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
             for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let oidx = list.get(instance)?.object_index.get();
-                if self.object_index == oidx || self.children.borrow().contains(&oidx) {
-                    self.count -= 1;
-                    self.position += idx + 1;
-                    return Some(instance)
+                let inst = list.get(instance)?;
+                if inst.state.get() == InstanceState::Active {
+                    let oidx = inst.object_index.get();
+                    if self.object_index == oidx || self.children.borrow().contains(&oidx) {
+                        self.count -= 1;
+                        self.position += idx + 1;
+                        return Some(instance)
+                    }
                 }
             }
         }
@@ -172,10 +193,13 @@ impl ObjectIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
             for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                if list.get(instance)?.object_index.get() == self.object_index {
-                    self.count -= 1;
-                    self.position += idx + 1;
-                    return Some(instance)
+                let inst = list.get(instance)?;
+                if inst.state.get() == InstanceState::Active {
+                    if inst.object_index.get() == self.object_index {
+                        self.count -= 1;
+                        self.position += idx + 1;
+                        return Some(instance)
+                    }
                 }
             }
         }
