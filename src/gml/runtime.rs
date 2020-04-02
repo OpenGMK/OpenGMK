@@ -363,10 +363,12 @@ impl Game {
             },
             InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
             InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
-            InstanceVariable::ImageSingle => if instance.image_speed.get() == 0.0 {
-                Ok(instance.image_index.get().into())
-            } else {
-                Ok(Value::from(-1i32))
+            InstanceVariable::ImageSingle => {
+                if instance.image_speed.get() == 0.0 {
+                    Ok(instance.image_index.get().into())
+                } else {
+                    Ok(Value::from(-1i32))
+                }
             },
             InstanceVariable::ImageNumber => match self.get_instance_sprite(instance) {
                 Some(sprite) => Ok(sprite.frames.len().into()),
@@ -720,11 +722,7 @@ impl Game {
     fn get_instance_sprite(&self, instance: &Instance) -> Option<&asset::Sprite> {
         let index = instance.sprite_index.get();
         if index >= 0 {
-            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
-                Some(sprite)
-            } else {
-                None
-            }
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
         } else {
             None
         }
@@ -734,18 +732,10 @@ impl Game {
     fn get_instance_mask_sprite(&mut self, instance: &Instance) -> Option<&asset::Sprite> {
         let index = {
             let index = instance.mask_index.get();
-            if index >= 0 {
-                index
-            } else {
-                instance.sprite_index.get()
-            }
+            if index >= 0 { index } else { instance.sprite_index.get() }
         };
         if index >= 0 {
-            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
-                Some(sprite)
-            } else {
-                None
-            }
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
         } else {
             None
         }
@@ -757,11 +747,7 @@ impl Game {
         if let Some(value) = context.arguments.get(arg) {
             Ok(value.clone())
         } else {
-            if self.uninit_args_are_zero {
-                Ok(Value::Real(0.0))
-            } else {
-                Err(Error::UninitializedArgument(arg))
-            }
+            if self.uninit_args_are_zero { Ok(Value::Real(0.0)) } else { Err(Error::UninitializedArgument(arg)) }
         }
     }
 }
