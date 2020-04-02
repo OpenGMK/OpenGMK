@@ -23,7 +23,7 @@ pub fn ieee_round(real: f64) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{bgra2rgba, rgba2bgra, ieee_round};
+    use super::{bgra2rgba, ieee_round, rgba2bgra};
 
     #[test]
     fn bgra_rgba() {

@@ -45,11 +45,11 @@ pub struct Game {
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
-    pub transition_kind: i32, // default 0
+    pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
-    pub score: i32, // default 0
-    pub lives: i32, // default -1
-    pub health: f64, // default 100.0
+    pub score: i32,            // default 0
+    pub lives: i32,            // default -1
+    pub health: f64,           // default 100.0
     pub game_id: i32,
 }
 
@@ -203,11 +203,7 @@ impl Game {
         let mut renderer = OpenGLRenderer::new(options, window)?;
 
         // needs to be done after renderer sets context
-        glfw.set_swap_interval(if settings.vsync {
-            glfw::SwapInterval::Sync(1)
-        } else {
-            glfw::SwapInterval::None
-        });
+        glfw.set_swap_interval(if settings.vsync { glfw::SwapInterval::Sync(1) } else { glfw::SwapInterval::None });
 
         let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 

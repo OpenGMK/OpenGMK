@@ -173,17 +173,20 @@ impl Instance {
     pub fn update_bbox(&self, sprite: Option<&Sprite>) {
         // Do nothing if bbox isn't stale
         if self.bbox_is_stale.get() {
-
             // See if we can find a valid collider from the given sprite
             if let Some((Some(collider), origin_x, origin_y)) = sprite.map(|sprite| {
                 // If sprite is Some, then we still need to get a collider out of it
                 // In theory this should never fail, but I combined it inline with the "if let" above
                 // so that it won't panic if that does ever happen.
-                (if sprite.per_frame_colliders {
-                    sprite.colliders.get((self.image_index.get().floor() as usize) % sprite.colliders.len())
-                } else {
-                    sprite.colliders.first()
-                }, sprite.origin_x as f64, sprite.origin_y as f64)
+                (
+                    if sprite.per_frame_colliders {
+                        sprite.colliders.get((self.image_index.get().floor() as usize) % sprite.colliders.len())
+                    } else {
+                        sprite.colliders.first()
+                    },
+                    sprite.origin_x as f64,
+                    sprite.origin_y as f64,
+                )
             }) {
                 // Get coordinates of top-left and bottom-right corners of the collider at self's x and y,
                 // taking image scale (but not angle) into account
@@ -193,8 +196,12 @@ impl Instance {
                 let yscale = self.image_yscale.get();
                 let mut top_left_x = (x - (origin_x * xscale)) + ((collider.bbox_left as f64) * xscale);
                 let mut top_left_y = (y - (origin_y * yscale)) + ((collider.bbox_top as f64) * yscale);
-                let mut bottom_right_x = top_left_x + ((((collider.bbox_right as i32) + 1 - (collider.bbox_left as i32)) as f64) * xscale) - 1.0;
-                let mut bottom_right_y = top_left_y + ((((collider.bbox_bottom as i32) + 1 - (collider.bbox_top as i32)) as f64) * yscale) - 1.0;
+                let mut bottom_right_x = top_left_x
+                    + ((((collider.bbox_right as i32) + 1 - (collider.bbox_left as i32)) as f64) * xscale)
+                    - 1.0;
+                let mut bottom_right_y = top_left_y
+                    + ((((collider.bbox_bottom as i32) + 1 - (collider.bbox_top as i32)) as f64) * yscale)
+                    - 1.0;
 
                 // Make sure left/right and top/bottom are the right way around
                 if xscale <= 0.0 {
@@ -221,10 +228,13 @@ impl Instance {
 
                 // Set left to whichever x is lowest, right to whichever x is highest,
                 // top to whichever y is lowest, and bottom to whichever y is highest.
-                self.bbox_left.set(util::ieee_round(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x)))));
-                self.bbox_right.set(util::ieee_round(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x)))));
+                self.bbox_left
+                    .set(util::ieee_round(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x)))));
+                self.bbox_right
+                    .set(util::ieee_round(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x)))));
                 self.bbox_top.set(util::ieee_round(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y)))));
-                self.bbox_bottom.set(util::ieee_round(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y)))));
+                self.bbox_bottom
+                    .set(util::ieee_round(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y)))));
             } else {
                 // No valid collider provided - set default values and return
                 self.bbox_top.set(BBOX_DEFAULT);
@@ -300,9 +310,6 @@ impl Field {
 
 impl DummyFieldHolder {
     pub fn new() -> Self {
-        Self {
-            fields: HashMap::new(),
-            vars: HashMap::new(),
-        }
+        Self { fields: HashMap::new(), vars: HashMap::new() }
     }
 }
