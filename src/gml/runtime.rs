@@ -10,6 +10,8 @@ use crate::{
 };
 use std::fmt;
 
+const DEFAULT_ALARM: i32 = -1;
+
 /// A compiled runtime instruction. Generally represents a line of code.
 #[derive(Debug)]
 pub enum Instruction {
@@ -102,6 +104,7 @@ pub enum InstanceIdentifier {
 
 #[derive(Clone, Debug)]
 pub enum Error {
+    EmptyRoomOrder,
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
     InvalidUnaryOperator(Operator),
@@ -118,6 +121,7 @@ pub enum Error {
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
     UninitializedVariable(String, u32),
+    UninitializedArgument(usize),
     TooManyArrayDimensions(usize),
 }
 
@@ -312,98 +316,150 @@ impl Game {
     // Get an instance variable from an instance, converted into a Value
     fn get_instance_var(
         &self,
-        _instance: &Instance,
+        instance: &Instance,
         var: &InstanceVariable,
-        _array_index: u32,
-        _context: &Context,
+        array_index: u32,
+        context: &Context,
     ) -> gml::Result<Value> {
         match var {
-            InstanceVariable::X => todo!(),
-            InstanceVariable::Y => todo!(),
-            InstanceVariable::Xprevious => todo!(),
-            InstanceVariable::Yprevious => todo!(),
-            InstanceVariable::Xstart => todo!(),
-            InstanceVariable::Ystart => todo!(),
-            InstanceVariable::Hspeed => todo!(),
-            InstanceVariable::Vspeed => todo!(),
-            InstanceVariable::Direction => todo!(),
-            InstanceVariable::Speed => todo!(),
-            InstanceVariable::Friction => todo!(),
-            InstanceVariable::Gravity => todo!(),
-            InstanceVariable::GravityDirection => todo!(),
-            InstanceVariable::ObjectIndex => todo!(),
-            InstanceVariable::Id => todo!(),
-            InstanceVariable::Alarm => todo!(),
-            InstanceVariable::Solid => todo!(),
-            InstanceVariable::Visible => todo!(),
-            InstanceVariable::Persistent => todo!(),
-            InstanceVariable::Depth => todo!(),
-            InstanceVariable::BboxLeft => todo!(),
-            InstanceVariable::BboxRight => todo!(),
-            InstanceVariable::BboxTop => todo!(),
-            InstanceVariable::BboxBottom => todo!(),
-            InstanceVariable::SpriteIndex => todo!(),
-            InstanceVariable::ImageIndex => todo!(),
-            InstanceVariable::ImageSingle => todo!(),
-            InstanceVariable::ImageNumber => todo!(),
-            InstanceVariable::SpriteWidth => todo!(),
-            InstanceVariable::SpriteHeight => todo!(),
-            InstanceVariable::SpriteXoffset => todo!(),
-            InstanceVariable::SpriteYoffset => todo!(),
-            InstanceVariable::ImageXscale => todo!(),
-            InstanceVariable::ImageYscale => todo!(),
-            InstanceVariable::ImageAngle => todo!(),
-            InstanceVariable::ImageAlpha => todo!(),
-            InstanceVariable::ImageBlend => todo!(),
-            InstanceVariable::ImageSpeed => todo!(),
-            InstanceVariable::MaskIndex => todo!(),
-            InstanceVariable::PathIndex => todo!(),
-            InstanceVariable::PathPosition => todo!(),
-            InstanceVariable::PathPositionprevious => todo!(),
-            InstanceVariable::PathSpeed => todo!(),
-            InstanceVariable::PathScale => todo!(),
-            InstanceVariable::PathOrientation => todo!(),
-            InstanceVariable::PathEndaction => todo!(),
-            InstanceVariable::TimelineIndex => todo!(),
-            InstanceVariable::TimelinePosition => todo!(),
-            InstanceVariable::TimelineSpeed => todo!(),
-            InstanceVariable::TimelineRunning => todo!(),
-            InstanceVariable::TimelineLoop => todo!(),
-            InstanceVariable::ArgumentRelative => todo!(),
-            InstanceVariable::Argument0 => todo!(),
-            InstanceVariable::Argument1 => todo!(),
-            InstanceVariable::Argument2 => todo!(),
-            InstanceVariable::Argument3 => todo!(),
-            InstanceVariable::Argument4 => todo!(),
-            InstanceVariable::Argument5 => todo!(),
-            InstanceVariable::Argument6 => todo!(),
-            InstanceVariable::Argument7 => todo!(),
-            InstanceVariable::Argument8 => todo!(),
-            InstanceVariable::Argument9 => todo!(),
-            InstanceVariable::Argument10 => todo!(),
-            InstanceVariable::Argument11 => todo!(),
-            InstanceVariable::Argument12 => todo!(),
-            InstanceVariable::Argument13 => todo!(),
-            InstanceVariable::Argument14 => todo!(),
-            InstanceVariable::Argument15 => todo!(),
-            InstanceVariable::Argument => todo!(),
-            InstanceVariable::ArgumentCount => todo!(),
-            InstanceVariable::Room => todo!(),
-            InstanceVariable::RoomFirst => todo!(),
-            InstanceVariable::RoomLast => todo!(),
-            InstanceVariable::TransitionKind => todo!(),
-            InstanceVariable::TransitionSteps => todo!(),
-            InstanceVariable::Score => todo!(),
-            InstanceVariable::Lives => todo!(),
-            InstanceVariable::Health => todo!(),
-            InstanceVariable::GameId => todo!(),
+            InstanceVariable::X => Ok(instance.x.get().into()),
+            InstanceVariable::Y => Ok(instance.y.get().into()),
+            InstanceVariable::Xprevious => Ok(instance.xprevious.get().into()),
+            InstanceVariable::Yprevious => Ok(instance.yprevious.get().into()),
+            InstanceVariable::Xstart => Ok(instance.xstart.get().into()),
+            InstanceVariable::Ystart => Ok(instance.ystart.get().into()),
+            InstanceVariable::Hspeed => Ok(instance.hspeed.get().into()),
+            InstanceVariable::Vspeed => Ok(instance.vspeed.get().into()),
+            InstanceVariable::Direction => Ok(instance.direction.get().into()),
+            InstanceVariable::Speed => Ok(instance.speed.get().into()),
+            InstanceVariable::Friction => Ok(instance.friction.get().into()),
+            InstanceVariable::Gravity => Ok(instance.gravity.get().into()),
+            InstanceVariable::GravityDirection => Ok(instance.gravity_direction.get().into()),
+            InstanceVariable::ObjectIndex => Ok(instance.object_index.get().into()),
+            InstanceVariable::Id => Ok(instance.id.get().into()),
+            InstanceVariable::Alarm => match instance.alarms.borrow().get(&array_index) {
+                Some(i) => Ok((*i).into()),
+                None => Ok(DEFAULT_ALARM.into()),
+            },
+            InstanceVariable::Solid => Ok(instance.solid.get().into()),
+            InstanceVariable::Visible => Ok(instance.visible.get().into()),
+            InstanceVariable::Persistent => Ok(instance.persistent.get().into()),
+            InstanceVariable::Depth => Ok(instance.depth.get().into()),
+            InstanceVariable::BboxLeft => {
+                instance.update_bbox(self.get_instance_sprite(instance));
+                Ok(instance.bbox_left.get().into())
+            },
+            InstanceVariable::BboxRight => {
+                instance.update_bbox(self.get_instance_sprite(instance));
+                Ok(instance.bbox_right.get().into())
+            },
+            InstanceVariable::BboxTop => {
+                instance.update_bbox(self.get_instance_sprite(instance));
+                Ok(instance.bbox_top.get().into())
+            },
+            InstanceVariable::BboxBottom => {
+                instance.update_bbox(self.get_instance_sprite(instance));
+                Ok(instance.bbox_bottom.get().into())
+            },
+            InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
+            InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
+            InstanceVariable::ImageSingle => if instance.image_speed.get() == 0.0 {
+                Ok(instance.image_index.get().into())
+            } else {
+                Ok(Value::from(-1i32))
+            },
+            InstanceVariable::ImageNumber => match self.get_instance_sprite(instance) {
+                Some(sprite) => Ok(sprite.frames.len().into()),
+                None => Ok(Value::from(0i32)),
+            },
+            InstanceVariable::SpriteWidth => {
+                if let Some(sprite) = self.get_instance_sprite(instance) {
+                    Ok(Value::from(f64::from(sprite.width) * instance.image_xscale.get()))
+                } else {
+                    Ok(Value::from(0.0))
+                }
+            },
+            InstanceVariable::SpriteHeight => {
+                if let Some(sprite) = self.get_instance_sprite(instance) {
+                    Ok(Value::from(f64::from(sprite.height) * instance.image_yscale.get()))
+                } else {
+                    Ok(Value::from(0.0))
+                }
+            },
+            InstanceVariable::SpriteXoffset => {
+                if let Some(sprite) = self.get_instance_sprite(instance) {
+                    Ok(sprite.origin_x.into())
+                } else {
+                    Ok(Value::from(0.0))
+                }
+            },
+            InstanceVariable::SpriteYoffset => {
+                if let Some(sprite) = self.get_instance_sprite(instance) {
+                    Ok(sprite.origin_y.into())
+                } else {
+                    Ok(Value::from(0.0))
+                }
+            },
+            InstanceVariable::ImageXscale => Ok(instance.image_xscale.get().into()),
+            InstanceVariable::ImageYscale => Ok(instance.image_yscale.get().into()),
+            InstanceVariable::ImageAngle => Ok(instance.image_angle.get().into()),
+            InstanceVariable::ImageAlpha => Ok(instance.image_alpha.get().into()),
+            InstanceVariable::ImageBlend => Ok(instance.image_blend.get().into()),
+            InstanceVariable::ImageSpeed => Ok(instance.image_speed.get().into()),
+            InstanceVariable::MaskIndex => Ok(instance.mask_index.get().into()),
+            InstanceVariable::PathIndex => Ok(instance.path_index.get().into()),
+            InstanceVariable::PathPosition => Ok(instance.path_position.get().into()),
+            InstanceVariable::PathPositionprevious => Ok(instance.path_positionprevious.get().into()),
+            InstanceVariable::PathSpeed => Ok(instance.path_speed.get().into()),
+            InstanceVariable::PathScale => Ok(instance.path_scale.get().into()),
+            InstanceVariable::PathOrientation => Ok(instance.path_orientation.get().into()),
+            InstanceVariable::PathEndaction => Ok(instance.path_endaction.get().into()),
+            InstanceVariable::TimelineIndex => Ok(instance.timeline_index.get().into()),
+            InstanceVariable::TimelinePosition => Ok(instance.timeline_position.get().into()),
+            InstanceVariable::TimelineSpeed => Ok(instance.timeline_speed.get().into()),
+            InstanceVariable::TimelineRunning => Ok(instance.timeline_running.get().into()),
+            InstanceVariable::TimelineLoop => Ok(instance.timeline_loop.get().into()),
+            InstanceVariable::ArgumentRelative => Ok(context.relative.into()),
+            InstanceVariable::Argument0 => self.get_argument(context, 0),
+            InstanceVariable::Argument1 => self.get_argument(context, 1),
+            InstanceVariable::Argument2 => self.get_argument(context, 2),
+            InstanceVariable::Argument3 => self.get_argument(context, 3),
+            InstanceVariable::Argument4 => self.get_argument(context, 4),
+            InstanceVariable::Argument5 => self.get_argument(context, 5),
+            InstanceVariable::Argument6 => self.get_argument(context, 6),
+            InstanceVariable::Argument7 => self.get_argument(context, 7),
+            InstanceVariable::Argument8 => self.get_argument(context, 8),
+            InstanceVariable::Argument9 => self.get_argument(context, 9),
+            InstanceVariable::Argument10 => self.get_argument(context, 10),
+            InstanceVariable::Argument11 => self.get_argument(context, 11),
+            InstanceVariable::Argument12 => self.get_argument(context, 12),
+            InstanceVariable::Argument13 => self.get_argument(context, 13),
+            InstanceVariable::Argument14 => self.get_argument(context, 14),
+            InstanceVariable::Argument15 => self.get_argument(context, 15),
+            InstanceVariable::Argument => self.get_argument(context, array_index as usize),
+            InstanceVariable::ArgumentCount => Ok(context.arguments.len().into()),
+            InstanceVariable::Room => Ok(self.room_id.into()),
+            InstanceVariable::RoomFirst => match self.room_order.get(0) {
+                Some(room) => Ok((*room).into()),
+                None => Err(Error::EmptyRoomOrder),
+            },
+            InstanceVariable::RoomLast => match self.room_order.get(self.room_order.len() - 1) {
+                Some(room) => Ok((*room).into()),
+                None => Err(Error::EmptyRoomOrder),
+            },
+            InstanceVariable::TransitionKind => Ok(self.transition_kind.into()),
+            InstanceVariable::TransitionSteps => Ok(self.transition_steps.into()),
+            InstanceVariable::Score => Ok(self.score.into()),
+            InstanceVariable::Lives => Ok(self.lives.into()),
+            InstanceVariable::Health => Ok(self.health.into()),
+            InstanceVariable::GameId => Ok(self.game_id.into()),
             InstanceVariable::WorkingDirectory => todo!(),
             InstanceVariable::TempDirectory => todo!(),
             InstanceVariable::ProgramDirectory => todo!(),
             InstanceVariable::InstanceCount => todo!(),
             InstanceVariable::InstanceId => todo!(),
-            InstanceVariable::RoomWidth => todo!(),
-            InstanceVariable::RoomHeight => todo!(),
+            InstanceVariable::RoomWidth => Ok(self.room_width.into()),
+            InstanceVariable::RoomHeight => Ok(self.room_height.into()),
             InstanceVariable::RoomCaption => todo!(),
             InstanceVariable::RoomSpeed => todo!(),
             InstanceVariable::RoomPersistent => todo!(),
@@ -465,10 +521,10 @@ impl Game {
             InstanceVariable::CurrentHour => todo!(),
             InstanceVariable::CurrentMinute => todo!(),
             InstanceVariable::CurrentSecond => todo!(),
-            InstanceVariable::EventType => todo!(),
-            InstanceVariable::EventNumber => todo!(),
-            InstanceVariable::EventObject => todo!(),
-            InstanceVariable::EventAction => todo!(),
+            InstanceVariable::EventType => Ok(context.event_type.into()),
+            InstanceVariable::EventNumber => Ok(context.event_number.into()),
+            InstanceVariable::EventObject => Ok(context.event_object.into()),
+            InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => todo!(),
             InstanceVariable::DebugMode => todo!(),
             InstanceVariable::ErrorOccurred => todo!(),
@@ -657,6 +713,55 @@ impl Game {
             field.set(array_index, value)
         } else {
             dummy.vars.insert(*var, Field::new(array_index, value));
+        }
+    }
+
+    // Gets the sprite associated with an instance's sprite_index
+    fn get_instance_sprite(&self, instance: &Instance) -> Option<&asset::Sprite> {
+        let index = instance.sprite_index.get();
+        if index >= 0 {
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
+                Some(sprite)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    // Gets the sprite associated with an instance's mask_index
+    fn get_instance_mask_sprite(&mut self, instance: &Instance) -> Option<&asset::Sprite> {
+        let index = {
+            let index = instance.mask_index.get();
+            if index >= 0 {
+                index
+            } else {
+                instance.sprite_index.get()
+            }
+        };
+        if index >= 0 {
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
+                Some(sprite)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    // Gets an argument from the context. If the argument is out-of-bounds, then it will either
+    // return an error or return 0.0, depending on the uninit_args_are_zero setting.
+    fn get_argument(&self, context: &Context, arg: usize) -> gml::Result<Value> {
+        if let Some(value) = context.arguments.get(arg) {
+            Ok(value.clone())
+        } else {
+            if self.uninit_args_are_zero {
+                Ok(Value::Real(0.0))
+            } else {
+                Err(Error::UninitializedArgument(arg))
+            }
         }
     }
 }
