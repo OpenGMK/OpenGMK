@@ -181,10 +181,10 @@ fn xmain() -> i32 {
         }
 
         components.instance_list.draw_sort();
-        let mut iter_inst = components.instance_list.iter_draw();
+        let mut iter_inst = components.instance_list.iter_by_drawing();
         let mut iter_inst_v = iter_inst.next(&components.instance_list);
         components.tile_list.draw_sort();
-        let mut iter_tile = components.tile_list.iter_draw();
+        let mut iter_tile = components.tile_list.iter_by_drawing();
         let mut iter_tile_v = iter_tile.next(&components.tile_list);
         loop {
             match (iter_inst_v, iter_tile_v) {

@@ -1,4 +1,4 @@
-use crate::{instance::Instance, tile::Tile};
+use crate::{instance::Instance, tile::Tile, types::ID};
 use std::{
     alloc,
     cell::RefCell,
@@ -107,66 +107,61 @@ impl<T> ChunkList<T> {
     }
 }
 
-macro_rules! chunk_list_derivative {
-    ($name: ident, $iter: ident, $t: ty) => {
-        macro_rules! chunk_list_derivative_iter {
-            ($iter_name: ident, $iter_list: ty) => {
-                pub struct $iter_name {
-                    order_idx: usize,
-                    draw_order: bool,
-                }
-
-                impl $iter_name {
-                    pub fn next(&mut self, list: &$iter_list) -> Option<usize> {
-                        let idx = self.order_idx;
-                        self.order_idx += 1;
-                        if self.draw_order { list.draw_order.get(idx).copied() } else { list.order.get(idx).copied() }
-                    }
-                }
-            };
-        }
-
-        chunk_list_derivative_iter!($iter, $name);
-
-        impl $name {
-            pub fn get(&self, idx: usize) -> Option<&$t> {
-                self.chunks.get(idx)
-            }
-
-            pub fn iter_inserted(&self) -> $iter {
-                $iter { order_idx: 0, draw_order: false }
-            }
-
-            pub fn iter_draw(&self) -> $iter {
-                $iter { order_idx: 0, draw_order: true }
-            }
-        }
-    };
+// non-borrowing collection iterators yielding a copy
+fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
+    coll.get(*idx).map(|val| {
+        *idx += 1;
+        *val
+    })
 }
 
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
-    order: Vec<usize>,
+    insert_order: Vec<usize>,
     draw_order: Vec<usize>,
-    id_map: HashMap<i32, usize>, // Object ID <-> Count
+    id_map: HashMap<ID, usize>, // Object ID <-> Count
 }
 
-chunk_list_derivative!(InstanceList, InstanceListIter, Instance);
+// generic purpose non-borrowing iterators
+pub struct ILIterDrawOrder(usize);
+pub struct ILIterInsertOrder(usize);
+impl ILIterDrawOrder {
+    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
+        nb_coll_iter_advance(&list.draw_order, &mut self.0)
+    }
+}
+impl ILIterInsertOrder {
+    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
+        nb_coll_iter_advance(&list.insert_order, &mut self.0)
+    }
+}
 
-// iterator for iter_by_object(object_index)
+// iteration by identity (each object or each object that parents said object)
+pub struct IdentityIter {
+    count: usize,
+    position: usize,
+    children: Rc<RefCell<HashSet<ID>>>,
+    object_index: ID,
+}
+impl IdentityIter {
+    pub fn next(&mut self, _list: &InstanceList) -> Option<usize> {
+        None
+    }
+}
+
+/// iteration, filtering by object id, in insertion order (does NOT follow parents)
 pub struct ObjectIter {
     // count of objects (stored to optimize and match GM8 weird behaviour)
     count: usize,
     // position in the insert-order vec
     position: usize,
     // object index
-    object_index: i32,
+    object_index: ID,
 }
-
 impl ObjectIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
-            for (idx, &instance) in list.order.get(self.position..)?.iter().enumerate() {
+            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
                 if list.get(instance)?.object_index.get() == self.object_index {
                     self.count -= 1;
                     self.position += idx + 1;
@@ -178,16 +173,13 @@ impl ObjectIter {
     }
 }
 
-pub struct IdentityIter {
-    count: usize,
-    position: usize,
-    identities: Rc<RefCell<HashSet<i32>>>,
-    object_index: i32,
-}
-
 impl InstanceList {
     pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
+        Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&Instance> {
+        self.chunks.get(idx)
     }
 
     pub fn draw_sort(&mut self) {
@@ -209,7 +201,22 @@ impl InstanceList {
         })
     }
 
-    pub fn iter_by_object(&self, object_index: i32) -> ObjectIter {
+    pub const fn iter_by_drawing(&self) -> ILIterDrawOrder {
+        ILIterDrawOrder(0)
+    }
+
+    pub const fn iter_by_insertion(&self) -> ILIterInsertOrder {
+        ILIterInsertOrder(0)
+    }
+
+    pub fn iter_by_identity(&self, object_index: ID, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
+        let count = iter::once(&object_index)
+            .chain(identities.borrow().iter())
+            .fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
+        IdentityIter { count, position: 0, children: identities, object_index }
+    }
+
+    pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
         ObjectIter {
             count: self.id_map.get(&object_index).copied().unwrap_or(0),
             position: 0,
@@ -217,17 +224,10 @@ impl InstanceList {
         }
     }
 
-    pub fn iter_by_identity(&self, object_index: i32, identities: Rc<RefCell<HashSet<i32>>>) -> IdentityIter {
-        let count = iter::once(&object_index)
-            .chain(identities.borrow().iter())
-            .fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
-        IdentityIter { count, position: 0, identities, object_index }
-    }
-
     pub fn insert(&mut self, el: Instance) -> usize {
         let object_id = el.object_index.get();
         let value = self.chunks.insert(el);
-        self.order.push(value);
+        self.insert_order.push(value);
         self.draw_order.push(value);
         self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
         value
@@ -252,21 +252,45 @@ impl InstanceList {
             remove
         });
         let chunks = &self.chunks;
-        self.order.retain(|idx| chunks.get(*idx).is_some());
+        self.insert_order.retain(|idx| chunks.get(*idx).is_some());
     }
 }
 
 pub struct TileList {
     chunks: ChunkList<Tile>,
-    order: Vec<usize>,
+    insert_order: Vec<usize>,
     draw_order: Vec<usize>,
 }
 
-chunk_list_derivative!(TileList, TileListIter, Tile);
+// generic purpose non-borrowing iterators
+pub struct TLIterDrawOrder(usize);
+pub struct TLIterInsertOrder(usize);
+impl TLIterDrawOrder {
+    pub fn next(&mut self, list: &TileList) -> Option<usize> {
+        nb_coll_iter_advance(&list.draw_order, &mut self.0)
+    }
+}
+impl TLIterInsertOrder {
+    pub fn next(&mut self, list: &TileList) -> Option<usize> {
+        nb_coll_iter_advance(&list.insert_order, &mut self.0)
+    }
+}
 
 impl TileList {
     pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new() }
+        Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new() }
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&Tile> {
+        self.chunks.get(idx)
+    }
+
+    pub const fn iter_by_drawing(&self) -> TLIterDrawOrder {
+        TLIterDrawOrder(0)
+    }
+
+    pub const fn iter_by_insertion(&self) -> TLIterInsertOrder {
+        TLIterInsertOrder(0)
     }
 
     pub fn draw_sort(&mut self) {
@@ -282,7 +306,7 @@ impl TileList {
 
     pub fn insert(&mut self, el: Tile) -> usize {
         let value = self.chunks.insert(el);
-        self.order.push(value);
+        self.insert_order.push(value);
         self.draw_order.push(value);
         value
     }
