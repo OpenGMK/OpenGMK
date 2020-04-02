@@ -1,5 +1,12 @@
 use crate::{instance::Instance, tile::Tile};
-use std::{alloc, cmp::Ordering, collections::HashMap, ptr};
+use std::{
+    alloc,
+    cell::RefCell,
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    iter, ptr,
+    rc::Rc,
+};
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
@@ -171,6 +178,13 @@ impl ObjectIter {
     }
 }
 
+pub struct IdentityIter {
+    count: usize,
+    position: usize,
+    identities: Rc<RefCell<HashSet<i32>>>,
+    object_index: i32,
+}
+
 impl InstanceList {
     pub fn new() -> Self {
         Self { chunks: ChunkList::new(), order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
@@ -201,6 +215,13 @@ impl InstanceList {
             position: 0,
             object_index: object_index,
         }
+    }
+
+    pub fn iter_by_identity(&self, object_index: i32, identities: Rc<RefCell<HashSet<i32>>>) -> IdentityIter {
+        let count = iter::once(&object_index)
+            .chain(identities.borrow().iter())
+            .fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
+        IdentityIter { count, position: 0, identities, object_index }
     }
 
     pub fn insert(&mut self, el: Instance) -> usize {
