@@ -220,6 +220,15 @@ impl InstanceList {
         self.id_map.get(&object_index).copied().unwrap_or_default()
     }
 
+    pub fn count_all(&self) -> usize {
+        self.insert_order
+            .iter()
+            .filter(|&&inst_idx| {
+                self.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
+            })
+            .count()
+    }
+
     pub fn draw_sort(&mut self) {
         let chunks = &self.chunks; // borrowck :)
         self.draw_order.sort_by(move |&idx1, &idx2| {
