@@ -1,3 +1,24 @@
+/// Represents an object, instance, tile or special values.
+///
+/// When positive:
+/// - Asset Index in range 0..100_000
+/// - Instance Index in range 100_000..10_000_000
+/// - Tile Index in range 10_000_000..= (Undefined Behaviour)
+///
+/// When negative:
+/// - `self` / -1, referring to the context of the executing object
+/// - `other` / -2, referring to the context of other instances in special events (ex: collision with other instance)
+/// - `all` / -3, referring to the context of every instance
+/// - `noone` / -4, representing to a nonexistant instance
+/// - `global` / -5, referring to a global dummy object
+/// - `local` / -7, referring to the context of a dummy object
+/// that holds variables of the current script
+///
+/// Regarding local, `var x; x = 10` is equivalent to `local.x = 10`.
+pub type ID = i32;
+
+// -- OLD STUFF --
+
 pub struct BoundingBox {
     pub width: u32,
     pub height: u32,
