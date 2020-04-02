@@ -5,7 +5,7 @@ pub mod token;
 
 use super::{
     runtime::{
-        ArrayAccessor, ModificationType, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType,
+        ArrayAccessor, FieldAccessor, InstanceIdentifier, Instruction, ModificationType, Node, ReturnType,
         VariableAccessor,
     },
     Value,
@@ -545,7 +545,11 @@ impl Compiler {
         };
 
         if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Instruction::ModifyVariable { accessor: VariableAccessor { var: *var, array, owner }, modification_type, value }
+            Instruction::ModifyVariable {
+                accessor: VariableAccessor { var: *var, array, owner },
+                modification_type,
+                value,
+            }
         } else {
             let index = self.get_field_id(identifier);
             Instruction::ModifyField { accessor: FieldAccessor { index, array, owner }, modification_type, value }
