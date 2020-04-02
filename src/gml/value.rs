@@ -293,6 +293,12 @@ impl From<i32> for Value {
     }
 }
 
+impl From<u32> for Value {
+    fn from(value: u32) -> Self {
+        Self::Real(value.into())
+    }
+}
+
 impl From<usize> for Value {
     fn from(value: usize) -> Self {
         Self::Real(value as f64)
