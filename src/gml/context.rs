@@ -1,14 +1,14 @@
 use crate::{
     gml::Value,
-    instance::{DummyFieldHolder, Instance},
+    instance::{DummyFieldHolder},
 };
 
 pub struct Context<'a> {
-    /// Reference to the "self" instance
-    pub this: &'a Instance,
+    /// InstanceList handle to the "self" instance
+    pub this: usize,
 
-    /// Reference to the "other" instance
-    pub other: &'a Instance,
+    /// InstanceList handle to the "other" instance
+    pub other: usize,
 
     /// Index of the action currently being executed, starting at 0
     pub event_action: usize,
