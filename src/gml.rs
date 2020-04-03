@@ -85,7 +85,7 @@ pub enum InstanceVariable {
     PathSpeed,
     PathScale,
     PathOrientation,
-    PathEndaction,
+    PathEndAction,
     TimelineIndex,
     TimelinePosition,
     TimelineSpeed,
