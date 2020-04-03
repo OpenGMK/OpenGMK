@@ -327,6 +327,16 @@ impl From<Value> for i32 {
     }
 }
 
+impl From<Value> for f64 {
+    // For lazy-converting a value into an f64.
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Real(r) => r,
+            Value::Str(_) => 0.0,
+        }
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Self::Real(0.0)
