@@ -14,7 +14,7 @@ use crate::{
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile, view,
 };
-use gm8exe::GameAssets;
+use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
 use std::{
     cell::RefCell,
@@ -51,6 +51,7 @@ pub struct Game {
     pub lives: i32,            // default -1
     pub health: f64,           // default 100.0
     pub game_id: i32,
+    pub gm_version: GameVersion,
 }
 
 pub struct Assets {
@@ -83,6 +84,7 @@ impl Game {
             sprites,
             timelines,
             triggers,
+            version,
             ..
         } = assets;
 
@@ -615,6 +617,7 @@ impl Game {
             lives: -1,
             health: 100.0,
             game_id: game_id as i32,
+            gm_version: version,
         };
 
         game.load_room(room1_id)?;
