@@ -250,7 +250,7 @@ impl Game {
                         event_type: context.event_type,
                         event_number: context.event_number,
                         event_object: context.event_object,
-                        arguments: &arg_values[..args.len()],
+                        arguments: &mut arg_values[..args.len()],
                         locals: DummyFieldHolder::new(),
                         return_value: Default::default(),
                     };
