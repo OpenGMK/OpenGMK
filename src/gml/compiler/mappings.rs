@@ -691,7 +691,7 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("path_speed", InstanceVariable::PathSpeed),
     ("path_scale", InstanceVariable::PathScale),
     ("path_orientation", InstanceVariable::PathOrientation),
-    ("path_endaction", InstanceVariable::PathEndaction),
+    ("path_endaction", InstanceVariable::PathEndAction),
     ("timeline_index", InstanceVariable::TimelineIndex),
     ("timeline_position", InstanceVariable::TimelinePosition),
     ("timeline_speed", InstanceVariable::TimelineSpeed),
