@@ -541,12 +541,12 @@ impl Game {
             InstanceVariable::OsType => Ok(gml_constants::OS_WIN32.into()), // not on other OSes...
             InstanceVariable::OsDevice => Ok(gml_constants::DEVICE_IOS_IPHONE.into()), // default
 
-            // both undocumented, unimplemented and return -1. not even the editor recognizes them
+            // all undocumented, unimplemented and return -1. not even the editor recognizes them
             InstanceVariable::OsBrowser => Ok((-1f64).into()),
             InstanceVariable::OsVersion => Ok((-1f64).into()),
+            InstanceVariable::BrowserWidth => Ok((-1f64).into()),
+            InstanceVariable::BrowserHeight => Ok((-1f64).into()),
 
-            InstanceVariable::BrowserWidth => todo!(),
-            InstanceVariable::BrowserHeight => todo!(),
             InstanceVariable::DisplayAa => Ok(14f64.into()), // bitfield - 2x/4x/8x AA is 14
             InstanceVariable::AsyncLoad => todo!(),
         }
