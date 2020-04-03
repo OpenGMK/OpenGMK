@@ -532,12 +532,12 @@ impl Game {
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
-            InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()), // identical to registered
-            InstanceVariable::GamemakerVersion => Ok(810f64.into()), // they didn't update this lol
+            InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
+            InstanceVariable::GamemakerVersion => Ok(810f64.into()),       // they didn't update this lol
             InstanceVariable::OsType => Ok(gml_constants::OS_WIN32.into()), // not on other OSes...
             InstanceVariable::OsDevice => Ok(gml_constants::DEVICE_IOS_IPHONE.into()), // default
-            InstanceVariable::OsBrowser => Ok((-1f64).into()), // undocumented, unimplemented
-            InstanceVariable::OsVersion => Ok((-1f64).into()), // undocumented, unimplemented
+            InstanceVariable::OsBrowser => Ok((-1f64).into()),             // undocumented, unimplemented
+            InstanceVariable::OsVersion => Ok((-1f64).into()),             // undocumented, unimplemented
             InstanceVariable::BrowserWidth => todo!(),
             InstanceVariable::BrowserHeight => todo!(),
             InstanceVariable::DisplayAa => Ok(14f64.into()), // bitfield - 2x/4x/8x AA is 14
