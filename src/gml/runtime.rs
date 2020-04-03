@@ -508,9 +508,9 @@ impl Game {
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
-            InstanceVariable::ShowScore => todo!(),
-            InstanceVariable::ShowLives => todo!(),
-            InstanceVariable::ShowHealth => todo!(),
+            InstanceVariable::ShowScore => Ok(self.score_capt_d.into()),
+            InstanceVariable::ShowLives => Ok(self.lives_capt_d.into()),
+            InstanceVariable::ShowHealth => Ok(self.health_capt_d.into()),
             InstanceVariable::CaptionScore => Ok(self.score_capt.clone().into()),
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
@@ -590,15 +590,34 @@ impl Game {
                 instance.bbox_is_stale.set(true);
                 instance.sprite_index.set(value.into());
             },
-            InstanceVariable::ImageIndex => todo!(),
-            InstanceVariable::ImageSingle => todo!(),
-            InstanceVariable::ImageXscale => todo!(),
-            InstanceVariable::ImageYscale => todo!(),
-            InstanceVariable::ImageAngle => todo!(),
-            InstanceVariable::ImageAlpha => todo!(),
-            InstanceVariable::ImageBlend => todo!(),
-            InstanceVariable::ImageSpeed => todo!(),
-            InstanceVariable::MaskIndex => todo!(),
+            InstanceVariable::ImageIndex => {
+                instance.bbox_is_stale.set(true);
+                instance.image_index.set(value.into());
+            },
+            InstanceVariable::ImageSingle => {
+                instance.bbox_is_stale.set(true);
+                instance.image_index.set(value.into());
+                instance.image_speed.set(1.0);
+            },
+            InstanceVariable::ImageXscale => {
+                instance.bbox_is_stale.set(true);
+                instance.image_xscale.set(value.into());
+            },
+            InstanceVariable::ImageYscale => {
+                instance.bbox_is_stale.set(true);
+                instance.image_yscale.set(value.into());
+            },
+            InstanceVariable::ImageAngle => {
+                instance.bbox_is_stale.set(true);
+                instance.image_angle.set(value.into());
+            },
+            InstanceVariable::ImageAlpha => instance.image_alpha.set(value.into()),
+            InstanceVariable::ImageBlend => instance.image_alpha.set(value.into()),
+            InstanceVariable::ImageSpeed => instance.image_speed.set(value.into()),
+            InstanceVariable::MaskIndex => {
+                instance.bbox_is_stale.set(true);
+                instance.mask_index.set(value.into());
+            },
             InstanceVariable::PathPosition => todo!(),
             InstanceVariable::PathPositionprevious => todo!(),
             InstanceVariable::PathSpeed => todo!(),
@@ -633,7 +652,10 @@ impl Game {
             InstanceVariable::Score => self.score = value.into(),
             InstanceVariable::Lives => self.lives = value.into(),
             InstanceVariable::Health => self.health = value.into(),
-            InstanceVariable::RoomCaption => todo!(),
+            InstanceVariable::RoomCaption => {
+                self.caption = value.into();
+                self.caption_stale = true;
+            },
             InstanceVariable::RoomSpeed => todo!(),
             InstanceVariable::RoomPersistent => todo!(),
             InstanceVariable::BackgroundColor => todo!(),
@@ -674,9 +696,9 @@ impl Game {
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
-            InstanceVariable::ShowScore => todo!(),
-            InstanceVariable::ShowLives => todo!(),
-            InstanceVariable::ShowHealth => todo!(),
+            InstanceVariable::ShowScore => self.score_capt_d = value.is_true(),
+            InstanceVariable::ShowLives => self.lives_capt_d = value.is_true(),
+            InstanceVariable::ShowHealth => self.health_capt_d = value.is_true(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),

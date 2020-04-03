@@ -49,13 +49,20 @@ pub struct Game {
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
     pub score_capt: Rc<str>,   // default "Score: "
+    pub score_capt_d: bool,    // display in caption?
     pub lives: i32,            // default -1
     pub lives_capt: Rc<str>,   // default "Lives: "
+    pub lives_capt_d: bool,    // display in caption?
     pub health: f64,           // default 100.0
     pub health_capt: Rc<str>,  // default "Health: "
+    pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
     pub gm_version: GameVersion,
+
+    // window caption
+    pub caption: Rc<str>,
+    pub caption_stale: bool,
 }
 
 pub struct Assets {
@@ -625,6 +632,11 @@ impl Game {
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             gm_version: version,
+            caption: "".to_string().into(),
+            caption_stale: false,
+            score_capt_d: false,
+            lives_capt_d: false,
+            health_capt_d: false,
         };
 
         game.load_room(room1_id)?;
