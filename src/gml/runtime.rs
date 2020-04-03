@@ -458,7 +458,7 @@ impl Game {
             InstanceVariable::WorkingDirectory => todo!(),
             InstanceVariable::TempDirectory => todo!(),
             InstanceVariable::ProgramDirectory => todo!(),
-            InstanceVariable::InstanceCount => todo!(),
+            InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
             InstanceVariable::InstanceId => todo!(),
             InstanceVariable::RoomWidth => Ok(self.room_width.into()),
             InstanceVariable::RoomHeight => Ok(self.room_height.into()),
