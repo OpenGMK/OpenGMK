@@ -27,7 +27,7 @@ pub struct Context<'a> {
     pub event_object: u32,
 
     /// Arguments passed to scripts and such
-    pub arguments: &'a [Value],
+    pub arguments: &'a mut [Value],
 
     /// Local variables specific to this context
     /// TODO: replace this with a dummy field-holder object? Global behaves the same way.
