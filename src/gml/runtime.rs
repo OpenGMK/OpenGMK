@@ -459,7 +459,7 @@ impl Game {
             InstanceVariable::TempDirectory => todo!(),
             InstanceVariable::ProgramDirectory => todo!(),
             InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
-            InstanceVariable::InstanceId => todo!(),
+            InstanceVariable::InstanceId => Ok(self.instance_list.instance_at(array_index as _).into()),
             InstanceVariable::RoomWidth => Ok(self.room_width.into()),
             InstanceVariable::RoomHeight => Ok(self.room_height.into()),
             InstanceVariable::RoomCaption => todo!(),
