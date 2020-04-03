@@ -48,8 +48,12 @@ pub struct Game {
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
+    pub score_capt: Rc<str>,   // default "Score: "
     pub lives: i32,            // default -1
+    pub lives_capt: Rc<str>,   // default "Lives: "
     pub health: f64,           // default 100.0
+    pub health_capt: Rc<str>,  // default "Health: "
+
     pub game_id: i32,
     pub gm_version: GameVersion,
 }
@@ -614,8 +618,11 @@ impl Game {
             transition_kind: 0,
             transition_steps: 80,
             score: 0,
+            score_capt: "Score: ".to_string().into(),
             lives: -1,
+            lives_capt: "Lives: ".to_string().into(),
             health: 100.0,
+            health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             gm_version: version,
         };
