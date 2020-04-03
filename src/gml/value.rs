@@ -337,6 +337,16 @@ impl From<Value> for f64 {
     }
 }
 
+impl From<Value> for Rc<str> {
+    // For lazy-converting a value into an Rc<str>.
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Real(_) => String::new().into(),
+            Value::Str(s) => s,
+        }
+    }
+}
+
 impl Default for Value {
     fn default() -> Self {
         Self::Real(0.0)
