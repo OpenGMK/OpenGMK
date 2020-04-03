@@ -9,7 +9,7 @@ use std::{
     cell::RefCell,
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    iter, ptr,
+    ptr,
     rc::Rc,
 };
 
@@ -160,7 +160,6 @@ pub struct IdentityIter {
     count: usize,
     position: usize,
     children: Rc<RefCell<HashSet<ID>>>,
-    object_index: ID,
 }
 impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
@@ -169,7 +168,7 @@ impl IdentityIter {
                 let inst = list.get(instance)?;
                 if inst.state.get() == InstanceState::Active {
                     let oidx = inst.object_index.get();
-                    if self.object_index == oidx || self.children.borrow().contains(&oidx) {
+                    if self.children.borrow().contains(&oidx) {
                         self.count -= 1;
                         self.position += idx + 1;
                         return Some(instance)
@@ -272,11 +271,9 @@ impl InstanceList {
         ILIterInsertOrder(0)
     }
 
-    pub fn iter_by_identity(&self, object_index: ID, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = iter::once(&object_index)
-            .chain(identities.borrow().iter())
-            .fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities, object_index }
+    pub fn iter_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
+        let count = identities.borrow().iter().fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
+        IdentityIter { count, position: 0, children: identities }
     }
 
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
