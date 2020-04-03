@@ -17,7 +17,7 @@ use crate::{
 use gm8exe::GameAssets;
 use indexmap::IndexMap;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     iter::repeat,
     rc::Rc,
@@ -47,9 +47,9 @@ pub struct Game {
 
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
-    pub score: i32,            // default 0
-    pub lives: i32,            // default -1
-    pub health: f64,           // default 100.0
+    pub score: Cell<i32>,      // default 0
+    pub lives: Cell<i32>,      // default -1
+    pub health: Cell<f64>,     // default 100.0
     pub game_id: i32,
 }
 
@@ -611,9 +611,9 @@ impl Game {
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
             transition_kind: 0,
             transition_steps: 80,
-            score: 0,
-            lives: -1,
-            health: 100.0,
+            score: Cell::new(0),
+            lives: Cell::new(-1),
+            health: Cell::new(100.0),
             game_id: game_id as i32,
         };
 
