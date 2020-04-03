@@ -561,10 +561,10 @@ impl Game {
             InstanceVariable::Yprevious => instance.yprevious.set(value.into()),
             InstanceVariable::Xstart => instance.xstart.set(value.into()),
             InstanceVariable::Ystart => instance.ystart.set(value.into()),
-            InstanceVariable::Hspeed => instance.hspeed.set(value.into()), // TODO: update the vector here...
-            InstanceVariable::Vspeed => instance.vspeed.set(value.into()), // TODO: same as above
-            InstanceVariable::Direction => instance.direction.set(value.into()), // TODO: yep
-            InstanceVariable::Speed => instance.speed.set(value.into()),   // TODO: yep! again!
+            InstanceVariable::Hspeed => instance.set_hspeed(value.into()),
+            InstanceVariable::Vspeed => instance.set_vspeed(value.into()),
+            InstanceVariable::Direction => instance.set_direction(value.into()),
+            InstanceVariable::Speed => instance.set_speed(value.into()),
             InstanceVariable::Friction => todo!(),
             InstanceVariable::Gravity => todo!(),
             InstanceVariable::GravityDirection => todo!(),
