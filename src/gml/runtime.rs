@@ -125,6 +125,14 @@ pub enum Error {
     TooManyArrayDimensions(usize),
 }
 
+enum Target {
+    Single(Option<usize>),
+    Objects(i32),
+    All,
+    Global,
+    Local,
+}
+
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -156,7 +164,34 @@ impl Game {
 
     fn exec_instruction(&mut self, instruction: &Instruction, context: &mut Context) -> gml::Result<ReturnType> {
         match instruction {
-            Instruction::SetField { accessor: _, value: _ } => todo!(),
+            Instruction::SetField { accessor, value } => {
+                let array_index = self.get_array_index(&accessor.array, context)?;
+                let value = self.eval(value, context)?;
+                let target = self.get_target(context, &accessor.owner)?;
+                match target {
+                    Target::Single(None) => (),
+                    Target::Single(Some(instance)) => {
+                        self.set_instance_field(instance, accessor.index, array_index, value);
+                    }
+                    Target::Objects(index) => {
+                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
+                            let ids = object.children.clone();
+                            let mut iter = self.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.instance_list) {
+                                self.set_instance_field(instance, accessor.index, array_index, value.clone());
+                            }
+                        }
+                    },
+                    Target::All => {
+                        let mut iter = self.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.instance_list) {
+                            self.set_instance_field(instance, accessor.index, array_index, value.clone());
+                        }
+                    },
+                    Target::Global => todo!(),
+                    Target::Local => todo!(),
+                }
+            },
             Instruction::SetVariable { accessor: _, value: _ } => todo!(),
             Instruction::ModifyField { accessor: _, value: _, modification_type: _ } => todo!(),
             Instruction::ModifyVariable { accessor: _, value: _, modification_type: _ } => todo!(),
@@ -291,8 +326,8 @@ impl Game {
     }
 
     // Get a field value from an instance
-    fn get_instance_field(&self, instance: &Instance, field_id: usize, array_index: u32) -> gml::Result<Value> {
-        if let Some(Some(value)) = instance.fields.borrow().get(&field_id).map(|field| field.get(array_index)) {
+    fn get_instance_field(&self, instance: usize, field_id: usize, array_index: u32) -> gml::Result<Value> {
+        if let Some(Some(Some(value))) = self.instance_list.get(instance).map(|x| x.fields.borrow().get(&field_id).map(|field| field.get(array_index))) {
             Ok(value)
         } else {
             if self.uninit_fields_are_zero {
@@ -304,68 +339,86 @@ impl Game {
     }
 
     // Set a field on an instance
-    fn set_instance_field(&self, instance: &Instance, field_id: usize, array_index: u32, value: Value) {
-        let mut fields = instance.fields.borrow_mut();
-        if let Some(field) = fields.get_mut(&field_id) {
-            field.set(array_index, value)
-        } else {
-            fields.insert(field_id, Field::new(array_index, value));
+    fn set_instance_field(&self, instance: usize, field_id: usize, array_index: u32, value: Value) {
+        if let Some(mut fields) = self.instance_list.get(instance).map(|x| x.fields.borrow_mut()) {
+            if let Some(field) = fields.get_mut(&field_id) {
+                field.set(array_index, value)
+            } else {
+                fields.insert(field_id, Field::new(array_index, value));
+            }
         }
     }
 
     // Get an instance variable from an instance, converted into a Value
     fn get_instance_var(
         &self,
-        instance: &Instance,
+        instance: usize,
         var: &InstanceVariable,
         array_index: u32,
         context: &Context,
     ) -> gml::Result<Value> {
+        
+        macro_rules! get_into {
+            ( $x:ident ) => (self.instance_list.get(instance).map(|x| x.$x.get().into()).unwrap_or_default());
+        }
+
         match var {
-            InstanceVariable::X => Ok(instance.x.get().into()),
-            InstanceVariable::Y => Ok(instance.y.get().into()),
-            InstanceVariable::Xprevious => Ok(instance.xprevious.get().into()),
-            InstanceVariable::Yprevious => Ok(instance.yprevious.get().into()),
-            InstanceVariable::Xstart => Ok(instance.xstart.get().into()),
-            InstanceVariable::Ystart => Ok(instance.ystart.get().into()),
-            InstanceVariable::Hspeed => Ok(instance.hspeed.get().into()),
-            InstanceVariable::Vspeed => Ok(instance.vspeed.get().into()),
-            InstanceVariable::Direction => Ok(instance.direction.get().into()),
-            InstanceVariable::Speed => Ok(instance.speed.get().into()),
-            InstanceVariable::Friction => Ok(instance.friction.get().into()),
-            InstanceVariable::Gravity => Ok(instance.gravity.get().into()),
-            InstanceVariable::GravityDirection => Ok(instance.gravity_direction.get().into()),
-            InstanceVariable::ObjectIndex => Ok(instance.object_index.get().into()),
-            InstanceVariable::Id => Ok(instance.id.get().into()),
-            InstanceVariable::Alarm => match instance.alarms.borrow().get(&array_index) {
-                Some(i) => Ok((*i).into()),
-                None => Ok(DEFAULT_ALARM.into()),
+            InstanceVariable::X => Ok(get_into!(x)),
+            InstanceVariable::Y => Ok(get_into!(y)),
+            InstanceVariable::Xprevious => Ok(get_into!(xprevious)),
+            InstanceVariable::Yprevious => Ok(get_into!(yprevious)),
+            InstanceVariable::Xstart => Ok(get_into!(xstart)),
+            InstanceVariable::Ystart => Ok(get_into!(ystart)),
+            InstanceVariable::Hspeed => Ok(get_into!(hspeed)),
+            InstanceVariable::Vspeed => Ok(get_into!(vspeed)),
+            InstanceVariable::Direction => Ok(get_into!(direction)),
+            InstanceVariable::Speed => Ok(get_into!(speed)),
+            InstanceVariable::Friction => Ok(get_into!(friction)),
+            InstanceVariable::Gravity => Ok(get_into!(gravity)),
+            InstanceVariable::GravityDirection => Ok(get_into!(gravity_direction)),
+            InstanceVariable::ObjectIndex => Ok(get_into!(object_index)),
+            InstanceVariable::Id => Ok(get_into!(id)),
+            InstanceVariable::Alarm => match self.instance_list.get(instance).map(|x| x.alarms.borrow().get(&array_index).map(|x| *x)) {
+                Some(Some(i)) => Ok(i.into()),
+                _ => Ok(DEFAULT_ALARM.into()),
             },
-            InstanceVariable::Solid => Ok(instance.solid.get().into()),
-            InstanceVariable::Visible => Ok(instance.visible.get().into()),
-            InstanceVariable::Persistent => Ok(instance.persistent.get().into()),
-            InstanceVariable::Depth => Ok(instance.depth.get().into()),
+            InstanceVariable::Solid => Ok(get_into!(solid)),
+            InstanceVariable::Visible => Ok(get_into!(visible)),
+            InstanceVariable::Persistent => Ok(get_into!(persistent)),
+            InstanceVariable::Depth => Ok(get_into!(depth)),
             InstanceVariable::BboxLeft => {
-                instance.update_bbox(self.get_instance_sprite(instance));
-                Ok(instance.bbox_left.get().into())
+                let sprite = self.get_instance_sprite(instance);
+                Ok(self.instance_list.get(instance).map(|x| {
+                    x.update_bbox(sprite);
+                    x.bbox_left.get()
+                }).unwrap_or_default().into())
             },
             InstanceVariable::BboxRight => {
-                instance.update_bbox(self.get_instance_sprite(instance));
-                Ok(instance.bbox_right.get().into())
+                let sprite = self.get_instance_sprite(instance);
+                Ok(self.instance_list.get(instance).map(|x| {
+                    x.update_bbox(sprite);
+                    x.bbox_right.get()
+                }).unwrap_or_default().into())
             },
             InstanceVariable::BboxTop => {
-                instance.update_bbox(self.get_instance_sprite(instance));
-                Ok(instance.bbox_top.get().into())
+                let sprite = self.get_instance_sprite(instance);
+                Ok(self.instance_list.get(instance).map(|x| {
+                    x.update_bbox(sprite);
+                    x.bbox_top.get()
+                }).unwrap_or_default().into())
             },
             InstanceVariable::BboxBottom => {
-                instance.update_bbox(self.get_instance_sprite(instance));
-                Ok(instance.bbox_bottom.get().into())
+                let sprite = self.get_instance_sprite(instance);
+                Ok(self.instance_list.get(instance).map(|x| {
+                    x.update_bbox(sprite);
+                    x.bbox_bottom.get()
+                }).unwrap_or_default().into())
             },
-            InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
-            InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
+            InstanceVariable::SpriteIndex => Ok(get_into!(sprite_index)),
+            InstanceVariable::ImageIndex => Ok(get_into!(image_index)),
             InstanceVariable::ImageSingle => {
-                if instance.image_speed.get() == 0.0 {
-                    Ok(instance.image_index.get().into())
+                if self.instance_list.get(instance).map(|x| x.image_speed.get()) == Some(0.0) {
+                    Ok(get_into!(image_index))
                 } else {
                     Ok(Value::from(-1i32))
                 }
@@ -376,14 +429,16 @@ impl Game {
             },
             InstanceVariable::SpriteWidth => {
                 if let Some(sprite) = self.get_instance_sprite(instance) {
-                    Ok(Value::from(f64::from(sprite.width) * instance.image_xscale.get()))
+                    let width: f64 = sprite.width.into();
+                    Ok(self.instance_list.get(instance).map(|x| x.image_xscale.get() * width).unwrap_or_default().into())
                 } else {
                     Ok(Value::from(0.0))
                 }
             },
             InstanceVariable::SpriteHeight => {
                 if let Some(sprite) = self.get_instance_sprite(instance) {
-                    Ok(Value::from(f64::from(sprite.height) * instance.image_yscale.get()))
+                    let height: f64 = sprite.height.into();
+                    Ok(self.instance_list.get(instance).map(|x| x.image_yscale.get() * height).unwrap_or_default().into())
                 } else {
                     Ok(Value::from(0.0))
                 }
@@ -402,25 +457,25 @@ impl Game {
                     Ok(Value::from(0.0))
                 }
             },
-            InstanceVariable::ImageXscale => Ok(instance.image_xscale.get().into()),
-            InstanceVariable::ImageYscale => Ok(instance.image_yscale.get().into()),
-            InstanceVariable::ImageAngle => Ok(instance.image_angle.get().into()),
-            InstanceVariable::ImageAlpha => Ok(instance.image_alpha.get().into()),
-            InstanceVariable::ImageBlend => Ok(instance.image_blend.get().into()),
-            InstanceVariable::ImageSpeed => Ok(instance.image_speed.get().into()),
-            InstanceVariable::MaskIndex => Ok(instance.mask_index.get().into()),
-            InstanceVariable::PathIndex => Ok(instance.path_index.get().into()),
-            InstanceVariable::PathPosition => Ok(instance.path_position.get().into()),
-            InstanceVariable::PathPositionprevious => Ok(instance.path_positionprevious.get().into()),
-            InstanceVariable::PathSpeed => Ok(instance.path_speed.get().into()),
-            InstanceVariable::PathScale => Ok(instance.path_scale.get().into()),
-            InstanceVariable::PathOrientation => Ok(instance.path_orientation.get().into()),
-            InstanceVariable::PathEndAction => Ok(instance.path_endaction.get().into()),
-            InstanceVariable::TimelineIndex => Ok(instance.timeline_index.get().into()),
-            InstanceVariable::TimelinePosition => Ok(instance.timeline_position.get().into()),
-            InstanceVariable::TimelineSpeed => Ok(instance.timeline_speed.get().into()),
-            InstanceVariable::TimelineRunning => Ok(instance.timeline_running.get().into()),
-            InstanceVariable::TimelineLoop => Ok(instance.timeline_loop.get().into()),
+            InstanceVariable::ImageXscale => Ok(get_into!(image_xscale)),
+            InstanceVariable::ImageYscale => Ok(get_into!(image_yscale)),
+            InstanceVariable::ImageAngle => Ok(get_into!(image_angle)),
+            InstanceVariable::ImageAlpha => Ok(get_into!(image_alpha)),
+            InstanceVariable::ImageBlend => Ok(get_into!(image_blend)),
+            InstanceVariable::ImageSpeed => Ok(get_into!(image_speed)),
+            InstanceVariable::MaskIndex => Ok(get_into!(mask_index)),
+            InstanceVariable::PathIndex => Ok(get_into!(path_index)),
+            InstanceVariable::PathPosition => Ok(get_into!(path_position)),
+            InstanceVariable::PathPositionprevious => Ok(get_into!(path_positionprevious)),
+            InstanceVariable::PathSpeed => Ok(get_into!(path_speed)),
+            InstanceVariable::PathScale => Ok(get_into!(path_scale)),
+            InstanceVariable::PathOrientation => Ok(get_into!(path_orientation)),
+            InstanceVariable::PathEndAction => Ok(get_into!(path_endaction)),
+            InstanceVariable::TimelineIndex => Ok(get_into!(timeline_index)),
+            InstanceVariable::TimelinePosition => Ok(get_into!(timeline_position)),
+            InstanceVariable::TimelineSpeed => Ok(get_into!(timeline_speed)),
+            InstanceVariable::TimelineRunning => Ok(get_into!(timeline_running)),
+            InstanceVariable::TimelineLoop => Ok(get_into!(timeline_loop)),
             InstanceVariable::ArgumentRelative => Ok(context.relative.into()),
             InstanceVariable::Argument0 => self.get_argument(context, 0),
             InstanceVariable::Argument1 => self.get_argument(context, 1),
@@ -757,7 +812,8 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's sprite_index
-    fn get_instance_sprite(&self, instance: &Instance) -> Option<&asset::Sprite> {
+    fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
+        let instance = self.instance_list.get(instance)?;
         let index = instance.sprite_index.get();
         if index >= 0 {
             if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
@@ -767,8 +823,9 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's mask_index
-    fn get_instance_mask_sprite(&mut self, instance: &Instance) -> Option<&asset::Sprite> {
+    fn get_instance_mask_sprite(&mut self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
+            let instance = self.instance_list.get(instance)?;
             let index = instance.mask_index.get();
             if index >= 0 { index } else { instance.sprite_index.get() }
         };
@@ -786,6 +843,29 @@ impl Game {
             Ok(value.clone())
         } else {
             if self.uninit_args_are_zero { Ok(Value::Real(0.0)) } else { Err(Error::UninitializedArgument(arg)) }
+        }
+    }
+
+    // Resolves an InstanceIdentifier to a Target
+    fn get_target(&mut self, context: &mut Context, identifier: &InstanceIdentifier) -> gml::Result<Target> {
+        match identifier {
+            InstanceIdentifier::Own => Ok(Target::Single(Some(context.this))),
+            InstanceIdentifier::Other => Ok(Target::Single(Some(context.other))),
+            InstanceIdentifier::Global => Ok(Target::Global),
+            InstanceIdentifier::Local => Ok(Target::Local),
+            InstanceIdentifier::Expression(node) => {
+                let value = self.eval(node, context).map(i32::from)?;
+                match value {
+                    gml::SELF => Ok(Target::Single(Some(context.this))),
+                    gml::OTHER => Ok(Target::Single(Some(context.other))),
+                    gml::ALL => Ok(Target::All),
+                    gml::NOONE => Ok(Target::Single(None)),
+                    gml::GLOBAL => Ok(Target::Global),
+                    gml::LOCAL => Ok(Target::Local),
+                    i if i >= 100_000 => Ok(Target::Single(self.instance_list.get_by_instid(i))),
+                    i => Ok(Target::Objects(i)),
+                }
+            }
         }
     }
 }
