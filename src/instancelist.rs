@@ -311,6 +311,7 @@ impl InstanceList {
             remove
         });
         let chunks = &self.chunks;
+        self.draw_order.retain(|idx| chunks.get(*idx).is_some());
         self.insert_order.retain(|idx| chunks.get(*idx).is_some());
     }
 }
