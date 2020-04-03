@@ -225,7 +225,7 @@ impl InstanceList {
         self.insert_order
             .iter()
             .filter(|&&inst_idx| {
-                self.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
+                self.get(inst_idx).map(|inst| inst.state.get() != InstanceState::Inactive).unwrap_or_default()
             })
             .count()
     }
@@ -234,7 +234,7 @@ impl InstanceList {
         self.insert_order
             .iter()
             .filter(|&&inst_idx| {
-                self.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
+                self.get(inst_idx).map(|inst| inst.state.get() != InstanceState::Inactive).unwrap_or_default()
             })
             .nth(n)
             .and_then(|inst_idx| self.get(*inst_idx).map(|inst| inst.id.get()))
