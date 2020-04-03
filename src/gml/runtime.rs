@@ -548,30 +548,30 @@ impl Game {
     // Set an instance variable on an instance
     fn set_instance_var(
         &self,
-        _instance: &Instance,
+        instance: &Instance,
         var: &InstanceVariable,
         _array_index: u32,
-        _value: Value,
+        value: Value,
         _context: &mut Context,
     ) -> gml::Result<()> {
         match var {
-            InstanceVariable::X => todo!(),
-            InstanceVariable::Y => todo!(),
-            InstanceVariable::Xprevious => todo!(),
-            InstanceVariable::Yprevious => todo!(),
-            InstanceVariable::Xstart => todo!(),
-            InstanceVariable::Ystart => todo!(),
-            InstanceVariable::Hspeed => todo!(),
-            InstanceVariable::Vspeed => todo!(),
-            InstanceVariable::Direction => todo!(),
-            InstanceVariable::Speed => todo!(),
+            InstanceVariable::X => instance.x.set(value.into()),
+            InstanceVariable::Y => instance.y.set(value.into()),
+            InstanceVariable::Xprevious => instance.xprevious.set(value.into()),
+            InstanceVariable::Yprevious => instance.yprevious.set(value.into()),
+            InstanceVariable::Xstart => instance.xstart.set(value.into()),
+            InstanceVariable::Ystart => instance.ystart.set(value.into()),
+            InstanceVariable::Hspeed => instance.hspeed.set(value.into()), // TODO: update the vector here...
+            InstanceVariable::Vspeed => instance.vspeed.set(value.into()), // TODO: same as above
+            InstanceVariable::Direction => instance.direction.set(value.into()), // TODO: yep
+            InstanceVariable::Speed => instance.speed.set(value.into()),   // TODO: yep! again!
             InstanceVariable::Friction => todo!(),
             InstanceVariable::Gravity => todo!(),
             InstanceVariable::GravityDirection => todo!(),
             InstanceVariable::Alarm => todo!(),
-            InstanceVariable::Solid => todo!(),
+            InstanceVariable::Solid => instance.solid.set(value.is_true()),
             InstanceVariable::Visible => todo!(),
-            InstanceVariable::Persistent => todo!(),
+            InstanceVariable::Persistent => instance.persistent.set(value.is_true()),
             InstanceVariable::Depth => todo!(),
             InstanceVariable::SpriteIndex => todo!(),
             InstanceVariable::ImageIndex => todo!(),
@@ -614,9 +614,9 @@ impl Game {
             InstanceVariable::Room => todo!(),
             InstanceVariable::TransitionKind => todo!(),
             InstanceVariable::TransitionSteps => todo!(),
-            InstanceVariable::Score => todo!(),
-            InstanceVariable::Lives => todo!(),
-            InstanceVariable::Health => todo!(),
+            InstanceVariable::Score => self.score.set(value.into()),
+            InstanceVariable::Lives => self.lives.set(value.into()),
+            InstanceVariable::Health => self.health.set(value.into()),
             InstanceVariable::RoomCaption => todo!(),
             InstanceVariable::RoomSpeed => todo!(),
             InstanceVariable::RoomPersistent => todo!(),
@@ -668,7 +668,7 @@ impl Game {
             InstanceVariable::ErrorLast => todo!(),
             _ => return Err(Error::ReadOnlyVariable(*var)),
         }
-        //Ok(()) //uncomment this when it's not unreachable
+        Ok(())
     }
 
     // Get a field value from a DummyFieldHolder
