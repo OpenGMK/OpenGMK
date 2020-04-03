@@ -555,8 +555,14 @@ impl Game {
         _context: &mut Context,
     ) -> gml::Result<()> {
         match var {
-            InstanceVariable::X => instance.x.set(value.into()),
-            InstanceVariable::Y => instance.y.set(value.into()),
+            InstanceVariable::X => {
+                instance.bbox_is_stale.set(true);
+                instance.x.set(value.into());
+            },
+            InstanceVariable::Y => {
+                instance.bbox_is_stale.set(true);
+                instance.y.set(value.into());
+            },
             InstanceVariable::Xprevious => instance.xprevious.set(value.into()),
             InstanceVariable::Yprevious => instance.yprevious.set(value.into()),
             InstanceVariable::Xstart => instance.xstart.set(value.into()),
@@ -570,10 +576,13 @@ impl Game {
             InstanceVariable::GravityDirection => todo!(),
             InstanceVariable::Alarm => todo!(),
             InstanceVariable::Solid => instance.solid.set(value.is_true()),
-            InstanceVariable::Visible => todo!(),
+            InstanceVariable::Visible => instance.visible.set(value.is_true()),
             InstanceVariable::Persistent => instance.persistent.set(value.is_true()),
-            InstanceVariable::Depth => todo!(),
-            InstanceVariable::SpriteIndex => todo!(),
+            InstanceVariable::Depth => instance.depth.set(value.into()),
+            InstanceVariable::SpriteIndex => {
+                instance.bbox_is_stale.set(true);
+                instance.sprite_index.set(value.into());
+            },
             InstanceVariable::ImageIndex => todo!(),
             InstanceVariable::ImageSingle => todo!(),
             InstanceVariable::ImageXscale => todo!(),
