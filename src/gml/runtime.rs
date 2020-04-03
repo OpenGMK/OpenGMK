@@ -5,7 +5,7 @@ use super::{
 use crate::{
     asset,
     game::Game,
-    gml,
+    gml::{self, compiler::mappings::constants as gml_constants},
     instance::{DummyFieldHolder, Field, Instance},
 };
 use std::fmt;
@@ -527,20 +527,20 @@ impl Game {
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
             InstanceVariable::EventAction => Ok(context.event_action.into()),
-            InstanceVariable::SecureMode => todo!(),
+            InstanceVariable::SecureMode => todo!(), // TODO: this.. isn't documented? what??
             InstanceVariable::DebugMode => todo!(),
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
-            InstanceVariable::GamemakerRegistered => todo!(),
-            InstanceVariable::GamemakerPro => todo!(),
-            InstanceVariable::GamemakerVersion => todo!(),
-            InstanceVariable::OsType => todo!(),
-            InstanceVariable::OsDevice => todo!(),
-            InstanceVariable::OsBrowser => todo!(),
-            InstanceVariable::OsVersion => todo!(),
+            InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
+            InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()), // identical to registered
+            InstanceVariable::GamemakerVersion => Ok(810f64.into()), // they didn't update this lol
+            InstanceVariable::OsType => Ok(gml_constants::OS_WIN32.into()), // not on other OSes...
+            InstanceVariable::OsDevice => Ok(gml_constants::DEVICE_IOS_IPHONE.into()), // default
+            InstanceVariable::OsBrowser => Ok((-1f64).into()), // undocumented, unimplemented
+            InstanceVariable::OsVersion => Ok((-1f64).into()), // undocumented, unimplemented
             InstanceVariable::BrowserWidth => todo!(),
             InstanceVariable::BrowserHeight => todo!(),
-            InstanceVariable::DisplayAa => todo!(),
+            InstanceVariable::DisplayAa => Ok(14f64.into()), // bitfield - 2x/4x/8x AA is 14
             InstanceVariable::AsyncLoad => todo!(),
         }
     }
