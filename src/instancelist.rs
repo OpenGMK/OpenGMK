@@ -217,8 +217,8 @@ impl InstanceList {
         self.chunks.get(idx)
     }
 
-    pub fn get_by_instid(&self, instance_index: ID) -> Option<&Instance> {
-        self.insert_order.iter().filter_map(|&inst| self.get(inst)).find(|inst| inst.id.get() == instance_index)
+    pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
+        self.insert_order.iter().copied().find(|&inst| self.get(inst).map(|x| x.id.get() == instance_index).unwrap_or_default())
     }
 
     pub fn count(&self, object_index: ID) -> usize {
