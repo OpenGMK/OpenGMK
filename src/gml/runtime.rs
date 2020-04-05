@@ -3,14 +3,8 @@ use crate::{
     game::Game,
     gml::{
         self,
-        compiler::{
-            //mappings,
-            mappings::constants as gml_constants,
-            token::Operator,
-        },
-        Context,
-        InstanceVariable,
-        Value,
+        compiler::{mappings::constants as gml_constants, token::Operator},
+        Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
 };
@@ -19,12 +13,11 @@ use std::fmt;
 const DEFAULT_ALARM: i32 = -1;
 
 /// A compiled runtime instruction. Generally represents a line of code.
-#[derive(Debug)]
 pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node },
     SetVariable { accessor: VariableAccessor, value: Node },
-    ModifyField { accessor: FieldAccessor, value: Node, modification_type: ModificationType },
-    ModifyVariable { accessor: VariableAccessor, value: Node, modification_type: ModificationType },
+    ModifyField { accessor: FieldAccessor, value: Node, operator: fn(&mut Value, Value) -> gml::Result<()> },
+    ModifyVariable { accessor: VariableAccessor, value: Node, operator: fn(&mut Value, Value) -> gml::Result<()> },
     EvalExpression { node: Node },
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopUntil { cond: Node, body: Box<[Instruction]> },
@@ -47,18 +40,6 @@ pub enum Node {
     Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> gml::Result<Value> },
     Unary { child: Box<Node>, operator: fn(Value) -> gml::Result<Value> },
     RuntimeError { error: Error },
-}
-
-/// Type of variable modification.
-#[derive(Debug)]
-pub enum ModificationType {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    BitAnd,
-    BitOr,
-    BitXor,
 }
 
 /// The reason for stopping execution of the current function.
@@ -140,6 +121,33 @@ enum Target {
     Local,
 }
 
+impl fmt::Debug for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Instruction::SetField { accessor, value } => write!(f, "SetField({:?}, {:?})", accessor, value),
+            Instruction::SetVariable { accessor, value } => write!(f, "SetVariable({:?}, {:?})", accessor, value),
+            Instruction::ModifyField { accessor, value, .. } => write!(f, "ModifyField({:?}, {:?})", accessor, value),
+            Instruction::ModifyVariable { accessor, value, .. } => {
+                write!(f, "ModifyVariable({:?}, {:?})", accessor, value)
+            },
+            Instruction::EvalExpression { node } => write!(f, "EvalExpression({:?})", node),
+            Instruction::IfElse { cond, if_body, else_body } => {
+                write!(f, "IfElse({:?}, if={:?}, else={:?}", cond, if_body, else_body)
+            },
+            Instruction::LoopUntil { cond, body } => write!(f, "LoopUntil({:?}, {:?})", cond, body),
+            Instruction::LoopWhile { cond, body } => write!(f, "LoopWhile({:?}, {:?})", cond, body),
+            Instruction::Return { return_type } => write!(f, "Return({:?})", return_type),
+            Instruction::Repeat { count, body } => write!(f, "Repeat({:?}, {:?})", count, body),
+            Instruction::SetReturnValue { value } => write!(f, "SetReturnValue({:?})", value),
+            Instruction::Switch { input, cases, default, body } => {
+                write!(f, "Switch({:?}, cases={:?}, default={:?}, {:?}", input, cases, default, body)
+            },
+            Instruction::With { target, body } => write!(f, "With({:?}, {:?})", target, body),
+            Instruction::RuntimeError { error } => write!(f, "RuntimeError({:?})", error),
+        }
+    }
+}
+
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -201,14 +209,14 @@ impl Game {
                         } else {
                             self.globals.fields.insert(accessor.index, Field::new(array_index, value));
                         }
-                    }
+                    },
                     Target::Local => {
                         if let Some(field) = context.locals.fields.get_mut(&accessor.index) {
                             field.set(array_index, value)
                         } else {
                             context.locals.fields.insert(accessor.index, Field::new(array_index, value));
                         }
-                    }
+                    },
                 }
             },
             Instruction::SetVariable { accessor, value } => {
@@ -241,18 +249,18 @@ impl Game {
                         } else {
                             self.globals.vars.insert(accessor.var, Field::new(array_index, value));
                         }
-                    }
+                    },
                     Target::Local => {
                         if let Some(field) = context.locals.vars.get_mut(&accessor.var) {
                             field.set(array_index, value)
                         } else {
                             context.locals.vars.insert(accessor.var, Field::new(array_index, value));
                         }
-                    }
+                    },
                 }
             },
-            Instruction::ModifyField { accessor: _, value: _, modification_type: _ } => todo!(),
-            Instruction::ModifyVariable { accessor: _, value: _, modification_type: _ } => todo!(),
+            Instruction::ModifyField { accessor: _, value: _, operator: _ } => todo!(),
+            Instruction::ModifyVariable { accessor: _, value: _, operator: _ } => todo!(),
             Instruction::EvalExpression { node } => match self.eval(node, context) {
                 Err(e) => return Err(e),
                 _ => (),

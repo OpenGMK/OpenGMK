@@ -4,10 +4,7 @@ pub mod mappings;
 pub mod token;
 
 use super::{
-    runtime::{
-        ArrayAccessor, FieldAccessor, InstanceIdentifier, Instruction, ModificationType, Node, ReturnType,
-        VariableAccessor,
-    },
+    runtime::{ArrayAccessor, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType, VariableAccessor},
     Value,
 };
 use crate::gml;
@@ -392,15 +389,15 @@ impl Compiler {
 
     /// Converts an AST BinaryExpr to an Instruction.
     fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&str]) -> Instruction {
-        let modification_type = match binary_expr.op {
+        let modification_type: Option<fn(&mut Value, Value) -> gml::Result<()>> = match binary_expr.op {
             Operator::Assign => None,
-            Operator::AssignAdd => Some(ModificationType::Add),
-            Operator::AssignSubtract => Some(ModificationType::Subtract),
-            Operator::AssignMultiply => Some(ModificationType::Multiply),
-            Operator::AssignDivide => Some(ModificationType::Divide),
-            Operator::AssignBitwiseAnd => Some(ModificationType::BitAnd),
-            Operator::AssignBitwiseOr => Some(ModificationType::BitOr),
-            Operator::AssignBitwiseXor => Some(ModificationType::BitXor),
+            Operator::AssignAdd => Some(Value::add_assign),
+            Operator::AssignSubtract => Some(Value::sub_assign),
+            Operator::AssignMultiply => Some(Value::mul_assign),
+            Operator::AssignDivide => Some(Value::div_assign),
+            Operator::AssignBitwiseAnd => Some(Value::bitand_assign),
+            Operator::AssignBitwiseOr => Some(Value::bitor_assign),
+            Operator::AssignBitwiseXor => Some(Value::bitxor_assign),
             _ => unreachable!("Invalid assignment operator: {}", binary_expr.op),
         };
 
@@ -529,7 +526,7 @@ impl Compiler {
         identifier: &str,
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
-        modification_type: ModificationType,
+        operator: fn(&mut Value, Value) -> gml::Result<()>,
         value: Node,
         locals: &[&str],
     ) -> Instruction {
@@ -545,14 +542,10 @@ impl Compiler {
         };
 
         if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
-            Instruction::ModifyVariable {
-                accessor: VariableAccessor { var: *var, array, owner },
-                modification_type,
-                value,
-            }
+            Instruction::ModifyVariable { accessor: VariableAccessor { var: *var, array, owner }, operator, value }
         } else {
             let index = self.get_field_id(identifier);
-            Instruction::ModifyField { accessor: FieldAccessor { index, array, owner }, modification_type, value }
+            Instruction::ModifyField { accessor: FieldAccessor { index, array, owner }, operator, value }
         }
     }
 
