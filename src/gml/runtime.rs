@@ -6,7 +6,7 @@ use crate::{
     asset,
     game::Game,
     gml::{self, compiler::mappings::constants as gml_constants},
-    instance::{DummyFieldHolder, Field, Instance},
+    instance::{DummyFieldHolder, Field},
 };
 use std::fmt;
 
@@ -115,6 +115,7 @@ pub enum Error {
     InvalidDeref(String),      // string repr. because Expr<'a>
     InvalidIndexLhs(String),   // string repr. because Expr<'a>
     InvalidIndex(String),      // string repr. because Expr<'a>
+    InvalidInstanceHandle(usize),
     InvalidSwitchBody(String), // string repr. because Expr<'a>
     NonexistentAsset(asset::Type, usize),
     ReadOnlyVariable(InstanceVariable),
@@ -352,130 +353,120 @@ impl Game {
     // Get an instance variable from an instance, converted into a Value
     fn get_instance_var(
         &self,
-        instance: usize,
+        instance_handle: usize,
         var: &InstanceVariable,
         array_index: u32,
         context: &Context,
     ) -> gml::Result<Value> {
         
-        macro_rules! get_into {
-            ( $x:ident ) => (self.instance_list.get(instance).map(|x| x.$x.get().into()).unwrap_or_default());
-        }
+        let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
 
         match var {
-            InstanceVariable::X => Ok(get_into!(x)),
-            InstanceVariable::Y => Ok(get_into!(y)),
-            InstanceVariable::Xprevious => Ok(get_into!(xprevious)),
-            InstanceVariable::Yprevious => Ok(get_into!(yprevious)),
-            InstanceVariable::Xstart => Ok(get_into!(xstart)),
-            InstanceVariable::Ystart => Ok(get_into!(ystart)),
-            InstanceVariable::Hspeed => Ok(get_into!(hspeed)),
-            InstanceVariable::Vspeed => Ok(get_into!(vspeed)),
-            InstanceVariable::Direction => Ok(get_into!(direction)),
-            InstanceVariable::Speed => Ok(get_into!(speed)),
-            InstanceVariable::Friction => Ok(get_into!(friction)),
-            InstanceVariable::Gravity => Ok(get_into!(gravity)),
-            InstanceVariable::GravityDirection => Ok(get_into!(gravity_direction)),
-            InstanceVariable::ObjectIndex => Ok(get_into!(object_index)),
-            InstanceVariable::Id => Ok(get_into!(id)),
-            InstanceVariable::Alarm => match self.instance_list.get(instance).map(|x| x.alarms.borrow().get(&array_index).map(|x| *x)) {
-                Some(Some(i)) => Ok(i.into()),
+            InstanceVariable::X => Ok(instance.x.get().into()),
+            InstanceVariable::Y => Ok(instance.y.get().into()),
+            InstanceVariable::Xprevious => Ok(instance.xprevious.get().into()),
+            InstanceVariable::Yprevious => Ok(instance.yprevious.get().into()),
+            InstanceVariable::Xstart => Ok(instance.xstart.get().into()),
+            InstanceVariable::Ystart => Ok(instance.ystart.get().into()),
+            InstanceVariable::Hspeed => Ok(instance.hspeed.get().into()),
+            InstanceVariable::Vspeed => Ok(instance.vspeed.get().into()),
+            InstanceVariable::Direction => Ok(instance.direction.get().into()),
+            InstanceVariable::Speed => Ok(instance.speed.get().into()),
+            InstanceVariable::Friction => Ok(instance.friction.get().into()),
+            InstanceVariable::Gravity => Ok(instance.gravity.get().into()),
+            InstanceVariable::GravityDirection => Ok(instance.gravity_direction.get().into()),
+            InstanceVariable::ObjectIndex => Ok(instance.object_index.get().into()),
+            InstanceVariable::Id => Ok(instance.id.get().into()),
+            InstanceVariable::Alarm => match instance.alarms.borrow().get(&array_index) {
+                Some(&i) => Ok(i.into()),
                 _ => Ok(DEFAULT_ALARM.into()),
             },
-            InstanceVariable::Solid => Ok(get_into!(solid)),
-            InstanceVariable::Visible => Ok(get_into!(visible)),
-            InstanceVariable::Persistent => Ok(get_into!(persistent)),
-            InstanceVariable::Depth => Ok(get_into!(depth)),
+            InstanceVariable::Solid => Ok(instance.solid.get().into()),
+            InstanceVariable::Visible => Ok(instance.visible.get().into()),
+            InstanceVariable::Persistent => Ok(instance.persistent.get().into()),
+            InstanceVariable::Depth => Ok(instance.depth.get().into()),
             InstanceVariable::BboxLeft => {
-                let sprite = self.get_instance_sprite(instance);
-                Ok(self.instance_list.get(instance).map(|x| {
-                    x.update_bbox(sprite);
-                    x.bbox_left.get()
-                }).unwrap_or_default().into())
+                let sprite = self.get_instance_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_left.get().into())
             },
             InstanceVariable::BboxRight => {
-                let sprite = self.get_instance_sprite(instance);
-                Ok(self.instance_list.get(instance).map(|x| {
-                    x.update_bbox(sprite);
-                    x.bbox_right.get()
-                }).unwrap_or_default().into())
+                let sprite = self.get_instance_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_right.get().into())
             },
             InstanceVariable::BboxTop => {
-                let sprite = self.get_instance_sprite(instance);
-                Ok(self.instance_list.get(instance).map(|x| {
-                    x.update_bbox(sprite);
-                    x.bbox_top.get()
-                }).unwrap_or_default().into())
+                let sprite = self.get_instance_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_top.get().into())
             },
             InstanceVariable::BboxBottom => {
-                let sprite = self.get_instance_sprite(instance);
-                Ok(self.instance_list.get(instance).map(|x| {
-                    x.update_bbox(sprite);
-                    x.bbox_bottom.get()
-                }).unwrap_or_default().into())
+                let sprite = self.get_instance_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_bottom.get().into())
             },
-            InstanceVariable::SpriteIndex => Ok(get_into!(sprite_index)),
-            InstanceVariable::ImageIndex => Ok(get_into!(image_index)),
+            InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
+            InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
             InstanceVariable::ImageSingle => {
-                if self.instance_list.get(instance).map(|x| x.image_speed.get()) == Some(0.0) {
-                    Ok(get_into!(image_index))
+                if instance.image_speed.get() == 0.0 {
+                    Ok(instance.image_index.get().into())
                 } else {
                     Ok(Value::from(-1i32))
                 }
             },
-            InstanceVariable::ImageNumber => match self.get_instance_sprite(instance) {
+            InstanceVariable::ImageNumber => match self.get_instance_sprite(instance_handle) {
                 Some(sprite) => Ok(sprite.frames.len().into()),
                 None => Ok(Value::from(0i32)),
             },
             InstanceVariable::SpriteWidth => {
-                if let Some(sprite) = self.get_instance_sprite(instance) {
+                if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     let width: f64 = sprite.width.into();
-                    Ok(self.instance_list.get(instance).map(|x| x.image_xscale.get() * width).unwrap_or_default().into())
+                    Ok((instance.image_xscale.get() * width).into())
                 } else {
                     Ok(Value::from(0.0))
                 }
             },
             InstanceVariable::SpriteHeight => {
-                if let Some(sprite) = self.get_instance_sprite(instance) {
+                if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     let height: f64 = sprite.height.into();
-                    Ok(self.instance_list.get(instance).map(|x| x.image_yscale.get() * height).unwrap_or_default().into())
+                    Ok((instance.image_yscale.get() * height).into())
                 } else {
                     Ok(Value::from(0.0))
                 }
             },
             InstanceVariable::SpriteXoffset => {
-                if let Some(sprite) = self.get_instance_sprite(instance) {
+                if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     Ok(sprite.origin_x.into())
                 } else {
                     Ok(Value::from(0.0))
                 }
             },
             InstanceVariable::SpriteYoffset => {
-                if let Some(sprite) = self.get_instance_sprite(instance) {
+                if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     Ok(sprite.origin_y.into())
                 } else {
                     Ok(Value::from(0.0))
                 }
             },
-            InstanceVariable::ImageXscale => Ok(get_into!(image_xscale)),
-            InstanceVariable::ImageYscale => Ok(get_into!(image_yscale)),
-            InstanceVariable::ImageAngle => Ok(get_into!(image_angle)),
-            InstanceVariable::ImageAlpha => Ok(get_into!(image_alpha)),
-            InstanceVariable::ImageBlend => Ok(get_into!(image_blend)),
-            InstanceVariable::ImageSpeed => Ok(get_into!(image_speed)),
-            InstanceVariable::MaskIndex => Ok(get_into!(mask_index)),
-            InstanceVariable::PathIndex => Ok(get_into!(path_index)),
-            InstanceVariable::PathPosition => Ok(get_into!(path_position)),
-            InstanceVariable::PathPositionprevious => Ok(get_into!(path_positionprevious)),
-            InstanceVariable::PathSpeed => Ok(get_into!(path_speed)),
-            InstanceVariable::PathScale => Ok(get_into!(path_scale)),
-            InstanceVariable::PathOrientation => Ok(get_into!(path_orientation)),
-            InstanceVariable::PathEndAction => Ok(get_into!(path_endaction)),
-            InstanceVariable::TimelineIndex => Ok(get_into!(timeline_index)),
-            InstanceVariable::TimelinePosition => Ok(get_into!(timeline_position)),
-            InstanceVariable::TimelineSpeed => Ok(get_into!(timeline_speed)),
-            InstanceVariable::TimelineRunning => Ok(get_into!(timeline_running)),
-            InstanceVariable::TimelineLoop => Ok(get_into!(timeline_loop)),
+            InstanceVariable::ImageXscale => Ok(instance.image_xscale.get().into()),
+            InstanceVariable::ImageYscale => Ok(instance.image_yscale.get().into()),
+            InstanceVariable::ImageAngle => Ok(instance.image_angle.get().into()),
+            InstanceVariable::ImageAlpha => Ok(instance.image_alpha.get().into()),
+            InstanceVariable::ImageBlend => Ok(instance.image_blend.get().into()),
+            InstanceVariable::ImageSpeed => Ok(instance.image_speed.get().into()),
+            InstanceVariable::MaskIndex => Ok(instance.mask_index.get().into()),
+            InstanceVariable::PathIndex => Ok(instance.path_index.get().into()),
+            InstanceVariable::PathPosition => Ok(instance.path_position.get().into()),
+            InstanceVariable::PathPositionprevious => Ok(instance.path_positionprevious.get().into()),
+            InstanceVariable::PathSpeed => Ok(instance.path_speed.get().into()),
+            InstanceVariable::PathScale => Ok(instance.path_scale.get().into()),
+            InstanceVariable::PathOrientation => Ok(instance.path_orientation.get().into()),
+            InstanceVariable::PathEndAction => Ok(instance.path_endaction.get().into()),
+            InstanceVariable::TimelineIndex => Ok(instance.timeline_index.get().into()),
+            InstanceVariable::TimelinePosition => Ok(instance.timeline_position.get().into()),
+            InstanceVariable::TimelineSpeed => Ok(instance.timeline_speed.get().into()),
+            InstanceVariable::TimelineRunning => Ok(instance.timeline_running.get().into()),
+            InstanceVariable::TimelineLoop => Ok(instance.timeline_loop.get().into()),
             InstanceVariable::ArgumentRelative => Ok(context.relative.into()),
             InstanceVariable::Argument0 => self.get_argument(context, 0),
             InstanceVariable::Argument1 => self.get_argument(context, 1),
@@ -610,12 +601,15 @@ impl Game {
     // Set an instance variable on an instance
     fn set_instance_var(
         &mut self,
-        instance: &Instance,
+        instance_handle: usize,
         var: &InstanceVariable,
         _array_index: u32,
         value: Value,
         _context: &mut Context,
     ) -> gml::Result<()> {
+
+        let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
+
         match var {
             InstanceVariable::X => {
                 instance.bbox_is_stale.set(true);
