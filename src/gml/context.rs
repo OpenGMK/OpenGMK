@@ -1,9 +1,6 @@
-use crate::{
-    gml::Value,
-    instance::{DummyFieldHolder},
-};
+use crate::{gml::Value, instance::DummyFieldHolder};
 
-pub struct Context<'a> {
+pub struct Context {
     /// InstanceList handle to the "self" instance
     pub this: usize,
 
@@ -26,8 +23,13 @@ pub struct Context<'a> {
     /// self.object_index, as the event could have been inherited from a parent object
     pub event_object: u32,
 
-    /// Arguments passed to scripts and such
-    pub arguments: &'a mut [Value],
+    /// Arguments passed to scripts and such. There are always 16 arguments in a Context,
+    /// regardless of argument_count. The extra ones can be written and read under some circumstances.
+    pub arguments: [Value; 16],
+
+    /// Number of initialized arguments
+    /// May only be 0-16 usually, but could theoretically go up to u32::max in corrupted gamedata
+    pub argument_count: usize,
 
     /// Local variables specific to this context
     /// TODO: replace this with a dummy field-holder object? Global behaves the same way.

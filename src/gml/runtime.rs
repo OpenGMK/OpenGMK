@@ -112,9 +112,9 @@ pub enum Error {
     InvalidAssignment(String),    // string repr. because Expr<'a>
     InvalidArrayAccessor(String), // string repr. because Expr<'a>
     InvalidArrayIndex(i32),
-    InvalidDeref(String),      // string repr. because Expr<'a>
-    InvalidIndexLhs(String),   // string repr. because Expr<'a>
-    InvalidIndex(String),      // string repr. because Expr<'a>
+    InvalidDeref(String),    // string repr. because Expr<'a>
+    InvalidIndexLhs(String), // string repr. because Expr<'a>
+    InvalidIndex(String),    // string repr. because Expr<'a>
     InvalidInstanceHandle(usize),
     InvalidSwitchBody(String), // string repr. because Expr<'a>
     NonexistentAsset(asset::Type, usize),
@@ -173,7 +173,7 @@ impl Game {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
                         self.set_instance_field(instance, accessor.index, array_index, value);
-                    }
+                    },
                     Target::Objects(index) => {
                         if let Some(Some(object)) = self.assets.objects.get(index as usize) {
                             let ids = object.children.clone();
@@ -286,7 +286,8 @@ impl Game {
                         event_type: context.event_type,
                         event_number: context.event_number,
                         event_object: context.event_object,
-                        arguments: &mut arg_values[..args.len()],
+                        arguments: arg_values,
+                        argument_count: args.len(),
                         locals: DummyFieldHolder::new(),
                         return_value: Default::default(),
                     };
@@ -328,7 +329,11 @@ impl Game {
 
     // Get a field value from an instance
     fn get_instance_field(&self, instance: usize, field_id: usize, array_index: u32) -> gml::Result<Value> {
-        if let Some(Some(Some(value))) = self.instance_list.get(instance).map(|x| x.fields.borrow().get(&field_id).map(|field| field.get(array_index))) {
+        if let Some(Some(Some(value))) = self
+            .instance_list
+            .get(instance)
+            .map(|x| x.fields.borrow().get(&field_id).map(|field| field.get(array_index)))
+        {
             Ok(value)
         } else {
             if self.uninit_fields_are_zero {
@@ -358,7 +363,6 @@ impl Game {
         array_index: u32,
         context: &Context,
     ) -> gml::Result<Value> {
-        
         let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
 
         match var {
@@ -607,7 +611,6 @@ impl Game {
         value: Value,
         _context: &mut Context,
     ) -> gml::Result<()> {
-
         let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
 
         match var {
@@ -861,7 +864,7 @@ impl Game {
                     i if i >= 100_000 => Ok(Target::Single(self.instance_list.get_by_instid(i))),
                     i => Ok(Target::Objects(i)),
                 }
-            }
+            },
         }
     }
 }
