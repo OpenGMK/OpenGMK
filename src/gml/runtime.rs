@@ -1,11 +1,17 @@
-use super::{
-    compiler::{mappings, token::Operator},
-    Context, InstanceVariable, Value,
-};
 use crate::{
     asset,
     game::Game,
-    gml::{self, compiler::mappings::constants as gml_constants},
+    gml::{
+        self,
+        compiler::{
+            //mappings,
+            mappings::constants as gml_constants,
+            token::Operator,
+        },
+        Context,
+        InstanceVariable,
+        Value,
+    },
     instance::{DummyFieldHolder, Field},
 };
 use std::fmt;
@@ -166,9 +172,9 @@ impl Game {
     fn exec_instruction(&mut self, instruction: &Instruction, context: &mut Context) -> gml::Result<ReturnType> {
         match instruction {
             Instruction::SetField { accessor, value } => {
+                let target = self.get_target(context, &accessor.owner)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 let value = self.eval(value, context)?;
-                let target = self.get_target(context, &accessor.owner)?;
                 match target {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
@@ -189,11 +195,62 @@ impl Game {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
                     },
-                    Target::Global => todo!(),
-                    Target::Local => todo!(),
+                    Target::Global => {
+                        if let Some(field) = self.globals.fields.get_mut(&accessor.index) {
+                            field.set(array_index, value)
+                        } else {
+                            self.globals.fields.insert(accessor.index, Field::new(array_index, value));
+                        }
+                    }
+                    Target::Local => {
+                        if let Some(field) = context.locals.fields.get_mut(&accessor.index) {
+                            field.set(array_index, value)
+                        } else {
+                            context.locals.fields.insert(accessor.index, Field::new(array_index, value));
+                        }
+                    }
                 }
             },
-            Instruction::SetVariable { accessor: _, value: _ } => todo!(),
+            Instruction::SetVariable { accessor, value } => {
+                let target = self.get_target(context, &accessor.owner)?;
+                let array_index = self.get_array_index(&accessor.array, context)?;
+                let value = self.eval(value, context)?;
+                match target {
+                    Target::Single(None) => (),
+                    Target::Single(Some(instance)) => {
+                        self.set_instance_var(instance, &accessor.var, array_index, value, context)?;
+                    },
+                    Target::Objects(index) => {
+                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
+                            let ids = object.children.clone();
+                            let mut iter = self.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.instance_list) {
+                                self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
+                            }
+                        }
+                    },
+                    Target::All => {
+                        let mut iter = self.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.instance_list) {
+                            self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
+                        }
+                    },
+                    Target::Global => {
+                        if let Some(field) = self.globals.vars.get_mut(&accessor.var) {
+                            field.set(array_index, value)
+                        } else {
+                            self.globals.vars.insert(accessor.var, Field::new(array_index, value));
+                        }
+                    }
+                    Target::Local => {
+                        if let Some(field) = context.locals.vars.get_mut(&accessor.var) {
+                            field.set(array_index, value)
+                        } else {
+                            context.locals.vars.insert(accessor.var, Field::new(array_index, value));
+                        }
+                    }
+                }
+            },
             Instruction::ModifyField { accessor: _, value: _, modification_type: _ } => todo!(),
             Instruction::ModifyVariable { accessor: _, value: _, modification_type: _ } => todo!(),
             Instruction::EvalExpression { node } => match self.eval(node, context) {
@@ -763,6 +820,7 @@ impl Game {
         Ok(())
     }
 
+    /*
     // Get a field value from a DummyFieldHolder
     fn get_dummy_field(&self, dummy: &DummyFieldHolder, field_id: usize, array_index: u32) -> gml::Result<Value> {
         if let Some(Some(value)) = dummy.fields.get(&field_id).map(|field| field.get(array_index)) {
@@ -809,6 +867,7 @@ impl Game {
             dummy.vars.insert(*var, Field::new(array_index, value));
         }
     }
+    */
 
     // Gets the sprite associated with an instance's sprite_index
     fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
