@@ -553,7 +553,75 @@ impl Game {
                     Err(Error::NonexistentAsset(asset::Type::Script, *script_id))
                 }
             },
-            Node::Field { accessor: _ } => todo!(),
+            Node::Field { accessor } => {
+                let target = self.get_target(context, &accessor.owner)?;
+                let array_index = self.get_array_index(&accessor.array, context)?;
+                match target {
+                    Target::Single(None) if self.uninit_fields_are_zero => Ok(Default::default()),
+                    Target::Single(None) => Err(Error::UninitializedVariable(
+                        self.compiler.get_field_name(accessor.index).unwrap(),
+                        array_index,
+                    )),
+                    Target::Single(Some(instance)) => self.get_instance_field(instance, accessor.index, array_index),
+                    Target::Objects(index) => {
+                        if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
+                            Some(x) => {
+                                self.instance_list.iter_by_identity(x.children.clone()).next(&self.instance_list)
+                            },
+                            None => None,
+                        }) {
+                            self.get_instance_field(instance, accessor.index, array_index)
+                        } else {
+                            if self.uninit_fields_are_zero {
+                                Ok(Default::default())
+                            } else {
+                                Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            }
+                        }
+                    },
+                    Target::All => {
+                        if let Some(instance) = self.instance_list.iter_by_insertion().next(&self.instance_list) {
+                            self.get_instance_field(instance, accessor.index, array_index)
+                        } else {
+                            if self.uninit_fields_are_zero {
+                                Ok(Default::default())
+                            } else {
+                                Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            }
+                        }
+                    },
+                    Target::Global => {
+                        Ok(self.globals.fields.get(&accessor.index).and_then(|x| x.get(array_index)).unwrap_or(
+                            if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            },
+                        ))
+                    },
+                    Target::Local => {
+                        Ok(context.locals.fields.get(&accessor.index).and_then(|x| x.get(array_index)).unwrap_or(
+                            if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            },
+                        ))
+                    },
+                }
+            },
             Node::Variable { accessor: _ } => todo!(),
             Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
             Node::Unary { child, operator } => operator(self.eval(child, context)?),
