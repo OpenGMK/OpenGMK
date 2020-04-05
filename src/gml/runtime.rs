@@ -3,7 +3,7 @@ use crate::{
     game::Game,
     gml::{
         self,
-        compiler::{mappings::constants as gml_constants, token::Operator},
+        compiler::{mappings, mappings::constants as gml_constants, token::Operator},
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
@@ -259,8 +259,199 @@ impl Game {
                     },
                 }
             },
-            Instruction::ModifyField { accessor: _, value: _, operator: _ } => todo!(),
-            Instruction::ModifyVariable { accessor: _, value: _, operator: _ } => todo!(),
+            Instruction::ModifyField { accessor, value, operator } => {
+                let target = self.get_target(context, &accessor.owner)?;
+                let array_index = self.get_array_index(&accessor.array, context)?;
+                let value = self.eval(value, context)?;
+                match target {
+                    Target::Single(None) => (),
+                    Target::Single(Some(instance)) => {
+                        let mut target = self.get_instance_field(instance, accessor.index, array_index)?;
+                        operator(&mut target, value)?;
+                        self.set_instance_field(instance, accessor.index, array_index, target)
+                    },
+                    Target::Objects(index) => {
+                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
+                            let ids = object.children.clone();
+                            let mut iter = self.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.instance_list) {
+                                let mut target = self.get_instance_field(instance, accessor.index, array_index)?;
+                                operator(&mut target, value.clone())?;
+                                self.set_instance_field(instance, accessor.index, array_index, target);
+                            }
+                        }
+                    },
+                    Target::All => {
+                        let mut iter = self.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.instance_list) {
+                            let mut target = self.get_instance_field(instance, accessor.index, array_index)?;
+                            operator(&mut target, value.clone())?;
+                            self.set_instance_field(instance, accessor.index, array_index, target);
+                        }
+                    },
+                    Target::Global => match self.globals.fields.get_mut(&accessor.index) {
+                        Some(field) => {
+                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            });
+                            operator(&mut target, value)?;
+                            field.set(array_index, target)
+                        },
+                        None => {
+                            let mut target = if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            };
+                            operator(&mut target, value)?;
+                            self.globals.fields.insert(accessor.index, Field::new(array_index, target));
+                        },
+                    },
+                    Target::Local => match context.locals.fields.get_mut(&accessor.index) {
+                        Some(field) => {
+                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            });
+                            operator(&mut target, value)?;
+                            field.set(array_index, target)
+                        },
+                        None => {
+                            let mut target = if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    self.compiler.get_field_name(accessor.index).unwrap(),
+                                    array_index,
+                                ))
+                            };
+                            operator(&mut target, value)?;
+                            context.locals.fields.insert(accessor.index, Field::new(array_index, target));
+                        },
+                    },
+                }
+            },
+            Instruction::ModifyVariable { accessor, value, operator } => {
+                let target = self.get_target(context, &accessor.owner)?;
+                let array_index = self.get_array_index(&accessor.array, context)?;
+                let value = self.eval(value, context)?;
+                match target {
+                    Target::Single(None) => (),
+                    Target::Single(Some(instance)) => {
+                        let mut target = self.get_instance_var(instance, &accessor.var, array_index, context)?;
+                        operator(&mut target, value)?;
+                        self.set_instance_var(instance, &accessor.var, array_index, target, context)?
+                    },
+                    Target::Objects(index) => {
+                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
+                            let ids = object.children.clone();
+                            let mut iter = self.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.instance_list) {
+                                let mut target =
+                                    self.get_instance_var(instance, &accessor.var, array_index, context)?;
+                                operator(&mut target, value.clone())?;
+                                self.set_instance_var(instance, &accessor.var, array_index, target, context)?;
+                            }
+                        }
+                    },
+                    Target::All => {
+                        let mut iter = self.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.instance_list) {
+                            let mut target = self.get_instance_var(instance, &accessor.var, array_index, context)?;
+                            operator(&mut target, value.clone())?;
+                            self.set_instance_var(instance, &accessor.var, array_index, target, context)?;
+                        }
+                    },
+                    Target::Global => match self.globals.vars.get_mut(&accessor.var) {
+                        Some(field) => {
+                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            });
+                            operator(&mut target, value)?;
+                            field.set(array_index, target)
+                        },
+                        None => {
+                            let mut target = if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            };
+                            operator(&mut target, value)?;
+                            self.globals.vars.insert(accessor.var, Field::new(array_index, target));
+                        },
+                    },
+                    Target::Local => match context.locals.vars.get_mut(&accessor.var) {
+                        Some(field) => {
+                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            });
+                            operator(&mut target, value)?;
+                            field.set(array_index, target)
+                        },
+                        None => {
+                            let mut target = if self.uninit_fields_are_zero {
+                                Default::default()
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            };
+                            operator(&mut target, value)?;
+                            context.locals.vars.insert(accessor.var, Field::new(array_index, target));
+                        },
+                    },
+                }
+            },
             Instruction::EvalExpression { node } => match self.eval(node, context) {
                 Err(e) => return Err(e),
                 _ => (),
