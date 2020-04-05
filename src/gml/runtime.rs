@@ -609,7 +609,7 @@ impl Game {
         var: &InstanceVariable,
         array_index: u32,
         value: Value,
-        _context: &mut Context,
+        context: &mut Context,
     ) -> gml::Result<()> {
         let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
 
@@ -683,23 +683,23 @@ impl Game {
             InstanceVariable::TimelineSpeed => instance.timeline_speed.set(value.into()),
             InstanceVariable::TimelineRunning => instance.timeline_running.set(value.is_true()),
             InstanceVariable::TimelineLoop => instance.timeline_loop.set(value.is_true()),
-            InstanceVariable::Argument0 => todo!(),
-            InstanceVariable::Argument1 => todo!(),
-            InstanceVariable::Argument2 => todo!(),
-            InstanceVariable::Argument3 => todo!(),
-            InstanceVariable::Argument4 => todo!(),
-            InstanceVariable::Argument5 => todo!(),
-            InstanceVariable::Argument6 => todo!(),
-            InstanceVariable::Argument7 => todo!(),
-            InstanceVariable::Argument8 => todo!(),
-            InstanceVariable::Argument9 => todo!(),
-            InstanceVariable::Argument10 => todo!(),
-            InstanceVariable::Argument11 => todo!(),
-            InstanceVariable::Argument12 => todo!(),
-            InstanceVariable::Argument13 => todo!(),
-            InstanceVariable::Argument14 => todo!(),
-            InstanceVariable::Argument15 => todo!(),
-            InstanceVariable::Argument => todo!(),
+            InstanceVariable::Argument0 => self.set_argument(context, 0, value)?,
+            InstanceVariable::Argument1 => self.set_argument(context, 1, value)?,
+            InstanceVariable::Argument2 => self.set_argument(context, 2, value)?,
+            InstanceVariable::Argument3 => self.set_argument(context, 3, value)?,
+            InstanceVariable::Argument4 => self.set_argument(context, 4, value)?,
+            InstanceVariable::Argument5 => self.set_argument(context, 5, value)?,
+            InstanceVariable::Argument6 => self.set_argument(context, 6, value)?,
+            InstanceVariable::Argument7 => self.set_argument(context, 7, value)?,
+            InstanceVariable::Argument8 => self.set_argument(context, 8, value)?,
+            InstanceVariable::Argument9 => self.set_argument(context, 9, value)?,
+            InstanceVariable::Argument10 => self.set_argument(context, 10, value)?,
+            InstanceVariable::Argument11 => self.set_argument(context, 11, value)?,
+            InstanceVariable::Argument12 => self.set_argument(context, 12, value)?,
+            InstanceVariable::Argument13 => self.set_argument(context, 13, value)?,
+            InstanceVariable::Argument14 => self.set_argument(context, 14, value)?,
+            InstanceVariable::Argument15 => self.set_argument(context, 15, value)?,
+            InstanceVariable::Argument => self.set_argument(context, array_index as usize, value)?,
             InstanceVariable::Room => todo!(),
             InstanceVariable::TransitionKind => self.transition_kind = value.into(),
             InstanceVariable::TransitionSteps => self.transition_steps = value.into(),
@@ -842,6 +842,17 @@ impl Game {
             Ok(value.clone())
         } else {
             if self.uninit_args_are_zero { Ok(Value::Real(0.0)) } else { Err(Error::UninitializedArgument(arg)) }
+        }
+    }
+
+    // Sets an argument from the context. If the argument is out-of-bounds, then it will either
+    // return an error or return 0.0, depending on the uninit_args_are_zero setting.
+    fn set_argument(&self, context: &mut Context, arg: usize, value: Value) -> gml::Result<()> {
+        let arg_count = context.argument_count;
+        match context.arguments.get_mut(arg) {
+            Some(a) if arg < arg_count || self.uninit_args_are_zero => Ok(*a = value),
+            None if self.uninit_args_are_zero => Ok(()), // This corrupts stack in GM8...
+            _ => Err(Error::UninitializedArgument(arg)),
         }
     }
 
