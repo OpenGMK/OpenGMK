@@ -467,9 +467,11 @@ impl Game {
                 }
             },
             Instruction::LoopUntil { cond, body } => loop {
-                let return_type = self.execute(body, context)?;
-                if return_type != ReturnType::Normal {
-                    return Ok(return_type)
+                match self.execute(body, context)? {
+                    ReturnType::Normal => (),
+                    ReturnType::Continue => continue,
+                    ReturnType::Break => break,
+                    ReturnType::Exit => return Ok(ReturnType::Exit),
                 }
                 if self.eval(cond, context)?.is_true() {
                     break
@@ -477,9 +479,11 @@ impl Game {
             },
             Instruction::LoopWhile { cond, body } => {
                 while self.eval(cond, context)?.is_true() {
-                    let return_type = self.execute(body, context)?;
-                    if return_type != ReturnType::Normal {
-                        return Ok(return_type)
+                    match self.execute(body, context)? {
+                        ReturnType::Normal => (),
+                        ReturnType::Continue => continue,
+                        ReturnType::Break => break,
+                        ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
                 }
             },
@@ -487,9 +491,11 @@ impl Game {
             Instruction::Repeat { count, body } => {
                 let mut count = self.eval(count, context)?.round();
                 while count > 0 {
-                    let return_type = self.execute(body, context)?;
-                    if return_type != ReturnType::Normal {
-                        return Ok(return_type)
+                    match self.execute(body, context)? {
+                        ReturnType::Normal => (),
+                        ReturnType::Continue => continue,
+                        ReturnType::Break => break,
+                        ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
                     count -= 1;
                 }
@@ -501,7 +507,10 @@ impl Game {
                 let input = self.eval(input, context)?;
                 for (cond, start) in cases.iter() {
                     if self.eval(cond, context)?.almost_equals(&input) {
-                        return self.execute(&body[*start..], context)
+                        return Ok(match self.execute(&body[*start..], context)? {
+                            ReturnType::Break => ReturnType::Normal,
+                            x => x,
+                        })
                     }
                 }
                 if let Some(start) = default {
