@@ -335,12 +335,12 @@ impl Game {
                         None => None,
                     });
                     o.map(|b| {
-                        let mut events: [HashMap<u32, Tree>; 12] = std::default::Default::default();
+                        let mut events: [HashMap<u32, Rc<RefCell<Tree>>>; 12] = std::default::Default::default();
                         for ((i, map), input) in events.iter_mut().enumerate().zip(b.events.iter()) {
                             map.reserve(input.len());
                             for (sub, actions) in input {
                                 map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
-                                    Ok(t) => t,
+                                    Ok(t) => Rc::new(RefCell::new(t)),
                                     Err(e) => {
                                         return Err(format!(
                                             "Compiler error in object {} event {},{}: {}",
@@ -410,11 +410,11 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let mut moments: HashMap<u32, Tree> = HashMap::with_capacity(b.moments.len());
+                    let mut moments: HashMap<u32, Rc<RefCell<Tree>>> = HashMap::with_capacity(b.moments.len());
                     for (moment, actions) in b.moments.iter() {
                         match Tree::from_list(actions, &mut compiler) {
                             Ok(t) => {
-                                moments.insert(*moment, t);
+                                moments.insert(*moment, Rc::new(RefCell::new(t)));
                             },
                             Err(e) => {
                                 return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))

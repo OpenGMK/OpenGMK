@@ -15,7 +15,7 @@ pub struct Object {
     pub mask_index: i32,
     pub parent_index: i32,
 
-    pub events: [HashMap<u32, Tree>; 12],
+    pub events: [HashMap<u32, Rc<RefCell<Tree>>>; 12],
     pub identities: Rc<RefCell<HashSet<i32>>>,
     pub children: Rc<RefCell<HashSet<i32>>>,
 }
