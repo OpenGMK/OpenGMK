@@ -1175,55 +1175,6 @@ impl Game {
         Ok(())
     }
 
-    /*
-    // Get a field value from a DummyFieldHolder
-    fn get_dummy_field(&self, dummy: &DummyFieldHolder, field_id: usize, array_index: u32) -> gml::Result<Value> {
-        if let Some(Some(value)) = dummy.fields.get(&field_id).map(|field| field.get(array_index)) {
-            Ok(value)
-        } else {
-            if self.uninit_fields_are_zero {
-                Ok(Value::Real(0.0))
-            } else {
-                Err(Error::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index))
-            }
-        }
-    }
-
-    // Set a field on a DummyFieldHolder
-    fn set_dummy_field(&self, dummy: &mut DummyFieldHolder, field_id: usize, array_index: u32, value: Value) {
-        if let Some(field) = dummy.fields.get_mut(&field_id) {
-            field.set(array_index, value)
-        } else {
-            dummy.fields.insert(field_id, Field::new(array_index, value));
-        }
-    }
-
-    // Get an instance variable value from a DummyFieldHolder
-    fn get_dummy_var(&self, dummy: &DummyFieldHolder, var: &InstanceVariable, array_index: u32) -> gml::Result<Value> {
-        if let Some(Some(value)) = dummy.vars.get(var).map(|field| field.get(array_index)) {
-            Ok(value)
-        } else {
-            if self.uninit_fields_are_zero {
-                Ok(Value::Real(0.0))
-            } else {
-                Err(Error::UninitializedVariable(
-                    String::from(mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| x == var).unwrap().0),
-                    array_index,
-                ))
-            }
-        }
-    }
-
-    // Set an instance variable on a DummyFieldHolder
-    fn set_dummy_var(&self, dummy: &mut DummyFieldHolder, var: &InstanceVariable, array_index: u32, value: Value) {
-        if let Some(field) = dummy.vars.get_mut(var) {
-            field.set(array_index, value)
-        } else {
-            dummy.vars.insert(*var, Field::new(array_index, value));
-        }
-    }
-    */
-
     // Gets the sprite associated with an instance's sprite_index
     fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let instance = self.instance_list.get(instance)?;
