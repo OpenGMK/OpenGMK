@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use gm8exe::asset::etc::CodeAction;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 /// Consts which match those used in GM8
 pub mod kind {
@@ -78,6 +78,11 @@ pub enum Body {
 pub enum GmlBody {
     Function(fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>),
     Code(Rc<[Instruction]>),
+}
+
+pub enum ReturnType {
+    Continue,
+    Exit,
 }
 
 impl std::fmt::Debug for GmlBody {
@@ -277,5 +282,101 @@ impl Tree {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.message)?
             .into_boxed_slice())
+    }
+}
+
+impl Game {
+    /// Executes all the actions in a tree.
+    pub fn execute_tree(
+        &mut self,
+        tree: Rc<RefCell<Tree>>,
+        this: usize,
+        other: usize,
+        event_type: usize,
+        event_number: usize,
+        as_object: i32,
+    ) -> gml::Result<()> {
+        self.exec_slice(&tree.borrow().0, this, other, event_type, event_number, as_object)?;
+        Ok(())
+    }
+
+    fn exec_slice(
+        &mut self,
+        slice: &[Action],
+        this: usize,
+        other: usize,
+        event_type: usize,
+        event_number: usize,
+        as_object: i32,
+    ) -> gml::Result<ReturnType> {
+        for action in slice.iter() {
+            match &action.body {
+                Body::Normal { args, body: gml_body, if_else } => {
+                    let mut context = Context {
+                        this,
+                        other,
+                        event_action: action.index,
+                        relative: action.relative,
+                        event_type,
+                        event_number,
+                        event_object: as_object,
+                        arguments: Default::default(),
+                        argument_count: 0,
+                        locals: Default::default(),
+                        return_value: Default::default(),
+                    };
+
+                    let mut arg_values: [Value; 16] = Default::default();
+                    for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
+                        *dest = self.eval(src, &mut context)?;
+                    }
+
+                    let returned_value = match gml_body {
+                        GmlBody::Function(f) => f(self, &mut context, &arg_values)?,
+                        GmlBody::Code(code) => {
+                            context.arguments = arg_values;
+                            self.execute(code, &mut context)?;
+                            context.return_value
+                        },
+                    };
+
+                    if let Some((if_body, else_body)) = if_else {
+                        let target = if returned_value.is_true() { if_body } else { else_body };
+                        match self.exec_slice(target, this, other, event_type, event_number, as_object)? {
+                            ReturnType::Continue => (),
+                            ReturnType::Exit => return Ok(ReturnType::Exit),
+                        }
+                    }
+                },
+                Body::Repeat { count, body } => {
+                    let mut context = Context {
+                        this,
+                        other,
+                        event_action: action.index,
+                        relative: action.relative,
+                        event_type,
+                        event_number,
+                        event_object: as_object,
+                        arguments: Default::default(),
+                        argument_count: 0,
+                        locals: Default::default(),
+                        return_value: Default::default(),
+                    };
+                    let mut count = i32::from(self.eval(count, &mut context)?);
+                    while count > 0 {
+                        match self.exec_slice(body, this, other, event_type, event_number, as_object)? {
+                            ReturnType::Continue => (),
+                            ReturnType::Exit => return Ok(ReturnType::Exit),
+                        }
+                        count -= 1;
+                    }
+                },
+                Body::Exit => {
+                    return Ok(ReturnType::Exit)
+                },
+            }
+        }
+
+        Ok(ReturnType::Continue)
     }
 }
