@@ -508,7 +508,41 @@ impl Game {
                     return self.execute(&body[*start..], context)
                 }
             },
-            Instruction::With { target: _, body: _ } => todo!(),
+            Instruction::With { target, body } => {
+                let old_this = context.this;
+                let old_other = context.other;
+                context.other = context.this;
+
+                match i32::from(self.eval(target, context)?) {
+                    i if i < 0 => (),
+                    i if i < 100_000 => {
+                        if let Some(Some(object)) = self.assets.objects.get(i as usize) {
+                            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                            while let Some(instance) = iter.next(&self.instance_list) {
+                                context.this = instance;
+                                match self.execute(body, context)? {
+                                    ReturnType::Normal => (),
+                                    ReturnType::Continue => continue,
+                                    ReturnType::Break => break,
+                                    ReturnType::Exit => return Ok(ReturnType::Exit),
+                                }
+                            }
+                        }
+                    },
+                    i => {
+                        if let Some(instance) = self.instance_list.get_by_instid(i) {
+                            context.this = instance;
+                            match self.execute(body, context)? {
+                                ReturnType::Exit => return Ok(ReturnType::Exit),
+                                _ => (),
+                            }
+                        }
+                    },
+                }
+
+                context.this = old_this;
+                context.other = old_other;
+            },
             Instruction::RuntimeError { error } => return Err(error.clone()),
         }
 
