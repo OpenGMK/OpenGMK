@@ -558,7 +558,7 @@ impl Game {
         Ok(ReturnType::Normal)
     }
 
-    fn eval(&mut self, node: &Node, context: &mut Context) -> gml::Result<Value> {
+    pub fn eval(&mut self, node: &Node, context: &mut Context) -> gml::Result<Value> {
         match node {
             Node::Literal { value } => Ok(value.clone()),
             Node::Function { args, function } => {
