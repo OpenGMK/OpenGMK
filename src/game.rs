@@ -230,7 +230,7 @@ impl Game {
                     let origin_x = b.origin_x;
                     let origin_y = b.origin_y;
                     Box::new(Sprite {
-                        name: b.name,
+                        name: b.name.into(),
                         frames: b
                             .frames
                             .into_iter()
@@ -272,7 +272,7 @@ impl Game {
                     let width = b.width;
                     let height = b.height;
                     Box::new(Background {
-                        name: b.name,
+                        name: b.name.into(),
                         width,
                         height,
                         atlas_ref: b.data.map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
@@ -286,7 +286,7 @@ impl Game {
             .map(|o| {
                 o.map(|b| {
                     Box::new(Font {
-                        name: b.name,
+                        name: b.name.into(),
                         sys_name: b.sys_name,
                         size: b.size,
                         bold: b.bold,
@@ -351,7 +351,7 @@ impl Game {
                             }
                         }
                         Ok(Box::new(Object {
-                            name: b.name,
+                            name: b.name.into(),
                             solid: b.solid,
                             visible: b.visible,
                             persistent: b.persistent,
@@ -421,7 +421,7 @@ impl Game {
                             },
                         };
                     }
-                    Ok(Box::new(Timeline { name: b.name, moments }))
+                    Ok(Box::new(Timeline { name: b.name.into(), moments }))
                 })
                 .transpose()
             })
@@ -435,7 +435,7 @@ impl Game {
                         Ok(s) => s,
                         Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
                     };
-                    Ok(Box::new(Script { name: b.name, source: b.source, compiled }))
+                    Ok(Box::new(Script { name: b.name.into(), source: b.source.into(), compiled }))
                 })
                 .transpose()
             })
@@ -450,8 +450,8 @@ impl Game {
                         Err(e) => return Err(format!("Compiler error in room {} creation code: {}", b.name, e)),
                     };
                     Ok(Box::new(Room {
-                        name: b.name,
-                        caption: b.caption,
+                        name: b.name.into(),
+                        caption: b.caption.into(),
                         width: b.width,
                         height: b.height,
                         speed: b.speed,

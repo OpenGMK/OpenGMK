@@ -2,8 +2,8 @@ use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types
 use std::rc::Rc;
 
 pub struct Room {
-    pub name: String,
-    pub caption: String,
+    pub name: Rc<str>,
+    pub caption: Rc<str>,
     pub width: u32,
     pub height: u32,
     pub speed: u32,
