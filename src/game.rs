@@ -8,7 +8,7 @@ use crate::{
     },
     atlas::AtlasBuilder,
     background,
-    gml::{ev, rand::Random, Compiler},
+    gml::{self, ev, rand::Random, Compiler},
     instance::{DummyFieldHolder, Instance},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -671,5 +671,50 @@ impl Game {
         } else {
             Err(format!("Tried to load non-existent room with id {}", room_id).into())
         }
+    }
+
+    /// Runs an event for all objects which hold the given event.
+    fn run_object_event(&mut self, event_id: usize, event_sub: u32, other: usize) -> gml::Result<()> {
+        let holders = match self.event_holders.get(event_id).and_then(|x| x.get(&event_sub)) {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        };
+        let mut position = 0;
+        while let Some(&object_id) = holders.borrow().get(position) {
+            let mut iter = self.instance_list.iter_by_object(object_id);
+            while let Some(instance) = iter.next(&self.instance_list) {
+                self.run_instance_event(event_id, event_sub, instance, other)?;
+            }
+            position += 1;
+        }
+        Ok(())
+    }
+
+    /// Runs an event for a given instance. Does nothing if that instance doesn't have the specified event.
+    fn run_instance_event(
+        &mut self,
+        event_id: usize,
+        event_sub: u32,
+        instance: usize,
+        other: usize,
+    ) -> gml::Result<()> {
+        let mut object_id =
+            self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get();
+        let event = loop {
+            if object_id < 0 {
+                return Ok(())
+            }
+            if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+                if let Some(event) = object.events.get(event_id).and_then(|x| x.get(&event_sub)) {
+                    break event.clone()
+                } else {
+                    object_id = object.parent_index;
+                }
+            } else {
+                return Ok(())
+            }
+        };
+
+        self.execute_tree(event, instance, other, event_id, event_sub as _, object_id)
     }
 }
