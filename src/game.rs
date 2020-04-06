@@ -12,7 +12,8 @@ use crate::{
     instance::{DummyFieldHolder, Instance},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
-    tile, view,
+    tile,
+    view::View,
 };
 use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
@@ -35,6 +36,10 @@ pub struct Game {
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12],
+
+    pub views_enabled: bool,
+    pub views: Vec<View>,
+    pub backgrounds: Vec<background::Background>,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -480,7 +485,7 @@ impl Game {
                         views: b
                             .views
                             .into_iter()
-                            .map(|v| view::View {
+                            .map(|v| View {
                                 visible: v.visible,
                                 source_x: v.source_x,
                                 source_y: v.source_y,
@@ -619,6 +624,9 @@ impl Game {
             renderer: Box::new(renderer),
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
             event_holders,
+            views_enabled: false,
+            views: Vec::new(),
+            backgrounds: Vec::new(),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
@@ -673,8 +681,8 @@ impl Game {
             if !room.views_enabled {
                 (room.width, room.height)
             } else {
-                let xw = |view: &view::View| view.port_x + (view.port_w as i32);
-                let yh = |view: &view::View| view.port_y + (view.port_h as i32);
+                let xw = |view: &View| view.port_x + (view.port_w as i32);
+                let yh = |view: &View| view.port_y + (view.port_h as i32);
                 let x_max = room
                     .views
                     .iter()
@@ -697,6 +705,14 @@ impl Game {
         };
         self.renderer.resize_window(view_width, view_height);
         self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
+
+        // Update views, backgrounds
+        // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
+        self.views_enabled = room.views_enabled;
+        self.views.clear();
+        self.views.extend_from_slice(&room.views);
+        self.backgrounds.clear();
+        self.backgrounds.extend_from_slice(&room.backgrounds);
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
