@@ -33,7 +33,7 @@ pub struct Background {
     pub stretch: bool,
 
     /// Colour blend value to draw this background with
-    pub blend: u32,
+    pub blend: i32,
 
     /// Alpha-blend value to draw this background with
     pub alpha: f64,
