@@ -8,7 +8,7 @@ use crate::{
     },
     atlas::AtlasBuilder,
     background,
-    gml::{self, ev, rand::Random, Compiler},
+    gml::{self, ev, rand::Random, Compiler, Context},
     instance::{DummyFieldHolder, Instance},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -650,23 +650,39 @@ impl Game {
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
         self.instance_list.remove_with(|instance| !instance.persistent.get());
         if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
+            // Update renderer
+            self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
+
+            // Load all tiles in new room
+            for tile in room.tiles.iter() {
+                self.tile_list.insert(*tile);
+            }
+
+            // Load all instances in new room
+            // TODO: don't do this if instance with this id already exists (due to being persistent)
             for instance in room.instances.iter() {
+                // Get object
                 let object = match self.assets.objects.get(instance.object as usize) {
                     Some(&Some(ref o)) => o.as_ref(),
                     _ => return Err(format!("Instance of invalid Object in room {}", room.name).into()),
                 };
-                self.instance_list.insert(Instance::new(
+
+                // Add instance to list
+                let _handle = self.instance_list.insert(Instance::new(
                     instance.id as _,
                     f64::from(instance.x),
                     f64::from(instance.y),
                     instance.object,
                     object,
                 ));
+
+                // TODO: run this instance's room creation code
+                // TODO: run create event for this instance
             }
-            for tile in room.tiles.iter() {
-                self.tile_list.insert(*tile);
-            }
-            self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
+
+            // TODO: run room's creation code
+            // TODO: run room start event for each instance
+
             Ok(())
         } else {
             Err(format!("Tried to load non-existent room with id {}", room_id).into())
