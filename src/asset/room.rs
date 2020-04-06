@@ -1,4 +1,10 @@
-use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types::{Color, ID}, view::View};
+use crate::{
+    background::Background,
+    gml::runtime::Instruction,
+    tile::Tile,
+    types::{Color, ID},
+    view::View,
+};
 use std::rc::Rc;
 
 #[derive(Clone)]

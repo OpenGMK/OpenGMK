@@ -217,7 +217,10 @@ impl InstanceList {
     }
 
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
-        self.insert_order.iter().copied().find(|&inst| self.get(inst).map(|x| x.id.get() == instance_index).unwrap_or_default())
+        self.insert_order
+            .iter()
+            .copied()
+            .find(|&inst| self.get(inst).map(|x| x.id.get() == instance_index).unwrap_or_default())
     }
 
     pub fn count(&self, object_index: ID) -> usize {

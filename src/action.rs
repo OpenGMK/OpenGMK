@@ -371,9 +371,7 @@ impl Game {
                         count -= 1;
                     }
                 },
-                Body::Exit => {
-                    return Ok(ReturnType::Exit)
-                },
+                Body::Exit => return Ok(ReturnType::Exit),
             }
         }
 
