@@ -12,11 +12,11 @@ pub struct Room {
     pub clear_screen: bool,
     pub creation_code: Rc<[Instruction]>,
 
-    pub backgrounds: Vec<Background>,
+    pub backgrounds: Rc<Vec<Background>>,
     pub views_enabled: bool,
-    pub views: Vec<View>,
-    pub instances: Vec<Instance>,
-    pub tiles: Vec<Tile>,
+    pub views: Rc<Vec<View>>,
+    pub instances: Rc<Vec<Instance>>,
+    pub tiles: Rc<Vec<Tile>>,
 }
 
 /// An instance stored in a Room

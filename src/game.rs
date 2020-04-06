@@ -474,7 +474,8 @@ impl Game {
                                 vspeed: f64::from(bg.vspeed),
                                 stretch: bg.stretch,
                             })
-                            .collect(),
+                            .collect::<Vec<_>>()
+                            .into(),
                         views_enabled: b.views_enabled,
                         views: b
                             .views
@@ -495,7 +496,8 @@ impl Game {
                                 follow_hspeed: v.following.hspeed,
                                 follow_vspeed: v.following.vspeed,
                             })
-                            .collect(),
+                            .collect::<Vec<_>>()
+                            .into(),
                         instances: b
                             .instances
                             .into_iter()
@@ -516,7 +518,8 @@ impl Game {
                                     },
                                 })
                             })
-                            .collect::<Result<Vec<_>, _>>()?,
+                            .collect::<Result<Vec<_>, _>>()?
+                            .into(),
                         tiles: b
                             .tiles
                             .into_iter()
@@ -536,7 +539,8 @@ impl Game {
                                 yscale: 1.0,
                                 visible: true,
                             })
-                            .collect(),
+                            .collect::<Vec<_>>()
+                            .into(),
                     }))
                 })
                 .transpose()
