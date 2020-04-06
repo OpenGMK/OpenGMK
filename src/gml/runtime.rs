@@ -639,29 +639,33 @@ impl Game {
                             }
                         }
                     },
-                    Target::Global => {
-                        Ok(self.globals.fields.get(&accessor.index).and_then(|x| x.get(array_index)).unwrap_or(
+                    Target::Global => match self.globals.fields.get(&accessor.index).and_then(|x| x.get(array_index)) {
+                        Some(i) => Ok(i),
+                        None => {
                             if self.uninit_fields_are_zero {
-                                Default::default()
+                                Ok(Default::default())
                             } else {
                                 return Err(Error::UninitializedVariable(
                                     self.compiler.get_field_name(accessor.index).unwrap(),
                                     array_index,
                                 ))
-                            },
-                        ))
+                            }
+                        },
                     },
                     Target::Local => {
-                        Ok(context.locals.fields.get(&accessor.index).and_then(|x| x.get(array_index)).unwrap_or(
-                            if self.uninit_fields_are_zero {
-                                Default::default()
-                            } else {
-                                return Err(Error::UninitializedVariable(
-                                    self.compiler.get_field_name(accessor.index).unwrap(),
-                                    array_index,
-                                ))
+                        match context.locals.fields.get(&accessor.index).and_then(|x| x.get(array_index)) {
+                            Some(i) => Ok(i),
+                            None => {
+                                if self.uninit_fields_are_zero {
+                                    Ok(Default::default())
+                                } else {
+                                    return Err(Error::UninitializedVariable(
+                                        self.compiler.get_field_name(accessor.index).unwrap(),
+                                        array_index,
+                                    ))
+                                }
                             },
-                        ))
+                        }
                     },
                 }
             },
@@ -722,36 +726,44 @@ impl Game {
                             }
                         }
                     },
-                    Target::Global => Ok(self
-                        .globals
-                        .vars
-                        .get(&accessor.var)
-                        .and_then(|x| x.get(array_index))
-                        .unwrap_or(if self.uninit_fields_are_zero {
-                            Default::default()
-                        } else {
-                            return Err(Error::UninitializedVariable(
-                                String::from(
-                                    mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| x == &accessor.var).unwrap().0,
-                                ),
-                                array_index,
-                            ))
-                        })),
-                    Target::Local => Ok(context
-                        .locals
-                        .vars
-                        .get(&accessor.var)
-                        .and_then(|x| x.get(array_index))
-                        .unwrap_or(if self.uninit_fields_are_zero {
-                            Default::default()
-                        } else {
-                            return Err(Error::UninitializedVariable(
-                                String::from(
-                                    mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| x == &accessor.var).unwrap().0,
-                                ),
-                                array_index,
-                            ))
-                        })),
+                    Target::Global => match self.globals.vars.get(&accessor.var).and_then(|x| x.get(array_index)) {
+                        Some(i) => Ok(i),
+                        None => {
+                            if self.uninit_fields_are_zero {
+                                Ok(Default::default())
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            }
+                        },
+                    },
+                    Target::Local => match context.locals.vars.get(&accessor.var).and_then(|x| x.get(array_index)) {
+                        Some(i) => Ok(i),
+                        None => {
+                            if self.uninit_fields_are_zero {
+                                Ok(Default::default())
+                            } else {
+                                return Err(Error::UninitializedVariable(
+                                    String::from(
+                                        mappings::INSTANCE_VARIABLES
+                                            .iter()
+                                            .find(|(_, x)| x == &accessor.var)
+                                            .unwrap()
+                                            .0,
+                                    ),
+                                    array_index,
+                                ))
+                            }
+                        },
+                    },
                 }
             },
             Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
