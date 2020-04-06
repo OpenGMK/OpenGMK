@@ -19,6 +19,7 @@ use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
 use std::{
     cell::RefCell,
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     iter::repeat,
     rc::Rc,
@@ -772,8 +773,160 @@ impl Game {
         Ok(())
     }
 
+    /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
+    pub fn frame(&mut self) {
+        // Update xprevious and yprevious for all instances
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+            instance.xprevious.set(instance.x.get());
+            instance.yprevious.set(instance.y.get());
+        }
+
+        // Begin step event
+        self.run_object_event(ev::STEP, 1, None).unwrap();
+
+        // Step event
+        self.run_object_event(ev::STEP, 0, None).unwrap();
+
+        // End step event
+        self.run_object_event(ev::STEP, 2, None).unwrap();
+
+        // Draw all views
+        if self.views_enabled {
+            // Iter views in a non-borrowing way
+            let mut count = 0;
+            while let Some(&view) = self.views.get(count) {
+                self.draw(
+                    view.source_x,
+                    view.source_y,
+                    view.source_w as _,
+                    view.source_h as _,
+                    view.port_x,
+                    view.port_y,
+                    view.port_w as _,
+                    view.port_h as _,
+                    view.angle,
+                )
+                .unwrap();
+                count += 1;
+            }
+        } else {
+            self.draw(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0).unwrap();
+        }
+    }
+
+    /// Draws everything in the scene with a given view
+    fn draw(
+        &mut self,
+        src_x: i32,
+        src_y: i32,
+        src_w: i32,
+        src_h: i32,
+        port_x: i32,
+        port_y: i32,
+        port_w: i32,
+        port_h: i32,
+        angle: f64,
+    ) -> gml::Result<()> {
+        self.glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&self.glfw_events) {
+            println!("Got event {:?}", event);
+            match event {
+                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
+                    self.renderer.set_should_close(true);
+                    continue // So no draw events are fired while the window should be closing
+                },
+                _ => {},
+            }
+        }
+
+        self.renderer.set_view(src_x, src_y, src_w, src_h, angle, port_x, port_y, port_w, port_h);
+
+        fn draw_instance(game: &mut Game, idx: usize) {
+            let instance = game.instance_list.get(idx).expect("OH NO I PANICKE'D");
+            if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
+                game.renderer.draw_sprite(
+                    &sprite.frames.first().unwrap().atlas_ref,
+                    instance.x.get(),
+                    instance.y.get(),
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
+                )
+            }
+        }
+
+        fn draw_tile(game: &mut Game, idx: usize) {
+            let tile = game.tile_list.get(idx).expect("OH NO");
+            if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index as usize) {
+                if let Some(atlas) = &background.atlas_ref {
+                    game.renderer.draw_sprite_partial(
+                        atlas,
+                        tile.tile_x as _,
+                        tile.tile_y as _,
+                        tile.width as _,
+                        tile.height as _,
+                        tile.x,
+                        tile.y,
+                        tile.xscale,
+                        tile.yscale,
+                        0.0,
+                        tile.blend,
+                        tile.alpha,
+                    )
+                }
+            }
+        }
+
+        self.instance_list.draw_sort();
+        let mut iter_inst = self.instance_list.iter_by_drawing();
+        let mut iter_inst_v = iter_inst.next(&self.instance_list);
+        self.tile_list.draw_sort();
+        let mut iter_tile = self.tile_list.iter_by_drawing();
+        let mut iter_tile_v = iter_tile.next(&self.tile_list);
+        loop {
+            match (iter_inst_v, iter_tile_v) {
+                (Some(idx_inst), Some(idx_tile)) => {
+                    let inst = self.instance_list.get(idx_inst).expect("OH NO");
+                    let tile = self.tile_list.get(idx_tile).expect("OH NO");
+                    match inst.depth.get().cmp(&tile.depth) {
+                        Ordering::Greater | Ordering::Equal => {
+                            draw_instance(self, idx_inst);
+                            iter_inst_v = iter_inst.next(&self.instance_list);
+                        },
+                        Ordering::Less => {
+                            draw_tile(self, idx_tile);
+                            iter_tile_v = iter_tile.next(&self.tile_list);
+                        },
+                    }
+                },
+                (Some(idx_inst), None) => {
+                    draw_instance(self, idx_inst);
+                    while let Some(idx_inst) = iter_inst.next(&self.instance_list) {
+                        draw_instance(self, idx_inst);
+                    }
+                    break
+                },
+                (None, Some(idx_tile)) => {
+                    draw_tile(self, idx_tile);
+                    while let Some(idx_tile) = iter_tile.next(&self.tile_list) {
+                        draw_tile(self, idx_tile);
+                    }
+                    break
+                },
+                (None, None) => break,
+            }
+        }
+
+        self.renderer.finish();
+        Ok(())
+    }
+
     /// Runs an event for all objects which hold the given event.
-    fn run_object_event(&mut self, event_id: usize, event_sub: u32, other: usize) -> gml::Result<()> {
+    /// If no "other" instance is provided, "self" will be used as "other". This is what GM8 tends to do.
+    fn run_object_event(&mut self, event_id: usize, event_sub: u32, other: Option<usize>) -> gml::Result<()> {
         let holders = match self.event_holders.get(event_id).and_then(|x| x.get(&event_sub)) {
             Some(e) => e.clone(),
             None => return Ok(()),
@@ -782,7 +935,7 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(instance) = iter.next(&self.instance_list) {
-                self.run_instance_event(event_id, event_sub, instance, other)?;
+                self.run_instance_event(event_id, event_sub, instance, other.unwrap_or(instance))?;
             }
             position += 1;
         }
