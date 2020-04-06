@@ -321,7 +321,17 @@ impl From<Value> for i32 {
     // For lazy-converting a value into an i32.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => r as i32,
+            Value::Real(r) => util::ieee_round(r),
+            Value::Str(_) => 0,
+        }
+    }
+}
+
+impl From<Value> for u32 {
+    // For lazy-converting a value into a u32.
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Real(r) => util::ieee_round(r) as u32,
             Value::Str(_) => 0,
         }
     }
