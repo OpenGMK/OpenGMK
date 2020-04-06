@@ -28,6 +28,9 @@ pub struct View {
     /// Port on screen to draw this view to - height
     pub port_h: u32,
 
+    /// Angle to which this view is rotated on the screen
+    pub angle: f64,
+
     /// Target object ID this view should follow
     pub follow_target: i32,
 
