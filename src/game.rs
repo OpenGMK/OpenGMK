@@ -506,7 +506,7 @@ impl Game {
                                     x: i.x,
                                     y: i.y,
                                     object: i.object,
-                                    id: i.id as usize,
+                                    id: i.id,
                                     creation: match compiler.compile(&i.creation_code) {
                                         Ok(c) => c,
                                         Err(e) => {
@@ -652,19 +652,60 @@ impl Game {
     }
 
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
+        let room = if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
+            room.clone()
+        } else {
+            return Err(format!("Tried to load non-existent room with id {}", room_id).into())
+        };
+
+        // Run room end event for each instance
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(ev::OTHER, 5, instance, instance).unwrap(); // How to handle error?
+        }
+
+        // Delete non-persistent instances
+        // TODO: back up remaining instances and put them at the END of insertion order after making new ones
         self.instance_list.remove_with(|instance| !instance.persistent.get());
-        if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
-            // Update renderer
-            self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
 
-            // Load all tiles in new room
-            for tile in room.tiles.iter() {
-                self.tile_list.insert(*tile);
+        // Update renderer
+        let (view_width, view_height) = {
+            if !room.views_enabled {
+                (room.width, room.height)
+            } else {
+                let xw = |view: &view::View| view.port_x + (view.port_w as i32);
+                let yh = |view: &view::View| view.port_y + (view.port_h as i32);
+                let x_max = room
+                    .views
+                    .iter()
+                    .filter(|view| view.visible)
+                    .max_by(|v1, v2| xw(v1).cmp(&xw(v2)))
+                    .map(xw)
+                    .unwrap_or(room.width as i32);
+                let y_max = room
+                    .views
+                    .iter()
+                    .filter(|view| view.visible)
+                    .max_by(|v1, v2| yh(v1).cmp(&yh(v2)))
+                    .map(yh)
+                    .unwrap_or(room.height as i32);
+                if x_max < 0 || y_max < 0 {
+                    return Err(format!("Bad room width/height {},{} loading room {}", x_max, y_max, room_id).into())
+                }
+                (x_max as u32, y_max as u32)
             }
+        };
+        self.renderer.resize_window(view_width, view_height);
+        self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
 
-            // Load all instances in new room
-            // TODO: don't do this if instance with this id already exists (due to being persistent)
-            for instance in room.instances.iter() {
+        // Load all tiles in new room
+        for tile in room.tiles.iter() {
+            self.tile_list.insert(*tile);
+        }
+
+        // Load all instances in new room, unless they already exist due to persistence
+        for instance in room.instances.iter() {
+            if self.instance_list.get_by_instid(instance.id).is_none() {
                 // Get object
                 let object = match self.assets.objects.get(instance.object as usize) {
                     Some(&Some(ref o)) => o.as_ref(),
@@ -672,7 +713,7 @@ impl Game {
                 };
 
                 // Add instance to list
-                let _handle = self.instance_list.insert(Instance::new(
+                let handle = self.instance_list.insert(Instance::new(
                     instance.id as _,
                     f64::from(instance.x),
                     f64::from(instance.y),
@@ -680,17 +721,36 @@ impl Game {
                     object,
                 ));
 
-                // TODO: run this instance's room creation code
-                // TODO: run create event for this instance
+                // Run this instance's room creation code
+                self.execute(&instance.creation, &mut Context {
+                    this: handle,
+                    other: handle,
+                    event_action: 0,
+                    relative: false,
+                    event_type: 11, // GM8 does this for some reason
+                    event_number: 0,
+                    event_object: instance.object,
+                    arguments: Default::default(),
+                    argument_count: 0,
+                    locals: Default::default(),
+                    return_value: Default::default(),
+                })
+                .unwrap(); // TODO: how to transform gml::Error to this thing?
+
+                // Run create event for this instance
+                self.run_instance_event(ev::CREATE, 0, handle, handle).unwrap(); // how to handle error??¿?
             }
-
-            // TODO: run room's creation code
-            // TODO: run room start event for each instance
-
-            Ok(())
-        } else {
-            Err(format!("Tried to load non-existent room with id {}", room_id).into())
         }
+
+        // TODO: run room's creation code (event_type = 11)
+
+        // Run room start event for each instance
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(ev::OTHER, 4, instance, instance).unwrap(); // ???
+        }
+
+        Ok(())
     }
 
     /// Runs an event for all objects which hold the given event.
