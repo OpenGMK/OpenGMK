@@ -972,38 +972,90 @@ impl Game {
             InstanceVariable::RoomPersistent => todo!(),
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
-            InstanceVariable::BackgroundVisible => todo!(),
-            InstanceVariable::BackgroundForeground => todo!(),
-            InstanceVariable::BackgroundIndex => todo!(),
-            InstanceVariable::BackgroundX => todo!(),
-            InstanceVariable::BackgroundY => todo!(),
+            InstanceVariable::BackgroundVisible => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).visible.into())
+            },
+            InstanceVariable::BackgroundForeground => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).is_foreground.into())
+            },
+            InstanceVariable::BackgroundIndex => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id.into())
+            },
+            InstanceVariable::BackgroundX => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).x_offset.into())
+            },
+            InstanceVariable::BackgroundY => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).y_offset.into())
+            },
             InstanceVariable::BackgroundWidth => todo!(),
             InstanceVariable::BackgroundHeight => todo!(),
-            InstanceVariable::BackgroundHtiled => todo!(),
-            InstanceVariable::BackgroundVtiled => todo!(),
+            InstanceVariable::BackgroundHtiled => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_horizontal.into())
+            },
+            InstanceVariable::BackgroundVtiled => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_vertical.into())
+            },
             InstanceVariable::BackgroundXscale => todo!(),
             InstanceVariable::BackgroundYscale => todo!(),
-            InstanceVariable::BackgroundHspeed => todo!(),
-            InstanceVariable::BackgroundVspeed => todo!(),
-            InstanceVariable::BackgroundBlend => todo!(),
-            InstanceVariable::BackgroundAlpha => todo!(),
-            InstanceVariable::ViewEnabled => todo!(),
+            InstanceVariable::BackgroundHspeed => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).hspeed.into())
+            },
+            InstanceVariable::BackgroundVspeed => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).vspeed.into())
+            },
+            InstanceVariable::BackgroundBlend => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).blend.into())
+            },
+            InstanceVariable::BackgroundAlpha => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).alpha.into())
+            },
+            InstanceVariable::ViewEnabled => Ok(self.views_enabled.into()),
             InstanceVariable::ViewCurrent => todo!(),
-            InstanceVariable::ViewVisible => todo!(),
-            InstanceVariable::ViewXview => todo!(),
-            InstanceVariable::ViewYview => todo!(),
-            InstanceVariable::ViewWview => todo!(),
-            InstanceVariable::ViewHview => todo!(),
-            InstanceVariable::ViewXport => todo!(),
-            InstanceVariable::ViewYport => todo!(),
-            InstanceVariable::ViewWport => todo!(),
-            InstanceVariable::ViewHport => todo!(),
-            InstanceVariable::ViewAngle => todo!(),
-            InstanceVariable::ViewHborder => todo!(),
-            InstanceVariable::ViewVborder => todo!(),
-            InstanceVariable::ViewHspeed => todo!(),
-            InstanceVariable::ViewVspeed => todo!(),
-            InstanceVariable::ViewObject => todo!(),
+            InstanceVariable::ViewVisible => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).visible.into())
+            },
+            InstanceVariable::ViewXview => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_x.into())
+            },
+            InstanceVariable::ViewYview => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_y.into())
+            },
+            InstanceVariable::ViewWview => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_w.into())
+            },
+            InstanceVariable::ViewHview => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_h.into())
+            },
+            InstanceVariable::ViewXport => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_x.into())
+            },
+            InstanceVariable::ViewYport => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_y.into())
+            },
+            InstanceVariable::ViewWport => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_w.into())
+            },
+            InstanceVariable::ViewHport => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_h.into())
+            },
+            InstanceVariable::ViewAngle => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).angle.into())
+            },
+            InstanceVariable::ViewHborder => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_hborder.into())
+            },
+            InstanceVariable::ViewVborder => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_vborder.into())
+            },
+            InstanceVariable::ViewHspeed => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_hspeed.into())
+            },
+            InstanceVariable::ViewVspeed => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_vspeed.into())
+            },
+            InstanceVariable::ViewObject => {
+                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_target.into())
+            },
             InstanceVariable::MouseX => todo!(),
             InstanceVariable::MouseY => todo!(),
             InstanceVariable::MouseButton => todo!(),
@@ -1169,35 +1221,113 @@ impl Game {
             InstanceVariable::RoomPersistent => todo!(),
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
-            InstanceVariable::BackgroundVisible => todo!(),
-            InstanceVariable::BackgroundForeground => todo!(),
-            InstanceVariable::BackgroundIndex => todo!(),
-            InstanceVariable::BackgroundX => todo!(),
-            InstanceVariable::BackgroundY => todo!(),
-            InstanceVariable::BackgroundHtiled => todo!(),
-            InstanceVariable::BackgroundVtiled => todo!(),
+            InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.visible = value.is_true(),
+                None => self.backgrounds[0].visible = value.is_true(),
+            },
+            InstanceVariable::BackgroundForeground => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.is_foreground = value.is_true(),
+                None => self.backgrounds[0].is_foreground = value.is_true(),
+            },
+            InstanceVariable::BackgroundIndex => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.background_id = value.into(),
+                None => self.backgrounds[0].background_id = value.into(),
+            },
+            InstanceVariable::BackgroundX => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.x_offset = value.into(),
+                None => self.backgrounds[0].x_offset = value.into(),
+            },
+            InstanceVariable::BackgroundY => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.y_offset = value.into(),
+                None => self.backgrounds[0].y_offset = value.into(),
+            },
+            InstanceVariable::BackgroundHtiled => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.tile_horizontal = value.is_true(),
+                None => self.backgrounds[0].tile_horizontal = value.is_true(),
+            },
+            InstanceVariable::BackgroundVtiled => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.tile_vertical = value.is_true(),
+                None => self.backgrounds[0].tile_vertical = value.is_true(),
+            },
             InstanceVariable::BackgroundXscale => todo!(),
             InstanceVariable::BackgroundYscale => todo!(),
-            InstanceVariable::BackgroundHspeed => todo!(),
-            InstanceVariable::BackgroundVspeed => todo!(),
-            InstanceVariable::BackgroundBlend => todo!(),
-            InstanceVariable::BackgroundAlpha => todo!(),
-            InstanceVariable::ViewEnabled => todo!(),
-            InstanceVariable::ViewVisible => todo!(),
-            InstanceVariable::ViewXview => todo!(),
-            InstanceVariable::ViewYview => todo!(),
-            InstanceVariable::ViewWview => todo!(),
-            InstanceVariable::ViewHview => todo!(),
-            InstanceVariable::ViewXport => todo!(),
-            InstanceVariable::ViewYport => todo!(),
-            InstanceVariable::ViewWport => todo!(),
-            InstanceVariable::ViewHport => todo!(),
-            InstanceVariable::ViewAngle => todo!(),
-            InstanceVariable::ViewHborder => todo!(),
-            InstanceVariable::ViewVborder => todo!(),
-            InstanceVariable::ViewHspeed => todo!(),
-            InstanceVariable::ViewVspeed => todo!(),
-            InstanceVariable::ViewObject => todo!(),
+            InstanceVariable::BackgroundHspeed => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.hspeed = value.into(),
+                None => self.backgrounds[0].hspeed = value.into(),
+            },
+            InstanceVariable::BackgroundVspeed => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.vspeed = value.into(),
+                None => self.backgrounds[0].vspeed = value.into(),
+            },
+            InstanceVariable::BackgroundBlend => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.blend = value.into(),
+                None => self.backgrounds[0].blend = value.into(),
+            },
+            InstanceVariable::BackgroundAlpha => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.alpha = value.into(),
+                None => self.backgrounds[0].alpha = value.into(),
+            },
+            InstanceVariable::ViewEnabled => self.views_enabled = value.is_true(),
+            InstanceVariable::ViewVisible => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.visible = value.is_true(),
+                None => self.views[0].visible = value.is_true(),
+            },
+            InstanceVariable::ViewXview => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.source_x = value.into(),
+                None => self.views[0].source_x = value.into(),
+            },
+            InstanceVariable::ViewYview => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.source_y = value.into(),
+                None => self.views[0].source_y = value.into(),
+            },
+            InstanceVariable::ViewWview => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.source_w = value.into(),
+                None => self.views[0].source_w = value.into(),
+            },
+            InstanceVariable::ViewHview => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.source_h = value.into(),
+                None => self.views[0].source_h = value.into(),
+            },
+            InstanceVariable::ViewXport => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.port_x = value.into(),
+                None => self.views[0].port_x = value.into(),
+            },
+            InstanceVariable::ViewYport => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.port_y = value.into(),
+                None => self.views[0].port_y = value.into(),
+            },
+            InstanceVariable::ViewWport => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.port_w = value.into(),
+                None => self.views[0].port_w = value.into(),
+            },
+            InstanceVariable::ViewHport => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.port_h = value.into(),
+                None => self.views[0].port_h = value.into(),
+            },
+            InstanceVariable::ViewAngle => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.angle = value.into(),
+                None => self.views[0].angle = value.into(),
+            },
+            InstanceVariable::ViewHborder => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.follow_hborder = value.into(),
+                None => self.views[0].follow_hborder = value.into(),
+            },
+            InstanceVariable::ViewVborder => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.follow_vborder = value.into(),
+                None => self.views[0].follow_vborder = value.into(),
+            },
+            InstanceVariable::ViewHspeed => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.follow_hspeed = value.into(),
+                None => self.views[0].follow_hspeed = value.into(),
+            },
+            InstanceVariable::ViewVspeed => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.follow_vspeed = value.into(),
+                None => self.views[0].follow_vspeed = value.into(),
+            },
+            InstanceVariable::ViewObject => match self.views.get_mut(array_index as usize) {
+                Some(view) => view.follow_target = value.into(),
+                None => self.views[0].follow_target = value.into(),
+            },
             InstanceVariable::MouseButton => todo!(),
             InstanceVariable::MouseLastbutton => todo!(),
             InstanceVariable::KeyboardKey => todo!(),
