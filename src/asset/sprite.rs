@@ -1,7 +1,8 @@
 use crate::render::AtlasRef;
+use std::rc::Rc;
 
 pub struct Sprite {
-    pub name: String,
+    pub name: Rc<str>,
     pub frames: Vec<Frame>,
     pub colliders: Vec<Collider>,
     pub width: u32,

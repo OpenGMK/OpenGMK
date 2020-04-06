@@ -1,7 +1,8 @@
 use crate::render::AtlasRef;
+use std::rc::Rc;
 
 pub struct Font {
-    pub name: String,
+    pub name: Rc<str>,
     pub sys_name: String,
     pub size: u32,
     pub bold: bool,

@@ -6,7 +6,7 @@ use std::{
 };
 
 pub struct Object {
-    pub name: String,
+    pub name: Rc<str>,
     pub solid: bool,
     pub visible: bool,
     pub persistent: bool,
