@@ -495,6 +495,7 @@ impl Game {
                                 port_y: v.port_y,
                                 port_w: v.port_w,
                                 port_h: v.port_h,
+                                angle: 0.0,
                                 follow_target: v.following.target,
                                 follow_hborder: v.following.hborder,
                                 follow_vborder: v.following.vborder,
