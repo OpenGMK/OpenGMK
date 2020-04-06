@@ -1,6 +1,7 @@
-use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types::Color, view::View};
+use crate::{background::Background, gml::runtime::Instruction, tile::Tile, types::{Color, ID}, view::View};
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct Room {
     pub name: Rc<str>,
     pub caption: Rc<str>,
@@ -24,6 +25,6 @@ pub struct Instance {
     pub x: i32,
     pub y: i32,
     pub object: i32,
-    pub id: usize,
+    pub id: ID,
     pub creation: Rc<[Instruction]>,
 }
