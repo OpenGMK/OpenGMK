@@ -478,6 +478,8 @@ impl Game {
                                 hspeed: f64::from(bg.hspeed),
                                 vspeed: f64::from(bg.vspeed),
                                 stretch: bg.stretch,
+                                blend: 0xFFFFFF,
+                                alpha: 1.0,
                             })
                             .collect::<Vec<_>>()
                             .into(),

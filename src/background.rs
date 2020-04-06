@@ -31,4 +31,10 @@ pub struct Background {
 
     /// Whether to stretch the background image to fit the screen
     pub stretch: bool,
+
+    /// Colour blend value to draw this background with
+    pub blend: u32,
+
+    /// Alpha-blend value to draw this background with
+    pub alpha: f64,
 }
