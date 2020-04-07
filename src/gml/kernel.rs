@@ -1973,34 +1973,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ord")
     }
 
-    pub fn string_length(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_length")
+    pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string]).map(|s| Value::Real(s.chars().count() as _))
     }
 
-    pub fn string_byte_length(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_byte_length")
+    pub fn string_byte_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string]).map(|s| Value::Real(s.len() as _))
     }
 
-    pub fn string_byte_at(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function string_byte_at")
+    pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
+        // We don't do this, unsurprisingly.
+        expect_args!(args, [string, real])
+            .map(|(s, ix)| Value::Real(s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as _))
     }
 
-    pub fn string_pos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function string_pos")
+    pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, string])
+            .map(|(ss, s)| Value::Real(s.find(ss.as_ref()).unwrap_or_default() as f64 + 1.0))
     }
 
-    pub fn string_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_copy")
+    pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // This is the worst thing that anyone's ever written. Please try to ignore it.
+        expect_args!(args, [string, real, real]).map(|(s, ix, len)| {
+            let sub = s
+                .as_ref()
+                .get(s.char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
+                .unwrap_or("");
+            Value::Str(
+                sub.get(..sub.char_indices().nth(len as usize).map_or(sub.len(), |(i, _)| i))
+                    .unwrap_or("")
+                    .to_string()
+                    .into(),
+            )
+        })
     }
 
-    pub fn string_char_at(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function string_char_at")
+    pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, real]).map(|(s, ix)| {
+            Value::Str(s.chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()))
+        })
     }
 
     pub fn string_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2008,54 +2020,66 @@ impl Game {
         unimplemented!("Called unimplemented kernel function string_delete")
     }
 
-    pub fn string_insert(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_insert")
+    pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, string, real]).map(|(ss, s, ix)| {
+            // TODO: This edge case could be less disgusting.
+            let ix = (ix as isize - 1).max(0) as usize;
+            Value::Str(if s.is_char_boundary(ix) {
+                s.chars()
+                    .take(ix)
+                    .chain(ss.chars())
+                    .chain(s.chars().skip(ix + ss.chars().count()))
+                    .collect::<String>()
+                    .into()
+            } else {
+                let mut newstr = s.as_ref().to_string();
+                newstr.insert_str(ix, ss.as_ref());
+                newstr.into()
+            })
+        })
     }
 
-    pub fn string_lower(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_lower")
+    pub fn string_lower(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string])
+            .map(|s| Value::Str(s.chars().map(|ch| ch.to_ascii_lowercase()).collect::<String>().into()))
     }
 
-    pub fn string_upper(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_upper")
+    pub fn string_upper(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string])
+            .map(|s| Value::Str(s.chars().map(|ch| ch.to_ascii_uppercase()).collect::<String>().into()))
     }
 
-    pub fn string_repeat(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function string_repeat")
+    pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.repeat(n as usize).into()))
     }
 
-    pub fn string_letters(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_letters")
+    pub fn string_letters(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string])
+            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_alphabetic()).collect::<String>().into()))
     }
 
-    pub fn string_digits(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_digits")
+    pub fn string_digits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string])
+            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_digit()).collect::<String>().into()))
     }
 
-    pub fn string_lettersdigits(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_lettersdigits")
+    pub fn string_lettersdigits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string])
+            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_alphanumeric()).collect::<String>().into()))
     }
 
-    pub fn string_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_replace")
+    pub fn string_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, string, string])
+            .map(|(s, x, y)| Value::Str(s.replacen(x.as_ref(), y.as_ref(), 1).into()))
     }
 
-    pub fn string_replace_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_replace_all")
+    pub fn string_replace_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, string, string])
+            .map(|(s, x, y)| Value::Str(s.replace(x.as_ref(), y.as_ref()).into()))
     }
 
-    pub fn string_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function string_count")
+    pub fn string_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string, string]).map(|(ss, s)| Value::Real(s.matches(ss.as_ref()).count() as _))
     }
 
     pub fn dot_product(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
