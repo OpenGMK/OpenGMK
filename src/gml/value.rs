@@ -1,5 +1,8 @@
 use crate::{gml, util};
-use std::{fmt::{self, Display}, rc::Rc};
+use std::{
+    fmt::{self, Display},
+    rc::Rc,
+};
 
 #[derive(Debug, Clone)]
 pub enum Value {

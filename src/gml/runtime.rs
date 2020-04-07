@@ -8,7 +8,7 @@ use crate::{
     },
     instance::{DummyFieldHolder, Field},
 };
-use std::fmt;
+use std::fmt::{self, Display};
 
 const DEFAULT_ALARM: i32 = -1;
 
@@ -111,6 +111,48 @@ pub enum Error {
     UninitializedVariable(String, u32),
     UninitializedArgument(usize),
     TooManyArrayDimensions(usize),
+}
+
+impl std::error::Error for Error {}
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::EmptyRoomOrder => write!(f, "empty room order (no rooms found)"),
+            Self::InvalidOperandsUnary(op, x) => {
+                write!(f, "invalid operands {} to {} operator ({1}{})", x.ty_str(), op, x)
+            },
+            Self::InvalidOperandsBinary(op, x, y) => {
+                write!(f, "invalid operands {} and {} to {} operator ({} {2} {})", x.ty_str(), y.ty_str(), op, x, y)
+            },
+            Self::InvalidUnaryOperator(op) => write!(f, "invalid unary operator {}", op),
+            Self::InvalidBinaryOperator(op) => write!(f, "invalid binary operator {}", op),
+            Self::InvalidAssignment(expr) => write!(f, "invalid assignment {}", expr),
+            Self::InvalidArrayAccessor(expr) => write!(f, "invalid array accessor {}", expr),
+            Self::InvalidArrayIndex(idx) => write!(f, "invalid array index {}", idx),
+            Self::InvalidDeref(expr) => write!(f, "invalid deref {}", expr),
+            Self::InvalidIndex(expr) => write!(f, "invalid index {}", expr),
+            Self::InvalidIndexLhs(expr) => write!(f, "invalid index lhs {}", expr),
+            Self::InvalidInstanceHandle(id) => write!(f, "invalid instance handle {}", id),
+            Self::InvalidSwitchBody(expr) => write!(f, "invalid switch body {}", expr),
+            Self::NonexistentAsset(ty, id) => write!(f, "nonexistent asset id {} ({})", id, ty),
+            Self::ReadOnlyVariable(v) => write!(
+                f,
+                "read-only variable {}",
+                gml::compiler::mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| v == x).map(|(x, _)| x).unwrap()
+            ),
+            Self::UnknownFunction(fname) => write!(f, "unknown function \"{}\"", fname),
+            Self::UnexpectedASTExpr(expr) => write!(f, "unexpected AST expr {}", expr),
+            Self::UninitializedVariable(v, i) => {
+                if *i == 0 {
+                    write!(f, "uninitialized variable \"{}\"", v)
+                } else {
+                    write!(f, "uninitialized variable \"{}[{}]\"", v, *i)
+                }
+            },
+            Self::UninitializedArgument(n) => write!(f, "uninitialized argument #{}", n),
+            Self::TooManyArrayDimensions(n) => write!(f, "too many array dimensions ({})", n),
+        }
+    }
 }
 
 enum Target {
