@@ -1831,9 +1831,11 @@ impl Game {
         unimplemented!("Called unimplemented kernel function frac")
     }
 
-    pub fn sqrt(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sqrt")
+    pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).and_then(|r| match r.sqrt() {
+            n if !n.is_nan() => Ok(Value::Real(n)),
+            n => Err(gml::Error::FunctionError("sqrt(x)", format!("can't get square root of {}", n))),
+        })
     }
 
     pub fn sqr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
