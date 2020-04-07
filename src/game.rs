@@ -965,7 +965,7 @@ impl Game {
     }
 
     /// Runs an event for a given instance. Does nothing if that instance doesn't have the specified event.
-    fn run_instance_event(
+    pub fn run_instance_event(
         &mut self,
         event_id: usize,
         event_sub: u32,
