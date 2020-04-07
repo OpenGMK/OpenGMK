@@ -118,7 +118,7 @@ fn xmain() -> i32 {
     };
 
     while !components.renderer.should_close() {
-        components.frame();
+        components.frame().unwrap(); // moving the goalpoast, I see
     }
 
     EXIT_SUCCESS

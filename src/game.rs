@@ -21,6 +21,7 @@ use std::{
     cell::RefCell,
     cmp::Ordering,
     collections::{HashMap, HashSet},
+    hint::unreachable_unchecked,
     iter::repeat,
     rc::Rc,
     sync::mpsc::Receiver,
@@ -235,19 +236,25 @@ impl Game {
                     let (w, h) = b.frames.first().map_or((0, 0), |f| (f.width, f.height));
                     let origin_x = b.origin_x;
                     let origin_y = b.origin_y;
-                    Box::new(Sprite {
+                    Some(Box::new(Sprite {
                         name: b.name.into(),
                         frames: b
                             .frames
                             .into_iter()
-                            .map(|f| Frame {
-                                width: f.width,
-                                height: f.height,
-                                atlas_ref: atlases
-                                    .texture(f.width as _, f.height as _, origin_x, origin_y, f.data)
-                                    .unwrap(),
+                            .map(|f| {
+                                Some(Frame {
+                                    width: f.width,
+                                    height: f.height,
+                                    atlas_ref: atlases.texture(
+                                        f.width as _,
+                                        f.height as _,
+                                        origin_x,
+                                        origin_y,
+                                        f.data,
+                                    )?,
+                                })
                             })
-                            .collect(),
+                            .collect::<Option<_>>()?,
                         colliders: b
                             .colliders
                             .into_iter()
@@ -266,10 +273,11 @@ impl Game {
                         origin_x,
                         origin_y,
                         per_frame_colliders: b.per_frame_colliders,
-                    })
+                    }))
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Option<Vec<_>>>()
+            .expect("failed to pack sprites");
 
         let backgrounds = backgrounds
             .into_iter()
@@ -277,21 +285,25 @@ impl Game {
                 o.map(|b| {
                     let width = b.width;
                     let height = b.height;
-                    Box::new(Background {
+                    Some(Box::new(Background {
                         name: b.name.into(),
                         width,
                         height,
-                        atlas_ref: b.data.map(|d| atlases.texture(width as _, height as _, 0, 0, d).unwrap()),
-                    })
+                        atlas_ref: match b.data {
+                            Some(data) => Some(atlases.texture(width as _, height as _, 0, 0, data)?),
+                            None => None,
+                        },
+                    }))
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Option<Vec<_>>>()
+            .expect("failed to pack backgrounds");
 
         let fonts = fonts
             .into_iter()
             .map(|o| {
                 o.map(|b| {
-                    Box::new(Font {
+                    Some(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
                         size: b.size,
@@ -299,19 +311,17 @@ impl Game {
                         italic: b.italic,
                         first: b.range_start,
                         last: b.range_end,
-                        atlas_ref: atlases
-                            .texture(
-                                b.map_width as _,
-                                b.map_height as _,
-                                0,
-                                0,
-                                b.pixel_map
-                                    .into_iter()
-                                    .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
-                                    .collect::<Vec<u8>>()
-                                    .into_boxed_slice(),
-                            )
-                            .unwrap(),
+                        atlas_ref: atlases.texture(
+                            b.map_width as _,
+                            b.map_height as _,
+                            0,
+                            0,
+                            b.pixel_map
+                                .into_iter()
+                                .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
+                                .collect::<Vec<u8>>()
+                                .into_boxed_slice(),
+                        )?,
                         chars: b
                             .dmap
                             .chunks_exact(6)
@@ -326,10 +336,11 @@ impl Game {
                                 distance: x[5],
                             })
                             .collect(),
-                    })
+                    }))
                 })
             })
-            .collect::<Vec<_>>();
+            .collect::<Option<Vec<_>>>()
+            .expect("failed to pack fonts");
 
         let objects = {
             let mut object_parents: Vec<Option<i32>> = Vec::with_capacity(objects.len());
@@ -673,7 +684,7 @@ impl Game {
         // Run room end event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(ev::OTHER, 5, instance, instance).unwrap(); // How to handle error?
+            self.run_instance_event(ev::OTHER, 5, instance, instance)?;
         }
 
         // Delete non-persistent instances
@@ -754,11 +765,10 @@ impl Game {
                     argument_count: 0,
                     locals: Default::default(),
                     return_value: Default::default(),
-                })
-                .unwrap(); // TODO: how to transform gml::Error to this thing?
+                })?;
 
                 // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, handle, handle).unwrap(); // how to handle error??¿?
+                self.run_instance_event(ev::CREATE, 0, handle, handle)?;
             }
         }
 
@@ -767,14 +777,14 @@ impl Game {
         // Run room start event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(ev::OTHER, 4, instance, instance).unwrap(); // ???
+            self.run_instance_event(ev::OTHER, 4, instance, instance)?;
         }
 
         Ok(())
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
-    pub fn frame(&mut self) {
+    pub fn frame(&mut self) -> gml::Result<()> {
         // Update xprevious and yprevious for all instances
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
@@ -783,13 +793,13 @@ impl Game {
         }
 
         // Begin step event
-        self.run_object_event(ev::STEP, 1, None).unwrap();
+        self.run_object_event(ev::STEP, 1, None)?;
 
         // Step event
-        self.run_object_event(ev::STEP, 0, None).unwrap();
+        self.run_object_event(ev::STEP, 0, None)?;
 
         // End step event
-        self.run_object_event(ev::STEP, 2, None).unwrap();
+        self.run_object_event(ev::STEP, 2, None)?;
 
         // Draw all views
         if self.views_enabled {
@@ -806,13 +816,14 @@ impl Game {
                     view.port_w as _,
                     view.port_h as _,
                     view.angle,
-                )
-                .unwrap();
+                )?;
                 count += 1;
             }
         } else {
-            self.draw(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0).unwrap();
+            self.draw(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
+
+        Ok(()) // Now that's some Rust!
     }
 
     /// Draws everything in the scene with a given view
@@ -843,10 +854,13 @@ impl Game {
         self.renderer.set_view(src_x, src_y, src_w, src_h, angle, port_x, port_y, port_w, port_h);
 
         fn draw_instance(game: &mut Game, idx: usize) {
-            let instance = game.instance_list.get(idx).expect("OH NO I PANICKE'D");
+            let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
             if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
                 game.renderer.draw_sprite(
-                    &sprite.frames.first().unwrap().atlas_ref,
+                    match sprite.frames.first() {
+                        Some(f1) => &f1.atlas_ref,
+                        None => return, // sprite with 0 frames...
+                    },
                     instance.x.get(),
                     instance.y.get(),
                     instance.image_xscale.get(),
@@ -859,7 +873,7 @@ impl Game {
         }
 
         fn draw_tile(game: &mut Game, idx: usize) {
-            let tile = game.tile_list.get(idx).expect("OH NO");
+            let tile = game.tile_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
             if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index as usize) {
                 if let Some(atlas) = &background.atlas_ref {
                     game.renderer.draw_sprite_partial(
@@ -889,8 +903,8 @@ impl Game {
         loop {
             match (iter_inst_v, iter_tile_v) {
                 (Some(idx_inst), Some(idx_tile)) => {
-                    let inst = self.instance_list.get(idx_inst).expect("OH NO");
-                    let tile = self.tile_list.get(idx_tile).expect("OH NO");
+                    let inst = self.instance_list.get(idx_inst).unwrap_or_else(|| unsafe { unreachable_unchecked() });
+                    let tile = self.tile_list.get(idx_tile).unwrap_or_else(|| unsafe { unreachable_unchecked() });
                     match inst.depth.get().cmp(&tile.depth) {
                         Ordering::Greater | Ordering::Equal => {
                             draw_instance(self, idx_inst);
