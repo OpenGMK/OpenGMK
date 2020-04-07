@@ -332,7 +332,7 @@ impl Game {
                     }
 
                     let returned_value = match gml_body {
-                        GmlBody::Function(f) => f(self, &mut context, &arg_values)?,
+                        GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
                         GmlBody::Code(code) => {
                             context.arguments = arg_values;
                             self.execute(code, &mut context)?;
