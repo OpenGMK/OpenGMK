@@ -1960,12 +1960,13 @@ impl Game {
     pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
-            Value::Str(s) if s.len() == 0 => Ok(Value::Real(0.0)),
-            Value::Str(s) => s
-                .as_ref()
-                .parse::<f64>()
-                .map(|r| Value::Real(r))
-                .map_err(|e| gml::Error::FunctionError("real(str)", format!("can't convert {} - {}", s, e))),
+            Value::Str(s) => match s.trim() {
+                x if x.len() == 0 => Ok(Value::Real(0.0)),
+                x => match x.parse::<f64>() {
+                    Ok(r) => Ok(Value::Real(r)),
+                    Err(e) => Err(gml::Error::FunctionError("real(str)", format!("can't convert {} - {}", s, e))),
+                },
+            },
         })
     }
 
