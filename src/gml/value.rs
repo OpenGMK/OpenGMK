@@ -78,6 +78,13 @@ impl Value {
             string: |s1, s2| s1 >= s2
     }
 
+    pub fn ty_str(&self) -> &'static str {
+        match self {
+            Value::Real(_) => "real",
+            Value::Str(_) => "string",
+        }
+    }
+
     /// GML-like comparison, fails if self and other are different types.
     pub fn almost_equals(&self, other: &Self) -> bool {
         match (self, other) {
