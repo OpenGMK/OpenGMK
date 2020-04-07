@@ -5,6 +5,7 @@
 use crate::{
     game::Game,
     gml::{self, Context, Value},
+    instance::Instance,
 };
 
 macro_rules! _arg_into {
@@ -1756,49 +1757,55 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_effect")
     }
 
-    pub fn is_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function is_real")
+    pub fn is_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        match expect_args!(args, [any])? {
+            Value::Real(_) => Ok(gml::TRUE.into()),
+            _ => Ok(gml::TRUE.into()),
+        }
     }
 
-    pub fn is_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function is_string")
+    pub fn is_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        match expect_args!(args, [any])? {
+            Value::Str(_) => Ok(gml::TRUE.into()),
+            _ => Ok(gml::TRUE.into()),
+        }
     }
 
-    pub fn random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function random")
+    pub fn random(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bound = expect_args!(args, [real])?;
+        Ok(self.rand.next(bound).into())
     }
 
-    pub fn random_range(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function random_range")
+    pub fn random_range(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (lower, upper) = expect_args!(args, [real, real])?;
+        Ok((lower.min(upper) + self.rand.next((upper - lower).abs())).into())
     }
 
-    pub fn irandom(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function irandom")
+    pub fn irandom(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bound = expect_args!(args, [int])?;
+        Ok(self.rand.next_int(bound as _).into())
     }
 
-    pub fn irandom_range(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function irandom_range")
+    pub fn irandom_range(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (lower, upper) = expect_args!(args, [int, int])?;
+        Ok((lower.min(upper) + self.rand.next_int((upper - lower).abs() as _)).into())
     }
 
-    pub fn random_set_seed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function random_set_seed")
+    pub fn random_set_seed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let seed = expect_args!(args, [int])?;
+        self.rand.set_seed(seed);
+        Ok(Default::default())
     }
 
-    pub fn random_get_seed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function random_get_seed")
+    pub fn random_get_seed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.rand.seed().into())
     }
 
-    pub fn randomize(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function randomize")
+    pub fn randomize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.rand.randomize();
+        Ok(Default::default())
     }
 
     pub fn abs(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1920,8 +1927,11 @@ impl Game {
         unimplemented!("Called unimplemented kernel function median")
     }
 
-    pub fn choose(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function choose")
+    pub fn choose(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        match args.len().checked_sub(1) {
+            Some(i) => Ok(args[self.rand.next_int(i as _) as usize].clone()),
+            None => Ok(Default::default()),
+        }
     }
 
     pub fn clamp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2390,9 +2400,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_place")
     }
 
-    pub fn instance_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function instance_create")
+    pub fn instance_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, object_id) = expect_args!(args, [real, real, int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            self.last_instance_id += 1;
+            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            Ok(self.last_instance_id.into())
+        } else {
+            Err(gml::Error::FunctionError("instance_create", format!("Invalid object ID: {}", object_id)))
+        }
     }
 
     pub fn instance_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2405,9 +2422,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_change")
     }
 
-    pub fn instance_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function instance_destroy")
+    pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.mark_deleted(context.this);
+        Ok(Default::default())
     }
 
     pub fn instance_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
