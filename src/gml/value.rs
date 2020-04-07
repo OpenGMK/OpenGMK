@@ -1,10 +1,19 @@
 use crate::{gml, util};
-use std::rc::Rc;
+use std::{fmt::{self, Display}, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Real(f64),
     Str(Rc<str>),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Real(r) => write!(f, "{}", r),
+            Value::Str(s) => write!(f, "\"{}\"", s.as_ref()),
+        }
+    }
 }
 
 // How many times do you think I want to write `Value::` in the `value` module?
