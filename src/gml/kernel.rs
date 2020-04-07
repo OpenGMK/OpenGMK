@@ -1995,6 +1995,7 @@ impl Game {
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // This is the worst thing that anyone's ever written. Please try to ignore it.
+        // I can get invalid indices as in mid-char or OOB and pretend nothing went wrong.
         expect_args!(args, [string, real, real]).map(|(s, ix, len)| {
             let sub = s
                 .as_ref()
@@ -2015,9 +2016,16 @@ impl Game {
         })
     }
 
-    pub fn string_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_delete")
+    pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // See the comment on string_copy.
+        expect_args!(args, [string, real, real]).map(|(s, ix, len)| {
+            let sub = s.as_ref().get(..s.char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
+            let sub2 = s
+                .as_ref()
+                .get(s.char_indices().nth((ix as isize + len as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
+                .unwrap_or("");
+            Value::Str(format!("{}{}", sub, sub2).into())
+        })
     }
 
     pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
