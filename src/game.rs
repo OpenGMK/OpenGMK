@@ -13,6 +13,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile,
+    types::ID,
     view::View,
 };
 use gm8exe::{GameAssets, GameVersion};
@@ -38,6 +39,9 @@ pub struct Game {
     pub renderer: Box<dyn Renderer>,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12],
+
+    pub last_instance_id: ID,
+    pub last_tile_id: ID,
 
     pub views_enabled: bool,
     pub views: Vec<View>,
@@ -92,6 +96,8 @@ impl Game {
             constants,
             fonts,
             icon_data,
+            last_instance_id,
+            last_tile_id,
             objects,
             paths,
             room_order,
@@ -647,6 +653,8 @@ impl Game {
             room_height: room1_height as i32,
             room_order: room_order.into_boxed_slice(),
             globals: DummyFieldHolder::new(),
+            last_instance_id,
+            last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
             transition_kind: 0,
