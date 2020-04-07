@@ -111,6 +111,7 @@ pub enum Error {
     UninitializedVariable(String, u32),
     UninitializedArgument(usize),
     TooManyArrayDimensions(usize),
+    WrongArgumentCount(usize, usize),
 }
 
 impl std::error::Error for Error {}
@@ -151,6 +152,7 @@ impl Display for Error {
             },
             Self::UninitializedArgument(n) => write!(f, "uninitialized argument #{}", n),
             Self::TooManyArrayDimensions(n) => write!(f, "too many array dimensions ({})", n),
+            Self::WrongArgumentCount(exp, got) => write!(f, "wrong argument count (expected: {}, got: {})", exp, got),
         }
     }
 }
