@@ -1802,86 +1802,82 @@ impl Game {
     }
 
     pub fn abs(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.abs()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.abs()))
     }
 
     pub fn round(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.round()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.round()))
     }
 
     pub fn floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.floor()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.floor()))
     }
 
     pub fn ceil(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.ceil()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.ceil()))
     }
 
     pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.signum()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.signum()))
     }
 
     pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.fract()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.fract()))
     }
 
     pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).and_then(|r| match r.sqrt() {
+        expect_args!(args, [real]).and_then(|x| match x.sqrt() {
             n if !n.is_nan() => Ok(Value::Real(n)),
             n => Err(gml::Error::FunctionError("sqrt(x)", format!("can't get square root of {}", n))),
         })
     }
 
     pub fn sqr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r * r))
+        expect_args!(args, [real]).map(|x| Value::Real(x * x))
     }
 
     pub fn exp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.exp()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.exp()))
     }
 
     pub fn ln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.ln()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.ln()))
     }
 
     pub fn log2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.log2()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.log2()))
     }
 
     pub fn log10(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.log10()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.log10()))
     }
 
     pub fn sin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.sin()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.sin()))
     }
 
     pub fn cos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.cos()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.cos()))
     }
 
     pub fn tan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|r| Value::Real(r.tan()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.tan()))
     }
 
-    pub fn arcsin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function arcsin")
+    pub fn arcsin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| Value::Real(x.asin()))
     }
 
-    pub fn arccos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function arccos")
+    pub fn arccos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| Value::Real(x.acos()))
     }
 
-    pub fn arctan(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function arctan")
+    pub fn arctan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| Value::Real(x.atan()))
     }
 
-    pub fn arctan2(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function arctan2")
+    pub fn arctan2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real, real]).map(|(y, x)| Value::Real(y.atan2(x)))
     }
 
     pub fn degtorad(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
