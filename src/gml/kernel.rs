@@ -1861,19 +1861,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function log10")
     }
 
-    pub fn sin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sin")
+    pub fn sin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.sin()))
     }
 
-    pub fn cos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function cos")
+    pub fn cos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.cos()))
     }
 
-    pub fn tan(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function tan")
+    pub fn tan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.tan()))
     }
 
     pub fn arcsin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
