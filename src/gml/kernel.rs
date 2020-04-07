@@ -1801,34 +1801,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function randomize")
     }
 
-    pub fn abs(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function abs")
+    pub fn abs(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.abs()))
     }
 
-    pub fn round(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function round")
+    pub fn round(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.round()))
     }
 
-    pub fn floor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function floor")
+    pub fn floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.floor()))
     }
 
-    pub fn ceil(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ceil")
+    pub fn ceil(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.ceil()))
     }
 
-    pub fn sign(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sign")
+    pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.signum()))
     }
 
-    pub fn frac(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function frac")
+    pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.fract()))
     }
 
     pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
