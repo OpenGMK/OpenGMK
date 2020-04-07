@@ -1960,6 +1960,7 @@ impl Game {
     pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
+            Value::Str(s) if s.len() == 0 => Ok(Value::Real(0.0)),
             Value::Str(s) => s
                 .as_ref()
                 .parse::<f64>()
