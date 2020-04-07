@@ -8,9 +8,9 @@ use crate::{
 };
 
 macro_rules! _arg_into {
-    (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v)) }};
-    (real, $v: expr) => {{ Ok(<Value as Into<f64>>::into($v)) }};
-    (string, $v: expr) => {{ Ok(<Value as Into<Rc<str>>>::into($v)) }};
+    (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
+    (real, $v: expr) => {{ Ok(<Value as Into<f64>>::into($v.clone())) }};
+    (string, $v: expr) => {{ Ok(<Value as Into<Rc<str>>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {

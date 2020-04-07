@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             aa_macro += &format!("_arg_into!(${0}, {0})?, ", i_char(j));
         }
         aa_macro.truncate(aa_macro.len() - 2);
-        aa_macro += " )),\n        }\n    }};\n";
+        aa_macro += " )),\n            _ => unsafe { std::hint::unreachable_unchecked() },\n        }\n    }};\n";
     }
     aa_macro += "}\n";
     fs::write(&Path::new(&out).join("_apply_args.macro.rs"), &aa_macro)?;
