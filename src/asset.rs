@@ -14,6 +14,8 @@ pub use script::Script;
 pub use sprite::Sprite;
 pub use timeline::Timeline;
 
+use std::fmt::{self, Display};
+
 #[derive(Clone, Copy, Debug)]
 pub enum Type {
     Background,
@@ -26,4 +28,21 @@ pub enum Type {
     Sprite,
     Timeline,
     Trigger,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Background => write!(f, "background"),
+            Self::Font => write!(f, "font"),
+            Self::Object => write!(f, "object"),
+            Self::Path => write!(f, "path"),
+            Self::Room => write!(f, "room"),
+            Self::Script => write!(f, "script"),
+            Self::Sound => write!(f, "sound"),
+            Self::Sprite => write!(f, "sprite"),
+            Self::Timeline => write!(f, "timeline"),
+            Self::Trigger => write!(f, "trigger"),
+        }
+    }
 }
