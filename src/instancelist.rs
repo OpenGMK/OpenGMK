@@ -296,6 +296,25 @@ impl InstanceList {
         value
     }
 
+    pub fn mark_deleted(&mut self, instance: usize) {
+        let object_id = self.get(instance).and_then(|instance| {
+            if instance.state.get() != InstanceState::Deleted {
+                instance.state.set(InstanceState::Deleted);
+                Some(instance.object_index.get())
+            } else {
+                None
+            }
+        });
+        if let Some(o) = object_id {
+            let entry = self.id_map.entry(o).and_modify(|n| *n -= 1);
+            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                if *occupied.get() == 0 {
+                    occupied.remove_entry();
+                }
+            }
+        }
+    }
+
     pub fn obj_count_hint(&mut self, n: usize) {
         self.id_map.reserve((n as isize - self.id_map.len() as isize).max(0) as usize)
     }
@@ -305,10 +324,12 @@ impl InstanceList {
         self.chunks.remove_with(|x| {
             let remove = f(x);
             if remove {
-                let entry = id_map.entry(x.object_index.get()).and_modify(|n| *n -= 1);
-                if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                    if *occupied.get() == 0 {
-                        occupied.remove_entry();
+                if x.state.get() == InstanceState::Active {
+                    let entry = id_map.entry(x.object_index.get()).and_modify(|n| *n -= 1);
+                    if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                        if *occupied.get() == 0 {
+                            occupied.remove_entry();
+                        }
                     }
                 }
             }
