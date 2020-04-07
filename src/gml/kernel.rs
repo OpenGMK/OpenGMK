@@ -1971,7 +1971,10 @@ impl Game {
     }
 
     pub fn string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Str(s))
+        expect_args!(args, [any]).map(|v| match v {
+            Value::Real(r) => Value::Str(format!("{:.2}", r).into()),
+            s @ Value::Str(_) => s,
+        })
     }
 
     pub fn string_format(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
