@@ -1,9 +1,39 @@
 // This file was auto-generated based on a function table dump
 
+#![allow(unused_macros)]
+
 use crate::{
     game::Game,
     gml::{self, Context, Value},
 };
+
+macro_rules! _arg_into {
+    (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v)) }};
+    (real, $v: expr) => {{ Ok(<Value as Into<f64>>::into($v)) }};
+    (string, $v: expr) => {{ Ok(<Value as Into<Rc<str>>>::into($v)) }};
+}
+
+macro_rules! _count_rep {
+    () => { 0usize };
+    ($x: ident $($ys: ident)*) => { 1usize + _count_rep!($($ys)*) };
+}
+
+include!(concat!(env!("OUT_DIR"), "/_apply_args.macro.rs"));
+
+/// Helper macro to validate input arguments from a GML function.
+macro_rules! expect_args {
+    ($args: expr, [$($x: ident),*]) => {{
+        (|| -> gml::Result<_> {
+            let argc = _count_rep!($($x)*);
+            if $args.len() != argc {
+                Err(gml::runtime::Error::WrongArgumentCount(argc, $args.len()))
+            } else {
+                _apply_args!($args, $($x)*)
+            }
+        })()
+    }};
+    ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
+}
 
 impl Game {
     pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
