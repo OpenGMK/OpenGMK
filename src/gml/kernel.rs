@@ -1964,7 +1964,7 @@ impl Game {
                 .as_ref()
                 .parse::<f64>()
                 .map(|r| Value::Real(r))
-                .map_err(|e| gml::Error::FunctionError(format!("real(): can't convert {} - {}", s, e))),
+                .map_err(|e| gml::Error::FunctionError("real(str)", format!("can't convert {} - {}", s, e))),
         })
     }
 
