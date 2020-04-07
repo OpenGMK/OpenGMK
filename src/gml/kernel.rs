@@ -6,8 +6,10 @@ use crate::{
     game::Game,
     gml::{self, Context, Value},
 };
+use std::rc::Rc;
 
 macro_rules! _arg_into {
+    (any, $v: expr) => {{ Ok($v.clone()) }};
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<f64>>::into($v.clone())) }};
     (string, $v: expr) => {{ Ok(<Value as Into<Rc<str>>>::into($v.clone())) }};
