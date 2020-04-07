@@ -1836,29 +1836,24 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sqrt")
     }
 
-    pub fn sqr(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sqr")
+    pub fn sqr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r * r))
     }
 
-    pub fn exp(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function exp")
+    pub fn exp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.exp()))
     }
 
-    pub fn ln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ln")
+    pub fn ln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.ln()))
     }
 
-    pub fn log2(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function log2")
+    pub fn log2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.log2()))
     }
 
-    pub fn log10(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function log10")
+    pub fn log10(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|r| Value::Real(r.log10()))
     }
 
     pub fn sin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
