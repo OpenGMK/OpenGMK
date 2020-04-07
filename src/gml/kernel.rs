@@ -1984,7 +1984,7 @@ impl Game {
     pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
-        expect_args!(args, [string, real])
+        expect_args!(args, [string, int])
             .map(|(s, ix)| Value::Real(s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as _))
     }
 
@@ -1996,7 +1996,7 @@ impl Game {
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // This is the worst thing that anyone's ever written. Please try to ignore it.
         // I can get invalid indices as in mid-char or OOB and pretend nothing went wrong.
-        expect_args!(args, [string, real, real]).map(|(s, ix, len)| {
+        expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
             let sub = s
                 .as_ref()
                 .get(s.char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
@@ -2011,14 +2011,14 @@ impl Game {
     }
 
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, real]).map(|(s, ix)| {
+        expect_args!(args, [string, int]).map(|(s, ix)| {
             Value::Str(s.chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()))
         })
     }
 
     pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // See the comment on string_copy.
-        expect_args!(args, [string, real, real]).map(|(s, ix, len)| {
+        expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
             let sub = s.as_ref().get(..s.char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
             let sub2 = s
                 .as_ref()
@@ -2029,7 +2029,7 @@ impl Game {
     }
 
     pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, string, real]).map(|(ss, s, ix)| {
+        expect_args!(args, [string, string, int]).map(|(ss, s, ix)| {
             // TODO: This edge case could be less disgusting.
             let ix = (ix as isize - 1).max(0) as usize;
             Value::Str(if s.is_char_boundary(ix) {
