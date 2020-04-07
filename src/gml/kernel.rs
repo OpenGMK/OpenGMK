@@ -1880,24 +1880,20 @@ impl Game {
         expect_args!(args, [real, real]).map(|(y, x)| Value::Real(y.atan2(x)))
     }
 
-    pub fn degtorad(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function degtorad")
+    pub fn degtorad(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| Value::Real(x.to_radians()))
     }
 
-    pub fn radtodeg(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function radtodeg")
+    pub fn radtodeg(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| Value::Real(x.to_degrees()))
     }
 
-    pub fn power(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function power")
+    pub fn power(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real, real]).map(|(x, n)| Value::Real(x.powf(n)))
     }
 
-    pub fn logn(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function logn")
+    pub fn logn(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.log(n)))
     }
 
     pub fn min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1908,14 +1904,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function max")
     }
 
-    pub fn min3(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function min3")
+    pub fn min3(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.min(context, args)
     }
 
-    pub fn max3(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function max3")
+    pub fn max3(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.max(context, args)
     }
 
     pub fn mean(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1930,9 +1924,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function choose")
     }
 
-    pub fn clamp(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function clamp")
+    pub fn clamp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.max(lo).min(hi)))
     }
 
     pub fn lerp(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
