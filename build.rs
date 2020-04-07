@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !aa_macro_path.is_file() {
         let i_char = |i| char::from(b'a' + i);
         let mut aa_macro = String::with_capacity(16384);
-        aa_macro += "macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n".to_string();
+        aa_macro += &"macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n".to_string();
         for i in 1..16 {
             aa_macro += "    ($args: expr, ";
             for j in 0..i {
