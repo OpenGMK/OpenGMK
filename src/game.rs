@@ -9,7 +9,7 @@ use crate::{
     atlas::AtlasBuilder,
     background,
     gml::{self, ev, rand::Random, Compiler, Context},
-    instance::{DummyFieldHolder, Instance},
+    instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile,
@@ -850,6 +850,9 @@ impl Game {
 
         // End step event
         self.run_object_event(ev::STEP, 2, None)?;
+
+        // Clear out any deleted instances
+        self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
         // Draw all views
         if self.views_enabled {
