@@ -103,6 +103,7 @@ pub enum Error {
     InvalidIndexLhs(String), // string repr. because Expr<'a>
     InvalidIndex(String),    // string repr. because Expr<'a>
     InvalidInstanceHandle(usize),
+    InvalidRoomSpeed(i32),
     InvalidSwitchBody(String), // string repr. because Expr<'a>
     NonexistentAsset(asset::Type, usize),
     ReadOnlyVariable(InstanceVariable),
@@ -135,6 +136,7 @@ impl Display for Error {
             Self::InvalidIndex(expr) => write!(f, "invalid index {}", expr),
             Self::InvalidIndexLhs(expr) => write!(f, "invalid index lhs {}", expr),
             Self::InvalidInstanceHandle(id) => write!(f, "invalid instance handle {}", id),
+            Self::InvalidRoomSpeed(value) => write!(f, "invalid room_speed {}", value),
             Self::InvalidSwitchBody(expr) => write!(f, "invalid switch body {}", expr),
             Self::NonexistentAsset(ty, id) => write!(f, "nonexistent asset id {} ({})", id, ty),
             Self::ReadOnlyVariable(v) => write!(
@@ -1036,7 +1038,7 @@ impl Game {
             InstanceVariable::RoomWidth => Ok(self.room_width.into()),
             InstanceVariable::RoomHeight => Ok(self.room_height.into()),
             InstanceVariable::RoomCaption => Ok(self.caption.clone().into()),
-            InstanceVariable::RoomSpeed => todo!(),
+            InstanceVariable::RoomSpeed => Ok(self.room_speed.into()),
             InstanceVariable::RoomPersistent => todo!(),
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
@@ -1139,7 +1141,7 @@ impl Game {
             InstanceVariable::CaptionScore => Ok(self.score_capt.clone().into()),
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
-            InstanceVariable::Fps => todo!(),
+            InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
             InstanceVariable::CurrentTime => todo!(),
             InstanceVariable::CurrentYear => todo!(),
             InstanceVariable::CurrentMonth => todo!(),
@@ -1285,7 +1287,13 @@ impl Game {
                 self.caption = value.into();
                 self.caption_stale = true;
             },
-            InstanceVariable::RoomSpeed => todo!(),
+            InstanceVariable::RoomSpeed => {
+                let speed: i32 = value.into();
+                if speed <= 0 {
+                    return Err(Error::InvalidRoomSpeed(speed))
+                }
+                self.room_speed = speed as _
+            },
             InstanceVariable::RoomPersistent => todo!(),
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
