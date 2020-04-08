@@ -814,22 +814,27 @@ impl Game {
             // Iter views in a non-borrowing way
             let mut count = 0;
             while let Some(&view) = self.views.get(count) {
-                self.draw(
-                    view.source_x,
-                    view.source_y,
-                    view.source_w as _,
-                    view.source_h as _,
-                    view.port_x,
-                    view.port_y,
-                    view.port_w as _,
-                    view.port_h as _,
-                    view.angle,
-                )?;
+                if view.visible {
+                    self.draw(
+                        view.source_x,
+                        view.source_y,
+                        view.source_w as _,
+                        view.source_h as _,
+                        view.port_x,
+                        view.port_y,
+                        view.port_w as _,
+                        view.port_h as _,
+                        view.angle,
+                    )?;
+                }
                 count += 1;
             }
         } else {
             self.draw(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
+
+        // Tell renderer to finish the frame and start the next one
+        self.renderer.finish();
 
         Ok(()) // Now that's some Rust!
     }
@@ -942,7 +947,6 @@ impl Game {
             }
         }
 
-        self.renderer.finish();
         Ok(())
     }
 
