@@ -371,7 +371,8 @@ impl Game {
                     }
 
                     if let Some((if_body, else_body)) = if_else {
-                        let target = if returned_value.is_true() { if_body } else { else_body };
+                        let target =
+                            if returned_value.is_true() != action.invert_condition { if_body } else { else_body };
                         match self.exec_slice(target, this, other, event_type, event_number, as_object)? {
                             ReturnType::Continue => (),
                             ReturnType::Exit => return Ok(ReturnType::Exit),
