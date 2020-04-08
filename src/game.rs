@@ -244,25 +244,21 @@ impl Game {
                     let (w, h) = b.frames.first().map_or((0, 0), |f| (f.width, f.height));
                     let origin_x = b.origin_x;
                     let origin_y = b.origin_y;
-                    Some(Box::new(Sprite {
+                    Ok(Box::new(Sprite {
                         name: b.name.into(),
                         frames: b
                             .frames
                             .into_iter()
                             .map(|f| {
-                                Some(Frame {
+                                Ok(Frame {
                                     width: f.width,
                                     height: f.height,
-                                    atlas_ref: atlases.texture(
-                                        f.width as _,
-                                        f.height as _,
-                                        origin_x,
-                                        origin_y,
-                                        f.data,
-                                    )?,
+                                    atlas_ref: atlases
+                                        .texture(f.width as _, f.height as _, origin_x, origin_y, f.data)
+                                        .ok_or(())?,
                                 })
                             })
-                            .collect::<Option<_>>()?,
+                            .collect::<Result<_, ()>>()?,
                         colliders: b
                             .colliders
                             .into_iter()
@@ -283,8 +279,9 @@ impl Game {
                         per_frame_colliders: b.per_frame_colliders,
                     }))
                 })
+                .transpose()
             })
-            .collect::<Option<Vec<_>>>()
+            .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack sprites");
 
         let backgrounds = backgrounds
@@ -293,25 +290,26 @@ impl Game {
                 o.map(|b| {
                     let width = b.width;
                     let height = b.height;
-                    Some(Box::new(Background {
+                    Ok(Box::new(Background {
                         name: b.name.into(),
                         width,
                         height,
                         atlas_ref: match b.data {
-                            Some(data) => Some(atlases.texture(width as _, height as _, 0, 0, data)?),
+                            Some(data) => Some(atlases.texture(width as _, height as _, 0, 0, data).ok_or(())?),
                             None => None,
                         },
                     }))
                 })
+                .transpose()
             })
-            .collect::<Option<Vec<_>>>()
+            .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack backgrounds");
 
         let fonts = fonts
             .into_iter()
             .map(|o| {
                 o.map(|b| {
-                    Some(Box::new(Font {
+                    Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
                         size: b.size,
@@ -319,17 +317,19 @@ impl Game {
                         italic: b.italic,
                         first: b.range_start,
                         last: b.range_end,
-                        atlas_ref: atlases.texture(
-                            b.map_width as _,
-                            b.map_height as _,
-                            0,
-                            0,
-                            b.pixel_map
-                                .into_iter()
-                                .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
-                                .collect::<Vec<u8>>()
-                                .into_boxed_slice(),
-                        )?,
+                        atlas_ref: atlases
+                            .texture(
+                                b.map_width as _,
+                                b.map_height as _,
+                                0,
+                                0,
+                                b.pixel_map
+                                    .into_iter()
+                                    .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
+                                    .collect::<Vec<u8>>()
+                                    .into_boxed_slice(),
+                            )
+                            .ok_or(())?,
                         chars: b
                             .dmap
                             .chunks_exact(6)
@@ -346,8 +346,9 @@ impl Game {
                             .collect(),
                     }))
                 })
+                .transpose()
             })
-            .collect::<Option<Vec<_>>>()
+            .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack fonts");
 
         let objects = {
