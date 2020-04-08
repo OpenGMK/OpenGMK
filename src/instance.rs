@@ -174,13 +174,13 @@ impl Instance {
 
     // Sets hspeed and vspeed based on direction and speed
     fn update_hvspeed(&self) {
-        self.hspeed.set(-self.direction.get().cos() * self.speed.get());
-        self.vspeed.set(self.direction.get().sin() * self.speed.get());
+        self.hspeed.set(-self.direction.get().to_radians().cos() * self.speed.get());
+        self.vspeed.set(self.direction.get().to_radians().sin() * self.speed.get());
     }
 
     // Sets direction and speed based on hspeed and vspeed
     fn update_speed_direction(&self) {
-        self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()));
+        self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()).to_degrees());
         self.speed.set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
     }
 
