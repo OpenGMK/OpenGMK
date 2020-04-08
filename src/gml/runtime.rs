@@ -339,13 +339,15 @@ impl Game {
                         Some(field) => {
                             let mut target = match field.get(array_index) {
                                 Some(i) => i,
-                                None => if self.uninit_fields_are_zero {
-                                    Default::default()
-                                } else {
-                                    return Err(Error::UninitializedVariable(
-                                        self.compiler.get_field_name(accessor.index).unwrap(),
-                                        array_index,
-                                    ))
+                                None => {
+                                    if self.uninit_fields_are_zero {
+                                        Default::default()
+                                    } else {
+                                        return Err(Error::UninitializedVariable(
+                                            self.compiler.get_field_name(accessor.index).unwrap(),
+                                            array_index,
+                                        ))
+                                    }
                                 },
                             };
                             operator(&mut target, value)?;
@@ -368,13 +370,15 @@ impl Game {
                         Some(field) => {
                             let mut target = match field.get(array_index) {
                                 Some(i) => i,
-                                None => if self.uninit_fields_are_zero {
-                                    Default::default()
-                                } else {
-                                    return Err(Error::UninitializedVariable(
-                                        self.compiler.get_field_name(accessor.index).unwrap(),
-                                        array_index,
-                                    ))
+                                None => {
+                                    if self.uninit_fields_are_zero {
+                                        Default::default()
+                                    } else {
+                                        return Err(Error::UninitializedVariable(
+                                            self.compiler.get_field_name(accessor.index).unwrap(),
+                                            array_index,
+                                        ))
+                                    }
                                 },
                             };
                             operator(&mut target, value)?;
