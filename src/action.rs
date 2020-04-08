@@ -331,14 +331,44 @@ impl Game {
                         *dest = self.eval(src, &mut context)?;
                     }
 
-                    let returned_value = match gml_body {
-                        GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
-                        GmlBody::Code(code) => {
-                            context.arguments = arg_values;
-                            self.execute(code, &mut context)?;
-                            context.return_value
+                    let mut returned_value = Default::default();
+                    match action.target {
+                        None | Some(gml::SELF) | Some(gml::OTHER) => {
+                            if action.target == Some(gml::OTHER) {
+                                context.this = other;
+                                context.other = this;
+                            }
+                            returned_value = match gml_body {
+                                GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
+                                GmlBody::Code(code) => {
+                                    context.arguments = arg_values;
+                                    context.argument_count = args.len();
+                                    self.execute(code, &mut context)?;
+                                    context.return_value
+                                },
+                            };
                         },
-                    };
+                        Some(i) if i < 0 => (),
+                        Some(i) => {
+                            if let Some(Some(object)) = self.assets.objects.get(i as usize) {
+                                context.other = this;
+                                let ids = object.children.clone();
+                                let mut iter = self.instance_list.iter_by_identity(ids);
+                                while let Some(instance) = iter.next(&self.instance_list) {
+                                    context.this = instance;
+                                    returned_value = match gml_body {
+                                        GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
+                                        GmlBody::Code(code) => {
+                                            context.arguments = arg_values.clone();
+                                            context.argument_count = args.len();
+                                            self.execute(code, &mut context)?;
+                                            context.return_value.clone()
+                                        },
+                                    };
+                                }
+                            }
+                        },
+                    }
 
                     if let Some((if_body, else_body)) = if_else {
                         let target = if returned_value.is_true() { if_body } else { else_body };
