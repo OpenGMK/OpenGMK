@@ -1200,9 +1200,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_snap")
     }
 
-    pub fn action_wrap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_wrap")
+    pub fn action_wrap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (horizontal, vertical) = match expect_args!(args, [int])? {
+            0 => (true, false),
+            1 => (false, true),
+            _ => (true, true),
+        };
+
+        self.instance_list.get(context.this).map(|instance| {
+            // Get sprite width/height, as these are used to decide how far to wrap
+            let (w, h) = if let Some(Some(sprite)) = self.assets.sprites.get(instance.sprite_index.get() as usize) {
+                (
+                    (sprite.width as f64) * instance.image_xscale.get(),
+                    (sprite.height as f64) * instance.image_yscale.get(),
+                )
+            } else {
+                (0.0, 0.0)
+            };
+
+            if horizontal {
+                if instance.hspeed.get() > 0.0 && instance.x.get() > (self.room_width as f64) {
+                    // Wrap x right-to-left
+                    instance.x.set(instance.x.get() - w);
+                }
+                if instance.hspeed.get() < 0.0 && instance.x.get() < 0.0 {
+                    // Wrap x left-to-right
+                    instance.x.set(instance.x.get() + w);
+                }
+            }
+            if vertical {
+                if instance.vspeed.get() > 0.0 && instance.y.get() > (self.room_height as f64) {
+                    // Wrap y bottom-to-top
+                    instance.y.set(instance.y.get() - h);
+                }
+                if instance.vspeed.get() < 0.0 && instance.y.get() < 0.0 {
+                    // Wrap y top-to-bottom
+                    instance.y.set(instance.y.get() + h);
+                }
+            }
+        });
+        Ok(Default::default())
     }
 
     pub fn action_reverse_xdir(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1538,9 +1575,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_inherited")
     }
 
-    pub fn action_if_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_if_variable")
+    pub fn action_if_variable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (lhs, rhs, comparator) = expect_args!(args, [any, any, int])?;
+        let operator = match comparator {
+            0 => Value::gml_eq,
+            1 => Value::gml_lt,
+            _ => Value::gml_gt,
+        };
+        operator(lhs, rhs)
     }
 
     pub fn action_draw_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
