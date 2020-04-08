@@ -2540,6 +2540,7 @@ impl Game {
 
     pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this)?;
         self.instance_list.mark_deleted(context.this);
         Ok(Default::default())
     }
