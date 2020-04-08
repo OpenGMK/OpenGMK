@@ -906,7 +906,7 @@ impl Game {
             }
         }
 
-        self.renderer.set_view(src_x, src_y, src_w, src_h, angle, port_x, port_y, port_w, port_h);
+        self.renderer.set_view(src_x, src_y, src_w, src_h, angle.to_radians(), port_x, port_y, port_w, port_h);
 
         fn draw_instance(game: &mut Game, idx: usize) {
             let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
