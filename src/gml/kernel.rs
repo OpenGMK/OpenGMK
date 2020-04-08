@@ -6,6 +6,7 @@ use crate::{
     game::Game,
     gml::{self, Context, Value},
     instance::Instance,
+    util,
 };
 
 macro_rules! _arg_into {
@@ -376,40 +377,29 @@ impl Game {
     }
 
     pub fn make_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (mut h, mut s, mut v) = expect_args!(args, [real, real, real])?;
-        h *= 360.0 / 255.0;
-        s /= 255.0;
-        v /= 255.0;
+        let (h, s, v) = expect_args!(args, [real, real, real])?;
+        let h = h * 360.0 / 255.0;
+        let s = s / 255.0;
+        let v = v / 255.0;
         let chroma = v * s;
         let hprime = (h / 60.0) % 6.0;
         let x = chroma * (1.0 - ((hprime % 2.0) - 1.0).abs());
         let m = v - chroma;
 
         let (r, g, b) = match hprime.floor() as i32 {
-            0 => {
-                (chroma, x, 0.0)
-            },
-            1 => {
-                (x, chroma, 0.0)
-            },
-            2 => {
-                (0.0, chroma, x)
-            },
-            3 => {
-                (0.0, x, chroma)
-            },
-            4 => {
-                (x, 0.0, chroma)
-            },
-            5 => {
-                (chroma, 0.0, x)
-            },
-            _ => {
-                (0.0, 0.0, 0.0)
-            },
+            0 => (chroma, x, 0.0),
+            1 => (x, chroma, 0.0),
+            2 => (0.0, chroma, x),
+            3 => (0.0, x, chroma),
+            4 => (x, 0.0, chroma),
+            5 => (chroma, 0.0, x),
+            _ => (0.0, 0.0, 0.0),
         };
 
-        Ok(((r + m) + ((g + m) * 256.0) + ((b + m) * 256.0 * 256.0)).into())
+        let out_r = util::ieee_round((r + m) * 255.0);
+        let out_g = util::ieee_round((g + m) * 255.0);
+        let out_b = util::ieee_round((b + m) * 255.0);
+        Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
     pub fn color_get_red(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
