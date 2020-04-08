@@ -337,14 +337,17 @@ impl Game {
                     },
                     Target::Global => match self.globals.fields.get_mut(&accessor.index) {
                         Some(field) => {
-                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
-                                Default::default()
-                            } else {
-                                return Err(Error::UninitializedVariable(
-                                    self.compiler.get_field_name(accessor.index).unwrap(),
-                                    array_index,
-                                ))
-                            });
+                            let mut target = match field.get(array_index) {
+                                Some(i) => i,
+                                None => if self.uninit_fields_are_zero {
+                                    Default::default()
+                                } else {
+                                    return Err(Error::UninitializedVariable(
+                                        self.compiler.get_field_name(accessor.index).unwrap(),
+                                        array_index,
+                                    ))
+                                },
+                            };
                             operator(&mut target, value)?;
                             field.set(array_index, target)
                         },
@@ -363,14 +366,17 @@ impl Game {
                     },
                     Target::Local => match context.locals.fields.get_mut(&accessor.index) {
                         Some(field) => {
-                            let mut target = field.get(array_index).unwrap_or(if self.uninit_fields_are_zero {
-                                Default::default()
-                            } else {
-                                return Err(Error::UninitializedVariable(
-                                    self.compiler.get_field_name(accessor.index).unwrap(),
-                                    array_index,
-                                ))
-                            });
+                            let mut target = match field.get(array_index) {
+                                Some(i) => i,
+                                None => if self.uninit_fields_are_zero {
+                                    Default::default()
+                                } else {
+                                    return Err(Error::UninitializedVariable(
+                                        self.compiler.get_field_name(accessor.index).unwrap(),
+                                        array_index,
+                                    ))
+                                },
+                            };
                             operator(&mut target, value)?;
                             field.set(array_index, target)
                         },
