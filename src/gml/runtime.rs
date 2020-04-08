@@ -1237,7 +1237,7 @@ impl Game {
                 instance.image_angle.set(value.into());
             },
             InstanceVariable::ImageAlpha => instance.image_alpha.set(value.into()),
-            InstanceVariable::ImageBlend => instance.image_alpha.set(value.into()),
+            InstanceVariable::ImageBlend => instance.image_blend.set(value.into()),
             InstanceVariable::ImageSpeed => instance.image_speed.set(value.into()),
             InstanceVariable::MaskIndex => {
                 instance.bbox_is_stale.set(true);
