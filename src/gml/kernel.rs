@@ -367,19 +367,49 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_get_alpha")
     }
 
-    pub fn make_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function make_color")
+    pub fn make_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
     }
 
-    pub fn make_color_rgb(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function make_color_rgb")
+    pub fn make_color_rgb(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
     }
 
-    pub fn make_color_hsv(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function make_color_hsv")
+    pub fn make_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut h, mut s, mut v) = expect_args!(args, [real, real, real])?;
+        h *= 360.0 / 255.0;
+        s /= 255.0;
+        v /= 255.0;
+        let chroma = v * s;
+        let hprime = (h / 60.0) % 6.0;
+        let x = chroma * (1.0 - ((hprime % 2.0) - 1.0).abs());
+        let m = v - chroma;
+
+        let (r, g, b) = match hprime.floor() as i32 {
+            0 => {
+                (chroma, x, 0.0)
+            },
+            1 => {
+                (x, chroma, 0.0)
+            },
+            2 => {
+                (0.0, chroma, x)
+            },
+            3 => {
+                (0.0, x, chroma)
+            },
+            4 => {
+                (x, 0.0, chroma)
+            },
+            5 => {
+                (chroma, 0.0, x)
+            },
+            _ => {
+                (0.0, 0.0, 0.0)
+            },
+        };
+
+        Ok(((r + m) + ((g + m) * 256.0) + ((b + m) * 256.0 * 256.0)).into())
     }
 
     pub fn color_get_red(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1122,9 +1152,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_move")
     }
 
-    pub fn action_set_motion(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_motion")
+    pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, speed) = expect_args!(args, [real, real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.direction.set(direction);
+            if context.relative {
+                instance.speed.set(instance.speed.get() + speed);
+            } else {
+                instance.speed.set(speed);
+            }
+        });
+        Ok(Default::default())
     }
 
     pub fn action_set_hspeed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1232,14 +1270,32 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_kill_object")
     }
 
-    pub fn action_create_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_create_object")
+    pub fn action_create_object(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, x, y) = expect_args!(args, [int, real, real])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            self.last_instance_id += 1;
+            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_create_object", format!("Invalid object ID: {}", object_id)))
+        }
     }
 
-    pub fn action_create_object_motion(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function action_create_object_motion")
+    pub fn action_create_object_motion(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, x, y, speed, direction) = expect_args!(args, [int, real, real, real, real])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            self.last_instance_id += 1;
+            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            self.instance_list.get(instance).map(|instance| {
+                instance.speed.set(speed);
+                instance.direction.set(direction);
+            });
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_create_object_motion", format!("Invalid object ID: {}", object_id)))
+        }
     }
 
     pub fn action_create_object_random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
