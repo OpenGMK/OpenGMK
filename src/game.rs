@@ -51,6 +51,7 @@ pub struct Game {
     pub room_width: i32,
     pub room_height: i32,
     pub room_order: Box<[i32]>,
+    pub room_speed: u32,
     pub globals: DummyFieldHolder,
 
     pub uninit_fields_are_zero: bool,
@@ -122,6 +123,7 @@ impl Game {
         };
         let room1_width = room1.width;
         let room1_height = room1.height;
+        let room1_speed = room1.speed;
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -652,6 +654,7 @@ impl Game {
             room_width: room1_width as i32,
             room_height: room1_height as i32,
             room_order: room_order.into_boxed_slice(),
+            room_speed: room1_speed,
             globals: DummyFieldHolder::new(),
             last_instance_id,
             last_tile_id,
@@ -736,6 +739,12 @@ impl Game {
         self.views.extend_from_slice(&room.views);
         self.backgrounds.clear();
         self.backgrounds.extend_from_slice(&room.backgrounds);
+
+        // Update some stored vars
+        self.room_id = room_id;
+        self.room_width = room.width as _;
+        self.room_height = room.height as _;
+        self.room_speed = room.speed;
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {

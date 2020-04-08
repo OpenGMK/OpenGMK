@@ -117,14 +117,13 @@ fn xmain() -> i32 {
         },
     };
 
-    let room_speed = 50; // TODO: actual room speed
     while !components.renderer.should_close() {
         let now = Instant::now();
         if let Err(e) = components.frame() {
             eprintln!("Fatal error: {}", e);
             return EXIT_FAILURE
         }
-        while now.elapsed().as_micros() < 1000000 / room_speed {}
+        while now.elapsed().as_micros() < 1_000_000 / u128::from(components.room_speed) {}
     }
 
     EXIT_SUCCESS
