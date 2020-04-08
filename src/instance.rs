@@ -108,7 +108,7 @@ impl Instance {
             mask_index: Cell::new(object.mask_index),
             direction: Cell::new(0.0),
             gravity: Cell::new(0.0),
-            gravity_direction: Cell::new(0.0),
+            gravity_direction: Cell::new(270.0),
             hspeed: Cell::new(0.0),
             vspeed: Cell::new(0.0),
             speed: Cell::new(0.0),
