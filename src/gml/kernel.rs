@@ -1297,11 +1297,25 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_kill_object")
     }
 
-    pub fn action_create_object(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_create_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (object_id, x, y) = expect_args!(args, [int, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            let (relative_x, relative_y) = if context.relative {
+                self.instance_list
+                    .get(context.this)
+                    .map(|instance| (instance.x.get(), instance.y.get()))
+                    .unwrap_or_default()
+            } else {
+                (0.0, 0.0)
+            };
             self.last_instance_id += 1;
-            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            let instance = self.instance_list.insert(Instance::new(
+                self.last_instance_id,
+                x + relative_x,
+                y + relative_y,
+                object_id,
+                object,
+            ));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
             Ok(Default::default())
         } else {
@@ -1309,11 +1323,25 @@ impl Game {
         }
     }
 
-    pub fn action_create_object_motion(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_create_object_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (object_id, x, y, speed, direction) = expect_args!(args, [int, real, real, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            let (relative_x, relative_y) = if context.relative {
+                self.instance_list
+                    .get(context.this)
+                    .map(|instance| (instance.x.get(), instance.y.get()))
+                    .unwrap_or_default()
+            } else {
+                (0.0, 0.0)
+            };
             self.last_instance_id += 1;
-            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            let instance = self.instance_list.insert(Instance::new(
+                self.last_instance_id,
+                x + relative_x,
+                y + relative_y,
+                object_id,
+                object,
+            ));
             self.instance_list.get(instance).map(|instance| {
                 instance.speed.set(speed);
                 instance.direction.set(direction);
