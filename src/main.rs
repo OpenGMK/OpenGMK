@@ -14,7 +14,7 @@ mod types;
 mod util;
 mod view;
 
-use std::{env, fs, path::Path, process};
+use std::{env, fs, path::Path, process, time::Instant};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -117,8 +117,14 @@ fn xmain() -> i32 {
         },
     };
 
+    let room_speed = 50; // TODO: actual room speed
     while !components.renderer.should_close() {
-        components.frame().unwrap(); // moving the goalpoast, I see
+        let now = Instant::now();
+        if let Err(e) = components.frame() {
+            eprintln!("Fatal error: {}", e);
+            return EXIT_FAILURE
+        }
+        while now.elapsed().as_micros() < 1000000 / room_speed {}
     }
 
     EXIT_SUCCESS
