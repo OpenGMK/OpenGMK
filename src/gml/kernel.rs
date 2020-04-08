@@ -1219,23 +1219,25 @@ impl Game {
             };
 
             if horizontal {
-                if instance.hspeed.get() > 0.0 && instance.x.get() > (self.room_width as f64) {
+                let room_width = self.room_width as f64;
+                if instance.hspeed.get() > 0.0 && instance.x.get() > room_width {
                     // Wrap x right-to-left
-                    instance.x.set(instance.x.get() - w);
+                    instance.x.set(instance.x.get() - (room_width + w));
                 }
                 if instance.hspeed.get() < 0.0 && instance.x.get() < 0.0 {
                     // Wrap x left-to-right
-                    instance.x.set(instance.x.get() + w);
+                    instance.x.set(instance.x.get() + (room_width + w));
                 }
             }
             if vertical {
-                if instance.vspeed.get() > 0.0 && instance.y.get() > (self.room_height as f64) {
+                let room_height = self.room_height as f64;
+                if instance.vspeed.get() > 0.0 && instance.y.get() > room_height {
                     // Wrap y bottom-to-top
-                    instance.y.set(instance.y.get() - h);
+                    instance.y.set(instance.y.get() - (room_height + h));
                 }
                 if instance.vspeed.get() < 0.0 && instance.y.get() < 0.0 {
                     // Wrap y top-to-bottom
-                    instance.y.set(instance.y.get() + h);
+                    instance.y.set(instance.y.get() + (room_height + h));
                 }
             }
         });
