@@ -288,6 +288,7 @@ dependencies = [
 name = "gm8emulator"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gm8exe 0.1.0 (git+https://github.com/OpenGM8/GM8Decompiler.git)",
