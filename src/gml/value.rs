@@ -336,6 +336,12 @@ impl From<Rc<str>> for Value {
     }
 }
 
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::Str(value.into())
+    }
+}
+
 impl From<Value> for i32 {
     // For lazy-converting a value into an i32.
     fn from(value: Value) -> Self {
