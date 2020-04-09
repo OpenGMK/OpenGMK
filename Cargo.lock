@@ -297,6 +297,7 @@ dependencies = [
  "png 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rect_packer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winit 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
