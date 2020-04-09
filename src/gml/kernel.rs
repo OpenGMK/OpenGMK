@@ -8,6 +8,7 @@ use crate::{
     instance::Instance,
     util,
 };
+use std::convert::TryFrom;
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -2056,9 +2057,9 @@ impl Game {
         expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.max(lo).min(hi)))
     }
 
-    pub fn lerp(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function lerp")
+    pub fn lerp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (low, high, amount) = expect_args!(args, [real, real, real])?;
+        Ok(Value::from(((high - low) * amount) + low))
     }
 
     pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2086,19 +2087,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function string_format")
     }
 
-    pub fn chr(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function chr")
+    pub fn chr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|x| char::try_from(x as u32).unwrap_or_default().to_string().into())
     }
 
-    pub fn ansi_char(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ansi_char")
+    pub fn ansi_char(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|x| char::try_from(x as u8).unwrap_or_default().to_string().into())
     }
 
-    pub fn ord(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ord")
+    pub fn ord(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [string]).map(|s| s.chars().nth(0).map(|x| x as u32).unwrap_or_default().into())
     }
 
     pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
