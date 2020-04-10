@@ -4,7 +4,7 @@
 
 /// Auto-generated OpenGL bindings from gl_generator
 #[allow(clippy::all)]
-mod gl {
+pub mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
@@ -15,7 +15,7 @@ use crate::{
     render::{Renderer, RendererOptions},
     types::Color,
 };
-use glfw::Context;
+use cfg_if::cfg_if;
 use rect_packer::DensePacker;
 use std::{
     fs,
@@ -26,18 +26,21 @@ use std::{
     path::PathBuf,
     ptr,
 };
+use winit::window::Window;
+
+cfg_if! {
+    if #[cfg(target_os = "windows")] {
+        mod win32;
+        use win32 as platform;
+    }
+}
 
 // OpenGL typedefs
 use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 pub struct OpenGLRenderer {
-    // GLFW
-    window: glfw::Window,
-
-    // Width the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_width: u32,
-    // Height the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_height: u32,
+    // Device/context info
+    platform_gl: platform::PlatformGL,
 
     // Colour to clear the screen with at the start of each frame (RGB)
     global_clear_colour: Color,
@@ -81,31 +84,10 @@ const VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
 const FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
 
 impl OpenGLRenderer {
-    pub fn new(options: RendererOptions, mut window: glfw::Window) -> Result<Self, String> {
-        window.set_icon_from_pixels(
-            options
-                .icons
-                .iter()
-                .map(|x| glfw::PixelImage {
-                    width: x.1,
-                    height: x.2,
-                    pixels: x
-                        .0
-                        .rchunks_exact(x.1 as usize * 4)
-                        .flat_map(|x| x.chunks_exact(4).map(|r| u32::from_le_bytes([r[2], r[1], r[0], r[3]])))
-                        .collect::<Vec<_>>(),
-                })
-                .collect(),
-        );
+    pub fn new(options: RendererOptions, window: &Window) -> Result<Self, String> {
+        // TODO: redo icons
 
-        window.set_key_polling(true);
-        window.set_framebuffer_size_polling(true);
-
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
-        let mut render_context = window.render_context();
-        render_context.make_current();
-
+        let platform_gl = platform::setup(&window);
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
@@ -208,7 +190,7 @@ impl OpenGLRenderer {
 
             // Enable and disable GL features
             gl::Enable(gl::SCISSOR_TEST);
-            gl::Enable(gl::TEXTURE_2D);
+            // gl::Enable(gl::TEXTURE_2D);
             gl::Disable(gl::CULL_FACE);
             gl::Enable(gl::BLEND);
             gl::Disable(gl::DEPTH_TEST);
@@ -222,10 +204,7 @@ impl OpenGLRenderer {
         };
 
         Ok(Self {
-            window,
-
-            unscaled_width: options.size.0,
-            unscaled_height: options.size.1,
+            platform_gl,
 
             draw_commands: Vec::with_capacity(256),
 
@@ -392,6 +371,12 @@ impl Renderer for OpenGLRenderer {
                 buf
             };
 
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
+            }
+
             // upload textures
             for (atl_ref, pixels) in &sprites {
                 if self.current_atlas != atl_ref.atlas_id {
@@ -544,6 +529,10 @@ impl Renderer for OpenGLRenderer {
 
     fn set_view(
         &mut self,
+        width: u32,
+        height: u32,
+        unscaled_width: u32,
+        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -596,11 +585,11 @@ impl Renderer for OpenGLRenderer {
 
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
-        let (width, height) = self.window.get_size();
-        let port_w = ((port_w * width) as f64 / self.unscaled_width as f64) as i32;
-        let port_h = ((port_h * height) as f64 / self.unscaled_height as f64) as i32;
-        let port_x = ((port_x * width) as f64 / self.unscaled_width as f64) as i32;
-        let port_y = height - (((port_y * height) as f64 / self.unscaled_height as f64) as i32 + port_h);
+        let (width, height) = (width as i32, height as i32);
+        let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
+        let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
+        let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32;
+        let port_y = height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h);
 
         // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
         unsafe {
@@ -621,16 +610,15 @@ impl Renderer for OpenGLRenderer {
         }
     }
 
-    fn finish(&mut self) {
+    fn finish(&mut self, width: u32, height: u32) {
         // Finish drawing frame
         self.flush();
-        self.window.swap_buffers();
+        platform::swap_buffers(&self.platform_gl);
 
         // Start next frame
-        let (window_w, window_h) = self.window.get_size();
         unsafe {
-            gl::Viewport(0, 0, window_w, window_h);
-            gl::Scissor(0, 0, window_w, window_h);
+            gl::Viewport(0, 0, width as _, height as _);
+            gl::Scissor(0, 0, width as _, height as _);
             gl::ClearColor(
                 self.global_clear_colour.r as f32,
                 self.global_clear_colour.g as f32,
@@ -661,25 +649,8 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn should_close(&self) -> bool {
-        self.window.should_close()
-    }
-
-    fn set_should_close(&mut self, b: bool) {
-        self.window.set_should_close(b)
-    }
-
-    fn show_window(&mut self) {
-        self.window.show()
-    }
-
-    fn resize_window(&mut self, width: u32, height: u32) {
-        // GameMaker only actually resizes the window if the expected (unscaled) size is changing.
-        if self.unscaled_width != width || self.unscaled_height != height {
-            self.unscaled_width = width;
-            self.unscaled_height = height;
-            self.window.set_size(width as _, height as _);
-        }
+    fn swap_interval(&mut self, n: u32) {
+        platform::swap_interval(n);
     }
 }
 
