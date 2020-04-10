@@ -14,7 +14,7 @@ mod types;
 mod util;
 mod view;
 
-use std::{env, fs, path::Path, process, time::Instant};
+use std::{env, fs, path::Path, process};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -109,7 +109,7 @@ fn xmain() -> i32 {
         },
     };
 
-    let mut components = match game::Game::launch(assets) {
+    let components = match game::Game::launch(assets) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
@@ -117,14 +117,7 @@ fn xmain() -> i32 {
         },
     };
 
-    while !components.renderer.should_close() {
-        let now = Instant::now();
-        if let Err(e) = components.frame() {
-            eprintln!("Fatal error: {}", e);
-            return EXIT_FAILURE
-        }
-        while now.elapsed().as_micros() < 1_000_000 / u128::from(components.room_speed) {}
-    }
+    components.run();
 
     EXIT_SUCCESS
 }
