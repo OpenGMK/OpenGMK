@@ -75,7 +75,7 @@ impl FileManager {
     }
 
     pub fn close(&mut self, handle: i32, content: Content) -> Result<()> {
-        match self.handles.get(handle as usize) {
+        match self.handles.get((handle - 1) as usize) {
             Some(Some(f)) => {
                 if f.content == content {
                     Ok(self.handles[handle as usize] = None)
@@ -88,7 +88,7 @@ impl FileManager {
     }
 
     pub fn read_byte(&mut self, handle: i32) -> Result<u8> {
-        match self.handles.get_mut(handle as usize) {
+        match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
                 let mut buf: [u8; 1] = [0];
                 f.file.read_exact(&mut buf)?;
@@ -99,7 +99,7 @@ impl FileManager {
     }
 
     pub fn write_byte(&mut self, handle: i32, byte: u8) -> Result<()> {
-        match self.handles.get_mut(handle as usize) {
+        match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
                 f.file.write_all(&[byte])?;
                 Ok(())
