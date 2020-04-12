@@ -43,6 +43,17 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<Error> for String {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::InvalidFile(handle) => format!("invalid file handle {}", handle),
+            Error::IOError(err) => format!("io error: {}", err),
+            Error::OutOfFiles => "out of files".into(),
+            Error::WrongContent => "invalid operation".into(),
+        }
+    }
+}
+
 impl FileManager {
     pub fn new() -> Self {
         Self { handles: Default::default() }
