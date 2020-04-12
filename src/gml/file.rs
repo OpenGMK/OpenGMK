@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct FileManager {
-    pub handles: [Option<Handle>; 32],
+    handles: [Option<Handle>; 32],
 }
 
 #[derive(Debug)]
@@ -44,6 +44,10 @@ impl From<io::Error> for Error {
 }
 
 impl FileManager {
+    pub fn new() -> Self {
+        Self { handles: Default::default() }
+    }
+
     pub fn open(&mut self, path: &str, access_type: AccessType, content: Content, append: bool) -> Result<i32> {
         let file = match (access_type, content) {
             (AccessType::Read, _) => File::open(path)?,
