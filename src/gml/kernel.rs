@@ -3356,62 +3356,82 @@ impl Game {
 
     pub fn message_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function message_background")
+        //unimplemented!("Called unimplemented kernel function message_background")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function message_button")
+        //unimplemented!("Called unimplemented kernel function message_button")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_alpha(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function message_alpha")
+        //unimplemented!("Called unimplemented kernel function message_alpha")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_text_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function message_text_font")
+        //unimplemented!("Called unimplemented kernel function message_text_font")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_button_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function message_button_font")
+        //unimplemented!("Called unimplemented kernel function message_button_font")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_input_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function message_input_font")
+        //unimplemented!("Called unimplemented kernel function message_input_font")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_text_charset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function message_text_charset")
+        //unimplemented!("Called unimplemented kernel function message_text_charset")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_mouse_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function message_mouse_color")
+        //unimplemented!("Called unimplemented kernel function message_mouse_color")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn message_input_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function message_input_color")
+        //unimplemented!("Called unimplemented kernel function message_input_color")
+        Ok(Default::default())
     }
 
     pub fn message_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function message_position")
+        //unimplemented!("Called unimplemented kernel function message_position")
+        Ok(Default::default())
     }
 
     pub fn message_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function message_size")
+        //unimplemented!("Called unimplemented kernel function message_size")
+        Ok(Default::default())
     }
 
     pub fn message_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function message_caption")
+        //unimplemented!("Called unimplemented kernel function message_caption")
+        Ok(Default::default())
     }
 
     pub fn show_menu(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6030,32 +6050,44 @@ impl Game {
 
     pub fn sound_play(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_play")
+        //unimplemented!("Called unimplemented kernel function sound_play")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_loop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_loop")
+        //unimplemented!("Called unimplemented kernel function sound_loop")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_stop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_stop")
+        //unimplemented!("Called unimplemented kernel function sound_stop")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_stop_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function sound_stop_all")
+        //unimplemented!("Called unimplemented kernel function sound_stop_all")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_isplaying(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_isplaying")
+        //unimplemented!("Called unimplemented kernel function sound_isplaying")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_volume(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sound_volume")
+        //unimplemented!("Called unimplemented kernel function sound_volume")
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn sound_fade(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
