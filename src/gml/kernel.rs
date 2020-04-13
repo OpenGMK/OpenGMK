@@ -1156,24 +1156,32 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_set_hspeed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_hspeed")
+    pub fn action_set_hspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| {
+            self.instance_list.get(context.this).map(|i| i.set_hspeed(x));
+            Ok(Default::default())
+        })?
     }
 
-    pub fn action_set_vspeed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_vspeed")
+    pub fn action_set_vspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| {
+            self.instance_list.get(context.this).map(|i| i.set_vspeed(x));
+            Ok(Default::default())
+        })?
     }
 
-    pub fn action_set_gravity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_gravity")
+    pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| {
+            self.instance_list.get(context.this).map(|i| i.gravity.set(x));
+            Ok(Default::default())
+        })?
     }
 
-    pub fn action_set_friction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_friction")
+    pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [real]).map(|x| {
+            self.instance_list.get(context.this).map(|i| i.friction.set(x));
+            Ok(Default::default())
+        })?
     }
 
     pub fn action_move_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1245,14 +1253,16 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_reverse_xdir(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_reverse_xdir")
+    pub fn action_reverse_xdir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|i| i.set_hspeed(-i.hspeed.get()));
+        Ok(Default::default())
     }
 
-    pub fn action_reverse_ydir(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_reverse_ydir")
+    pub fn action_reverse_ydir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|i| i.set_vspeed(-i.vspeed.get()));
+        Ok(Default::default())
     }
 
     pub fn action_move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
