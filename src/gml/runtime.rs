@@ -1192,12 +1192,18 @@ impl Game {
 
         match var {
             InstanceVariable::X => {
-                instance.bbox_is_stale.set(true);
-                instance.x.set(value.into());
+                let v: f64 = value.into();
+                if v != instance.x.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.x.set(v);
+                }
             },
             InstanceVariable::Y => {
-                instance.bbox_is_stale.set(true);
-                instance.y.set(value.into());
+                let v: f64 = value.into();
+                if v != instance.y.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.y.set(v);
+                }
             },
             InstanceVariable::Xprevious => instance.xprevious.set(value.into()),
             InstanceVariable::Yprevious => instance.yprevious.set(value.into()),
@@ -1218,36 +1224,49 @@ impl Game {
             InstanceVariable::Persistent => instance.persistent.set(value.is_true()),
             InstanceVariable::Depth => instance.depth.set(value.into()),
             InstanceVariable::SpriteIndex => {
-                instance.bbox_is_stale.set(true);
-                instance.sprite_index.set(value.into());
+                let v: i32 = value.into();
+                if v != instance.sprite_index.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.sprite_index.set(v);
+                }
             },
             InstanceVariable::ImageIndex => {
-                instance.bbox_is_stale.set(true);
                 instance.image_index.set(value.into());
             },
             InstanceVariable::ImageSingle => {
-                instance.bbox_is_stale.set(true);
                 instance.image_index.set(value.into());
-                instance.image_speed.set(1.0);
+                instance.image_speed.set(0.0);
             },
             InstanceVariable::ImageXscale => {
-                instance.bbox_is_stale.set(true);
-                instance.image_xscale.set(value.into());
+                let v: f64 = value.into();
+                if v != instance.image_xscale.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.image_xscale.set(v);
+                }
             },
             InstanceVariable::ImageYscale => {
-                instance.bbox_is_stale.set(true);
-                instance.image_yscale.set(value.into());
+                let v: f64 = value.into();
+                if v != instance.image_yscale.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.image_yscale.set(v);
+                }
             },
             InstanceVariable::ImageAngle => {
-                instance.bbox_is_stale.set(true);
-                instance.image_angle.set(value.into());
+                let v: f64 = value.into();
+                if v != instance.image_angle.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.image_angle.set(v);
+                }
             },
             InstanceVariable::ImageAlpha => instance.image_alpha.set(value.into()),
             InstanceVariable::ImageBlend => instance.image_blend.set(value.into()),
             InstanceVariable::ImageSpeed => instance.image_speed.set(value.into()),
             InstanceVariable::MaskIndex => {
-                instance.bbox_is_stale.set(true);
-                instance.mask_index.set(value.into());
+                let v: i32 = value.into();
+                if v != instance.mask_index.get() {
+                    instance.bbox_is_stale.set(true);
+                    instance.mask_index.set(v);
+                }
             },
             InstanceVariable::PathPosition => instance.path_position.set(value.into()),
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),
