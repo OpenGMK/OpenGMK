@@ -25,15 +25,18 @@ use std::{
     hint::unreachable_unchecked,
     iter::repeat,
     rc::Rc,
-    sync::mpsc::Receiver,
+};
+use winit::{
+    dpi::PhysicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
 };
 
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
     pub file_manager: FileManager,
-    pub glfw: glfw::Glfw,
-    pub glfw_events: Receiver<(f64, glfw::WindowEvent)>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -76,6 +79,14 @@ pub struct Game {
     // window caption
     pub caption: Rc<str>,
     pub caption_stale: bool,
+
+    // winit windowing
+    event_loop: Option<EventLoop<()>>,
+    window: Window,
+    // Width the window is supposed to have, assuming it hasn't been resized by the user
+    unscaled_width: u32,
+    // Height the window is supposed to have, assuming it hasn't been resized by the user
+    unscaled_height: u32,
 }
 
 pub struct Assets {
@@ -212,27 +223,16 @@ impl Game {
             vsync: settings.vsync, // TODO: Overrideable
         };
 
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("Failed to init GLFW");
-        glfw.window_hint(glfw::WindowHint::Visible(false));
+        // TODO: fullscreening
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new()
+            .with_inner_size(PhysicalSize::new(options.size.0, options.size.1))
+            .with_visible(false)
+            .build(&event_loop)?;
 
-        let (window, events) = glfw
-            .create_window(
-                options.size.0,
-                options.size.1,
-                options.title,
-                if options.fullscreen {
-                    // TODO: not possible to do this safely with current glfw bindings - maybe unsafe it?
-                    unimplemented!()
-                } else {
-                    glfw::WindowMode::Windowed
-                },
-            )
-            .expect("Failed to create GLFW window");
+        let mut renderer = OpenGLRenderer::new(options, &window)?;
 
-        let mut renderer = OpenGLRenderer::new(options, window)?;
-
-        // needs to be done after renderer sets context
-        glfw.set_swap_interval(if settings.vsync { glfw::SwapInterval::Sync(1) } else { glfw::SwapInterval::None });
+        renderer.swap_interval(0); // no vsync
 
         let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
@@ -642,8 +642,6 @@ impl Game {
         let mut game = Self {
             compiler,
             file_manager: FileManager::new(),
-            glfw,
-            glfw_events: events,
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand: Random::new(),
@@ -678,14 +676,27 @@ impl Game {
             score_capt_d: false,
             lives_capt_d: false,
             health_capt_d: false,
+            window,
+            event_loop: Some(event_loop),
+
+            // load_room sets this
+            unscaled_width: 0,
+            unscaled_height: 0,
         };
 
         game.load_room(room1_id)?;
-
-        // Important: show window
-        game.renderer.show_window();
+        game.window.set_visible(true);
 
         Ok(game)
+    }
+
+    fn resize_window(&mut self, width: u32, height: u32) {
+        // GameMaker only actually resizes the window if the expected (unscaled) size is changing.
+        if self.unscaled_width != width || self.unscaled_height != height {
+            self.unscaled_width = width;
+            self.unscaled_height = height;
+            self.window.set_inner_size(PhysicalSize::new(width, height));
+        }
     }
 
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
@@ -732,7 +743,8 @@ impl Game {
                 (x_max as u32, y_max as u32)
             }
         };
-        self.renderer.resize_window(view_width, view_height);
+
+        self.resize_window(view_width, view_height);
         self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
 
         // Update views, backgrounds
@@ -891,7 +903,8 @@ impl Game {
         }
 
         // Tell renderer to finish the frame and start the next one
-        self.renderer.finish();
+        let (width, height) = self.window.inner_size().into();
+        self.renderer.finish(width, height);
 
         Ok(()) // Now that's some Rust!
     }
@@ -909,19 +922,22 @@ impl Game {
         port_h: i32,
         angle: f64,
     ) -> gml::Result<()> {
-        self.glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&self.glfw_events) {
-            println!("Got event {:?}", event);
-            match event {
-                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) => {
-                    self.renderer.set_should_close(true);
-                    continue // So no draw events are fired while the window should be closing
-                },
-                _ => {},
-            }
-        }
-
-        self.renderer.set_view(src_x, src_y, src_w, src_h, angle.to_radians(), port_x, port_y, port_w, port_h);
+        let (width, height) = self.window.inner_size().into();
+        self.renderer.set_view(
+            width,
+            height,
+            self.unscaled_width,
+            self.unscaled_height,
+            src_x,
+            src_y,
+            src_w,
+            src_h,
+            angle.to_radians(),
+            port_x,
+            port_y,
+            port_w,
+            port_h,
+        );
 
         fn draw_instance(game: &mut Game, idx: usize) {
             let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
@@ -1053,5 +1069,41 @@ impl Game {
         };
 
         self.execute_tree(event, instance, other, event_id, event_sub as _, object_id)
+    }
+
+    pub fn run(mut self) {
+        use std::{
+            thread,
+            time::{Duration, Instant},
+        };
+
+        let event_loop = self.event_loop.take().unwrap();
+        let mut now = std::time::Instant::now();
+        event_loop.run(move |event, _, control_flow| {
+            // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
+            // dispatched any events. This is ideal for games and similar applications.
+            *control_flow = ControlFlow::Poll;
+
+            match event {
+                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                    println!("The close button was pressed; stopping");
+                    *control_flow = ControlFlow::Exit
+                },
+                Event::MainEventsCleared => {
+                    self.window.request_redraw();
+                },
+                Event::RedrawRequested(_) => {
+                    self.frame().unwrap();
+                    let diff = Instant::now().duration_since(now);
+                    if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+                        thread::sleep(slep);
+                    }
+                },
+                Event::RedrawEventsCleared => {
+                    now = Instant::now();
+                },
+                _ => (),
+            }
+        });
     }
 }

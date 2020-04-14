@@ -21,17 +21,8 @@ pub trait Renderer {
     /// Returns the max texture size the GPU can hold.
     fn max_gpu_texture_size(&self) -> usize;
 
-    /// Indicates whether the window wants to close.
-    fn should_close(&self) -> bool;
-
-    /// Instructs the window to close. This sucks.
-    fn set_should_close(&mut self, b: bool);
-
-    /// Indicates that the window should be shown.
-    fn show_window(&mut self);
-
-    /// Used to resize the window and change its expected (unscaled) size. Usually used after changing rooms.
-    fn resize_window(&mut self, width: u32, height: u32);
+    /// Used to set the swap interval. Pass 0 to turn V-Sync off.
+    fn swap_interval(&mut self, n: u32);
 
     /// Sets the colour (RGB) which will be used to clear the background rectangle after using set_view().
     /// If None is provided, the background will not be cleared at all.
@@ -40,6 +31,10 @@ pub trait Renderer {
     /// Updates the view (source rectangle, angle and viewport) to use when drawing things.
     fn set_view(
         &mut self,
+        width: u32,
+        height: u32,
+        unscaled_width: u32,
+        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -82,7 +77,7 @@ pub trait Renderer {
     );
 
     /// Updates the screen. Should be called only after drawing everything that should be in the current frame.
-    fn finish(&mut self);
+    fn finish(&mut self, width: u32, height: u32);
 }
 
 pub struct RendererOptions<'a> {
