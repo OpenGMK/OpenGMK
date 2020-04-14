@@ -1072,6 +1072,11 @@ impl Game {
     }
 
     pub fn run(mut self) {
+        use std::{
+            thread,
+            time::{Duration, Instant},
+        };
+
         let event_loop = self.event_loop.take().unwrap();
         let mut now = std::time::Instant::now();
         event_loop.run(move |event, _, control_flow| {
@@ -1088,9 +1093,14 @@ impl Game {
                     self.window.request_redraw();
                 },
                 Event::RedrawRequested(_) => {
-                    while now.elapsed().as_micros() < 1_000_000 / u128::from(self.room_speed) {}
                     self.frame().unwrap();
-                    now = std::time::Instant::now();
+                    let diff = Instant::now().duration_since(now);
+                    if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+                        thread::sleep(slep);
+                    }
+                },
+                Event::RedrawEventsCleared => {
+                    now = Instant::now();
                 },
                 _ => (),
             }
