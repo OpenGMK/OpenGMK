@@ -8,7 +8,7 @@ use crate::{
     },
     atlas::AtlasBuilder,
     background,
-    gml::{self, ev, rand::Random, Compiler, Context},
+    gml::{self, ev, file::FileManager, rand::Random, Compiler, Context},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -36,6 +36,7 @@ use winit::{
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
+    pub file_manager: FileManager,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -640,6 +641,7 @@ impl Game {
 
         let mut game = Self {
             compiler,
+            file_manager: FileManager::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand: Random::new(),
