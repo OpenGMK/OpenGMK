@@ -23,6 +23,9 @@ winit = { git = "https://github.com/Osspial/winit", branch = "fix-everything" }
 version = "0.3"
 features = ["libloaderapi", "wingdi", "winuser"]
 
+[target.'cfg(target_os = "linux")'.dependencies.x11]
+version = "2.18.2"
+
 [profile.release]
 codegen-units = 1
 lto = true
