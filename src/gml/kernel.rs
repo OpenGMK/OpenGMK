@@ -2610,19 +2610,38 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_activate_region")
     }
 
-    pub fn room_goto(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_goto")
+    pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|target| self.room_target = Some(target.into()))?;
+        Ok(Default::default())
     }
 
-    pub fn room_goto_previous(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function room_goto_previous")
+    pub fn room_goto_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self
+            .room_order
+            .iter()
+            .position(|x| *x == self.room_id)
+            .and_then(|x| x.checked_sub(1))
+            .and_then(|x| self.room_order.get(x).copied())
+        {
+            Some(i) => {
+                self.room_target = Some(i);
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::EndOfRoomOrder),
+        }
     }
 
-    pub fn room_goto_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function room_goto_next")
+    pub fn room_goto_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.room_order.iter().position(|x| *x == self.room_id).and_then(|x| self.room_order.get(x + 1).copied())
+        {
+            Some(i) => {
+                self.room_target = Some(i);
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::EndOfRoomOrder),
+        }
     }
 
     pub fn room_previous(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

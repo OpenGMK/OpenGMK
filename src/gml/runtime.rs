@@ -91,7 +91,7 @@ pub enum InstanceIdentifier {
 
 #[derive(Clone, Debug)]
 pub enum Error {
-    EmptyRoomOrder,
+    EndOfRoomOrder,
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
     InvalidUnaryOperator(Operator),
@@ -120,7 +120,7 @@ impl std::error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::EmptyRoomOrder => write!(f, "empty room order (no rooms found)"),
+            Self::EndOfRoomOrder => write!(f, "end of room order reached"),
             Self::InvalidOperandsUnary(op, x) => {
                 write!(f, "invalid operands {} to {} operator ({1}{})", x.ty_str(), op, x)
             },
@@ -1018,11 +1018,11 @@ impl Game {
             InstanceVariable::Room => Ok(self.room_id.into()),
             InstanceVariable::RoomFirst => match self.room_order.get(0) {
                 Some(room) => Ok((*room).into()),
-                None => Err(Error::EmptyRoomOrder),
+                None => Err(Error::EndOfRoomOrder),
             },
             InstanceVariable::RoomLast => match self.room_order.get(self.room_order.len() - 1) {
                 Some(room) => Ok((*room).into()),
-                None => Err(Error::EmptyRoomOrder),
+                None => Err(Error::EndOfRoomOrder),
             },
             InstanceVariable::TransitionKind => Ok(self.transition_kind.into()),
             InstanceVariable::TransitionSteps => Ok(self.transition_steps.into()),
@@ -1300,7 +1300,7 @@ impl Game {
             InstanceVariable::Argument14 => self.set_argument(context, 14, value)?,
             InstanceVariable::Argument15 => self.set_argument(context, 15, value)?,
             InstanceVariable::Argument => self.set_argument(context, array_index as usize, value)?,
-            InstanceVariable::Room => todo!(),
+            InstanceVariable::Room => self.room_target = Some(value.into()),
             InstanceVariable::TransitionKind => self.transition_kind = value.into(),
             InstanceVariable::TransitionSteps => self.transition_steps = value.into(),
             InstanceVariable::Score => self.score = value.into(),

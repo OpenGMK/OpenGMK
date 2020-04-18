@@ -56,6 +56,8 @@ pub struct Game {
     pub room_height: i32,
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
+    pub room_target: Option<ID>,
+
     pub globals: DummyFieldHolder,
 
     pub uninit_fields_are_zero: bool,
@@ -675,6 +677,7 @@ impl Game {
             room_height: room1_height as i32,
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
+            room_target: None,
             globals: DummyFieldHolder::new(),
             last_instance_id,
             last_tile_id,
