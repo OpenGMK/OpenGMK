@@ -1107,3 +1107,32 @@ impl Game {
         });
     }
 }
+
+pub trait GetAsset<T> {
+    fn get_asset(&self, index: ID) -> Option<&T>;
+    fn get_asset_mut(&mut self, index: ID) -> Option<&mut T>;
+}
+
+impl<T> GetAsset<T> for Vec<Option<T>> {
+    fn get_asset(&self, index: ID) -> Option<&T> {
+        if index < 0 {
+            None
+        } else {
+            match self.get(index as usize) {
+                Some(Some(T)) => Some(T),
+                None => None,
+            }
+        }
+    }
+
+    fn get_asset_mut(&mut self, index: ID) -> Option<&mut T> {
+        if index < 0 {
+            None
+        } else {
+            match self.get_mut(index as usize) {
+                Some(Some(T)) => Some(T),
+                None => None,
+            }
+        }
+    }
+}
