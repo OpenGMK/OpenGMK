@@ -1001,6 +1001,24 @@ impl Game {
             }
         }
 
+        // draw backgrounds
+        for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
+            if let Some(atlas_ref) =
+                self.assets.backgrounds.get_asset(background.background_id).and_then(|x| x.atlas_ref.as_ref())
+            {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    background.x_offset,
+                    background.y_offset,
+                    background.xscale,
+                    background.yscale,
+                    0.0,
+                    background.blend,
+                    background.alpha,
+                );
+            }
+        }
+
         self.instance_list.draw_sort();
         let mut iter_inst = self.instance_list.iter_by_drawing();
         let mut iter_inst_v = iter_inst.next(&self.instance_list);
@@ -1038,6 +1056,24 @@ impl Game {
                     break
                 },
                 (None, None) => break,
+            }
+        }
+
+        // draw foregrounds
+        for background in self.backgrounds.iter().filter(|x| x.visible && x.is_foreground) {
+            if let Some(atlas_ref) =
+                self.assets.backgrounds.get_asset(background.background_id).and_then(|x| x.atlas_ref.as_ref())
+            {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    background.x_offset,
+                    background.y_offset,
+                    background.xscale,
+                    background.yscale,
+                    0.0,
+                    background.blend,
+                    background.alpha,
+                );
             }
         }
 
