@@ -834,6 +834,8 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance)?;
         }
 
+        // Draw "frame 0" and then return
+        self.draw()?;
         Ok(())
     }
 
@@ -900,13 +902,20 @@ impl Game {
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
+        // Draw everything, including running draw events, and return the result
+        self.draw()
+    }
+
+    /// Draws all instances, tiles and backgrounds to the screen, taking all active views into account.
+    /// Note that this function runs GML code associated with object draw events, so its usage must match GameMaker 8.
+    fn draw(&mut self) -> gml::Result<()> {
         // Draw all views
         if self.views_enabled {
             // Iter views in a non-borrowing way
             let mut count = 0;
             while let Some(&view) = self.views.get(count) {
                 if view.visible {
-                    self.draw(
+                    self.draw_view(
                         view.source_x,
                         view.source_y,
                         view.source_w as _,
@@ -921,18 +930,18 @@ impl Game {
                 count += 1;
             }
         } else {
-            self.draw(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
+            self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
 
         // Tell renderer to finish the frame and start the next one
         let (width, height) = self.window.inner_size().into();
         self.renderer.finish(width, height);
 
-        Ok(()) // Now that's some Rust!
+        Ok(())
     }
 
-    /// Draws everything in the scene with a given view
-    fn draw(
+    /// Draws everything in the scene using a given view rectangle
+    fn draw_view(
         &mut self,
         src_x: i32,
         src_y: i32,
