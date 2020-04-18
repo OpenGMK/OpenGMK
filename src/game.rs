@@ -1118,24 +1118,30 @@ impl Game {
         instance: usize,
         other: usize,
     ) -> gml::Result<()> {
-        let mut object_id =
-            self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get();
-        let event = loop {
-            if object_id < 0 {
-                return Ok(())
-            }
-            if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
-                if let Some(event) = object.events.get(event_id).and_then(|x| x.get(&event_sub)) {
-                    break event.clone()
-                } else {
-                    object_id = object.parent_index;
+        // Running instance events is not allowed if a room change is pending. This appears to be
+        // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
+        if self.room_target.is_none() {
+            let mut object_id =
+                self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get();
+            let event = loop {
+                if object_id < 0 {
+                    return Ok(())
                 }
-            } else {
-                return Ok(())
-            }
-        };
+                if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+                    if let Some(event) = object.events.get(event_id).and_then(|x| x.get(&event_sub)) {
+                        break event.clone()
+                    } else {
+                        object_id = object.parent_index;
+                    }
+                } else {
+                    return Ok(())
+                }
+            };
 
-        self.execute_tree(event, instance, other, event_id, event_sub as _, object_id)
+            self.execute_tree(event, instance, other, event_id, event_sub as _, object_id)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn run(mut self) {
