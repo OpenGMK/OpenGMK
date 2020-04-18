@@ -92,7 +92,7 @@ pub struct FileFunction {
     pub external_name: String,
     pub convention: CallingConvention,
     pub id: u32,
-    pub arg_count: usize,
+    pub arg_count: i32,
     pub arg_types: [FunctionValueKind; ARG_MAX],
     pub return_type: FunctionValueKind,
 }
@@ -159,7 +159,7 @@ impl Extension {
 
                 let id = reader.read_u32_le()?;
 
-                let arg_count = reader.read_u32_le()? as usize;
+                let arg_count = reader.read_i32_le()?;
                 let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
                 for val in arg_types.iter_mut() {
                     *val = reader.read_u32_le()?.into();
