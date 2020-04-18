@@ -45,5 +45,34 @@ fn main() -> Result<(), Box<dyn Error>> {
     Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, &OPENGL_EXTENSIONS)
         .write_bindings(GlobalGenerator, &mut bindings)?;
 
+    // WGL (Windows OpenGL) Bindings
+    if cfg!(target_os = "windows") {
+        let mut file = File::create(&Path::new(&out).join("wgl_bindings.rs"))?;
+        Registry::new(Api::Wgl, (1, 0), Profile::Core, Fallbacks::All, [
+            "WGL_ARB_create_context",
+            "WGL_ARB_create_context_profile",
+            "WGL_ARB_extensions_string",
+            "WGL_EXT_swap_control",
+        ])
+        .write_bindings(GlobalGenerator, &mut file)?;
+    }
+
+    // GLX (OpenGL Extension for X) Bindings
+    if cfg!(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    )) {
+        let mut file = File::create(&Path::new(&out).join("glx_bindings.rs"))?;
+        Registry::new(Api::Glx, (1, 4), Profile::Core, Fallbacks::All, [
+            "GLX_ARB_create_context",
+            "GLX_ARB_create_context_profile",
+            "GLX_EXT_swap_control",
+        ])
+        .write_bindings(GlobalGenerator, &mut file)?;
+    }
+
     Ok(())
 }
