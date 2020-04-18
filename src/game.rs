@@ -476,11 +476,13 @@ impl Game {
                         Ok(c) => c,
                         Err(e) => return Err(format!("Compiler error in room {} creation code: {}", b.name, e)),
                     };
+                    let width = b.width;
+                    let height = b.height;
                     Ok(Box::new(Room {
                         name: b.name.into(),
                         caption: b.caption.into(),
-                        width: b.width,
-                        height: b.height,
+                        width,
+                        height,
                         speed: b.speed,
                         persistent: b.persistent,
                         bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b).into(),
@@ -499,7 +501,24 @@ impl Game {
                                 tile_vertical: bg.tile_vert,
                                 hspeed: f64::from(bg.hspeed),
                                 vspeed: f64::from(bg.vspeed),
-                                stretch: bg.stretch,
+                                xscale: if bg.stretch {
+                                    if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
+                                        f64::from(width) / f64::from(bg_asset.width)
+                                    } else {
+                                        f64::from(width)
+                                    }
+                                } else {
+                                    1.0
+                                },
+                                yscale: if bg.stretch {
+                                    if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
+                                        f64::from(height) / f64::from(bg_asset.height)
+                                    } else {
+                                        f64::from(height)
+                                    }
+                                } else {
+                                    1.0
+                                },
                                 blend: 0xFFFFFF,
                                 alpha: 1.0,
                             })

@@ -29,8 +29,11 @@ pub struct Background {
     /// Speed of y_offset increase per frame
     pub vspeed: f64,
 
-    /// Whether to stretch the background image to fit the screen
-    pub stretch: bool,
+    /// X-axis scale factor
+    pub xscale: f64,
+
+    /// Y-axis scale factor
+    pub yscale: f64,
 
     /// Colour blend value to draw this background with
     pub blend: i32,
