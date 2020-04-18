@@ -144,7 +144,7 @@ pub fn swap_buffers(plat: &PlatformGL) {
     }
 }
 
-pub fn swap_interval(n: u32) {
+pub fn swap_interval(_plat: &PlatformGL, n: u32) {
     unsafe {
         let gl32 = LoadLibraryA(b"opengl32.dll\0".as_ptr() as *const c_char);
         let fp = load_gl_function(b"wglSwapIntervalEXT\0".as_ptr() as *const c_char, gl32);

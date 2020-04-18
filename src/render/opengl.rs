@@ -32,6 +32,9 @@ cfg_if! {
     if #[cfg(target_os = "windows")] {
         mod win32;
         use win32 as platform;
+    } else {
+        mod xorg;
+        use xorg as platform;
     }
 }
 
@@ -650,7 +653,7 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn swap_interval(&mut self, n: u32) {
-        platform::swap_interval(n);
+        platform::swap_interval(&self.platform_gl, n);
     }
 }
 
