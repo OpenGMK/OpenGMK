@@ -1065,8 +1065,12 @@ impl Game {
             InstanceVariable::BackgroundVtiled => {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_vertical.into())
             },
-            InstanceVariable::BackgroundXscale => todo!(),
-            InstanceVariable::BackgroundYscale => todo!(),
+            InstanceVariable::BackgroundXscale => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).xscale.into())
+            },
+            InstanceVariable::BackgroundYscale => {
+                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).yscale.into())
+            },
             InstanceVariable::BackgroundHspeed => {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).hspeed.into())
             },
@@ -1344,8 +1348,14 @@ impl Game {
                 Some(background) => background.tile_vertical = value.is_true(),
                 None => self.backgrounds[0].tile_vertical = value.is_true(),
             },
-            InstanceVariable::BackgroundXscale => todo!(),
-            InstanceVariable::BackgroundYscale => todo!(),
+            InstanceVariable::BackgroundXscale => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.xscale = value.into(),
+                None => self.backgrounds[0].xscale = value.into(),
+            },
+            InstanceVariable::BackgroundYscale => match self.backgrounds.get_mut(array_index as usize) {
+                Some(background) => background.yscale = value.into(),
+                None => self.backgrounds[0].yscale = value.into(),
+            },
             InstanceVariable::BackgroundHspeed => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.hspeed = value.into(),
                 None => self.backgrounds[0].hspeed = value.into(),
