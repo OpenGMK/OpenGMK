@@ -782,6 +782,7 @@ impl Game {
         self.room_width = room.width as _;
         self.room_height = room.height as _;
         self.room_speed = room.speed;
+        self.room_target = None;
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
