@@ -20,7 +20,7 @@ matrix:
 
 before_install:
   - sudo apt update
-  - sudo apt install -y xorg-dev
+  - sudo apt install -y xorg-dev libgl1-mesa-dev
 script:
   - cargo build --verbose
   - cargo test --verbose
