@@ -1119,8 +1119,8 @@ impl<T> GetAsset<T> for Vec<Option<T>> {
             None
         } else {
             match self.get(index as usize) {
-                Some(Some(T)) => Some(T),
-                None => None,
+                Some(Some(t)) => Some(t),
+                _ => None,
             }
         }
     }
@@ -1130,8 +1130,8 @@ impl<T> GetAsset<T> for Vec<Option<T>> {
             None
         } else {
             match self.get_mut(index as usize) {
-                Some(Some(T)) => Some(T),
-                None => None,
+                Some(Some(t)) => Some(t),
+                _ => None,
             }
         }
     }
