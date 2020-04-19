@@ -835,9 +835,14 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance)?;
         }
 
-        // Draw "frame 0" and then return
-        self.draw()?;
-        Ok(())
+        if let Some(target) = self.room_target {
+            // A room change has been requested during this room change, so let's recurse...
+            self.load_room(target)
+        } else {
+            // Draw "frame 0" and then return
+            self.draw()?;
+            Ok(())
+        }
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
@@ -851,9 +856,15 @@ impl Game {
 
         // Begin step event
         self.run_object_event(ev::STEP, 1, None)?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
 
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
 
         // Movement: apply friction, gravity, and hspeed/vspeed
         let mut iter = self.instance_list.iter_by_insertion();
@@ -899,6 +910,9 @@ impl Game {
 
         // End step event
         self.run_object_event(ev::STEP, 2, None)?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
 
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
@@ -1168,6 +1182,10 @@ impl Game {
                 },
                 Event::RedrawRequested(_) => {
                     self.frame().unwrap();
+                    if let Some(target) = self.room_target {
+                        self.load_room(target).unwrap();
+                    }
+
                     let diff = Instant::now().duration_since(now);
                     if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
                         thread::sleep(slep);
