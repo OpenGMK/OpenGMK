@@ -7,18 +7,24 @@ pub const MB_MIDDLE: usize = 2;
 
 pub struct InputManager {
     // Keyboard
-    pub kb_held: [bool; KEY_COUNT],
-    pub kb_pressed: [bool; KEY_COUNT],
-    pub kb_released: [bool; KEY_COUNT],
+    kb_held: [bool; KEY_COUNT],
+    kb_pressed: [bool; KEY_COUNT],
+    kb_released: [bool; KEY_COUNT],
+    kb_lshift: bool,
+    kb_rshift: bool,
+    kb_lctrl: bool,
+    kb_rctrl: bool,
+    kb_lalt: bool,
+    kb_ralt: bool,
 
     // Mouse
     mouse_x: f64,
     mouse_y: f64,
-    pub mouse_held: [bool; MOUSE_BUTTON_COUNT],
-    pub mouse_pressed: [bool; MOUSE_BUTTON_COUNT],
-    pub mouse_released: [bool; MOUSE_BUTTON_COUNT],
-    pub mouse_scroll_up: bool,
-    pub mouse_scroll_down: bool,
+    mouse_held: [bool; MOUSE_BUTTON_COUNT],
+    mouse_pressed: [bool; MOUSE_BUTTON_COUNT],
+    mouse_released: [bool; MOUSE_BUTTON_COUNT],
+    mouse_scroll_up: bool,
+    mouse_scroll_down: bool,
 }
 
 impl InputManager {
@@ -27,6 +33,12 @@ impl InputManager {
             kb_held: [false; KEY_COUNT],
             kb_pressed: [false; KEY_COUNT],
             kb_released: [false; KEY_COUNT],
+            kb_lshift: false,
+            kb_rshift: false,
+            kb_lctrl: false,
+            kb_rctrl: false,
+            kb_lalt: false,
+            kb_ralt: false,
             mouse_x: 0.0,
             mouse_y: 0.0,
             mouse_held: [false; MOUSE_BUTTON_COUNT],
@@ -73,6 +85,36 @@ impl InputManager {
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check_released(&self, scancode: u32) -> bool {
         self.kb_released.get(scancode as usize).copied().unwrap_or(false)
+    }
+
+    /// Checks if left shift is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_lshift(&self) -> bool {
+        self.kb_lshift
+    }
+
+    /// Checks if right shift is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_rshift(&self) -> bool {
+        self.kb_rshift
+    }
+
+    /// Checks if left control is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_lctrl(&self) -> bool {
+        self.kb_lctrl
+    }
+
+    /// Checks if right control is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_rctrl(&self) -> bool {
+        self.kb_rctrl
+    }
+
+    /// Checks if left alt is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_lalt(&self) -> bool {
+        self.kb_lalt
+    }
+
+    /// Checks if right alt is pressed (for compat with keyboard_check_direct)
+    pub fn key_check_ralt(&self) -> bool {
+        self.kb_ralt
     }
 
     /// Updates the position of the mouse. Coordinates are relative to the top-left of the window
@@ -123,5 +165,15 @@ impl InputManager {
     /// Checks if a mouse button is currently held
     pub fn mouse_check_released(&self, button: usize) -> bool {
         self.mouse_released.get(button).copied().unwrap_or(false)
+    }
+
+    /// Checks if the mouse wheel was scrolled up on this frame
+    pub fn mouse_check_scroll_up(&self) -> bool {
+        self.mouse_scroll_up
+    }
+
+    /// Checks if the mouse wheel was scrolled down on this frame
+    pub fn mouse_check_scroll_down(&self) -> bool {
+        self.mouse_scroll_down
     }
 }
