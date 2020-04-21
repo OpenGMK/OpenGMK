@@ -81,18 +81,18 @@ impl InputManager {
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
-    pub fn key_check(&self, scancode: u32) -> bool {
-        self.kb_held.get(scancode as usize).copied().unwrap_or(false)
+    pub fn key_check(&self, code: usize) -> bool {
+        self.kb_held.get(code).copied().unwrap_or(false)
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
-    pub fn key_check_pressed(&self, scancode: u32) -> bool {
-        self.kb_pressed.get(scancode as usize).copied().unwrap_or(false)
+    pub fn key_check_pressed(&self, code: usize) -> bool {
+        self.kb_pressed.get(code).copied().unwrap_or(false)
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
-    pub fn key_check_released(&self, scancode: u32) -> bool {
-        self.kb_released.get(scancode as usize).copied().unwrap_or(false)
+    pub fn key_check_released(&self, code: usize) -> bool {
+        self.kb_released.get(code).copied().unwrap_or(false)
     }
 
     /// Checks if left shift is pressed (for compat with keyboard_check_direct)
