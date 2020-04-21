@@ -9,6 +9,7 @@ use crate::{
     atlas::AtlasBuilder,
     background,
     gml::{self, ev, file::FileManager, rand::Random, Compiler, Context},
+    input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
@@ -28,7 +29,7 @@ use std::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -41,6 +42,7 @@ pub struct Game {
     pub tile_list: TileList,
     pub rand: Random,
     pub renderer: Box<dyn Renderer>,
+    pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12],
 
@@ -667,6 +669,7 @@ impl Game {
             tile_list: TileList::new(),
             rand: Random::new(),
             renderer: Box::new(renderer),
+            input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
             event_holders,
             views_enabled: false,
@@ -1177,9 +1180,78 @@ impl Game {
                     println!("The close button was pressed; stopping");
                     *control_flow = ControlFlow::Exit
                 },
+
+                Event::WindowEvent {
+                    event:
+                        WindowEvent::KeyboardInput {
+                            input: KeyboardInput { scancode, state: ElementState::Pressed, .. },
+                            ..
+                        },
+                    ..
+                } => {
+                    // Keyboard key press with given scancode
+                    self.input_manager.key_press(scancode);
+                },
+
+                Event::WindowEvent {
+                    event:
+                        WindowEvent::KeyboardInput {
+                            input: KeyboardInput { scancode, state: ElementState::Released, .. },
+                            ..
+                        },
+                    ..
+                } => {
+                    // Keyboard key release with given scancode
+                    self.input_manager.key_release(scancode);
+                },
+
+                Event::WindowEvent { event: WindowEvent::CursorMoved { position, .. }, .. } => {
+                    // Cursor movement within window
+                    self.input_manager.set_mouse_pos(position.x, position.y);
+                },
+
+                Event::WindowEvent {
+                    event: WindowEvent::MouseInput { button, state: ElementState::Pressed, .. },
+                    ..
+                } => match button {
+                    // Mouse button press
+                    MouseButton::Left => self.input_manager.mouse_press(input::MB_LEFT),
+                    MouseButton::Right => self.input_manager.mouse_press(input::MB_RIGHT),
+                    MouseButton::Middle => self.input_manager.mouse_press(input::MB_MIDDLE),
+                    _ => (),
+                },
+
+                Event::WindowEvent {
+                    event: WindowEvent::MouseInput { button, state: ElementState::Released, .. },
+                    ..
+                } => match button {
+                    // Mouse button release
+                    MouseButton::Left => self.input_manager.mouse_release(input::MB_LEFT),
+                    MouseButton::Right => self.input_manager.mouse_release(input::MB_RIGHT),
+                    MouseButton::Middle => self.input_manager.mouse_release(input::MB_MIDDLE),
+                    _ => (),
+                },
+
+                Event::WindowEvent { event: WindowEvent::MouseWheel { delta, .. }, .. } => {
+                    // Mouse wheel scrolled
+                    // Note: we don't care if the scroll distance is in lines or pixels,
+                    // because we only care whether it's positive (up) or negative (down)
+                    let y = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => f64::from(y),
+                        MouseScrollDelta::PixelDelta(p) => p.y,
+                    };
+
+                    if y > 0.0 {
+                        self.input_manager.mouse_scroll_up();
+                    } else if y < 0.0 {
+                        self.input_manager.mouse_scroll_down();
+                    }
+                },
+
                 Event::MainEventsCleared => {
                     self.window.request_redraw();
                 },
+
                 Event::RedrawRequested(_) => {
                     self.frame().unwrap();
                     if let Some(target) = self.room_target {
@@ -1191,9 +1263,11 @@ impl Game {
                         thread::sleep(slep);
                     }
                 },
+
                 Event::RedrawEventsCleared => {
                     now = Instant::now();
                 },
+
                 _ => (),
             }
         });
