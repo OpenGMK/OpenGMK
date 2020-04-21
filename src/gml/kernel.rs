@@ -3578,15 +3578,15 @@ impl Game {
         let key = expect_args!(args, [int])?;
         match key {
             k if k < 0 => Ok(gml::FALSE.into()),
-            0 => todo!("vk_nokey"),
-            1 => todo!("vk_anykey"),
+            0 => Ok((!self.input_manager.key_check_any()).into()),
+            1 => Ok(self.input_manager.key_check_any().into()),
             160 => Ok(self.input_manager.key_check_lshift().into()),
             161 => Ok(self.input_manager.key_check_rshift().into()),
             162 => Ok(self.input_manager.key_check_lctrl().into()),
             163 => Ok(self.input_manager.key_check_rctrl().into()),
             164 => Ok(self.input_manager.key_check_lalt().into()),
             165 => Ok(self.input_manager.key_check_ralt().into()),
-            key => Ok(self.input_manager.key_check_released(key as usize).into()),
+            key => Ok(self.input_manager.key_check(key as usize).into()),
         }
     }
 
