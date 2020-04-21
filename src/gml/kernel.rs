@@ -5,6 +5,7 @@
 use crate::{
     game::Game,
     gml::{self, file, Context, Value},
+    input,
     instance::Instance,
     util,
 };
@@ -3543,49 +3544,96 @@ impl Game {
         unimplemented!("Called unimplemented kernel function keyboard_unset_map")
     }
 
-    pub fn keyboard_check(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_check")
+    pub fn keyboard_check(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        match key {
+            k if k < 0 => Ok(gml::FALSE.into()),
+            0 => todo!("vk_nokey"),
+            1 => todo!("vk_anykey"),
+            key => Ok(self.input_manager.key_check(key as usize).into()),
+        }
     }
 
-    pub fn keyboard_check_pressed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_check_pressed")
+    pub fn keyboard_check_pressed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        match key {
+            k if k < 0 => Ok(gml::FALSE.into()),
+            0 => todo!("vk_nokey"),
+            1 => todo!("vk_anykey"),
+            key => Ok(self.input_manager.key_check_pressed(key as usize).into()),
+        }
     }
 
-    pub fn keyboard_check_released(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_check_released")
+    pub fn keyboard_check_released(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        match key {
+            k if k < 0 => Ok(gml::FALSE.into()),
+            0 => todo!("vk_nokey"),
+            1 => todo!("vk_anykey"),
+            key => Ok(self.input_manager.key_check_released(key as usize).into()),
+        }
     }
 
-    pub fn keyboard_check_direct(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_check_direct")
+    pub fn keyboard_check_direct(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        match key {
+            k if k < 0 => Ok(gml::FALSE.into()),
+            0 => todo!("vk_nokey"),
+            1 => todo!("vk_anykey"),
+            160 => Ok(self.input_manager.key_check_lshift().into()),
+            161 => Ok(self.input_manager.key_check_rshift().into()),
+            162 => Ok(self.input_manager.key_check_lctrl().into()),
+            163 => Ok(self.input_manager.key_check_rctrl().into()),
+            164 => Ok(self.input_manager.key_check_lalt().into()),
+            165 => Ok(self.input_manager.key_check_ralt().into()),
+            key => Ok(self.input_manager.key_check_released(key as usize).into()),
+        }
     }
 
-    pub fn mouse_check_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mouse_check_button")
+    pub fn mouse_check_button(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let button = expect_args!(args, [int])?;
+        match button {
+            -1 => todo!("mb_any"),
+            0 => todo!("mb_none"),
+            1 => Ok(self.input_manager.mouse_check(input::MB_LEFT).into()),
+            2 => Ok(self.input_manager.mouse_check(input::MB_RIGHT).into()),
+            3 => Ok(self.input_manager.mouse_check(input::MB_MIDDLE).into()),
+            _ => Ok(gml::FALSE.into()),
+        }
     }
 
-    pub fn mouse_check_button_pressed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mouse_check_button_pressed")
+    pub fn mouse_check_button_pressed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let button = expect_args!(args, [int])?;
+        match button {
+            -1 => todo!("mb_any"),
+            0 => todo!("mb_none"),
+            1 => Ok(self.input_manager.mouse_check_pressed(input::MB_LEFT).into()),
+            2 => Ok(self.input_manager.mouse_check_pressed(input::MB_RIGHT).into()),
+            3 => Ok(self.input_manager.mouse_check_pressed(input::MB_MIDDLE).into()),
+            _ => Ok(gml::FALSE.into()),
+        }
     }
 
-    pub fn mouse_check_button_released(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mouse_check_button_released")
+    pub fn mouse_check_button_released(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let button = expect_args!(args, [int])?;
+        match button {
+            -1 => todo!("mb_any"),
+            0 => todo!("mb_none"),
+            1 => Ok(self.input_manager.mouse_check_released(input::MB_LEFT).into()),
+            2 => Ok(self.input_manager.mouse_check_released(input::MB_RIGHT).into()),
+            3 => Ok(self.input_manager.mouse_check_released(input::MB_MIDDLE).into()),
+            _ => Ok(gml::FALSE.into()),
+        }
     }
 
-    pub fn mouse_wheel_up(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function mouse_wheel_up")
+    pub fn mouse_wheel_up(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.input_manager.mouse_check_scroll_up().into())
     }
 
-    pub fn mouse_wheel_down(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function mouse_wheel_down")
+    pub fn mouse_wheel_down(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.input_manager.mouse_check_scroll_down().into())
     }
 
     pub fn joystick_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
