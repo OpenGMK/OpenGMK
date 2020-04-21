@@ -1,3 +1,5 @@
+use winit::event::VirtualKeyCode;
+
 const KEY_COUNT: usize = 124;
 const MOUSE_BUTTON_COUNT: usize = 3;
 
@@ -50,15 +52,21 @@ impl InputManager {
     }
 
     /// Informs the input manager that a key has been pressed
-    pub fn key_press(&mut self, scancode: u32) {
-        self.kb_held[scancode as usize] = true;
-        self.kb_pressed[scancode as usize] = true;
+    pub fn key_press(&mut self, key: VirtualKeyCode) {
+        self.kb_handle_direct(key, true);
+        if let Some(code) = Self::kb_map_code(key) {
+            self.kb_held[code] = true;
+            self.kb_pressed[code] = true;
+        }
     }
 
     /// Informs the input manager that a key has been released
-    pub fn key_release(&mut self, scancode: u32) {
-        self.kb_held[scancode as usize] = false;
-        self.kb_released[scancode as usize] = true;
+    pub fn key_release(&mut self, key: VirtualKeyCode) {
+        self.kb_handle_direct(key, false);
+        if let Some(code) = Self::kb_map_code(key) {
+            self.kb_held[code] = false;
+            self.kb_released[code] = true;
+        }
     }
 
     /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
@@ -175,5 +183,95 @@ impl InputManager {
     /// Checks if the mouse wheel was scrolled down on this frame
     pub fn mouse_check_scroll_down(&self) -> bool {
         self.mouse_scroll_down
+    }
+
+    fn kb_handle_direct(&mut self, key: VirtualKeyCode, held: bool) {
+        match key {
+            VirtualKeyCode::LShift => self.kb_lshift = held,
+            VirtualKeyCode::RShift => self.kb_rshift = held,
+            VirtualKeyCode::LControl => self.kb_lctrl = held,
+            VirtualKeyCode::RControl => self.kb_rctrl = held,
+            VirtualKeyCode::LAlt => self.kb_lalt = held,
+            VirtualKeyCode::RAlt => self.kb_ralt = held,
+            _ => (),
+        }
+    }
+
+    fn kb_map_code(key: VirtualKeyCode) -> Option<usize> {
+        match key {
+            VirtualKeyCode::Back => Some(8), // backspace
+            VirtualKeyCode::Tab => Some(9),
+            VirtualKeyCode::Return => Some(13),
+            VirtualKeyCode::LShift | VirtualKeyCode::RShift => Some(16),
+            VirtualKeyCode::LControl | VirtualKeyCode::RControl => Some(17),
+            VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => Some(18),
+            VirtualKeyCode::Pause => Some(19),
+            VirtualKeyCode::Escape => Some(27),
+            VirtualKeyCode::PageUp => Some(33),
+            VirtualKeyCode::PageDown => Some(34),
+            VirtualKeyCode::End => Some(35),
+            VirtualKeyCode::Home => Some(36),
+            VirtualKeyCode::Left => Some(37),
+            VirtualKeyCode::Up => Some(38),
+            VirtualKeyCode::Right => Some(39),
+            VirtualKeyCode::Down => Some(40),
+            VirtualKeyCode::Snapshot => Some(44), // printscreen key
+            VirtualKeyCode::Insert => Some(45),
+            VirtualKeyCode::Delete => Some(46),
+            VirtualKeyCode::A => Some(65),
+            VirtualKeyCode::B => Some(66),
+            VirtualKeyCode::C => Some(67),
+            VirtualKeyCode::D => Some(68),
+            VirtualKeyCode::E => Some(69),
+            VirtualKeyCode::F => Some(70),
+            VirtualKeyCode::G => Some(71),
+            VirtualKeyCode::H => Some(72),
+            VirtualKeyCode::I => Some(73),
+            VirtualKeyCode::J => Some(74),
+            VirtualKeyCode::K => Some(75),
+            VirtualKeyCode::L => Some(76),
+            VirtualKeyCode::M => Some(77),
+            VirtualKeyCode::N => Some(78),
+            VirtualKeyCode::O => Some(79),
+            VirtualKeyCode::P => Some(80),
+            VirtualKeyCode::Q => Some(81),
+            VirtualKeyCode::R => Some(82),
+            VirtualKeyCode::S => Some(83),
+            VirtualKeyCode::T => Some(84),
+            VirtualKeyCode::U => Some(85),
+            VirtualKeyCode::V => Some(86),
+            VirtualKeyCode::W => Some(87),
+            VirtualKeyCode::X => Some(88),
+            VirtualKeyCode::Y => Some(89),
+            VirtualKeyCode::Z => Some(90),
+            VirtualKeyCode::Numpad0 => Some(96),
+            VirtualKeyCode::Numpad1 => Some(97),
+            VirtualKeyCode::Numpad2 => Some(98),
+            VirtualKeyCode::Numpad3 => Some(99),
+            VirtualKeyCode::Numpad4 => Some(100),
+            VirtualKeyCode::Numpad5 => Some(101),
+            VirtualKeyCode::Numpad6 => Some(102),
+            VirtualKeyCode::Numpad7 => Some(103),
+            VirtualKeyCode::Numpad8 => Some(104),
+            VirtualKeyCode::Numpad9 => Some(105),
+            VirtualKeyCode::Multiply => Some(106),
+            VirtualKeyCode::Add => Some(107),
+            VirtualKeyCode::Subtract => Some(109),
+            VirtualKeyCode::Decimal => Some(110),
+            VirtualKeyCode::Divide => Some(111),
+            VirtualKeyCode::F1 => Some(112),
+            VirtualKeyCode::F2 => Some(113),
+            VirtualKeyCode::F3 => Some(114),
+            VirtualKeyCode::F4 => Some(115),
+            VirtualKeyCode::F5 => Some(116),
+            VirtualKeyCode::F6 => Some(117),
+            VirtualKeyCode::F7 => Some(118),
+            VirtualKeyCode::F8 => Some(119),
+            VirtualKeyCode::F9 => Some(120),
+            VirtualKeyCode::F10 => Some(121),
+            VirtualKeyCode::F11 => Some(122),
+            VirtualKeyCode::F12 => Some(123),
+            _ => None,
+        }
     }
 }

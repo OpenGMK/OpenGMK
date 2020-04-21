@@ -1188,25 +1188,25 @@ impl Game {
                 Event::WindowEvent {
                     event:
                         WindowEvent::KeyboardInput {
-                            input: KeyboardInput { scancode, state: ElementState::Pressed, .. },
+                            input: KeyboardInput { virtual_keycode: Some(key), state: ElementState::Pressed, .. },
                             ..
                         },
                     ..
                 } => {
                     // Keyboard key press with given scancode
-                    self.input_manager.key_press(scancode);
+                    self.input_manager.key_press(key);
                 },
 
                 Event::WindowEvent {
                     event:
                         WindowEvent::KeyboardInput {
-                            input: KeyboardInput { scancode, state: ElementState::Released, .. },
+                            input: KeyboardInput { virtual_keycode: Some(key), state: ElementState::Released, .. },
                             ..
                         },
                     ..
                 } => {
                     // Keyboard key release with given scancode
-                    self.input_manager.key_release(scancode);
+                    self.input_manager.key_release(key);
                 },
 
                 Event::WindowEvent { event: WindowEvent::CursorMoved { position, .. }, .. } => {
