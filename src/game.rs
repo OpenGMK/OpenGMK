@@ -786,6 +786,7 @@ impl Game {
         self.room_height = room.height as _;
         self.room_speed = room.speed;
         self.room_target = None;
+        self.input_manager.clear_presses();
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
@@ -954,6 +955,9 @@ impl Game {
         // Tell renderer to finish the frame and start the next one
         let (width, height) = self.window.inner_size().into();
         self.renderer.finish(width, height);
+
+        // Clear inputs for this frame
+        self.input_manager.clear_presses();
 
         Ok(())
     }
