@@ -2033,12 +2033,44 @@ impl Game {
         expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.log(n)))
     }
 
-    pub fn min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function min")
+    pub fn min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let mut min = match args.first() {
+            Some(v) => v.clone(),
+            None => return Ok(Default::default()),
+        };
+
+        // It works like this: check all the args left to right, buffering whichever is currently lowest.
+        // Comparing Reals works as obviously expected, and comparing Strings is lexical.
+        // In type mismatch, Real always beats String, however String only beats Real if the Real is above 0.
+        for value in args {
+            match (value, &min) {
+                (Value::Real(v), Value::Real(m)) if m > v => min = Value::Real(*v),
+                (Value::Real(v), Value::Str(_)) => min = Value::Real(*v),
+                (Value::Str(v), Value::Real(m)) if *m > 0.0 => min = Value::Str(v.clone()),
+                (Value::Str(v), Value::Str(m)) if m > v => min = Value::Str(v.clone()),
+                _ => (),
+            }
+        }
+        Ok(min)
     }
 
-    pub fn max(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function max")
+    pub fn max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let mut max = match args.first() {
+            Some(v) => v.clone(),
+            None => return Ok(Default::default()),
+        };
+
+        // See min() for an explanation.
+        for value in args {
+            match (value, &max) {
+                (Value::Real(v), Value::Real(m)) if m < v => max = Value::Real(*v),
+                (Value::Real(v), Value::Str(_)) => max = Value::Real(*v),
+                (Value::Str(v), Value::Real(m)) if *m < 0.0 => max = Value::Str(v.clone()),
+                (Value::Str(v), Value::Str(m)) if m < v => max = Value::Str(v.clone()),
+                _ => (),
+            }
+        }
+        Ok(max)
     }
 
     pub fn min3(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2497,9 +2529,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_find")
     }
 
-    pub fn instance_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_exists")
+    pub fn instance_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let obj = expect_args!(args, [int])?;
+        let exists = if obj <= 100000 {
+            self.instance_list.count(obj) != 0
+        } else {
+            self.instance_list.get_by_instid(obj).is_some()
+        };
+        Ok(exists.into())
     }
 
     pub fn instance_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
