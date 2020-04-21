@@ -69,17 +69,6 @@ impl InputManager {
         }
     }
 
-    /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
-    /// Should be called in between each frame.
-    pub fn clear_presses(&mut self) {
-        self.kb_pressed.iter_mut().for_each(|x| *x = false);
-        self.kb_released.iter_mut().for_each(|x| *x = false);
-        self.mouse_pressed.iter_mut().for_each(|x| *x = false);
-        self.mouse_released.iter_mut().for_each(|x| *x = false);
-        self.mouse_scroll_up = false;
-        self.mouse_scroll_down = false;
-    }
-
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check(&self, code: usize) -> bool {
         self.kb_held.get(code).copied().unwrap_or(false)
@@ -125,6 +114,21 @@ impl InputManager {
         self.kb_ralt
     }
 
+    /// Checks if any keyboard key is held
+    pub fn key_check_any(&self) -> bool {
+        self.kb_held.iter().copied().any(|x| x)
+    }
+
+    /// Checks if any keyboard key was pressed
+    pub fn key_check_any_pressed(&self) -> bool {
+        self.kb_pressed.iter().copied().any(|x| x)
+    }
+
+    /// Checks if any keyboard key was released
+    pub fn key_check_any_released(&self) -> bool {
+        self.kb_released.iter().copied().any(|x| x)
+    }
+
     /// Updates the position of the mouse. Coordinates are relative to the top-left of the window
     /// and are measured in absolute screen pixels, ie. not scaled to window size.
     pub fn set_mouse_pos(&mut self, x: f64, y: f64) {
@@ -156,7 +160,7 @@ impl InputManager {
 
     /// Gets the position of the mouse. Coordinates are relative to the top-left of the window
     /// and are measured in absolute screen pixels, ie. not scaled to window size.
-    pub fn mouse_location(&self) -> (f64, f64) {
+    pub fn mouse_get_location(&self) -> (f64, f64) {
         (self.mouse_x, self.mouse_y)
     }
 
@@ -183,6 +187,17 @@ impl InputManager {
     /// Checks if the mouse wheel was scrolled down on this frame
     pub fn mouse_check_scroll_down(&self) -> bool {
         self.mouse_scroll_down
+    }
+
+    /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
+    /// Should be called in between each frame.
+    pub fn clear_presses(&mut self) {
+        self.kb_pressed.iter_mut().for_each(|x| *x = false);
+        self.kb_released.iter_mut().for_each(|x| *x = false);
+        self.mouse_pressed.iter_mut().for_each(|x| *x = false);
+        self.mouse_released.iter_mut().for_each(|x| *x = false);
+        self.mouse_scroll_up = false;
+        self.mouse_scroll_down = false;
     }
 
     fn kb_handle_direct(&mut self, key: VirtualKeyCode, held: bool) {

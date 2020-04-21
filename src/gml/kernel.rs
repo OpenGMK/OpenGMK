@@ -3548,8 +3548,8 @@ impl Game {
         let key = expect_args!(args, [int])?;
         match key {
             k if k < 0 => Ok(gml::FALSE.into()),
-            0 => todo!("vk_nokey"),
-            1 => todo!("vk_anykey"),
+            0 => Ok((!self.input_manager.key_check_any()).into()),
+            1 => Ok(self.input_manager.key_check_any().into()),
             key => Ok(self.input_manager.key_check(key as usize).into()),
         }
     }
@@ -3558,8 +3558,8 @@ impl Game {
         let key = expect_args!(args, [int])?;
         match key {
             k if k < 0 => Ok(gml::FALSE.into()),
-            0 => todo!("vk_nokey"),
-            1 => todo!("vk_anykey"),
+            0 => Ok((!self.input_manager.key_check_any_pressed()).into()),
+            1 => Ok(self.input_manager.key_check_any_pressed().into()),
             key => Ok(self.input_manager.key_check_pressed(key as usize).into()),
         }
     }
@@ -3568,8 +3568,8 @@ impl Game {
         let key = expect_args!(args, [int])?;
         match key {
             k if k < 0 => Ok(gml::FALSE.into()),
-            0 => todo!("vk_nokey"),
-            1 => todo!("vk_anykey"),
+            0 => Ok((!self.input_manager.key_check_any_released()).into()),
+            1 => Ok(self.input_manager.key_check_any_released().into()),
             key => Ok(self.input_manager.key_check_released(key as usize).into()),
         }
     }
