@@ -189,6 +189,21 @@ impl InputManager {
         self.mouse_scroll_down
     }
 
+    /// Checks if any mouse button is held
+    pub fn mouse_check_any(&self) -> bool {
+        self.mouse_held.iter().copied().any(|x| x)
+    }
+
+    /// Checks if any mouse button was pressed
+    pub fn mouse_check_any_pressed(&self) -> bool {
+        self.mouse_pressed.iter().copied().any(|x| x)
+    }
+
+    /// Checks if any mouse button is held
+    pub fn mouse_check_any_released(&self) -> bool {
+        self.mouse_released.iter().copied().any(|x| x)
+    }
+
     /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
     /// Should be called in between each frame.
     pub fn clear_presses(&mut self) {

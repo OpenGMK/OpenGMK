@@ -3593,8 +3593,8 @@ impl Game {
     pub fn mouse_check_button(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         match button {
-            -1 => todo!("mb_any"),
-            0 => todo!("mb_none"),
+            -1 => Ok(self.input_manager.mouse_check_any().into()),
+            0 => Ok((!self.input_manager.mouse_check_any()).into()),
             1 => Ok(self.input_manager.mouse_check(input::MB_LEFT).into()),
             2 => Ok(self.input_manager.mouse_check(input::MB_RIGHT).into()),
             3 => Ok(self.input_manager.mouse_check(input::MB_MIDDLE).into()),
@@ -3605,8 +3605,8 @@ impl Game {
     pub fn mouse_check_button_pressed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         match button {
-            -1 => todo!("mb_any"),
-            0 => todo!("mb_none"),
+            -1 => Ok(self.input_manager.mouse_check_any_pressed().into()),
+            0 => Ok((!self.input_manager.mouse_check_any_pressed()).into()),
             1 => Ok(self.input_manager.mouse_check_pressed(input::MB_LEFT).into()),
             2 => Ok(self.input_manager.mouse_check_pressed(input::MB_RIGHT).into()),
             3 => Ok(self.input_manager.mouse_check_pressed(input::MB_MIDDLE).into()),
@@ -3617,8 +3617,8 @@ impl Game {
     pub fn mouse_check_button_released(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         match button {
-            -1 => todo!("mb_any"),
-            0 => todo!("mb_none"),
+            -1 => Ok(self.input_manager.mouse_check_any_released().into()),
+            0 => Ok((!self.input_manager.mouse_check_any_released()).into()),
             1 => Ok(self.input_manager.mouse_check_released(input::MB_LEFT).into()),
             2 => Ok(self.input_manager.mouse_check_released(input::MB_RIGHT).into()),
             3 => Ok(self.input_manager.mouse_check_released(input::MB_MIDDLE).into()),
