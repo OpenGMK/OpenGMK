@@ -915,22 +915,22 @@ impl Game {
             InstanceVariable::Persistent => Ok(instance.persistent.get().into()),
             InstanceVariable::Depth => Ok(instance.depth.get().into()),
             InstanceVariable::BboxLeft => {
-                let sprite = self.get_instance_sprite(instance_handle);
+                let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_left.get().into())
             },
             InstanceVariable::BboxRight => {
-                let sprite = self.get_instance_sprite(instance_handle);
+                let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_right.get().into())
             },
             InstanceVariable::BboxTop => {
-                let sprite = self.get_instance_sprite(instance_handle);
+                let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_top.get().into())
             },
             InstanceVariable::BboxBottom => {
-                let sprite = self.get_instance_sprite(instance_handle);
+                let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_bottom.get().into())
             },
@@ -1465,7 +1465,7 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's mask_index
-    fn get_instance_mask_sprite(&mut self, instance: usize) -> Option<&asset::Sprite> {
+    fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
             let instance = self.instance_list.get(instance)?;
             let index = instance.mask_index.get();
