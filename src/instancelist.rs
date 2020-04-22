@@ -110,6 +110,15 @@ impl<T> ChunkList<T> {
             }
         }
     }
+
+    fn clear(&mut self) {
+        for chunk in self.iter_mut() {
+            for slot in chunk.slots.iter_mut() {
+                *slot = None;
+            }
+            chunk.vacant = CHUNK_SIZE;
+        }
+    }
 }
 
 // non-borrowing instancelist iterator things
@@ -394,6 +403,12 @@ impl TileList {
         self.insert_order.push(value);
         self.draw_order.push(value);
         value
+    }
+
+    pub fn clear(&mut self) {
+        self.chunks.clear();
+        self.insert_order.clear();
+        self.draw_order.clear();
     }
 }
 
