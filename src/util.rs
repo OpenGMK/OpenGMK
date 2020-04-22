@@ -21,6 +21,16 @@ pub fn ieee_round(real: f64) -> i32 {
     }
 }
 
+// Helper fn: rotate mutable x and y around a center point, given sin and cos of the angle to rotate by
+pub fn rotate_around(x: &mut f64, y: &mut f64, center_x: f64, center_y: f64, sin: f64, cos: f64) {
+    *x -= center_x;
+    *y -= center_y;
+    let x_new = ((*x * cos) - (*y * sin)) + center_x;
+    let y_new = ((*x * sin) + (*y * cos)) + center_y;
+    *x = x_new;
+    *y = y_new;
+}
+
 #[cfg(test)]
 mod tests {
     use super::{bgra2rgba, ieee_round, rgba2bgra};

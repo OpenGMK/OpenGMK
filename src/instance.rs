@@ -236,10 +236,10 @@ impl Instance {
                 let angle = -self.image_angle.get() * PI / 180.0;
                 let sin = angle.sin();
                 let cos = angle.cos();
-                rotate_around(&mut top_left_x, &mut top_left_y, x, y, sin, cos);
-                rotate_around(&mut top_right_x, &mut top_right_y, x, y, sin, cos);
-                rotate_around(&mut bottom_left_x, &mut bottom_left_y, x, y, sin, cos);
-                rotate_around(&mut bottom_right_x, &mut bottom_right_y, x, y, sin, cos);
+                util::rotate_around(&mut top_left_x, &mut top_left_y, x, y, sin, cos);
+                util::rotate_around(&mut top_right_x, &mut top_right_y, x, y, sin, cos);
+                util::rotate_around(&mut bottom_left_x, &mut bottom_left_y, x, y, sin, cos);
+                util::rotate_around(&mut bottom_right_x, &mut bottom_right_y, x, y, sin, cos);
 
                 // Set left to whichever x is lowest, right to whichever x is highest,
                 // top to whichever y is lowest, and bottom to whichever y is highest.
@@ -262,16 +262,6 @@ impl Instance {
             self.bbox_is_stale.set(false);
         }
     }
-}
-
-// Helper fn: rotate mutable x and y around a center point, given sin and cos of the angle to rotate by
-fn rotate_around(x: &mut f64, y: &mut f64, center_x: f64, center_y: f64, sin: f64, cos: f64) {
-    *x -= center_x;
-    *y -= center_y;
-    let x_new = ((*x * cos) - (*y * sin)) + center_x;
-    let y_new = ((*x * sin) + (*y * cos)) + center_y;
-    *x = x_new;
-    *y = y_new;
 }
 
 impl Field {
