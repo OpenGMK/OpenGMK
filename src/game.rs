@@ -15,6 +15,7 @@ use crate::{
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile,
     types::ID,
+    util,
     view::View,
 };
 use gm8exe::{GameAssets, GameVersion};
@@ -1276,6 +1277,173 @@ impl Game {
                 _ => (),
             }
         });
+    }
+
+    // Checks for collision between two instances
+    pub fn check_collision(&self, i1: usize, i2: usize) -> bool {
+        // Get the sprite masks we're going to use and update instances' bbox vars
+        let inst1 = self.instance_list.get(i1).unwrap();
+        let inst2 = self.instance_list.get(i2).unwrap();
+        let sprite1 = self
+            .assets
+            .sprites
+            .get_asset(if inst1.mask_index.get() < 0 { inst1.sprite_index.get() } else { inst1.mask_index.get() })
+            .map(|x| x.as_ref());
+        let sprite2 = self
+            .assets
+            .sprites
+            .get_asset(if inst2.mask_index.get() < 0 { inst2.sprite_index.get() } else { inst2.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst1.update_bbox(sprite1);
+        inst2.update_bbox(sprite2);
+
+        // First, an AABB. This is specifically matching how it's coded in GM8 runner.
+        if inst1.bbox_right < inst2.bbox_left
+            || inst2.bbox_right < inst1.bbox_left
+            || inst1.bbox_bottom < inst2.bbox_top
+            || inst2.bbox_bottom < inst1.bbox_top
+        {
+            return false
+        }
+
+        // AABB passed - now we do precise pixel checks in the intersection of the two rectangles.
+        // Collision cannot be true if either instance does not have a sprite.
+        if let (Some(sprite1), Some(sprite2)) = (sprite1, sprite2) {
+            // Get the colliders we're going to be colliding with
+            let collider1 = if sprite1.per_frame_colliders {
+                sprite1.colliders.get(inst1.image_index.get().floor() as usize)
+            } else {
+                sprite1.colliders.first()
+            }
+            .unwrap();
+            let collider2 = if sprite2.per_frame_colliders {
+                sprite2.colliders.get(inst2.image_index.get().floor() as usize)
+            } else {
+                sprite2.colliders.first()
+            }
+            .unwrap();
+
+            // round x and y values, and get sin and cos of each angle...
+            let x1 = util::ieee_round(inst1.x.get());
+            let y1 = util::ieee_round(inst1.y.get());
+            let x2 = util::ieee_round(inst2.x.get());
+            let y2 = util::ieee_round(inst2.y.get());
+            let angle1 = inst1.image_angle.get().to_radians();
+            let sin1 = angle1.sin();
+            let cos1 = angle1.cos();
+            let angle2 = inst2.image_angle.get().to_radians();
+            let sin2 = angle2.sin();
+            let cos2 = angle2.cos();
+
+            // Get intersect rectangle
+            let intersect_top = inst1.bbox_top.get().max(inst2.bbox_top.get());
+            let intersect_bottom = inst1.bbox_bottom.get().min(inst2.bbox_bottom.get());
+            let intersect_left = inst1.bbox_left.get().max(inst2.bbox_left.get());
+            let intersect_right = inst1.bbox_right.get().min(inst2.bbox_right.get());
+
+            // Go through each pixel in the intersect
+            for intersect_y in intersect_top..=intersect_bottom {
+                for intersect_x in intersect_left..=intersect_right {
+                    // Cast the coordinates to doubles, rotate them around inst1, then scale them by inst1; then
+                    // floor them, as GM8 does, to get integer coordinates on the collider relative to the instance.
+                    let mut x = f64::from(intersect_x);
+                    let mut y = f64::from(intersect_y);
+                    util::rotate_around(&mut x, &mut y, x1.into(), y1.into(), sin1, cos1);
+                    let x =
+                        (f64::from(sprite1.origin_x) + ((x - f64::from(x1)) / inst1.image_xscale.get()).floor()) as i32;
+                    let y =
+                        (f64::from(sprite1.origin_y) + ((y - f64::from(y1)) / inst1.image_yscale.get()).floor()) as i32;
+
+                    // Now look in the collider map to figure out if instance 1 is touching this pixel
+                    if x >= collider1.bbox_left as i32
+                        && y >= collider1.bbox_top as i32
+                        && x <= collider1.bbox_right as i32
+                        && y <= collider1.bbox_bottom as i32
+                        && collider1
+                            .data
+                            .get((y as usize * collider1.width as usize) + x as usize)
+                            .copied()
+                            .unwrap_or(false)
+                    {
+                        // Do all the exact same stuff for inst2 now
+                        let mut x = f64::from(intersect_x);
+                        let mut y = f64::from(intersect_y);
+                        util::rotate_around(&mut x, &mut y, x2.into(), y2.into(), sin2, cos2);
+                        let x = (f64::from(sprite2.origin_x) + ((x - f64::from(x2)) / inst2.image_xscale.get()).floor())
+                            as i32;
+                        let y = (f64::from(sprite2.origin_y) + ((y - f64::from(y2)) / inst2.image_yscale.get()).floor())
+                            as i32;
+
+                        // And finally check if there was a hit here too. If so, we can return true immediately.
+                        if x >= collider2.bbox_left as i32
+                            && y >= collider2.bbox_top as i32
+                            && x <= collider2.bbox_right as i32
+                            && y <= collider2.bbox_bottom as i32
+                            && collider2
+                                .data
+                                .get((y as usize * collider2.width as usize) + x as usize)
+                                .copied()
+                                .unwrap_or(false)
+                        {
+                            return true
+                        }
+                    }
+                }
+            }
+
+            false
+        } else {
+            false
+        }
+    }
+
+    // Checks if an instance is colliding with a point
+    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst).unwrap();
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        // AABB with the point
+        if inst.bbox_right.get() < x
+            || x < inst.bbox_left.get()
+            || inst.bbox_bottom.get() < y
+            || y < inst.bbox_top.get()
+        {
+            return false
+        }
+
+        // Can't collide if no sprite
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor() as usize)
+            } else {
+                sprite.colliders.first()
+            }
+            .unwrap();
+
+            // Transform point to be relative to collider
+            let angle = inst.image_angle.get().to_radians();
+            let mut x = f64::from(x);
+            let mut y = f64::from(y);
+            util::rotate_around(&mut x, &mut y, inst.x.get(), inst.y.get(), angle.sin(), angle.cos());
+            let x = util::ieee_round(f64::from(sprite.origin_x) + ((x - inst.x.get()) / inst.image_xscale.get()));
+            let y = util::ieee_round(f64::from(sprite.origin_y) + ((y - inst.y.get()) / inst.image_yscale.get()));
+
+            // And finally, check look up this point in the collider
+            x >= collider.bbox_left as i32
+                && y >= collider.bbox_top as i32
+                && x <= collider.bbox_right as i32
+                && y <= collider.bbox_bottom as i32
+                && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+        } else {
+            false
+        }
     }
 }
 
