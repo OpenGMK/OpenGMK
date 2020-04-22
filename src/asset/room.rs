@@ -1,9 +1,8 @@
 use crate::{
-    background::Background,
+    game::{Background, View},
     gml::runtime::Instruction,
     tile::Tile,
     types::{Color, ID},
-    view::View,
 };
 use std::rc::Rc;
 

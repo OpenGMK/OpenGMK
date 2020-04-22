@@ -3,7 +3,6 @@
 mod action;
 mod asset;
 mod atlas;
-mod background;
 mod game;
 mod gml;
 mod input;
@@ -13,7 +12,6 @@ mod render;
 mod tile;
 mod types;
 mod util;
-mod view;
 
 use std::{env, fs, path::Path, process};
 

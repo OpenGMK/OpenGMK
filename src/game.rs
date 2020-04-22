@@ -1,13 +1,19 @@
+pub mod background;
+pub mod view;
+
+pub use background::Background;
+pub use view::View;
+
 use crate::{
     action::Tree,
     asset::{
+        self,
         font::{Character, Font},
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
-        Background, Object, Script, Timeline,
+        Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
-    background,
     gml::{self, ev, file::FileManager, rand::Random, Compiler, Context},
     input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
@@ -16,7 +22,6 @@ use crate::{
     tile,
     types::ID,
     util,
-    view::View,
 };
 use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
@@ -95,7 +100,7 @@ pub struct Game {
 }
 
 pub struct Assets {
-    pub backgrounds: Vec<Option<Box<Background>>>,
+    pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
     pub objects: Vec<Option<Box<Object>>>,
     pub rooms: Vec<Option<Box<Room>>>,
@@ -296,7 +301,7 @@ impl Game {
                 o.map(|b| {
                     let width = b.width;
                     let height = b.height;
-                    Ok(Box::new(Background {
+                    Ok(Box::new(asset::Background {
                         name: b.name.into(),
                         width,
                         height,
@@ -496,7 +501,7 @@ impl Game {
                         backgrounds: b
                             .backgrounds
                             .into_iter()
-                            .map(|bg| background::Background {
+                            .map(|bg| Background {
                                 visible: bg.visible_on_start,
                                 is_foreground: bg.is_foreground,
                                 background_id: bg.source_bg,
