@@ -2120,6 +2120,7 @@ impl Game {
 
     pub fn string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|v| match v {
+            Value::Real(r) if r.fract() == 0.0 => Value::Str(format!("{:.0}", r).into()),
             Value::Real(r) => Value::Str(format!("{:.2}", r).into()),
             s @ Value::Str(_) => s,
         })
