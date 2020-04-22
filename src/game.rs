@@ -737,9 +737,10 @@ impl Game {
             self.run_instance_event(ev::OTHER, 5, instance, instance)?;
         }
 
-        // Delete non-persistent instances
+        // Delete non-persistent instances and all tiles
         // TODO: back up remaining instances and put them at the END of insertion order after making new ones
         self.instance_list.remove_with(|instance| !instance.persistent.get());
+        self.tile_list.clear();
 
         // Update renderer
         let (view_width, view_height) = {
