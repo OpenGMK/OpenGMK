@@ -1331,7 +1331,7 @@ impl Game {
                 object_id,
                 object,
             ));
-            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("action_create_object", format!("Invalid object ID: {}", object_id)))
@@ -1361,7 +1361,7 @@ impl Game {
                 instance.speed.set(speed);
                 instance.direction.set(direction);
             });
-            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("action_create_object_motion", format!("Invalid object ID: {}", object_id)))
@@ -2673,7 +2673,7 @@ impl Game {
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             self.last_instance_id += 1;
             let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
-            self.run_instance_event(gml::ev::CREATE, 0, instance, instance)?;
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(self.last_instance_id.into())
         } else {
             Err(gml::Error::FunctionError("instance_create", format!("Invalid object ID: {}", object_id)))
@@ -2692,7 +2692,7 @@ impl Game {
 
     pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this)?;
+        self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
         self.instance_list.mark_deleted(context.this);
         Ok(Default::default())
     }

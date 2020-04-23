@@ -741,7 +741,7 @@ impl Game {
         // Run room end event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(ev::OTHER, 5, instance, instance)?;
+            self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
         }
 
         // Delete non-persistent instances and all tiles
@@ -835,7 +835,7 @@ impl Game {
                 })?;
 
                 // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, handle, handle)?;
+                self.run_instance_event(ev::CREATE, 0, handle, handle, None)?;
             }
         }
 
@@ -844,7 +844,7 @@ impl Game {
         // Run room start event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(ev::OTHER, 4, instance, instance)?;
+            self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
         if let Some(target) = self.room_target {

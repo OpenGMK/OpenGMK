@@ -1,4 +1,4 @@
-use crate::{game::Game, gml};
+use crate::{game::Game, gml, types::ID};
 
 impl Game {
     /// Runs an event for all objects which hold the given event.
@@ -12,7 +12,7 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(instance) = iter.next(&self.instance_list) {
-                self.run_instance_event(event_id, event_sub, instance, other.unwrap_or(instance))?;
+                self.run_instance_event(event_id, event_sub, instance, other.unwrap_or(instance), None)?;
             }
             position += 1;
         }
@@ -26,12 +26,16 @@ impl Game {
         event_sub: u32,
         instance: usize,
         other: usize,
+        as_object: Option<ID>,
     ) -> gml::Result<()> {
         // Running instance events is not allowed if a room change is pending. This appears to be
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
         if self.room_target.is_none() {
-            let mut object_id =
-                self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get();
+            let mut object_id = if let Some(id) = as_object {
+                id
+            } else {
+                self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get()
+            };
             let event = loop {
                 if object_id < 0 {
                     return Ok(())
@@ -93,7 +97,7 @@ impl Game {
         }
 
         // Run collision event
-        self.run_instance_event(gml::ev::COLLISION, sub_event, inst1, inst2)?;
+        self.run_instance_event(gml::ev::COLLISION, sub_event, inst1, inst2, None)?;
 
         // If the target is solid (yes we have to check it a second time) then add hspeed and vspeed to our x/y
         // and then, if colliding with the solid again, move outside it again.
