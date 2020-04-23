@@ -2637,9 +2637,15 @@ impl Game {
         Ok(exists.into())
     }
 
-    pub fn instance_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_number")
+    pub fn instance_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(object) = self.assets.objects.get_asset(object_id) {
+            let ids = object.children.clone();
+            let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>();
+            Ok(count.into())
+        } else {
+            Ok(Value::Real(0.0))
+        }
     }
 
     pub fn instance_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
