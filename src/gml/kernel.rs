@@ -1443,9 +1443,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_next_room")
     }
 
-    pub fn action_set_alarm(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_alarm")
+    pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (time, alarm) = expect_args!(args, [int, int])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.alarms.borrow_mut().insert(alarm as u32, time);
+        });
+        Ok(Default::default())
     }
 
     pub fn action_sleep(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
