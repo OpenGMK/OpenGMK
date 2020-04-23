@@ -1,4 +1,4 @@
-use crate::{gml::Value, instance::DummyFieldHolder};
+use crate::{gml::Value, instance::DummyFieldHolder, types::ID};
 
 pub struct Context {
     /// InstanceList handle to the "self" instance
@@ -21,7 +21,7 @@ pub struct Context {
 
     /// The ID of the object which owns this event - note that this isn't necessarily the same as
     /// self.object_index, as the event could have been inherited from a parent object
-    pub event_object: i32,
+    pub event_object: ID,
 
     /// Arguments passed to scripts and such. There are always 16 arguments in a Context,
     /// regardless of argument_count. The extra ones can be written and read under some circumstances.
