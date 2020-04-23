@@ -4022,9 +4022,24 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mplay_ipaddress")
     }
 
-    pub fn event_inherited(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function event_inherited")
+    pub fn event_inherited(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let parent = self
+            .assets
+            .objects
+            .get_asset(context.event_object)
+            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, context.event_object))?
+            .parent_index;
+        if parent >= 0 {
+            self.run_instance_event(
+                context.event_type,
+                context.event_number as _,
+                context.this,
+                context.other,
+                Some(parent),
+            )?;
+        }
+        Ok(Default::default())
     }
 
     pub fn event_perform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
