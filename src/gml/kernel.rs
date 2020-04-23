@@ -3,7 +3,8 @@
 #![allow(unused_macros)]
 
 use crate::{
-    game::Game,
+    asset,
+    game::{Game, GetAsset},
     gml::{self, file, Context, Value},
     input,
     instance::Instance,
@@ -2300,9 +2301,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_random")
     }
 
-    pub fn place_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function place_free")
+    pub fn place_free(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+
+        // Set self's position to the new coordinates
+        let old_xy = self.instance_list.get(context.this).map(|instance| {
+            let old_xy = (instance.x.get(), instance.y.get());
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+            old_xy
+        });
+
+        // Check collision with any solids
+        let free = self.check_collision_solid(context.this).is_none();
+
+        // Move self back to where it was
+        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+        }
+
+        Ok(free.into())
     }
 
     pub fn place_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2310,9 +2331,50 @@ impl Game {
         unimplemented!("Called unimplemented kernel function place_empty")
     }
 
-    pub fn place_meeting(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function place_meeting")
+    pub fn place_meeting(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, obj) = expect_args!(args, [real, real, int])?;
+
+        // Set self's position to the new coordinates
+        let old_xy = self.instance_list.get(context.this).map(|instance| {
+            let old_xy = (instance.x.get(), instance.y.get());
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+            old_xy
+        });
+
+        // Check collision with target
+        let collision = if obj <= 100000 {
+            // Target is an object ID
+            let object =
+                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+            loop {
+                match iter.next(&self.instance_list) {
+                    Some(target) => {
+                        if self.check_collision(context.this, target) {
+                            break true
+                        }
+                    },
+                    None => break false,
+                }
+            }
+        } else {
+            // Target is an instance ID
+            match self.instance_list.get_by_instid(obj) {
+                Some(id) => self.check_collision(context.this, id),
+                None => false,
+            }
+        };
+
+        // Move self back to where it was
+        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+        }
+
+        Ok(collision.into())
     }
 
     pub fn place_snapped(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2335,9 +2397,44 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_contact")
     }
 
-    pub fn move_contact_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_contact_solid")
+    pub fn move_contact_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already colliding with a solid, do nothing if so
+        if self.check_collision_solid(context.this).is_none() {
+            for _ in 0..max_distance {
+                // Step forward, but back up old coordinates
+                let old_xy = self.instance_list.get(context.this).map(|instance| {
+                    let old_xy = (instance.x.get(), instance.y.get());
+                    instance.x.set(instance.x.get() + step_x);
+                    instance.y.set(instance.y.get() + step_y);
+                    instance.bbox_is_stale.set(true);
+                    old_xy
+                });
+
+                // Check if we're colliding with a solid now
+                if self.check_collision_solid(context.this).is_some() {
+                    // Move self back to where it was, then exit
+                    if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
+                        instance.x.set(x);
+                        instance.y.set(y);
+                        instance.bbox_is_stale.set(true);
+                    }
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
     pub fn move_contact_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
