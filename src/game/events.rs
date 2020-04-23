@@ -52,4 +52,67 @@ impl Game {
             Ok(())
         }
     }
+
+    /// Runs all collision events for the current active instances
+    pub fn run_collisions(&mut self) -> gml::Result<()> {
+        // Iter through every object that has a collision event registered (non-borrowing iter because Rust)
+        let mut i = 0;
+        while let Some((object, target_list)) =
+            self.event_holders[gml::ev::COLLISION].get_index(i).map(|(x, y)| (*x, y.clone()))
+        {
+            // Iter every instance of this object
+            let mut iter1 = self.instance_list.iter_by_object(object as i32);
+            while let Some(instance) = iter1.next(&self.instance_list) {
+                // Go through all its collision target objects
+                for target_obj in target_list.borrow().iter().copied() {
+                    // And iter every instance of the target object
+                    let mut iter2 = self.instance_list.iter_by_object(target_obj);
+                    while let Some(target) = iter2.next(&self.instance_list) {
+                        // And finally, check if the two instances collide
+                        if self.check_collision(instance, target) {
+                            self.handle_collision(instance, target, target_obj as u32)?;
+                            self.handle_collision(target, instance, object as u32)?;
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+
+        Ok(())
+    }
+
+    fn handle_collision(&mut self, inst1: usize, inst2: usize, sub_event: u32) -> gml::Result<()> {
+        // If the target is solid, move outside of it
+        if self.instance_list.get(inst2).map(|x| x.solid.get()).unwrap_or(false) {
+            self.instance_list.get(inst1).map(|instance| {
+                instance.x.set(instance.xprevious.get());
+                instance.y.set(instance.yprevious.get());
+                instance.bbox_is_stale.set(true);
+            });
+        }
+
+        // Run collision event
+        self.run_instance_event(gml::ev::COLLISION, sub_event, inst1, inst2)?;
+
+        // If the target is solid (yes we have to check it a second time) then add hspeed and vspeed to our x/y
+        // and then, if colliding with the solid again, move outside it again.
+        // TODO: is this 100% accurate? It seems insane...
+        if self.instance_list.get(inst2).map(|x| x.solid.get()).unwrap_or(false) {
+            self.instance_list.get(inst1).map(|instance| {
+                instance.x.set(instance.x.get() + instance.hspeed.get());
+                instance.y.set(instance.y.get() + instance.vspeed.get());
+                instance.bbox_is_stale.set(true);
+            });
+            if self.check_collision(inst1, inst2) {
+                self.instance_list.get(inst1).map(|instance| {
+                    instance.x.set(instance.xprevious.get());
+                    instance.y.set(instance.yprevious.get());
+                    instance.bbox_is_stale.set(true);
+                });
+            }
+        }
+
+        Ok(())
+    }
 }

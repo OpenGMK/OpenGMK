@@ -920,6 +920,12 @@ impl Game {
             }
         }
 
+        // Run collision events
+        self.run_collisions()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
         // End step event
         self.run_object_event(ev::STEP, 2, None)?;
         if self.room_target.is_some() {
