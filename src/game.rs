@@ -1405,6 +1405,19 @@ impl Game {
             false
         }
     }
+
+    // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
+    pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(target) = iter.next(&self.instance_list) {
+            if self.instance_list.get(target).map(|x| x.solid.get()).unwrap_or(false) {
+                if self.check_collision(inst, target) {
+                    return Some(target)
+                }
+            }
+        }
+        None
+    }
 }
 
 pub trait GetAsset<T> {
