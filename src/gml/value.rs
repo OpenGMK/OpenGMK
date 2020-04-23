@@ -139,12 +139,12 @@ impl Value {
 
     /// GML && operator
     pub fn bool_and(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_true() || rhs.is_true() { Real(1.0) } else { Real(0.0) })
+        Ok(if self.is_true() && rhs.is_true() { Real(1.0) } else { Real(0.0) })
     }
 
     /// GML || operator
     pub fn bool_or(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_true() && rhs.is_true() { Real(1.0) } else { Real(0.0) })
+        Ok(if self.is_true() || rhs.is_true() { Real(1.0) } else { Real(0.0) })
     }
 
     /// GML ^^ operator
