@@ -105,7 +105,7 @@ pub enum Error {
     InvalidInstanceHandle(usize),
     InvalidRoomSpeed(i32),
     InvalidSwitchBody(String), // string repr. because Expr<'a>
-    NonexistentAsset(asset::Type, usize),
+    NonexistentAsset(asset::Type, i32),
     ReadOnlyVariable(InstanceVariable),
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
@@ -651,7 +651,7 @@ impl Game {
                     self.execute(&instructions, &mut new_context)?;
                     Ok(new_context.return_value)
                 } else {
-                    Err(Error::NonexistentAsset(asset::Type::Script, *script_id))
+                    Err(Error::NonexistentAsset(asset::Type::Script, *script_id as i32))
                 }
             },
             Node::Field { accessor } => {
