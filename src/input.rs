@@ -55,8 +55,10 @@ impl InputManager {
     pub fn key_press(&mut self, key: VirtualKeyCode) {
         self.kb_handle_direct(key, true);
         if let Some(code) = Self::kb_map_code(key) {
-            self.kb_held[code] = true;
-            self.kb_pressed[code] = true;
+            if !self.kb_held[code] {
+                self.kb_held[code] = true;
+                self.kb_pressed[code] = true;
+            }
         }
     }
 
@@ -64,8 +66,10 @@ impl InputManager {
     pub fn key_release(&mut self, key: VirtualKeyCode) {
         self.kb_handle_direct(key, false);
         if let Some(code) = Self::kb_map_code(key) {
-            self.kb_held[code] = false;
-            self.kb_released[code] = true;
+            if self.kb_held[code] {
+                self.kb_held[code] = false;
+                self.kb_released[code] = true;
+            }
         }
     }
 
