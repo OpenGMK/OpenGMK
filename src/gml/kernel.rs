@@ -1358,8 +1358,7 @@ impl Game {
                 object,
             ));
             self.instance_list.get(instance).map(|instance| {
-                instance.speed.set(speed);
-                instance.direction.set(direction);
+                instance.set_speed_direction(speed, direction);
             });
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
