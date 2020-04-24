@@ -1400,12 +1400,16 @@ impl Game {
 
     pub fn action_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_sound")
+        // TODO
+        //unimplemented!("Called unimplemented kernel function action_sound")
+        Ok(Default::default())
     }
 
     pub fn action_end_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_end_sound")
+        // TODO
+        //unimplemented!("Called unimplemented kernel function action_end_sound")
+        Ok(Default::default())
     }
 
     pub fn action_if_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
