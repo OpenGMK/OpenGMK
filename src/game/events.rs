@@ -1,4 +1,8 @@
-use crate::{game::Game, gml, types::ID};
+use crate::{
+    game::{Game, GetAsset},
+    gml,
+    types::ID,
+};
 
 impl Game {
     /// Runs an event for all objects which hold the given event.
@@ -23,7 +27,7 @@ impl Game {
     pub fn run_instance_event(
         &mut self,
         event_id: usize,
-        event_sub: u32,
+        mut event_sub: u32,
         instance: usize,
         other: usize,
         as_object: Option<ID>,
@@ -31,16 +35,29 @@ impl Game {
         // Running instance events is not allowed if a room change is pending. This appears to be
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
         if self.room_target.is_none() {
-            let mut object_id = if let Some(id) = as_object {
+            let original_object_id = if let Some(id) = as_object {
                 id
             } else {
                 self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get()
             };
+            let mut object_id = original_object_id;
             let event = loop {
                 if object_id < 0 {
-                    return Ok(())
+                    if event_id == gml::ev::COLLISION {
+                        // For collision events, we need to check the target's parent tree too..
+                        if let Some(target_object) = self.assets.objects.get_asset(event_sub as _) {
+                            if target_object.parent_index < 0 {
+                                return Ok(())
+                            } else {
+                                object_id = original_object_id;
+                                event_sub = target_object.parent_index as u32;
+                            }
+                        }
+                    } else {
+                        return Ok(())
+                    }
                 }
-                if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+                if let Some(object) = self.assets.objects.get_asset(object_id) {
                     if let Some(event) = object.events.get(event_id).and_then(|x| x.get(&event_sub)) {
                         break event.clone()
                     } else {
