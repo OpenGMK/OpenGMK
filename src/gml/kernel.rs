@@ -1307,9 +1307,11 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_potential_step")
     }
 
-    pub fn action_kill_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_kill_object")
+    pub fn action_kill_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
+        self.instance_list.mark_deleted(context.this);
+        Ok(Default::default())
     }
 
     pub fn action_create_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1357,9 +1359,7 @@ impl Game {
                 object_id,
                 object,
             ));
-            self.instance_list.get(instance).map(|instance| {
-                instance.set_speed_direction(speed, direction);
-            });
+            self.instance_list.get(instance).map(|instance| instance.set_speed_direction(speed, direction));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
