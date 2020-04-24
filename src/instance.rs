@@ -153,6 +153,13 @@ impl Instance {
         self.update_hvspeed()
     }
 
+    // Sets speed and direction, also updating hspeed and vspeed
+    pub fn set_speed_direction(&self, speed: f64, direction: f64) {
+        self.speed.set(speed);
+        self.direction.set(direction);
+        self.update_hvspeed();
+    }
+
     // Sets hspeed, also updating direction and speed
     pub fn set_hspeed(&self, hspeed: f64) {
         self.hspeed.set(hspeed);
