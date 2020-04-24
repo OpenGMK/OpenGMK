@@ -459,7 +459,7 @@ impl Game {
                             },
                         };
                     }
-                    Ok(Box::new(Timeline { name: b.name.into(), moments }))
+                    Ok(Box::new(Timeline { name: b.name.into(), moments: Rc::new(RefCell::new(moments)) }))
                 })
                 .transpose()
             })
@@ -872,7 +872,27 @@ impl Game {
             return Ok(())
         }
 
-        // Timelines go here
+        // Advance timelines for all instances
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let instance = self.instance_list.get(handle).unwrap();
+            let object_index = instance.object_index.get();
+            if instance.timeline_running.get() {
+                if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
+                    let old_position = instance.timeline_position.get();
+                    let new_position = old_position + instance.timeline_speed.get();
+                    instance.timeline_position.set(new_position);
+
+                    let moments = timeline.moments.clone();
+                    for (moment, tree) in moments.borrow().iter() {
+                        let f_moment = f64::from(*moment);
+                        if f_moment >= old_position && f_moment < new_position {
+                            self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
+                        }
+                    }
+                }
+            }
+        }
 
         // Alarm events
         self.run_alarms()?;
