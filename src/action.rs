@@ -310,6 +310,10 @@ impl Game {
         as_object: i32,
     ) -> gml::Result<ReturnType> {
         for action in slice.iter() {
+            if self.room_target.is_some() {
+                return Ok(ReturnType::Exit)
+            }
+            
             match &action.body {
                 Body::Normal { args, body: gml_body, if_else } => {
                     let mut context = Context {
