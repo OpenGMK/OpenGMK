@@ -872,6 +872,14 @@ impl Game {
             return Ok(())
         }
 
+        // Timelines go here
+
+        // Alarm events
+        self.run_alarms()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
         if self.room_target.is_some() {

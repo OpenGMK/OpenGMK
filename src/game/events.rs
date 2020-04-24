@@ -74,6 +74,35 @@ impl Game {
         }
     }
 
+    /// Decrements all active alarms and runs subsequent alarm events for all instances
+    pub fn run_alarms(&mut self) -> gml::Result<()> {
+        for alarm_id in 0..=11 {
+            // Get all the objects which have this alarm event registered
+            if let Some(objects) = self.event_holders[gml::ev::ALARMS].get(&alarm_id).map(|x| x.clone()) {
+                for object_id in objects.borrow().iter().copied() {
+                    // Iter all instances of this object
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        // Check if this has the alarm set
+                        let instance = self.instance_list.get(handle).unwrap();
+                        let run_event = match instance.alarms.borrow_mut().get_mut(&alarm_id) {
+                            Some(alarm) if *alarm >= 0 => {
+                                // Decrement it, run the event if it hit 0
+                                *alarm -= 1;
+                                *alarm == 0
+                            },
+                            _ => false,
+                        };
+                        if run_event {
+                            self.run_instance_event(gml::ev::ALARMS, alarm_id, handle, handle, None)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Runs all collision events for the current active instances
     pub fn run_collisions(&mut self) -> gml::Result<()> {
         // Iter through every object that has a collision event registered (non-borrowing iter because Rust)
