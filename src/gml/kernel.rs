@@ -1460,39 +1460,70 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_sleep")
     }
 
-    pub fn action_set_timeline(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_timeline")
+    pub fn action_set_timeline(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (index, position) = expect_args!(args, [int, real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.timeline_index.set(index);
+            instance.timeline_position.set(position);
+            instance.timeline_running.set(true);
+        });
+        Ok(Default::default())
     }
 
-    pub fn action_timeline_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_timeline_set")
+    pub fn action_timeline_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (index, position, start_option, loop_option) = expect_args!(args, [int, real, int, int])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.timeline_index.set(index);
+            instance.timeline_position.set(position);
+            instance.timeline_running.set(start_option == 0);
+            instance.timeline_loop.set(loop_option == 1);
+        });
+        Ok(Default::default())
     }
 
-    pub fn action_timeline_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_timeline_start")
+    pub fn action_timeline_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|instance| instance.timeline_running.set(true));
+        Ok(Default::default())
     }
 
-    pub fn action_timeline_pause(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_timeline_pause")
+    pub fn action_timeline_pause(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|instance| instance.timeline_running.set(false));
+        Ok(Default::default())
     }
 
-    pub fn action_timeline_stop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_timeline_stop")
+    pub fn action_timeline_stop(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.timeline_position.set(0.0);
+            instance.timeline_running.set(false);
+        });
+        Ok(Default::default())
     }
 
-    pub fn action_set_timeline_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_timeline_position")
+    pub fn action_set_timeline_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let position = expect_args!(args, [real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            if context.relative {
+                instance.timeline_position.set(instance.timeline_position.get() + position);
+            } else {
+                instance.timeline_position.set(position);
+            }
+        });
+        Ok(Default::default())
     }
 
-    pub fn action_set_timeline_speed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_timeline_speed")
+    pub fn action_set_timeline_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let speed = expect_args!(args, [real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            if context.relative {
+                instance.timeline_speed.set(instance.timeline_speed.get() + speed);
+            } else {
+                instance.timeline_speed.set(speed);
+            }
+        });
+        Ok(Default::default())
     }
 
     pub fn action_message(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
