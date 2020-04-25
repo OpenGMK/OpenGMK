@@ -1329,18 +1329,23 @@ impl Game {
         // Collision cannot be true if either instance does not have a sprite.
         if let (Some(sprite1), Some(sprite2)) = (sprite1, sprite2) {
             // Get the colliders we're going to be colliding with
-            let collider1 = if sprite1.per_frame_colliders {
-                sprite1.colliders.get(inst1.image_index.get().floor() as usize)
+            let collider1 = match if sprite1.per_frame_colliders {
+                sprite1.colliders.get(inst1.image_index.get().floor() as usize % sprite1.colliders.len())
             } else {
                 sprite1.colliders.first()
-            }
-            .unwrap();
-            let collider2 = if sprite2.per_frame_colliders {
-                sprite2.colliders.get(inst2.image_index.get().floor() as usize)
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            let collider2 = match if sprite2.per_frame_colliders {
+                sprite2.colliders.get(inst2.image_index.get().floor() as usize % sprite2.colliders.len())
             } else {
                 sprite2.colliders.first()
-            }
-            .unwrap();
+            } {
+                Some(c) => c,
+                None => return false,
+            };
 
             // round x and y values, and get sin and cos of each angle...
             let x1 = util::ieee_round(inst1.x.get());
@@ -1436,15 +1441,17 @@ impl Game {
             return false
         }
 
-        // Can't collide if no sprite
+        // Can't collide if no sprite or no associated collider
         if let Some(sprite) = sprite {
             // Get collider
-            let collider = if sprite.per_frame_colliders {
-                sprite.colliders.get(inst.image_index.get().floor() as usize)
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor() as usize % sprite.colliders.len())
             } else {
                 sprite.colliders.first()
-            }
-            .unwrap();
+            } {
+                Some(c) => c,
+                None => return false,
+            };
 
             // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
