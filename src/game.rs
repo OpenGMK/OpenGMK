@@ -21,7 +21,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     tile,
-    types::ID,
+    types::{Colour, ID},
     util,
 };
 use gm8exe::{GameAssets, GameVersion};
@@ -71,6 +71,12 @@ pub struct Game {
 
     pub globals: DummyFieldHolder,
     pub game_start: bool,
+
+    pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
+    pub draw_colour: Colour,
+    pub draw_alpha: f64,
+    pub draw_halign: draw::Halign,
+    pub draw_valign: draw::Valign,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -699,6 +705,11 @@ impl Game {
             room_target: None,
             globals: DummyFieldHolder::new(),
             game_start: true,
+            draw_font: None,
+            draw_colour: Colour::new(0.0, 0.0, 0.0),
+            draw_alpha: 1.0,
+            draw_halign: draw::Halign::Left,
+            draw_valign: draw::Valign::Top,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
