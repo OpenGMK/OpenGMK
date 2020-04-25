@@ -51,7 +51,8 @@ pub struct Game {
     pub renderer: Box<dyn Renderer>,
     pub input_manager: InputManager,
     pub assets: Assets,
-    pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12],
+    pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
+    pub custom_draw_objects: HashSet<ID>,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -669,6 +670,10 @@ impl Game {
             }
         }
 
+        // Make list of objects with custom draw events
+        let custom_draw_objects =
+            event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+
         renderer.upload_atlases(atlases)?;
 
         let mut game = Self {
@@ -681,6 +686,7 @@ impl Game {
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
             event_holders,
+            custom_draw_objects,
             views_enabled: false,
             view_current: 0,
             views: Vec::new(),
@@ -1069,24 +1075,31 @@ impl Game {
             port_h,
         );
 
-        fn draw_instance(game: &mut Game, idx: usize) {
+        fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
             let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
-            if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
-                let atlas_ref = match sprite.frames.get(image_index as usize) {
-                    Some(f1) => &f1.atlas_ref,
-                    None => return, // sprite with 0 frames?
-                };
-                game.renderer.draw_sprite(
-                    atlas_ref,
-                    instance.x.get(),
-                    instance.y.get(),
-                    instance.image_xscale.get(),
-                    instance.image_yscale.get(),
-                    instance.image_angle.get(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get(),
-                )
+            if game.custom_draw_objects.contains(&instance.object_index.get()) {
+                // Custom draw event
+                game.run_instance_event(ev::DRAW, 0, idx, idx, None)
+            } else {
+                // Default draw action
+                if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
+                    let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+                    let atlas_ref = match sprite.frames.get(image_index as usize) {
+                        Some(f1) => &f1.atlas_ref,
+                        None => return Ok(()), // sprite with 0 frames?
+                    };
+                    game.renderer.draw_sprite(
+                        atlas_ref,
+                        instance.x.get(),
+                        instance.y.get(),
+                        instance.image_xscale.get(),
+                        instance.image_yscale.get(),
+                        instance.image_angle.get(),
+                        instance.image_blend.get(),
+                        instance.image_alpha.get(),
+                    )
+                }
+                Ok(())
             }
         }
 
@@ -1143,7 +1156,7 @@ impl Game {
                     let tile = self.tile_list.get(idx_tile).unwrap_or_else(|| unsafe { unreachable_unchecked() });
                     match inst.depth.get().cmp(&tile.depth) {
                         Ordering::Greater | Ordering::Equal => {
-                            draw_instance(self, idx_inst);
+                            draw_instance(self, idx_inst)?;
                             iter_inst_v = iter_inst.next(&self.instance_list);
                         },
                         Ordering::Less => {
@@ -1153,9 +1166,9 @@ impl Game {
                     }
                 },
                 (Some(idx_inst), None) => {
-                    draw_instance(self, idx_inst);
+                    draw_instance(self, idx_inst)?;
                     while let Some(idx_inst) = iter_inst.next(&self.instance_list) {
-                        draw_instance(self, idx_inst);
+                        draw_instance(self, idx_inst)?;
                     }
                     break
                 },
