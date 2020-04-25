@@ -13,7 +13,7 @@ use memoffset::offset_of;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions},
-    types::Color,
+    types::Colour,
 };
 use cfg_if::cfg_if;
 use rect_packer::DensePacker;
@@ -46,9 +46,9 @@ pub struct OpenGLRenderer {
     platform_gl: platform::PlatformGL,
 
     // Colour to clear the screen with at the start of each frame (RGB)
-    global_clear_colour: Color,
+    global_clear_colour: Colour,
     // Colour to clear each view rectangle (RGB; None means do not clear)
-    view_clear_colour: Option<Color>,
+    view_clear_colour: Option<Colour>,
 
     // Draw command queue
     draw_commands: Vec<DrawCommand>,
@@ -418,7 +418,7 @@ impl Renderer for OpenGLRenderer {
         Ok(())
     }
 
-    fn set_background_colour(&mut self, colour: Option<Color>) {
+    fn set_background_colour(&mut self, colour: Option<Colour>) {
         self.view_clear_colour = colour;
     }
 

@@ -2,7 +2,7 @@ use crate::{
     game::{Background, View},
     gml::runtime::Instruction,
     tile::Tile,
-    types::{Color, ID},
+    types::{Colour, ID},
 };
 use std::rc::Rc;
 
@@ -14,7 +14,7 @@ pub struct Room {
     pub height: u32,
     pub speed: u32,
     pub persistent: bool,
-    pub bg_colour: Color,
+    pub bg_colour: Colour,
     pub clear_screen: bool,
     pub creation_code: Rc<[Instruction]>,
 

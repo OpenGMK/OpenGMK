@@ -2517,10 +2517,9 @@ impl Game {
 
     pub fn motion_add(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).map(|instance| instance.set_speed_direction(
-            instance.speed.get() + speed,
-            instance.direction.get() + direction,
-        ));
+        self.instance_list.get(context.this).map(|instance| {
+            instance.set_speed_direction(instance.speed.get() + speed, instance.direction.get() + direction)
+        });
         Ok(Default::default())
     }
 
