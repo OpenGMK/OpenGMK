@@ -57,6 +57,7 @@ pub struct Game {
     pub last_tile_id: ID,
 
     pub views_enabled: bool,
+    pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
 
@@ -681,6 +682,7 @@ impl Game {
             assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
             event_holders,
             views_enabled: false,
+            view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
             room_id: room1_id,
@@ -1007,6 +1009,7 @@ impl Game {
             let mut count = 0;
             while let Some(&view) = self.views.get(count) {
                 if view.visible {
+                    self.view_current = count;
                     self.draw_view(
                         view.source_x,
                         view.source_y,
@@ -1021,6 +1024,7 @@ impl Game {
                 }
                 count += 1;
             }
+            self.view_current = 0;
         } else {
             self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }

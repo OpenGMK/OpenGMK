@@ -1084,7 +1084,7 @@ impl Game {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).alpha.into())
             },
             InstanceVariable::ViewEnabled => Ok(self.views_enabled.into()),
-            InstanceVariable::ViewCurrent => todo!(),
+            InstanceVariable::ViewCurrent => Ok(self.view_current.into()),
             InstanceVariable::ViewVisible => {
                 Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).visible.into())
             },
