@@ -911,6 +911,26 @@ impl Game {
             return Ok(())
         }
 
+        // Key events
+        self.run_keyboard_events()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
+        // TODO: Mouse events go here
+
+        // Key press events
+        self.run_key_press_events()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
+        // Key release events
+        self.run_key_release_events()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
         if self.room_target.is_some() {

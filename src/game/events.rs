@@ -103,6 +103,63 @@ impl Game {
         Ok(())
     }
 
+    /// Runs all keyboard events for which the relevant key is held
+    pub fn run_keyboard_events(&mut self) -> gml::Result<()> {
+        let mut i = 0;
+        while let Some((key, objects)) = self.event_holders[gml::ev::KEYBOARD].get_index(i).map(|(x, y)| (*x, y.clone())) {
+            if self.input_manager.key_check(key as usize) {
+                // Get all the objects which have this key event registered
+                for object_id in objects.borrow().iter().copied() {
+                    // Iter all instances of this object
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.run_instance_event(gml::ev::KEYBOARD, key, handle, handle, None)?;
+                    }
+                }
+            }
+            i += 1;
+        }
+        Ok(())
+    }
+
+    /// Runs all keyboard events for which the relevant key was pressed
+    pub fn run_key_press_events(&mut self) -> gml::Result<()> {
+        let mut i = 0;
+        while let Some((key, objects)) = self.event_holders[gml::ev::KEYPRESS].get_index(i).map(|(x, y)| (*x, y.clone())) {
+            if self.input_manager.key_check_pressed(key as usize) {
+                // Get all the objects which have this key event registered
+                for object_id in objects.borrow().iter().copied() {
+                    // Iter all instances of this object
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.run_instance_event(gml::ev::KEYPRESS, key, handle, handle, None)?;
+                    }
+                }
+            }
+            i += 1;
+        }
+        Ok(())
+    }
+
+    /// Runs all keyboard events for which the relevant key was released
+    pub fn run_key_release_events(&mut self) -> gml::Result<()> {
+        let mut i = 0;
+        while let Some((key, objects)) = self.event_holders[gml::ev::KEYRELEASE].get_index(i).map(|(x, y)| (*x, y.clone())) {
+            if self.input_manager.key_check_released(key as usize) {
+                // Get all the objects which have this key event registered
+                for object_id in objects.borrow().iter().copied() {
+                    // Iter all instances of this object
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.run_instance_event(gml::ev::KEYRELEASE, key, handle, handle, None)?;
+                    }
+                }
+            }
+            i += 1;
+        }
+        Ok(())
+    }
+
     /// Runs all collision events for the current active instances
     pub fn run_collisions(&mut self) -> gml::Result<()> {
         // Iter through every object that has a collision event registered (non-borrowing iter because Rust)
