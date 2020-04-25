@@ -1,6 +1,7 @@
 use crate::render::AtlasRef;
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct Font {
     pub name: Rc<str>,
     pub sys_name: String,
@@ -10,9 +11,10 @@ pub struct Font {
     pub first: u32,
     pub last: u32,
     pub atlas_ref: AtlasRef,
-    pub chars: Box<[Character]>,
+    pub chars: Rc<[Character]>,
 }
 
+#[derive(Clone, Copy)]
 pub struct Character {
     pub x: u32,
     pub y: u32,
