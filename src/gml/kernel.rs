@@ -2308,14 +2308,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function dot_product_3d")
     }
 
-    pub fn point_distance_3d(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function point_distance_3d")
+    pub fn point_distance_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
+        Ok(((x2 - x1).powi(2) + (y2 - y1).powi(2) + (z2 - z1).powi(2)).sqrt().into())
     }
 
-    pub fn point_distance(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function point_distance")
+    pub fn point_distance(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
+        Ok(((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt().into())
     }
 
     pub fn point_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2323,14 +2323,14 @@ impl Game {
         Ok((y1 - y2).atan2(x2 - x1).to_degrees().into())
     }
 
-    pub fn lengthdir_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function lengthdir_x")
+    pub fn lengthdir_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (len, dir) = expect_args!(args, [real, real])?;
+        Ok((dir.to_radians().cos() * len).into())
     }
 
-    pub fn lengthdir_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function lengthdir_y")
+    pub fn lengthdir_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (len, dir) = expect_args!(args, [real, real])?;
+        Ok((dir.to_radians().sin() * -len).into())
     }
 
     pub fn move_random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2509,14 +2509,19 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_wrap")
     }
 
-    pub fn motion_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function motion_set")
+    pub fn motion_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, speed) = expect_args!(args, [real, real])?;
+        self.instance_list.get(context.this).map(|instance| instance.set_speed_direction(speed, direction));
+        Ok(Default::default())
     }
 
-    pub fn motion_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function motion_add")
+    pub fn motion_add(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, speed) = expect_args!(args, [real, real])?;
+        self.instance_list.get(context.this).map(|instance| instance.set_speed_direction(
+            instance.speed.get() + speed,
+            instance.direction.get() + direction,
+        ));
+        Ok(Default::default())
     }
 
     pub fn distance_to_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
