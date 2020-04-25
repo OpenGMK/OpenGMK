@@ -68,6 +68,7 @@ pub struct Game {
     pub room_target: Option<ID>,
 
     pub globals: DummyFieldHolder,
+    pub game_start: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -689,6 +690,7 @@ impl Game {
             room_speed: room1_speed,
             room_target: None,
             globals: DummyFieldHolder::new(),
+            game_start: true,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
@@ -837,6 +839,15 @@ impl Game {
                 // Run create event for this instance
                 self.run_instance_event(ev::CREATE, 0, handle, handle, None)?;
             }
+        }
+
+        if self.game_start {
+            // Run game start event for each instance
+            let mut iter = self.instance_list.iter_by_insertion();
+            while let Some(instance) = iter.next(&self.instance_list) {
+                self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
+            }
+            self.game_start = false;
         }
 
         // TODO: run room's creation code (event_type = 11)
