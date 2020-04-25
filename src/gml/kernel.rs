@@ -2318,9 +2318,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function point_distance")
     }
 
-    pub fn point_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function point_direction")
+    pub fn point_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
+        Ok((y1 - y2).atan2(x2 - x1).to_degrees().into())
     }
 
     pub fn lengthdir_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
