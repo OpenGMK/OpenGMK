@@ -90,15 +90,19 @@ impl FileManager {
     }
 
     pub fn close(&mut self, handle: i32, content: Content) -> Result<()> {
-        match self.handles.get((handle - 1) as usize) {
-            Some(Some(f)) => {
-                if f.content == content {
-                    Ok(self.handles[handle as usize] = None)
-                } else {
-                    Err(Error::WrongContent)
-                }
-            },
-            _ => Err(Error::InvalidFile(handle)),
+        if handle > 0 {
+            match self.handles.get((handle - 1) as usize) {
+                Some(Some(f)) => {
+                    if f.content == content {
+                        Ok(self.handles[(handle - 1) as usize] = None)
+                    } else {
+                        Err(Error::WrongContent)
+                    }
+                },
+                _ => Err(Error::InvalidFile(handle)),
+            }
+        } else {
+            Ok(())
         }
     }
 
