@@ -2844,8 +2844,28 @@ impl Game {
     }
 
     pub fn game_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function game_restart")
+        // Room end
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
+        }
+
+        // Game end
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
+        }
+
+        // Delete everything
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.instance_list.mark_deleted(instance);
+        }
+
+        // Go to room 1
+        self.game_start = true;
+        self.room_target = Some(self.room_order.first().copied().ok_or(gml::Error::EndOfRoomOrder)?);
+        Ok(Default::default())
     }
 
     pub fn game_load(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
