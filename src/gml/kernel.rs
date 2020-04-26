@@ -1942,7 +1942,7 @@ impl Game {
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
         let instance = self.instance_list.get(context.this).unwrap();
-        let (x, y) = if context.relative { (x + instance.x.get(), y + instance.x.get()) } else { (x, y) };
+        let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
 
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             if let Some(atlas_ref) =
@@ -2495,7 +2495,7 @@ impl Game {
             loop {
                 match iter.next(&self.instance_list) {
                     Some(target) => {
-                        if self.check_collision(context.this, target) {
+                        if target != context.this && self.check_collision(context.this, target) {
                             break true
                         }
                     },
@@ -2505,7 +2505,7 @@ impl Game {
         } else {
             // Target is an instance ID
             match self.instance_list.get_by_instid(obj) {
-                Some(id) => self.check_collision(context.this, id),
+                Some(id) => id != context.this && self.check_collision(context.this, id),
                 None => false,
             }
         };
@@ -2629,14 +2629,109 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn distance_to_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function distance_to_point")
+    pub fn distance_to_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [int, int])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+
+        let distance_x = if instance.bbox_left.get() > x {
+            instance.bbox_left.get() - x
+        } else if instance.bbox_right.get() < x {
+            x - instance.bbox_right.get()
+        } else {
+            0
+        };
+
+        let distance_y = if instance.bbox_top.get() > y {
+            instance.bbox_top.get() - y
+        } else if instance.bbox_bottom.get() < y {
+            y - instance.bbox_bottom.get()
+        } else {
+            0
+        };
+
+        Ok(match (distance_x, distance_y) {
+            (0, 0) => 0.0,
+            (x, 0) => x.into(),
+            (0, y) => y.into(),
+            (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
+        }
+        .into())
     }
 
-    pub fn distance_to_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function distance_to_object")
+    pub fn distance_to_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+
+        // Helper fn: distance between two instances (with a function name that's really hard to say quickly)
+        fn instance_distance(inst1: &Instance, inst2: &Instance) -> f64 {
+            let distance_x = if inst1.bbox_left.get() > inst2.bbox_right.get() {
+                inst1.bbox_left.get() - inst2.bbox_right.get()
+            } else if inst2.bbox_left.get() > inst1.bbox_right.get() {
+                inst2.bbox_left.get() - inst1.bbox_right.get()
+            } else {
+                0
+            };
+
+            let distance_y = if inst1.bbox_top.get() > inst2.bbox_bottom.get() {
+                inst1.bbox_top.get() - inst2.bbox_bottom.get()
+            } else if inst2.bbox_top.get() > inst1.bbox_bottom.get() {
+                inst2.bbox_top.get() - inst1.bbox_bottom.get()
+            } else {
+                0
+            };
+
+            match (distance_x, distance_y) {
+                (0, 0) => 0.0,
+                (x, 0) => x.into(),
+                (0, y) => y.into(),
+                (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
+            }
+        }
+
+        Ok(match object_id {
+            gml::SELF => 0.0,
+            gml::OTHER => instance_distance(
+                self.instance_list.get(context.this).unwrap(),
+                self.instance_list.get(context.other).unwrap(),
+            ),
+            gml::ALL => {
+                let mut closest = 1000000.0; // GML default
+                let this = self.instance_list.get(context.this).unwrap();
+                let mut iter = self.instance_list.iter_by_insertion();
+                while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                    let dist = instance_distance(this, other);
+                    if dist < closest {
+                        closest = dist;
+                    }
+                }
+                closest
+            },
+            object_id if object_id <= 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut closest = 1000000.0; // GML default
+                    let this = self.instance_list.get(context.this).unwrap();
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                        let dist = instance_distance(this, other);
+                        if dist < closest {
+                            closest = dist;
+                        }
+                    }
+                    closest
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                }
+            },
+            instance_id => {
+                match self.instance_list.get_by_instid(instance_id) {
+                    Some(handle) => instance_distance(
+                        self.instance_list.get(context.this).unwrap(),
+                        self.instance_list.get(handle).unwrap(),
+                    ),
+                    None => 1000000.0, // Again, GML default
+                }
+            },
+        }
+        .into())
     }
 
     pub fn path_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2795,9 +2890,66 @@ impl Game {
         }
     }
 
-    pub fn instance_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function instance_position")
+    pub fn instance_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, object_id) = expect_args!(args, [int, int, int])?;
+        let id: Option<usize> = match object_id {
+            gml::SELF => {
+                if self.check_collision_point(context.this, x, y) {
+                    Some(context.this)
+                } else {
+                    None
+                }
+            },
+            gml::OTHER => {
+                if self.check_collision_point(context.other, x, y) {
+                    Some(context.other)
+                } else {
+                    None
+                }
+            },
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if self.check_collision_point(handle, x, y) {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            object_id if object_id <= 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if self.check_collision_point(handle, x, y) {
+                                    break Some(handle)
+                                }
+                            },
+                            None => break None,
+                        }
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    Some(handle)
+                } else {
+                    None
+                }
+            },
+        };
+
+        match id {
+            Some(handle) => Ok(self.instance_list.get(handle).unwrap().id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn instance_nearest(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
