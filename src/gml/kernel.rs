@@ -3797,14 +3797,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function get_directory_alt")
     }
 
-    pub fn keyboard_get_numlock(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function keyboard_get_numlock")
+    pub fn keyboard_get_numlock(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.input_manager.key_get_numlock().into())
     }
 
-    pub fn keyboard_set_numlock(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_set_numlock")
+    pub fn keyboard_set_numlock(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [any]).map(|x| self.input_manager.key_set_numlock(x.is_true()))?;
+        Ok(Default::default())
     }
 
     pub fn keyboard_key_press(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
