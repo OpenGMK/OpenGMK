@@ -241,6 +241,7 @@ impl InputManager {
             VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => Some(18),
             VirtualKeyCode::Pause => Some(19),
             VirtualKeyCode::Escape => Some(27),
+            VirtualKeyCode::Space => Some(32),
             VirtualKeyCode::PageUp => Some(33),
             VirtualKeyCode::PageDown => Some(34),
             VirtualKeyCode::End => Some(35),
