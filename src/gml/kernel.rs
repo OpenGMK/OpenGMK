@@ -3411,9 +3411,12 @@ impl Game {
         })
     }
 
-    pub fn file_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_delete")
+    pub fn file_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let filename = expect_args!(args, [string])?;
+        match file::delete(&filename) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_delete", e.into())),
+        }
     }
 
     pub fn file_rename(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

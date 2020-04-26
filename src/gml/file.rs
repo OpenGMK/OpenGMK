@@ -131,3 +131,7 @@ impl FileManager {
 pub fn exists(path: &str) -> bool {
     Path::new(path).exists()
 }
+
+pub fn delete(path: &str) -> Result<()> {
+    std::fs::remove_file(path).map_err(|x| x.into())
+}
