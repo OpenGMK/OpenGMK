@@ -1,12 +1,17 @@
-use crate::{game::{Game, GetAsset}, gml};
+use crate::{
+    game::{Game, GetAsset},
+    gml,
+};
 use std::{cmp::Ordering, hint::unreachable_unchecked};
 
+#[derive(Clone, Copy)]
 pub enum Halign {
     Left,
     Middle,
     Right,
 }
 
+#[derive(Clone, Copy)]
 pub enum Valign {
     Top,
     Middle,
@@ -212,9 +217,9 @@ impl Game {
         Ok(())
     }
 
-    // Gets width and height of a string using the current draw_font.
-    // If line_height is None, a line height will be inferred from the font.
-    // If max_width is None, the string will not be given a maximum width.
+    /// Gets width and height of a string using the current draw_font.
+    /// If line_height is None, a line height will be inferred from the font.
+    /// If max_width is None, the string will not be given a maximum width.
     pub fn get_string_size(&self, string: &str, line_height: Option<u32>, max_width: Option<u32>) -> (u32, u32) {
         let font = self.draw_font.as_ref().unwrap();
         let mut width = 0;
@@ -239,12 +244,13 @@ impl Game {
                         width = current_line_width;
                     }
                     current_line_width = 0;
-                    continue;
+                    continue
                 },
                 '\\' if iter.peek() == Some(&'#') => {
                     // '\#' is an escaped newline character, treat it as '#'
                     iter.next(); // consumes '#'
-                    match font.get_char(u32::from('#')) { // consumes '#'
+                    match font.get_char(u32::from('#')) {
+                        // consumes '#'
                         Some(character) => character,
                         None => continue,
                     }
@@ -280,5 +286,99 @@ impl Game {
         }
 
         (width, height)
+    }
+
+    /// Draws a string to the screen at the given coordinates.
+    /// If line_height is None, a line height will be inferred from the font.
+    /// If max_width is None, the string will not be given a maximum width.
+    pub fn draw_string(&mut self, x: i32, y: i32, string: &str, line_height: Option<u32>, max_width: Option<u32>) {
+        let font = self.draw_font.as_ref().unwrap();
+
+        // Figure out what the height of a line is if one wasn't specified
+        // GM8 does this by getting the height of 'M'. Yeah. I don't know either.
+        let line_height = match line_height {
+            Some(h) => h as i32,
+            None => font.get_char(u32::from('M')).map(|x| x.height).unwrap_or_default() as i32,
+        };
+
+        // Figure out where the cursor should start based on our font align variables.
+        let (mut cursor_x, mut cursor_y) = match (self.draw_halign, self.draw_valign) {
+            (Halign::Left, Valign::Top) => (x, y), // avoids calling get_string_size if we don't need to
+            (h, v) => {
+                let (width, height) = self.get_string_size(string, None, None);
+                (
+                    match h {
+                        Halign::Left => x,
+                        Halign::Middle => x - (width as i32 / 2),
+                        Halign::Right => x - width as i32,
+                    },
+                    match v {
+                        Valign::Top => y,
+                        Valign::Middle => y - (height as i32 / 2),
+                        Valign::Bottom => y - height as i32,
+                    },
+                )
+            },
+        };
+        let start_x = cursor_x;
+
+        // Iterate the characters in the string so we can draw them
+        let mut iter = string.chars().peekable();
+        while let Some(c) = iter.next() {
+            // First, get the next character we're going to be processing
+            let character = match c {
+                '#' => {
+                    // '#' is a newline character, don't process it but start a new line instead
+                    cursor_x = start_x;
+                    cursor_y += line_height;
+                    continue
+                },
+                '\\' if iter.peek() == Some(&'#') => {
+                    // '\#' is an escaped newline character, treat it as '#'
+                    iter.next(); // consumes '#'
+                    match font.get_char(u32::from('#')) {
+                        // consumes '#'
+                        Some(character) => character,
+                        None => continue,
+                    }
+                },
+                _ => {
+                    // Normal character
+                    match font.get_char(u32::from(c)) {
+                        Some(character) => character,
+                        None => continue,
+                    }
+                },
+            };
+
+            // Check if we're going over max width
+            // Check if we're going over the max width
+            if let Some(max_width) = max_width {
+                let line_width = (cursor_x - start_x) as u32;
+                if line_width + character.width > max_width && line_width != 0 {
+                    cursor_x = start_x;
+                    cursor_y += line_height;
+                }
+            }
+
+            // Draw the character to the screen
+            self.renderer.draw_sprite_partial(
+                &font.atlas_ref,
+                character.x as _,
+                character.y as _,
+                character.width as _,
+                character.height as _,
+                (character.offset as i32 + cursor_x).into(),
+                cursor_y.into(),
+                1.0,
+                1.0,
+                0.0,
+                u32::from(self.draw_colour) as i32,
+                self.draw_alpha,
+            );
+
+            // Move cursor
+            cursor_x += character.distance as i32;
+        }
     }
 }
