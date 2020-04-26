@@ -351,24 +351,25 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_getpixel")
     }
 
-    pub fn draw_set_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_color")
+    pub fn draw_set_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let col = expect_args!(args, [int])?;
+        self.draw_colour = (col as u32).into();
+        Ok(Default::default())
     }
 
-    pub fn draw_set_alpha(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_alpha")
+    pub fn draw_set_alpha(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.draw_alpha = expect_args!(args, [real])?;
+        Ok(Default::default())
     }
 
-    pub fn draw_get_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function draw_get_color")
+    pub fn draw_get_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(u32::from(self.draw_colour).into())
     }
 
-    pub fn draw_get_alpha(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function draw_get_alpha")
+    pub fn draw_get_alpha(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.draw_alpha.into())
     }
 
     pub fn make_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -709,14 +710,22 @@ impl Game {
         Ok(height.into())
     }
 
-    pub fn draw_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_text")
+    pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, string) = expect_args!(args, [int, int, string])?;
+        self.draw_string(x, y, &string, None, None);
+        Ok(Default::default())
     }
 
-    pub fn draw_text_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_text_ext")
+    pub fn draw_text_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, string, line_height, max_width) = expect_args!(args, [int, int, string, int, int])?;
+        self.draw_string(
+            x,
+            y,
+            &string,
+            if line_height < 0 { None } else { Some(line_height as _) },
+            if max_width < 0 { None } else { Some(max_width as _) },
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -749,14 +758,52 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_text_ext_transformed_color")
     }
 
-    pub fn draw_self(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function draw_self")
+    pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+            let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+            if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    instance.x.get(),
+                    instance.y.get(),
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
+        }
     }
 
-    pub fn draw_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_sprite")
+    pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < 0.0 { instance.image_index.get() } else { image_index };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x,
+                    y,
+                    instance.image_xscale.get(),
+                    instance.image_yscale.get(),
+                    instance.image_angle.get(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_pos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -764,9 +811,24 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_sprite_pos")
     }
 
-    pub fn draw_sprite_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function draw_sprite_ext")
+    pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < 0.0 {
+                self.instance_list.get(context.this).unwrap().image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite(atlas_ref, x, y, xscale, yscale, angle, colour, alpha);
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
