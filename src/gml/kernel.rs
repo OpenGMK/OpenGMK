@@ -2967,9 +2967,53 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_furthest")
     }
 
-    pub fn instance_place(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function instance_place")
+    pub fn instance_place(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, obj) = expect_args!(args, [real, real, int])?;
+
+        // Set self's position to the new coordinates
+        let old_xy = self.instance_list.get(context.this).map(|instance| {
+            let old_xy = (instance.x.get(), instance.y.get());
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+            old_xy
+        });
+
+        // Check collision with target
+        let other: Option<usize> = if obj <= 100000 {
+            // Target is an object ID
+            let object =
+                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+            loop {
+                match iter.next(&self.instance_list) {
+                    Some(target) => {
+                        if target != context.this && self.check_collision(context.this, target) {
+                            break Some(target)
+                        }
+                    },
+                    None => break None,
+                }
+            }
+        } else {
+            // Target is an instance ID
+            match self.instance_list.get_by_instid(obj) {
+                Some(id) if id != context.this && self.check_collision(context.this, id) => Some(id),
+                _ => None,
+            }
+        };
+
+        // Move self back to where it was
+        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+        }
+
+        match other {
+            Some(t) => Ok(self.instance_list.get(t).unwrap().id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn instance_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
