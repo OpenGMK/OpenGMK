@@ -23,3 +23,13 @@ pub struct Character {
     pub offset: u32,
     pub distance: u32,
 }
+
+impl Font {
+    pub fn get_char(&self, index: u32) -> Option<Character> {
+        if index < self.first || index > self.last {
+            None
+        } else {
+            self.chars.get(index as usize).copied()
+        }
+    }
+}
