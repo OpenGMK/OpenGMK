@@ -11,6 +11,7 @@ pub struct Font {
     pub first: u32,
     pub last: u32,
     pub atlas_ref: AtlasRef,
+    pub tallest_char_height: u32,
     pub chars: Rc<[Character]>,
 }
 

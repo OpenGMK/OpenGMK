@@ -330,6 +330,20 @@ impl Game {
             .into_iter()
             .map(|o| {
                 o.map(|b| {
+                    let chars = b
+                    .dmap
+                    .chunks_exact(6)
+                    .skip(b.range_start as usize)
+                    .take(((b.range_end - b.range_start) + 1) as usize)
+                    .map(|x| Character {
+                        x: x[0],
+                        y: x[1],
+                        width: x[2],
+                        height: x[3],
+                        offset: x[4],
+                        distance: x[5],
+                    })
+                    .collect::<Rc<_>>();
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -351,20 +365,8 @@ impl Game {
                                     .into_boxed_slice(),
                             )
                             .ok_or(())?,
-                        chars: b
-                            .dmap
-                            .chunks_exact(6)
-                            .skip(b.range_start as usize)
-                            .take(((b.range_end - b.range_start) + 1) as usize)
-                            .map(|x| Character {
-                                x: x[0],
-                                y: x[1],
-                                width: x[2],
-                                height: x[3],
-                                offset: x[4],
-                                distance: x[5],
-                            })
-                            .collect(),
+                        tallest_char_height: chars.iter().map(|x| x.height).max().unwrap_or_default(),
+                        chars,
                     }))
                 })
                 .transpose()

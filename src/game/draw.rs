@@ -227,10 +227,9 @@ impl Game {
         let mut current_line_width = 0;
 
         // Figure out what the height of a line is if one wasn't specified
-        // GM8 does this by getting the height of 'M'. Yeah. I don't know either.
         let line_height = match line_height {
             Some(h) => h,
-            None => font.get_char(u32::from('M')).map(|x| x.height).unwrap_or_default(),
+            None => font.tallest_char_height,
         };
 
         let mut iter = string.chars().peekable();
@@ -295,10 +294,9 @@ impl Game {
         let font = self.draw_font.as_ref().unwrap();
 
         // Figure out what the height of a line is if one wasn't specified
-        // GM8 does this by getting the height of 'M'. Yeah. I don't know either.
         let line_height = match line_height {
             Some(h) => h as i32,
-            None => font.get_char(u32::from('M')).map(|x| x.height).unwrap_or_default() as i32,
+            None => font.tallest_char_height as i32,
         };
 
         // Figure out where the cursor should start based on our font align variables.
