@@ -1502,34 +1502,42 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_sound")
     }
 
-    pub fn action_another_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_another_room")
+    pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, _transition) = expect_args!(args, [int, int])?;
+        self.room_target = Some(room_id);
+        Ok(Default::default())
     }
 
-    pub fn action_current_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_current_room")
+    pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _transition = expect_args!(args, [int])?;
+        self.room_target = Some(self.room_id);
+        Ok(Default::default())
     }
 
-    pub fn action_previous_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_previous_room")
+    pub fn action_previous_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _transition = expect_args!(args, [int])?;
+        self.room_goto_previous(context, &[])
     }
 
-    pub fn action_next_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_next_room")
+    pub fn action_next_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _transition = expect_args!(args, [int])?;
+        self.room_goto_next(context, &[])
     }
 
-    pub fn action_if_previous_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_if_previous_room")
+    pub fn action_if_previous_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.room_order.first() {
+            Some(&room_id) => Ok((room_id != self.room_id).into()),
+            None => Err(gml::Error::EndOfRoomOrder),
+        }
     }
 
-    pub fn action_if_next_room(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_if_next_room")
+    pub fn action_if_next_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.room_order.last() {
+            Some(&room_id) => Ok((room_id != self.room_id).into()),
+            None => Err(gml::Error::EndOfRoomOrder),
+        }
     }
 
     pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1931,9 +1939,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_webpage")
     }
 
-    pub fn action_draw_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_draw_sprite")
+    pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        let (x, y) = if context.relative { (x + instance.x.get(), y + instance.x.get()) } else { (x, y) };
+
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite(atlas_ref, x, y, 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
     pub fn action_draw_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
