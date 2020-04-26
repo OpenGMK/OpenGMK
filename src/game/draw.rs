@@ -322,8 +322,6 @@ impl Game {
         };
         let start_x = cursor_x;
 
-        println!("Drawing {} at {},{}, will be starting at {},{}", string, x, y, cursor_x, cursor_y);
-
         // Iterate the characters in the string so we can draw them
         let mut iter = string.chars().peekable();
         while let Some(c) = iter.next() {
