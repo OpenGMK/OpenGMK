@@ -4,7 +4,7 @@
 
 use crate::{
     asset,
-    game::{Game, GetAsset},
+    game::{draw, Game, GetAsset},
     gml::{self, file, Context, Value},
     input,
     instance::Instance,
@@ -650,39 +650,63 @@ impl Game {
         unimplemented!("Called unimplemented kernel function texture_set_priority")
     }
 
-    pub fn draw_set_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_font")
+    pub fn draw_set_font(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let font_id = expect_args!(args, [int])?;
+        if self.draw_font_id != font_id {
+            self.draw_font = self.assets.fonts.get_asset(font_id).map(|x| x.as_ref().clone());
+            self.draw_font_id = font_id;
+        }
+        Ok(Default::default())
     }
 
-    pub fn draw_set_halign(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_halign")
+    pub fn draw_set_halign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.draw_halign = match expect_args!(args, [int])? {
+            0 => draw::Halign::Left,
+            1 => draw::Halign::Middle,
+            2 | _ => draw::Halign::Right,
+        };
+        Ok(Default::default())
     }
 
-    pub fn draw_set_valign(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_valign")
+    pub fn draw_set_valign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.draw_valign = match expect_args!(args, [int])? {
+            0 => draw::Valign::Top,
+            1 => draw::Valign::Middle,
+            2 | _ => draw::Valign::Bottom,
+        };
+        Ok(Default::default())
     }
 
-    pub fn string_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_width")
+    pub fn string_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let string = expect_args!(args, [string])?;
+        let (width, _) = self.get_string_size(&string, None, None);
+        Ok(width.into())
     }
 
-    pub fn string_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function string_height")
+    pub fn string_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let string = expect_args!(args, [string])?;
+        let (_, height) = self.get_string_size(&string, None, None);
+        Ok(height.into())
     }
 
-    pub fn string_width_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_width_ext")
+    pub fn string_width_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
+        let (width, _) = self.get_string_size(
+            &string,
+            if line_height < 0 { None } else { Some(line_height as _) },
+            if max_width < 0 { None } else { Some(max_width as _) },
+        );
+        Ok(width.into())
     }
 
-    pub fn string_height_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_height_ext")
+    pub fn string_height_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
+        let (_, height) = self.get_string_size(
+            &string,
+            if line_height < 0 { None } else { Some(line_height as _) },
+            if max_width < 0 { None } else { Some(max_width as _) },
+        );
+        Ok(height.into())
     }
 
     pub fn draw_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
