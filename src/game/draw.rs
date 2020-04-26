@@ -211,4 +211,74 @@ impl Game {
 
         Ok(())
     }
+
+    // Gets width and height of a string using the current draw_font.
+    // If line_height is None, a line height will be inferred from the font.
+    // If max_width is None, the string will not be given a maximum width.
+    pub fn get_string_size(&self, string: &str, line_height: Option<u32>, max_width: Option<u32>) -> (u32, u32) {
+        let font = self.draw_font.as_ref().unwrap();
+        let mut width = 0;
+        let mut height = 0;
+        let mut current_line_width = 0;
+
+        // Figure out what the height of a line is if one wasn't specified
+        // GM8 does this by getting the height of 'M'. Yeah. I don't know either.
+        let line_height = match line_height {
+            Some(h) => h,
+            None => font.get_char(u32::from('M')).map(|x| x.height).unwrap_or_default(),
+        };
+
+        let mut iter = string.chars().peekable();
+        while let Some(c) = iter.next() {
+            // First, get the next character we're going to be processing
+            let character = match c {
+                '#' => {
+                    // '#' is a newline character, don't process it but start a new line instead
+                    height += line_height;
+                    if current_line_width > width {
+                        width = current_line_width;
+                    }
+                    current_line_width = 0;
+                    continue;
+                },
+                '\\' if iter.peek() == Some(&'#') => {
+                    // '\#' is an escaped newline character, treat it as '#'
+                    iter.next(); // consumes '#'
+                    match font.get_char(u32::from('#')) { // consumes '#'
+                        Some(character) => character,
+                        None => continue,
+                    }
+                },
+                _ => {
+                    // Normal character
+                    match font.get_char(u32::from(c)) {
+                        Some(character) => character,
+                        None => continue,
+                    }
+                },
+            };
+
+            // Check if we're going over the max width
+            if let Some(max_width) = max_width {
+                if current_line_width + character.width > max_width && current_line_width != 0 {
+                    height += line_height;
+                    if current_line_width > width {
+                        width = current_line_width;
+                    }
+                    current_line_width = 0;
+                }
+            }
+
+            // Apply current character to line width
+            current_line_width += character.distance;
+        }
+
+        // Pretend there's a newline at the end
+        height += line_height;
+        if current_line_width > width {
+            width = current_line_width;
+        }
+
+        (width, height)
+    }
 }
