@@ -1468,9 +1468,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_kill_position")
     }
 
-    pub fn action_sprite_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_sprite_set")
+    pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.sprite_index.set(sprite_id);
+            instance.image_index.set(image_index);
+            instance.image_speed.set(image_speed);
+        });
+        Ok(Default::default())
     }
 
     pub fn action_sprite_transform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
