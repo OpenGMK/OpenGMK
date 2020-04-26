@@ -72,6 +72,7 @@ pub struct Game {
     pub game_start: bool,
 
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
+    pub draw_font_id: ID,
     pub draw_colour: Colour,
     pub draw_alpha: f64,
     pub draw_halign: draw::Halign,
@@ -705,6 +706,7 @@ impl Game {
             globals: DummyFieldHolder::new(),
             game_start: true,
             draw_font: None,
+            draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
             draw_alpha: 1.0,
             draw_halign: draw::Halign::Left,
