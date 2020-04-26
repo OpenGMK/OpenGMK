@@ -276,7 +276,7 @@ impl Game {
             }
 
             // Apply current character to line width
-            current_line_width += character.distance;
+            current_line_width += character.offset;
         }
 
         // Pretend there's a newline at the end
@@ -321,6 +321,8 @@ impl Game {
             },
         };
         let start_x = cursor_x;
+
+        println!("Drawing {} at {},{}, will be starting at {},{}", string, x, y, cursor_x, cursor_y);
 
         // Iterate the characters in the string so we can draw them
         let mut iter = string.chars().peekable();
@@ -368,7 +370,7 @@ impl Game {
                 character.y as _,
                 character.width as _,
                 character.height as _,
-                (character.offset as i32 + cursor_x).into(),
+                (character.distance as i32 + cursor_x).into(),
                 cursor_y.into(),
                 1.0,
                 1.0,
@@ -378,7 +380,7 @@ impl Game {
             );
 
             // Move cursor
-            cursor_x += character.distance as i32;
+            cursor_x += character.offset as i32;
         }
     }
 }
