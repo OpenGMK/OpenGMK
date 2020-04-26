@@ -27,7 +27,7 @@ pub struct Character {
 impl Font {
     pub fn get_char(&self, index: u32) -> Option<Character> {
         if let Some(index) = index.checked_sub(self.first) {
-            self.chars.get((index - self.first) as usize).copied()
+            self.chars.get(index as usize).copied()
         } else {
             None
         }
