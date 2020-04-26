@@ -18,6 +18,7 @@ pub struct InputManager {
     kb_rctrl: bool,
     kb_lalt: bool,
     kb_ralt: bool,
+    numlock: bool,
 
     // Mouse
     mouse_x: f64,
@@ -41,6 +42,7 @@ impl InputManager {
             kb_rctrl: false,
             kb_lalt: false,
             kb_ralt: false,
+            numlock: false,
             mouse_x: 0.0,
             mouse_y: 0.0,
             mouse_held: [false; MOUSE_BUTTON_COUNT],
@@ -131,6 +133,16 @@ impl InputManager {
     /// Checks if any keyboard key was released
     pub fn key_check_any_released(&self) -> bool {
         self.kb_released.iter().copied().any(|x| x)
+    }
+
+    /// Checks if the spoofed numlock is pressed
+    pub fn key_get_numlock(&self) -> bool {
+        self.numlock
+    }
+
+    /// Checks if the spoofed numlock is pressed
+    pub fn key_set_numlock(&mut self, value: bool) {
+        self.numlock = value
     }
 
     /// Updates the position of the mouse. Coordinates are relative to the top-left of the window
