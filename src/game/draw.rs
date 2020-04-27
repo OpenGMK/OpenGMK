@@ -90,28 +90,32 @@ impl Game {
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
             let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
-            if game.custom_draw_objects.contains(&instance.object_index.get()) {
-                // Custom draw event
-                game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
-            } else {
-                // Default draw action
-                if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                    let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
-                    let atlas_ref = match sprite.frames.get(image_index as usize) {
-                        Some(f1) => &f1.atlas_ref,
-                        None => return Ok(()), // sprite with 0 frames?
-                    };
-                    game.renderer.draw_sprite(
-                        atlas_ref,
-                        instance.x.get(),
-                        instance.y.get(),
-                        instance.image_xscale.get(),
-                        instance.image_yscale.get(),
-                        instance.image_angle.get(),
-                        instance.image_blend.get(),
-                        instance.image_alpha.get(),
-                    )
+            if instance.visible.get() {
+                if game.custom_draw_objects.contains(&instance.object_index.get()) {
+                    // Custom draw event
+                    game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
+                } else {
+                    // Default draw action
+                    if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
+                        let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+                        let atlas_ref = match sprite.frames.get(image_index as usize) {
+                            Some(f1) => &f1.atlas_ref,
+                            None => return Ok(()), // sprite with 0 frames?
+                        };
+                        game.renderer.draw_sprite(
+                            atlas_ref,
+                            instance.x.get(),
+                            instance.y.get(),
+                            instance.image_xscale.get(),
+                            instance.image_yscale.get(),
+                            instance.image_angle.get(),
+                            instance.image_blend.get(),
+                            instance.image_alpha.get(),
+                        )
+                    }
+                    Ok(())
                 }
+            } else {
                 Ok(())
             }
         }
