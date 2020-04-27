@@ -581,6 +581,36 @@ impl Game {
                 context.other = context.this;
 
                 match i32::from(self.eval(target, context)?) {
+                    gml::SELF => {
+                        if self.execute(body, context)? == ReturnType::Exit {
+                            context.other = old_other;
+                            return Ok(ReturnType::Exit)
+                        }
+                    },
+                    gml::OTHER => {
+                        context.this = old_other;
+                        if self.execute(body, context)? == ReturnType::Exit {
+                            context.this = old_this;
+                            context.other = old_other;
+                            return Ok(ReturnType::Exit)
+                        }
+                    },
+                    gml::ALL => {
+                        let mut iter = self.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.instance_list) {
+                            context.this = instance;
+                            match self.execute(body, context)? {
+                                ReturnType::Normal => (),
+                                ReturnType::Continue => continue,
+                                ReturnType::Break => break,
+                                ReturnType::Exit => {
+                                    context.this = old_this;
+                                    context.other = old_other;
+                                    return Ok(ReturnType::Exit)
+                                },
+                            }
+                        }
+                    },
                     i if i < 0 => (),
                     i if i < 100_000 => {
                         if let Some(Some(object)) = self.assets.objects.get(i as usize) {
@@ -591,7 +621,11 @@ impl Game {
                                     ReturnType::Normal => (),
                                     ReturnType::Continue => continue,
                                     ReturnType::Break => break,
-                                    ReturnType::Exit => return Ok(ReturnType::Exit),
+                                    ReturnType::Exit => {
+                                        context.this = old_this;
+                                        context.other = old_other;
+                                        return Ok(ReturnType::Exit)
+                                    },
                                 }
                             }
                         }
@@ -600,7 +634,11 @@ impl Game {
                         if let Some(instance) = self.instance_list.get_by_instid(i) {
                             context.this = instance;
                             match self.execute(body, context)? {
-                                ReturnType::Exit => return Ok(ReturnType::Exit),
+                                ReturnType::Exit => {
+                                    context.this = old_this;
+                                    context.other = old_other;
+                                    return Ok(ReturnType::Exit)
+                                },
                                 _ => (),
                             }
                         }
