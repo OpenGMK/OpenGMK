@@ -1363,9 +1363,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_bounce")
     }
 
-    pub fn action_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_path")
+    pub fn action_path(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, speed, end_action, _relative) = expect_args!(args, [int, real, int, int])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.path_index.set(path_id);
+            instance.path_speed.set(speed);
+            instance.path_endaction.set(end_action);
+            instance.path_position.set(0.0);
+            // TODO: handle relative
+        });
+        Ok(Default::default())
     }
 
     pub fn action_path_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1709,9 +1716,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_collision")
     }
 
-    pub fn action_if(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if")
+    pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [any]).map(|x| x.is_true().into())
     }
 
     pub fn action_if_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1814,19 +1820,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_life_images")
     }
 
-    pub fn action_set_health(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_health")
+    pub fn action_set_health(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let health = expect_args!(args, [real])?;
+        self.health = health;
+        Ok(Default::default())
     }
 
-    pub fn action_if_health(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_if_health")
+    pub fn action_if_health(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (value, method) = expect_args!(args, [real, int])?;
+        
+        Ok(match method {
+            0 => self.health == value,
+            1 => self.health < value,
+            2 | _ => self.health > value,
+        }.into())
     }
 
     pub fn action_draw_health(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_health")
+        // TODO
+        //unimplemented!("Called unimplemented kernel function action_draw_health")
+        Ok(Default::default())
     }
 
     pub fn action_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
