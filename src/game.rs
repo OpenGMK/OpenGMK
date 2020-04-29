@@ -922,6 +922,7 @@ impl Game {
         while let Some(instance) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
+            instance.path_positionprevious.set(instance.path_position.get());
         }
 
         // Begin step event
@@ -1023,6 +1024,69 @@ impl Game {
                 instance.x.set(instance.x.get() + hspeed);
                 instance.y.set(instance.y.get() + vspeed);
                 instance.bbox_is_stale.set(true);
+            }
+        }
+
+        // Advance paths
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let mut run_event = false;
+            let instance = self.instance_list.get(handle).unwrap();
+            if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
+                // Calculate how much offset (0-1) we want to add to the instance's path position
+                let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / 100.0) / path.length;
+
+                // Work out what the new position should be
+                let new_position = instance.path_position.get() + offset;
+                if (new_position <= 0.0 && instance.path_speed.get() < 0.0)
+                    || (new_position >= 1.0 && instance.path_speed.get() > 0.0)
+                {
+                    // Path end
+                    let path_end_pos = if instance.path_speed.get() < 0.0 { 0.0 } else { 1.0 };
+                    match instance.path_endaction.get() {
+                        1 => {
+                            // Continue from start
+                            instance.path_position.set(new_position % 1.0);
+                        },
+                        2 => {
+                            // Continue from end
+                            instance.path_position.set(new_position % 1.0);
+                            let point = path.get_point(path_end_pos);
+                            instance.path_xstart.set(point.x);
+                            instance.path_ystart.set(point.y);
+                        },
+                        3 => {
+                            // Reverse
+                            instance.path_position.set(1.0 - (new_position % 1.0));
+                            instance.path_speed.set(-instance.path_speed.get());
+                        },
+                        _ => {
+                            // Stop
+                            instance.path_position.set(path_end_pos);
+                            instance.path_index.set(-1);
+                        },
+                    }
+
+                    // Set flag to run path end event
+                    run_event = true;
+                } else {
+                    // Normally update path_position
+                    instance.path_position.set(new_position);
+                }
+
+                // Update the instance's actual position based on its new path_position
+                let point = path.get_point(instance.path_position.get());
+                self.instance_list.get(handle).map(|instance| {
+                    instance.x.set(point.x);
+                    instance.y.set(point.y);
+                    instance.path_pointspeed.set(point.speed);
+                    instance.bbox_is_stale.set(true);
+                });
+            }
+
+            // Run path end event
+            if run_event {
+                self.run_instance_event(ev::OTHER, 8, handle, handle, None)?;
             }
         }
 
