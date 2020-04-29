@@ -11,6 +11,7 @@ use crate::{
     asset::{
         self,
         font::{Character, Font},
+        path::{self, Path},
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
         Object, Script, Timeline,
@@ -113,6 +114,7 @@ pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
     pub objects: Vec<Option<Box<Object>>>,
+    pub paths: Vec<Option<Box<Path>>>,
     pub rooms: Vec<Option<Box<Room>>>,
     pub scripts: Vec<Option<Box<Script>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
@@ -331,19 +333,19 @@ impl Game {
             .map(|o| {
                 o.map(|b| {
                     let chars = b
-                    .dmap
-                    .chunks_exact(6)
-                    .skip(b.range_start as usize)
-                    .take(((b.range_end - b.range_start) + 1) as usize)
-                    .map(|x| Character {
-                        x: x[0],
-                        y: x[1],
-                        width: x[2],
-                        height: x[3],
-                        offset: x[4],
-                        distance: x[5],
-                    })
-                    .collect::<Rc<_>>();
+                        .dmap
+                        .chunks_exact(6)
+                        .skip(b.range_start as usize)
+                        .take(((b.range_end - b.range_start) + 1) as usize)
+                        .map(|x| Character {
+                            x: x[0],
+                            y: x[1],
+                            width: x[2],
+                            height: x[3],
+                            offset: x[4],
+                            distance: x[5],
+                        })
+                        .collect::<Rc<_>>();
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -454,6 +456,29 @@ impl Game {
 
             objects
         };
+
+        let paths = paths
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let mut path = Path {
+                        name: b.name.into(),
+                        points: b
+                            .points
+                            .into_iter()
+                            .map(|point| path::Point { x: point.x, y: point.y, speed: point.speed })
+                            .collect(),
+                        control_nodes: Default::default(),
+                        length: Default::default(),
+                        curve: b.connection as u32 == 1,
+                        closed: b.closed,
+                        precision: b.precision.min(8) as _, // ghetto clamp
+                    };
+                    path.update();
+                    Box::new(path)
+                })
+            })
+            .collect();
 
         let timelines = timelines
             .into_iter()
@@ -692,7 +717,7 @@ impl Game {
             rand: Random::new(),
             renderer: Box::new(renderer),
             input_manager: InputManager::new(),
-            assets: Assets { backgrounds, fonts, objects, rooms, scripts, sprites, timelines },
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines },
             event_holders,
             custom_draw_objects,
             views_enabled: false,
