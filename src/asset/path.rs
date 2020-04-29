@@ -26,6 +26,7 @@ pub struct ControlNode {
 impl Path {
     /// Generates a new set of control nodes for this Path and updates its length
     pub fn update(&mut self) {
+        self.control_nodes.clear(); // since you can dynamically add path points...
         if self.curve {
             if let (Some(&first_point), Some(&last_point)) = (self.points.first(), self.points.last()) {
                 if !self.closed {
