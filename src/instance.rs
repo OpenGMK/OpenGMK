@@ -61,6 +61,7 @@ pub struct Instance {
     pub path_endaction: Cell<i32>, // https://docs.yoyogames.com/source/dadiospice/002_reference/paths/path_start.html
     pub path_xstart: Cell<f64>,
     pub path_ystart: Cell<f64>,
+    pub path_pointspeed: Cell<f64>,
     pub timeline_index: Cell<i32>,
     pub timeline_running: Cell<bool>,
     pub timeline_speed: Cell<f64>,
@@ -130,6 +131,7 @@ impl Instance {
             path_endaction: Cell::new(0),
             path_xstart: Cell::new(0.0),
             path_ystart: Cell::new(0.0),
+            path_pointspeed: Cell::new(0.0),
             timeline_index: Cell::new(-1),
             timeline_running: Cell::new(false),
             timeline_speed: Cell::new(1.0),
