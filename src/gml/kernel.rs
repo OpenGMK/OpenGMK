@@ -1828,12 +1828,13 @@ impl Game {
 
     pub fn action_if_health(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (value, method) = expect_args!(args, [real, int])?;
-        
+
         Ok(match method {
             0 => self.health == value,
             1 => self.health < value,
             2 | _ => self.health > value,
-        }.into())
+        }
+        .into())
     }
 
     pub fn action_draw_health(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5306,24 +5307,36 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_get_name")
     }
 
-    pub fn path_get_length(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_length")
+    pub fn path_get_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.length.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_get_kind(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_kind")
+    pub fn path_get_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.curve.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_get_closed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_closed")
+    pub fn path_get_closed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.closed.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_get_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_precision")
+    pub fn path_get_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.precision.into()),
+            None => Ok(Default::default()),
+        }
     }
 
     pub fn path_get_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5346,34 +5359,55 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_get_point_speed")
     }
 
-    pub fn path_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_x")
+    pub fn path_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, offset) = expect_args!(args, [int, real])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.get_point(offset).x.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_y")
+    pub fn path_get_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, offset) = expect_args!(args, [int, real])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.get_point(offset).y.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_get_speed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_speed")
+    pub fn path_get_speed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, offset) = expect_args!(args, [int, real])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.get_point(offset).speed.into()),
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn path_set_kind(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_set_kind")
+    pub fn path_set_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, kind) = expect_args!(args, [int, int])?;
+        self.assets.paths.get_asset_mut(path_id).map(|path| {
+            path.curve = kind == 1;
+            path.update();
+        });
+        Ok(Default::default())
     }
 
-    pub fn path_set_closed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_set_closed")
+    pub fn path_set_closed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, closed) = expect_args!(args, [int, int])?;
+        self.assets.paths.get_asset_mut(path_id).map(|path| {
+            path.closed = closed != 0;
+            path.update();
+        });
+        Ok(Default::default())
     }
 
-    pub fn path_set_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_set_precision")
+    pub fn path_set_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, precision) = expect_args!(args, [int, int])?;
+        self.assets.paths.get_asset_mut(path_id).map(|path| {
+            path.precision = precision.min(8).max(0); // ghetto clamp
+            path.update();
+        });
+        Ok(Default::default())
     }
 
     pub fn path_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
