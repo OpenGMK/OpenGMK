@@ -1364,20 +1364,11 @@ impl Game {
     }
 
     pub fn action_path(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (path_id, speed, end_action, _relative) = expect_args!(args, [int, real, int, int])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.path_index.set(path_id);
-            instance.path_speed.set(speed);
-            instance.path_endaction.set(end_action);
-            instance.path_position.set(0.0);
-            // TODO: handle relative
-        });
-        Ok(Default::default())
+        self.path_start(context, args)
     }
 
-    pub fn action_path_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_path_end")
+    pub fn action_path_end(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.path_end(context, args)
     }
 
     pub fn action_path_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2754,14 +2745,33 @@ impl Game {
         .into())
     }
 
-    pub fn path_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function path_start")
+    pub fn path_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, speed, end_action, relative) = expect_args!(args, [int, real, int, int])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.path_index.set(path_id);
+            instance.path_speed.set(speed);
+            instance.path_endaction.set(end_action);
+            instance.path_position.set(0.0);
+            if relative == 1 {
+                instance.path_xstart.set(instance.x.get());
+                instance.path_ystart.set(instance.y.get());
+            } else {
+                if let Some(path_start) =
+                    self.assets.paths.get_asset(path_id).and_then(|x| x.control_nodes.first()).map(|x| x.point)
+                {
+                    instance.path_xstart.set(path_start.x);
+                    instance.path_ystart.set(path_start.y);
+                    instance.path_pointspeed.set(path_start.speed);
+                }
+            }
+        });
+        Ok(Default::default())
     }
 
-    pub fn path_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function path_end")
+    pub fn path_end(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.instance_list.get(context.this).map(|instance| instance.path_index.set(-1));
+        Ok(Default::default())
     }
 
     pub fn mp_linear_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
