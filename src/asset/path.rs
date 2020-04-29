@@ -60,6 +60,11 @@ impl Path {
             for i in 0..self.points.len() {
                 self.push_control_node(self.points[i]);
             }
+            if self.closed {
+                if let Some(&first_point) = self.points.first() {
+                    self.push_control_node(first_point);
+                }
+            }
         }
     }
 
