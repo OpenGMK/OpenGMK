@@ -38,7 +38,7 @@ impl Path {
                     for i in 0..loop_count {
                         let point0 = self.points[i % self.points.len()];
                         let point1 = self.points[(i + 1) % self.points.len()];
-                        let point2 = self.points[(i + 2) & self.points.len()];
+                        let point2 = self.points[(i + 2) % self.points.len()];
                         self.generate_smooth(
                             self.precision,
                             point0.halfway_between(&point1),
