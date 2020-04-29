@@ -96,6 +96,32 @@ impl Path {
             }
         }
     }
+
+    /// Returns a Point on the path at the given offset, where 0 is the beginning and 1 is the end
+    pub fn get_point(&self, offset: f64) -> Point {
+        match &*self.control_nodes {
+            [] => Point { x: 0.0, y: 0.0, speed: 0.0 },
+            [node] => node.point,
+            nodes => {
+                let distance = offset.fract() * self.length;
+                for node_pair in nodes.windows(2) {
+                    if distance >= node_pair[0].distance && distance <= node_pair[1].distance {
+                        // We're between these two nodes, so lerp between them and return
+                        let lerp = (distance - node_pair[0].distance) / (node_pair[1].distance - node_pair[0].distance);
+                        return Point {
+                            x: (node_pair[1].point.x - node_pair[0].point.x) * lerp + node_pair[0].point.x,
+                            y: (node_pair[1].point.y - node_pair[0].point.y) * lerp + node_pair[0].point.y,
+                            speed: (node_pair[1].point.speed - node_pair[0].point.speed) * lerp
+                                + node_pair[0].point.speed,
+                        }
+                    }
+                }
+                // If this point is reached, the path does not have a control node pair which covers the
+                // offset we're looking for, which means something has gone very wrong during Path::update().
+                unreachable!()
+            },
+        }
+    }
 }
 
 impl Point {
