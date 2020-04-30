@@ -2768,25 +2768,24 @@ impl Game {
     }
 
     pub fn path_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (path_id, speed, end_action, relative) = expect_args!(args, [int, real, int, int])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.path_index.set(path_id);
-            instance.path_speed.set(speed);
-            instance.path_endaction.set(end_action);
-            instance.path_position.set(0.0);
-            if relative == 1 {
-                instance.path_xstart.set(instance.x.get());
-                instance.path_ystart.set(instance.y.get());
+        let (path_id, speed, end_action, absolute) = expect_args!(args, [int, real, int, any])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        instance.path_index.set(path_id);
+        instance.path_speed.set(speed);
+        instance.path_endaction.set(end_action);
+        instance.path_position.set(0.0);
+        if absolute.is_true() {
+            if let Some(path_start) = self.assets.paths.get_asset(path_id).map(|x| x.start) {
+                instance.path_xstart.set(path_start.x);
+                instance.path_ystart.set(path_start.y);
+                instance.path_pointspeed.set(path_start.speed);
             } else {
-                if let Some(path_start) =
-                    self.assets.paths.get_asset(path_id).and_then(|x| x.control_nodes.first()).map(|x| x.point)
-                {
-                    instance.path_xstart.set(path_start.x);
-                    instance.path_ystart.set(path_start.y);
-                    instance.path_pointspeed.set(path_start.speed);
-                }
+                return Err(gml::Error::NonexistentAsset(asset::Type::Path, path_id))
             }
-        });
+        } else {
+            instance.path_xstart.set(instance.x.get());
+            instance.path_ystart.set(instance.y.get());
+        }
         Ok(Default::default())
     }
 
