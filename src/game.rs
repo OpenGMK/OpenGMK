@@ -1413,6 +1413,19 @@ impl Game {
         }
         None
     }
+
+    // Checks if an instance is colliding with any instance, returning the target if it is, otherwise None
+    pub fn check_collision_any(&self, inst: usize) -> Option<usize> {
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(target) = iter.next(&self.instance_list) {
+            if inst != target {
+                if self.check_collision(inst, target) {
+                    return Some(target)
+                }
+            }
+        }
+        None
+    }
 }
 
 pub trait GetAsset<T> {
