@@ -1,6 +1,7 @@
 pub mod background;
 pub mod draw;
 pub mod events;
+pub mod movement;
 pub mod view;
 
 pub use background::Background;
@@ -988,46 +989,7 @@ impl Game {
         }
 
         // Movement: apply friction, gravity, and hspeed/vspeed
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list).and_then(|i| self.instance_list.get(i)) {
-            let friction = instance.friction.get();
-            if friction != 0.0 {
-                // "Subtract" friction from speed towards 0
-                let speed = instance.speed.get();
-                if speed >= 0.0 {
-                    if friction > speed {
-                        instance.set_speed(0.0);
-                    } else {
-                        instance.set_speed(speed - friction);
-                    }
-                } else {
-                    if friction > -speed {
-                        instance.set_speed(0.0);
-                    } else {
-                        instance.set_speed(speed + friction);
-                    }
-                }
-            }
-
-            let gravity = instance.gravity.get();
-            if gravity != 0.0 {
-                // Apply gravity in gravity_direction to hspeed and vspeed
-                let gravity_direction = instance.gravity_direction.get().to_radians();
-                instance.set_hvspeed(
-                    instance.hspeed.get() + (gravity_direction.cos() * gravity),
-                    instance.vspeed.get() - (gravity_direction.sin() * gravity),
-                );
-            }
-
-            // Apply hspeed and vspeed to x and y
-            let hspeed = instance.hspeed.get();
-            let vspeed = instance.vspeed.get();
-            if hspeed != 0.0 || vspeed != 0.0 {
-                instance.x.set(instance.x.get() + hspeed);
-                instance.y.set(instance.y.get() + vspeed);
-                instance.bbox_is_stale.set(true);
-            }
-        }
+        self.process_movement();
 
         // Advance paths
         let mut iter = self.instance_list.iter_by_insertion();
