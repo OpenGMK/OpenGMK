@@ -238,88 +238,89 @@ impl OpenGLRenderer {
                 gl::STATIC_DRAW,
             );
 
-            gl::Uniform1i(gl::GetUniformLocation(self.program, "tex\0".as_ptr() as _), self.current_atlas as _);
+            // layout(location = 1) uniform sampler2D tex;
+            gl::Uniform1i(1, self.current_atlas as _);
 
-            let glsl_model_view = gl::GetAttribLocation(self.program, b"model_view\0".as_ptr() as *const c_char) as u32;
-            let atlas_xywh = gl::GetAttribLocation(self.program, b"atlas_xywh\0".as_ptr() as *const c_char) as u32;
-            let glsl_blend = gl::GetAttribLocation(self.program, b"blend\0".as_ptr() as *const c_char) as u32;
-            let glsl_alpha = gl::GetAttribLocation(self.program, b"alpha\0".as_ptr() as *const c_char) as u32;
-            gl::EnableVertexAttribArray(glsl_model_view);
+            // layout (location = 1) in mat4 model_view;
+            // layout (location = 6) in vec4 atlas_xywh;
+            // layout (location = 7) in vec3 blend;
+            // layout (location = 8) in float alpha;
+            gl::EnableVertexAttribArray(1);
             gl::VertexAttribPointer(
-                glsl_model_view,
+                1,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 offset_of!(DrawCommand, model_view_matrix) as *const _,
             );
-            gl::EnableVertexAttribArray(glsl_model_view + 1);
+            gl::EnableVertexAttribArray(2);
             gl::VertexAttribPointer(
-                glsl_model_view + 1,
+                2,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
             );
-            gl::EnableVertexAttribArray(glsl_model_view + 2);
+            gl::EnableVertexAttribArray(3);
             gl::VertexAttribPointer(
-                glsl_model_view + 2,
+                3,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
             );
-            gl::EnableVertexAttribArray(glsl_model_view + 3);
+            gl::EnableVertexAttribArray(4);
             gl::VertexAttribPointer(
-                glsl_model_view + 3,
+                4,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
             );
-            gl::EnableVertexAttribArray(atlas_xywh);
+            gl::EnableVertexAttribArray(6);
             gl::VertexAttribPointer(
-                atlas_xywh,
+                6,
                 4,
                 gl::INT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 (offset_of!(DrawCommand, atlas_ref) + offset_of!(AtlasRef, x)) as *const _,
             );
-            gl::EnableVertexAttribArray(glsl_blend);
+            gl::EnableVertexAttribArray(7);
             gl::VertexAttribPointer(
-                glsl_blend,
+                7,
                 3,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 offset_of!(DrawCommand, blend) as *const _,
             );
-            gl::EnableVertexAttribArray(glsl_alpha);
+            gl::EnableVertexAttribArray(8);
             gl::VertexAttribPointer(
-                glsl_alpha,
+                8,
                 1,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<DrawCommand>() as i32,
                 offset_of!(DrawCommand, alpha) as *const _,
             );
-            gl::VertexAttribDivisor(glsl_model_view, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 1, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 2, 1);
-            gl::VertexAttribDivisor(glsl_model_view + 3, 1);
-            gl::VertexAttribDivisor(atlas_xywh, 1);
-            gl::VertexAttribDivisor(glsl_blend, 1);
-            gl::VertexAttribDivisor(glsl_alpha, 1);
+            gl::VertexAttribDivisor(1, 1);
+            gl::VertexAttribDivisor(2, 1);
+            gl::VertexAttribDivisor(3, 1);
+            gl::VertexAttribDivisor(4, 1);
+            gl::VertexAttribDivisor(6, 1);
+            gl::VertexAttribDivisor(7, 1);
+            gl::VertexAttribDivisor(8, 1);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-            let tex_coord = gl::GetAttribLocation(self.program, "tex_coord\0".as_ptr() as _) as u32;
-            gl::EnableVertexAttribArray(tex_coord);
-            gl::VertexAttribPointer(tex_coord, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
+            // layout (location = 5) in vec2 tex_coord;
+            gl::EnableVertexAttribArray(5);
+            gl::VertexAttribPointer(5, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
 
             gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
 
