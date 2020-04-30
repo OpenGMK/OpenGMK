@@ -1359,8 +1359,8 @@ impl Game {
     }
 
     pub fn action_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (advanced, solids) = expect_args!(args, [any, any])?;
-        if solids.is_true() {
+        let (advanced, kind) = expect_args!(args, [any, int])?;
+        if kind == 0 {
             self.move_bounce_solid(context, &[advanced])
         } else {
             self.move_bounce_all(context, &[advanced])
