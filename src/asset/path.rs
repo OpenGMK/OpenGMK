@@ -8,9 +8,11 @@ pub struct Path {
     pub curve: bool,
     pub closed: bool,
     pub precision: i32,
+    pub start: Point,
+    pub end: Point,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Point {
     pub x: f64,
     pub y: f64,
@@ -24,7 +26,7 @@ pub struct ControlNode {
 }
 
 impl Path {
-    /// Generates a new set of control nodes for this Path and updates its length
+    /// Generates a new set of control nodes for this Path and updates its start, end and length
     pub fn update(&mut self) {
         self.control_nodes.clear(); // since you can dynamically add path points...
         if self.curve {
@@ -73,6 +75,10 @@ impl Path {
             Some(prev_node) => point.distance(&prev_node.point) + prev_node.distance,
             None => 0.0,
         };
+        if self.control_nodes.len() == 0 {
+            self.start = point;
+        }
+        self.end = point;
         self.control_nodes.push(ControlNode { point, distance });
         self.length = distance;
     }
@@ -106,12 +112,13 @@ impl Path {
                 let distance = offset * self.length;
                 if distance <= 0.0 {
                     // We're before or at the first control node, so just return that
-                    nodes.first().unwrap().point
+                    self.start
                 } else {
                     for node_pair in nodes.windows(2) {
                         if distance >= node_pair[0].distance && distance <= node_pair[1].distance {
                             // We're between these two nodes, so lerp between them and return
-                            let lerp = (distance - node_pair[0].distance) / (node_pair[1].distance - node_pair[0].distance);
+                            let lerp =
+                                (distance - node_pair[0].distance) / (node_pair[1].distance - node_pair[0].distance);
                             return Point {
                                 x: (node_pair[1].point.x - node_pair[0].point.x) * lerp + node_pair[0].point.x,
                                 y: (node_pair[1].point.y - node_pair[0].point.y) * lerp + node_pair[0].point.y,
@@ -121,7 +128,7 @@ impl Path {
                         }
                     }
                     // We must be after the final control node, so return that
-                    nodes.last().unwrap().point
+                    self.end
                 }
             },
         }

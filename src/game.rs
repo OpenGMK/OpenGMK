@@ -473,6 +473,8 @@ impl Game {
                         curve: b.connection as u32 == 1,
                         closed: b.closed,
                         precision: b.precision.min(8) as _, // ghetto clamp
+                        start: Default::default(),
+                        end: Default::default(),
                     };
                     path.update();
                     Box::new(path)
@@ -1076,12 +1078,10 @@ impl Game {
 
                 // Update the instance's actual position based on its new path_position
                 let point = path.get_point(instance.path_position.get());
-                self.instance_list.get(handle).map(|instance| {
-                    instance.x.set(point.x);
-                    instance.y.set(point.y);
-                    instance.path_pointspeed.set(point.speed);
-                    instance.bbox_is_stale.set(true);
-                });
+                instance.x.set(point.x);
+                instance.y.set(point.y);
+                instance.path_pointspeed.set(point.speed);
+                instance.bbox_is_stale.set(true);
             }
 
             // Run path end event
