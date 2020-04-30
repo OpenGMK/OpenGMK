@@ -1358,9 +1358,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_move_contact")
     }
 
-    pub fn action_bounce(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_bounce")
+    pub fn action_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (advanced, solids) = expect_args!(args, [any, any])?;
+        if solids.is_true() {
+            self.move_bounce_solid(context, &[advanced])
+        } else {
+            self.move_bounce_all(context, &[advanced])
+        }
     }
 
     pub fn action_path(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2615,19 +2619,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_outside_all")
     }
 
-    pub fn move_bounce(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function move_bounce")
+    pub fn move_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.move_bounce_solid(context, args)
     }
 
-    pub fn move_bounce_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function move_bounce_solid")
+    pub fn move_bounce_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let advanced = expect_args!(args, [int])?;
+        if advanced == 1 {
+            self.bounce_advanced(context.this, true);
+        } else {
+            self.bounce(context.this, true);
+        }
+        Ok(Default::default())
     }
 
-    pub fn move_bounce_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function move_bounce_all")
+    pub fn move_bounce_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let advanced = expect_args!(args, [int])?;
+        if advanced == 1 {
+            self.bounce_advanced(context.this, false);
+        } else {
+            self.bounce(context.this, false);
+        }
+        Ok(Default::default())
     }
 
     pub fn move_wrap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
