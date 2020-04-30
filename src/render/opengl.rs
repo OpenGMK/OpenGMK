@@ -598,12 +598,9 @@ impl Renderer for OpenGLRenderer {
         unsafe {
             gl::Viewport(port_x, port_y, port_w, port_h);
             gl::Scissor(port_x, port_y, port_w, port_h);
-            gl::UniformMatrix4fv(
-                gl::GetUniformLocation(self.program, b"projection\0".as_ptr() as *const c_char),
-                1,
-                gl::FALSE,
-                &projection as _,
-            );
+
+            // layout(location = 0) uniform mat4 projection;
+            gl::UniformMatrix4fv(0, 1, gl::FALSE, &projection as _);
 
             // Clear view rectangle
             if let Some(colour) = self.view_clear_colour {

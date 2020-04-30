@@ -1,4 +1,5 @@
 #version 330 core
+#extension GL_ARB_explicit_uniform_location : require
 
 layout (location = 0) in vec3 pos;
 in mat4 model_view;
@@ -12,7 +13,7 @@ out vec4 frag_atlas_xywh;
 out vec3 frag_blend;
 out float frag_alpha;
 
-uniform mat4 projection;
+layout(location = 0) uniform mat4 projection;
 
 void main() {
     frag_tex_coord = tex_coord;
