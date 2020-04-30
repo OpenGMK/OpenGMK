@@ -1,6 +1,6 @@
 use crate::{
     game::{Game, GetAsset},
-    gml,
+    gml, util,
 };
 use std::{cmp::Ordering, hint::unreachable_unchecked};
 
@@ -104,8 +104,8 @@ impl Game {
                         };
                         game.renderer.draw_sprite(
                             atlas_ref,
-                            instance.x.get(),
-                            instance.y.get(),
+                            util::ieee_round(instance.x.get()),
+                            util::ieee_round(instance.y.get()),
                             instance.image_xscale.get(),
                             instance.image_yscale.get(),
                             instance.image_angle.get(),
@@ -130,8 +130,8 @@ impl Game {
                         tile.tile_y as _,
                         tile.width as _,
                         tile.height as _,
-                        tile.x,
-                        tile.y,
+                        util::ieee_round(tile.x),
+                        util::ieee_round(tile.y),
                         tile.xscale,
                         tile.yscale,
                         0.0,
@@ -149,8 +149,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    background.x_offset,
-                    background.y_offset,
+                    util::ieee_round(background.x_offset),
+                    util::ieee_round(background.y_offset),
                     background.xscale,
                     background.yscale,
                     0.0,
@@ -207,8 +207,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    background.x_offset,
-                    background.y_offset,
+                    util::ieee_round(background.x_offset),
+                    util::ieee_round(background.y_offset),
                     background.xscale,
                     background.yscale,
                     0.0,

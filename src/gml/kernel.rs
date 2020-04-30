@@ -766,8 +766,8 @@ impl Game {
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    instance.x.get(),
-                    instance.y.get(),
+                    util::ieee_round(instance.x.get()),
+                    util::ieee_round(instance.y.get()),
                     instance.image_xscale.get(),
                     instance.image_yscale.get(),
                     instance.image_angle.get(),
@@ -782,7 +782,7 @@ impl Game {
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, int, int])?;
         let instance = self.instance_list.get(context.this).unwrap();
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < 0.0 { instance.image_index.get() } else { image_index };
@@ -813,7 +813,7 @@ impl Game {
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, real, int, int, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < 0.0 {
                 self.instance_list.get(context.this).unwrap().image_index.get()
@@ -1959,7 +1959,16 @@ impl Game {
             if let Some(atlas_ref) =
                 sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
             {
-                self.renderer.draw_sprite(atlas_ref, x, y, 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    util::ieee_round(x),
+                    util::ieee_round(y),
+                    1.0,
+                    1.0,
+                    0.0,
+                    0xFFFFFF,
+                    1.0,
+                );
             }
             Ok(Default::default())
         } else {
