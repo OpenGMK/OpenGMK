@@ -3,6 +3,7 @@ pub mod draw;
 pub mod events;
 pub mod movement;
 pub mod view;
+pub mod window;
 
 pub use background::Background;
 pub use view::View;
