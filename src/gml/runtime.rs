@@ -1547,7 +1547,7 @@ impl Game {
             InstanceIdentifier::Expression(node) => {
                 let value = self.eval(node, context).map(i32::from)?;
                 match value {
-                    gml::SELF => Ok(Target::Single(Some(context.this))),
+                    gml::SELF | gml::SELF2 => Ok(Target::Single(Some(context.this))),
                     gml::OTHER => Ok(Target::Single(Some(context.other))),
                     gml::ALL => Ok(Target::All),
                     gml::NOONE => Ok(Target::Single(None)),

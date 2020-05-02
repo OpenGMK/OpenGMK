@@ -16,16 +16,12 @@ pub use runtime::Error;
 pub const TRUE: f64 = 1.0;
 pub const FALSE: f64 = 0.0;
 
-// Note: -6 is *not* a special reference in GameMaker 8, and is listed as "Not Specified" in their documentation:
-// https://docs.yoyogames.com/source/dadiospice/002_reference/debugging/runner%20errors.html
-// Dereferencing -6 produces an error message, just like any other negative value beyond -7. It's not clear why YYG
-// decided to skip -6 but, regardless, that is why there's no special name for it here.
-
 pub const SELF: i32 = -1;
 pub const OTHER: i32 = -2;
 pub const ALL: i32 = -3;
 pub const NOONE: i32 = -4;
 pub const GLOBAL: i32 = -5;
+pub const SELF2: i32 = -6; // For some reason, although the value of `self` is -1, -6 is also treated as self.
 pub const LOCAL: i32 = -7;
 
 pub mod ev {

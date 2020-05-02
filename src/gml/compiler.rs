@@ -554,10 +554,10 @@ impl Compiler {
         let node = self.compile_ast_expr(expression, locals);
         if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
-                -1 => InstanceIdentifier::Own,
-                -2 => InstanceIdentifier::Other,
-                -5 => InstanceIdentifier::Global,
-                -7 => InstanceIdentifier::Local,
+                gml::SELF | gml::SELF2 => InstanceIdentifier::Own,
+                gml::OTHER => InstanceIdentifier::Other,
+                gml::GLOBAL => InstanceIdentifier::Global,
+                gml::LOCAL => InstanceIdentifier::Local,
                 _ => InstanceIdentifier::Expression(Box::new(node)),
             }
         } else {
