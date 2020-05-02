@@ -98,10 +98,10 @@ pub struct WindowImpl {
 
 impl WindowImpl {
     pub fn new(width: u32, height: u32, title: &str) -> Result<Self, String> {
-        let class_atom = match WINDOW_CLASS_ATOM.load(atomic::Ordering::AcqRel) {
+        let class_atom = match WINDOW_CLASS_ATOM.load(atomic::Ordering::Acquire) {
             0 => match unsafe { register_window_class() } {
                 Ok(atom) => {
-                    WINDOW_CLASS_ATOM.store(atom, atomic::Ordering::AcqRel);
+                    WINDOW_CLASS_ATOM.store(atom, atomic::Ordering::Release);
                     atom
                 },
                 Err(code) => return Err(format!("Failed to register windowclass! (Code: {:#X})", code)),
