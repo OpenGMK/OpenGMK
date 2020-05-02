@@ -61,6 +61,12 @@ struct WindowData {
     events: Vec<Event>,
 }
 
+impl Default for WindowData {
+    fn default() -> Self {
+        Self { close_requested: false, events: Vec::new() }
+    }
+}
+
 #[inline(always)]
 unsafe fn get_window_data<'a>(hwnd: HWND) -> &'a mut WindowData {
     let lptr = GetWindowLongPtrW(hwnd, 0);
@@ -143,6 +149,7 @@ impl WindowImpl {
                 let code = GetLastError();
                 return Err(format!("Failed to create window! (Code: {:#X})", code))
             }
+            ptr::write(get_window_data(hwnd), WindowData::default());
             hwnd
         };
         WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
