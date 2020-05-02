@@ -9,8 +9,9 @@ use std::{
     sync::atomic::{self, AtomicU16, AtomicUsize},
 };
 use winapi::{
-    ctypes::wchar_t,
+    ctypes::{c_int, wchar_t},
     shared::{
+        basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, HINSTANCE, LPARAM, LRESULT, TRUE, UINT, WPARAM},
         windef::{HBRUSH, HWND},
     },
@@ -18,11 +19,12 @@ use winapi::{
         errhandlingapi::GetLastError,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
-            BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics, LoadCursorW,
-            PeekMessageW, RegisterClassExW, SetWindowLongPtrW, ShowWindow, TranslateMessage, UnregisterClassW,
-            COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN,
-            SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_PAINT, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX,
-            WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics,
+            GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, SetWindowLongPtrW, ShowWindow,
+            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWL_STYLE, IDC_ARROW, MSG,
+            PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_PAINT,
+            WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU,
+            WS_THICKFRAME,
         },
     },
 };
@@ -54,6 +56,17 @@ fn get_window_style(style: Style) -> DWORD {
     }
 }
 
+struct WindowData {
+    close_requested: bool,
+    events: Vec<Event>,
+}
+
+#[inline(always)]
+unsafe fn get_window_data<'a>(hwnd: HWND) -> &'a mut WindowData {
+    let lptr = GetWindowLongPtrW(hwnd, 0);
+    &mut *mem::transmute::<LONG_PTR, *mut WindowData>(lptr)
+}
+
 unsafe fn register_window_class() -> Result<ATOM, DWORD> {
     let class = WNDCLASSEXW {
         cbSize: mem::size_of::<WNDCLASSEXW>() as UINT,
@@ -69,7 +82,7 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
 
         // tail alloc!
         cbClsExtra: 0,
-        cbWndExtra: 0,
+        cbWndExtra: mem::size_of::<WindowData>() as c_int,
     };
     let class_atom = RegisterClassExW(&class);
     if class_atom == 0 { Err(GetLastError()) } else { Ok(class_atom) }
