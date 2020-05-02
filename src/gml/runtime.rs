@@ -581,7 +581,7 @@ impl Game {
                 context.other = context.this;
 
                 match i32::from(self.eval(target, context)?) {
-                    gml::SELF => {
+                    gml::SELF | gml::SELF2 => {
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.other = old_other;
                             return Ok(ReturnType::Exit)
