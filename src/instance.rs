@@ -78,7 +78,7 @@ pub struct Instance {
     pub alarms: RefCell<HashMap<u32, i32>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Field {
     Single(Value),
     Array(HashMap<u32, Value>),
