@@ -1196,7 +1196,7 @@ impl Game {
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
             InstanceVariable::EventAction => Ok(context.event_action.into()),
-            InstanceVariable::SecureMode => todo!(), // TODO: this.. isn't documented? what??
+            InstanceVariable::SecureMode => todo!(),
             InstanceVariable::DebugMode => todo!(),
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
