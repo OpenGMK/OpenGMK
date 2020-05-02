@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::Game,
+    game::{Game, GetAsset},
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
@@ -1310,7 +1310,13 @@ impl Game {
                     instance.mask_index.set(v);
                 }
             },
-            InstanceVariable::PathPosition => instance.path_position.set(value.into()),
+            InstanceVariable::PathPosition => {
+                let new_value = f64::from(value).max(0.0).min(1.0);
+                if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
+                    instance.path_pointspeed.set(path.get_point(new_value).speed);
+                }
+                instance.path_position.set(new_value);
+            },
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),
             InstanceVariable::PathSpeed => instance.path_speed.set(value.into()),
             InstanceVariable::PathScale => instance.path_scale.set(value.into()),
