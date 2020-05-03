@@ -1226,9 +1226,47 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_highscore")
     }
 
-    pub fn action_move(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_move")
+    pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (dir_string, speed) = expect_args!(args, [string, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
+        let bytes = dir_string.as_bytes();
+        if bytes.len() != 9 {
+            return Err(gml::Error::FunctionError(
+                "action_move",
+                format!("Invalid argument to action_move: {}", dir_string),
+            ))
+        }
+
+        let speed = if context.relative { speed + instance.speed.get() } else { speed };
+
+        // Only invoke RNG if at least one of the options is checked, otherwise don't do anything
+        if dir_string.as_ref() != "000000000" {
+            // Call irandom until it lands on a byte that's '1' rather than '0'
+            let offset = loop {
+                let index = self.rand.next_int(8) as usize;
+                if bytes[index] == 49 {
+                    // '1'
+                    break index
+                }
+            };
+
+            // Handle each case separately
+            match offset {
+                0 => instance.set_speed_direction(speed, 225.0),
+                1 => instance.set_speed_direction(speed, 270.0),
+                2 => instance.set_speed_direction(speed, 315.0),
+                3 => instance.set_speed_direction(speed, 180.0),
+                4 => instance.set_speed_direction(0.0, 0.0),
+                5 => instance.set_speed_direction(speed, 0.0),
+                6 => instance.set_speed_direction(speed, 135.0),
+                7 => instance.set_speed_direction(speed, 90.0),
+                8 => instance.set_speed_direction(speed, 45.0),
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(Default::default())
     }
 
     pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
