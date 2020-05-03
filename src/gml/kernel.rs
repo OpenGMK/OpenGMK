@@ -3082,9 +3082,62 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_copy")
     }
 
-    pub fn instance_change(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function instance_change")
+    pub fn instance_change(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, perf) = expect_args!(args, [int, any])?;
+        let run_events = perf.is_true();
+
+        if run_events {
+            self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
+        }
+        self.instance_list.mark_deleted(context.this);
+
+        // These variables get copied to the new instance
+        let old_instance = self.instance_list.get(context.this).unwrap();
+        let fields = (*old_instance.fields.borrow()).clone();
+        let alarms = (*old_instance.alarms.borrow()).clone();
+        let x = old_instance.x.get();
+        let y = old_instance.y.get();
+        let gravity = old_instance.gravity.get();
+        let gravity_direction = old_instance.gravity_direction.get();
+        let hspeed = old_instance.hspeed.get();
+        let vspeed = old_instance.vspeed.get();
+        let speed = old_instance.speed.get();
+        let direction = old_instance.direction.get();
+        let friction = old_instance.friction.get();
+        let image_xscale = old_instance.image_xscale.get();
+        let image_yscale = old_instance.image_yscale.get();
+        let image_speed = old_instance.image_speed.get();
+        let image_angle = old_instance.image_angle.get();
+        let image_blend = old_instance.image_blend.get();
+
+        let object = self
+            .assets
+            .objects
+            .get_asset(object_id)
+            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
+        self.last_instance_id += 1;
+        let handle = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+        let instance = self.instance_list.get(handle).unwrap();
+        *instance.fields.borrow_mut() = fields;
+        *instance.alarms.borrow_mut() = alarms;
+        instance.gravity.set(gravity);
+        instance.gravity_direction.set(gravity_direction);
+        instance.hspeed.set(hspeed);
+        instance.vspeed.set(vspeed);
+        instance.speed.set(speed);
+        instance.direction.set(direction);
+        instance.friction.set(friction);
+        instance.image_xscale.set(image_xscale);
+        instance.image_yscale.set(image_yscale);
+        instance.image_speed.set(image_speed);
+        instance.image_angle.set(image_angle);
+        instance.image_blend.set(image_blend);
+
+        if run_events {
+            self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
+        }
+
+        Ok(Default::default())
     }
 
     pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
