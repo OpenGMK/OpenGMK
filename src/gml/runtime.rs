@@ -1498,7 +1498,7 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's sprite_index
-    fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
+    pub fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let instance = self.instance_list.get(instance)?;
         let index = instance.sprite_index.get();
         if index >= 0 {
@@ -1509,7 +1509,7 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's mask_index
-    fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
+    pub fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
             let instance = self.instance_list.get(instance)?;
             let index = instance.mask_index.get();
