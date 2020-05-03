@@ -2,7 +2,7 @@
 
 pub mod win32;
 
-use std::ops::Deref;
+use std::slice;
 
 #[cfg(target_os = "windows")]
 use win32 as platform;
@@ -31,21 +31,38 @@ pub enum Style {
 pub struct Window(pub Box<dyn WindowTrait>);
 
 pub trait WindowTrait {
+    fn close_requested(&self) -> bool;
+    fn request_close(&mut self);
+
+    fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
+
     fn set_style(&self, style: Style);
     fn set_visible(&self, visible: bool);
-}
-
-impl Deref for Window {
-    type Target = dyn WindowTrait;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
 }
 
 impl Window {
     /// Creates a new Window, invisible by default.
     pub fn new(width: u32, height: u32, title: &str) -> Result<Self, String> {
         Ok(Self(Box::new(platform::WindowImpl::new(width, height, title)?)))
+    }
+
+    pub fn close_requested(&self) -> bool {
+        self.0.close_requested()
+    }
+
+    pub fn request_close(&mut self) {
+        self.0.request_close()
+    }
+
+    pub fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event> {
+        self.0.process_events()
+    }
+
+    pub fn set_style(&self, style: Style) {
+        self.0.set_style(style)
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.0.set_visible(visible)
     }
 }

@@ -5,7 +5,7 @@ use std::{
     mem,
     ops::Drop,
     os::windows::ffi::OsStrExt,
-    ptr,
+    ptr, slice,
     sync::atomic::{self, AtomicU16, AtomicUsize},
 };
 use winapi::{
@@ -21,10 +21,10 @@ use winapi::{
         winuser::{
             BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics,
             GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, SetWindowLongPtrW, ShowWindow,
-            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWL_STYLE, IDC_ARROW, MSG,
-            PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_PAINT,
-            WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU,
-            WS_THICKFRAME,
+            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWLP_USERDATA, GWL_STYLE,
+            IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE,
+            WM_ERASEBKGND, WM_NCDESTROY, WM_PAINT, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
+            WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -33,7 +33,7 @@ use winapi::{
 extern "C" {
     static __ImageBase: IMAGE_DOS_HEADER;
 }
-fn get_module() -> HINSTANCE {
+fn get_hinstance() -> HINSTANCE {
     unsafe { (&__ImageBase) as *const _ as _ }
 }
 
@@ -68,8 +68,8 @@ impl Default for WindowData {
 }
 
 #[inline(always)]
-unsafe fn get_window_data<'a>(hwnd: HWND) -> &'a mut WindowData {
-    let lptr = GetWindowLongPtrW(hwnd, 0);
+unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> &'a mut WindowData {
+    let lptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
     &mut *mem::transmute::<LONG_PTR, *mut WindowData>(lptr)
 }
 
@@ -78,7 +78,7 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
         cbSize: mem::size_of::<WNDCLASSEXW>() as UINT,
         style: CS_OWNDC,
         lpfnWndProc: Some(wnd_proc),
-        hInstance: get_module(),
+        hInstance: get_hinstance(),
         hCursor: LoadCursorW(ptr::null_mut(), IDC_ARROW),
         hbrBackground: COLOR_BACKGROUND as HBRUSH,
         lpszMenuName: ptr::null(),
@@ -86,9 +86,9 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
         hIconSm: ptr::null_mut(),
         hIcon: ptr::null_mut(),
 
-        // tail alloc!
+        // tail alloc! we don't actually use any
         cbClsExtra: 0,
-        cbWndExtra: mem::size_of::<WindowData>() as c_int,
+        cbWndExtra: 0,
     };
     let class_atom = RegisterClassExW(&class);
     if class_atom == 0 { Err(GetLastError()) } else { Ok(class_atom) }
@@ -100,18 +100,20 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             let mut ps: PAINTSTRUCT = mem::zeroed();
             BeginPaint(hwnd, &mut ps);
             EndPaint(hwnd, &mut ps);
-            0
+            return 0
         },
-        WM_ERASEBKGND => TRUE as _,
+        WM_ERASEBKGND => return TRUE as LRESULT,
         WM_CLOSE => {
-            // CLOSE_REQUESTED = true;
-            0
+            hwnd_windowdata(hwnd).close_requested = true;
+            return 0
         },
-        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+        _ => (),
     }
+    DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
 pub struct WindowImpl {
+    extra: Box<WindowData>,
     hwnd: HWND,
 }
 
@@ -130,7 +132,7 @@ impl WindowImpl {
         let width = width.min(i32::max_value() as u32) as i32;
         let height = height.min(i32::max_value() as u32) as i32;
         let title = OsStr::new(title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
-        let hwnd = unsafe {
+        let (extra, hwnd) = unsafe {
             let hwnd = CreateWindowExW(
                 0,                                                  // dwExStyle
                 class_atom as _,                                    // lpClassName
@@ -142,27 +144,54 @@ impl WindowImpl {
                 height,                                             // nHeight
                 ptr::null_mut(),                                    // hWndParent
                 ptr::null_mut(),                                    // hMenu
-                get_module(),                                       // hInstance
+                get_hinstance(),                                    // hInstance
                 ptr::null_mut(),                                    // lpParam
             );
             if hwnd.is_null() {
                 let code = GetLastError();
                 return Err(format!("Failed to create window! (Code: {:#X})", code))
             }
-            ptr::write(get_window_data(hwnd), WindowData::default());
-            hwnd
+            let extra = Box::new(WindowData::default());
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, extra.as_ref() as *const _ as LONG_PTR);
+            (extra, hwnd)
         };
         WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
 
-        Ok(Self { hwnd })
+        Ok(Self { extra, hwnd })
     }
 }
 
 impl WindowTrait for WindowImpl {
+    fn close_requested(&self) -> bool {
+        self.extra.close_requested
+    }
+
+    fn request_close(&mut self) {
+        self.extra.close_requested = true;
+    }
+
+    fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event> {
+        unsafe {
+            let window_data = &mut *self.extra;
+            window_data.events.clear();
+            let mut msg: MSG = mem::zeroed();
+            loop {
+                match PeekMessageW(&mut msg, self.hwnd, 0, 0, PM_REMOVE) {
+                    0 => break,
+                    _ => {
+                        TranslateMessage(&msg);
+                        DispatchMessageW(&msg);
+                    },
+                }
+            }
+            window_data.events.iter()
+        }
+    }
+
     fn set_style(&self, style: Style) {
         let wstyle = get_window_style(style);
         unsafe {
-            SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as _);
+            SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as LONG_PTR);
         }
     }
 
@@ -180,7 +209,7 @@ impl Drop for WindowImpl {
         if count == 0 {
             let atom = WINDOW_CLASS_ATOM.swap(0, atomic::Ordering::AcqRel);
             unsafe {
-                UnregisterClassW(atom as _, get_module());
+                UnregisterClassW(atom as _, get_hinstance());
             }
         }
     }
