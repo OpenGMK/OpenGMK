@@ -272,12 +272,9 @@ impl Tree {
             .iter()
             .zip(types.iter())
             .take(count)
-            .map(|(param, t)| {
-                if *t == 2 {
-                    Ok(Node::Literal { value: Value::Str(param.as_str().into()) })
-                } else {
-                    compiler.compile_expression(param)
-                }
+            .map(|(param, t)| match *t {
+                1 | 2 => Ok(Node::Literal { value: Value::Str(param.as_str().into()) }),
+                _ => compiler.compile_expression(param),
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.message)?
