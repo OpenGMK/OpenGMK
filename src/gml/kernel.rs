@@ -1259,10 +1259,13 @@ impl Game {
     }
 
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).map(|i| i.gravity.set(x));
-            Ok(Default::default())
-        })?
+        expect_args!(args, [real, real]).map(|(direction, gravity)| {
+            self.instance_list.get(context.this).map(|i| {
+                i.gravity.set(gravity);
+                i.gravity_direction.set(direction);
+            })
+        })?;
+        Ok(Default::default())
     }
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
