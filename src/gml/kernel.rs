@@ -2761,17 +2761,26 @@ impl Game {
             }
         }
 
+        let sprite = self.get_instance_mask_sprite(context.this);
+        let this = self.instance_list.get(context.this).unwrap();
+        this.update_bbox(sprite);
+
         Ok(match object_id {
             gml::SELF => 0.0,
-            gml::OTHER => instance_distance(
-                self.instance_list.get(context.this).unwrap(),
-                self.instance_list.get(context.other).unwrap(),
-            ),
+            gml::OTHER => {
+                let sprite = self.get_instance_mask_sprite(context.other);
+                let other = self.instance_list.get(context.other).unwrap();
+                other.update_bbox(sprite);
+                instance_distance(this, other)
+            },
             gml::ALL => {
                 let mut closest = 1000000.0; // GML default
-                let this = self.instance_list.get(context.this).unwrap();
+                let this = this;
                 let mut iter = self.instance_list.iter_by_insertion();
-                while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                while let Some(other) = iter.next(&self.instance_list) {
+                    let sprite = self.get_instance_mask_sprite(other);
+                    let other = self.instance_list.get(other).unwrap();
+                    other.update_bbox(sprite);
                     let dist = instance_distance(this, other);
                     if dist < closest {
                         closest = dist;
@@ -2782,9 +2791,12 @@ impl Game {
             object_id if object_id <= 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
                     let mut closest = 1000000.0; // GML default
-                    let this = self.instance_list.get(context.this).unwrap();
+                    let this = this;
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                    while let Some(other) = iter.next(&self.instance_list) {
+                        let sprite = self.get_instance_mask_sprite(other);
+                        let other = self.instance_list.get(other).unwrap();
+                        other.update_bbox(sprite);
                         let dist = instance_distance(this, other);
                         if dist < closest {
                             closest = dist;
@@ -2797,10 +2809,12 @@ impl Game {
             },
             instance_id => {
                 match self.instance_list.get_by_instid(instance_id) {
-                    Some(handle) => instance_distance(
-                        self.instance_list.get(context.this).unwrap(),
-                        self.instance_list.get(handle).unwrap(),
-                    ),
+                    Some(handle) => {
+                        let sprite = self.get_instance_mask_sprite(handle);
+                        let other = self.instance_list.get(handle).unwrap();
+                        other.update_bbox(sprite);
+                        instance_distance(this, other)
+                    },
                     None => 1000000.0, // Again, GML default
                 }
             },
