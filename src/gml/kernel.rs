@@ -7,7 +7,7 @@ use crate::{
     game::{draw, Game, GetAsset},
     gml::{self, file, Context, Value},
     input,
-    instance::Instance,
+    instance::{DummyFieldHolder, Instance},
     util,
 };
 use std::convert::TryFrom;
@@ -1790,9 +1790,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_aligned")
     }
 
-    pub fn action_execute_script(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_execute_script")
+    pub fn action_execute_script(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (script_id, arg1, arg2, arg3, arg4, arg5) = expect_args!(args, [int, any, any, any, any, any])?;
+        if let Some(script) = self.assets.scripts.get_asset(script_id) {
+            let instructions = script.compiled.clone();
+
+            let mut new_context = Context {
+                this: context.this,
+                other: context.other,
+                event_action: context.event_action,
+                relative: context.relative,
+                event_type: context.event_type,
+                event_number: context.event_number,
+                event_object: context.event_object,
+                arguments: [
+                    arg1,
+                    arg2,
+                    arg3,
+                    arg4,
+                    arg5,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                ],
+                argument_count: 5,
+                locals: DummyFieldHolder::new(),
+                return_value: Default::default(),
+            };
+            self.execute(&instructions, &mut new_context)?;
+            Ok(new_context.return_value)
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+        }
     }
 
     pub fn action_inherited(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
