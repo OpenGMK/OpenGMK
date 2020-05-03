@@ -1006,22 +1006,26 @@ impl Game {
                     || (new_position >= 1.0 && instance.path_speed.get() > 0.0)
                 {
                     // Path end
-                    let path_end_pos = if instance.path_speed.get() < 0.0 { 0.0 } else { 1.0 };
+                    let (new_position, path_end_pos) = if instance.path_speed.get() < 0.0 {
+                        (new_position.fract() + 1.0, 0.0)
+                    } else {
+                        (new_position.fract(), 1.0)
+                    };
                     match instance.path_endaction.get() {
                         1 => {
                             // Continue from start
-                            instance.path_position.set(new_position % 1.0);
+                            instance.path_position.set(new_position);
                         },
                         2 => {
                             // Continue from end
-                            instance.path_position.set(new_position % 1.0);
+                            instance.path_position.set(new_position);
                             let point = path.get_point(path_end_pos);
                             instance.path_xstart.set(point.x);
                             instance.path_ystart.set(point.y);
                         },
                         3 => {
                             // Reverse
-                            instance.path_position.set(1.0 - (new_position % 1.0));
+                            instance.path_position.set(1.0 - (new_position));
                             instance.path_speed.set(-instance.path_speed.get());
                         },
                         _ => {
