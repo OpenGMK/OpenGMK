@@ -1074,8 +1074,25 @@ impl Game {
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
-        // Draw everything, including running draw events, and return the result
-        self.draw()
+        // Draw everything, including running draw events
+        self.draw()?;
+
+        // Advance sprite animations
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let instance = self.instance_list.get(handle).unwrap();
+            let new_index = instance.image_index.get() + instance.image_speed.get();
+            instance.image_index.set(new_index);
+            if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+                let frame_count = sprite.frames.len() as f64;
+                if new_index >= frame_count {
+                    instance.image_index.set(new_index - frame_count);
+                    self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn run(mut self) {
