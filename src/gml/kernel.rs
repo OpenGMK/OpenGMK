@@ -1313,9 +1313,13 @@ impl Game {
         })?
     }
 
-    pub fn action_move_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_move_point")
+    pub fn action_move_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, speed) = expect_args!(args, [real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        let speed = if context.relative { instance.speed.get() + speed } else { speed };
+        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        instance.set_speed_direction(speed, direction);
+        Ok(Default::default())
     }
 
     pub fn action_move_to(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2595,9 +2599,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_snap")
     }
 
-    pub fn move_towards_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function move_towards_point")
+    pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, speed) = expect_args!(args, [real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        instance.set_speed_direction(speed, direction);
+        Ok(Default::default())
     }
 
     pub fn move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
