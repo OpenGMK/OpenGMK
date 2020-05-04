@@ -33,6 +33,8 @@ use winapi::{
 extern "C" {
     static __ImageBase: IMAGE_DOS_HEADER;
 }
+
+#[inline(always)]
 fn get_hinstance() -> HINSTANCE {
     unsafe { (&__ImageBase) as *const _ as _ }
 }
