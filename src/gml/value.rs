@@ -246,7 +246,10 @@ impl Value {
     pub fn mul(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => Ok(Real(lhs * rhs)),
-            (Real(lhs), Str(rhs)) => Ok(Str(rhs.repeat(lhs.round() as usize).into())),
+            (Real(lhs), Str(rhs)) => Ok({
+                let repeat = util::ieee_round(lhs) as i32;
+                if repeat > 0 { rhs.repeat(lhs.round() as usize).into() } else { "".to_string().into() }
+            }),
             (x, y) => invalid_op!(Multiply, x, y),
         }
     }
