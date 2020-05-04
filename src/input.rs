@@ -378,10 +378,10 @@ impl InputManager {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
+#[rustfmt::skip]
 pub enum Key {
     Add = VK_ADD,
     Alt = VK_ALT,
-    // anykey
     Backspace = VK_BACKSPACE,
     Control = VK_CONTROL,
     Decimal = VK_DECIMAL,
@@ -431,9 +431,14 @@ pub enum Key {
     Subtract = VK_SUBTRACT,
     Tab = VK_TAB,
     Up = VK_UP,
+
+    A = b'A', B = b'B', C = b'C', D = b'D', E = b'E', F = b'F', G = b'G', H = b'H', I = b'I',
+    J = b'J', K = b'K', L = b'L', M = b'M', N = b'N', O = b'O', P = b'P', Q = b'Q', R = b'R',
+    S = b'S', T = b'T', U = b'U', V = b'V', W = b'W', X = b'X', Y = b'Y', Z = b'Z',
 }
 
 impl Key {
+    #[rustfmt::skip]
     pub fn from_winapi(vk: u8) -> Option<Self> {
         Some(match vk {
             VK_ADD => Self::Add,
@@ -487,6 +492,14 @@ impl Key {
             VK_SUBTRACT => Self::Subtract,
             VK_TAB => Self::Tab,
             VK_UP => Self::Up,
+
+            b'A' => Key::A, b'B' => Key::B, b'C' => Key::C, b'D' => Key::D, b'E' => Key::E,
+            b'F' => Key::F, b'G' => Key::G, b'H' => Key::H, b'I' => Key::I, b'J' => Key::J,
+            b'K' => Key::K, b'L' => Key::L, b'M' => Key::M, b'N' => Key::N, b'O' => Key::O,
+            b'P' => Key::P, b'Q' => Key::Q, b'R' => Key::R, b'S' => Key::S, b'T' => Key::T,
+            b'U' => Key::U, b'V' => Key::V, b'W' => Key::W, b'X' => Key::X, b'Y' => Key::Y,
+            b'Z' => Key::Z,
+
             _ => return None,
         })
     }
