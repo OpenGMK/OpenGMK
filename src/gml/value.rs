@@ -246,6 +246,7 @@ impl Value {
     pub fn mul(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
             (Real(lhs), Real(rhs)) => Ok(Real(lhs * rhs)),
+            (Real(lhs), Str(rhs)) => Ok(Str(rhs.repeat(lhs.round() as usize).into())),
             (x, y) => invalid_op!(Multiply, x, y),
         }
     }
