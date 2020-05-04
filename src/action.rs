@@ -129,6 +129,7 @@ impl Tree {
                         Self::from_iter(iter, compiler, true, &mut if_body)?;
                         let mut else_body = Vec::new();
                         if let Some((_, CodeAction { action_kind: kind::ELSE, .. })) = iter.peek() {
+                            iter.next(); // skip "else"
                             Self::from_iter(iter, compiler, true, &mut else_body)?;
                         }
                         Some((if_body.into_boxed_slice(), else_body.into_boxed_slice()))
