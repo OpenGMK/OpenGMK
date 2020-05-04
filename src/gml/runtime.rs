@@ -31,6 +31,7 @@ pub enum Instruction {
 }
 
 /// Node representing one value in an expression.
+#[derive(Clone)]
 pub enum Node {
     Literal { value: Value },
     Function { args: Box<[Node]>, function: fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value> },
@@ -52,7 +53,7 @@ pub enum ReturnType {
 }
 
 /// Represents an owned field which can either be read or set.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FieldAccessor {
     pub index: usize,
     pub array: ArrayAccessor,
@@ -60,7 +61,7 @@ pub struct FieldAccessor {
 }
 
 /// Represents an owned field which can either be read or set.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VariableAccessor {
     pub var: InstanceVariable,
     pub array: ArrayAccessor,
@@ -70,7 +71,7 @@ pub struct VariableAccessor {
 /// Represents an array accessor, which can be either 1D or 2D.
 /// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
 /// Anything beyond a 2D array results in a runtime error.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ArrayAccessor {
     None,
     Single(Box<Node>),
@@ -80,7 +81,7 @@ pub enum ArrayAccessor {
 /// Identifies an instance or multiple instances.
 /// If we know at compile time that this represents a magic value (self, other, global, local)
 /// then we can represent it that way in the tree and skip evaluating it during runtime.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum InstanceIdentifier {
     Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
     Other,
