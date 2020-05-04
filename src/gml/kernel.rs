@@ -1757,7 +1757,7 @@ impl Game {
     }
 
     pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(|x| x.is_true().into())
+        expect_args!(args, [any]).map(|x| x.is_truthy().into())
     }
 
     pub fn action_if_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2873,7 +2873,7 @@ impl Game {
         instance.path_speed.set(speed);
         instance.path_endaction.set(end_action);
         instance.path_position.set(0.0);
-        if absolute.is_true() {
+        if absolute.is_truthy() {
             if let Some(path_start) = self.assets.paths.get_asset(path_id).map(|x| x.start) {
                 instance.path_xstart.set(path_start.x);
                 instance.path_ystart.set(path_start.y);
@@ -3180,7 +3180,7 @@ impl Game {
 
     pub fn instance_change(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (object_id, perf) = expect_args!(args, [int, any])?;
-        let run_events = perf.is_true();
+        let run_events = perf.is_truthy();
 
         if run_events {
             self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
@@ -4225,7 +4225,7 @@ impl Game {
     }
 
     pub fn keyboard_set_numlock(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(|x| self.input_manager.key_set_numlock(x.is_true()))?;
+        expect_args!(args, [any]).map(|x| self.input_manager.key_set_numlock(x.is_truthy()))?;
         Ok(Default::default())
     }
 

@@ -121,7 +121,7 @@ impl Compiler {
                 let cond = self.compile_ast_expr(&if_expr.cond, locals);
                 if let Node::Literal { value: v } = cond {
                     // The "if" condition is constant, so we can optimize this away
-                    if v.is_true() {
+                    if v.is_truthy() {
                         self.compile_ast_line(&if_expr.body, output, locals);
                     } else if let Some(expr_else_body) = &if_expr.else_body {
                         self.compile_ast_line(expr_else_body, output, locals);

@@ -515,7 +515,7 @@ impl Game {
                 _ => (),
             },
             Instruction::IfElse { cond, if_body, else_body } => {
-                let return_type = if self.eval(cond, context)?.is_true() {
+                let return_type = if self.eval(cond, context)?.is_truthy() {
                     self.execute(if_body, context)
                 } else {
                     self.execute(else_body, context)
@@ -531,12 +531,12 @@ impl Game {
                     ReturnType::Break => break,
                     ReturnType::Exit => return Ok(ReturnType::Exit),
                 }
-                if self.eval(cond, context)?.is_true() {
+                if self.eval(cond, context)?.is_truthy() {
                     break
                 }
             },
             Instruction::LoopWhile { cond, body } => {
-                while self.eval(cond, context)?.is_true() {
+                while self.eval(cond, context)?.is_truthy() {
                     match self.execute(body, context)? {
                         ReturnType::Normal => (),
                         ReturnType::Continue => continue,
@@ -1261,9 +1261,9 @@ impl Game {
             InstanceVariable::Alarm => {
                 instance.alarms.borrow_mut().insert(array_index, value.into());
             },
-            InstanceVariable::Solid => instance.solid.set(value.is_true()),
-            InstanceVariable::Visible => instance.visible.set(value.is_true()),
-            InstanceVariable::Persistent => instance.persistent.set(value.is_true()),
+            InstanceVariable::Solid => instance.solid.set(value.is_truthy()),
+            InstanceVariable::Visible => instance.visible.set(value.is_truthy()),
+            InstanceVariable::Persistent => instance.persistent.set(value.is_truthy()),
             InstanceVariable::Depth => instance.depth.set(value.into()),
             InstanceVariable::SpriteIndex => {
                 let v: i32 = value.into();
@@ -1325,8 +1325,8 @@ impl Game {
             InstanceVariable::TimelineIndex => instance.timeline_index.set(value.into()),
             InstanceVariable::TimelinePosition => instance.timeline_position.set(value.into()),
             InstanceVariable::TimelineSpeed => instance.timeline_speed.set(value.into()),
-            InstanceVariable::TimelineRunning => instance.timeline_running.set(value.is_true()),
-            InstanceVariable::TimelineLoop => instance.timeline_loop.set(value.is_true()),
+            InstanceVariable::TimelineRunning => instance.timeline_running.set(value.is_truthy()),
+            InstanceVariable::TimelineLoop => instance.timeline_loop.set(value.is_truthy()),
             InstanceVariable::Argument0 => self.set_argument(context, 0, value)?,
             InstanceVariable::Argument1 => self.set_argument(context, 1, value)?,
             InstanceVariable::Argument2 => self.set_argument(context, 2, value)?,
@@ -1365,12 +1365,12 @@ impl Game {
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
             InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.visible = value.is_true(),
-                None => self.backgrounds[0].visible = value.is_true(),
+                Some(background) => background.visible = value.is_truthy(),
+                None => self.backgrounds[0].visible = value.is_truthy(),
             },
             InstanceVariable::BackgroundForeground => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.is_foreground = value.is_true(),
-                None => self.backgrounds[0].is_foreground = value.is_true(),
+                Some(background) => background.is_foreground = value.is_truthy(),
+                None => self.backgrounds[0].is_foreground = value.is_truthy(),
             },
             InstanceVariable::BackgroundIndex => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.background_id = value.into(),
@@ -1385,12 +1385,12 @@ impl Game {
                 None => self.backgrounds[0].y_offset = value.into(),
             },
             InstanceVariable::BackgroundHtiled => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.tile_horizontal = value.is_true(),
-                None => self.backgrounds[0].tile_horizontal = value.is_true(),
+                Some(background) => background.tile_horizontal = value.is_truthy(),
+                None => self.backgrounds[0].tile_horizontal = value.is_truthy(),
             },
             InstanceVariable::BackgroundVtiled => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.tile_vertical = value.is_true(),
-                None => self.backgrounds[0].tile_vertical = value.is_true(),
+                Some(background) => background.tile_vertical = value.is_truthy(),
+                None => self.backgrounds[0].tile_vertical = value.is_truthy(),
             },
             InstanceVariable::BackgroundXscale => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.xscale = value.into(),
@@ -1416,10 +1416,10 @@ impl Game {
                 Some(background) => background.alpha = value.into(),
                 None => self.backgrounds[0].alpha = value.into(),
             },
-            InstanceVariable::ViewEnabled => self.views_enabled = value.is_true(),
+            InstanceVariable::ViewEnabled => self.views_enabled = value.is_truthy(),
             InstanceVariable::ViewVisible => match self.views.get_mut(array_index as usize) {
-                Some(view) => view.visible = value.is_true(),
-                None => self.views[0].visible = value.is_true(),
+                Some(view) => view.visible = value.is_truthy(),
+                None => self.views[0].visible = value.is_truthy(),
             },
             InstanceVariable::ViewXview => match self.views.get_mut(array_index as usize) {
                 Some(view) => view.source_x = value.into(),
@@ -1484,9 +1484,9 @@ impl Game {
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
-            InstanceVariable::ShowScore => self.score_capt_d = value.is_true(),
-            InstanceVariable::ShowLives => self.lives_capt_d = value.is_true(),
-            InstanceVariable::ShowHealth => self.health_capt_d = value.is_true(),
+            InstanceVariable::ShowScore => self.score_capt_d = value.is_truthy(),
+            InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
+            InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
