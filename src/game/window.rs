@@ -10,6 +10,7 @@ use win32 as platform;
 
 #[derive(Debug)]
 pub enum Event {
+    Resize(u32, u32),
     KeyboardDown(Key),
     KeyboardUp(Key),
     MouseButtonDown(MouseButton),

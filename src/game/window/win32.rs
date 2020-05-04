@@ -12,7 +12,7 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, HINSTANCE, LPARAM, LRESULT, TRUE, UINT, WPARAM},
-        windef::{HBRUSH, HWND},
+        windef::{HBRUSH, HWND, RECT},
     },
     um::{
         errhandlingapi::GetLastError,
@@ -23,8 +23,9 @@ use winapi::{
             SetWindowLongPtrW, ShowWindow, TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC,
             GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN,
             SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
-            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN, WM_RBUTTONUP, WNDCLASSEXW,
-            WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SIZING,
+            WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU,
+            WS_THICKFRAME,
         },
     },
 };
@@ -165,6 +166,21 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
                 window_data.events.push(Event::MouseWheelUp);
             }
             return 0
+        },
+
+        // window resizing
+        WM_SIZING => {
+            let rect = &*mem::transmute::<LONG_PTR, *const RECT>(lparam);
+            let width = (rect.right - rect.left).max(0) as u32;
+            let height = (rect.bottom - rect.top).max(0) as u32;
+            let window_data = hwnd_windowdata(hwnd);
+            match window_data.events.last_mut() {
+                Some(Event::Resize(w, h)) => {
+                    *w = width;
+                    *h = height;
+                },
+                _ => window_data.events.push(Event::Resize(width, height)),
+            }
         },
 
         _ => (),
