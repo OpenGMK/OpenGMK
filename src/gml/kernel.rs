@@ -711,20 +711,25 @@ impl Game {
     }
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, string) = expect_args!(args, [int, int, string])?;
-        self.draw_string(x, y, &string, None, None);
+        let (x, y, text) = expect_args!(args, [int, int, any])?;
+        match text {
+            Value::Real(r) if r.fract() == 0.0 => self.draw_string(x, y, &format!("{:.0}", r), None, None),
+            Value::Real(r) => self.draw_string(x, y, &format!("{:.2}", r), None, None),
+            Value::Str(string) => self.draw_string(x, y, &string, None, None),
+        }
         Ok(Default::default())
     }
 
     pub fn draw_text_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, string, line_height, max_width) = expect_args!(args, [int, int, string, int, int])?;
-        self.draw_string(
-            x,
-            y,
-            &string,
-            if line_height < 0 { None } else { Some(line_height as _) },
-            if max_width < 0 { None } else { Some(max_width as _) },
-        );
+        let (x, y, text, line_height, max_width) = expect_args!(args, [int, int, any, int, int])?;
+        let line_height = if line_height < 0 { None } else { Some(line_height as _) };
+        let max_width = if max_width < 0 { None } else { Some(max_width as _) };
+
+        match text {
+            Value::Real(r) if r.fract() == 0.0 => self.draw_string(x, y, &format!("{:.0}", r), line_height, max_width),
+            Value::Real(r) => self.draw_string(x, y, &format!("{:.2}", r), line_height, max_width),
+            Value::Str(string) => self.draw_string(x, y, &string, line_height, max_width),
+        }
         Ok(Default::default())
     }
 
