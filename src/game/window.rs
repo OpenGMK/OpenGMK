@@ -14,7 +14,8 @@ pub enum Event {
     KeyboardUp(Key),
     MouseButtonDown(MouseButton),
     MouseButtonUp(MouseButton),
-    Nothing,
+    MouseWheelUp,
+    MouseWheelDown,
 }
 
 pub enum Style {

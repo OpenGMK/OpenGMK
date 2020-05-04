@@ -21,16 +21,16 @@ use winapi::{
         winuser::{
             BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics,
             GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, SetWindowLongPtrW, ShowWindow,
-            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWLP_USERDATA, GWL_STYLE,
-            IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, VK_ADD, VK_BACK,
-            VK_CONTROL, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_F10, VK_F11, VK_F12,
-            VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_HOME, VK_INSERT, VK_LCONTROL, VK_LEFT,
-            VK_LSHIFT, VK_MENU, VK_MULTIPLY, VK_NEXT, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4,
-            VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_PAUSE, VK_PRIOR, VK_RCONTROL, VK_RETURN,
-            VK_RIGHT, VK_RSHIFT, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_TAB, VK_UP, WM_CLOSE, WM_ERASEBKGND,
-            WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_NCDESTROY, WM_PAINT,
-            WM_RBUTTONDOWN, WM_RBUTTONUP, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
-            WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GET_WHEEL_DELTA_WPARAM,
+            GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE,
+            SW_SHOW, VK_ADD, VK_BACK, VK_CONTROL, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1,
+            VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_HOME, VK_INSERT,
+            VK_LCONTROL, VK_LEFT, VK_LSHIFT, VK_MENU, VK_MULTIPLY, VK_NEXT, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2,
+            VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_PAUSE, VK_PRIOR,
+            VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RSHIFT, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_TAB, VK_UP,
+            WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+            WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT, WM_RBUTTONDOWN, WM_RBUTTONUP, WNDCLASSEXW, WS_CAPTION,
+            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -154,6 +154,16 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
         },
         WM_MBUTTONUP => {
             hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Middle));
+            return 0
+        },
+        WM_MOUSEWHEEL => {
+            let delta = GET_WHEEL_DELTA_WPARAM(wparam);
+            let window_data = hwnd_windowdata(hwnd);
+            if delta < 0 {
+                window_data.events.push(Event::MouseWheelUp);
+            } else {
+                window_data.events.push(Event::MouseWheelDown);
+            }
             return 0
         },
 
