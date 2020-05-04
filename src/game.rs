@@ -1132,9 +1132,9 @@ impl Game {
                     ..
                 } => match button {
                     // Mouse button press
-                    MouseButton::Left => self.input_manager.mouse_press(input::MB_LEFT),
-                    MouseButton::Right => self.input_manager.mouse_press(input::MB_RIGHT),
-                    MouseButton::Middle => self.input_manager.mouse_press(input::MB_MIDDLE),
+                    MouseButton::Left => self.input_manager.mouse_press(input::MB_LEFT as usize),
+                    MouseButton::Right => self.input_manager.mouse_press(input::MB_RIGHT as usize),
+                    MouseButton::Middle => self.input_manager.mouse_press(input::MB_MIDDLE as usize),
                     _ => (),
                 },
 
@@ -1143,9 +1143,9 @@ impl Game {
                     ..
                 } => match button {
                     // Mouse button release
-                    MouseButton::Left => self.input_manager.mouse_release(input::MB_LEFT),
-                    MouseButton::Right => self.input_manager.mouse_release(input::MB_RIGHT),
-                    MouseButton::Middle => self.input_manager.mouse_release(input::MB_MIDDLE),
+                    MouseButton::Left => self.input_manager.mouse_release(input::MB_LEFT as usize),
+                    MouseButton::Right => self.input_manager.mouse_release(input::MB_RIGHT as usize),
+                    MouseButton::Middle => self.input_manager.mouse_release(input::MB_MIDDLE as usize),
                     _ => (),
                 },
 

@@ -4153,9 +4153,9 @@ impl Game {
         match button {
             -1 => Ok(self.input_manager.mouse_check_any().into()),
             0 => Ok((!self.input_manager.mouse_check_any()).into()),
-            1 => Ok(self.input_manager.mouse_check(input::MB_LEFT).into()),
-            2 => Ok(self.input_manager.mouse_check(input::MB_RIGHT).into()),
-            3 => Ok(self.input_manager.mouse_check(input::MB_MIDDLE).into()),
+            1 => Ok(self.input_manager.mouse_check(input::MB_LEFT as usize).into()),
+            2 => Ok(self.input_manager.mouse_check(input::MB_RIGHT as usize).into()),
+            3 => Ok(self.input_manager.mouse_check(input::MB_MIDDLE as usize).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
@@ -4165,9 +4165,9 @@ impl Game {
         match button {
             -1 => Ok(self.input_manager.mouse_check_any_pressed().into()),
             0 => Ok((!self.input_manager.mouse_check_any_pressed()).into()),
-            1 => Ok(self.input_manager.mouse_check_pressed(input::MB_LEFT).into()),
-            2 => Ok(self.input_manager.mouse_check_pressed(input::MB_RIGHT).into()),
-            3 => Ok(self.input_manager.mouse_check_pressed(input::MB_MIDDLE).into()),
+            1 => Ok(self.input_manager.mouse_check_pressed(input::MB_LEFT as usize).into()),
+            2 => Ok(self.input_manager.mouse_check_pressed(input::MB_RIGHT as usize).into()),
+            3 => Ok(self.input_manager.mouse_check_pressed(input::MB_MIDDLE as usize).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
@@ -4177,9 +4177,9 @@ impl Game {
         match button {
             -1 => Ok(self.input_manager.mouse_check_any_released().into()),
             0 => Ok((!self.input_manager.mouse_check_any_released()).into()),
-            1 => Ok(self.input_manager.mouse_check_released(input::MB_LEFT).into()),
-            2 => Ok(self.input_manager.mouse_check_released(input::MB_RIGHT).into()),
-            3 => Ok(self.input_manager.mouse_check_released(input::MB_MIDDLE).into()),
+            1 => Ok(self.input_manager.mouse_check_released(input::MB_LEFT as usize).into()),
+            2 => Ok(self.input_manager.mouse_check_released(input::MB_RIGHT as usize).into()),
+            3 => Ok(self.input_manager.mouse_check_released(input::MB_MIDDLE as usize).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }

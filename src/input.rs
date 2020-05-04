@@ -56,9 +56,9 @@ pub const VK_SUBTRACT: u8 = 0x6D;
 pub const VK_TAB: u8 = 0x09;
 pub const VK_UP: u8 = 0x26;
 
-pub const MB_LEFT: usize = 0;
-pub const MB_RIGHT: usize = 1;
-pub const MB_MIDDLE: usize = 2;
+pub const MB_LEFT: u8 = 0x00;
+pub const MB_RIGHT: u8 = 0x01;
+pub const MB_MIDDLE: u8 = 0x02;
 
 pub struct InputManager {
     // Keyboard
@@ -376,6 +376,8 @@ impl InputManager {
     }
 }
 
+// TODO: VK_ANYKEY, VK_NOKEY, VK_LALT, VK_RALT...
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
 #[rustfmt::skip]
@@ -505,4 +507,20 @@ impl Key {
     }
 }
 
-// TODO: VK_ANYKEY, VK_NOKEY, VK_LALT, VK_RALT...
+pub enum Mouse {
+    Left = 1,
+    Right = 2,
+    Middle = 3,
+}
+
+impl Mouse {
+    pub fn from_winapi(mb: u8) -> Option<Self> {
+        Some(match mb {
+            MB_LEFT => Self::Left,
+            MB_RIGHT => Self::Right,
+            MB_MIDDLE => Self::Middle,
+
+            _ => return None,
+        })
+    }
+}
