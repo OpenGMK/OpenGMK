@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::Game,
+    game::{Game, GetAsset},
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
@@ -515,7 +515,7 @@ impl Game {
                 _ => (),
             },
             Instruction::IfElse { cond, if_body, else_body } => {
-                let return_type = if self.eval(cond, context)?.is_true() {
+                let return_type = if self.eval(cond, context)?.is_truthy() {
                     self.execute(if_body, context)
                 } else {
                     self.execute(else_body, context)
@@ -531,12 +531,12 @@ impl Game {
                     ReturnType::Break => break,
                     ReturnType::Exit => return Ok(ReturnType::Exit),
                 }
-                if self.eval(cond, context)?.is_true() {
+                if self.eval(cond, context)?.is_truthy() {
                     break
                 }
             },
             Instruction::LoopWhile { cond, body } => {
-                while self.eval(cond, context)?.is_true() {
+                while self.eval(cond, context)?.is_truthy() {
                     match self.execute(body, context)? {
                         ReturnType::Normal => (),
                         ReturnType::Continue => continue,
@@ -581,7 +581,7 @@ impl Game {
                 context.other = context.this;
 
                 match i32::from(self.eval(target, context)?) {
-                    gml::SELF => {
+                    gml::SELF | gml::SELF2 => {
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.other = old_other;
                             return Ok(ReturnType::Exit)
@@ -1196,7 +1196,7 @@ impl Game {
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
             InstanceVariable::EventAction => Ok(context.event_action.into()),
-            InstanceVariable::SecureMode => todo!(), // TODO: this.. isn't documented? what??
+            InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
             InstanceVariable::DebugMode => todo!(),
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
@@ -1261,9 +1261,9 @@ impl Game {
             InstanceVariable::Alarm => {
                 instance.alarms.borrow_mut().insert(array_index, value.into());
             },
-            InstanceVariable::Solid => instance.solid.set(value.is_true()),
-            InstanceVariable::Visible => instance.visible.set(value.is_true()),
-            InstanceVariable::Persistent => instance.persistent.set(value.is_true()),
+            InstanceVariable::Solid => instance.solid.set(value.is_truthy()),
+            InstanceVariable::Visible => instance.visible.set(value.is_truthy()),
+            InstanceVariable::Persistent => instance.persistent.set(value.is_truthy()),
             InstanceVariable::Depth => instance.depth.set(value.into()),
             InstanceVariable::SpriteIndex => {
                 let v: i32 = value.into();
@@ -1310,7 +1310,13 @@ impl Game {
                     instance.mask_index.set(v);
                 }
             },
-            InstanceVariable::PathPosition => instance.path_position.set(value.into()),
+            InstanceVariable::PathPosition => {
+                let new_value = f64::from(value).max(0.0).min(1.0);
+                if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
+                    instance.path_pointspeed.set(path.get_point(new_value).speed);
+                }
+                instance.path_position.set(new_value);
+            },
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),
             InstanceVariable::PathSpeed => instance.path_speed.set(value.into()),
             InstanceVariable::PathScale => instance.path_scale.set(value.into()),
@@ -1319,8 +1325,8 @@ impl Game {
             InstanceVariable::TimelineIndex => instance.timeline_index.set(value.into()),
             InstanceVariable::TimelinePosition => instance.timeline_position.set(value.into()),
             InstanceVariable::TimelineSpeed => instance.timeline_speed.set(value.into()),
-            InstanceVariable::TimelineRunning => instance.timeline_running.set(value.is_true()),
-            InstanceVariable::TimelineLoop => instance.timeline_loop.set(value.is_true()),
+            InstanceVariable::TimelineRunning => instance.timeline_running.set(value.is_truthy()),
+            InstanceVariable::TimelineLoop => instance.timeline_loop.set(value.is_truthy()),
             InstanceVariable::Argument0 => self.set_argument(context, 0, value)?,
             InstanceVariable::Argument1 => self.set_argument(context, 1, value)?,
             InstanceVariable::Argument2 => self.set_argument(context, 2, value)?,
@@ -1359,12 +1365,12 @@ impl Game {
             InstanceVariable::BackgroundColor => todo!(),
             InstanceVariable::BackgroundShowcolor => todo!(),
             InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.visible = value.is_true(),
-                None => self.backgrounds[0].visible = value.is_true(),
+                Some(background) => background.visible = value.is_truthy(),
+                None => self.backgrounds[0].visible = value.is_truthy(),
             },
             InstanceVariable::BackgroundForeground => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.is_foreground = value.is_true(),
-                None => self.backgrounds[0].is_foreground = value.is_true(),
+                Some(background) => background.is_foreground = value.is_truthy(),
+                None => self.backgrounds[0].is_foreground = value.is_truthy(),
             },
             InstanceVariable::BackgroundIndex => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.background_id = value.into(),
@@ -1379,12 +1385,12 @@ impl Game {
                 None => self.backgrounds[0].y_offset = value.into(),
             },
             InstanceVariable::BackgroundHtiled => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.tile_horizontal = value.is_true(),
-                None => self.backgrounds[0].tile_horizontal = value.is_true(),
+                Some(background) => background.tile_horizontal = value.is_truthy(),
+                None => self.backgrounds[0].tile_horizontal = value.is_truthy(),
             },
             InstanceVariable::BackgroundVtiled => match self.backgrounds.get_mut(array_index as usize) {
-                Some(background) => background.tile_vertical = value.is_true(),
-                None => self.backgrounds[0].tile_vertical = value.is_true(),
+                Some(background) => background.tile_vertical = value.is_truthy(),
+                None => self.backgrounds[0].tile_vertical = value.is_truthy(),
             },
             InstanceVariable::BackgroundXscale => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.xscale = value.into(),
@@ -1410,10 +1416,10 @@ impl Game {
                 Some(background) => background.alpha = value.into(),
                 None => self.backgrounds[0].alpha = value.into(),
             },
-            InstanceVariable::ViewEnabled => self.views_enabled = value.is_true(),
+            InstanceVariable::ViewEnabled => self.views_enabled = value.is_truthy(),
             InstanceVariable::ViewVisible => match self.views.get_mut(array_index as usize) {
-                Some(view) => view.visible = value.is_true(),
-                None => self.views[0].visible = value.is_true(),
+                Some(view) => view.visible = value.is_truthy(),
+                None => self.views[0].visible = value.is_truthy(),
             },
             InstanceVariable::ViewXview => match self.views.get_mut(array_index as usize) {
                 Some(view) => view.source_x = value.into(),
@@ -1478,9 +1484,9 @@ impl Game {
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
-            InstanceVariable::ShowScore => self.score_capt_d = value.is_true(),
-            InstanceVariable::ShowLives => self.lives_capt_d = value.is_true(),
-            InstanceVariable::ShowHealth => self.health_capt_d = value.is_true(),
+            InstanceVariable::ShowScore => self.score_capt_d = value.is_truthy(),
+            InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
+            InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
@@ -1492,7 +1498,7 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's sprite_index
-    fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
+    pub fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let instance = self.instance_list.get(instance)?;
         let index = instance.sprite_index.get();
         if index >= 0 {
@@ -1503,7 +1509,7 @@ impl Game {
     }
 
     // Gets the sprite associated with an instance's mask_index
-    fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
+    pub fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
             let instance = self.instance_list.get(instance)?;
             let index = instance.mask_index.get();
@@ -1547,7 +1553,7 @@ impl Game {
             InstanceIdentifier::Expression(node) => {
                 let value = self.eval(node, context).map(i32::from)?;
                 match value {
-                    gml::SELF => Ok(Target::Single(Some(context.this))),
+                    gml::SELF | gml::SELF2 => Ok(Target::Single(Some(context.this))),
                     gml::OTHER => Ok(Target::Single(Some(context.other))),
                     gml::ALL => Ok(Target::All),
                     gml::NOONE => Ok(Target::Single(None)),

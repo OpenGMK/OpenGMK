@@ -129,6 +129,7 @@ impl Tree {
                         Self::from_iter(iter, compiler, true, &mut if_body)?;
                         let mut else_body = Vec::new();
                         if let Some((_, CodeAction { action_kind: kind::ELSE, .. })) = iter.peek() {
+                            iter.next(); // skip "else"
                             Self::from_iter(iter, compiler, true, &mut else_body)?;
                         }
                         Some((if_body.into_boxed_slice(), else_body.into_boxed_slice()))
@@ -272,12 +273,9 @@ impl Tree {
             .iter()
             .zip(types.iter())
             .take(count)
-            .map(|(param, t)| {
-                if *t == 2 {
-                    Ok(Node::Literal { value: Value::Str(param.as_str().into()) })
-                } else {
-                    compiler.compile_expression(param)
-                }
+            .map(|(param, t)| match *t {
+                1 | 2 => Ok(Node::Literal { value: Value::Str(param.as_str().into()) }),
+                _ => compiler.compile_expression(param),
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.message)?
@@ -376,7 +374,7 @@ impl Game {
 
                     if let Some((if_body, else_body)) = if_else {
                         let target =
-                            if returned_value.is_true() != action.invert_condition { if_body } else { else_body };
+                            if returned_value.is_truthy() != action.invert_condition { if_body } else { else_body };
                         match self.exec_slice(target, this, other, event_type, event_number, as_object)? {
                             ReturnType::Continue => (),
                             ReturnType::Exit => return Ok(ReturnType::Exit),

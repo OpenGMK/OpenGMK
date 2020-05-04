@@ -1007,22 +1007,26 @@ impl Game {
                     || (new_position >= 1.0 && instance.path_speed.get() > 0.0)
                 {
                     // Path end
-                    let path_end_pos = if instance.path_speed.get() < 0.0 { 0.0 } else { 1.0 };
+                    let (new_position, path_end_pos) = if instance.path_speed.get() < 0.0 {
+                        (new_position.fract() + 1.0, 0.0)
+                    } else {
+                        (new_position.fract(), 1.0)
+                    };
                     match instance.path_endaction.get() {
                         1 => {
                             // Continue from start
-                            instance.path_position.set(new_position % 1.0);
+                            instance.path_position.set(new_position);
                         },
                         2 => {
                             // Continue from end
-                            instance.path_position.set(new_position % 1.0);
+                            instance.path_position.set(new_position);
                             let point = path.get_point(path_end_pos);
                             instance.path_xstart.set(point.x);
                             instance.path_ystart.set(point.y);
                         },
                         3 => {
                             // Reverse
-                            instance.path_position.set(1.0 - (new_position % 1.0));
+                            instance.path_position.set(1.0 - (new_position));
                             instance.path_speed.set(-instance.path_speed.get());
                         },
                         _ => {
@@ -1075,8 +1079,25 @@ impl Game {
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
-        // Draw everything, including running draw events, and return the result
-        self.draw()
+        // Draw everything, including running draw events
+        self.draw()?;
+
+        // Advance sprite animations
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let instance = self.instance_list.get(handle).unwrap();
+            let new_index = instance.image_index.get() + instance.image_speed.get();
+            instance.image_index.set(new_index);
+            if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+                let frame_count = sprite.frames.len() as f64;
+                if new_index >= frame_count {
+                    instance.image_index.set(new_index - frame_count);
+                    self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn run(mut self) {

@@ -7,7 +7,7 @@ use crate::{
     game::{draw, Game, GetAsset},
     gml::{self, file, Context, Value},
     input,
-    instance::Instance,
+    instance::{DummyFieldHolder, Instance},
     util,
 };
 use std::convert::TryFrom;
@@ -1226,9 +1226,47 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_highscore")
     }
 
-    pub fn action_move(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_move")
+    pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (dir_string, speed) = expect_args!(args, [string, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
+        let bytes = dir_string.as_bytes();
+        if bytes.len() != 9 {
+            return Err(gml::Error::FunctionError(
+                "action_move",
+                format!("Invalid argument to action_move: {}", dir_string),
+            ))
+        }
+
+        let speed = if context.relative { speed + instance.speed.get() } else { speed };
+
+        // Only invoke RNG if at least one of the options is checked, otherwise don't do anything
+        if dir_string.as_ref() != "000000000" {
+            // Call irandom until it lands on a byte that's '1' rather than '0'
+            let offset = loop {
+                let index = self.rand.next_int(8) as usize;
+                if bytes[index] == 49 {
+                    // '1'
+                    break index
+                }
+            };
+
+            // Handle each case separately
+            match offset {
+                0 => instance.set_speed_direction(speed, 225.0),
+                1 => instance.set_speed_direction(speed, 270.0),
+                2 => instance.set_speed_direction(speed, 315.0),
+                3 => instance.set_speed_direction(speed, 180.0),
+                4 => instance.set_speed_direction(0.0, 0.0),
+                5 => instance.set_speed_direction(speed, 0.0),
+                6 => instance.set_speed_direction(speed, 135.0),
+                7 => instance.set_speed_direction(speed, 90.0),
+                8 => instance.set_speed_direction(speed, 45.0),
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(Default::default())
     }
 
     pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1259,10 +1297,13 @@ impl Game {
     }
 
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).map(|i| i.gravity.set(x));
-            Ok(Default::default())
-        })?
+        expect_args!(args, [real, real]).map(|(direction, gravity)| {
+            self.instance_list.get(context.this).map(|i| {
+                i.gravity.set(gravity);
+                i.gravity_direction.set(direction);
+            })
+        })?;
+        Ok(Default::default())
     }
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1272,9 +1313,13 @@ impl Game {
         })?
     }
 
-    pub fn action_move_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_move_point")
+    pub fn action_move_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, speed) = expect_args!(args, [real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        let speed = if context.relative { instance.speed.get() + speed } else { speed };
+        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        instance.set_speed_direction(speed, direction);
+        Ok(Default::default())
     }
 
     pub fn action_move_to(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1712,7 +1757,7 @@ impl Game {
     }
 
     pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(|x| x.is_true().into())
+        expect_args!(args, [any]).map(|x| x.is_truthy().into())
     }
 
     pub fn action_if_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1745,9 +1790,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_aligned")
     }
 
-    pub fn action_execute_script(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_execute_script")
+    pub fn action_execute_script(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (script_id, arg1, arg2, arg3, arg4, arg5) = expect_args!(args, [int, any, any, any, any, any])?;
+        if let Some(script) = self.assets.scripts.get_asset(script_id) {
+            let instructions = script.compiled.clone();
+
+            let mut new_context = Context {
+                this: context.this,
+                other: context.other,
+                event_action: context.event_action,
+                relative: context.relative,
+                event_type: context.event_type,
+                event_number: context.event_number,
+                event_object: context.event_object,
+                arguments: [
+                    arg1,
+                    arg2,
+                    arg3,
+                    arg4,
+                    arg5,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                ],
+                argument_count: 5,
+                locals: DummyFieldHolder::new(),
+                return_value: Default::default(),
+            };
+            self.execute(&instructions, &mut new_context)?;
+            Ok(new_context.return_value)
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+        }
     }
 
     pub fn action_inherited(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2554,9 +2636,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function move_snap")
     }
 
-    pub fn move_towards_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function move_towards_point")
+    pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, speed) = expect_args!(args, [real, real, real])?;
+        let instance = self.instance_list.get(context.this).unwrap();
+        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        instance.set_speed_direction(speed, direction);
+        Ok(Default::default())
     }
 
     pub fn move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2720,17 +2805,26 @@ impl Game {
             }
         }
 
+        let sprite = self.get_instance_mask_sprite(context.this);
+        let this = self.instance_list.get(context.this).unwrap();
+        this.update_bbox(sprite);
+
         Ok(match object_id {
             gml::SELF => 0.0,
-            gml::OTHER => instance_distance(
-                self.instance_list.get(context.this).unwrap(),
-                self.instance_list.get(context.other).unwrap(),
-            ),
+            gml::OTHER => {
+                let sprite = self.get_instance_mask_sprite(context.other);
+                let other = self.instance_list.get(context.other).unwrap();
+                other.update_bbox(sprite);
+                instance_distance(this, other)
+            },
             gml::ALL => {
                 let mut closest = 1000000.0; // GML default
-                let this = self.instance_list.get(context.this).unwrap();
+                let this = this;
                 let mut iter = self.instance_list.iter_by_insertion();
-                while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                while let Some(other) = iter.next(&self.instance_list) {
+                    let sprite = self.get_instance_mask_sprite(other);
+                    let other = self.instance_list.get(other).unwrap();
+                    other.update_bbox(sprite);
                     let dist = instance_distance(this, other);
                     if dist < closest {
                         closest = dist;
@@ -2741,9 +2835,12 @@ impl Game {
             object_id if object_id <= 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
                     let mut closest = 1000000.0; // GML default
-                    let this = self.instance_list.get(context.this).unwrap();
+                    let this = this;
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    while let Some(other) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+                    while let Some(other) = iter.next(&self.instance_list) {
+                        let sprite = self.get_instance_mask_sprite(other);
+                        let other = self.instance_list.get(other).unwrap();
+                        other.update_bbox(sprite);
                         let dist = instance_distance(this, other);
                         if dist < closest {
                             closest = dist;
@@ -2756,10 +2853,12 @@ impl Game {
             },
             instance_id => {
                 match self.instance_list.get_by_instid(instance_id) {
-                    Some(handle) => instance_distance(
-                        self.instance_list.get(context.this).unwrap(),
-                        self.instance_list.get(handle).unwrap(),
-                    ),
+                    Some(handle) => {
+                        let sprite = self.get_instance_mask_sprite(handle);
+                        let other = self.instance_list.get(handle).unwrap();
+                        other.update_bbox(sprite);
+                        instance_distance(this, other)
+                    },
                     None => 1000000.0, // Again, GML default
                 }
             },
@@ -2774,7 +2873,7 @@ impl Game {
         instance.path_speed.set(speed);
         instance.path_endaction.set(end_action);
         instance.path_position.set(0.0);
-        if absolute.is_true() {
+        if absolute.is_truthy() {
             if let Some(path_start) = self.assets.paths.get_asset(path_id).map(|x| x.start) {
                 instance.path_xstart.set(path_start.x);
                 instance.path_ystart.set(path_start.y);
@@ -3079,9 +3178,62 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_copy")
     }
 
-    pub fn instance_change(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function instance_change")
+    pub fn instance_change(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, perf) = expect_args!(args, [int, any])?;
+        let run_events = perf.is_truthy();
+
+        if run_events {
+            self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
+        }
+        self.instance_list.mark_deleted(context.this);
+
+        // These variables get copied to the new instance
+        let old_instance = self.instance_list.get(context.this).unwrap();
+        let fields = (*old_instance.fields.borrow()).clone();
+        let alarms = (*old_instance.alarms.borrow()).clone();
+        let x = old_instance.x.get();
+        let y = old_instance.y.get();
+        let gravity = old_instance.gravity.get();
+        let gravity_direction = old_instance.gravity_direction.get();
+        let hspeed = old_instance.hspeed.get();
+        let vspeed = old_instance.vspeed.get();
+        let speed = old_instance.speed.get();
+        let direction = old_instance.direction.get();
+        let friction = old_instance.friction.get();
+        let image_xscale = old_instance.image_xscale.get();
+        let image_yscale = old_instance.image_yscale.get();
+        let image_speed = old_instance.image_speed.get();
+        let image_angle = old_instance.image_angle.get();
+        let image_blend = old_instance.image_blend.get();
+
+        let object = self
+            .assets
+            .objects
+            .get_asset(object_id)
+            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
+        self.last_instance_id += 1;
+        let handle = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+        let instance = self.instance_list.get(handle).unwrap();
+        *instance.fields.borrow_mut() = fields;
+        *instance.alarms.borrow_mut() = alarms;
+        instance.gravity.set(gravity);
+        instance.gravity_direction.set(gravity_direction);
+        instance.hspeed.set(hspeed);
+        instance.vspeed.set(vspeed);
+        instance.speed.set(speed);
+        instance.direction.set(direction);
+        instance.friction.set(friction);
+        instance.image_xscale.set(image_xscale);
+        instance.image_yscale.set(image_yscale);
+        instance.image_speed.set(image_speed);
+        instance.image_angle.set(image_angle);
+        instance.image_blend.set(image_blend);
+
+        if run_events {
+            self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
+        }
+
+        Ok(Default::default())
     }
 
     pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4073,7 +4225,7 @@ impl Game {
     }
 
     pub fn keyboard_set_numlock(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(|x| self.input_manager.key_set_numlock(x.is_true()))?;
+        expect_args!(args, [any]).map(|x| self.input_manager.key_set_numlock(x.is_truthy()))?;
         Ok(Default::default())
     }
 

@@ -121,7 +121,7 @@ impl Compiler {
                 let cond = self.compile_ast_expr(&if_expr.cond, locals);
                 if let Node::Literal { value: v } = cond {
                     // The "if" condition is constant, so we can optimize this away
-                    if v.is_true() {
+                    if v.is_truthy() {
                         self.compile_ast_line(&if_expr.body, output, locals);
                     } else if let Some(expr_else_body) = &if_expr.else_body {
                         self.compile_ast_line(expr_else_body, output, locals);
@@ -554,10 +554,10 @@ impl Compiler {
         let node = self.compile_ast_expr(expression, locals);
         if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
-                -1 => InstanceIdentifier::Own,
-                -2 => InstanceIdentifier::Other,
-                -5 => InstanceIdentifier::Global,
-                -7 => InstanceIdentifier::Local,
+                gml::SELF | gml::SELF2 => InstanceIdentifier::Own,
+                gml::OTHER => InstanceIdentifier::Other,
+                gml::GLOBAL => InstanceIdentifier::Global,
+                gml::LOCAL => InstanceIdentifier::Local,
                 _ => InstanceIdentifier::Expression(Box::new(node)),
             }
         } else {

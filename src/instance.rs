@@ -78,7 +78,7 @@ pub struct Instance {
     pub alarms: RefCell<HashMap<u32, i32>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Field {
     Single(Value),
     Array(HashMap<u32, Value>),
@@ -187,8 +187,23 @@ impl Instance {
 
     // Sets hspeed and vspeed based on direction and speed
     fn update_hvspeed(&self) {
-        self.hspeed.set(self.direction.get().to_radians().cos() * self.speed.get());
-        self.vspeed.set(-self.direction.get().to_radians().sin() * self.speed.get());
+        let round_threshold = 0.0001; // The fudge-factor used by GM8
+        let hspeed = self.direction.get().to_radians().cos() * self.speed.get();
+        let vspeed = -self.direction.get().to_radians().sin() * self.speed.get();
+        let rounded_hspeed = f64::from(util::ieee_round(hspeed));
+        let rounded_vspeed = f64::from(util::ieee_round(vspeed));
+
+        if (rounded_hspeed - hspeed).abs() < round_threshold {
+            self.hspeed.set(rounded_hspeed);
+        } else {
+            self.hspeed.set(hspeed);
+        }
+
+        if (rounded_vspeed - vspeed).abs() < round_threshold {
+            self.vspeed.set(rounded_vspeed);
+        } else {
+            self.vspeed.set(vspeed);
+        }
     }
 
     // Sets direction and speed based on hspeed and vspeed
