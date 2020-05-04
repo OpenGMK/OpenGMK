@@ -507,13 +507,16 @@ impl Key {
     }
 }
 
-pub enum Mouse {
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+#[rustfmt::skip]
+pub enum MouseButton {
     Left = 1,
     Right = 2,
     Middle = 3,
 }
 
-impl Mouse {
+impl MouseButton {
     pub fn from_winapi(mb: u8) -> Option<Self> {
         Some(match mb {
             MB_LEFT => Self::Left,

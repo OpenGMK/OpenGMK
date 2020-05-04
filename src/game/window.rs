@@ -2,12 +2,18 @@
 
 pub mod win32;
 
+use crate::input::{Key, MouseButton};
 use std::slice;
 
 #[cfg(target_os = "windows")]
 use win32 as platform;
 
+#[derive(Debug)]
 pub enum Event {
+    KeyboardDown(Key),
+    KeyboardUp(Key),
+    MouseButtonDown(MouseButton),
+    MouseButtonUp(MouseButton),
     Nothing,
 }
 

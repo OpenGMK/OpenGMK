@@ -22,9 +22,15 @@ use winapi::{
             BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics,
             GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, SetWindowLongPtrW, ShowWindow,
             TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, CW_USEDEFAULT, GWLP_USERDATA, GWL_STYLE,
-            IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE,
-            WM_ERASEBKGND, WM_NCDESTROY, WM_PAINT, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
-            WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, VK_ADD, VK_BACK,
+            VK_CONTROL, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_F10, VK_F11, VK_F12,
+            VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_HOME, VK_INSERT, VK_LCONTROL, VK_LEFT,
+            VK_LSHIFT, VK_MENU, VK_MULTIPLY, VK_NEXT, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4,
+            VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_PAUSE, VK_PRIOR, VK_RCONTROL, VK_RETURN,
+            VK_RIGHT, VK_RSHIFT, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_TAB, VK_UP, WM_CLOSE, WM_ERASEBKGND,
+            WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_NCDESTROY, WM_PAINT,
+            WM_RBUTTONDOWN, WM_RBUTTONUP, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
+            WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -99,6 +105,7 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
 unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_PAINT => {
+            // TODO: is this even necessary? I don't think so?
             let mut ps: PAINTSTRUCT = mem::zeroed();
             BeginPaint(hwnd, &mut ps);
             EndPaint(hwnd, &mut ps);
@@ -109,6 +116,47 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             hwnd_windowdata(hwnd).close_requested = true;
             return 0
         },
+
+        // keyboard events
+        WM_KEYDOWN => {
+            if let Some(key) = Key::from_winapi(wparam as u8) {
+                hwnd_windowdata(hwnd).events.push(Event::KeyboardDown(key));
+            }
+            return 0
+        },
+        WM_KEYUP => {
+            if let Some(key) = Key::from_winapi(wparam as u8) {
+                hwnd_windowdata(hwnd).events.push(Event::KeyboardUp(key));
+            }
+            return 0
+        },
+
+        // mouse events (yes, this is disgusting)
+        WM_LBUTTONDOWN => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Left));
+            return 0
+        },
+        WM_LBUTTONUP => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Left));
+            return 0
+        },
+        WM_RBUTTONDOWN => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Right));
+            return 0
+        },
+        WM_RBUTTONUP => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Right));
+            return 0
+        },
+        WM_MBUTTONDOWN => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Middle));
+            return 0
+        },
+        WM_MBUTTONUP => {
+            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Middle));
+            return 0
+        },
+
         _ => (),
     }
     DefWindowProcW(hwnd, msg, wparam, lparam)
