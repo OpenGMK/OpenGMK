@@ -182,7 +182,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             }
         },
         WM_SIZING => {
-            let rect = &*mem::transmute::<LONG_PTR, *const RECT>(lparam);
+            let rect = &*(lparam as *const RECT);
             let width = (rect.right - rect.left).max(0) as u32;
             let height = (rect.bottom - rect.top).max(0) as u32;
             let window_data = hwnd_windowdata(hwnd);
