@@ -53,7 +53,7 @@ fn get_window_style(style: Style) -> DWORD {
     match style {
         Style::Regular => WS_OVERLAPPED | WS_MINIMIZEBOX | WS_SYSMENU,
         Style::Resizable => WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
-        Style::Undecorated => WS_OVERLAPPED,
+        Style::Undecorated => WS_CAPTION,
         Style::Borderless => WS_POPUP,
         Style::BorderlessFullscreen => unimplemented!("no fullscreen yet"),
     }
