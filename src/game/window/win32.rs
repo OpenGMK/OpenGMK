@@ -73,7 +73,7 @@ impl Default for WindowData {
 #[inline(always)]
 unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> &'a mut WindowData {
     let lptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
-    &mut *mem::transmute::<LONG_PTR, *mut WindowData>(lptr)
+    &mut *(lptr as *mut WindowData)
 }
 
 unsafe fn register_window_class() -> Result<ATOM, DWORD> {
