@@ -202,8 +202,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
 
 unsafe fn adjust_rect(width: c_int, height: c_int, style: DWORD) -> (c_int, c_int) {
     let mut rect = RECT { top: 0, left: 0, right: width, bottom: height };
-    let result = AdjustWindowRect(&mut rect, style, FALSE);
-    assert_ne!(result, 0, "Failed to adjust window rect... what? How?");
+    AdjustWindowRect(&mut rect, style, FALSE);
     ((-rect.left) + rect.right, (-rect.top) + rect.bottom)
 }
 
