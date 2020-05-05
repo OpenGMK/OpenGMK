@@ -8,24 +8,24 @@ use std::{
     sync::atomic::{self, AtomicU16, AtomicUsize},
 };
 use winapi::{
-    ctypes::wchar_t,
+    ctypes::{c_int, wchar_t},
     shared::{
         basetsd::LONG_PTR,
-        minwindef::{ATOM, DWORD, HINSTANCE, LPARAM, LRESULT, TRUE, UINT, WPARAM},
+        minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
         windef::{HBRUSH, HWND, RECT},
     },
     um::{
         errhandlingapi::GetLastError,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
-            BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetSystemMetrics,
-            GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture,
-            SetWindowLongPtrW, ShowWindow, TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC,
-            GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN,
-            SM_CYSCREEN, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
-            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SIZING,
-            WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_POPUP, WS_SYSMENU,
-            WS_THICKFRAME,
+            AdjustWindowRect, BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint,
+            GetSystemMetrics, GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, ReleaseCapture,
+            SetCapture, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, UnregisterClassW,
+            COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT,
+            PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN,
+            WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_PAINT,
+            WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
+            WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -169,6 +169,18 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
         },
 
         // window resizing
+        WM_SIZE => {
+            let window_data = hwnd_windowdata(hwnd);
+            let width = u32::from(LOWORD(lparam as DWORD));
+            let height = u32::from(HIWORD(lparam as DWORD));
+            match window_data.events.last_mut() {
+                Some(Event::Resize(w, h)) => {
+                    *w = width;
+                    *h = height;
+                },
+                _ => window_data.events.push(Event::Resize(width, height)),
+            }
+        },
         WM_SIZING => {
             let rect = &*mem::transmute::<LONG_PTR, *const RECT>(lparam);
             let width = (rect.right - rect.left).max(0) as u32;
@@ -188,7 +200,17 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
+unsafe fn adjust_rect(width: c_int, height: c_int, style: DWORD) -> (c_int, c_int) {
+    let mut rect = RECT { top: 0, left: 0, right: width, bottom: height };
+    let result = AdjustWindowRect(&mut rect, style, FALSE);
+    assert_ne!(result, 0, "Failed to adjust window rect... what? How?");
+    ((-rect.left) + rect.right, (-rect.top) + rect.bottom)
+}
+
 pub struct WindowImpl {
+    client_width: c_int,
+    client_height: c_int,
+
     extra: Box<WindowData>,
     hwnd: HWND,
 }
@@ -205,15 +227,17 @@ impl WindowImpl {
             },
             atom => atom,
         };
-        let width = width.min(i32::max_value() as u32) as i32;
-        let height = height.min(i32::max_value() as u32) as i32;
+        let client_width = width.min(i32::max_value() as u32) as i32;
+        let client_height = height.min(i32::max_value() as u32) as i32;
+        let style = get_window_style(Style::Regular);
         let title = OsStr::new(title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
         let (extra, hwnd) = unsafe {
+            let (width, height) = adjust_rect(client_width, client_height, style);
             let hwnd = CreateWindowExW(
                 0,                                                  // dwExStyle
                 class_atom as _,                                    // lpClassName
                 title.as_ptr(),                                     // lpWindowName
-                get_window_style(Style::Regular),                   // dwStyle
+                style,                                              // dwStyle
                 (GetSystemMetrics(SM_CXSCREEN) / 2) - (width / 2),  // X
                 (GetSystemMetrics(SM_CYSCREEN) / 2) - (height / 2), // Y
                 width,                                              // nWidth
@@ -233,7 +257,7 @@ impl WindowImpl {
         };
         WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
 
-        Ok(Self { extra, hwnd })
+        Ok(Self { client_width, client_height, extra, hwnd })
     }
 }
 
@@ -265,9 +289,11 @@ impl WindowTrait for WindowImpl {
     }
 
     fn set_style(&self, style: Style) {
-        let wstyle = get_window_style(style);
         unsafe {
+            let wstyle = get_window_style(style);
+            let (width, height) = adjust_rect(self.client_width, self.client_height, wstyle);
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as LONG_PTR);
+            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
         }
     }
 
