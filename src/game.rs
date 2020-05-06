@@ -19,6 +19,7 @@ use crate::{
         Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
+    game::window::{self, Style, Window},
     gml::{self, ev, file::FileManager, rand::Random, Compiler, Context},
     input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
@@ -35,12 +36,8 @@ use std::{
     collections::{HashMap, HashSet},
     iter::repeat,
     rc::Rc,
-};
-use winit::{
-    dpi::PhysicalSize,
-    event::{ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    thread,
+    time::{Duration, Instant},
 };
 
 /// Structure which contains all the components of a game.
@@ -104,7 +101,6 @@ pub struct Game {
     pub caption_stale: bool,
 
     // winit windowing
-    event_loop: Option<EventLoop<()>>,
     window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_width: u32,
@@ -247,12 +243,9 @@ impl Game {
             vsync: settings.vsync, // TODO: Overrideable
         };
 
-        // TODO: fullscreening
-        let event_loop = EventLoop::new();
-        let window = WindowBuilder::new()
-            .with_inner_size(PhysicalSize::new(options.size.0, options.size.1))
-            .with_visible(false)
-            .build(&event_loop)?;
+        // TODO: fullscreening, styles
+        let (width, height) = options.size;
+        let window = Window::new(width, height, "")?;
 
         let mut renderer = OpenGLRenderer::new(options, &window)?;
 
@@ -762,7 +755,6 @@ impl Game {
             lives_capt_d: false,
             health_capt_d: false,
             window,
-            event_loop: Some(event_loop),
 
             // load_room sets this
             unscaled_width: 0,
@@ -780,7 +772,7 @@ impl Game {
         if self.unscaled_width != width || self.unscaled_height != height {
             self.unscaled_width = width;
             self.unscaled_height = height;
-            self.window.set_inner_size(PhysicalSize::new(width, height));
+            self.window.resize(width, height);
         }
     }
 
@@ -1100,115 +1092,33 @@ impl Game {
         Ok(())
     }
 
-    pub fn run(mut self) {
-        use std::{
-            thread,
-            time::{Duration, Instant},
-        };
+    pub fn run(&mut self) {
+        use window::Event;
 
-        let event_loop = self.event_loop.take().unwrap();
-        let mut now = std::time::Instant::now();
-        event_loop.run(move |event, _, control_flow| {
-            // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-            // dispatched any events. This is ideal for games and similar applications.
-            *control_flow = ControlFlow::Poll;
-
-            match event {
-                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                    println!("The close button was pressed; stopping");
-                    *control_flow = ControlFlow::Exit
-                },
-
-                Event::WindowEvent {
-                    event:
-                        WindowEvent::KeyboardInput {
-                            input: KeyboardInput { virtual_keycode: Some(key), state: ElementState::Pressed, .. },
-                            ..
-                        },
-                    ..
-                } => {
-                    // Keyboard key press with given scancode
-                    self.input_manager.key_press(key);
-                },
-
-                Event::WindowEvent {
-                    event:
-                        WindowEvent::KeyboardInput {
-                            input: KeyboardInput { virtual_keycode: Some(key), state: ElementState::Released, .. },
-                            ..
-                        },
-                    ..
-                } => {
-                    // Keyboard key release with given scancode
-                    self.input_manager.key_release(key);
-                },
-
-                Event::WindowEvent { event: WindowEvent::CursorMoved { position, .. }, .. } => {
-                    // Cursor movement within window
-                    self.input_manager.set_mouse_pos(position.x, position.y);
-                },
-
-                Event::WindowEvent {
-                    event: WindowEvent::MouseInput { button, state: ElementState::Pressed, .. },
-                    ..
-                } => match button {
-                    // Mouse button press
-                    MouseButton::Left => self.input_manager.mouse_press(input::MB_LEFT as usize),
-                    MouseButton::Right => self.input_manager.mouse_press(input::MB_RIGHT as usize),
-                    MouseButton::Middle => self.input_manager.mouse_press(input::MB_MIDDLE as usize),
-                    _ => (),
-                },
-
-                Event::WindowEvent {
-                    event: WindowEvent::MouseInput { button, state: ElementState::Released, .. },
-                    ..
-                } => match button {
-                    // Mouse button release
-                    MouseButton::Left => self.input_manager.mouse_release(input::MB_LEFT as usize),
-                    MouseButton::Right => self.input_manager.mouse_release(input::MB_RIGHT as usize),
-                    MouseButton::Middle => self.input_manager.mouse_release(input::MB_MIDDLE as usize),
-                    _ => (),
-                },
-
-                Event::WindowEvent { event: WindowEvent::MouseWheel { delta, .. }, .. } => {
-                    // Mouse wheel scrolled
-                    // Note: we don't care if the scroll distance is in lines or pixels,
-                    // because we only care whether it's positive (up) or negative (down)
-                    let y = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => f64::from(y),
-                        MouseScrollDelta::PixelDelta(p) => p.y,
-                    };
-
-                    if y > 0.0 {
-                        self.input_manager.mouse_scroll_up();
-                    } else if y < 0.0 {
-                        self.input_manager.mouse_scroll_down();
-                    }
-                },
-
-                Event::MainEventsCleared => {
-                    self.window.request_redraw();
-                },
-
-                Event::RedrawRequested(_) => {
-                    self.frame().unwrap();
-                    if let Some(target) = self.room_target {
-                        self.load_room(target).unwrap();
-                    }
-
-                    let diff = Instant::now().duration_since(now);
-                    if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
-                        thread::sleep(slep);
-                    }
-                },
-
-                Event::RedrawEventsCleared => {
-                    now = Instant::now();
-                },
-
-                _ => (),
+        let mut time_now = Instant::now();
+        loop {
+            for event in self.window.process_events() {
+                match event {
+                    Event::KeyboardDown(key) => self.input_manager.key_press(key),
+                    Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                    Event::MouseMove(x, y) => self.input_manager.set_mouse_pos((*x).into(), (*y).into()),
+                    Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
+                    Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
+                    Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+                    Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                    Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
+                }
             }
-        });
+
+            self.frame().expect("Runtime error!");
+
+            // ghetto frame limiter
+            let diff = Instant::now().duration_since(time_now);
+            if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+                thread::sleep(slep);
+            }
+            time_now = Instant::now();
+        }
     }
 
     // Checks for collision between two instances
