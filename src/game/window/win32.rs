@@ -249,6 +249,11 @@ unsafe fn window_borders(width: c_int, height: c_int, style: DWORD) -> RECT {
     rect
 }
 
+fn window_rect_flat(rect: &RECT) -> (i32, i32) {
+    let RECT { top, left, right, bottom } = rect;
+    ((-left) + right, (-top) + bottom)
+}
+
 pub struct WindowImpl {
     client_width: c_int,
     client_height: c_int,
@@ -274,8 +279,8 @@ impl WindowImpl {
         let style = get_window_style(Style::Regular);
         let title = OsStr::new(title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
         let (extra, hwnd) = unsafe {
-            let RECT { top, left, right, bottom } = window_borders(client_width, client_height, style);
-            let (width, height) = ((-left) + right, (-top) + bottom);
+            let window_rect = window_borders(client_width, client_height, style);
+            let (width, height) = window_rect_flat(&window_rect);
             let hwnd = CreateWindowExW(
                 0,                                                  // dwExStyle
                 class_atom as _,                                    // lpClassName
@@ -349,14 +354,21 @@ impl WindowTrait for WindowImpl {
         }
     }
 
+    fn resize(&mut self, width: u32, height: u32) {
+        unsafe {
+            // TODO: does gamemaker adjust the X/Y to make sense for the new window?
+            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, (width as i32).max(0), (height as i32).max(0), SWP_NOMOVE);
+        }
+    }
+
     fn set_style(&mut self, style: Style) {
         unsafe {
             let wstyle = get_window_style(style);
-            let RECT { top, left, right, bottom } = window_borders(self.client_width, self.client_height, wstyle);
-            let (width, height) = ((-left) + right, (-top) + bottom);
+            let window_rect = window_borders(self.client_width, self.client_height, wstyle);
+            let (width, height) = window_rect_flat(&window_rect);
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as LONG_PTR);
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
-            self.extra.border_offset = (-left, -top);
+            self.extra.border_offset = (-window_rect.left, -window_rect.top);
         }
     }
 

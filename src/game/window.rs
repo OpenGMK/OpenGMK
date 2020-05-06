@@ -45,6 +45,7 @@ pub trait WindowTrait {
 
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
 
+    fn resize(&mut self, width: u32, height: u32);
     fn set_style(&mut self, style: Style);
     fn set_visible(&mut self, visible: bool);
 }
@@ -65,6 +66,10 @@ impl Window {
 
     pub fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event> {
         self.0.process_events()
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.0.resize(width, height)
     }
 
     pub fn set_style(&mut self, style: Style) {
