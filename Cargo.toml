@@ -17,7 +17,6 @@ memoffset = "0.5.3"
 png = "0.15.2"
 rand = "0.7.2" # for seeding, not generating
 rect_packer = "0.2.1"
-winit = { git = "https://github.com/Osspial/winit", branch = "fix-everything" }
 
 [target.'cfg(target_os = "windows")'.dependencies.winapi]
 version = "0.3"
