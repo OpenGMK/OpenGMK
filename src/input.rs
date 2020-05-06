@@ -1,3 +1,5 @@
+use std::convert::identity;
+
 // We put the WINAPI constants here because gamemaker GML works with them and needs them :l
 pub const VK_ADD: u8 = 0x6B;
 pub const VK_ALT: u8 = 0x12; // real name: VK_MENU
@@ -58,8 +60,6 @@ pub const MB_MIDDLE: u8 = 0x02;
 
 const KEY_COUNT: usize = 124;
 const MOUSE_BUTTON_COUNT: usize = 3;
-
-use std::convert::identity;
 
 pub struct InputManager {
     // Keyboard
