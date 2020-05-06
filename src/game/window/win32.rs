@@ -12,20 +12,23 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
-        windef::{HBRUSH, HWND, RECT},
+        windef::{HBRUSH, HWND, POINT, RECT},
+        windowsx::{GET_X_LPARAM, GET_Y_LPARAM},
     },
     um::{
+        commctrl::_TrackMouseEvent,
         errhandlingapi::GetLastError,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
-            AdjustWindowRect, BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint,
-            GetSystemMetrics, GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassExW, ReleaseCapture,
-            SetCapture, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, UnregisterClassW,
-            COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PAINTSTRUCT,
-            PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SW_HIDE, SW_SHOW, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN,
-            WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_PAINT,
-            WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
-            WS_OVERLAPPED, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            AdjustWindowRect, BeginPaint, CreateWindowExW, DefWindowProcW, DispatchMessageW, EndPaint, GetCursorPos,
+            GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, LoadCursorW, PeekMessageW, RegisterClassExW,
+            ReleaseCapture, SetCapture, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage,
+            UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW,
+            MSG, PAINTSTRUCT, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SW_HIDE, SW_SHOW, TME_LEAVE,
+            TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
+            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_RBUTTONDOWN,
+            WM_RBUTTONUP, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_OVERLAPPED,
+            WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -62,11 +65,23 @@ fn get_window_style(style: Style) -> DWORD {
 struct WindowData {
     close_requested: bool,
     events: Vec<Event>,
+
+    border_offset: (i32, i32), // for adjusting outside client area mouse coordinates
+    mouse_tracked: bool,       // whether it's inside the client area
+    mouse_os_tracked: bool,    // whether the OS is tracking for a window leave event
+    mouse_cache: (i32, i32),   // for outside area updates
 }
 
 impl Default for WindowData {
     fn default() -> Self {
-        Self { close_requested: false, events: Vec::new() }
+        Self {
+            border_offset: (0, 0),
+            close_requested: false,
+            events: Vec::new(),
+            mouse_tracked: false,
+            mouse_os_tracked: false,
+            mouse_cache: (i32::min_value(), i32::min_value()),
+        }
     }
 }
 
@@ -168,11 +183,37 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             return 0
         },
 
+        // mouse movements
+        WM_MOUSEMOVE => {
+            let window_data = hwnd_windowdata(hwnd);
+            if !window_data.mouse_os_tracked {
+                window_data.mouse_os_tracked = true;
+                _TrackMouseEvent(&TRACKMOUSEEVENT {
+                    cbSize: mem::size_of::<TRACKMOUSEEVENT>() as DWORD,
+                    dwFlags: TME_LEAVE,
+                    hwndTrack: hwnd,
+                    dwHoverTime: 0,
+                } as *const _ as *mut _);
+            }
+            let x = GET_X_LPARAM(lparam);
+            let y = GET_Y_LPARAM(lparam);
+            window_data.mouse_tracked = true;
+            window_data.events.push(Event::MouseMove(x, y));
+            return 0
+        },
+        WM_MOUSELEAVE => {
+            let window_data = hwnd_windowdata(hwnd);
+            window_data.mouse_tracked = false;
+            window_data.mouse_os_tracked = false;
+            return 0
+        },
+
         // window resizing
         WM_SIZE => {
             let window_data = hwnd_windowdata(hwnd);
             let width = u32::from(LOWORD(lparam as DWORD));
             let height = u32::from(HIWORD(lparam as DWORD));
+            println!("WM_SIZE @ w: {}, h: {}", width, height);
             match window_data.events.last_mut() {
                 Some(Event::Resize(w, h)) => {
                     *w = width;
@@ -200,10 +241,10 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
-unsafe fn adjust_rect(width: c_int, height: c_int, style: DWORD) -> (c_int, c_int) {
+unsafe fn window_borders(width: c_int, height: c_int, style: DWORD) -> RECT {
     let mut rect = RECT { top: 0, left: 0, right: width, bottom: height };
     AdjustWindowRect(&mut rect, style, FALSE);
-    ((-rect.left) + rect.right, (-rect.top) + rect.bottom)
+    rect
 }
 
 pub struct WindowImpl {
@@ -231,7 +272,8 @@ impl WindowImpl {
         let style = get_window_style(Style::Regular);
         let title = OsStr::new(title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
         let (extra, hwnd) = unsafe {
-            let (width, height) = adjust_rect(client_width, client_height, style);
+            let RECT { top, left, right, bottom } = window_borders(client_width, client_height, style);
+            let (width, height) = ((-left) + right, (-top) + bottom);
             let hwnd = CreateWindowExW(
                 0,                                                  // dwExStyle
                 class_atom as _,                                    // lpClassName
@@ -250,8 +292,9 @@ impl WindowImpl {
                 let code = GetLastError();
                 return Err(format!("Failed to create window! (Code: {:#X})", code))
             }
-            let extra = Box::new(WindowData::default());
+            let mut extra = Box::new(WindowData::default());
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, extra.as_ref() as *const _ as LONG_PTR);
+            extra.border_offset = (-left, -top);
             (extra, hwnd)
         };
         WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
@@ -283,20 +326,39 @@ impl WindowTrait for WindowImpl {
                     },
                 }
             }
+            if !window_data.mouse_tracked {
+                let mut wrect: RECT = mem::zeroed();
+                GetWindowRect(self.hwnd, &mut wrect);
+                let mut mpoint: POINT = mem::zeroed();
+                GetCursorPos(&mut mpoint);
+
+                // calculate mouse pos
+                let window_x = wrect.left + window_data.border_offset.0;
+                let window_y = wrect.top + window_data.border_offset.1;
+                let x = mpoint.x - window_x;
+                let y = mpoint.y - window_y;
+                if (x, y) != window_data.mouse_cache {
+                    window_data.mouse_cache = (x, y);
+                    window_data.events.push(Event::MouseMove(x, y));
+                }
+            }
+
             window_data.events.iter()
         }
     }
 
-    fn set_style(&self, style: Style) {
+    fn set_style(&mut self, style: Style) {
         unsafe {
             let wstyle = get_window_style(style);
-            let (width, height) = adjust_rect(self.client_width, self.client_height, wstyle);
+            let RECT { top, left, right, bottom } = window_borders(self.client_width, self.client_height, wstyle);
+            let (width, height) = ((-left) + right, (-top) + bottom);
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as LONG_PTR);
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
+            self.extra.border_offset = (-left, -top);
         }
     }
 
-    fn set_visible(&self, visible: bool) {
+    fn set_visible(&mut self, visible: bool) {
         let flag = if visible { SW_SHOW } else { SW_HIDE };
         unsafe {
             ShowWindow(self.hwnd, flag);

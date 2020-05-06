@@ -17,6 +17,7 @@ pub enum Event {
     MouseButtonUp(MouseButton),
     MouseWheelUp,
     MouseWheelDown,
+    MouseMove(i32, i32),
 }
 
 pub enum Style {
@@ -44,8 +45,8 @@ pub trait WindowTrait {
 
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
 
-    fn set_style(&self, style: Style);
-    fn set_visible(&self, visible: bool);
+    fn set_style(&mut self, style: Style);
+    fn set_visible(&mut self, visible: bool);
 }
 
 impl Window {
@@ -66,11 +67,11 @@ impl Window {
         self.0.process_events()
     }
 
-    pub fn set_style(&self, style: Style) {
+    pub fn set_style(&mut self, style: Style) {
         self.0.set_style(style)
     }
 
-    pub fn set_visible(&self, visible: bool) {
+    pub fn set_visible(&mut self, visible: bool) {
         self.0.set_visible(visible)
     }
 }
