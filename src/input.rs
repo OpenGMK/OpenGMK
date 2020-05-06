@@ -1,10 +1,6 @@
-use winit::event::VirtualKeyCode;
-
-const KEY_COUNT: usize = 124;
-const MOUSE_BUTTON_COUNT: usize = 3;
-
+// We put the WINAPI constants here because gamemaker GML works with them and needs them :l
 pub const VK_ADD: u8 = 0x6B;
-pub const VK_ALT: u8 = 0x12; // VK_MENU
+pub const VK_ALT: u8 = 0x12; // real name: VK_MENU
 pub const VK_BACKSPACE: u8 = 0x08;
 pub const VK_CONTROL: u8 = 0x11;
 pub const VK_DECIMAL: u8 = 0x6E;
@@ -42,10 +38,10 @@ pub const VK_NUMPAD6: u8 = 0x66;
 pub const VK_NUMPAD7: u8 = 0x67;
 pub const VK_NUMPAD8: u8 = 0x68;
 pub const VK_NUMPAD9: u8 = 0x69;
-pub const VK_PAGEDOWN: u8 = 0x22; // VK_NEXT
-pub const VK_PAGEUP: u8 = 0x21; // VK_PRIOR
+pub const VK_PAGEDOWN: u8 = 0x22; // real name: VK_NEXT
+pub const VK_PAGEUP: u8 = 0x21; // real name: VK_PRIOR
 pub const VK_PAUSE: u8 = 0x13;
-pub const VK_PRINTSCREEN: u8 = 0x2C; // VK_SNAPSHOT
+pub const VK_PRINTSCREEN: u8 = 0x2C; // real name: VK_SNAPSHOT
 pub const VK_RCONTROL: u8 = 0xA3;
 pub const VK_RETURN: u8 = 0x0D;
 pub const VK_RIGHT: u8 = 0x27;
@@ -59,6 +55,11 @@ pub const VK_UP: u8 = 0x26;
 pub const MB_LEFT: u8 = 0x00;
 pub const MB_RIGHT: u8 = 0x01;
 pub const MB_MIDDLE: u8 = 0x02;
+
+const KEY_COUNT: usize = 124;
+const MOUSE_BUTTON_COUNT: usize = 3;
+
+use std::convert::identity;
 
 pub struct InputManager {
     // Keyboard
@@ -84,7 +85,7 @@ pub struct InputManager {
 }
 
 impl InputManager {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             kb_held: [false; KEY_COUNT],
             kb_pressed: [false; KEY_COUNT],
@@ -107,9 +108,10 @@ impl InputManager {
     }
 
     /// Informs the input manager that a key has been pressed
-    pub fn key_press(&mut self, key: VirtualKeyCode) {
-        self.kb_handle_direct(key, true);
-        if let Some(code) = Self::kb_map_code(key) {
+    pub fn key_press(&mut self, key: Key) {
+        // self.kb_handle_direct(key, true);
+        let code = key as usize;
+        if code < KEY_COUNT {
             if !self.kb_held[code] {
                 self.kb_held[code] = true;
                 self.kb_pressed[code] = true;
@@ -118,9 +120,10 @@ impl InputManager {
     }
 
     /// Informs the input manager that a key has been released
-    pub fn key_release(&mut self, key: VirtualKeyCode) {
-        self.kb_handle_direct(key, false);
-        if let Some(code) = Self::kb_map_code(key) {
+    pub fn key_release(&mut self, key: Key) {
+        // self.kb_handle_direct(key, false);
+        let code = key as usize;
+        if code < KEY_COUNT {
             if self.kb_held[code] {
                 self.kb_held[code] = false;
                 self.kb_released[code] = true;
@@ -175,17 +178,17 @@ impl InputManager {
 
     /// Checks if any keyboard key is held
     pub fn key_check_any(&self) -> bool {
-        self.kb_held.iter().copied().any(|x| x)
+        self.kb_held.iter().copied().any(identity)
     }
 
     /// Checks if any keyboard key was pressed
     pub fn key_check_any_pressed(&self) -> bool {
-        self.kb_pressed.iter().copied().any(|x| x)
+        self.kb_pressed.iter().copied().any(identity)
     }
 
     /// Checks if any keyboard key was released
     pub fn key_check_any_released(&self) -> bool {
-        self.kb_released.iter().copied().any(|x| x)
+        self.kb_released.iter().copied().any(identity)
     }
 
     /// Checks if the spoofed numlock is pressed
@@ -206,15 +209,21 @@ impl InputManager {
     }
 
     /// Informs the input manager that a mouse button has been pressed
-    pub fn mouse_press(&mut self, button: usize) {
-        self.mouse_pressed[button] = true;
-        self.mouse_held[button] = true;
+    pub fn mouse_press(&mut self, button: MouseButton) {
+        let code = button as usize;
+        if code < MOUSE_BUTTON_COUNT {
+            self.mouse_pressed[code] = true;
+            self.mouse_held[code] = true;
+        }
     }
 
     /// Informs the input manager that a mouse button has been released
-    pub fn mouse_release(&mut self, button: usize) {
-        self.mouse_released[button] = true;
-        self.mouse_held[button] = false;
+    pub fn mouse_release(&mut self, button: MouseButton) {
+        let code = button as usize;
+        if code < MOUSE_BUTTON_COUNT {
+            self.mouse_released[code] = true;
+            self.mouse_held[code] = false;
+        }
     }
 
     /// Informs the input manager that the mouse wheel was scrolled up
@@ -234,18 +243,18 @@ impl InputManager {
     }
 
     /// Checks if a mouse button is currently held
-    pub fn mouse_check(&self, button: usize) -> bool {
-        self.mouse_held.get(button).copied().unwrap_or(false)
+    pub fn mouse_check(&self, button: MouseButton) -> bool {
+        self.mouse_held.get(button as usize).copied().unwrap_or(false)
     }
 
     /// Checks if a mouse button is currently held
-    pub fn mouse_check_pressed(&self, button: usize) -> bool {
-        self.mouse_pressed.get(button).copied().unwrap_or(false)
+    pub fn mouse_check_pressed(&self, button: MouseButton) -> bool {
+        self.mouse_pressed.get(button as usize).copied().unwrap_or(false)
     }
 
     /// Checks if a mouse button is currently held
-    pub fn mouse_check_released(&self, button: usize) -> bool {
-        self.mouse_released.get(button).copied().unwrap_or(false)
+    pub fn mouse_check_released(&self, button: MouseButton) -> bool {
+        self.mouse_released.get(button as usize).copied().unwrap_or(false)
     }
 
     /// Checks if the mouse wheel was scrolled up on this frame
@@ -260,17 +269,17 @@ impl InputManager {
 
     /// Checks if any mouse button is held
     pub fn mouse_check_any(&self) -> bool {
-        self.mouse_held.iter().copied().any(|x| x)
+        self.mouse_held.iter().copied().any(identity)
     }
 
     /// Checks if any mouse button was pressed
     pub fn mouse_check_any_pressed(&self) -> bool {
-        self.mouse_pressed.iter().copied().any(|x| x)
+        self.mouse_pressed.iter().copied().any(identity)
     }
 
     /// Checks if any mouse button is held
     pub fn mouse_check_any_released(&self) -> bool {
-        self.mouse_released.iter().copied().any(|x| x)
+        self.mouse_released.iter().copied().any(identity)
     }
 
     /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
@@ -284,96 +293,17 @@ impl InputManager {
         self.mouse_scroll_down = false;
     }
 
-    fn kb_handle_direct(&mut self, key: VirtualKeyCode, held: bool) {
-        match key {
-            VirtualKeyCode::LShift => self.kb_lshift = held,
-            VirtualKeyCode::RShift => self.kb_rshift = held,
-            VirtualKeyCode::LControl => self.kb_lctrl = held,
-            VirtualKeyCode::RControl => self.kb_rctrl = held,
-            VirtualKeyCode::LAlt => self.kb_lalt = held,
-            VirtualKeyCode::RAlt => self.kb_ralt = held,
-            _ => (),
-        }
-    }
-
-    fn kb_map_code(key: VirtualKeyCode) -> Option<usize> {
-        match key {
-            VirtualKeyCode::Back => Some(8), // backspace
-            VirtualKeyCode::Tab => Some(9),
-            VirtualKeyCode::Return => Some(13),
-            VirtualKeyCode::LShift | VirtualKeyCode::RShift => Some(16),
-            VirtualKeyCode::LControl | VirtualKeyCode::RControl => Some(17),
-            VirtualKeyCode::LAlt | VirtualKeyCode::RAlt => Some(18),
-            VirtualKeyCode::Pause => Some(19),
-            VirtualKeyCode::Escape => Some(27),
-            VirtualKeyCode::Space => Some(32),
-            VirtualKeyCode::PageUp => Some(33),
-            VirtualKeyCode::PageDown => Some(34),
-            VirtualKeyCode::End => Some(35),
-            VirtualKeyCode::Home => Some(36),
-            VirtualKeyCode::Left => Some(37),
-            VirtualKeyCode::Up => Some(38),
-            VirtualKeyCode::Right => Some(39),
-            VirtualKeyCode::Down => Some(40),
-            VirtualKeyCode::Snapshot => Some(44), // printscreen key
-            VirtualKeyCode::Insert => Some(45),
-            VirtualKeyCode::Delete => Some(46),
-            VirtualKeyCode::A => Some(65),
-            VirtualKeyCode::B => Some(66),
-            VirtualKeyCode::C => Some(67),
-            VirtualKeyCode::D => Some(68),
-            VirtualKeyCode::E => Some(69),
-            VirtualKeyCode::F => Some(70),
-            VirtualKeyCode::G => Some(71),
-            VirtualKeyCode::H => Some(72),
-            VirtualKeyCode::I => Some(73),
-            VirtualKeyCode::J => Some(74),
-            VirtualKeyCode::K => Some(75),
-            VirtualKeyCode::L => Some(76),
-            VirtualKeyCode::M => Some(77),
-            VirtualKeyCode::N => Some(78),
-            VirtualKeyCode::O => Some(79),
-            VirtualKeyCode::P => Some(80),
-            VirtualKeyCode::Q => Some(81),
-            VirtualKeyCode::R => Some(82),
-            VirtualKeyCode::S => Some(83),
-            VirtualKeyCode::T => Some(84),
-            VirtualKeyCode::U => Some(85),
-            VirtualKeyCode::V => Some(86),
-            VirtualKeyCode::W => Some(87),
-            VirtualKeyCode::X => Some(88),
-            VirtualKeyCode::Y => Some(89),
-            VirtualKeyCode::Z => Some(90),
-            VirtualKeyCode::Numpad0 => Some(96),
-            VirtualKeyCode::Numpad1 => Some(97),
-            VirtualKeyCode::Numpad2 => Some(98),
-            VirtualKeyCode::Numpad3 => Some(99),
-            VirtualKeyCode::Numpad4 => Some(100),
-            VirtualKeyCode::Numpad5 => Some(101),
-            VirtualKeyCode::Numpad6 => Some(102),
-            VirtualKeyCode::Numpad7 => Some(103),
-            VirtualKeyCode::Numpad8 => Some(104),
-            VirtualKeyCode::Numpad9 => Some(105),
-            VirtualKeyCode::Multiply => Some(106),
-            VirtualKeyCode::Add => Some(107),
-            VirtualKeyCode::Subtract => Some(109),
-            VirtualKeyCode::Decimal => Some(110),
-            VirtualKeyCode::Divide => Some(111),
-            VirtualKeyCode::F1 => Some(112),
-            VirtualKeyCode::F2 => Some(113),
-            VirtualKeyCode::F3 => Some(114),
-            VirtualKeyCode::F4 => Some(115),
-            VirtualKeyCode::F5 => Some(116),
-            VirtualKeyCode::F6 => Some(117),
-            VirtualKeyCode::F7 => Some(118),
-            VirtualKeyCode::F8 => Some(119),
-            VirtualKeyCode::F9 => Some(120),
-            VirtualKeyCode::F10 => Some(121),
-            VirtualKeyCode::F11 => Some(122),
-            VirtualKeyCode::F12 => Some(123),
-            _ => None,
-        }
-    }
+    // fn kb_handle_direct(&mut self, key: VirtualKeyCode, held: bool) {
+    //     match key {
+    //         VirtualKeyCode::LShift => self.kb_lshift = held,
+    //         VirtualKeyCode::RShift => self.kb_rshift = held,
+    //         VirtualKeyCode::LControl => self.kb_lctrl = held,
+    //         VirtualKeyCode::RControl => self.kb_rctrl = held,
+    //         VirtualKeyCode::LAlt => self.kb_lalt = held,
+    //         VirtualKeyCode::RAlt => self.kb_ralt = held,
+    //         _ => (),
+    //     }
+    // }
 }
 
 // TODO: VK_ANYKEY, VK_NOKEY, VK_LALT, VK_RALT...
