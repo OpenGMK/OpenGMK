@@ -223,17 +223,19 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             }
         },
         WM_SIZING => {
-            let rect = &*(lparam as *const RECT);
-            let width = (rect.right - rect.left).max(0) as u32;
-            let height = (rect.bottom - rect.top).max(0) as u32;
-            let window_data = hwnd_windowdata(hwnd);
-            match window_data.events.last_mut() {
-                Some(Event::Resize(w, h)) => {
-                    *w = width;
-                    *h = height;
-                },
-                _ => window_data.events.push(Event::Resize(width, height)),
-            }
+            // We'd only use this if the window had its own thread.
+
+            // let rect = &*(lparam as *const RECT);
+            // let width = (rect.right - rect.left).max(0) as u32;
+            // let height = (rect.bottom - rect.top).max(0) as u32;
+            // let window_data = hwnd_windowdata(hwnd);
+            // match window_data.events.last_mut() {
+            //     Some(Event::Resize(w, h)) => {
+            //         *w = width;
+            //         *h = height;
+            //     },
+            //     _ => window_data.events.push(Event::Resize(width, height)),
+            // }
         },
 
         _ => (),
