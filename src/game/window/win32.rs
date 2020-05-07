@@ -278,7 +278,7 @@ impl WindowImpl {
         };
         let client_width = width.min(i32::max_value() as u32) as i32;
         let client_height = height.min(i32::max_value() as u32) as i32;
-        let style = get_window_style(Style::Regular);
+        let style = get_window_style(Style::Resizable);
         let title = OsStr::new(title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
         let (extra, hwnd) = unsafe {
             let window_rect = window_borders(client_width, client_height, style);
@@ -303,7 +303,7 @@ impl WindowImpl {
             }
             let mut extra = Box::new(WindowData::default());
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, extra.as_ref() as *const _ as LONG_PTR);
-            extra.border_offset = (-window_rect.left, -window_rect.top);
+            extra.border_offset = (-window_rect.left + (window_rect.right - client_width), -window_rect.top + (window_rect.bottom - client_height));
             extra.inner_size = (client_width as u32, client_height as u32);
             (extra, hwnd)
         };
@@ -362,9 +362,12 @@ impl WindowTrait for WindowImpl {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
+        // TODO: does gamemaker adjust the X/Y to make sense for the new window?
         unsafe {
-            // TODO: does gamemaker adjust the X/Y to make sense for the new window?
-            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, (width as i32).max(0), (height as i32).max(0), SWP_NOMOVE);
+            let (cw, ch) = self.extra.border_offset;
+            let width = cw + (width as i32).max(0);
+            let height = ch + (height as i32).max(0);
+            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
         }
     }
 
