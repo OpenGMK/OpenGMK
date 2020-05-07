@@ -108,7 +108,7 @@ fn xmain() -> i32 {
         },
     };
 
-    let components = match game::Game::launch(assets) {
+    let mut components = match game::Game::launch(assets) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
@@ -116,7 +116,10 @@ fn xmain() -> i32 {
         },
     };
 
-    components.run();
-
-    EXIT_SUCCESS
+    if let Err(err) = components.run() {
+        println!("Runtime error: {}", err);
+        EXIT_FAILURE
+    } else {
+        EXIT_SUCCESS
+    }
 }
