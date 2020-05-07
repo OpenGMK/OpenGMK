@@ -12,6 +12,7 @@ use memoffset::offset_of;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
+    game::Window,
     render::{Renderer, RendererOptions},
     types::Colour,
 };
@@ -26,7 +27,6 @@ use std::{
     path::PathBuf,
     ptr,
 };
-use winit::window::Window;
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {

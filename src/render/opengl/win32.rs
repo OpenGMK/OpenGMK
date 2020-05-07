@@ -1,6 +1,7 @@
 //! what do I put here
 
 use super::gl;
+use crate::game::Window;
 use std::{
     mem::{size_of, transmute},
     os::raw::{c_char, c_int, c_void},
@@ -9,7 +10,7 @@ use std::{
 use winapi::{
     shared::{
         minwindef::{BOOL, HINSTANCE},
-        windef::{HDC, HGLRC},
+        windef::{HDC, HGLRC, HWND},
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
@@ -21,7 +22,6 @@ use winapi::{
         winuser::GetDC,
     },
 };
-use winit::{platform::windows::WindowExtWindows, window::Window};
 
 pub struct PlatformGL(HDC, HGLRC);
 
@@ -92,7 +92,7 @@ unsafe fn load_gl_function(name: *const c_char, gl32_hi: HINSTANCE) -> *const c_
 pub fn setup(window: &Window) -> PlatformGL {
     unsafe {
         // query device context, set up pixel format
-        let device = GetDC(window.hwnd() as *mut _);
+        let device = GetDC(window.window_handle() as HWND);
         let format = ChoosePixelFormat(device, &PIXEL_FORMAT);
         assert_ne!(format, 0, "couldn't find pixel format");
         let result = SetPixelFormat(device, format, &PIXEL_FORMAT);
