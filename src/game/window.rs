@@ -8,6 +8,29 @@ use std::slice;
 #[cfg(target_os = "windows")]
 use win32 as platform;
 
+
+pub enum Cursor {
+    Arrow,      // ⇖
+    AppStart,   // ⇖⌛
+    Beam,       // I
+    Cross,      // +
+    Drag,       // 👆
+    Hourglass,  // ⌛
+    Invisible,  //
+    SizeNESW,   // ⤢
+    SizeNS,     // ↕
+    SizeNWSE,   // ⤡
+    SizeWE,     // ↔
+    SizeAll,    // ✥
+    Up,         // ↑
+}
+
+impl Default for Cursor {
+    fn default() -> Self {
+        Self::Arrow
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Event {
     Resize(u32, u32),
