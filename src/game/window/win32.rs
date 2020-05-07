@@ -303,7 +303,10 @@ impl WindowImpl {
             }
             let mut extra = Box::new(WindowData::default());
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, extra.as_ref() as *const _ as LONG_PTR);
-            extra.border_offset = (-window_rect.left + (window_rect.right - client_width), -window_rect.top + (window_rect.bottom - client_height));
+            extra.border_offset = (
+                -window_rect.left + (window_rect.right - client_width),
+                -window_rect.top + (window_rect.bottom - client_height),
+            );
             extra.inner_size = (client_width as u32, client_height as u32);
             (extra, hwnd)
         };

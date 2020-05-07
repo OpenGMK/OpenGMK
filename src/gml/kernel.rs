@@ -6,7 +6,7 @@ use crate::{
     asset,
     game::{draw, Game, GetAsset},
     gml::{self, file, Context, Value},
-    input::{self, MouseButton},
+    input::MouseButton,
     instance::{DummyFieldHolder, Instance},
     util,
 };
