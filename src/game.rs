@@ -1120,12 +1120,15 @@ impl Game {
                 break Ok(())
             }
 
-            // ghetto frame limiter
+            // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            if let Some(time) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+            let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            if let Some(time) = duration.checked_sub(diff) {
                 thread::sleep(time);
+                time_now += duration;
+            } else {
+                time_now = Instant::now();
             }
-            time_now = Instant::now();
         }
     }
 
