@@ -1111,6 +1111,9 @@ impl Game {
             }
 
             self.frame()?;
+            if let Some(target) = self.room_target {
+                self.load_room(target).unwrap();
+            }
 
             // exit if X pressed or game_end() invoked
             if self.window.close_requested() {
