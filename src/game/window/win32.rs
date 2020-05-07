@@ -70,6 +70,8 @@ struct WindowData {
     mouse_tracked: bool,       // whether it's inside the client area
     mouse_os_tracked: bool,    // whether the OS is tracking for a window leave event
     mouse_cache: (i32, i32),   // for outside area updates
+
+    inner_size: (u32, u32),
 }
 
 impl Default for WindowData {
@@ -81,6 +83,7 @@ impl Default for WindowData {
             mouse_tracked: false,
             mouse_os_tracked: false,
             mouse_cache: (i32::min_value(), i32::min_value()),
+            inner_size: (0, 0),
         }
     }
 }
@@ -221,6 +224,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
                 },
                 _ => window_data.events.push(Event::Resize(width, height)),
             }
+            window_data.inner_size = (width, height);
         },
         WM_SIZING => {
             // We'd only use this if the window had its own thread.
@@ -236,6 +240,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             //     },
             //     _ => window_data.events.push(Event::Resize(width, height)),
             // }
+            // window_data.inner_size = (width, height);
         },
 
         _ => (),
@@ -255,9 +260,6 @@ fn window_rect_flat(rect: &RECT) -> (i32, i32) {
 }
 
 pub struct WindowImpl {
-    client_width: c_int,
-    client_height: c_int,
-
     extra: Box<WindowData>,
     hwnd: HWND,
 }
@@ -301,18 +303,23 @@ impl WindowImpl {
             }
             let mut extra = Box::new(WindowData::default());
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, extra.as_ref() as *const _ as LONG_PTR);
-            extra.border_offset = (-left, -top);
+            extra.border_offset = (-window_rect.left, -window_rect.top);
+            extra.inner_size = (client_width as u32, client_height as u32);
             (extra, hwnd)
         };
         WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
 
-        Ok(Self { client_width, client_height, extra, hwnd })
+        Ok(Self { extra, hwnd })
     }
 }
 
 impl WindowTrait for WindowImpl {
     fn close_requested(&self) -> bool {
         self.extra.close_requested
+    }
+
+    fn get_inner_size(&self) -> (u32, u32) {
+        self.extra.inner_size
     }
 
     fn request_close(&mut self) {
@@ -364,7 +371,8 @@ impl WindowTrait for WindowImpl {
     fn set_style(&mut self, style: Style) {
         unsafe {
             let wstyle = get_window_style(style);
-            let window_rect = window_borders(self.client_width, self.client_height, wstyle);
+            let (cwidth, cheight) = self.get_inner_size();
+            let window_rect = window_borders(cwidth as i32, cheight as i32, wstyle);
             let (width, height) = window_rect_flat(&window_rect);
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, wstyle as LONG_PTR);
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
@@ -377,6 +385,10 @@ impl WindowTrait for WindowImpl {
         unsafe {
             ShowWindow(self.hwnd, flag);
         }
+    }
+
+    fn window_handle(&self) -> usize {
+        self.hwnd as _
     }
 }
 

@@ -8,7 +8,7 @@ use std::slice;
 #[cfg(target_os = "windows")]
 use win32 as platform;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Event {
     Resize(u32, u32),
     KeyboardDown(Key),
@@ -42,12 +42,13 @@ pub struct Window(pub Box<dyn WindowTrait>);
 pub trait WindowTrait {
     fn close_requested(&self) -> bool;
     fn request_close(&mut self);
-
+    fn get_inner_size(&self) -> (u32, u32);
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
-
     fn resize(&mut self, width: u32, height: u32);
     fn set_style(&mut self, style: Style);
     fn set_visible(&mut self, visible: bool);
+
+    fn window_handle(&self) -> usize;
 }
 
 impl Window {
@@ -58,6 +59,10 @@ impl Window {
 
     pub fn close_requested(&self) -> bool {
         self.0.close_requested()
+    }
+
+    pub fn get_inner_size(&self) -> (u32, u32) {
+        self.0.get_inner_size()
     }
 
     pub fn request_close(&mut self) {
@@ -78,5 +83,9 @@ impl Window {
 
     pub fn set_visible(&mut self, visible: bool) {
         self.0.set_visible(visible)
+    }
+
+    pub fn window_handle(&self) -> usize {
+        self.0.window_handle()
     }
 }
