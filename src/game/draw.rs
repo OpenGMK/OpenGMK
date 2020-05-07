@@ -49,7 +49,7 @@ impl Game {
         }
 
         // Tell renderer to finish the frame and start the next one
-        let (width, height) = self.window.inner_size().into();
+        let (width, height) = self.window.get_inner_size();
         self.renderer.finish(width, height);
 
         // Clear inputs for this frame
@@ -71,7 +71,7 @@ impl Game {
         port_h: i32,
         angle: f64,
     ) -> gml::Result<()> {
-        let (width, height) = self.window.inner_size().into();
+        let (width, height) = self.window.get_inner_size();
         self.renderer.set_view(
             width,
             height,

@@ -7,6 +7,7 @@ pub mod window;
 
 pub use background::Background;
 pub use view::View;
+pub use window::Window;
 
 use crate::{
     action::Tree,
@@ -19,7 +20,7 @@ use crate::{
         Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
-    game::window::{self, Style, Window},
+    game::window::Style,
     gml::{self, ev, file::FileManager, rand::Random, Compiler, Context},
     input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
@@ -1092,16 +1093,16 @@ impl Game {
         Ok(())
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> gml::Result<()> {
         use window::Event;
 
         let mut time_now = Instant::now();
         loop {
-            for event in self.window.process_events() {
+            for event in self.window.process_events().copied() {
                 match event {
                     Event::KeyboardDown(key) => self.input_manager.key_press(key),
                     Event::KeyboardUp(key) => self.input_manager.key_release(key),
-                    Event::MouseMove(x, y) => self.input_manager.set_mouse_pos((*x).into(), (*y).into()),
+                    Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
                     Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
                     Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
                     Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
@@ -1110,12 +1111,17 @@ impl Game {
                 }
             }
 
-            self.frame().expect("Runtime error!");
+            self.frame()?;
+
+            // exit if X pressed or game_end() invoked
+            if self.window.close_requested() {
+                break Ok(())
+            }
 
             // ghetto frame limiter
             let diff = Instant::now().duration_since(time_now);
-            if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
-                thread::sleep(slep);
+            if let Some(time) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+                thread::sleep(time);
             }
             time_now = Instant::now();
         }
