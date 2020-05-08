@@ -92,9 +92,9 @@ impl Default for WindowUserData {
 }
 
 #[inline(always)]
-unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> &'a mut WindowUserData {
+unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> Option<&'a mut WindowUserData> {
     let lptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
-    &mut *(lptr as *mut WindowUserData)
+    if lptr != 0 { Some(&mut *(lptr as *mut WindowUserData)) } else { None }
 }
 
 unsafe fn register_window_class() -> Result<ATOM, DWORD> {
@@ -126,7 +126,7 @@ fn get_window_style(style: Style) -> DWORD {
         Style::Regular => WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU,
         Style::Resizable => WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
         Style::Undecorated => WS_CAPTION,
-        Style::Borderless => WS_POPUP,
+        Style::Borderless => WS_POPUP | WS_SYSMENU,
         Style::BorderlessFullscreen => unimplemented!("no fullscreen yet"),
     }
 }
@@ -289,105 +289,127 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
     match msg {
         WM_ERASEBKGND => return TRUE as LRESULT,
         WM_CLOSE => {
-            hwnd_windowdata(hwnd).close_requested = true;
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.close_requested = true;
+            }
             return 0
         },
 
         // keyboard events
         WM_KEYDOWN => {
             if let Some(key) = Key::from_winapi(wparam as u8) {
-                hwnd_windowdata(hwnd).events.push(Event::KeyboardDown(key));
+                if let Some(window_data) = hwnd_windowdata(hwnd) {
+                    window_data.events.push(Event::KeyboardDown(key));
+                }
             }
             return 0
         },
         WM_KEYUP => {
             if let Some(key) = Key::from_winapi(wparam as u8) {
-                hwnd_windowdata(hwnd).events.push(Event::KeyboardUp(key));
+                if let Some(window_data) = hwnd_windowdata(hwnd) {
+                    window_data.events.push(Event::KeyboardUp(key));
+                }
             }
             return 0
         },
 
         // mouse events (yes, this is disgusting)
         WM_LBUTTONDOWN => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Left));
-            SetCapture(hwnd);
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonDown(MouseButton::Left));
+                SetCapture(hwnd);
+            }
             return 0
         },
         WM_LBUTTONUP => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Left));
-            ReleaseCapture();
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonUp(MouseButton::Left));
+                ReleaseCapture();
+            }
             return 0
         },
         WM_RBUTTONDOWN => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Right));
-            SetCapture(hwnd);
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonDown(MouseButton::Right));
+                SetCapture(hwnd);
+            }
             return 0
         },
         WM_RBUTTONUP => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Right));
-            ReleaseCapture();
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonUp(MouseButton::Right));
+                ReleaseCapture();
+            }
             return 0
         },
         WM_MBUTTONDOWN => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonDown(MouseButton::Middle));
-            SetCapture(hwnd);
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonDown(MouseButton::Middle));
+                SetCapture(hwnd);
+            }
             return 0
         },
         WM_MBUTTONUP => {
-            hwnd_windowdata(hwnd).events.push(Event::MouseButtonUp(MouseButton::Middle));
-            ReleaseCapture();
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MouseButtonUp(MouseButton::Middle));
+                ReleaseCapture();
+            }
             return 0
         },
         WM_MOUSEWHEEL => {
-            let delta = GET_WHEEL_DELTA_WPARAM(wparam);
-            let window_data = hwnd_windowdata(hwnd);
-            if delta < 0 {
-                window_data.events.push(Event::MouseWheelDown);
-            } else {
-                window_data.events.push(Event::MouseWheelUp);
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                let delta = GET_WHEEL_DELTA_WPARAM(wparam);
+                if delta < 0 {
+                    window_data.events.push(Event::MouseWheelDown);
+                } else {
+                    window_data.events.push(Event::MouseWheelUp);
+                }
             }
             return 0
         },
 
         // mouse movements
         WM_MOUSEMOVE => {
-            let window_data = hwnd_windowdata(hwnd);
-            if !window_data.mouse_os_tracked {
-                window_data.mouse_os_tracked = true;
-                _TrackMouseEvent(&TRACKMOUSEEVENT {
-                    cbSize: mem::size_of::<TRACKMOUSEEVENT>() as DWORD,
-                    dwFlags: TME_LEAVE,
-                    hwndTrack: hwnd,
-                    dwHoverTime: 0,
-                } as *const _ as *mut _);
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                if !window_data.mouse_os_tracked {
+                    window_data.mouse_os_tracked = true;
+                    _TrackMouseEvent(&TRACKMOUSEEVENT {
+                        cbSize: mem::size_of::<TRACKMOUSEEVENT>() as DWORD,
+                        dwFlags: TME_LEAVE,
+                        hwndTrack: hwnd,
+                        dwHoverTime: 0,
+                    } as *const _ as *mut _);
+                }
+                let x = GET_X_LPARAM(lparam);
+                let y = GET_Y_LPARAM(lparam);
+                window_data.mouse_tracked = true;
+                window_data.events.push(Event::MouseMove(x, y));
             }
-            let x = GET_X_LPARAM(lparam);
-            let y = GET_Y_LPARAM(lparam);
-            window_data.mouse_tracked = true;
-            window_data.events.push(Event::MouseMove(x, y));
             return 0
         },
         WM_MOUSELEAVE => {
-            let window_data = hwnd_windowdata(hwnd);
-            window_data.mouse_tracked = false;
-            window_data.mouse_os_tracked = false;
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.mouse_tracked = false;
+                window_data.mouse_os_tracked = false;
+            }
             return 0
         },
 
         // window resizing
         WM_SIZE => {
-            let window_data = hwnd_windowdata(hwnd);
-            let width = u32::from(LOWORD(lparam as DWORD));
-            let height = u32::from(HIWORD(lparam as DWORD));
-            println!("WM_SIZE @ w: {}, h: {}", width, height);
-            match window_data.events.last_mut() {
-                Some(Event::Resize(w, h)) => {
-                    *w = width;
-                    *h = height;
-                },
-                _ => window_data.events.push(Event::Resize(width, height)),
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                let width = u32::from(LOWORD(lparam as DWORD));
+                let height = u32::from(HIWORD(lparam as DWORD));
+                println!("WM_SIZE @ w: {}, h: {}", width, height);
+                match window_data.events.last_mut() {
+                    Some(Event::Resize(w, h)) => {
+                        *w = width;
+                        *h = height;
+                    },
+                    _ => window_data.events.push(Event::Resize(width, height)),
+                }
+                window_data.client_size = (width as i32, height as i32);
             }
-            window_data.client_size = (width as i32, height as i32);
         },
         WM_SIZING => {
             // We'd only use this if the window had its own thread.
@@ -395,7 +417,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             // let rect = &*(lparam as *const RECT);
             // let width = (rect.right - rect.left).max(0) as u32;
             // let height = (rect.bottom - rect.top).max(0) as u32;
-            // let window_data = hwnd_windowdata(hwnd);
+            // let window_data = hwnd_windowdata(hwnd); <-- ACTUALLY CHECKED THOUGH
             // match window_data.events.last_mut() {
             //     Some(Event::Resize(w, h)) => {
             //         *w = width;
