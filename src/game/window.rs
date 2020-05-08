@@ -75,6 +75,7 @@ pub trait WindowTrait {
     fn get_inner_size(&self) -> (u32, u32);
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
     fn resize(&mut self, width: u32, height: u32);
+    fn set_cursor(&mut self, cursor: Cursor);
     fn set_style(&mut self, style: Style);
     fn set_visible(&mut self, visible: bool);
     fn window_handle(&self) -> usize;
@@ -109,6 +110,11 @@ impl Window {
     /// Sets the inner size of the window, as in the area we draw to.
     pub fn resize(&mut self, width: u32, height: u32) {
         self.0.resize(width, height)
+    }
+
+    /// Sets the window cursor displayed when hovered over the window.
+    pub fn set_cursor(&mut self, cursor: Cursor) {
+        self.0.set_cursor(cursor)
     }
 
     /// Sets the window style.

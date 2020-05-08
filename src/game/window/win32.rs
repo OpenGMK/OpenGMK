@@ -1,6 +1,6 @@
 #![cfg(target_os = "windows")]
 
-use super::{Event, Style, WindowBuilder, WindowTrait};
+use super::{Cursor, Event, Style, WindowBuilder, WindowTrait};
 use crate::input::{Key, MouseButton};
 use std::{
     ffi::OsStr,
@@ -15,7 +15,7 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
-        windef::{HBRUSH, HWND, POINT, RECT},
+        windef::{HBRUSH, HCURSOR, HWND, POINT, RECT},
         windowsx::{GET_X_LPARAM, GET_Y_LPARAM},
     },
     um::{
@@ -24,12 +24,14 @@ use winapi::{
         winnt::IMAGE_DOS_HEADER,
         winuser::{
             AdjustWindowRect, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetSystemMetrics,
-            GetWindowLongPtrW, GetWindowRect, LoadCursorW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture,
-            SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, UnregisterClassW, COLOR_BACKGROUND,
-            CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_ARROW, MSG, PM_REMOVE, SM_CXSCREEN,
-            SM_CYSCREEN, SWP_NOMOVE, SW_HIDE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN,
-            WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE,
-            WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX,
+            GetWindowLongPtrW, GetWindowRect, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture,
+            SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, UnregisterClassW,
+            COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_APPSTARTING, IDC_ARROW,
+            IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE,
+            IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MSG, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN,
+            SWP_NOMOVE, SW_HIDE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+            WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX,
             WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
@@ -75,6 +77,9 @@ struct WindowUserData {
 
     /// event queue (cleared per-poll)
     events: Vec<Event>,
+
+    /// yeah
+    cursor: HCURSOR,
 }
 
 impl Default for WindowUserData {
@@ -87,6 +92,7 @@ impl Default for WindowUserData {
             mouse_tracked: false,
             mouse_os_tracked: false,
 
+            cursor: ptr::null_mut(),
             events: Vec::with_capacity(8),
         }
     }
@@ -107,7 +113,7 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
         style: CS_OWNDC,
         lpfnWndProc: Some(wnd_proc),
         hInstance: this_hinstance(),
-        hCursor: LoadCursorW(ptr::null_mut(), IDC_ARROW), // todo
+        hCursor: ptr::null_mut(),
         hbrBackground: COLOR_BACKGROUND as HBRUSH,
         lpszMenuName: ptr::null(),
         lpszClassName: WINDOW_CLASS_WNAME.as_ptr() as *const wchar_t,
@@ -145,6 +151,25 @@ fn window_rect_wh(rect: RECT) -> (c_int, c_int) {
 
 unsafe fn center_coords_primary_monitor(width: c_int, height: c_int) -> (c_int, c_int) {
     ((GetSystemMetrics(SM_CXSCREEN) / 2) - (width / 2), (GetSystemMetrics(SM_CYSCREEN) / 2) - (height / 2))
+}
+
+unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
+    let name = match cursor {
+        Cursor::Arrow => IDC_ARROW,
+        Cursor::AppStart => IDC_APPSTARTING,
+        Cursor::Beam => IDC_IBEAM,
+        Cursor::Cross => IDC_CROSS,
+        Cursor::Hand => IDC_HAND,
+        Cursor::Hourglass => IDC_WAIT,
+        Cursor::Invisible => return ptr::null_mut() as HCURSOR,
+        Cursor::SizeNESW => IDC_SIZENESW,
+        Cursor::SizeNS => IDC_SIZENS,
+        Cursor::SizeNWSE => IDC_SIZENWSE,
+        Cursor::SizeWE => IDC_SIZEWE,
+        Cursor::SizeAll => IDC_SIZEALL,
+        Cursor::Up => IDC_UPARROW,
+    };
+    LoadImageW(ptr::null_mut(), name, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED) as HCURSOR
 }
 
 impl WindowImpl {
@@ -201,6 +226,7 @@ impl WindowImpl {
             let mut user_data = Box::new(WindowUserData::default());
             user_data.border_offset = (width - client_width, height - client_height);
             user_data.client_size = (client_width, client_height);
+            user_data.cursor = load_cursor(builder.cursor);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR);
             let style = builder.style;
             Ok(Self { hwnd, user_data, style })
@@ -270,6 +296,12 @@ impl WindowTrait for WindowImpl {
         let height = border_y + (height as i32).max(0);
         unsafe {
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
+        }
+    }
+
+    fn set_cursor(&mut self, cursor: Cursor) {
+        unsafe {
+            self.user_data.cursor = load_cursor(cursor);
         }
     }
 
@@ -452,6 +484,17 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             //     _ => window_data.events.push(Event::Resize(width, height)),
             // }
             // window_data.inner_size = (width, height);
+        },
+
+        // cursor handling
+        WM_SETCURSOR => {
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                SetCursor(window_data.cursor);
+            } else {
+                // I mean this shouldn't happen, but
+                SetCursor(ptr::null_mut());
+            }
+            return TRUE as LRESULT
         },
 
         _ => (),
