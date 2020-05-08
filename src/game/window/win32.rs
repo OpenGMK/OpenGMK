@@ -51,6 +51,7 @@ static WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub struct WindowImpl {
     hwnd: HWND,
     user_data: Box<WindowUserData>,
+    style: Style,
 }
 
 struct WindowUserData {
@@ -126,8 +127,8 @@ fn get_window_style(style: Style) -> DWORD {
         Style::Regular => WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU,
         Style::Resizable => WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
         Style::Undecorated => WS_CAPTION,
-        Style::Borderless => WS_POPUP | WS_SYSMENU,
-        Style::BorderlessFullscreen => unimplemented!("no fullscreen yet"),
+        Style::Borderless => WS_POPUP,
+        Style::BorderlessFullscreen => WS_POPUP,
     }
 }
 
@@ -142,6 +143,10 @@ fn window_rect_wh(rect: RECT) -> (c_int, c_int) {
     ((-left) + right, (-top) + bottom)
 }
 
+unsafe fn center_coords_primary_monitor(width: c_int, height: c_int) -> (c_int, c_int) {
+    ((GetSystemMetrics(SM_CXSCREEN) / 2) - (width / 2), (GetSystemMetrics(SM_CYSCREEN) / 2) - (height / 2))
+}
+
 impl WindowImpl {
     pub fn new(builder: &WindowBuilder) -> Result<Self, String> {
         let class_atom = match WINDOW_CLASS_ATOM.load(atomic::Ordering::Acquire) {
@@ -154,25 +159,40 @@ impl WindowImpl {
             },
             atom => atom,
         };
-        let client_width = builder.size.0.min(c_int::max_value() as u32) as c_int;
-        let client_height = builder.size.1.min(c_int::max_value() as u32) as c_int;
+        let mut client_width = builder.size.0.min(c_int::max_value() as u32) as c_int;
+        let mut client_height = builder.size.1.min(c_int::max_value() as u32) as c_int;
         let title = OsStr::new(&builder.title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
         unsafe {
-            let rect = adjust_window_rect(client_width, client_height, builder.style);
-            let (width, height) = window_rect_wh(rect);
+            let (width, height, x_pos, y_pos) = {
+                match builder.style {
+                    Style::BorderlessFullscreen => {
+                        let screen_width = GetSystemMetrics(SM_CXSCREEN);
+                        let screen_height = GetSystemMetrics(SM_CYSCREEN);
+                        client_width = screen_width;
+                        client_height = screen_height;
+                        (screen_width, screen_height, 0, 0)
+                    },
+                    _ => {
+                        let rect = adjust_window_rect(client_width, client_height, builder.style);
+                        let (width, height) = window_rect_wh(rect);
+                        let (x_pos, y_pos) = center_coords_primary_monitor(width, height);
+                        (width, height, x_pos, y_pos)
+                    },
+                }
+            };
             let hwnd = CreateWindowExW(
-                0,                                                  // dwExStyle
-                class_atom as _,                                    // lpClassName
-                title.as_ptr(),                                     // lpWindowName
-                get_window_style(builder.style),                    // dwStyle
-                (GetSystemMetrics(SM_CXSCREEN) / 2) - (width / 2),  // X
-                (GetSystemMetrics(SM_CYSCREEN) / 2) - (height / 2), // Y
-                width,                                              // nWidth
-                height,                                             // nHeight
-                ptr::null_mut(),                                    // hWndParent
-                ptr::null_mut(),                                    // hMenu
-                this_hinstance(),                                   // hInstance
-                ptr::null_mut(),                                    // lpParam
+                0,                               // dwExStyle
+                class_atom as _,                 // lpClassName
+                title.as_ptr(),                  // lpWindowName
+                get_window_style(builder.style), // dwStyle
+                x_pos,                           // X
+                y_pos,                           // Y
+                width,                           // nWidth
+                height,                          // nHeight
+                ptr::null_mut(),                 // hWndParent
+                ptr::null_mut(),                 // hMenu
+                this_hinstance(),                // hInstance
+                ptr::null_mut(),                 // lpParam
             );
             if hwnd.is_null() {
                 let code = GetLastError();
@@ -182,7 +202,8 @@ impl WindowImpl {
             user_data.border_offset = (width - client_width, height - client_height);
             user_data.client_size = (client_width, client_height);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR);
-            Ok(Self { hwnd, user_data })
+            let style = builder.style;
+            Ok(Self { hwnd, user_data, style })
         }
     }
 }
@@ -240,6 +261,10 @@ impl WindowTrait for WindowImpl {
 
     fn resize(&mut self, width: u32, height: u32) {
         // TODO: does gamemaker adjust the X/Y to make sense for the new window?
+        if let Style::BorderlessFullscreen = self.style {
+            return
+        }
+
         let (border_x, border_y) = self.user_data.border_offset;
         let width = border_x + (width as i32).max(0);
         let height = border_y + (height as i32).max(0);
@@ -258,6 +283,7 @@ impl WindowTrait for WindowImpl {
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, get_window_style(style) as LONG_PTR);
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
             self.user_data.border_offset = (width - cwidth, height - cheight);
+            self.style = style;
         }
     }
 
