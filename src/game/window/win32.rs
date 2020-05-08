@@ -301,7 +301,11 @@ impl WindowTrait for WindowImpl {
 
     fn set_cursor(&mut self, cursor: Cursor) {
         unsafe {
+            // gm8 instantly sets the cursor when modified AND inside the game window
             self.user_data.cursor = load_cursor(cursor);
+            if self.user_data.mouse_tracked {
+                SetCursor(self.user_data.cursor);
+            }
         }
     }
 
