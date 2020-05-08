@@ -8,17 +8,19 @@ use std::slice;
 #[cfg(target_os = "windows")]
 use win32 as platform;
 
+#[derive(Copy, Clone)]
 pub enum Backend {
     OpenGL,
     Vulkan, // unimplemented so far
 }
 
+#[derive(Copy, Clone)]
 pub enum Cursor {
     Arrow,     // ⇖
     AppStart,  // ⇖⌛
     Beam,      // I
     Cross,     // +
-    Drag,      // 👆
+    Hand,      // 👆
     Hourglass, // ⌛
     Invisible, //
     SizeNESW,  // ⤢
