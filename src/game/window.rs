@@ -78,6 +78,8 @@ pub trait WindowTrait {
     fn get_cursor(&self) -> Cursor;
     fn set_cursor(&mut self, cursor: Cursor);
     fn set_style(&mut self, style: Style);
+    fn get_title(&self) -> &str;
+    fn set_title(&mut self, title: &str);
     fn get_visible(&self) -> bool;
     fn set_visible(&mut self, visible: bool);
     fn window_handle(&self) -> usize;
@@ -127,6 +129,16 @@ impl Window {
     /// Sets the window style.
     pub fn set_style(&mut self, style: Style) {
         self.0.set_style(style)
+    }
+
+    /// Gets the window caption.
+    pub fn get_title(&self) -> &str {
+        self.0.get_title()
+    }
+
+    /// Gets the window caption.
+    pub fn set_title(&mut self, title: &str) {
+        self.0.set_title(title)
     }
 
     /// Gets whether the window is visible.

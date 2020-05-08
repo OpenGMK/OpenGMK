@@ -32,7 +32,7 @@ use winapi::{
             SWP_NOMOVE, SW_HIDE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP,
             WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL,
             WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX,
-            WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME, SetWindowTextW,
         },
     },
 };
@@ -55,6 +55,7 @@ pub struct WindowImpl {
     hwnd: HWND,
     user_data: Box<WindowUserData>,
     style: Style,
+    title: String,
     visible: bool,
 }
 
@@ -174,6 +175,10 @@ unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
     LoadImageW(ptr::null_mut(), name, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED) as HCURSOR
 }
 
+fn window_title_wstr(title: &str) -> Vec<wchar_t> {
+    OsStr::new(title).encode_wide().chain(Some(0x00)).collect()
+}
+
 impl WindowImpl {
     pub fn new(builder: &WindowBuilder) -> Result<Self, String> {
         let class_atom = match WINDOW_CLASS_ATOM.load(atomic::Ordering::Acquire) {
@@ -188,7 +193,7 @@ impl WindowImpl {
         };
         let mut client_width = builder.size.0.min(c_int::max_value() as u32) as c_int;
         let mut client_height = builder.size.1.min(c_int::max_value() as u32) as c_int;
-        let title = OsStr::new(&builder.title).encode_wide().chain(Some(0x00)).collect::<Vec<wchar_t>>();
+        let title = window_title_wstr(&builder.title);
         unsafe {
             let (width, height, x_pos, y_pos) = {
                 match builder.style {
@@ -230,12 +235,10 @@ impl WindowImpl {
             user_data.client_size = (client_width, client_height);
             user_data.cursor_handle = load_cursor(builder.cursor);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR);
-            let style = builder.style;
-            let cursor = builder.cursor;
-            let visible = false;
             Ok(Self {
                 cursor: builder.cursor,
                 style: builder.style,
+                title: builder.title.to_owned(),
                 visible: false,
 
                 hwnd,
@@ -336,6 +339,18 @@ impl WindowTrait for WindowImpl {
             SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
             self.user_data.border_offset = (width - cwidth, height - cheight);
             self.style = style;
+        }
+    }
+
+    fn get_title(&self) -> &str {
+        &self.title
+    }
+
+    fn set_title(&mut self, title: &str) {
+        let wide_title = window_title_wstr(title);
+        self.title = title.to_owned();
+        unsafe {
+            SetWindowTextW(self.hwnd, wide_title.as_ptr());
         }
     }
 
