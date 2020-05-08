@@ -51,9 +51,11 @@ static WINDOW_CLASS_ATOM: AtomicU16 = AtomicU16::new(0);
 static WINDOW_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 pub struct WindowImpl {
+    cursor: Cursor,
     hwnd: HWND,
     user_data: Box<WindowUserData>,
     style: Style,
+    visible: bool,
 }
 
 struct WindowUserData {
@@ -79,7 +81,7 @@ struct WindowUserData {
     events: Vec<Event>,
 
     /// yeah
-    cursor: HCURSOR,
+    cursor_handle: HCURSOR,
 }
 
 impl Default for WindowUserData {
@@ -92,7 +94,7 @@ impl Default for WindowUserData {
             mouse_tracked: false,
             mouse_os_tracked: false,
 
-            cursor: ptr::null_mut(),
+            cursor_handle: ptr::null_mut(),
             events: Vec::with_capacity(8),
         }
     }
@@ -226,10 +228,19 @@ impl WindowImpl {
             let mut user_data = Box::new(WindowUserData::default());
             user_data.border_offset = (width - client_width, height - client_height);
             user_data.client_size = (client_width, client_height);
-            user_data.cursor = load_cursor(builder.cursor);
+            user_data.cursor_handle = load_cursor(builder.cursor);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR);
             let style = builder.style;
-            Ok(Self { hwnd, user_data, style })
+            let cursor = builder.cursor;
+            let visible = false;
+            Ok(Self {
+                cursor: builder.cursor,
+                style: builder.style,
+                visible: false,
+
+                hwnd,
+                user_data,
+            })
         }
     }
 }
@@ -299,12 +310,17 @@ impl WindowTrait for WindowImpl {
         }
     }
 
+    fn get_cursor(&self) -> Cursor {
+        self.cursor
+    }
+
     fn set_cursor(&mut self, cursor: Cursor) {
         unsafe {
             // gm8 instantly sets the cursor when modified AND inside the game window
-            self.user_data.cursor = load_cursor(cursor);
+            self.cursor = cursor;
+            self.user_data.cursor_handle = load_cursor(cursor);
             if self.user_data.mouse_tracked {
-                SetCursor(self.user_data.cursor);
+                SetCursor(self.user_data.cursor_handle);
             }
         }
     }
@@ -323,7 +339,12 @@ impl WindowTrait for WindowImpl {
         }
     }
 
+    fn get_visible(&self) -> bool {
+        self.visible
+    }
+
     fn set_visible(&mut self, visible: bool) {
+        self.visible = visible;
         let flag = if visible { SW_SHOW } else { SW_HIDE };
         unsafe {
             ShowWindow(self.hwnd, flag);
@@ -493,7 +514,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
         // cursor handling
         WM_SETCURSOR => {
             if let Some(window_data) = hwnd_windowdata(hwnd) {
-                SetCursor(window_data.cursor);
+                SetCursor(window_data.cursor_handle);
             } else {
                 // I mean this shouldn't happen, but
                 SetCursor(ptr::null_mut());
