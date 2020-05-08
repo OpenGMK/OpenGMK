@@ -243,10 +243,12 @@ impl Game {
             vsync: settings.vsync, // TODO: Overrideable
         };
 
-        // TODO: fullscreening, styles
         let (width, height) = options.size;
-        let window = Window::new(width, height, "")?;
+        let wb = window::WindowBuilder::new().with_size(width, height);
 
+        // TODO: specific flags here (make wb mutable)
+
+        let window = wb.build().expect("oh no");
         let mut renderer = OpenGLRenderer::new(options, &window)?;
 
         renderer.swap_interval(0); // no vsync
