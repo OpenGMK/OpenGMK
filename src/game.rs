@@ -33,6 +33,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     iter::repeat,
+    path::PathBuf,
     rc::Rc,
 };
 use winit::{
@@ -124,7 +125,7 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn launch(assets: GameAssets, _file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         // destructure assets
         let GameAssets {
             game_id,
