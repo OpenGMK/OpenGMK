@@ -3376,6 +3376,10 @@ impl Game {
             self.instance_list.mark_deleted(instance);
         }
 
+        // Clear globals (Note: Studio onwards doesn't do this, but GM8 does)
+        self.globals.fields.clear();
+        self.globals.vars.clear();
+
         // Go to room 1
         self.game_start = true;
         self.room_target = Some(self.room_order.first().copied().ok_or(gml::Error::EndOfRoomOrder)?);
