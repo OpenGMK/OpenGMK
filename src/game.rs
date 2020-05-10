@@ -101,7 +101,7 @@ pub struct Game {
     pub caption_stale: bool,
 
     // winit windowing
-    window: Window,
+    pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
