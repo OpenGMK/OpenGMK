@@ -459,7 +459,7 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
                 let delta = GET_WHEEL_DELTA_WPARAM(wparam);
                 if delta < 0 {
                     window_data.events.push(Event::MouseWheelDown);
-                } else {
+                } else if delta > 0 {
                     window_data.events.push(Event::MouseWheelUp);
                 }
             }
