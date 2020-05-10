@@ -24,6 +24,7 @@ features = ["commctrl", "errhandlingapi", "libloaderapi", "windowsx", "wingdi", 
 
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"
+features = ["xlib"]
 
 [profile.release]
 codegen-units = 1

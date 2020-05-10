@@ -1,12 +1,16 @@
 //! Windowing magic.
 
 mod win32;
+mod xorg;
 
 use crate::input::{Key, MouseButton};
 use std::slice;
 
 #[cfg(target_os = "windows")]
 use win32 as platform;
+
+#[cfg(target_os = "linux")]
+use xorg as platform;
 
 #[derive(Copy, Clone)]
 pub enum Backend {
