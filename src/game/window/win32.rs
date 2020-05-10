@@ -25,14 +25,14 @@ use winapi::{
         winuser::{
             AdjustWindowRect, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetCursorPos, GetSystemMetrics,
             GetWindowLongPtrW, GetWindowRect, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture,
-            SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, UnregisterClassW,
+            SetCursor, SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TranslateMessage, UnregisterClassW,
             COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, IDC_APPSTARTING, IDC_ARROW,
             IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE,
             IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MSG, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN,
             SWP_NOMOVE, SW_HIDE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP,
             WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL,
             WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX,
-            WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME, SetWindowTextW,
+            WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };

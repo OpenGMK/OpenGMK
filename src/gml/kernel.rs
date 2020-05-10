@@ -106,14 +106,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_mouse_set")
     }
 
-    pub fn window_set_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_visible")
+    pub fn window_set_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let visible = expect_args!(args, [any])?;
+        self.window.set_visible(visible.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn window_get_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_visible")
+    pub fn window_get_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window.get_visible().into())
     }
 
     pub fn window_set_fullscreen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -166,14 +167,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_get_sizeable")
     }
 
-    pub fn window_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_caption")
+    pub fn window_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let caption = expect_args!(args, [string])?;
+        self.window.set_title(&caption);
+        Ok(Default::default())
     }
 
-    pub fn window_get_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_caption")
+    pub fn window_get_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window.get_title().to_owned().into())
     }
 
     pub fn window_set_cursor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -201,9 +203,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_set_position")
     }
 
-    pub fn window_set_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function window_set_size")
+    pub fn window_set_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (width, height) = expect_args!(args, [int, int])?;
+        self.window.resize(width as _, height as _);
+        Ok(Default::default())
     }
 
     pub fn window_set_rectangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
