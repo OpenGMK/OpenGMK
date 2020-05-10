@@ -125,8 +125,24 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets, _file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-        // destructure assets
+    pub fn launch(assets: GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        // Parse file path
+        let mut file_path2 = file_path.clone();
+        file_path2.pop();
+        std::env::set_current_dir(&file_path2)?;
+        let mut param_string: &str = &file_path.to_string_lossy();
+        let mut program_directory: &str = &file_path2.to_string_lossy();
+
+        if cfg!(target_os = "windows") {
+            param_string = param_string.trim_start_matches("\\\\?\\");
+            program_directory = program_directory.trim_start_matches("\\\\?\\");
+        }
+        // TODO: store these as Rc<str> probably?
+        println!("param_string: {}", param_string);
+        println!("program_directory: {}", program_directory);
+
+
+        // Destructure assets
         let GameAssets {
             game_id,
             backgrounds,
