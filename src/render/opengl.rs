@@ -32,9 +32,11 @@ cfg_if! {
     if #[cfg(target_os = "windows")] {
         mod win32;
         use win32 as platform;
+        use crate::game::window::win32::WindowImpl;
     } else {
         mod xorg;
         use xorg as platform;
+        use crate::game::window::xorg::WindowImpl;
     }
 }
 
@@ -90,7 +92,12 @@ impl OpenGLRenderer {
     pub fn new(options: RendererOptions, window: &Window) -> Result<Self, String> {
         // TODO: redo icons
 
-        let platform_gl = platform::setup(&window);
+        let window_impl = match window.as_any().downcast_ref::<WindowImpl>() {
+            Some(x) => x,
+            None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
+        };
+        let platform_gl = platform::setup(&window_impl);
+
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);

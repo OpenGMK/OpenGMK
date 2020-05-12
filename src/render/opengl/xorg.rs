@@ -1,8 +1,7 @@
-use winit::{
-    event_loop::EventLoop,
-    platform::unix::{EventLoopExtUnix, WindowBuilderExtUnix, WindowExtUnix},
-    window::{Window, WindowBuilder},
-};
+use crate::game::window::xorg::WindowImpl;
+use super::gl;
+use std::{mem, os::raw::*, ptr};
+use x11::xlib;
 
 #[allow(clippy::all)]
 pub mod glx {
@@ -26,17 +25,10 @@ extern "C" {
     fn glXMakeCurrent(display: *mut xlib::Display, draw: c_ulong, ctx: *const c_void) -> xlib::Bool;
 }
 
-use super::gl;
-use std::{mem, os::raw::*, ptr};
-use x11::xlib;
-
-pub fn setup(window: &Window) -> PlatformGL {
-    let dpy = window.xlib_display().unwrap();
-    let window_id = window.xlib_window().unwrap();
-    let screen_id = window.xlib_screen_id().unwrap();
+pub fn setup(window: &WindowImpl) -> PlatformGL {
     unsafe {
         let mut nelements = 0i32;
-        let fb_config = glXChooseFBConfig(dpy as *mut _, screen_id, ptr::null(), &mut nelements);
+        let fb_config = glXChooseFBConfig(window.display, window.screen_id, ptr::null(), &mut nelements);
         let cctx = glXGetProcAddressARB(b"glXCreateContextAttribsARB\0".as_ptr() as *const _);
 
         #[rustfmt::skip]
@@ -55,9 +47,9 @@ pub fn setup(window: &Window) -> PlatformGL {
             xlib::Bool,
             *const u32,
         ) -> *const c_void = mem::transmute(cctx);
-        let ctx = cctx(dpy as *mut xlib::Display, *fb_config, ptr::null(), 1, &CCTX_ATTRIBS[0] as *const _);
+        let ctx = cctx(window.display, *fb_config, ptr::null(), 1, &CCTX_ATTRIBS[0] as *const _);
         assert!(!ctx.is_null());
-        let res = glXMakeCurrent(dpy as *mut xlib::Display, window_id, ctx);
+        let res = glXMakeCurrent(window.display, window.window_id, ctx);
         assert_ne!(res, xlib::False);
 
         static mut FFI_BUF: Vec<u8> = Vec::new();
@@ -80,7 +72,7 @@ pub fn setup(window: &Window) -> PlatformGL {
             glXGetProcAddressARB(FFI_BUF.as_ptr() as *const c_char)
         });
 
-        PlatformGL { dpy: dpy as *mut _, window_id }
+        PlatformGL { dpy: window.display, window_id: window.window_id }
     }
 }
 

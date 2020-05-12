@@ -3,6 +3,7 @@
 use super::{Cursor, Event, Style, WindowBuilder, WindowTrait};
 use crate::input::{Key, MouseButton};
 use std::{
+    any::Any,
     ffi::OsStr,
     mem,
     ops::Drop,
@@ -249,6 +250,10 @@ impl WindowImpl {
 }
 
 impl WindowTrait for WindowImpl {
+    fn as_any(&self) -> &dyn Any {
+        self.0
+    }
+
     fn get_inner_size(&self) -> (u32, u32) {
         let (width, height) = self.user_data.client_size;
         (width as u32, height as u32)

@@ -1,7 +1,7 @@
 //! what do I put here
 
 use super::gl;
-use crate::game::Window;
+use crate::game::window::win32::WindowImpl;
 use std::{
     mem::{size_of, transmute},
     os::raw::{c_char, c_int, c_void},

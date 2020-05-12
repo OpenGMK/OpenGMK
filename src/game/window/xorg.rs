@@ -1,10 +1,13 @@
 #![cfg(target_os = "linux")]
 
 use super::{Cursor, Event, Style, WindowBuilder, WindowTrait};
-use std::{ffi, ptr, slice};
+use std::{any::Any, ffi, ptr, slice};
 use x11::xlib;
 
 pub struct WindowImpl {
+    pub display: *mut xlib::Display,
+    pub window_id: u64,
+    pub screen_id: i32,
     pub close_requested: bool,
     pub inner_size: (u32, u32),
 }
@@ -17,13 +20,13 @@ impl WindowImpl {
                 return Err("xlib::XOpenDisplay failed".into())
             }
 
-            let screen = xlib::XDefaultScreen(display);
-            let root = xlib::XRootWindow(display, screen);
+            let screen_id = xlib::XDefaultScreen(display);
+            let root = xlib::XRootWindow(display, screen_id);
 
             let mut attributes: xlib::XSetWindowAttributes = std::mem::MaybeUninit::uninit().assume_init();
-            //attributes.background_pixel = xlib::XWhitePixel(display, screen);
+            attributes.background_pixel = xlib::XWhitePixel(display, screen_id);
 
-            let window = xlib::XCreateWindow(
+            let window_id = xlib::XCreateWindow(
                 display,
                 root,
                 100,
@@ -39,16 +42,20 @@ impl WindowImpl {
             );
 
             let title = ffi::CString::new(builder.title.clone()).unwrap();
-            xlib::XStoreName(display, window, title.as_ptr() as *mut _);
+            xlib::XStoreName(display, window_id, title.as_ptr() as *mut _);
 
-            xlib::XMapWindow(display, window);
+            xlib::XMapWindow(display, window_id);
 
-            Ok(Self { close_requested: false, inner_size: builder.size })
+            Ok(Self { display, window_id, screen_id, close_requested: false, inner_size: builder.size })
         }
     }
 }
 
 impl WindowTrait for WindowImpl {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn close_requested(&self) -> bool {
         self.close_requested
     }
@@ -65,7 +72,7 @@ impl WindowTrait for WindowImpl {
         todo!()
     }
 
-    fn resize(&mut self, width: u32, height: u32) {
+    fn resize(&mut self, _width: u32, _height: u32) {
         todo!()
     }
 
@@ -73,11 +80,11 @@ impl WindowTrait for WindowImpl {
         todo!()
     }
 
-    fn set_cursor(&mut self, cursor: Cursor) {
+    fn set_cursor(&mut self, _cursor: Cursor) {
         todo!()
     }
 
-    fn set_style(&mut self, style: Style) {
+    fn set_style(&mut self, _style: Style) {
         todo!()
     }
 
@@ -85,7 +92,7 @@ impl WindowTrait for WindowImpl {
         todo!()
     }
 
-    fn set_title(&mut self, title: &str) {
+    fn set_title(&mut self, _title: &str) {
         todo!()
     }
 
@@ -93,7 +100,7 @@ impl WindowTrait for WindowImpl {
         todo!()
     }
 
-    fn set_visible(&mut self, visible: bool) {
+    fn set_visible(&mut self, _visible: bool) {
         todo!()
     }
 

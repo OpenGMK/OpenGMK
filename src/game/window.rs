@@ -1,10 +1,10 @@
 //! Windowing magic.
 
-mod win32;
-mod xorg;
+pub mod win32;
+pub mod xorg;
 
 use crate::input::{Key, MouseButton};
-use std::slice;
+use std::{any::Any, slice};
 
 #[cfg(target_os = "windows")]
 use win32 as platform;
@@ -74,6 +74,7 @@ pub enum Style {
 pub struct Window(Box<dyn WindowTrait>);
 
 pub trait WindowTrait {
+    fn as_any(&self) -> &dyn Any;
     fn close_requested(&self) -> bool;
     fn set_close_requested(&mut self, value: bool);
     fn get_inner_size(&self) -> (u32, u32);
@@ -90,6 +91,11 @@ pub trait WindowTrait {
 }
 
 impl Window {
+    /// Gives the inner WindowTrait as a &dyn Any
+    pub fn as_any(&self) -> &dyn Any {
+        self.0.as_any()
+    }
+
     /// Creates a new Window, invisible by default.
     pub fn new(builder: &WindowBuilder) -> Result<Self, String> {
         Ok(Self(Box::new(platform::WindowImpl::new(builder)?)))
