@@ -10,6 +10,8 @@ pub struct WindowImpl {
     pub screen_id: i32,
     pub close_requested: bool,
     pub inner_size: (u32, u32),
+    pub visible: bool,
+    pub events: Vec<Event>,
 }
 
 impl WindowImpl {
@@ -44,9 +46,18 @@ impl WindowImpl {
             let title = ffi::CString::new(builder.title.clone()).unwrap();
             xlib::XStoreName(display, window_id, title.as_ptr() as *mut _);
 
+            // TODO: this makes the window visible, it's not meant to start visible, so why do I have to do this here?
             xlib::XMapWindow(display, window_id);
 
-            Ok(Self { display, window_id, screen_id, close_requested: false, inner_size: builder.size })
+            Ok(Self {
+                display,
+                window_id,
+                screen_id,
+                close_requested: false,
+                inner_size: builder.size,
+                visible: false,
+                events: Vec::with_capacity(8),
+            })
         }
     }
 }
@@ -69,11 +80,15 @@ impl WindowTrait for WindowImpl {
     }
 
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event> {
-        todo!()
+        // TODO
+        self.events.iter()
     }
 
-    fn resize(&mut self, _width: u32, _height: u32) {
-        todo!()
+    fn resize(&mut self, width: u32, height: u32) {
+        self.inner_size = (width, height);
+        unsafe {
+            xlib::XResizeWindow(self.display, self.window_id, width, height);
+        }
     }
 
     fn get_cursor(&self) -> Cursor {
@@ -92,16 +107,28 @@ impl WindowTrait for WindowImpl {
         todo!()
     }
 
-    fn set_title(&mut self, _title: &str) {
-        todo!()
+    fn set_title(&mut self, title: &str) {
+        unsafe {
+            let title = ffi::CString::new(title).unwrap();
+            xlib::XStoreName(self.display, self.window_id, title.as_ptr() as *mut _);
+        }
     }
 
     fn get_visible(&self) -> bool {
-        todo!()
+        self.visible
     }
 
-    fn set_visible(&mut self, _visible: bool) {
-        todo!()
+    fn set_visible(&mut self, visible: bool) {
+        if self.visible != visible {
+            unsafe {
+                if visible {
+                    xlib::XMapWindow(self.display, self.window_id);
+                } else {
+                    xlib::XUnmapWindow(self.display, self.window_id);
+                }
+            }
+            self.visible = visible;
+        }
     }
 
     fn window_handle(&self) -> usize {
