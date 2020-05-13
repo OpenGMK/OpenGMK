@@ -247,11 +247,15 @@ impl WindowImpl {
             })
         }
     }
+
+    pub fn get_hwnd(&self) -> HWND {
+        self.hwnd
+    }
 }
 
 impl WindowTrait for WindowImpl {
     fn as_any(&self) -> &dyn Any {
-        self.0
+        self
     }
 
     fn get_inner_size(&self) -> (u32, u32) {

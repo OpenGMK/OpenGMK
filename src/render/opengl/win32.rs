@@ -10,7 +10,7 @@ use std::{
 use winapi::{
     shared::{
         minwindef::{BOOL, HINSTANCE},
-        windef::{HDC, HGLRC, HWND},
+        windef::{HDC, HGLRC},
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
@@ -89,10 +89,10 @@ unsafe fn load_gl_function(name: *const c_char, gl32_hi: HINSTANCE) -> *const c_
     }
 }
 
-pub fn setup(window: &Window) -> PlatformGL {
+pub fn setup(window: &WindowImpl) -> PlatformGL {
     unsafe {
         // query device context, set up pixel format
-        let device = GetDC(window.window_handle() as HWND);
+        let device = GetDC(window.get_hwnd());
         let format = ChoosePixelFormat(device, &PIXEL_FORMAT);
         assert_ne!(format, 0, "couldn't find pixel format");
         let result = SetPixelFormat(device, format, &PIXEL_FORMAT);
