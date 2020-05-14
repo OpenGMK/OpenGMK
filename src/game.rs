@@ -138,7 +138,6 @@ impl Game {
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
-
         // Destructure assets
         let GameAssets {
             game_id,
@@ -240,8 +239,6 @@ impl Game {
 
         let window = wb.build().expect("oh no");
         let mut renderer = OpenGLRenderer::new(options, &window)?;
-
-        renderer.swap_interval(0); // no vsync
 
         let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
 
@@ -755,6 +752,7 @@ impl Game {
 
         game.load_room(room1_id)?;
         game.window.set_visible(true);
+        game.renderer.swap_interval(0); // no vsync
 
         Ok(game)
     }
