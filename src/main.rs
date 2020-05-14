@@ -77,7 +77,9 @@ fn xmain() -> i32 {
         }
     };
 
-    let mut file = match fs::read(&input) {
+    let file_path = Path::new(&input);
+
+    let mut file = match fs::read(file_path) {
         Ok(data) => data,
         Err(err) => {
             eprintln!("failed to open '{}': {}", input, err);
@@ -108,7 +110,15 @@ fn xmain() -> i32 {
         },
     };
 
-    let mut components = match game::Game::launch(assets) {
+    let absolute_path = match file_path.canonicalize() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Failed to resolve game path: {}", e);
+            return EXIT_FAILURE
+        },
+    };
+
+    let mut components = match game::Game::launch(assets, absolute_path) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

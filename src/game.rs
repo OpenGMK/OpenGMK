@@ -35,6 +35,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     iter::repeat,
+    path::PathBuf,
     rc::Rc,
     thread,
     time::{Duration, Instant},
@@ -121,8 +122,24 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets) -> Result<Self, Box<dyn std::error::Error>> {
-        // destructure assets
+    pub fn launch(assets: GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        // Parse file path
+        let mut file_path2 = file_path.clone();
+        file_path2.pop();
+        std::env::set_current_dir(&file_path2)?;
+        let mut param_string: &str = &file_path.to_string_lossy();
+        let mut program_directory: &str = &file_path2.to_string_lossy();
+
+        if cfg!(target_os = "windows") {
+            param_string = param_string.trim_start_matches("\\\\?\\");
+            program_directory = program_directory.trim_start_matches("\\\\?\\");
+        }
+        // TODO: store these as Rc<str> probably?
+        println!("param_string: {}", param_string);
+        println!("program_directory: {}", program_directory);
+
+
+        // Destructure assets
         let GameAssets {
             game_id,
             backgrounds,
@@ -173,57 +190,30 @@ impl Game {
                 + triggers.iter().flatten().count()
                 + constants.len(),
         );
-        backgrounds
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        fonts
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        objects
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        paths
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        rooms
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        scripts
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        sounds
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        sprites
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        timelines
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.name.clone(), i as f64));
-        triggers
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_constant(x.constant_name.clone(), i as f64));
 
+        // Helper fn for registering asset names as constants
+        fn register_all<T>(compiler: &mut Compiler, assets: &[Option<T>], get_name: fn(&T) -> String) {
+            assets
+                .iter()
+                .enumerate()
+                .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+                .for_each(|(i, x)| compiler.register_constant(get_name(x), i as f64))
+        }
+
+        // Register all asset names
+        // These are in order of asset precedence, please don't change the order
+        register_all(&mut compiler, &objects, |x| x.name.clone());
+        register_all(&mut compiler, &sprites, |x| x.name.clone());
+        register_all(&mut compiler, &sounds, |x| x.name.clone());
+        register_all(&mut compiler, &backgrounds, |x| x.name.clone());
+        register_all(&mut compiler, &paths, |x| x.name.clone());
+        register_all(&mut compiler, &fonts, |x| x.name.clone());
+        register_all(&mut compiler, &timelines, |x| x.name.clone());
+        register_all(&mut compiler, &scripts, |x| x.name.clone());
+        register_all(&mut compiler, &rooms, |x| x.name.clone());
+        register_all(&mut compiler, &triggers, |x| x.constant_name.clone());
+
+        // Register scripts
         scripts
             .iter()
             .enumerate()
