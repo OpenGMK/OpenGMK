@@ -46,9 +46,6 @@ impl WindowImpl {
             let title = ffi::CString::new(builder.title.clone()).unwrap();
             xlib::XStoreName(display, window_id, title.as_ptr() as *mut _);
 
-            // TODO: this makes the window visible, it's not meant to start visible, so why do I have to do this here?
-            xlib::XMapWindow(display, window_id);
-
             Ok(Self {
                 display,
                 window_id,
