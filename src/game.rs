@@ -23,6 +23,7 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    replay::{self, Replay},
     tile,
     types::{Colour, ID},
     util,
@@ -1089,6 +1090,7 @@ impl Game {
         Ok(())
     }
 
+    // Runs the game in a frame loop, passing keyboard/mouse inputs
     pub fn run(mut self) {
         use std::{
             thread,
@@ -1189,6 +1191,70 @@ impl Game {
                     if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
                         thread::sleep(slep);
                     }
+                },
+
+                Event::RedrawEventsCleared => {
+                    now = Instant::now();
+                },
+
+                _ => (),
+            }
+        });
+    }
+
+    // Replays some recorded inputs to the game
+    pub fn replay(mut self, replay: Replay) {
+        use std::{
+            thread,
+            time::{Duration, Instant},
+        };
+
+        let mut frame_count: usize = 0;
+        self.rand.set_seed(replay.start_seed);
+
+        let event_loop = self.event_loop.take().unwrap();
+        let mut now = std::time::Instant::now();
+        event_loop.run(move |event, _, control_flow| {
+            // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
+            // dispatched any events. This is ideal for games and similar applications.
+            *control_flow = ControlFlow::Poll;
+
+            match event {
+                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                    println!("The close button was pressed; stopping");
+                    *control_flow = ControlFlow::Exit
+                },
+
+                Event::MainEventsCleared => {
+                    self.window.request_redraw();
+                },
+
+                Event::RedrawRequested(_) => {
+                    if let Some(frame) = replay.get_frame(frame_count) {
+                        self.input_manager.set_mouse_pos(f64::from(frame.mouse_x), f64::from(frame.mouse_y));
+                        for ev in frame.inputs.iter() {
+                            match ev {
+                                replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
+                                replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
+                                replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
+                                replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
+                                replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+                                replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                            }
+                        }
+                    }
+
+                    self.frame().unwrap();
+                    if let Some(target) = self.room_target {
+                        self.load_room(target).unwrap();
+                    }
+
+                    let diff = Instant::now().duration_since(now);
+                    if let Some(slep) = Duration::new(0, 1_000_000_000u32 / self.room_speed).checked_sub(diff) {
+                        thread::sleep(slep);
+                    }
+
+                    frame_count += 1;
                 },
 
                 Event::RedrawEventsCleared => {
