@@ -25,6 +25,7 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    replay::{self, Replay},
     tile,
     types::{Colour, ID},
     util,
@@ -1119,6 +1120,51 @@ impl Game {
             } else {
                 time_now = Instant::now();
             }
+        }
+    }
+
+    // Replays some recorded inputs to the game
+    pub fn replay(mut self, replay: Replay) -> gml::Result<()> {
+        let mut frame_count: usize = 0;
+        self.rand.set_seed(replay.start_seed);
+
+        let mut time_now = std::time::Instant::now();
+        loop {
+            if let Some(frame) = replay.get_frame(frame_count) {
+                self.input_manager.set_mouse_pos(f64::from(frame.mouse_x), f64::from(frame.mouse_y));
+                for ev in frame.inputs.iter() {
+                    match ev {
+                        replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
+                        replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
+                        replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
+                        replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
+                        replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+                        replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                    }
+                }
+            }
+
+            self.frame()?;
+            if let Some(target) = self.room_target {
+                self.load_room(target).unwrap();
+            }
+
+            // exit if X pressed or game_end() invoked
+            if self.window.close_requested() {
+                break Ok(())
+            }
+
+            // frame limiter
+            let diff = Instant::now().duration_since(time_now);
+            let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            if let Some(time) = duration.checked_sub(diff) {
+                thread::sleep(time);
+                time_now += duration;
+            } else {
+                time_now = Instant::now();
+            }
+
+            frame_count += 1;
         }
     }
 

@@ -9,6 +9,7 @@ mod input;
 mod instance;
 mod instancelist;
 mod render;
+mod replay;
 mod tile;
 mod types;
 mod util;
