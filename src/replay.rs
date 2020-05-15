@@ -10,7 +10,10 @@ pub struct Replay {
 
     // System time to use at the beginning of this replay.
     // Will be used to spoof some GML variables such as `current_time`.
-    start_time: u128,
+    pub start_time: u128,
+
+    // RNG seed to use at the beginning of this replay.
+    pub start_seed: i32,
 
     // List of frames in this replay.
     frames: Vec<Frame>,
@@ -36,10 +39,11 @@ pub enum Input {
 }
 
 impl Replay {
-    pub fn new(start_time: u128) -> Self {
+    pub fn new(start_time: u128, start_seed: i32) -> Self {
         Self {
             speed_map: HashMap::new(),
             start_time,
+            start_seed,
             frames: Vec::new(),
         }
     }
@@ -47,7 +51,7 @@ impl Replay {
     // Adds a new frame of input to the end of the replay.
     // Mouse position will be the same as the previous frame unless this is the first frame,
     // in which case it will be (0, 0)
-    pub fn add_frame(&mut self) {
+    pub fn add_frame(&mut self) -> &mut Frame {
         let (mouse_x, mouse_y) = match self.frames.last() {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
             None => (0, 0),
@@ -56,7 +60,8 @@ impl Replay {
             mouse_x,
             mouse_y,
             inputs: Vec::new(),
-        })
+        });
+        self.frames.last_mut().unwrap() // Last cannot be None since we just pushed an element
     }
 
     // Gets the data associated with a given frame, if any
