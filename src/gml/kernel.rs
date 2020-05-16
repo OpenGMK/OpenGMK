@@ -1513,9 +1513,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_create_object_random")
     }
 
-    pub fn action_change_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_change_object")
+    pub fn action_change_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.instance_change(context, args)
     }
 
     pub fn action_kill_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1768,9 +1767,19 @@ impl Game {
         expect_args!(args, [any]).map(|x| x.is_truthy().into())
     }
 
-    pub fn action_if_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_if_number")
+    pub fn action_if_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, number, comparator) = expect_args!(args, [int, int, int])?;
+        if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+            let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>() as i32;
+            let cond = match comparator {
+                0 => count == number,
+                1 => count < number,
+                2 | _ => count > number,
+            };
+            Ok(cond.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+        }
     }
 
     pub fn action_if_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
