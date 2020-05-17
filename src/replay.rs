@@ -1,4 +1,7 @@
-use crate::input::{Key, MouseButton};
+use crate::{
+    gml::Value,
+    input::{Key, MouseButton},
+};
 
 // Represents an entire replay (TAS) file
 #[derive(Debug)]
@@ -21,6 +24,18 @@ pub struct Frame {
     pub mouse_x: i32,
     pub mouse_y: i32,
     pub inputs: Vec<Input>,
+    pub events: Vec<Event>,
+}
+
+// Stored events for certain things which must always happen the same way during replay
+#[derive(Debug)]
+pub enum Event {
+    GetInteger(Value),   // value returned from get_integer()
+    GetString(Value),    // value returned from get_string()
+    Randomize(i32),      // value assigned to seed by randomize()
+    ShowMenu(Value),     // value returned from show_menu()
+    ShowMessage,         // acknowledges that a show_message() does not need to be shown during replay
+    ShowQuestion(Value), // value returned from show_question()
 }
 
 // An input event which takes place during a frame
@@ -36,27 +51,18 @@ pub enum Input {
 
 impl Replay {
     pub fn new(start_time: u128, start_seed: i32) -> Self {
-        Self {
-            start_time,
-            start_seed,
-            frames: Vec::new(),
-        }
+        Self { start_time, start_seed, frames: Vec::new() }
     }
 
     // Adds a new frame of input to the end of the replay.
     // Mouse position will be the same as the previous frame unless this is the first frame,
     // in which case it will be (0, 0)
-    pub fn add_frame(&mut self, fps: u32) -> &mut Frame {
+    pub fn new_frame(&mut self, fps: u32) -> &mut Frame {
         let (mouse_x, mouse_y) = match self.frames.last() {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
             None => (0, 0),
         };
-        self.frames.push(Frame {
-            fps,
-            mouse_x,
-            mouse_y,
-            inputs: Vec::new(),
-        });
+        self.frames.push(Frame { fps, mouse_x, mouse_y, inputs: Vec::new(), events: Vec::new() });
         self.frames.last_mut().unwrap() // Last cannot be None since we just pushed an element
     }
 
