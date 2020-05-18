@@ -328,10 +328,12 @@ impl Game {
                         return_value: Default::default(),
                     };
 
+                    /*
                     let mut arg_values: [Value; 16] = Default::default();
                     for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
                         *dest = self.eval(src, &mut context)?;
                     }
+                    */
 
                     let mut returned_value = Default::default();
                     match action.target {
@@ -340,6 +342,12 @@ impl Game {
                                 context.this = other;
                                 context.other = this;
                             }
+
+                            let mut arg_values: [Value; 16] = Default::default();
+                            for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
+                                *dest = self.eval(src, &mut context)?;
+                            }
+
                             returned_value = match gml_body {
                                 GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
                                 GmlBody::Code(code) => {
@@ -358,10 +366,16 @@ impl Game {
                                 let mut iter = self.instance_list.iter_by_identity(ids);
                                 while let Some(instance) = iter.next(&self.instance_list) {
                                     context.this = instance;
+
+                                    let mut arg_values: [Value; 16] = Default::default();
+                                    for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
+                                        *dest = self.eval(src, &mut context)?;
+                                    }
+
                                     returned_value = match gml_body {
                                         GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
                                         GmlBody::Code(code) => {
-                                            context.arguments = arg_values.clone();
+                                            context.arguments = arg_values;
                                             context.argument_count = args.len();
                                             self.execute(code, &mut context)?;
                                             context.return_value.clone()
