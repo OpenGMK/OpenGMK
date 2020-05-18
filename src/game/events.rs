@@ -178,7 +178,7 @@ impl Game {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
                 let instance = self.instance_list.get(handle).unwrap();
-                instance.update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                instance.update_bbox(self.get_instance_mask_sprite(handle));
                 if instance.bbox_right.get() < 0
                     || instance.bbox_bottom.get() < 0
                     || instance.bbox_left.get() > self.room_width
@@ -200,7 +200,7 @@ impl Game {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
                 let instance = self.instance_list.get(handle).unwrap();
-                instance.update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                instance.update_bbox(self.get_instance_mask_sprite(handle));
                 if instance.bbox_left.get() < 0
                     || instance.bbox_top.get() < 0
                     || instance.bbox_right.get() > self.room_width
@@ -226,8 +226,7 @@ impl Game {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle).unwrap();
-                    instance
-                        .update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                    instance.update_bbox(self.get_instance_mask_sprite(handle));
                     let view = &self.views[i];
                     if instance.bbox_right.get() < view.source_x
                         || instance.bbox_bottom.get() < view.source_y
@@ -253,8 +252,7 @@ impl Game {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle).unwrap();
-                    instance
-                        .update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                    instance.update_bbox(self.get_instance_mask_sprite(handle));
                     let view = &self.views[i];
                     if instance.bbox_left.get() < view.source_x
                         || instance.bbox_top.get() < view.source_y
