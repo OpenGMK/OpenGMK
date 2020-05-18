@@ -183,47 +183,51 @@ impl Game {
                     while let Some(target) = iter2.next(&self.instance_list) {
                         // And finally, check if the two instances collide
                         if self.check_collision(instance, target) {
-                            self.handle_collision(instance, target, target_obj as u32)?;
-                            self.handle_collision(target, instance, object as u32)?;
+                            //self.handle_collision(instance, target, target_obj as u32)?;
+                            //self.handle_collision(target, instance, object as u32)?;
+
+                            // If either instance is solid, move both back to their previous positions
+                            let inst1 = self.instance_list.get(instance).unwrap();
+                            let inst2 = self.instance_list.get(target).unwrap();
+                            if inst1.solid.get() || inst2.solid.get() {
+                                inst1.x.set(inst1.xprevious.get());
+                                inst1.y.set(inst1.yprevious.get());
+                                inst1.bbox_is_stale.set(true);
+                                inst2.x.set(inst2.xprevious.get());
+                                inst2.y.set(inst2.yprevious.get());
+                                inst2.bbox_is_stale.set(true);
+                            }
+
+                            // Run both collision events
+                            self.run_instance_event(gml::ev::COLLISION, target_obj as u32, instance, target, None)?;
+                            self.run_instance_event(gml::ev::COLLISION, object as u32, target, instance, None)?;
+
+                            // If either instance is solid, apply both instances' hspeed and vspeed
+                            let inst1 = self.instance_list.get(instance).unwrap();
+                            let inst2 = self.instance_list.get(target).unwrap();
+                            if inst1.solid.get() || inst2.solid.get() {
+                                inst1.x.set(inst1.x.get() + inst1.hspeed.get());
+                                inst1.y.set(inst1.y.get() + inst1.vspeed.get());
+                                inst1.bbox_is_stale.set(true);
+                                inst2.x.set(inst2.x.get() + inst2.hspeed.get());
+                                inst2.y.set(inst2.y.get() + inst2.vspeed.get());
+                                inst2.bbox_is_stale.set(true);
+
+                                // If they're still colliding, move them back again
+                                if self.check_collision(instance, target) {
+                                    inst1.x.set(inst1.xprevious.get());
+                                    inst1.y.set(inst1.yprevious.get());
+                                    inst1.bbox_is_stale.set(true);
+                                    inst2.x.set(inst2.xprevious.get());
+                                    inst2.y.set(inst2.yprevious.get());
+                                    inst2.bbox_is_stale.set(true);
+                                }
+                            }
                         }
                     }
                 }
             }
             i += 1;
-        }
-
-        Ok(())
-    }
-
-    fn handle_collision(&mut self, inst1: usize, inst2: usize, sub_event: u32) -> gml::Result<()> {
-        // If the target is solid, move outside of it
-        if self.instance_list.get(inst2).map(|x| x.solid.get()).unwrap_or(false) {
-            self.instance_list.get(inst1).map(|instance| {
-                instance.x.set(instance.xprevious.get());
-                instance.y.set(instance.yprevious.get());
-                instance.bbox_is_stale.set(true);
-            });
-        }
-
-        // Run collision event
-        self.run_instance_event(gml::ev::COLLISION, sub_event, inst1, inst2, None)?;
-
-        // If the target is solid (yes we have to check it a second time) then add hspeed and vspeed to our x/y
-        // and then, if colliding with the solid again, move outside it again.
-        // TODO: is this 100% accurate? It seems insane...
-        if self.instance_list.get(inst2).map(|x| x.solid.get()).unwrap_or(false) {
-            self.instance_list.get(inst1).map(|instance| {
-                instance.x.set(instance.x.get() + instance.hspeed.get());
-                instance.y.set(instance.y.get() + instance.vspeed.get());
-                instance.bbox_is_stale.set(true);
-            });
-            if self.check_collision(inst1, inst2) {
-                self.instance_list.get(inst1).map(|instance| {
-                    instance.x.set(instance.xprevious.get());
-                    instance.y.set(instance.yprevious.get());
-                    instance.bbox_is_stale.set(true);
-                });
-            }
         }
 
         Ok(())
