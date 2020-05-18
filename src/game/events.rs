@@ -166,6 +166,111 @@ impl Game {
         Ok(())
     }
 
+    /// Runs all outside room, intersect boundary, and outside/intersect view events.
+    pub fn run_bound_events(&mut self) -> gml::Result<()> {
+        // Outside room events
+        let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&0)) {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        };
+        let mut position = 0;
+        while let Some(&object_id) = holders.borrow().get(position) {
+            let mut iter = self.instance_list.iter_by_object(object_id);
+            while let Some(handle) = iter.next(&self.instance_list) {
+                let instance = self.instance_list.get(handle).unwrap();
+                instance.update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                if instance.bbox_right.get() < 0
+                    || instance.bbox_bottom.get() < 0
+                    || instance.bbox_left.get() > self.room_width
+                    || instance.bbox_top.get() > self.room_height
+                {
+                    self.run_instance_event(gml::ev::OTHER, 0, handle, handle, None)?;
+                }
+            }
+            position += 1;
+        }
+
+        // Intersect room boundary events
+        let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&1)) {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        };
+        let mut position = 0;
+        while let Some(&object_id) = holders.borrow().get(position) {
+            let mut iter = self.instance_list.iter_by_object(object_id);
+            while let Some(handle) = iter.next(&self.instance_list) {
+                let instance = self.instance_list.get(handle).unwrap();
+                instance.update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                if instance.bbox_left.get() < 0
+                    || instance.bbox_top.get() < 0
+                    || instance.bbox_right.get() > self.room_width
+                    || instance.bbox_bottom.get() > self.room_height
+                {
+                    self.run_instance_event(gml::ev::OTHER, 1, handle, handle, None)?;
+                }
+            }
+            position += 1;
+        }
+
+        let view_count = self.views.len().min(8);
+
+        // Outside view events
+        for i in 0..view_count {
+            let event_number = (40 + i) as u32;
+            let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
+                Some(e) => e.clone(),
+                None => return Ok(()),
+            };
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    let instance = self.instance_list.get(handle).unwrap();
+                    instance
+                        .update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                    let view = &self.views[i];
+                    if instance.bbox_right.get() < view.source_x
+                        || instance.bbox_bottom.get() < view.source_y
+                        || instance.bbox_left.get() > view.source_x + view.source_w as i32
+                        || instance.bbox_top.get() > view.source_y + view.source_h as i32
+                    {
+                        self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                    }
+                }
+                position += 1;
+            }
+        }
+
+        // Intersect view events
+        for i in 0..view_count {
+            let event_number = (50 + i) as u32;
+            let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
+                Some(e) => e.clone(),
+                None => return Ok(()),
+            };
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    let instance = self.instance_list.get(handle).unwrap();
+                    instance
+                        .update_bbox(self.assets.sprites.get_asset(instance.sprite_index.get()).map(|x| x.as_ref()));
+                    let view = &self.views[i];
+                    if instance.bbox_left.get() < view.source_x
+                        || instance.bbox_top.get() < view.source_y
+                        || instance.bbox_right.get() > view.source_x + view.source_w as i32
+                        || instance.bbox_bottom.get() > view.source_y + view.source_h as i32
+                    {
+                        self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                    }
+                }
+                position += 1;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Runs all collision events for the current active instances
     pub fn run_collisions(&mut self) -> gml::Result<()> {
         // Iter through every object that has a collision event registered (non-borrowing iter because Rust)

@@ -975,6 +975,12 @@ impl Game {
         // Movement: apply friction, gravity, and hspeed/vspeed
         self.process_movement();
 
+        // Outside room, intersect boundary, outside/intersect view
+        self.run_bound_events()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
+
         // Advance paths
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
