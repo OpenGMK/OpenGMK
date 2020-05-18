@@ -1330,9 +1330,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_move_to(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_move_to")
+    pub fn action_move_to(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+        self.instance_list.get(context.this).map(|instance| {
+            instance.x.set(x);
+            instance.y.set(y);
+            instance.bbox_is_stale.set(true);
+        });
+        Ok(Default::default())
     }
 
     pub fn action_move_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
