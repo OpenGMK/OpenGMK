@@ -235,7 +235,7 @@ impl WindowImpl {
             user_data.border_offset = (width - client_width, height - client_height);
             user_data.client_size = (client_width, client_height);
             user_data.cursor_handle = load_cursor(builder.cursor);
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR as _);
             Ok(Self {
                 cursor: builder.cursor,
                 style: builder.style,
@@ -344,7 +344,7 @@ impl WindowTrait for WindowImpl {
         unsafe {
             let window_rect = adjust_window_rect(cwidth as i32, cheight as i32, style);
             let (width, height) = window_rect_wh(window_rect);
-            SetWindowLongPtrW(self.hwnd, GWL_STYLE, get_window_style(style) as LONG_PTR);
+            SetWindowLongPtrW(self.hwnd, GWL_STYLE, get_window_style(style) as LONG_PTR as _);
             SetWindowPos(self.hwnd, HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_SHOWWINDOW);
             self.user_data.border_offset = (width - cwidth, height - cheight);
             self.style = style;
