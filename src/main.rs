@@ -1,3 +1,5 @@
+#![feature(llvm_asm)]
+
 #![allow(dead_code)] // Shut up.
 
 mod action;
