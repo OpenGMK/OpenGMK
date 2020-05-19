@@ -6,6 +6,7 @@ mod atlas;
 mod game;
 mod gml;
 mod input;
+mod math;
 mod instance;
 mod instancelist;
 mod render;
