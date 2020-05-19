@@ -1,3 +1,4 @@
+/// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
 #[derive(Copy, Clone, Default)]
 #[repr(transparent)]
 pub struct Real(f64);
