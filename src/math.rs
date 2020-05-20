@@ -1,4 +1,7 @@
-use std::{hint::black_box, ops::Add};
+use std::{
+    hint::black_box,
+    ops::{Add, Sub},
+};
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
 #[derive(Copy, Clone, Default)]
@@ -26,8 +29,8 @@ cfg_if::cfg_if! {
                 unsafe {
                     llvm_asm! {
                         concat!(
-                            "fldl ($1)
-                            fldl ($2)
+                            "fldl ($2)
+                            fldl ($1)
                             f", $op, "p %st, %st(1)
                             fstpl ($1)
                             movq ($1), $0",
@@ -46,6 +49,15 @@ cfg_if::cfg_if! {
             #[inline(always)]
             fn add(mut self, other: Self) -> Self {
                 fpu_binary_op!("add", &mut self, &other)
+            }
+        }
+
+        impl Sub for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn sub(mut self, other: Self) -> Self {
+                fpu_binary_op!("sub", &mut self, &other)
             }
         }
     }
@@ -83,6 +95,12 @@ mod tests {
         assert_eq!(3.0, (Real(1.0) + Real(2.0)).0);
     }
 
+    #[test]
+    fn sub() {
+        assert_eq!(1.0, (Real(3.0) - Real(2.0)).0);
+    }
+
+    #[test]
     fn round() {
         for i in 0..1000 {
             assert_eq!(0, Real(f64::from(i) + 0.5).round() % 2);
