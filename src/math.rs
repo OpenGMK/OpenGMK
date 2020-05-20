@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     hint::black_box,
     ops::{Add, Sub},
 };
@@ -20,6 +21,18 @@ impl From<i32> for Real {
 impl From<f64> for Real {
     fn from(f: f64) -> Self {
         Real(f)
+    }
+}
+
+impl fmt::Debug for Real {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl fmt::Display for Real {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
