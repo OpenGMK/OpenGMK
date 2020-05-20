@@ -1,7 +1,4 @@
-use std::{
-    hint::black_box,
-    ops::{Add, Sub},
-};
+use std::{hint::black_box, ops::Add};
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
 #[derive(Copy, Clone, Default)]
@@ -56,12 +53,12 @@ cfg_if::cfg_if! {
 
 impl Real {
     #[inline]
-    fn round(self) -> i32 {
+    pub fn round(self) -> i32 {
         (self.round64() & u32::max_value() as i64) as i32
     }
 
     #[inline(always)]
-    fn round64(self) -> i64 {
+    pub fn round64(self) -> i64 {
         unsafe {
             let out: i64;
             llvm_asm! {
