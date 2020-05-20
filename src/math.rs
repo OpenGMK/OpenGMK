@@ -1,4 +1,7 @@
-use std::{hint::black_box, ops::{Add, Sub}};
+use std::{
+    hint::black_box,
+    ops::{Add, Sub},
+};
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
 #[derive(Copy, Clone, Default)]
@@ -51,6 +54,24 @@ cfg_if::cfg_if! {
     }
 }
 
+impl Real {
+    #[inline(always)]
+    fn round(self) -> i32 {
+        unsafe {
+            let out: i32;
+            llvm_asm! {
+                "fldl ($1)
+                fistpq ($1)
+                movl ($1), $0"
+
+                : "=r"(out)
+                : "r"(&self)
+            }
+            black_box(out)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Real;
@@ -58,5 +79,11 @@ mod tests {
     #[test]
     fn add() {
         assert_eq!(3.0, (Real(1.0) + Real(2.0)).0);
+    }
+
+    fn round() {
+        for i in 0..1000 {
+            assert_eq!(0, Real(f64::from(i) + 0.5).round() % 2);
+        }
     }
 }
