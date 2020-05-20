@@ -55,14 +55,19 @@ cfg_if::cfg_if! {
 }
 
 impl Real {
-    #[inline(always)]
+    #[inline]
     fn round(self) -> i32 {
+        (self.round64() & u32::max_value() as i64) as i32
+    }
+
+    #[inline(always)]
+    fn round64(self) -> i64 {
         unsafe {
-            let out: i32;
+            let out: i64;
             llvm_asm! {
                 "fldl ($1)
                 fistpq ($1)
-                movl ($1), $0"
+                movq ($1), $0"
 
                 : "=r"(out)
                 : "r"(&self)
