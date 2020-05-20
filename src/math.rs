@@ -8,6 +8,9 @@ use std::{
 #[repr(transparent)]
 pub struct Real(f64);
 
+/// The lenience between values when compared.
+const CMP_EPSILON: f64 = 1e-13;
+
 impl From<i32> for Real {
     fn from(i: i32) -> Self {
         Real(f64::from(i))
@@ -62,6 +65,14 @@ cfg_if::cfg_if! {
         }
     }
 }
+
+impl PartialEq for Real {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        (*self - *other).0.abs() < CMP_EPSILON
+    }
+}
+impl Eq for Real {}
 
 impl Real {
     #[inline]
