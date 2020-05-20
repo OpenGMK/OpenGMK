@@ -1,7 +1,7 @@
 use std::{
     fmt,
     hint::black_box,
-    ops::{Add, Sub},
+    ops::{Add, Sub, Mul, Div},
 };
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
@@ -76,6 +76,24 @@ cfg_if::cfg_if! {
                 fpu_binary_op!("sub", &mut self, &other)
             }
         }
+
+        impl Mul for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn mul(mut self, other: Self) -> Self {
+                fpu_binary_op!("mul", &mut self, &other)
+            }
+        }
+
+        impl Div for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn div(mut self, other: Self) -> Self {
+                fpu_binary_op!("div", &mut self, &other)
+            }
+        }
     }
 }
 
@@ -122,6 +140,18 @@ mod tests {
     #[test]
     fn sub() {
         assert_eq!(Real(1.0), Real(3.0) - Real(2.0));
+    }
+
+    #[test]
+    fn mul() {
+        assert_eq!(Real(6.0), Real(3.0) * Real(2.0));
+        assert_eq!(Real(-2.0), Real(2.0) * Real(-1.0));
+    }
+
+    #[test]
+    fn div() {
+        assert_eq!(Real(3.0), Real(6.0) / Real(2.0));
+        assert_eq!(Real(-1.0), Real(2.0) / Real(-2.0));
     }
 
     #[test]
