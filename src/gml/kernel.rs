@@ -1433,14 +1433,16 @@ impl Game {
         self.path_end(context, args)
     }
 
-    pub fn action_path_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_path_position")
+    pub fn action_path_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let position = expect_args!(args, [real])?;
+        self.instance_list.get(context.this).unwrap().path_position.set(position);
+        Ok(Default::default())
     }
 
-    pub fn action_path_speed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_path_speed")
+    pub fn action_path_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let speed = expect_args!(args, [real])?;
+        self.instance_list.get(context.this).unwrap().path_speed.set(speed);
+        Ok(Default::default())
     }
 
     pub fn action_linear_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
