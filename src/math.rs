@@ -116,12 +116,26 @@ mod tests {
 
     #[test]
     fn add() {
-        assert_eq!(3.0, (Real(1.0) + Real(2.0)).0);
+        assert_eq!(Real(3.0), Real(1.0) + Real(2.0));
     }
 
     #[test]
     fn sub() {
-        assert_eq!(1.0, (Real(3.0) - Real(2.0)).0);
+        assert_eq!(Real(1.0), Real(3.0) - Real(2.0));
+    }
+
+    #[test]
+    fn prec_19() {
+        const INCREMENT: Real = Real(0.2);
+        let mut x = INCREMENT;
+        loop {
+            x = x + INCREMENT; // TODO: +=
+            if x == Real(19.0) {
+                break
+            } else if x.0 > 19.0 {
+                panic!(); // ^ TODO: < <= >= >
+            }
+        }
     }
 
     #[test]
