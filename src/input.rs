@@ -77,6 +77,8 @@ pub struct InputManager {
     // Mouse
     mouse_x: f64,
     mouse_y: f64,
+    mouse_x_previous: f64,
+    mouse_y_previous: f64,
     mouse_held: [bool; MOUSE_BUTTON_COUNT],
     mouse_pressed: [bool; MOUSE_BUTTON_COUNT],
     mouse_released: [bool; MOUSE_BUTTON_COUNT],
@@ -99,6 +101,8 @@ impl InputManager {
             numlock: false,
             mouse_x: 0.0,
             mouse_y: 0.0,
+            mouse_x_previous: 0.0,
+            mouse_y_previous: 0.0,
             mouse_held: [false; MOUSE_BUTTON_COUNT],
             mouse_pressed: [false; MOUSE_BUTTON_COUNT],
             mouse_released: [false; MOUSE_BUTTON_COUNT],
@@ -289,6 +293,10 @@ impl InputManager {
         self.kb_released.iter_mut().for_each(|x| *x = false);
         self.mouse_pressed.iter_mut().for_each(|x| *x = false);
         self.mouse_released.iter_mut().for_each(|x| *x = false);
+    }
+
+    /// Updates previous mouse position to be the current one
+    pub fn mouse_update_previous(&mut self) {
         self.mouse_scroll_up = false;
         self.mouse_scroll_down = false;
     }

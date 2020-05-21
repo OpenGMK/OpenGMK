@@ -1203,6 +1203,7 @@ impl Game {
 
         let mut time_now = std::time::Instant::now();
         loop {
+            self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 self.input_manager.set_mouse_pos(f64::from(frame.mouse_x), f64::from(frame.mouse_y));
                 for ev in frame.inputs.iter() {
