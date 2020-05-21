@@ -246,6 +246,12 @@ impl InputManager {
         (self.mouse_x, self.mouse_y)
     }
 
+    /// Gets the previousposition of the mouse. Coordinates are relative to the top-left of the window
+    /// and are measured in absolute screen pixels, ie. not scaled to window size. Will be 0, 0 on the first frame.
+    pub fn mouse_get_previous_location(&self) -> (f64, f64) {
+        (self.mouse_x_previous, self.mouse_y_previous)
+    }
+
     /// Checks if a mouse button is currently held
     pub fn mouse_check(&self, button: MouseButton) -> bool {
         self.mouse_held.get(button as usize).copied().unwrap_or(false)
