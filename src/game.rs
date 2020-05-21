@@ -952,7 +952,10 @@ impl Game {
             return Ok(())
         }
 
-        // TODO: Mouse events go here
+        self.run_mouse_events()?;
+        if self.room_target.is_some() {
+            return Ok(())
+        }
 
         // Key press events
         self.run_key_press_events()?;
@@ -1245,6 +1248,24 @@ impl Game {
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_location();
+        let x = x as i32;
+        let y = y as i32;
+        if self.views_enabled {
+            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
+                Some(view) => view.transform_point(x, y),
+                None => match self.views.iter().find(|view| view.visible) {
+                    Some(view) => view.transform_point(x, y),
+                    None => (x, y),
+                },
+            }
+        } else {
+            (x, y)
+        }
+    }
+
+    // Gets the previous mouse position in room coordinates
+    pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
+        let (x, y) = self.input_manager.mouse_get_previous_location();
         let x = x as i32;
         let y = y as i32;
         if self.views_enabled {

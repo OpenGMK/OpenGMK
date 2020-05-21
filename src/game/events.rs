@@ -1,6 +1,6 @@
 use crate::{
     game::{Game, GetAsset},
-    gml,
+    gml, input,
     types::ID,
 };
 
@@ -163,6 +163,176 @@ impl Game {
             }
             i += 1;
         }
+        Ok(())
+    }
+
+    /// Runs all mouse events, including button, button pressed, button released, mouse scroll, mouse enter/leave
+    pub fn run_mouse_events(&mut self) -> gml::Result<()> {
+        let (mouse_x, mouse_y) = self.get_mouse_in_room();
+        let (mouse_x_previous, mouse_y_previous) = self.get_mouse_previous_in_room();
+
+        // Macro which runs a given event for all instances which the mouse is currently over.
+        // Event type is gml::ev::MOUSE, you must provide the sub-event.
+        macro_rules! try_mouse_events {
+            ($sub: literal) => {{
+                let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&$sub)) {
+                    Some(e) => e.clone(),
+                    None => return Ok(()),
+                };
+                let mut position = 0;
+                while let Some(&object_id) = holders.borrow().get(position) {
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        if self.check_collision_point(handle, mouse_x, mouse_y) {
+                            self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
+                        }
+                    }
+                    position += 1;
+                }
+            }};
+        }
+
+        // Left button
+        if self.input_manager.mouse_check(input::MouseButton::Left) {
+            try_mouse_events!(0);
+        }
+
+        // Right button
+        if self.input_manager.mouse_check(input::MouseButton::Right) {
+            try_mouse_events!(1);
+        }
+
+        // Middle button
+        if self.input_manager.mouse_check(input::MouseButton::Left) {
+            try_mouse_events!(2);
+        }
+
+        // No button
+        if !self.input_manager.mouse_check_any() {
+            try_mouse_events!(3);
+        }
+
+        // Left button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Left) {
+            try_mouse_events!(4);
+        }
+
+        // Right button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Right) {
+            try_mouse_events!(5);
+        }
+
+        // Middle button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Left) {
+            try_mouse_events!(6);
+        }
+
+        // Left button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Left) {
+            try_mouse_events!(7);
+        }
+
+        // Right button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Right) {
+            try_mouse_events!(8);
+        }
+
+        // Middle button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Left) {
+            try_mouse_events!(9);
+        }
+
+        // Mouse enter
+        let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&10)) {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        };
+        let mut position = 0;
+        while let Some(&object_id) = holders.borrow().get(position) {
+            let mut iter = self.instance_list.iter_by_object(object_id);
+            while let Some(handle) = iter.next(&self.instance_list) {
+                if self.check_collision_point(handle, mouse_x, mouse_y)
+                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous)
+                {
+                    self.run_instance_event(gml::ev::MOUSE, 10, handle, handle, None)?;
+                }
+            }
+            position += 1;
+        }
+
+        // Mouse leave
+        let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&11)) {
+            Some(e) => e.clone(),
+            None => return Ok(()),
+        };
+        let mut position = 0;
+        while let Some(&object_id) = holders.borrow().get(position) {
+            let mut iter = self.instance_list.iter_by_object(object_id);
+            while let Some(handle) = iter.next(&self.instance_list) {
+                if self.check_collision_point(handle, mouse_x, mouse_y)
+                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous)
+                {
+                    self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
+                }
+            }
+            position += 1;
+        }
+
+        // Global left button
+        if self.input_manager.mouse_check(input::MouseButton::Left) {
+            self.run_object_event(gml::ev::MOUSE, 50, None)?;
+        }
+
+        // Global right button
+        if self.input_manager.mouse_check(input::MouseButton::Right) {
+            self.run_object_event(gml::ev::MOUSE, 51, None)?;
+        }
+
+        // Global middle button
+        if self.input_manager.mouse_check(input::MouseButton::Middle) {
+            self.run_object_event(gml::ev::MOUSE, 52, None)?;
+        }
+
+        // Global left button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Left) {
+            self.run_object_event(gml::ev::MOUSE, 53, None)?;
+        }
+
+        // Global right button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Right) {
+            self.run_object_event(gml::ev::MOUSE, 54, None)?;
+        }
+
+        // Global middle button pressed
+        if self.input_manager.mouse_check_pressed(input::MouseButton::Middle) {
+            self.run_object_event(gml::ev::MOUSE, 55, None)?;
+        }
+
+        // Global left button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Left) {
+            self.run_object_event(gml::ev::MOUSE, 56, None)?;
+        }
+
+        // Global right button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Right) {
+            self.run_object_event(gml::ev::MOUSE, 57, None)?;
+        }
+
+        // Global middle button released
+        if self.input_manager.mouse_check_released(input::MouseButton::Middle) {
+            self.run_object_event(gml::ev::MOUSE, 58, None)?;
+        }
+
+        // Mouse wheel up
+        if self.input_manager.mouse_check_scroll_up() {
+            self.run_object_event(gml::ev::MOUSE, 60, None)?;
+        }
+
+        // Mouse wheel up
+        if self.input_manager.mouse_check_scroll_down() {
+            self.run_object_event(gml::ev::MOUSE, 61, None)?;
+        }
+
         Ok(())
     }
 
