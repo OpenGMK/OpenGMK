@@ -1,3 +1,5 @@
+use crate::util;
+
 /// An instance of a view in a room
 #[derive(Clone, Copy)]
 pub struct View {
@@ -45,4 +47,27 @@ pub struct View {
 
     /// Vertical speed with which to follow an instance
     pub follow_vspeed: i32,
+}
+
+impl View {
+    /// Returns bool indicating whether the given point is inside this view's port on screen
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.port_x &&
+        y >= self.port_y &&
+        x < (self.port_x + self.port_w as i32) &&
+        y < (self.port_y + self.port_h as i32)
+    }
+
+    /// Transforms a point on screen to a point relative to this view in room-space
+    pub fn transform_point(&self, x: i32, y: i32) -> (i32, i32) {
+        let src_x = f64::from(self.source_x);
+        let src_y = f64::from(self.source_y);
+        let src_w = f64::from(self.source_w);
+        let src_h = f64::from(self.source_h);
+        let mut x = src_x + (src_w * f64::from(x - self.port_x) / f64::from(self.port_w));
+        let mut y = src_y + (src_h * f64::from(y - self.port_y) / f64::from(self.port_h));
+        let angle = self.angle.to_radians();
+        util::rotate_around(&mut x, &mut y, src_x + (src_w / 2.0), src_y + (src_h / 2.0), angle.sin(), angle.cos());
+        (util::ieee_round(x), util::ieee_round(y))
+    }
 }

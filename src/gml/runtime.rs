@@ -960,8 +960,8 @@ impl Game {
             InstanceVariable::ViewObject => {
                 Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_target.into())
             },
-            InstanceVariable::MouseX => Ok(self.input_manager.mouse_get_location().0.into()),
-            InstanceVariable::MouseY => Ok(self.input_manager.mouse_get_location().1.into()),
+            InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
+            InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
             InstanceVariable::MouseButton => todo!(),
             InstanceVariable::MouseLastbutton => todo!(),
             InstanceVariable::KeyboardKey => todo!(),

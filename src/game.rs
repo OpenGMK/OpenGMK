@@ -1241,6 +1241,24 @@ impl Game {
         }
     }
 
+    // Gets the mouse position in room coordinates
+    pub fn get_mouse_in_room(&self) -> (i32, i32) {
+        let (x, y) = self.input_manager.mouse_get_location();
+        let x = x as i32;
+        let y = y as i32;
+        if self.views_enabled {
+            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
+                Some(view) => view.transform_point(x, y),
+                None => match self.views.iter().find(|view| view.visible) {
+                    Some(view) => view.transform_point(x, y),
+                    None => (x, y),
+                },
+            }
+        } else {
+            (x, y)
+        }
+    }
+
     // Checks for collision between two instances
     pub fn check_collision(&self, i1: usize, i2: usize) -> bool {
         // Get the sprite masks we're going to use and update instances' bbox vars
