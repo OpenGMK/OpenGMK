@@ -35,11 +35,8 @@ impl Game {
         // Running instance events is not allowed if a room change is pending. This appears to be
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
         if self.room_target.is_none() {
-            let original_object_id = if let Some(id) = as_object {
-                id
-            } else {
-                self.instance_list.get(instance).ok_or(gml::Error::InvalidInstanceHandle(instance))?.object_index.get()
-            };
+            let original_object_id =
+                if let Some(id) = as_object { id } else { self.instance_list.get(instance).object_index.get() };
             let mut object_id = original_object_id;
             let event = loop {
                 if object_id < 0 {
@@ -84,7 +81,7 @@ impl Game {
                     let mut iter = self.instance_list.iter_by_object(object_id);
                     while let Some(handle) = iter.next(&self.instance_list) {
                         // Check if this has the alarm set
-                        let instance = self.instance_list.get(handle).unwrap();
+                        let instance = self.instance_list.get(handle);
                         let run_event = match instance.alarms.borrow_mut().get_mut(&alarm_id) {
                             Some(alarm) if *alarm >= 0 => {
                                 // Decrement it, run the event if it hit 0
@@ -347,7 +344,7 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
-                let instance = self.instance_list.get(handle).unwrap();
+                let instance = self.instance_list.get(handle);
                 instance.update_bbox(self.get_instance_mask_sprite(handle));
                 if instance.bbox_right.get() < 0
                     || instance.bbox_bottom.get() < 0
@@ -369,7 +366,7 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
-                let instance = self.instance_list.get(handle).unwrap();
+                let instance = self.instance_list.get(handle);
                 instance.update_bbox(self.get_instance_mask_sprite(handle));
                 if instance.bbox_left.get() < 0
                     || instance.bbox_top.get() < 0
@@ -395,7 +392,7 @@ impl Game {
             while let Some(&object_id) = holders.borrow().get(position) {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle).unwrap();
+                    let instance = self.instance_list.get(handle);
                     instance.update_bbox(self.get_instance_mask_sprite(handle));
                     let view = &self.views[i];
                     if instance.bbox_right.get() < view.source_x
@@ -421,7 +418,7 @@ impl Game {
             while let Some(&object_id) = holders.borrow().get(position) {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle).unwrap();
+                    let instance = self.instance_list.get(handle);
                     instance.update_bbox(self.get_instance_mask_sprite(handle));
                     let view = &self.views[i];
                     if instance.bbox_left.get() < view.source_x
@@ -460,8 +457,8 @@ impl Game {
                             //self.handle_collision(target, instance, object as u32)?;
 
                             // If either instance is solid, move both back to their previous positions
-                            let inst1 = self.instance_list.get(instance).unwrap();
-                            let inst2 = self.instance_list.get(target).unwrap();
+                            let inst1 = self.instance_list.get(instance);
+                            let inst2 = self.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
                                 inst1.x.set(inst1.xprevious.get());
                                 inst1.y.set(inst1.yprevious.get());
@@ -476,8 +473,8 @@ impl Game {
                             self.run_instance_event(gml::ev::COLLISION, object as u32, target, instance, None)?;
 
                             // If either instance is solid, apply both instances' hspeed and vspeed
-                            let inst1 = self.instance_list.get(instance).unwrap();
-                            let inst2 = self.instance_list.get(target).unwrap();
+                            let inst1 = self.instance_list.get(instance);
+                            let inst2 = self.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
                                 inst1.x.set(inst1.x.get() + inst1.hspeed.get());
                                 inst1.y.set(inst1.y.get() + inst1.vspeed.get());

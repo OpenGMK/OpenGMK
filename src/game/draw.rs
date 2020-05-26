@@ -2,7 +2,7 @@ use crate::{
     game::{Game, GetAsset},
     gml, util,
 };
-use std::{cmp::Ordering, hint::unreachable_unchecked};
+use std::cmp::Ordering;
 
 #[derive(Clone, Copy)]
 pub enum Halign {
@@ -89,7 +89,7 @@ impl Game {
         );
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
-            let instance = game.instance_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
+            let instance = game.instance_list.get(idx);
             if instance.visible.get() {
                 if game.custom_draw_objects.contains(&instance.object_index.get()) {
                     // Custom draw event
@@ -121,7 +121,7 @@ impl Game {
         }
 
         fn draw_tile(game: &mut Game, idx: usize) {
-            let tile = game.tile_list.get(idx).unwrap_or_else(|| unsafe { unreachable_unchecked() });
+            let tile = game.tile_list.get(idx);
             if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index as usize) {
                 if let Some(atlas) = &background.atlas_ref {
                     game.renderer.draw_sprite_partial(
@@ -169,8 +169,8 @@ impl Game {
         loop {
             match (iter_inst_v, iter_tile_v) {
                 (Some(idx_inst), Some(idx_tile)) => {
-                    let inst = self.instance_list.get(idx_inst).unwrap_or_else(|| unsafe { unreachable_unchecked() });
-                    let tile = self.tile_list.get(idx_tile).unwrap_or_else(|| unsafe { unreachable_unchecked() });
+                    let inst = self.instance_list.get(idx_inst);
+                    let tile = self.tile_list.get(idx_tile);
                     match inst.depth.get().cmp(&tile.depth) {
                         Ordering::Greater | Ordering::Equal => {
                             draw_instance(self, idx_inst)?;

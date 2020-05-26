@@ -768,7 +768,7 @@ impl Game {
 
     pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
             let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
@@ -791,7 +791,7 @@ impl Game {
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, int, int])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < 0.0 { instance.image_index.get() } else { image_index };
             if let Some(atlas_ref) =
@@ -823,11 +823,8 @@ impl Game {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
             expect_args!(args, [int, real, int, int, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < 0.0 {
-                self.instance_list.get(context.this).unwrap().image_index.get()
-            } else {
-                image_index
-            };
+            let image_index =
+                if image_index < 0.0 { self.instance_list.get(context.this).image_index.get() } else { image_index };
             if let Some(atlas_ref) =
                 sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
             {
@@ -1236,7 +1233,7 @@ impl Game {
 
     pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (dir_string, speed) = expect_args!(args, [string, real])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
         let bytes = dir_string.as_bytes();
         if bytes.len() != 9 {
@@ -1279,51 +1276,49 @@ impl Game {
 
     pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.set_direction(direction);
-            if context.relative {
-                instance.set_speed(instance.speed.get() + speed);
-            } else {
-                instance.set_speed(speed);
-            }
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.set_direction(direction);
+        if context.relative {
+            instance.set_speed(instance.speed.get() + speed);
+        } else {
+            instance.set_speed(speed);
+        }
         Ok(Default::default())
     }
 
     pub fn action_set_hspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).map(|i| i.set_hspeed(x));
+            self.instance_list.get(context.this).set_hspeed(x);
             Ok(Default::default())
         })?
     }
 
     pub fn action_set_vspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).map(|i| i.set_vspeed(x));
+            self.instance_list.get(context.this).set_vspeed(x);
             Ok(Default::default())
         })?
     }
 
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(direction, gravity)| {
-            self.instance_list.get(context.this).map(|i| {
-                i.gravity.set(gravity);
-                i.gravity_direction.set(direction);
-            })
+            let instance = self.instance_list.get(context.this);
+            instance.gravity.set(gravity);
+            instance.gravity_direction.set(direction);
         })?;
         Ok(Default::default())
     }
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).map(|i| i.friction.set(x));
+            self.instance_list.get(context.this).friction.set(x);
             Ok(Default::default())
         })?
     }
 
     pub fn action_move_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         let speed = if context.relative { instance.speed.get() + speed } else { speed };
         let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
@@ -1332,11 +1327,10 @@ impl Game {
 
     pub fn action_move_to(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.x.set(x);
+        instance.y.set(y);
+        instance.bbox_is_stale.set(true);
         Ok(Default::default())
     }
 
@@ -1362,52 +1356,50 @@ impl Game {
             _ => (true, true),
         };
 
-        self.instance_list.get(context.this).map(|instance| {
-            // Get sprite width/height, as these are used to decide how far to wrap
-            let (w, h) = if let Some(Some(sprite)) = self.assets.sprites.get(instance.sprite_index.get() as usize) {
-                (
-                    (sprite.width as f64) * instance.image_xscale.get(),
-                    (sprite.height as f64) * instance.image_yscale.get(),
-                )
-            } else {
-                (0.0, 0.0)
-            };
+        let instance = self.instance_list.get(context.this);
+        // Get sprite width/height, as these are used to decide how far to wrap
+        let (w, h) = if let Some(Some(sprite)) = self.assets.sprites.get(instance.sprite_index.get() as usize) {
+            ((sprite.width as f64) * instance.image_xscale.get(), (sprite.height as f64) * instance.image_yscale.get())
+        } else {
+            (0.0, 0.0)
+        };
 
-            if horizontal {
-                let room_width = self.room_width as f64;
-                if instance.hspeed.get() > 0.0 && instance.x.get() > room_width {
-                    // Wrap x right-to-left
-                    instance.x.set(instance.x.get() - (room_width + w));
-                }
-                if instance.hspeed.get() < 0.0 && instance.x.get() < 0.0 {
-                    // Wrap x left-to-right
-                    instance.x.set(instance.x.get() + (room_width + w));
-                }
+        if horizontal {
+            let room_width = self.room_width as f64;
+            if instance.hspeed.get() > 0.0 && instance.x.get() > room_width {
+                // Wrap x right-to-left
+                instance.x.set(instance.x.get() - (room_width + w));
             }
-            if vertical {
-                let room_height = self.room_height as f64;
-                if instance.vspeed.get() > 0.0 && instance.y.get() > room_height {
-                    // Wrap y bottom-to-top
-                    instance.y.set(instance.y.get() - (room_height + h));
-                }
-                if instance.vspeed.get() < 0.0 && instance.y.get() < 0.0 {
-                    // Wrap y top-to-bottom
-                    instance.y.set(instance.y.get() + (room_height + h));
-                }
+            if instance.hspeed.get() < 0.0 && instance.x.get() < 0.0 {
+                // Wrap x left-to-right
+                instance.x.set(instance.x.get() + (room_width + w));
             }
-        });
+        }
+        if vertical {
+            let room_height = self.room_height as f64;
+            if instance.vspeed.get() > 0.0 && instance.y.get() > room_height {
+                // Wrap y bottom-to-top
+                instance.y.set(instance.y.get() - (room_height + h));
+            }
+            if instance.vspeed.get() < 0.0 && instance.y.get() < 0.0 {
+                // Wrap y top-to-bottom
+                instance.y.set(instance.y.get() + (room_height + h));
+            }
+        }
         Ok(Default::default())
     }
 
     pub fn action_reverse_xdir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|i| i.set_hspeed(-i.hspeed.get()));
+        let instance = self.instance_list.get(context.this);
+        instance.set_hspeed(-instance.hspeed.get());
         Ok(Default::default())
     }
 
     pub fn action_reverse_ydir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|i| i.set_vspeed(-i.vspeed.get()));
+        let instance = self.instance_list.get(context.this);
+        instance.set_vspeed(-instance.vspeed.get());
         Ok(Default::default())
     }
 
@@ -1435,13 +1427,13 @@ impl Game {
 
     pub fn action_path_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let position = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).unwrap().path_position.set(position);
+        self.instance_list.get(context.this).path_position.set(position);
         Ok(Default::default())
     }
 
     pub fn action_path_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let speed = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).unwrap().path_speed.set(speed);
+        self.instance_list.get(context.this).path_speed.set(speed);
         Ok(Default::default())
     }
 
@@ -1466,10 +1458,8 @@ impl Game {
         let (object_id, x, y) = expect_args!(args, [int, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             let (relative_x, relative_y) = if context.relative {
-                self.instance_list
-                    .get(context.this)
-                    .map(|instance| (instance.x.get(), instance.y.get()))
-                    .unwrap_or_default()
+                let instance = self.instance_list.get(context.this);
+                (instance.x.get(), instance.y.get())
             } else {
                 (0.0, 0.0)
             };
@@ -1492,10 +1482,8 @@ impl Game {
         let (object_id, x, y, speed, direction) = expect_args!(args, [int, real, real, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             let (relative_x, relative_y) = if context.relative {
-                self.instance_list
-                    .get(context.this)
-                    .map(|instance| (instance.x.get(), instance.y.get()))
-                    .unwrap_or_default()
+                let instance = self.instance_list.get(context.this);
+                (instance.x.get(), instance.y.get())
             } else {
                 (0.0, 0.0)
             };
@@ -1507,7 +1495,7 @@ impl Game {
                 object_id,
                 object,
             ));
-            self.instance_list.get(instance).map(|instance| instance.set_speed_direction(speed, direction));
+            self.instance_list.get(instance).set_speed_direction(speed, direction);
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
@@ -1531,11 +1519,10 @@ impl Game {
 
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.sprite_index.set(sprite_id);
-            instance.image_index.set(image_index);
-            instance.image_speed.set(image_speed);
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.sprite_index.set(sprite_id);
+        instance.image_index.set(image_index);
+        instance.image_speed.set(image_speed);
         Ok(Default::default())
     }
 
@@ -1608,9 +1595,7 @@ impl Game {
 
     pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (time, alarm) = expect_args!(args, [int, int])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.alarms.borrow_mut().insert(alarm as u32, time);
-        });
+        self.instance_list.get(context.this).alarms.borrow_mut().insert(alarm as u32, time);
         Ok(Default::default())
     }
 
@@ -1621,67 +1606,62 @@ impl Game {
 
     pub fn action_set_timeline(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (index, position) = expect_args!(args, [int, real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.timeline_index.set(index);
-            instance.timeline_position.set(position);
-            instance.timeline_running.set(true);
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.timeline_index.set(index);
+        instance.timeline_position.set(position);
+        instance.timeline_running.set(true);
         Ok(Default::default())
     }
 
     pub fn action_timeline_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (index, position, start_option, loop_option) = expect_args!(args, [int, real, int, int])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.timeline_index.set(index);
-            instance.timeline_position.set(position);
-            instance.timeline_running.set(start_option == 0);
-            instance.timeline_loop.set(loop_option == 1);
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.timeline_index.set(index);
+        instance.timeline_position.set(position);
+        instance.timeline_running.set(start_option == 0);
+        instance.timeline_loop.set(loop_option == 1);
         Ok(Default::default())
     }
 
     pub fn action_timeline_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|instance| instance.timeline_running.set(true));
+        self.instance_list.get(context.this).timeline_running.set(true);
         Ok(Default::default())
     }
 
     pub fn action_timeline_pause(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|instance| instance.timeline_running.set(false));
+        self.instance_list.get(context.this).timeline_running.set(false);
         Ok(Default::default())
     }
 
     pub fn action_timeline_stop(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.timeline_position.set(0.0);
-            instance.timeline_running.set(false);
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.timeline_position.set(0.0);
+        instance.timeline_running.set(false);
         Ok(Default::default())
     }
 
     pub fn action_set_timeline_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let position = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            if context.relative {
-                instance.timeline_position.set(instance.timeline_position.get() + position);
-            } else {
-                instance.timeline_position.set(position);
-            }
-        });
+        let instance = self.instance_list.get(context.this);
+        if context.relative {
+            instance.timeline_position.set(instance.timeline_position.get() + position);
+        } else {
+            instance.timeline_position.set(position);
+        }
         Ok(Default::default())
     }
 
     pub fn action_set_timeline_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let speed = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            if context.relative {
-                instance.timeline_speed.set(instance.timeline_speed.get() + speed);
-            } else {
-                instance.timeline_speed.set(speed);
-            }
-        });
+        let instance = self.instance_list.get(context.this);
+        if context.relative {
+            instance.timeline_speed.set(instance.timeline_speed.get() + speed);
+        } else {
+            instance.timeline_speed.set(speed);
+        }
         Ok(Default::default())
     }
 
@@ -2062,7 +2042,7 @@ impl Game {
 
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
 
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
@@ -2578,23 +2558,20 @@ impl Game {
         let (x, y) = expect_args!(args, [real, real])?;
 
         // Set self's position to the new coordinates
-        let old_xy = self.instance_list.get(context.this).map(|instance| {
-            let old_xy = (instance.x.get(), instance.y.get());
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-            old_xy
-        });
+        let instance = self.instance_list.get(context.this);
+        let old_x = instance.x.get();
+        let old_y = instance.y.get();
+        instance.x.set(x);
+        instance.y.set(y);
+        instance.bbox_is_stale.set(true);
 
         // Check collision with any solids
         let free = self.check_collision_solid(context.this).is_none();
 
         // Move self back to where it was
-        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-        }
+        instance.x.set(old_x);
+        instance.y.set(old_y);
+        instance.bbox_is_stale.set(true);
 
         Ok(free.into())
     }
@@ -2608,13 +2585,12 @@ impl Game {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
 
         // Set self's position to the new coordinates
-        let old_xy = self.instance_list.get(context.this).map(|instance| {
-            let old_xy = (instance.x.get(), instance.y.get());
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-            old_xy
-        });
+        let instance = self.instance_list.get(context.this);
+        let old_x = instance.x.get();
+        let old_y = instance.y.get();
+        instance.x.set(x);
+        instance.y.set(y);
+        instance.bbox_is_stale.set(true);
 
         // Check collision with target
         let collision = if obj <= 100000 {
@@ -2641,11 +2617,9 @@ impl Game {
         };
 
         // Move self back to where it was
-        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-        }
+        instance.x.set(old_x);
+        instance.y.set(old_y);
+        instance.bbox_is_stale.set(true);
 
         Ok(collision.into())
     }
@@ -2662,7 +2636,7 @@ impl Game {
 
     pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
         Ok(Default::default())
@@ -2687,24 +2661,21 @@ impl Game {
 
         // Check if we're already colliding with a solid, do nothing if so
         if self.check_collision_solid(context.this).is_none() {
+            let instance = self.instance_list.get(context.this);
             for _ in 0..max_distance {
                 // Step forward, but back up old coordinates
-                let old_xy = self.instance_list.get(context.this).map(|instance| {
-                    let old_xy = (instance.x.get(), instance.y.get());
-                    instance.x.set(instance.x.get() + step_x);
-                    instance.y.set(instance.y.get() + step_y);
-                    instance.bbox_is_stale.set(true);
-                    old_xy
-                });
+                let old_x = instance.x.get();
+                let old_y = instance.y.get();
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
 
                 // Check if we're colliding with a solid now
                 if self.check_collision_solid(context.this).is_some() {
                     // Move self back to where it was, then exit
-                    if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
-                        instance.x.set(x);
-                        instance.y.set(y);
-                        instance.bbox_is_stale.set(true);
-                    }
+                    instance.x.set(old_x);
+                    instance.y.set(old_y);
+                    instance.bbox_is_stale.set(true);
                     break
                 }
             }
@@ -2759,21 +2730,20 @@ impl Game {
 
     pub fn motion_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).map(|instance| instance.set_speed_direction(speed, direction));
+        self.instance_list.get(context.this).set_speed_direction(speed, direction);
         Ok(Default::default())
     }
 
     pub fn motion_add(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).map(|instance| {
-            instance.set_speed_direction(instance.speed.get() + speed, instance.direction.get() + direction)
-        });
+        let instance = self.instance_list.get(context.this);
+        instance.set_speed_direction(instance.speed.get() + speed, instance.direction.get() + direction);
         Ok(Default::default())
     }
 
     pub fn distance_to_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
 
         let distance_x = if instance.bbox_left.get() > x {
             instance.bbox_left.get() - x
@@ -2830,14 +2800,14 @@ impl Game {
         }
 
         let sprite = self.get_instance_mask_sprite(context.this);
-        let this = self.instance_list.get(context.this).unwrap();
+        let this = self.instance_list.get(context.this);
         this.update_bbox(sprite);
 
         Ok(match object_id {
             gml::SELF => 0.0,
             gml::OTHER => {
                 let sprite = self.get_instance_mask_sprite(context.other);
-                let other = self.instance_list.get(context.other).unwrap();
+                let other = self.instance_list.get(context.other);
                 other.update_bbox(sprite);
                 instance_distance(this, other)
             },
@@ -2847,7 +2817,7 @@ impl Game {
                 let mut iter = self.instance_list.iter_by_insertion();
                 while let Some(other) = iter.next(&self.instance_list) {
                     let sprite = self.get_instance_mask_sprite(other);
-                    let other = self.instance_list.get(other).unwrap();
+                    let other = self.instance_list.get(other);
                     other.update_bbox(sprite);
                     let dist = instance_distance(this, other);
                     if dist < closest {
@@ -2863,7 +2833,7 @@ impl Game {
                     let mut iter = self.instance_list.iter_by_identity(ids);
                     while let Some(other) = iter.next(&self.instance_list) {
                         let sprite = self.get_instance_mask_sprite(other);
-                        let other = self.instance_list.get(other).unwrap();
+                        let other = self.instance_list.get(other);
                         other.update_bbox(sprite);
                         let dist = instance_distance(this, other);
                         if dist < closest {
@@ -2879,7 +2849,7 @@ impl Game {
                 match self.instance_list.get_by_instid(instance_id) {
                     Some(handle) => {
                         let sprite = self.get_instance_mask_sprite(handle);
-                        let other = self.instance_list.get(handle).unwrap();
+                        let other = self.instance_list.get(handle);
                         other.update_bbox(sprite);
                         instance_distance(this, other)
                     },
@@ -2892,7 +2862,7 @@ impl Game {
 
     pub fn path_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (path_id, speed, end_action, absolute) = expect_args!(args, [int, real, int, any])?;
-        let instance = self.instance_list.get(context.this).unwrap();
+        let instance = self.instance_list.get(context.this);
         instance.path_index.set(path_id);
         instance.path_speed.set(speed);
         instance.path_endaction.set(end_action);
@@ -2914,7 +2884,7 @@ impl Game {
 
     pub fn path_end(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).map(|instance| instance.path_index.set(-1));
+        self.instance_list.get(context.this).path_index.set(-1);
         Ok(Default::default())
     }
 
@@ -3121,7 +3091,7 @@ impl Game {
         };
 
         match id {
-            Some(handle) => Ok(self.instance_list.get(handle).unwrap().id.get().into()),
+            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -3140,13 +3110,12 @@ impl Game {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
 
         // Set self's position to the new coordinates
-        let old_xy = self.instance_list.get(context.this).map(|instance| {
-            let old_xy = (instance.x.get(), instance.y.get());
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-            old_xy
-        });
+        let instance = self.instance_list.get(context.this);
+        let old_x = instance.x.get();
+        let old_y = instance.y.get();
+        instance.x.set(x);
+        instance.y.set(y);
+        instance.bbox_is_stale.set(true);
 
         // Check collision with target
         let other: Option<usize> = if obj <= 100000 {
@@ -3173,14 +3142,12 @@ impl Game {
         };
 
         // Move self back to where it was
-        if let (Some(instance), Some((x, y))) = (self.instance_list.get(context.this), old_xy) {
-            instance.x.set(x);
-            instance.y.set(y);
-            instance.bbox_is_stale.set(true);
-        }
+        instance.x.set(old_x);
+        instance.y.set(old_y);
+        instance.bbox_is_stale.set(true);
 
         match other {
-            Some(t) => Ok(self.instance_list.get(t).unwrap().id.get().into()),
+            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -3212,7 +3179,7 @@ impl Game {
         self.instance_list.mark_deleted(context.this);
 
         // These variables get copied to the new instance
-        let old_instance = self.instance_list.get(context.this).unwrap();
+        let old_instance = self.instance_list.get(context.this);
         let fields = (*old_instance.fields.borrow()).clone();
         let alarms = (*old_instance.alarms.borrow()).clone();
         let x = old_instance.x.get();
@@ -3237,7 +3204,7 @@ impl Game {
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
         self.last_instance_id += 1;
         let handle = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
-        let instance = self.instance_list.get(handle).unwrap();
+        let instance = self.instance_list.get(handle);
         *instance.fields.borrow_mut() = fields;
         *instance.alarms.borrow_mut() = alarms;
         instance.gravity.set(gravity);

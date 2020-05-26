@@ -906,7 +906,7 @@ impl Game {
     pub fn frame(&mut self) -> gml::Result<()> {
         // Update xprevious and yprevious for all instances
         let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list).and_then(|x| self.instance_list.get(x)) {
+        while let Some(instance) = iter.next(&self.instance_list).map(|x| self.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
             instance.path_positionprevious.set(instance.path_position.get());
@@ -921,7 +921,7 @@ impl Game {
         // Advance timelines for all instances
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
-            let instance = self.instance_list.get(handle).unwrap();
+            let instance = self.instance_list.get(handle);
             let object_index = instance.object_index.get();
             if instance.timeline_running.get() {
                 if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
@@ -988,7 +988,7 @@ impl Game {
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
             let mut run_event = false;
-            let instance = self.instance_list.get(handle).unwrap();
+            let instance = self.instance_list.get(handle);
             if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
                 // Calculate how much offset (0-1) we want to add to the instance's path position
                 let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / 100.0) / path.length;
@@ -1075,7 +1075,7 @@ impl Game {
                     if let Some(handle) =
                         self.instance_list.iter_by_identity(obj.children.clone()).next(&self.instance_list)
                     {
-                        let inst = self.instance_list.get(handle).unwrap();
+                        let inst = self.instance_list.get(handle);
 
                         let x = util::ieee_round(inst.x.get());
                         let y = util::ieee_round(inst.y.get());
@@ -1144,7 +1144,7 @@ impl Game {
         // Advance sprite animations
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
-            let instance = self.instance_list.get(handle).unwrap();
+            let instance = self.instance_list.get(handle);
             let new_index = instance.image_index.get() + instance.image_speed.get();
             instance.image_index.set(new_index);
             if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
@@ -1284,8 +1284,8 @@ impl Game {
     // Checks for collision between two instances
     pub fn check_collision(&self, i1: usize, i2: usize) -> bool {
         // Get the sprite masks we're going to use and update instances' bbox vars
-        let inst1 = self.instance_list.get(i1).unwrap();
-        let inst2 = self.instance_list.get(i2).unwrap();
+        let inst1 = self.instance_list.get(i1);
+        let inst2 = self.instance_list.get(i2);
         let sprite1 = self
             .assets
             .sprites
@@ -1407,7 +1407,7 @@ impl Game {
     // Checks if an instance is colliding with a point
     pub fn check_collision_point(&self, inst: usize, x: i32, y: i32) -> bool {
         // Get sprite mask, update bbox
-        let inst = self.instance_list.get(inst).unwrap();
+        let inst = self.instance_list.get(inst);
         let sprite = self
             .assets
             .sprites
@@ -1459,7 +1459,7 @@ impl Game {
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(target) = iter.next(&self.instance_list) {
-            if self.instance_list.get(target).map(|x| x.solid.get()).unwrap_or(false) {
+            if self.instance_list.get(target).solid.get() {
                 if self.check_collision(inst, target) {
                     return Some(target)
                 }

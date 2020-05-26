@@ -4,7 +4,7 @@ impl Game {
     /// Processes movement (friction, gravity, speed/direction) for all instances
     pub fn process_movement(&mut self) {
         let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list).and_then(|i| self.instance_list.get(i)) {
+        while let Some(instance) = iter.next(&self.instance_list).map(|i| self.instance_list.get(i)) {
             let friction = instance.friction.get();
             if friction != 0.0 {
                 // "Subtract" friction from speed towards 0
@@ -47,7 +47,7 @@ impl Game {
 
     /// "bounces" the instance against any instances or only solid ones, depending on solid_only
     pub fn bounce(&self, handle: usize, solids_only: bool) {
-        let instance = self.instance_list.get(handle).unwrap();
+        let instance = self.instance_list.get(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
         let old_x = instance.x.get();
@@ -90,7 +90,7 @@ impl Game {
     /// "bounces" the instance against any instances or only solid ones, depending on solid_only
     /// Uses GM8's "advanced bouncing" algorithm which is very broken
     pub fn bounce_advanced(&self, handle: usize, solids_only: bool) {
-        let instance = self.instance_list.get(handle).unwrap();
+        let instance = self.instance_list.get(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
         let old_x = instance.x.get();

@@ -684,10 +684,8 @@ impl Game {
 
     // Get a field value from an instance
     fn get_instance_field(&self, instance: usize, field_id: usize, array_index: u32) -> gml::Result<Value> {
-        if let Some(Some(Some(value))) = self
-            .instance_list
-            .get(instance)
-            .map(|x| x.fields.borrow().get(&field_id).map(|field| field.get(array_index)))
+        if let Some(Some(value)) =
+            self.instance_list.get(instance).fields.borrow().get(&field_id).map(|field| field.get(array_index))
         {
             Ok(value)
         } else {
@@ -701,12 +699,11 @@ impl Game {
 
     // Set a field on an instance
     fn set_instance_field(&self, instance: usize, field_id: usize, array_index: u32, value: Value) {
-        if let Some(mut fields) = self.instance_list.get(instance).map(|x| x.fields.borrow_mut()) {
-            if let Some(field) = fields.get_mut(&field_id) {
-                field.set(array_index, value)
-            } else {
-                fields.insert(field_id, Field::new(array_index, value));
-            }
+        let mut fields = self.instance_list.get(instance).fields.borrow_mut();
+        if let Some(field) = fields.get_mut(&field_id) {
+            field.set(array_index, value)
+        } else {
+            fields.insert(field_id, Field::new(array_index, value));
         }
     }
 
@@ -718,7 +715,7 @@ impl Game {
         array_index: u32,
         context: &Context,
     ) -> gml::Result<Value> {
-        let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
+        let instance = self.instance_list.get(instance_handle);
 
         match var {
             InstanceVariable::X => Ok(instance.x.get().into()),
@@ -1022,7 +1019,7 @@ impl Game {
         value: Value,
         context: &mut Context,
     ) -> gml::Result<()> {
-        let instance = self.instance_list.get(instance_handle).ok_or(Error::InvalidInstanceHandle(instance_handle))?;
+        let instance = self.instance_list.get(instance_handle);
 
         match var {
             InstanceVariable::X => {
@@ -1291,7 +1288,7 @@ impl Game {
 
     // Gets the sprite associated with an instance's sprite_index
     pub fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
-        let instance = self.instance_list.get(instance)?;
+        let instance = self.instance_list.get(instance);
         let index = instance.sprite_index.get();
         if index >= 0 {
             if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
@@ -1303,7 +1300,7 @@ impl Game {
     // Gets the sprite associated with an instance's mask_index
     pub fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
-            let instance = self.instance_list.get(instance)?;
+            let instance = self.instance_list.get(instance);
             let index = instance.mask_index.get();
             if index >= 0 { index } else { instance.sprite_index.get() }
         };

@@ -126,9 +126,7 @@ fn nb_il_iter(coll: &[usize], idx: &mut usize, list: &InstanceList) -> Option<us
     coll.get(*idx..)?
         .iter()
         .enumerate()
-        .find(|(_, &inst_idx)| {
-            list.get(inst_idx).map(|inst| inst.state.get() == InstanceState::Active).unwrap_or_default()
-        })
+        .find(|(_, &inst_idx)| list.get(inst_idx).state.get() == InstanceState::Active)
         .map(|(idx_offset, val)| {
             *idx += idx_offset + 1;
             *val
@@ -174,7 +172,7 @@ impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
             for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance)?;
+                let inst = list.get(instance);
                 if inst.state.get() == InstanceState::Active {
                     let oidx = inst.object_index.get();
                     if self.children.borrow().contains(&oidx) {
@@ -202,7 +200,7 @@ impl ObjectIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
             for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance)?;
+                let inst = list.get(instance);
                 if inst.state.get() == InstanceState::Active {
                     if inst.object_index.get() == self.object_index {
                         self.count -= 1;
@@ -221,15 +219,14 @@ impl InstanceList {
         Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
     }
 
-    pub fn get(&self, idx: usize) -> Option<&Instance> {
-        self.chunks.get(idx)
+    pub fn get(&self, idx: usize) -> &Instance {
+        self.chunks
+            .get(idx)
+            .unwrap_or_else(|| panic!(format!("Invalid instance handle to InstanceList::get(): {}", idx)))
     }
 
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
-        self.insert_order
-            .iter()
-            .copied()
-            .find(|&inst| self.get(inst).map(|x| x.id.get() == instance_index).unwrap_or_default())
+        self.insert_order.iter().copied().find(|&inst| self.get(inst).id.get() == instance_index)
     }
 
     pub fn count(&self, object_index: ID) -> usize {
@@ -237,22 +234,15 @@ impl InstanceList {
     }
 
     pub fn count_all(&self) -> usize {
-        self.insert_order
-            .iter()
-            .filter(|&&inst_idx| {
-                self.get(inst_idx).map(|inst| inst.state.get() != InstanceState::Inactive).unwrap_or_default()
-            })
-            .count()
+        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive).count()
     }
 
     pub fn instance_at(&self, n: usize) -> ID {
         self.insert_order
             .iter()
-            .filter(|&&inst_idx| {
-                self.get(inst_idx).map(|inst| inst.state.get() != InstanceState::Inactive).unwrap_or_default()
-            })
+            .filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive)
             .nth(n)
-            .and_then(|inst_idx| self.get(*inst_idx).map(|inst| inst.id.get()))
+            .map(|inst_idx| self.get(*inst_idx).id.get())
             .unwrap_or(gml::NOONE)
     }
 
@@ -306,16 +296,12 @@ impl InstanceList {
     }
 
     pub fn mark_deleted(&mut self, instance: usize) {
-        let object_id = self.get(instance).and_then(|instance| {
-            if instance.state.get() != InstanceState::Deleted {
-                instance.state.set(InstanceState::Deleted);
-                Some(instance.object_index.get())
-            } else {
-                None
-            }
-        });
-        if let Some(o) = object_id {
-            let entry = self.id_map.entry(o).and_modify(|n| *n -= 1);
+        let instance = self.get(instance);
+        if instance.state.get() != InstanceState::Deleted {
+            instance.state.set(InstanceState::Deleted);
+
+            let object_id = instance.object_index.get();
+            let entry = self.id_map.entry(object_id).and_modify(|n| *n -= 1);
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
                 if *occupied.get() == 0 {
                     occupied.remove_entry();
@@ -375,8 +361,8 @@ impl TileList {
         Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new() }
     }
 
-    pub fn get(&self, idx: usize) -> Option<&Tile> {
-        self.chunks.get(idx)
+    pub fn get(&self, idx: usize) -> &Tile {
+        self.chunks.get(idx).unwrap_or_else(|| panic!(format!("Invalid instance handle to TileList::get(): {}", idx)))
     }
 
     pub const fn iter_by_drawing(&self) -> TLIterDrawOrder {
