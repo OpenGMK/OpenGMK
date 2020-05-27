@@ -1524,6 +1524,7 @@ impl Game {
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
         let instance = self.instance_list.get(context.this);
+        instance.bbox_is_stale.set(true);
         instance.sprite_index.set(sprite_id);
         instance.image_index.set(image_index);
         instance.image_speed.set(image_speed);
