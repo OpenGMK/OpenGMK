@@ -1281,11 +1281,11 @@ impl Game {
     pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
-        instance.set_direction(direction);
         if context.relative {
-            instance.set_speed(instance.speed.get() + speed);
+            instance.set_hspeed(direction.to_radians().cos() * speed + instance.hspeed.get());
+            instance.set_vspeed(-direction.to_radians().sin() * speed + instance.vspeed.get());
         } else {
-            instance.set_speed(speed);
+            instance.set_speed_direction(speed, direction);
         }
         Ok(Default::default())
     }
