@@ -1183,7 +1183,7 @@ impl Game {
         Ok(())
     }
 
-    pub fn run(&mut self) -> gml::Result<()> {
+    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         use window::Event;
 
         let mut time_now = Instant::now();
@@ -1205,16 +1205,16 @@ impl Game {
             if self.scene_change {
                 if let Some(target) = self.room_target {
                     // Room change
-                    self.load_room(target).unwrap();
+                    self.load_room(target)?;
                 } else {
                     // Game end
-                    break self.run_game_end_events()
+                    break Ok(self.run_game_end_events()?)
                 }
             }
 
             // exit if X pressed or game_end() invoked
             if self.window.close_requested() {
-                break Ok(())
+                break Ok(self.run_game_end_events()?)
             }
 
             // frame limiter
@@ -1230,7 +1230,7 @@ impl Game {
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay) -> gml::Result<()> {
+    pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
 
@@ -1255,16 +1255,16 @@ impl Game {
             if self.scene_change {
                 if let Some(target) = self.room_target {
                     // Room change
-                    self.load_room(target).unwrap();
+                    self.load_room(target)?;
                 } else {
                     // Game end
-                    break self.run_game_end_events()
+                    break Ok(self.run_game_end_events()?)
                 }
             }
 
             // exit if X pressed or game_end() invoked
             if self.window.close_requested() {
-                break Ok(())
+                break Ok(self.run_game_end_events()?)
             }
 
             // frame limiter
