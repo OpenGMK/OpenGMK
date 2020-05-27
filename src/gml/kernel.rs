@@ -3550,9 +3550,12 @@ impl Game {
         }
     }
 
-    pub fn file_bin_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_bin_size")
+    pub fn file_bin_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.size(handle) {
+            Ok(l) => Ok(f64::from(l as i32).into()),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_size", e.into())),
+        }
     }
 
     pub fn file_bin_seek(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
