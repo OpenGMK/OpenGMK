@@ -2232,7 +2232,7 @@ impl Game {
     }
 
     pub fn round(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.round()))
+        expect_args!(args, [real]).map(|x| util::ieee_round(x).into())
     }
 
     pub fn floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
