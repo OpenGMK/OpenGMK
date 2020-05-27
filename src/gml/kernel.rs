@@ -1259,7 +1259,7 @@ impl Game {
             };
 
             // Handle each case separately
-            let (speed, direction) : (f64, f64) = match offset {
+            let (speed, direction): (f64, f64) = match offset {
                 0 => (speed, 225.0),
                 1 => (speed, 270.0),
                 2 => (speed, 315.0),
@@ -1579,12 +1579,14 @@ impl Game {
 
     pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (room_id, _transition) = expect_args!(args, [int, int])?;
+        self.scene_change = true;
         self.room_target = Some(room_id);
         Ok(Default::default())
     }
 
     pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let _transition = expect_args!(args, [int])?;
+        self.scene_change = true;
         self.room_target = Some(self.room_id);
         Ok(Default::default())
     }
@@ -2553,18 +2555,18 @@ impl Game {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
         let l1 = x1.hypot(y1);
         let l2 = x2.hypot(y2);
-        let (x1, y1) = (x1/l1, y1/l1);
-        let (x2, y2) = (x2/l2, y2/l2);
-        Ok((x1*x2+y1*y2).into())
+        let (x1, y1) = (x1 / l1, y1 / l1);
+        let (x2, y2) = (x2 / l2, y2 / l2);
+        Ok((x1 * x2 + y1 * y2).into())
     }
 
     pub fn dot_product_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
         let l1 = (x1.powi(2) + y1.powi(2) + z1.powi(2)).sqrt();
         let l2 = (x2.powi(2) + y2.powi(2) + z2.powi(2)).sqrt();
-        let (x1, y1, z1) = (x1/l1, y1/l1, z1/l1);
-        let (x2, y2, z2) = (x2/l2, y2/l2, z2/l2);
-        Ok((x1*x2 + y1*y2 + z1*z2).into())
+        let (x1, y1, z1) = (x1 / l1, y1 / l1, z1 / l1);
+        let (x2, y2, z2) = (x2 / l2, y2 / l2, z2 / l2);
+        Ok((x1 * x2 + y1 * y2 + z1 * z2).into())
     }
 
     pub fn point_distance_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3337,7 +3339,9 @@ impl Game {
     }
 
     pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|target| self.room_target = Some(target.into()))?;
+        let target = expect_args!(args, [int])?;
+        self.scene_change = true;
+        self.room_target = Some(target);
         Ok(Default::default())
     }
 
@@ -3351,6 +3355,7 @@ impl Game {
             .and_then(|x| self.room_order.get(x).copied())
         {
             Some(i) => {
+                self.scene_change = true;
                 self.room_target = Some(i);
                 Ok(Default::default())
             },
@@ -3363,6 +3368,7 @@ impl Game {
         match self.room_order.iter().position(|x| *x == self.room_id).and_then(|x| self.room_order.get(x + 1).copied())
         {
             Some(i) => {
+                self.scene_change = true;
                 self.room_target = Some(i);
                 Ok(Default::default())
             },
@@ -3386,34 +3392,13 @@ impl Game {
     }
 
     pub fn game_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Room end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
-        }
-
-        // Game end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
-        }
-
-        self.window.set_close_requested(true);
+        self.scene_change = true;
+        self.room_target = None;
         Ok(Default::default())
     }
 
     pub fn game_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Room end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
-        }
-
-        // Game end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
-        }
+        self.run_game_end_events()?;
 
         // Delete everything
         let mut iter = self.instance_list.iter_by_insertion();
@@ -3427,6 +3412,7 @@ impl Game {
 
         // Go to room 1
         self.game_start = true;
+        self.scene_change = true;
         self.room_target = Some(self.room_order.first().copied().ok_or(gml::Error::EndOfRoomOrder)?);
         Ok(Default::default())
     }

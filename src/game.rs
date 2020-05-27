@@ -68,7 +68,9 @@ pub struct Game {
     pub room_height: i32,
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
-    pub room_target: Option<ID>,
+
+    pub scene_change: bool,      // Whether a scene change (room change or game end) is requested
+    pub room_target: Option<ID>, // The requested room change, if any
 
     pub globals: DummyFieldHolder,
     pub game_start: bool,
@@ -716,6 +718,7 @@ impl Game {
             room_height: room1_height as i32,
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
+            scene_change: false,
             room_target: None,
             globals: DummyFieldHolder::new(),
             game_start: true,
@@ -830,6 +833,7 @@ impl Game {
         self.room_height = room.height as _;
         self.room_speed = room.speed;
         self.caption = room.caption;
+        self.scene_change = false;
         self.room_target = None;
         self.input_manager.clear_presses();
 
@@ -893,9 +897,14 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
-        if let Some(target) = self.room_target {
-            // A room change has been requested during this room change, so let's recurse...
-            self.load_room(target)
+        if self.scene_change {
+            if let Some(target) = self.room_target {
+                // A room change has been requested during this room change, so let's recurse...
+                self.load_room(target)
+            } else {
+                // Game was ended during room change, so just quit
+                Ok(())
+            }
         } else {
             // Draw "frame 0" and then return
             self.draw()?;
@@ -915,7 +924,7 @@ impl Game {
 
         // Begin step event
         self.run_object_event(ev::STEP, 1, None)?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
@@ -943,36 +952,36 @@ impl Game {
 
         // Alarm events
         self.run_alarms()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         // Key events
         self.run_keyboard_events()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         self.run_mouse_events()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         // Key press events
         self.run_key_press_events()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         // Key release events
         self.run_key_release_events()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
@@ -981,7 +990,7 @@ impl Game {
 
         // Outside room, intersect boundary, outside/intersect view
         self.run_bound_events()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
@@ -1059,13 +1068,13 @@ impl Game {
 
         // Run collision events
         self.run_collisions()?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
         // End step event
         self.run_object_event(ev::STEP, 2, None)?;
-        if self.room_target.is_some() {
+        if self.scene_change {
             return Ok(())
         }
 
@@ -1193,8 +1202,14 @@ impl Game {
             }
 
             self.frame()?;
-            if let Some(target) = self.room_target {
-                self.load_room(target).unwrap();
+            if self.scene_change {
+                if let Some(target) = self.room_target {
+                    // Room change
+                    self.load_room(target).unwrap();
+                } else {
+                    // Game end
+                    break self.run_game_end_events()
+                }
             }
 
             // exit if X pressed or game_end() invoked
@@ -1237,8 +1252,14 @@ impl Game {
             }
 
             self.frame()?;
-            if let Some(target) = self.room_target {
-                self.load_room(target).unwrap();
+            if self.scene_change {
+                if let Some(target) = self.room_target {
+                    // Room change
+                    self.load_room(target).unwrap();
+                } else {
+                    // Game end
+                    break self.run_game_end_events()
+                }
             }
 
             // exit if X pressed or game_end() invoked

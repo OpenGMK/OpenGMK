@@ -34,7 +34,7 @@ impl Game {
     ) -> gml::Result<()> {
         // Running instance events is not allowed if a room change is pending. This appears to be
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
-        if self.room_target.is_none() {
+        if !self.scene_change {
             let original_object_id =
                 if let Some(id) = as_object { id } else { self.instance_list.get(instance).object_index.get() };
             let mut object_id = original_object_id;
@@ -69,6 +69,23 @@ impl Game {
         } else {
             Ok(())
         }
+    }
+
+    /// Runs room end followed by game end events for all instances. Should be called only when the game ends.
+    pub fn run_game_end_events(&mut self) -> gml::Result<()> {
+        // Room end
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
+        }
+
+        // Game end
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.instance_list) {
+            self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
+        }
+
+        Ok(())
     }
 
     /// Decrements all active alarms and runs subsequent alarm events for all instances
