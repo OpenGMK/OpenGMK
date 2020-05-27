@@ -3530,9 +3530,12 @@ impl Game {
         }
     }
 
-    pub fn file_bin_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_bin_position")
+    pub fn file_bin_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.tell(handle) {
+            Ok(p) => Ok(f64::from(p as i32).into()),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_position", e.into())),
+        }
     }
 
     pub fn file_bin_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3540,9 +3543,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function file_bin_size")
     }
 
-    pub fn file_bin_seek(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_bin_seek")
+    pub fn file_bin_seek(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (handle, pos) = expect_args!(args, [int, int])?;
+        match self.file_manager.seek(handle, pos) {
+            Ok(()) => Ok(Value::from(0.0)),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_seek", e.into())),
+        }
     }
 
     pub fn file_bin_read_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
