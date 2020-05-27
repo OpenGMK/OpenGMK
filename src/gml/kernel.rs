@@ -5144,14 +5144,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_get_number")
     }
 
-    pub fn sprite_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_width")
+    pub fn sprite_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.width.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+        }
     }
 
-    pub fn sprite_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_height")
+    pub fn sprite_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.height.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+        }
     }
 
     pub fn sprite_get_xoffset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5875,9 +5883,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_exists")
     }
 
-    pub fn room_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_get_name")
+    pub fn room_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let room_id = expect_args!(args, [int])?;
+        if let Some(room) = self.assets.rooms.get_asset(room_id) {
+            Ok(room.name.clone().into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+        }
     }
 
     pub fn room_set_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
