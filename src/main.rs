@@ -1,4 +1,4 @@
-#![feature(llvm_asm, test)]
+#![feature(llvm_asm, test, seek_convenience)]
 
 #![allow(dead_code)] // Shut up.
 

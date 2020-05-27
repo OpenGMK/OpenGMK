@@ -149,7 +149,7 @@ impl Instance {
 
     // Sets direction, also updating hspeed and vspeed
     pub fn set_direction(&self, direction: f64) {
-        self.direction.set(direction);
+        self.direction.set(direction.rem_euclid(360.0));
         self.update_hvspeed()
     }
 
@@ -162,7 +162,7 @@ impl Instance {
     // Sets speed and direction, also updating hspeed and vspeed
     pub fn set_speed_direction(&self, speed: f64, direction: f64) {
         self.speed.set(speed);
-        self.direction.set(direction);
+        self.direction.set(direction.rem_euclid(360.0));
         self.update_hvspeed();
     }
 
@@ -208,7 +208,7 @@ impl Instance {
 
     // Sets direction and speed based on hspeed and vspeed
     fn update_speed_direction(&self) {
-        self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()).to_degrees());
+        self.direction.set((-self.vspeed.get()).atan2(self.hspeed.get()).to_degrees().rem_euclid(360.0));
         self.speed.set((self.hspeed.get().powi(2) + self.vspeed.get().powi(2)).sqrt());
     }
 
