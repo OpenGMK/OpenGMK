@@ -101,7 +101,6 @@ pub enum Error {
     InvalidDeref(String),    // string repr. because Expr<'a>
     InvalidIndexLhs(String), // string repr. because Expr<'a>
     InvalidIndex(String),    // string repr. because Expr<'a>
-    InvalidInstanceHandle(usize),
     InvalidRoomSpeed(i32),
     InvalidSwitchBody(String), // string repr. because Expr<'a>
     NonexistentAsset(asset::Type, i32),
@@ -134,7 +133,6 @@ impl Display for Error {
             Self::InvalidDeref(expr) => write!(f, "invalid deref {}", expr),
             Self::InvalidIndex(expr) => write!(f, "invalid index {}", expr),
             Self::InvalidIndexLhs(expr) => write!(f, "invalid index lhs {}", expr),
-            Self::InvalidInstanceHandle(id) => write!(f, "invalid instance handle {}", id),
             Self::InvalidRoomSpeed(value) => write!(f, "invalid room_speed {}", value),
             Self::InvalidSwitchBody(expr) => write!(f, "invalid switch body {}", expr),
             Self::NonexistentAsset(ty, id) => write!(f, "nonexistent asset id {} ({})", id, ty),
