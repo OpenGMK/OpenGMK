@@ -1348,9 +1348,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_move_random")
     }
 
-    pub fn action_snap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_snap")
+    pub fn action_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.move_snap(context, args)
     }
 
     pub fn action_wrap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2644,9 +2643,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function place_snapped")
     }
 
-    pub fn move_snap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_snap")
+    pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hsnap, vsnap) = expect_args!(args, [real, real])?;
+        let instance = self.instance_list.get(context.this);
+        instance.x.set((util::ieee_round(instance.x.get() / hsnap) as f64) * hsnap);
+        instance.y.set((util::ieee_round(instance.y.get() / vsnap) as f64) * vsnap);
+        instance.bbox_is_stale.set(true);
+        Ok(Default::default())
     }
 
     pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
