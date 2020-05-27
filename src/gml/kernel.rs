@@ -2549,14 +2549,22 @@ impl Game {
         expect_args!(args, [string, string]).map(|(ss, s)| Value::Real(s.matches(ss.as_ref()).count() as _))
     }
 
-    pub fn dot_product(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function dot_product")
+    pub fn dot_product(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
+        let l1 = x1.hypot(y1);
+        let l2 = x2.hypot(y2);
+        let (x1, y1) = (x1/l1, y1/l1);
+        let (x2, y2) = (x2/l2, y2/l2);
+        Ok((x1*x2+y1*y2).into())
     }
 
-    pub fn dot_product_3d(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function dot_product_3d")
+    pub fn dot_product_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
+        let l1 = (x1.powi(2) + y1.powi(2) + z1.powi(2)).sqrt();
+        let l2 = (x2.powi(2) + y2.powi(2) + z2.powi(2)).sqrt();
+        let (x1, y1, z1) = (x1/l1, y1/l1, z1/l1);
+        let (x2, y2, z2) = (x2/l2, y2/l2, z2/l2);
+        Ok((x1*x2 + y1*y2 + z1*z2).into())
     }
 
     pub fn point_distance_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
