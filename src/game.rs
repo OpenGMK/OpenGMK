@@ -829,6 +829,7 @@ impl Game {
         self.room_width = room.width as _;
         self.room_height = room.height as _;
         self.room_speed = room.speed;
+        self.caption = room.caption;
         self.room_target = None;
         self.input_manager.clear_presses();
 
@@ -1154,6 +1155,20 @@ impl Game {
                     self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
                 }
             }
+        }
+
+        // Apply room caption
+        if self.score_capt_d || self.lives_capt_d {
+            let mut caption = self.caption.to_string();
+            if self.score_capt_d {
+                caption = format!("{} {}{}", caption, self.score_capt, self.score);
+            }
+            if self.lives_capt_d {
+                caption = format!("{} {}{}", caption, self.lives_capt, self.lives);
+            }
+            self.window.set_title(&caption);
+        } else {
+            self.window.set_title(&self.caption);
         }
 
         Ok(())
