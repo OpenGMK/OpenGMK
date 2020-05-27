@@ -98,6 +98,7 @@ pub struct Game {
     pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
+    pub program_directory : Rc<str>,
     pub gm_version: GameVersion,
 
     // window caption
@@ -129,6 +130,7 @@ impl Game {
         // Parse file path
         let mut file_path2 = file_path.clone();
         file_path2.pop();
+        // Game Maker doesn't change working directory on load but doing it anyway makes life easier
         std::env::set_current_dir(&file_path2)?;
         let mut param_string: &str = &file_path.to_string_lossy();
         let mut program_directory: &str = &file_path2.to_string_lossy();
@@ -741,6 +743,7 @@ impl Game {
             health: 100.0,
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
+            program_directory: program_directory.into(),
             gm_version: version,
             caption: "".to_string().into(),
             caption_stale: false,
