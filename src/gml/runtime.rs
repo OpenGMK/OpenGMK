@@ -857,9 +857,15 @@ impl Game {
             InstanceVariable::Lives => Ok(self.lives.into()),
             InstanceVariable::Health => Ok(self.health.into()),
             InstanceVariable::GameId => Ok(self.game_id.into()),
-            InstanceVariable::WorkingDirectory => todo!(),
+            InstanceVariable::WorkingDirectory => {
+                let mut cwd : String = std::env::current_dir().unwrap().to_string_lossy().to_string();
+                if cfg!(target_os = "windows") {
+                    cwd = cwd.trim_start_matches("\\\\?\\").to_string();
+                }
+                Ok(cwd.into())
+            },
             InstanceVariable::TempDirectory => todo!(),
-            InstanceVariable::ProgramDirectory => todo!(),
+            InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
             InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
             InstanceVariable::InstanceId => Ok(self.instance_list.instance_at(array_index as _).into()),
             InstanceVariable::RoomWidth => Ok(self.room_width.into()),
