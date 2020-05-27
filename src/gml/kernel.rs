@@ -1246,7 +1246,7 @@ impl Game {
         let speed = if context.relative { speed + instance.speed.get() } else { speed };
 
         // Only invoke RNG if at least one of the options is checked, otherwise don't do anything
-        if dir_string.as_ref() != "000000000" {
+        if bytes.contains(&49) {
             // Call irandom until it lands on a byte that's '1' rather than '0'
             let offset = loop {
                 let index = self.rand.next_int(8) as usize;
