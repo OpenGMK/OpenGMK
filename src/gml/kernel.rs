@@ -1431,13 +1431,23 @@ impl Game {
 
     pub fn action_path_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let position = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).path_position.set(position);
+        let instance = self.instance_list.get(context.this);
+        if context.relative {
+            instance.path_position.set(position + instance.path_position.get());
+        } else {
+            instance.path_position.set(position);
+        }
         Ok(Default::default())
     }
 
     pub fn action_path_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let speed = expect_args!(args, [real])?;
-        self.instance_list.get(context.this).path_speed.set(speed);
+        let instance = self.instance_list.get(context.this);
+        if context.relative {
+            instance.path_speed.set(speed + instance.path_speed.get());
+        } else {
+            instance.path_speed.set(speed);
+        }
         Ok(Default::default())
     }
 
