@@ -1763,9 +1763,9 @@ impl Game {
         if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
             let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>() as i32;
             let cond = match comparator {
-                0 => count == number,
                 1 => count < number,
-                2 | _ => count > number,
+                2 => count > number,
+                0 | _ => count == number,
             };
             Ok(cond.into())
         } else {
@@ -1848,9 +1848,9 @@ impl Game {
     pub fn action_if_variable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (lhs, rhs, comparator) = expect_args!(args, [any, any, int])?;
         let operator = match comparator {
-            0 => Value::gml_eq,
             1 => Value::gml_lt,
-            _ => Value::gml_gt,
+            2 => Value::gml_gt,
+            0 | _ => Value::gml_eq,
         };
         operator(lhs, rhs)
     }
@@ -1915,9 +1915,9 @@ impl Game {
         let (value, method) = expect_args!(args, [real, int])?;
 
         Ok(match method {
-            0 => self.health == value,
             1 => self.health < value,
-            2 | _ => self.health > value,
+            2 => self.health > value,
+            0 | _ => self.health == value,
         }
         .into())
     }
