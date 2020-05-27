@@ -1243,8 +1243,6 @@ impl Game {
             ))
         }
 
-        let speed = if context.relative { speed + instance.speed.get() } else { speed };
-
         // Only invoke RNG if at least one of the options is checked, otherwise don't do anything
         if bytes.contains(&49) {
             // Call irandom until it lands on a byte that's '1' rather than '0'
@@ -1257,17 +1255,23 @@ impl Game {
             };
 
             // Handle each case separately
-            match offset {
-                0 => instance.set_speed_direction(speed, 225.0),
-                1 => instance.set_speed_direction(speed, 270.0),
-                2 => instance.set_speed_direction(speed, 315.0),
-                3 => instance.set_speed_direction(speed, 180.0),
-                4 => instance.set_speed_direction(0.0, 0.0),
-                5 => instance.set_speed_direction(speed, 0.0),
-                6 => instance.set_speed_direction(speed, 135.0),
-                7 => instance.set_speed_direction(speed, 90.0),
-                8 => instance.set_speed_direction(speed, 45.0),
+            let (speed, direction) : (f64, f64) = match offset {
+                0 => (speed, 225.0),
+                1 => (speed, 270.0),
+                2 => (speed, 315.0),
+                3 => (speed, 180.0),
+                4 => (0.0, 0.0),
+                5 => (speed, 0.0),
+                6 => (speed, 135.0),
+                7 => (speed, 90.0),
+                8 => (speed, 45.0),
                 _ => unreachable!(),
+            };
+            if context.relative {
+                instance.set_hspeed(direction.to_radians().cos() * speed + instance.hspeed.get());
+                instance.set_vspeed(-direction.to_radians().sin() * speed + instance.vspeed.get());
+            } else {
+                instance.set_speed_direction(speed, direction);
             }
         }
 
