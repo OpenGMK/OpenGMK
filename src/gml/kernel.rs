@@ -4784,9 +4784,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_handle")
     }
 
-    pub fn show_debug_message(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function show_debug_message")
+    pub fn show_debug_message(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let message = expect_args!(args, [any])?;
+        println!("{}", message.repr());
+        Ok(Default::default())
     }
 
     pub fn set_program_priority(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
