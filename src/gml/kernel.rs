@@ -3743,34 +3743,57 @@ impl Game {
         unimplemented!("Called unimplemented kernel function file_attributes")
     }
 
-    pub fn filename_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function filename_name")
+    pub fn filename_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let full_path = expect_args!(args, [string])?;
+        if let Some(name) = full_path.rsplitn(2, '\\').next() {
+            Ok(name.to_string().into())
+        } else {
+            Ok(full_path.into())
+        }
     }
 
-    pub fn filename_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function filename_path")
+    pub fn filename_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let full_path = expect_args!(args, [string])?;
+        if let Some(bs) = full_path.rfind('\\') {
+            Ok(full_path[..bs+1].to_string().into())
+        } else {
+            Ok("".to_string().into())
+        }
     }
 
-    pub fn filename_dir(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function filename_dir")
+    pub fn filename_dir(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let full_path = expect_args!(args, [string])?;
+        if let Some(bs) = full_path.rfind('\\') {
+            Ok(full_path[..bs].to_string().into())
+        } else {
+            Ok("".to_string().into())
+        }
     }
 
-    pub fn filename_drive(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function filename_drive")
+    pub fn filename_drive(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let full_path = expect_args!(args, [string])?;
+        let drive = full_path.chars().take(2).collect::<String>();
+        if !drive.starts_with(':') && drive.ends_with(':') {
+            Ok(drive.into())
+        } else {
+            Ok("".to_string().into())
+        }
     }
 
-    pub fn filename_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function filename_ext")
+    pub fn filename_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let full_path = expect_args!(args, [string])?;
+        if let Some(dot) = full_path.rfind('.') {
+            Ok(full_path[dot..].to_string().into())
+        } else {
+            Ok("".to_string().into())
+        }
     }
 
-    pub fn filename_change_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function filename_change_ext")
+    pub fn filename_change_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (full_path, new_ext) = expect_args!(args, [string, string])?;
+        let mut new_path = full_path.rsplitn(2, '.').last().unwrap_or(&full_path).to_string();
+        new_path.push_str(&new_ext);
+        Ok(new_path.into())
     }
 
     pub fn export_include_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
