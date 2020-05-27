@@ -314,6 +314,14 @@ impl Value {
             (x, y) => invalid_op!(AssignSubtract, x.clone(), y),
         }
     }
+
+    pub fn repr(&self) -> String {
+        match self {
+            Value::Real(r) if r.fract() == 0.0 => format!("{:.0}", r),
+            Value::Real(r) => format!("{:.2}", r),
+            Value::Str(string) => string.to_string()
+        }
+    }
 }
 
 impl From<f64> for Value {
