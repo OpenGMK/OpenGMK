@@ -145,6 +145,15 @@ impl FileManager {
             _ => Err(Error::InvalidFile(handle)),
         }
     }
+
+    pub fn size(&mut self, handle: i32) -> Result<u64> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                Ok(f.file.stream_len()?)
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
 }
 
 pub fn exists(path: &str) -> bool {
