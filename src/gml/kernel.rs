@@ -1201,9 +1201,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_path_old")
     }
 
-    pub fn action_set_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_sprite")
+    pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite, scale) = expect_args!(args, [int, real])?;
+        let instance = self.instance_list.get(context.this);
+        instance.sprite_index.set(sprite);
+        instance.image_xscale.set(scale);
+        instance.image_yscale.set(scale);
+        Ok(Default::default())
     }
 
     pub fn action_draw_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1338,9 +1342,13 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_move_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_move_start")
+    pub fn action_move_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let instance = self.instance_list.get(context.this);
+        instance.x.set(instance.xstart.get());
+        instance.y.set(instance.ystart.get());
+        instance.bbox_is_stale.set(true);
+        Ok(Default::default())
     }
 
     pub fn action_move_random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1870,14 +1878,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_variable")
     }
 
-    pub fn action_set_score(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_score")
+    pub fn action_set_score(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let score = expect_args!(args, [int])?;
+        self.score = score;
+        Ok(Default::default())
     }
 
-    pub fn action_if_score(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_if_score")
+    pub fn action_if_score(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (value, method) = expect_args!(args, [real, int])?;
+
+        Ok(match method {
+            1 => (self.score as f64) < value,
+            2 => (self.score as f64) > value,
+            0 | _ => (self.score as f64) == value,
+        }
+        .into())
     }
 
     pub fn action_draw_score(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1895,14 +1910,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_highscore_clear")
     }
 
-    pub fn action_set_life(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_set_life")
+    pub fn action_set_life(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let lives = expect_args!(args, [int])?;
+        self.lives = lives;
+        Ok(Default::default())
     }
 
-    pub fn action_if_life(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_if_life")
+    pub fn action_if_life(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (value, method) = expect_args!(args, [real, int])?;
+
+        Ok(match method {
+            1 => (self.lives as f64) < value,
+            2 => (self.lives as f64) > value,
+            0 | _ => (self.lives as f64) == value,
+        }
+        .into())
     }
 
     pub fn action_draw_life(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2130,9 +2152,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_arrow")
     }
 
-    pub fn action_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_color")
+    pub fn action_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.draw_set_color(context, args)
     }
 
     pub fn action_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
