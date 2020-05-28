@@ -4786,8 +4786,24 @@ impl Game {
         unimplemented!("Called unimplemented kernel function external_call8")
     }
 
-    pub fn execute_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function execute_string")
+    pub fn execute_string(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        match self.compiler.compile(&_arg_into!(string, args[0])?) {
+            Ok(instrs) => {
+                let mut new_args: [Value; 16] = Default::default();
+                for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                    *dest = src.clone();
+                }
+                let mut new_context = Context {
+                    arguments: new_args,
+                    locals: DummyFieldHolder::new(),
+                    return_value: Default::default(),
+                    ..*context
+                };
+                self.execute(&instrs, &mut new_context)?;
+                Ok(new_context.return_value)
+            },
+            Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+        }
     }
 
     pub fn execute_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
