@@ -665,9 +665,9 @@ impl Game {
 
     pub fn draw_set_halign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         self.draw_halign = match expect_args!(args, [int])? {
-            0 => draw::Halign::Left,
             1 => draw::Halign::Middle,
-            2 | _ => draw::Halign::Right,
+            2 => draw::Halign::Right,
+            0 | _ => draw::Halign::Left,
         };
         Ok(Default::default())
     }
