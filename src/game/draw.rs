@@ -329,8 +329,13 @@ impl Game {
         while let Some(c) = iter.next() {
             // First, get the next character we're going to be processing
             let character = match c {
-                '#' => {
+                '#' | '\r' | '\n' => {
                     // '#' is a newline character, don't process it but start a new line instead
+                    // Likewise CR, LF, and CRLF
+                    if c == '\r' && iter.peek() == Some(&'\n') {
+                        // CRLF only counts as one line break so consume the LF
+                        iter.next();
+                    }
                     cursor_x = start_x;
                     cursor_y += line_height;
                     continue

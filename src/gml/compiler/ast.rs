@@ -378,6 +378,9 @@ impl<'a> AST<'a> {
 
                     Keyword::While => {
                         let cond = AST::read_binary_tree(lex, None, false)?;
+                        if lex.peek() == Some(&Token::Keyword(Keyword::Do)) {
+                            lex.next();
+                        }
                         let body = AST::read_line(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'while' condition".to_string()))?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
