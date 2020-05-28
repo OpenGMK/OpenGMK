@@ -156,8 +156,9 @@ impl FileManager {
     }
 }
 
-pub fn exists(path: &str) -> bool {
-    Path::new(path).exists()
+pub fn file_exists(path: &str) -> bool {
+    Path::new(path).is_file()
+}
 }
 
 pub fn delete(path: &str) -> Result<()> {

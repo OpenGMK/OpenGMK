@@ -3690,7 +3690,7 @@ impl Game {
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::exists(&s).into(),
+            Value::Str(s) => file::file_exists(&s).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
