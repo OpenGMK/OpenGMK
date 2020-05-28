@@ -3669,7 +3669,7 @@ impl Game {
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::exists(&s).into(),
+            Value::Str(s) => file::file_exists(&s).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
@@ -3682,24 +3682,37 @@ impl Game {
         }
     }
 
-    pub fn file_rename(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_rename")
+    pub fn file_rename(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (from, to) = expect_args!(args, [string, string])?;
+        if file::rename(&from, &to).is_err() {
+            // Fail silently
+            eprintln!("Warning (file_rename): could not rename {} to {}", from, to);
+        }
+        Ok(Default::default())
     }
 
-    pub fn file_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_copy")
+    pub fn file_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (from, to) = expect_args!(args, [string, string])?;
+        if file::copy(&from, &to).is_err() {
+            // Fail silently
+            eprintln!("Warning (file_copy): could not copy {} to {}", from, to);
+        }
+        Ok(Default::default())
     }
 
-    pub fn directory_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function directory_exists")
+    pub fn directory_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [any]).map(|x| match x {
+            Value::Str(s) => file::dir_exists(&s).into(),
+            Value::Real(_) => gml::FALSE.into(),
+        })
     }
 
-    pub fn directory_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function directory_create")
+    pub fn directory_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path = expect_args!(args, [string])?;
+        match file::dir_create(&path) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("directory_create", e.into())),
+        }
     }
 
     pub fn file_find_first(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

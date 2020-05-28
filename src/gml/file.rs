@@ -156,10 +156,34 @@ impl FileManager {
     }
 }
 
-pub fn exists(path: &str) -> bool {
-    Path::new(path).exists()
+pub fn file_exists(path: &str) -> bool {
+    Path::new(path).is_file()
+}
+
+pub fn rename(from: &str, to: &str) -> Result<()> {
+    if !Path::new(to).exists() {
+        std::fs::rename(from, to)?;
+    }
+    Ok(())
+}
+
+pub fn copy(from: &str, to: &str) -> Result<()> {
+    std::fs::copy(from, to)?;
+    Ok(())
+}
+
+pub fn dir_exists(path: &str) -> bool {
+    Path::new(path).is_dir()
+}
+
+pub fn dir_create(path: &str) -> Result<()> {
+    std::fs::create_dir_all(path)?;
+    Ok(())
 }
 
 pub fn delete(path: &str) -> Result<()> {
-    std::fs::remove_file(path).map_err(|x| x.into())
+    if Path::new(path).exists() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
 }
