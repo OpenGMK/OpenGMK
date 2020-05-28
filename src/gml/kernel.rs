@@ -2069,29 +2069,10 @@ impl Game {
     }
 
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_id, x, y, image_index) = expect_args!(args, [any, real, real, any])?;
         let instance = self.instance_list.get(context.this);
         let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
-
-        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
-            {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    util::ieee_round(x),
-                    util::ieee_round(y),
-                    1.0,
-                    1.0,
-                    0.0,
-                    0xFFFFFF,
-                    1.0,
-                );
-            }
-            Ok(Default::default())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
-        }
+        self.draw_sprite(context, &[sprite_id, image_index, x.into(), y.into()])
     }
 
     pub fn action_draw_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
