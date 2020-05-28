@@ -1545,9 +1545,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_sprite_transform")
     }
 
-    pub fn action_sprite_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_sprite_color")
+    pub fn action_sprite_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (col, alpha) = expect_args!(args, [int, real])?;
+        let instance = self.instance_list.get(context.this);
+        instance.image_blend.set(col);
+        instance.image_alpha.set(alpha);
+        Ok(Default::default())
     }
 
     pub fn action_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1793,9 +1796,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_question")
     }
 
-    pub fn action_if_dice(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_dice")
+    pub fn action_if_dice(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bound = expect_args!(args, [real])?;
+        Ok((self.rand.next(bound)<1.0).into())
     }
 
     pub fn action_if_mouse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2107,9 +2110,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_background")
     }
 
-    pub fn action_draw_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_text")
+    pub fn action_draw_text(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (text, mut x, mut y) = expect_args!(args, [any, real, real])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x+=instance.x.get();
+            y+=instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), text])
     }
 
     pub fn action_draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2156,9 +2164,18 @@ impl Game {
         self.draw_set_color(context, args)
     }
 
-    pub fn action_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_font")
+    pub fn action_font(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (font_id, align) = expect_args!(args, [int, int])?;
+        if self.draw_font_id != font_id {
+            self.draw_font = self.assets.fonts.get_asset(font_id).map(|x| x.as_ref().clone());
+            self.draw_font_id = font_id;
+        }
+        self.draw_halign = match align {
+            1 => draw::Halign::Middle,
+            2 => draw::Halign::Right,
+            0 | _ => draw::Halign::Left,
+        };
+        Ok(Default::default())
     }
 
     pub fn action_fullscreen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
