@@ -1870,9 +1870,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_variable")
     }
 
-    pub fn action_set_score(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let score = expect_args!(args, [int])?;
-        self.score = score;
+        if context.relative {
+            self.score += score;
+        } else {
+            self.score = score;
+        }
         Ok(Default::default())
     }
 
@@ -1902,9 +1906,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_highscore_clear")
     }
 
-    pub fn action_set_life(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let lives = expect_args!(args, [int])?;
-        self.lives = lives;
+        if context.relative {
+            self.lives += lives;
+        } else {
+            self.lives = lives;
+        }
         Ok(Default::default())
     }
 
