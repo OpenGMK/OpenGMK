@@ -1048,7 +1048,7 @@ impl Game {
                     instance.path_position.set(new_position);
                 }
 
-                // Update the instance's actual position based on its new path_position
+                // Figure out the new coordinates for this instance based on its path_position and path vars
                 let mut point = path.get_point(instance.path_position.get());
                 point.x -= path.start.x;
                 point.y -= path.start.y;
@@ -1057,8 +1057,12 @@ impl Game {
                 let angle = instance.path_orientation.get().to_radians();
                 util::rotate_around(&mut point.x, &mut point.y, 0.0, 0.0, angle.sin(), angle.cos());
 
-                instance.x.set(point.x + instance.path_xstart.get());
-                instance.y.set(point.y + instance.path_ystart.get());
+                // Update the instance's x, y and direction
+                let new_x = point.x + instance.path_xstart.get();
+                let new_y = point.y + instance.path_ystart.get();
+                instance.set_direction((instance.y.get() - new_y).atan2(new_x - instance.x.get()).to_degrees());
+                instance.x.set(new_x);
+                instance.y.set(new_y);
                 instance.path_pointspeed.set(point.speed);
                 instance.bbox_is_stale.set(true);
             }
