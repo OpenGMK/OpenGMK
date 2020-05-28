@@ -68,9 +68,7 @@ pub struct Game {
     pub room_height: i32,
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
-
-    pub scene_change: bool,      // Whether a scene change (room change or game end) is requested
-    pub room_target: Option<ID>, // The requested room change, if any
+    pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
 
     pub globals: DummyFieldHolder,
     pub game_start: bool,
@@ -111,6 +109,14 @@ pub struct Game {
     unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_height: u32,
+}
+
+// Various different types of scene change which can be requested by GML
+#[derive(Clone, Copy)]
+pub enum SceneChange {
+    Room(ID), // Go to the specified room
+    Restart,  // Restart the game and go to the first room
+    End,      // End the game
 }
 
 pub struct Assets {
@@ -720,8 +726,7 @@ impl Game {
             room_height: room1_height as i32,
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
-            scene_change: false,
-            room_target: None,
+            scene_change: None,
             globals: DummyFieldHolder::new(),
             game_start: true,
             draw_font: None,
@@ -836,8 +841,7 @@ impl Game {
         self.room_height = room.height as _;
         self.room_speed = room.speed;
         self.caption = room.caption;
-        self.scene_change = false;
-        self.room_target = None;
+        self.scene_change = None;
         self.input_manager.clear_presses();
 
         // Load all tiles in new room
@@ -900,12 +904,12 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
-        if self.scene_change {
-            if let Some(target) = self.room_target {
+        if let Some(change) = self.scene_change {
+            if let SceneChange::Room(target) = change {
                 // A room change has been requested during this room change, so let's recurse...
                 self.load_room(target)
             } else {
-                // Game was ended during room change, so just quit
+                // Natural game end or restart happened during room change, so just quit
                 Ok(())
             }
         } else {
@@ -913,6 +917,19 @@ impl Game {
             self.draw()?;
             Ok(())
         }
+    }
+
+    /// Restarts the game in the same half-baked way GM8 does, including running all relevant events.
+    pub fn restart(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Room end, game end events
+        self.run_game_end_events()?;
+
+        // Clear some stored variables
+        self.instance_list = InstanceList::new();
+        self.globals = DummyFieldHolder::new();
+
+        // Go to first room
+        self.load_room(self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?)
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
@@ -927,7 +944,7 @@ impl Game {
 
         // Begin step event
         self.run_object_event(ev::STEP, 1, None)?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
@@ -955,36 +972,36 @@ impl Game {
 
         // Alarm events
         self.run_alarms()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         // Key events
         self.run_keyboard_events()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         self.run_mouse_events()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         // Key press events
         self.run_key_press_events()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         // Key release events
         self.run_key_release_events()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
@@ -993,7 +1010,7 @@ impl Game {
 
         // Outside room, intersect boundary, outside/intersect view
         self.run_bound_events()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
@@ -1075,13 +1092,13 @@ impl Game {
 
         // Run collision events
         self.run_collisions()?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
         // End step event
         self.run_object_event(ev::STEP, 2, None)?;
-        if self.scene_change {
+        if self.scene_change.is_some() {
             return Ok(())
         }
 
@@ -1209,14 +1226,11 @@ impl Game {
             }
 
             self.frame()?;
-            if self.scene_change {
-                if let Some(target) = self.room_target {
-                    // Room change
-                    self.load_room(target)?;
-                } else {
-                    // Game end
-                    break Ok(self.run_game_end_events()?)
-                }
+            match self.scene_change {
+                Some(SceneChange::Room(id)) => self.load_room(id)?,
+                Some(SceneChange::Restart) => self.restart()?,
+                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
+                None => (),
             }
 
             // exit if X pressed or game_end() invoked
@@ -1259,14 +1273,11 @@ impl Game {
             }
 
             self.frame()?;
-            if self.scene_change {
-                if let Some(target) = self.room_target {
-                    // Room change
-                    self.load_room(target)?;
-                } else {
-                    // Game end
-                    break Ok(self.run_game_end_events()?)
-                }
+            match self.scene_change {
+                Some(SceneChange::Room(id)) => self.load_room(id)?,
+                Some(SceneChange::Restart) => self.restart()?,
+                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
+                None => (),
             }
 
             // exit if X pressed or game_end() invoked

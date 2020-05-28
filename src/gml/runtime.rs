@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{Game, GetAsset},
+    game::{Game, GetAsset, SceneChange},
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
@@ -1137,10 +1137,7 @@ impl Game {
             InstanceVariable::Argument14 => self.set_argument(context, 14, value)?,
             InstanceVariable::Argument15 => self.set_argument(context, 15, value)?,
             InstanceVariable::Argument => self.set_argument(context, array_index as usize, value)?,
-            InstanceVariable::Room => {
-                self.scene_change = true;
-                self.room_target = Some(value.into())
-            },
+            InstanceVariable::Room => self.scene_change = Some(SceneChange::Room(value.into())),
             InstanceVariable::TransitionKind => self.transition_kind = value.into(),
             InstanceVariable::TransitionSteps => self.transition_steps = value.into(),
             InstanceVariable::Score => self.score = value.into(),

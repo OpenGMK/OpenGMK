@@ -4,7 +4,7 @@
 
 use crate::{
     asset,
-    game::{draw, Game, GetAsset},
+    game::{draw, Game, GetAsset, SceneChange},
     gml::{self, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Instance},
@@ -1571,15 +1571,13 @@ impl Game {
 
     pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (room_id, _transition) = expect_args!(args, [int, int])?;
-        self.scene_change = true;
-        self.room_target = Some(room_id);
+        self.scene_change = Some(SceneChange::Room(room_id));
         Ok(Default::default())
     }
 
     pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let _transition = expect_args!(args, [int])?;
-        self.scene_change = true;
-        self.room_target = Some(self.room_id);
+        self.scene_change = Some(SceneChange::Room(self.room_id));
         Ok(Default::default())
     }
 
@@ -3328,8 +3326,7 @@ impl Game {
 
     pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let target = expect_args!(args, [int])?;
-        self.scene_change = true;
-        self.room_target = Some(target);
+        self.scene_change = Some(SceneChange::Room(target));
         Ok(Default::default())
     }
 
@@ -3343,8 +3340,7 @@ impl Game {
             .and_then(|x| self.room_order.get(x).copied())
         {
             Some(i) => {
-                self.scene_change = true;
-                self.room_target = Some(i);
+                self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
             None => Err(gml::Error::EndOfRoomOrder),
@@ -3356,8 +3352,7 @@ impl Game {
         match self.room_order.iter().position(|x| *x == self.room_id).and_then(|x| self.room_order.get(x + 1).copied())
         {
             Some(i) => {
-                self.scene_change = true;
-                self.room_target = Some(i);
+                self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
             None => Err(gml::Error::EndOfRoomOrder),
@@ -3380,28 +3375,12 @@ impl Game {
     }
 
     pub fn game_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.scene_change = true;
-        self.room_target = None;
+        self.scene_change = Some(SceneChange::End);
         Ok(Default::default())
     }
 
     pub fn game_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.run_game_end_events()?;
-
-        // Delete everything
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.instance_list.mark_deleted(instance);
-        }
-
-        // Clear globals (Note: Studio onwards doesn't do this, but GM8 does)
-        self.globals.fields.clear();
-        self.globals.vars.clear();
-
-        // Go to room 1
-        self.game_start = true;
-        self.scene_change = true;
-        self.room_target = Some(self.room_order.first().copied().ok_or(gml::Error::EndOfRoomOrder)?);
+        self.scene_change = Some(SceneChange::Restart);
         Ok(Default::default())
     }
 
