@@ -161,5 +161,8 @@ pub fn exists(path: &str) -> bool {
 }
 
 pub fn delete(path: &str) -> Result<()> {
-    std::fs::remove_file(path).map_err(|x| x.into())
+    if Path::new(path).exists() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
 }
