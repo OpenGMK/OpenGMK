@@ -4768,22 +4768,27 @@ impl Game {
     }
 
     pub fn execute_string(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        match self.compiler.compile(&_arg_into!(string, args[0])?) {
-            Ok(instrs) => {
-                let mut new_args: [Value; 16] = Default::default();
-                for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
-                    *dest = src.clone();
-                }
-                let mut new_context = Context {
-                    arguments: new_args,
-                    locals: DummyFieldHolder::new(),
-                    return_value: Default::default(),
-                    ..*context
-                };
-                self.execute(&instrs, &mut new_context)?;
-                Ok(new_context.return_value)
-            },
-            Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+        if let Some(Value::Str(code)) = args.get(0) {
+            match self.compiler.compile(code) {
+                Ok(instrs) => {
+                    let mut new_args: [Value; 16] = Default::default();
+                    for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                        *dest = src.clone();
+                    }
+                    let mut new_context = Context {
+                        arguments: new_args,
+                        locals: DummyFieldHolder::new(),
+                        return_value: Default::default(),
+                        ..*context
+                    };
+                    self.execute(&instrs, &mut new_context)?;
+                    Ok(new_context.return_value)
+                },
+                Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+            }
+        } else {
+            // eg execute_string(42) - does nothing, returns 0
+            Ok(Default::default())
         }
     }
 
