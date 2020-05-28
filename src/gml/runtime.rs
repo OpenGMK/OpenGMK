@@ -839,7 +839,7 @@ impl Game {
             InstanceVariable::Argument14 => self.get_argument(context, 14),
             InstanceVariable::Argument15 => self.get_argument(context, 15),
             InstanceVariable::Argument => self.get_argument(context, array_index as usize),
-            InstanceVariable::ArgumentCount => Ok(context.arguments.len().into()),
+            InstanceVariable::ArgumentCount => Ok(context.argument_count.into()),
             InstanceVariable::Room => Ok(self.room_id.into()),
             InstanceVariable::RoomFirst => match self.room_order.get(0) {
                 Some(room) => Ok((*room).into()),

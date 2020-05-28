@@ -2080,29 +2080,10 @@ impl Game {
     }
 
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_id, x, y, image_index) = expect_args!(args, [any, real, real, any])?;
         let instance = self.instance_list.get(context.this);
         let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
-
-        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
-            {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    util::ieee_round(x),
-                    util::ieee_round(y),
-                    1.0,
-                    1.0,
-                    0.0,
-                    0xFFFFFF,
-                    1.0,
-                );
-            }
-            Ok(Default::default())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
-        }
+        self.draw_sprite(context, &[sprite_id, image_index, x.into(), y.into()])
     }
 
     pub fn action_draw_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4811,8 +4792,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function external_call8")
     }
 
-    pub fn execute_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function execute_string")
+    pub fn execute_string(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(Value::Str(code)) = args.get(0) {
+            match self.compiler.compile(code) {
+                Ok(instrs) => {
+                    let mut new_args: [Value; 16] = Default::default();
+                    for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                        *dest = src.clone();
+                    }
+                    let mut new_context = Context {
+                        arguments: new_args,
+                        locals: DummyFieldHolder::new(),
+                        return_value: Default::default(),
+                        ..*context
+                    };
+                    self.execute(&instrs, &mut new_context)?;
+                    Ok(new_context.return_value)
+                },
+                Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+            }
+        } else {
+            // eg execute_string(42) - does nothing, returns 0
+            Ok(Default::default())
+        }
     }
 
     pub fn execute_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
