@@ -3545,7 +3545,11 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match self.file_manager.open(&filename, file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_read", e.into())),
+            Err(e) => {
+                let err_str: String = e.into();
+                println!("Warning: file_text_open_read on {} failed: {}", filename, err_str);
+                Ok(Value::Real(-1.0))
+            },
         }
     }
 
