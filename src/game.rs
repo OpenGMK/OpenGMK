@@ -262,6 +262,10 @@ impl Game {
                     let (w, h) = b.frames.first().map_or((0, 0), |f| (f.width, f.height));
                     let origin_x = b.origin_x;
                     let origin_y = b.origin_y;
+                    let bbox_left = b.colliders.iter().map(|x| x.bbox_left).min().unwrap_or(0);
+                    let bbox_right = b.colliders.iter().map(|x| x.bbox_right).min().unwrap_or(0);
+                    let bbox_top = b.colliders.iter().map(|x| x.bbox_top).min().unwrap_or(0);
+                    let bbox_bottom = b.colliders.iter().map(|x| x.bbox_bottom).min().unwrap_or(0);
                     Ok(Box::new(Sprite {
                         name: b.name.into(),
                         frames: b
@@ -295,6 +299,10 @@ impl Game {
                         origin_x,
                         origin_y,
                         per_frame_colliders: b.per_frame_colliders,
+                        bbox_left,
+                        bbox_right,
+                        bbox_top,
+                        bbox_bottom,
                     }))
                 })
                 .transpose()
