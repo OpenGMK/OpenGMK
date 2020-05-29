@@ -118,8 +118,8 @@ impl FileManager {
                 let mut period_seen = false;
                 let mut nonspace_seen = false;
                 let mut bytes = read_until(&mut f.file, |b| {
-                    // If you read spaces at first skip them
-                    if b == 0x20 {
+                    // If you read spaces or dashes at the start, skip them
+                    if b == 0x20 || b == 0x2d {
                         if nonspace_seen {
                             return true;
                         } else {
@@ -127,6 +127,7 @@ impl FileManager {
                         }
                     }
                     nonspace_seen = true;
+                    // Comma or period
                     if b == 0x2e || b == 0x2c {
                         if period_seen {
                             true
@@ -153,7 +154,18 @@ impl FileManager {
                         bytes.pop();
                     }
                 }
-                let text = String::from_utf8_lossy(bytes.as_slice()).trim_start().replace(",", ".");
+                let mut text = String::from_utf8_lossy(bytes.as_slice()).replace(",", ".");
+                // Remove spaces and all dashes but one
+                let mut minus_seen = false;
+                text.retain(|c| {
+                        if c == '-' {
+                            if minus_seen {
+                                return false;
+                            }
+                            minus_seen = true;
+                        }
+                        c != ' '
+                });
                 text.parse().or(Ok(0.0))
             },
             _ => Err(Error::InvalidFile(handle)),
