@@ -237,14 +237,10 @@ impl Instance {
                 let y = self.y.get();
                 let xscale = self.image_xscale.get();
                 let yscale = self.image_yscale.get();
-                let mut top_left_x = (x - (origin_x * xscale)) + ((collider.bbox_left as f64) * xscale);
-                let mut top_left_y = (y - (origin_y * yscale)) + ((collider.bbox_top as f64) * yscale);
-                let mut bottom_right_x = top_left_x
-                    + ((((collider.bbox_right as i32) + 1 - (collider.bbox_left as i32)) as f64) * xscale)
-                    - 1.0;
-                let mut bottom_right_y = top_left_y
-                    + ((((collider.bbox_bottom as i32) + 1 - (collider.bbox_top as i32)) as f64) * yscale)
-                    - 1.0;
+                let mut top_left_x = x - (origin_x * xscale);
+                let mut top_left_y = y - (origin_y * yscale);
+                let mut bottom_right_x = top_left_x + (collider.width as f64 * xscale) - 1.0;
+                let mut bottom_right_y = top_left_y + (collider.height as f64 * yscale) - 1.0;
 
                 // Make sure left/right and top/bottom are the right way around
                 if xscale <= 0.0 {
