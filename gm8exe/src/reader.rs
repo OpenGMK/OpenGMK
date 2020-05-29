@@ -338,7 +338,11 @@ where
 
         log!(logger, "   - Treat uninitialized variables as value 0: {}", zero_uninitialized_vars);
 
-        log!(logger, "   - Throw an error when arguments aren't initialized correctly: {}", error_on_uninitialized_args);
+        log!(
+            logger,
+            "   - Throw an error when arguments aren't initialized correctly: {}",
+            error_on_uninitialized_args
+        );
 
         Settings {
             fullscreen,
