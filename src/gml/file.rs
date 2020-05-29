@@ -13,14 +13,7 @@ pub struct FileManager {
 #[derive(Debug)]
 pub struct Handle {
     file: File,
-    access_type: AccessType,
     content: Content,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AccessType {
-    Read,
-    Write,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -59,30 +52,18 @@ impl FileManager {
         Self { handles: Default::default() }
     }
 
-    pub fn open(&mut self, path: &str, access_type: AccessType, content: Content, append: bool) -> Result<i32> {
-        let file = match (access_type, content) {
-            (AccessType::Read, _) => File::open(path)?,
-            (AccessType::Write, Content::Text) => File::create(path)?,
-            (AccessType::Write, Content::Binary) => {
-                let buf = {
-                    let mut buf = Vec::new();
-                    if let Ok(mut f) = File::open(path) {
-                        f.read_to_end(&mut buf)?;
-                    }
-                    buf
-                };
-                let mut f = File::create(path)?;
-                f.write_all(&buf)?;
-                if !append {
-                    f.seek(io::SeekFrom::Start(0))?;
-                }
-                f
-            },
-        };
+    pub fn open(&mut self, path: &str, content: Content, read: bool, write: bool, append: bool) -> Result<i32> {
+        let file = File::with_options()
+            .create(!read)
+            .read(read)
+            .write(write)
+            .append(append)
+            .truncate(content == Content::Text && write && !append)
+            .open(path)?;
 
         match self.handles.iter_mut().enumerate().find(|(_, x)| x.is_none()) {
             Some((i, handle)) => {
-                *handle = Some(Handle { file, access_type, content });
+                *handle = Some(Handle { file, content });
                 Ok((i + 1) as i32)
             },
             None => Err(Error::OutOfFiles),

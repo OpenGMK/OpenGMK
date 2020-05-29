@@ -3477,12 +3477,12 @@ impl Game {
 
     pub fn file_bin_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (filename, mode) = expect_args!(args, [string, int])?;
-        let result = match mode {
-            0 => self.file_manager.open(&filename, file::AccessType::Read, file::Content::Binary, false),
-            1 => self.file_manager.open(&filename, file::AccessType::Write, file::Content::Binary, false),
-            2 | _ => todo!(), // both read and write allowed, Rust can't do this...
+        let (read, write) = match mode {
+            0 => (true, false),
+            1 => (false, true),
+            2 | _ => (true, true),
         };
-        match result {
+        match self.file_manager.open(&filename, file::Content::Binary, read, write, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open", e.into())),
         }
@@ -3543,7 +3543,7 @@ impl Game {
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Read, file::Content::Text, false) {
+        match self.file_manager.open(&filename, file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_read", e.into())),
         }
@@ -3551,7 +3551,7 @@ impl Game {
 
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Write, file::Content::Text, false) {
+        match self.file_manager.open(&filename, file::Content::Text, false, true, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write", e.into())),
         }
@@ -3559,9 +3559,9 @@ impl Game {
 
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Write, file::Content::Text, true) {
+        match self.file_manager.open(&filename, file::Content::Text, false, true, true) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_write", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_append", e.into())),
         }
     }
 
@@ -3569,7 +3569,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
             Ok(()) => Ok(Value::Real(0.0)),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_close", e.into())),
         }
     }
 
