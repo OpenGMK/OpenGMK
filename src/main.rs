@@ -12,13 +12,19 @@ pub mod collision;
 pub mod gmk;
 pub mod zlib;
 
-const BUILD_DATE: &str = env!("BUILD_DATE");
-const COMMIT_HASH: &str = env!("GIT_HASH");
-const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+static INFO_STRING: &str = concat!(
+    "GM8Decompiler v",
+    env!("CARGO_PKG_VERSION"),
+    " for ",
+    env!("TARGET_TRIPLE"),
+    " - built on ",
+    env!("BUILD_DATE"),
+    ", #",
+    env!("GIT_HASH"),
+);
 
 fn main() {
-    println!("GM8Decompiler v{} for {} - built on {}, #{}", VERSION, TARGET_TRIPLE, BUILD_DATE, COMMIT_HASH);
+    println!("{}", INFO_STRING);
 
     let args: Vec<String> = env::args().collect();
     assert!(!args.is_empty());
