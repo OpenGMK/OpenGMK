@@ -4846,8 +4846,22 @@ impl Game {
         }
     }
 
-    pub fn execute_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function execute_file")
+    pub fn execute_file(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(Value::Str(path)) = args.get(0) {
+            let mut new_args: [Value; 16] = Default::default();
+            for (src, dest) in args.iter().zip(new_args.iter_mut()) {
+                *dest = src.clone();
+            }
+            match std::fs::read_to_string(path.to_string()) {
+                Ok(code) => {
+                    new_args[0] = code.into();
+                    self.execute_string(context, &new_args)
+                },
+                Err(e) => Err(gml::Error::FunctionError("execute_file", format!("{}", e))),
+            }
+        } else {
+            Err(gml::Error::FunctionError("execute_file", "Trying to execute a number.".to_string()))
+        }
     }
 
     pub fn window_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
