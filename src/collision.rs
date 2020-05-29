@@ -34,8 +34,8 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     // Each map has its own bounds, so we need to find out the outmost bounds
     let left = maps.iter().min_by(|x, y| x.bbox_left.cmp(&y.bbox_left))?.bbox_left;
     let right = maps.iter().max_by(|x, y| x.bbox_right.cmp(&y.bbox_right))?.bbox_right;
-    let bottom = maps.iter().min_by(|x, y| x.bbox_bottom.cmp(&y.bbox_bottom))?.bbox_bottom;
-    let top = maps.iter().max_by(|x, y| x.bbox_top.cmp(&y.bbox_top))?.bbox_top;
+    let bottom = maps.iter().max_by(|x, y| x.bbox_bottom.cmp(&y.bbox_bottom))?.bbox_bottom;
+    let top = maps.iter().min_by(|x, y| x.bbox_top.cmp(&y.bbox_top))?.bbox_top;
 
     // Little helper function for later
     fn alpha_at(frame: &Frame, x: u32, y: u32) -> Option<u8> {
