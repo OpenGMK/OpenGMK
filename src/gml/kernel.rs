@@ -4710,19 +4710,24 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn event_perform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function event_perform")
+    pub fn event_perform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (event_type, event_number) = expect_args!(args, [int, int])?;
+        self.run_instance_event(event_type as _, event_number as _, context.this, context.other, None)?;
+        Ok(Default::default())
     }
 
-    pub fn event_user(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function event_user")
+    pub fn event_user(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let number = expect_args!(args, [int])?;
+        if number >= 0 && number <= 15 {
+            self.run_instance_event(7, (10 + number) as _, context.this, context.other, None)?;
+        }
+        Ok(Default::default())
     }
 
-    pub fn event_perform_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function event_perform_object")
+    pub fn event_perform_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object, event_type, event_number) = expect_args!(args, [int, int, int])?;
+        self.run_instance_event(event_type as _, event_number as _, context.this, context.other, Some(object))?;
+        Ok(Default::default())
     }
 
     pub fn external_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
