@@ -376,7 +376,7 @@ impl Compiler {
     }
 
     /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
-    fn get_field_id(&mut self, name: &str) -> usize {
+    pub fn get_field_id(&mut self, name: &str) -> usize {
         if let Some(i) = self.fields.iter().position(|x| x == name) {
             i
         } else {
