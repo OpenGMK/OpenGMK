@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, Read, Seek, Write},
+    io::{self, Read, Seek, Write, SeekFrom},
     path::Path,
 };
 pub type Result<T> = std::result::Result<T, Error>;
@@ -13,14 +13,7 @@ pub struct FileManager {
 #[derive(Debug)]
 pub struct Handle {
     file: File,
-    access_type: AccessType,
     content: Content,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AccessType {
-    Read,
-    Write,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -54,35 +47,47 @@ impl From<Error> for String {
     }
 }
 
+// Helper functions
+
+fn read_until<P>(file: &mut File, mut end_pred: P) -> Result<Vec<u8>> where P: FnMut(u8) -> bool {
+    let mut out = Vec::new();
+    for byte_maybe in file.bytes() {
+        let byte = byte_maybe?;
+        out.push(byte);
+        if end_pred(byte) {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+// Returns Ok(false) on EOF
+fn skip_until<P>(file: &mut File, end_pred: P) -> Result<bool> where P: Fn(u8) -> bool {
+    for byte in file.bytes() {
+        if end_pred(byte?) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 impl FileManager {
     pub fn new() -> Self {
         Self { handles: Default::default() }
     }
 
-    pub fn open(&mut self, path: &str, access_type: AccessType, content: Content, append: bool) -> Result<i32> {
-        let file = match (access_type, content) {
-            (AccessType::Read, _) => File::open(path)?,
-            (AccessType::Write, Content::Text) => File::create(path)?,
-            (AccessType::Write, Content::Binary) => {
-                let buf = {
-                    let mut buf = Vec::new();
-                    if let Ok(mut f) = File::open(path) {
-                        f.read_to_end(&mut buf)?;
-                    }
-                    buf
-                };
-                let mut f = File::create(path)?;
-                f.write_all(&buf)?;
-                if !append {
-                    f.seek(io::SeekFrom::Start(0))?;
-                }
-                f
-            },
-        };
+    pub fn open(&mut self, path: &str, content: Content, read: bool, write: bool, append: bool) -> Result<i32> {
+        let file = File::with_options()
+            .create(!read)
+            .read(read)
+            .write(write)
+            .append(append)
+            .truncate(content == Content::Text && write && !append)
+            .open(path)?;
 
         match self.handles.iter_mut().enumerate().find(|(_, x)| x.is_none()) {
             Some((i, handle)) => {
-                *handle = Some(Handle { file, access_type, content });
+                *handle = Some(Handle { file, content });
                 Ok((i + 1) as i32)
             },
             None => Err(Error::OutOfFiles),
@@ -103,6 +108,131 @@ impl FileManager {
             }
         } else {
             Ok(())
+        }
+    }
+
+    pub fn read_real(&mut self, handle: i32) -> Result<f64> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                // Read digits and at most one period or comma, plus one extra character
+                let mut period_seen = false;
+                let mut nonspace_seen = false;
+                let mut bytes = read_until(&mut f.file, |b| {
+                    // If you read spaces or dashes at the start, skip them
+                    if b == 0x20 || b == 0x2d {
+                        if nonspace_seen {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                    nonspace_seen = true;
+                    // Comma or period
+                    if b == 0x2e || b == 0x2c {
+                        if period_seen {
+                            true
+                        } else {
+                            period_seen = true;
+                            false
+                        }
+                    } else {
+                        b < 0x30 || b > 0x39
+                    }
+                })?;
+                // read_until leaves a trailing character, so remove that
+                if let Some(&b) = bytes.last() {
+                    if b < 0x30 || b > 0x39 {
+                        // Remove the trailing character and step back if it's a CR
+                        if bytes.pop().unwrap() == 0x0d {
+                            f.file.seek(SeekFrom::Current(-1))?;
+                        }
+                    }
+                }
+                // Having done that, there may still be a trailing dot, so remove that
+                if let Some(&b) = bytes.last() {
+                    if b == 0x2e || b == 0x2c {
+                        bytes.pop();
+                    }
+                }
+                let mut text = String::from_utf8_lossy(bytes.as_slice()).replace(",", ".");
+                // Remove spaces and all dashes but one
+                let mut minus_seen = false;
+                text.retain(|c| {
+                        if c == '-' {
+                            if minus_seen {
+                                return false;
+                            }
+                            minus_seen = true;
+                        }
+                        c != ' '
+                });
+                text.parse().or(Ok(0.0))
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
+
+    pub fn read_string(&mut self, handle: i32) -> Result<String> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                let mut bytes = read_until(&mut f.file, |c| c == 0x0a)?;
+                if bytes.last() == Some(&0x0a) { // LF
+                    bytes.pop();
+                    f.file.seek(SeekFrom::Current(-1))?;
+                    if bytes.last() == Some(&0x0d) { // CR
+                        bytes.pop();
+                        f.file.seek(SeekFrom::Current(-1))?;
+                    }
+                }
+                Ok(String::from_utf8_lossy(bytes.as_slice()).into())
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
+
+    pub fn write_string(&mut self, handle: i32, text: &str) -> Result<()> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                f.file.write_all(text.as_bytes())?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
+
+    pub fn skip_line(&mut self, handle: i32) -> Result<()> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                skip_until(&mut f.file, |c| c == 0x0a)?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
+
+    pub fn is_eof(&mut self, handle: i32) -> Result<bool> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                let mut buf: [u8; 1] = [0];
+                let last_pos = f.file.stream_position()?;
+                let bytes_read = f.file.read(&mut buf)?;
+                f.file.seek(SeekFrom::Start(last_pos))?;
+                Ok(bytes_read == 0)
+            },
+            _ => Err(Error::InvalidFile(handle)),
+        }
+    }
+
+    pub fn is_eoln(&mut self, handle: i32) -> Result<bool> {
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(Some(f)) => {
+                let mut buf: [u8; 2] = [0, 0];
+                let last_pos = f.file.stream_position()?;
+                let bytes_read = f.file.read(&mut buf)?;
+                f.file.seek(SeekFrom::Start(last_pos))?;
+                Ok(bytes_read == 0 || (buf[0] == 0x0d && buf[1] == 0x0a))
+            },
+            _ => Err(Error::InvalidFile(handle)),
         }
     }
 
@@ -139,7 +269,7 @@ impl FileManager {
     pub fn seek(&mut self, handle: i32, pos: i32) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
-                f.file.seek(io::SeekFrom::Start(pos as u64))?;
+                f.file.seek(SeekFrom::Start(pos as u64))?;
                 Ok(())
             },
             _ => Err(Error::InvalidFile(handle)),
