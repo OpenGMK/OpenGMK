@@ -5232,14 +5232,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_exists")
     }
 
-    pub fn sprite_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_name")
+    pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.name.to_string().into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_number")
+    pub fn sprite_get_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.frames.len().into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
     pub fn sprite_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5247,7 +5255,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+            Ok(Value::Real(-1.0))
         }
     }
 
@@ -5256,38 +5264,62 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+            Ok(Value::Real(-1.0))
         }
     }
 
-    pub fn sprite_get_xoffset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_xoffset")
+    pub fn sprite_get_xoffset(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.origin_x.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_yoffset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_yoffset")
+    pub fn sprite_get_yoffset(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.origin_y.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_bbox_left(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_left")
+    pub fn sprite_get_bbox_left(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_left.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_bbox_right(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_right")
+    pub fn sprite_get_bbox_right(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_right.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_bbox_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_top")
+    pub fn sprite_get_bbox_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_top.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
-    pub fn sprite_get_bbox_bottom(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_bottom")
+    pub fn sprite_get_bbox_bottom(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_bottom.into())
+        } else {
+            Ok(Value::Real(-1.0))
+        }
     }
 
     pub fn sprite_set_offset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
