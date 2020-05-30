@@ -133,9 +133,9 @@ impl Eq for Real {}
 impl PartialOrd for Real {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let sub = *self - *other;
-        if sub.0 > CMP_EPSILON {
+        if sub.0 >= CMP_EPSILON {
             Some(Ordering::Greater)
-        } else if sub.0 < -CMP_EPSILON {
+        } else if sub.0 <= -CMP_EPSILON {
             Some(Ordering::Less)
         } else {
             Some(Ordering::Equal)
