@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     fmt,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
@@ -91,6 +91,34 @@ impl Div for Real {
     #[inline(always)]
     fn div(mut self, other: Self) -> Self {
         fpu_binary_op!("div", self, other)
+    }
+}
+
+impl AddAssign for Real {
+    #[inline(always)]
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other
+    }
+}
+
+impl SubAssign for Real {
+    #[inline(always)]
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self - other
+    }
+}
+
+impl MulAssign for Real {
+    #[inline(always)]
+    fn mul_assign(&mut self, other: Self) {
+        *self = *self * other
+    }
+}
+
+impl DivAssign for Real {
+    #[inline(always)]
+    fn div_assign(&mut self, other: Self) {
+        *self = *self / other
     }
 }
 
