@@ -482,7 +482,7 @@ impl Compiler {
             },
         };
 
-        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier) {
             Node::Variable { accessor: VariableAccessor { var: *var, array, owner } }
         } else {
             let index = self.get_field_id(identifier);
@@ -511,7 +511,7 @@ impl Compiler {
             },
         };
 
-        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier) {
             Instruction::SetVariable { accessor: VariableAccessor { var: *var, array, owner }, value }
         } else {
             let index = self.get_field_id(identifier);
@@ -541,7 +541,7 @@ impl Compiler {
             },
         };
 
-        if let Some(var) = mappings::INSTANCE_VARIABLES.iter().find(|(s, _)| *s == identifier).map(|(_, v)| v) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier) {
             Instruction::SetVariable {
                 accessor: VariableAccessor { var: *var, array: array.clone(), owner: owner.clone() },
                 value: Node::Binary {
