@@ -170,6 +170,11 @@ impl Real {
             out.into()
         }
     }
+
+    #[inline(always)]
+    pub fn abs(self) -> Self {
+        self.0.abs().into()
+    }
 }
 
 #[cfg(test)]
