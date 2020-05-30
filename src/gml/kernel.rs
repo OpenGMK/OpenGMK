@@ -2425,9 +2425,22 @@ impl Game {
         expect_args!(args, [any]).map(|v| v.repr().into())
     }
 
-    pub fn string_format(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_format")
+    pub fn string_format(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (val, mut tot, mut dec) = expect_args!(args, [any, int, int])?;
+        match val {
+            Value::Str(_) => Ok(val),
+            Value::Real(mut x) =>  {
+                dec = dec.min(18);
+                tot = tot.max(0);
+                if dec < 0 {
+                    // Very strange behaviour here but I swear it's accurate
+                    let power = 10f64.powi(-dec);
+                    x = util::ieee_round(x / power) as f64 * power;
+                    dec = 18;
+                }
+                Ok(format!("{num:>width$.prec$}", num=x, prec=dec as usize, width=tot as usize).into())
+            },
+        }
     }
 
     pub fn chr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
