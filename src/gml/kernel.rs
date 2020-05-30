@@ -2429,7 +2429,7 @@ impl Game {
         let (val, mut tot, mut dec) = expect_args!(args, [any, int, int])?;
         match val {
             Value::Str(_) => Ok(val),
-            Value::Real(mut x) =>  {
+            Value::Real(mut x) => {
                 dec = dec.min(18);
                 tot = tot.max(0);
                 if dec < 0 {
@@ -2438,7 +2438,7 @@ impl Game {
                     x = util::ieee_round(x / power) as f64 * power;
                     dec = 18;
                 }
-                Ok(format!("{num:>width$.prec$}", num=x, prec=dec as usize, width=tot as usize).into())
+                Ok(format!("{num:>width$.prec$}", num = x, prec = dec as usize, width = tot as usize).into())
             },
         }
     }
