@@ -1,7 +1,7 @@
 use std::{
     fmt,
     hint::black_box,
-    ops::{Add, Sub, Mul, Div},
+    ops::{Add, Div, Mul, Sub},
 };
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.

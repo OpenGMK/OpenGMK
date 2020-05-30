@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, Read, Seek, Write, SeekFrom},
+    io::{self, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 pub type Result<T> = std::result::Result<T, Error>;
@@ -49,23 +49,29 @@ impl From<Error> for String {
 
 // Helper functions
 
-fn read_until<P>(file: &mut File, mut end_pred: P) -> Result<Vec<u8>> where P: FnMut(u8) -> bool {
+fn read_until<P>(file: &mut File, mut end_pred: P) -> Result<Vec<u8>>
+where
+    P: FnMut(u8) -> bool,
+{
     let mut out = Vec::new();
     for byte_maybe in file.bytes() {
         let byte = byte_maybe?;
         out.push(byte);
         if end_pred(byte) {
-            break;
+            break
         }
     }
     Ok(out)
 }
 
 // Returns Ok(false) on EOF
-fn skip_until<P>(file: &mut File, end_pred: P) -> Result<bool> where P: Fn(u8) -> bool {
+fn skip_until<P>(file: &mut File, end_pred: P) -> Result<bool>
+where
+    P: Fn(u8) -> bool,
+{
     for byte in file.bytes() {
         if end_pred(byte?) {
-            return Ok(true);
+            return Ok(true)
         }
     }
     Ok(false)
@@ -121,9 +127,9 @@ impl FileManager {
                     // If you read spaces or dashes at the start, skip them
                     if b == 0x20 || b == 0x2d {
                         if nonspace_seen {
-                            return true;
+                            return true
                         } else {
-                            return false;
+                            return false
                         }
                     }
                     nonspace_seen = true;
@@ -158,13 +164,13 @@ impl FileManager {
                 // Remove spaces and all dashes but one
                 let mut minus_seen = false;
                 text.retain(|c| {
-                        if c == '-' {
-                            if minus_seen {
-                                return false;
-                            }
-                            minus_seen = true;
+                    if c == '-' {
+                        if minus_seen {
+                            return false
                         }
-                        c != ' '
+                        minus_seen = true;
+                    }
+                    c != ' '
                 });
                 text.parse().or(Ok(0.0))
             },
@@ -176,10 +182,12 @@ impl FileManager {
         match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
                 let mut bytes = read_until(&mut f.file, |c| c == 0x0a)?;
-                if bytes.last() == Some(&0x0a) { // LF
+                if bytes.last() == Some(&0x0a) {
+                    // LF
                     bytes.pop();
                     f.file.seek(SeekFrom::Current(-1))?;
-                    if bytes.last() == Some(&0x0d) { // CR
+                    if bytes.last() == Some(&0x0d) {
+                        // CR
                         bytes.pop();
                         f.file.seek(SeekFrom::Current(-1))?;
                     }
@@ -259,9 +267,7 @@ impl FileManager {
 
     pub fn tell(&mut self, handle: i32) -> Result<u64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                Ok(f.file.stream_position()?)
-            },
+            Some(Some(f)) => Ok(f.file.stream_position()?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
@@ -278,9 +284,7 @@ impl FileManager {
 
     pub fn size(&mut self, handle: i32) -> Result<u64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                Ok(f.file.stream_len()?)
-            },
+            Some(Some(f)) => Ok(f.file.stream_len()?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }

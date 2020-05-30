@@ -856,7 +856,7 @@ impl Game {
             InstanceVariable::Health => Ok(self.health.into()),
             InstanceVariable::GameId => Ok(self.game_id.into()),
             InstanceVariable::WorkingDirectory => {
-                let mut cwd : String = std::env::current_dir().unwrap().to_string_lossy().to_string();
+                let mut cwd: String = std::env::current_dir().unwrap().to_string_lossy().to_string();
                 if cfg!(target_os = "windows") {
                     cwd = cwd.trim_start_matches("\\\\?\\").to_string();
                 }

@@ -1,5 +1,5 @@
-use crate::game::window::xorg::WindowImpl;
 use super::gl;
+use crate::game::window::xorg::WindowImpl;
 use std::{mem, os::raw::*, ptr};
 use x11::xlib;
 

@@ -1,5 +1,4 @@
 #![feature(llvm_asm, test, seek_convenience, with_options)]
-
 #![allow(dead_code)] // Shut up.
 
 mod action;
@@ -8,9 +7,9 @@ mod atlas;
 mod game;
 mod gml;
 mod input;
-mod math;
 mod instance;
 mod instancelist;
+mod math;
 mod render;
 mod replay;
 mod tile;

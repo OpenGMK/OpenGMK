@@ -52,10 +52,10 @@ pub struct View {
 impl View {
     /// Returns bool indicating whether the given point is inside this view's port on screen
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.port_x &&
-        y >= self.port_y &&
-        x < (self.port_x + self.port_w as i32) &&
-        y < (self.port_y + self.port_h as i32)
+        x >= self.port_x
+            && y >= self.port_y
+            && x < (self.port_x + self.port_w as i32)
+            && y < (self.port_y + self.port_h as i32)
     }
 
     /// Transforms a point on screen to a point relative to this view in room-space

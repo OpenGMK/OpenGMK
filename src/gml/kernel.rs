@@ -1547,10 +1547,14 @@ impl Game {
             1 => (true, false),
             2 => (false, true),
             3 => (true, true),
-            0 | _ => (false, false)
+            0 | _ => (false, false),
         };
-        if hmirr {xsc*=-1.0;}
-        if vmirr {ysc*=-1.0;}
+        if hmirr {
+            xsc *= -1.0;
+        }
+        if vmirr {
+            ysc *= -1.0;
+        }
         instance.image_xscale.set(xsc);
         instance.image_yscale.set(ysc);
         instance.image_angle.set(ang);
@@ -1810,7 +1814,7 @@ impl Game {
 
     pub fn action_if_dice(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let bound = expect_args!(args, [real])?;
-        Ok((self.rand.next(bound)<1.0).into())
+        Ok((self.rand.next(bound) < 1.0).into())
     }
 
     pub fn action_if_mouse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2107,8 +2111,8 @@ impl Game {
         let (text, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
-            x+=instance.x.get();
-            y+=instance.y.get();
+            x += instance.x.get();
+            y += instance.y.get();
         }
         self.draw_text(context, &[x.into(), y.into(), text])
     }
@@ -3639,7 +3643,7 @@ impl Game {
 
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
-        let text = if num.fract() == 0.0 {format!(" {:.0}", num)} else {format!(" {:.6}", num)};
+        let text = if num.fract() == 0.0 { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
         match self.file_manager.write_string(handle, &text) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_real", e.into())),
@@ -3794,7 +3798,7 @@ impl Game {
     pub fn filename_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(bs) = full_path.rfind('\\') {
-            Ok(full_path[..bs+1].to_string().into())
+            Ok(full_path[..bs + 1].to_string().into())
         } else {
             Ok("".to_string().into())
         }
@@ -3812,11 +3816,7 @@ impl Game {
     pub fn filename_drive(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         let drive = full_path.chars().take(2).collect::<String>();
-        if !drive.starts_with(':') && drive.ends_with(':') {
-            Ok(drive.into())
-        } else {
-            Ok("".to_string().into())
-        }
+        if !drive.starts_with(':') && drive.ends_with(':') { Ok(drive.into()) } else { Ok("".to_string().into()) }
     }
 
     pub fn filename_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {

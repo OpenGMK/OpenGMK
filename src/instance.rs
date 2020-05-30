@@ -226,8 +226,10 @@ impl Instance {
                 let yscale = self.image_yscale.get();
                 let mut top_left_x = (x - (sprite.origin_x as f64 * xscale)) + ((sprite.bbox_left as f64) * xscale);
                 let mut top_left_y = (y - (sprite.origin_y as f64 * yscale)) + ((sprite.bbox_top as f64) * yscale);
-                let mut bottom_right_x = top_left_x + (((sprite.bbox_right + 1 - sprite.bbox_left) as f64) * xscale) - 1.0;
-                let mut bottom_right_y = top_left_y	+ (((sprite.bbox_bottom + 1 - sprite.bbox_top) as f64) * yscale) - 1.0;
+                let mut bottom_right_x =
+                    top_left_x + (((sprite.bbox_right + 1 - sprite.bbox_left) as f64) * xscale) - 1.0;
+                let mut bottom_right_y =
+                    top_left_y + (((sprite.bbox_bottom + 1 - sprite.bbox_top) as f64) * yscale) - 1.0;
 
                 // Make sure left/right and top/bottom are the right way around
                 if xscale <= 0.0 {

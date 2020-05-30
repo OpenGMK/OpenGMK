@@ -96,7 +96,7 @@ pub struct Game {
     pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
-    pub program_directory : Rc<str>,
+    pub program_directory: Rc<str>,
     pub gm_version: GameVersion,
 
     // window caption
