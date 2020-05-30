@@ -116,9 +116,58 @@ impl Real {
                 fistp qword ptr [{1}]
                 mov {0}, [{1}]",
                 out(reg) out,
-                in(reg) &mut self, // TODO: Is this 100% safe?
+                in(reg) &mut self,
             }
             out
+        }
+    }
+
+    #[inline(always)]
+    pub fn sin(mut self) -> Self {
+        unsafe {
+            let out: f64;
+            asm! {
+                "fld qword ptr [{1}]
+                fsin
+                fstp qword ptr [{1}]
+                mov {0}, [{1}]",
+                out(reg) out,
+                in(reg) &mut self,
+            }
+            out.into()
+        }
+    }
+
+    #[inline(always)]
+    pub fn cos(mut self) -> Self {
+        unsafe {
+            let out: f64;
+            asm! {
+                "fld qword ptr [{1}]
+                fcos
+                fstp qword ptr [{1}]
+                mov {0}, [{1}]",
+                out(reg) out,
+                in(reg) &mut self,
+            }
+            out.into()
+        }
+    }
+
+    #[inline(always)]
+    pub fn tan(mut self) -> Self {
+        unsafe {
+            let out: f64;
+            asm! {
+                "fld qword ptr [{1}]
+                fptan
+                fstp st(0)
+                fstp qword ptr [{1}]
+                mov {0}, [{1}]",
+                out(reg) out,
+                in(reg) &mut self,
+            }
+            out.into()
         }
     }
 }
@@ -126,6 +175,7 @@ impl Real {
 #[cfg(test)]
 mod tests {
     use super::Real;
+    use std::f64::consts::PI;
 
     #[test]
     fn add() {
@@ -168,5 +218,20 @@ mod tests {
         for i in 0..1000 {
             assert_eq!(0, Real(f64::from(i) + 0.5).round() % 2);
         }
+    }
+
+    #[test]
+    fn sin() {
+        assert_eq!(Real(PI / 2.0).sin(), Real(1.0));
+    }
+
+    #[test]
+    fn cos() {
+        assert_eq!(Real(PI).cos(), Real(-1.0));
+    }
+
+    #[test]
+    fn tan() {
+        assert_eq!(Real(PI).tan(), Real(0.0));
     }
 }
