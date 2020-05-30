@@ -250,12 +250,13 @@ mod tests {
     fn prec_19() {
         const INCREMENT: Real = Real(0.2);
         let mut x = INCREMENT;
+        let target = Real(19.0);
         loop {
-            x = x + INCREMENT; // TODO: +=
-            if x == Real(19.0) {
+            x += INCREMENT;
+            if x == target {
                 break
-            } else if x.0 > 19.0 {
-                panic!(); // ^ TODO: < <= >= >
+            } else if x > target {
+                panic!();
             }
         }
     }
