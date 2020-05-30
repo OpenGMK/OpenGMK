@@ -1,6 +1,5 @@
 use std::{
     fmt,
-    hint::black_box,
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -36,64 +35,61 @@ impl fmt::Display for Real {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(target_arch = "x86_64")] {
-        #[rustfmt::skip]
-        macro_rules! fpu_binary_op {
-            ($op: literal, $op1_rmut: expr, $op2_r: expr) => {{
-                let out: f64;
-                unsafe {
-                    llvm_asm! {
-                        concat!(
-                            "fldl ($2)
-                            fldl ($1)
-                            f", $op, "p %st, %st(1)
-                            fstpl ($1)
-                            movq ($1), $0",
-                        )
-                        : "=r"(out)
-                        : "r"($op1_rmut), "r"($op2_r)
-                    }
-                }
-                black_box(out).into()
-            }};
-        }
-
-        impl Add for Real {
-            type Output = Self;
-
-            #[inline(always)]
-            fn add(mut self, other: Self) -> Self {
-                fpu_binary_op!("add", &mut self, &other)
+#[rustfmt::skip]
+macro_rules! fpu_binary_op {
+    ($code: literal, $op1: expr, $op2: expr) => {{
+        let out: f64;
+        unsafe {
+            asm! {
+                concat!(
+                    "fld qword ptr [{0}]
+                    fld qword ptr [{1}]
+                    f", $code, "p st, st(1)
+                    fstp qword ptr [{0}]
+                    mov {2}, qword ptr [{0}]",
+                ),
+                in(reg) &mut $op1,
+                in(reg) &$op2,
+                lateout(reg) out,
             }
         }
+        out.into()
+    }};
+}
 
-        impl Sub for Real {
-            type Output = Self;
+impl Add for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn sub(mut self, other: Self) -> Self {
-                fpu_binary_op!("sub", &mut self, &other)
-            }
-        }
+    #[inline(always)]
+    fn add(mut self, other: Self) -> Self {
+        fpu_binary_op!("add", self, other)
+    }
+}
 
-        impl Mul for Real {
-            type Output = Self;
+impl Sub for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn mul(mut self, other: Self) -> Self {
-                fpu_binary_op!("mul", &mut self, &other)
-            }
-        }
+    #[inline(always)]
+    fn sub(mut self, other: Self) -> Self {
+        fpu_binary_op!("sub", self, other)
+    }
+}
 
-        impl Div for Real {
-            type Output = Self;
+impl Mul for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn div(mut self, other: Self) -> Self {
-                fpu_binary_op!("div", &mut self, &other)
-            }
-        }
+    #[inline(always)]
+    fn mul(mut self, other: Self) -> Self {
+        fpu_binary_op!("mul", self, other)
+    }
+}
+
+impl Div for Real {
+    type Output = Self;
+
+    #[inline(always)]
+    fn div(mut self, other: Self) -> Self {
+        fpu_binary_op!("div", self, other)
     }
 }
 
@@ -112,18 +108,17 @@ impl Real {
     }
 
     #[inline(always)]
-    pub fn round64(self) -> i64 {
+    pub fn round64(mut self) -> i64 {
         unsafe {
             let out: i64;
-            llvm_asm! {
-                "fldl ($1)
-                fistpq ($1)
-                movq ($1), $0"
-
-                : "=r"(out)
-                : "r"(&self)
+            asm! {
+                "fld qword ptr [{1}]
+                fistp qword ptr [{1}]
+                mov {0}, [{1}]",
+                out(reg) out,
+                in(reg) &mut self, // TODO: Is this 100% safe?
             }
-            black_box(out)
+            out
         }
     }
 }

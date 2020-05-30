@@ -1,4 +1,4 @@
-#![feature(asm, test, seek_convenience, with_options)]
+#![feature(asm, seek_convenience, with_options)]
 #![allow(dead_code)] // Shut up.
 
 mod action;
