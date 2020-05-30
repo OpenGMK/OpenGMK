@@ -1540,9 +1540,21 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sprite_transform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_sprite_transform")
+    pub fn action_sprite_transform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut xsc, mut ysc, ang, mirroring) = expect_args!(args, [real, real, real, int])?;
+        let instance = self.instance_list.get(context.this);
+        let (hmirr, vmirr) = match mirroring {
+            1 => (true, false),
+            2 => (false, true),
+            3 => (true, true),
+            0 | _ => (false, false)
+        };
+        if hmirr {xsc*=-1.0;}
+        if vmirr {ysc*=-1.0;}
+        instance.image_xscale.set(xsc);
+        instance.image_yscale.set(ysc);
+        instance.image_angle.set(ang);
+        Ok(Default::default())
     }
 
     pub fn action_sprite_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
