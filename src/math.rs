@@ -233,6 +233,38 @@ mod tests {
     }
 
     #[test]
+    fn lt() {
+        assert_eq!(Real(3.0) < Real(4.0), true);
+        assert_eq!(Real(3.0) < Real(3.0), false);
+        assert_eq!(Real(-3.0) < Real(-4.0), false);
+        assert_eq!(Real(0.3) < Real(0.1) + Real(0.2), false);
+    }
+
+    #[test]
+    fn le() {
+        assert_eq!(Real(3.0) <= Real(4.0), true);
+        assert_eq!(Real(3.0) <= Real(3.0), true);
+        assert_eq!(Real(-3.0) <= Real(-4.0), false);
+        assert_eq!(Real(0.3) <= Real(0.1) + Real(0.2), true);
+    }
+
+    #[test]
+    fn gt() {
+        assert_eq!(Real(4.0) > Real(3.0), true);
+        assert_eq!(Real(3.0) > Real(3.0), false);
+        assert_eq!(Real(-4.0) > Real(-3.0), false);
+        assert_eq!(Real(0.1) + Real(0.2) > Real(0.3), false);
+    }
+
+    #[test]
+    fn ge() {
+        assert_eq!(Real(4.0) >= Real(3.0), true);
+        assert_eq!(Real(3.0) >= Real(3.0), true);
+        assert_eq!(Real(-4.0) >= Real(-3.0), false);
+        assert_eq!(Real(0.1) + Real(0.2) >= Real(0.3), true);
+    }
+
+    #[test]
     fn round() {
         for i in 0..1000 {
             assert_eq!(0, Real(f64::from(i) + 0.5).round() % 2);
