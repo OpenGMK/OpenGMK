@@ -452,6 +452,7 @@ impl Renderer for OpenGLRenderer {
             self.current_atlas = atlas_ref.atlas_id;
         }
 
+        let angle = -angle.to_radians();
         let angle_sin = angle.sin() as f32;
         let angle_cos = angle.cos() as f32;
 

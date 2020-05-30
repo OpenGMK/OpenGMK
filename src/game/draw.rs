@@ -108,7 +108,7 @@ impl Game {
                             util::ieee_round(instance.y.get()),
                             instance.image_xscale.get(),
                             instance.image_yscale.get(),
-                            instance.image_angle.get().to_radians(),
+                            instance.image_angle.get(),
                             instance.image_blend.get(),
                             instance.image_alpha.get(),
                         )
