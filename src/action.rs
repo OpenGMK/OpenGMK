@@ -308,7 +308,7 @@ impl Game {
         as_object: i32,
     ) -> gml::Result<ReturnType> {
         for action in slice.iter() {
-            if self.room_target.is_some() {
+            if self.scene_change.is_some() {
                 return Ok(ReturnType::Exit)
             }
 

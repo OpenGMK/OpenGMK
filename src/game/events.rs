@@ -34,7 +34,7 @@ impl Game {
     ) -> gml::Result<()> {
         // Running instance events is not allowed if a room change is pending. This appears to be
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
-        if !self.scene_change {
+        if self.scene_change.is_none() {
             let original_object_id =
                 if let Some(id) = as_object { id } else { self.instance_list.get(instance).object_index.get() };
             let mut object_id = original_object_id;

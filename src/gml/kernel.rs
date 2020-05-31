@@ -4,7 +4,7 @@
 
 use crate::{
     asset,
-    game::{draw, Game, GetAsset},
+    game::{draw, Game, GetAsset, SceneChange},
     gml::{self, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Instance},
@@ -665,9 +665,9 @@ impl Game {
 
     pub fn draw_set_halign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         self.draw_halign = match expect_args!(args, [int])? {
-            0 => draw::Halign::Left,
             1 => draw::Halign::Middle,
-            2 | _ => draw::Halign::Right,
+            2 => draw::Halign::Right,
+            0 | _ => draw::Halign::Left,
         };
         Ok(Default::default())
     }
@@ -1540,14 +1540,33 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sprite_transform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_sprite_transform")
+    pub fn action_sprite_transform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut xsc, mut ysc, ang, mirroring) = expect_args!(args, [real, real, real, int])?;
+        let instance = self.instance_list.get(context.this);
+        let (hmirr, vmirr) = match mirroring {
+            1 => (true, false),
+            2 => (false, true),
+            3 => (true, true),
+            0 | _ => (false, false),
+        };
+        if hmirr {
+            xsc *= -1.0;
+        }
+        if vmirr {
+            ysc *= -1.0;
+        }
+        instance.image_xscale.set(xsc);
+        instance.image_yscale.set(ysc);
+        instance.image_angle.set(ang);
+        Ok(Default::default())
     }
 
-    pub fn action_sprite_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_sprite_color")
+    pub fn action_sprite_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (col, alpha) = expect_args!(args, [int, real])?;
+        let instance = self.instance_list.get(context.this);
+        instance.image_blend.set(col);
+        instance.image_alpha.set(alpha);
+        Ok(Default::default())
     }
 
     pub fn action_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1571,15 +1590,13 @@ impl Game {
 
     pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (room_id, _transition) = expect_args!(args, [int, int])?;
-        self.scene_change = true;
-        self.room_target = Some(room_id);
+        self.scene_change = Some(SceneChange::Room(room_id));
         Ok(Default::default())
     }
 
     pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let _transition = expect_args!(args, [int])?;
-        self.scene_change = true;
-        self.room_target = Some(self.room_id);
+        self.scene_change = Some(SceneChange::Room(self.room_id));
         Ok(Default::default())
     }
 
@@ -1795,9 +1812,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_question")
     }
 
-    pub fn action_if_dice(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_dice")
+    pub fn action_if_dice(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bound = expect_args!(args, [real])?;
+        Ok((self.rand.next(bound) < 1.0).into())
     }
 
     pub fn action_if_mouse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1872,9 +1889,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_variable")
     }
 
-    pub fn action_set_score(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let score = expect_args!(args, [int])?;
-        self.score = score;
+        if context.relative {
+            self.score += score;
+        } else {
+            self.score = score;
+        }
         Ok(Default::default())
     }
 
@@ -1904,9 +1925,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_highscore_clear")
     }
 
-    pub fn action_set_life(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let lives = expect_args!(args, [int])?;
-        self.lives = lives;
+        if context.relative {
+            self.lives += lives;
+        } else {
+            self.lives = lives;
+        }
         Ok(Default::default())
     }
 
@@ -2071,29 +2096,10 @@ impl Game {
     }
 
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_id, x, y, image_index) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_id, x, y, image_index) = expect_args!(args, [any, real, real, any])?;
         let instance = self.instance_list.get(context.this);
         let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
-
-        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
-            {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    util::ieee_round(x),
-                    util::ieee_round(y),
-                    1.0,
-                    1.0,
-                    0.0,
-                    0xFFFFFF,
-                    1.0,
-                );
-            }
-            Ok(Default::default())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
-        }
+        self.draw_sprite(context, &[sprite_id, image_index, x.into(), y.into()])
     }
 
     pub fn action_draw_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2101,9 +2107,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_background")
     }
 
-    pub fn action_draw_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_text")
+    pub fn action_draw_text(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (text, mut x, mut y) = expect_args!(args, [any, real, real])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), text])
     }
 
     pub fn action_draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2150,9 +2161,18 @@ impl Game {
         self.draw_set_color(context, args)
     }
 
-    pub fn action_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_font")
+    pub fn action_font(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (font_id, align) = expect_args!(args, [int, int])?;
+        if self.draw_font_id != font_id {
+            self.draw_font = self.assets.fonts.get_asset(font_id).map(|x| x.as_ref().clone());
+            self.draw_font_id = font_id;
+        }
+        self.draw_halign = match align {
+            1 => draw::Halign::Middle,
+            2 => draw::Halign::Right,
+            0 | _ => draw::Halign::Left,
+        };
+        Ok(Default::default())
     }
 
     pub fn action_fullscreen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3328,8 +3348,7 @@ impl Game {
 
     pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let target = expect_args!(args, [int])?;
-        self.scene_change = true;
-        self.room_target = Some(target);
+        self.scene_change = Some(SceneChange::Room(target));
         Ok(Default::default())
     }
 
@@ -3343,8 +3362,7 @@ impl Game {
             .and_then(|x| self.room_order.get(x).copied())
         {
             Some(i) => {
-                self.scene_change = true;
-                self.room_target = Some(i);
+                self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
             None => Err(gml::Error::EndOfRoomOrder),
@@ -3356,8 +3374,7 @@ impl Game {
         match self.room_order.iter().position(|x| *x == self.room_id).and_then(|x| self.room_order.get(x + 1).copied())
         {
             Some(i) => {
-                self.scene_change = true;
-                self.room_target = Some(i);
+                self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
             None => Err(gml::Error::EndOfRoomOrder),
@@ -3380,28 +3397,12 @@ impl Game {
     }
 
     pub fn game_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.scene_change = true;
-        self.room_target = None;
+        self.scene_change = Some(SceneChange::End);
         Ok(Default::default())
     }
 
     pub fn game_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.run_game_end_events()?;
-
-        // Delete everything
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
-            self.instance_list.mark_deleted(instance);
-        }
-
-        // Clear globals (Note: Studio onwards doesn't do this, but GM8 does)
-        self.globals.fields.clear();
-        self.globals.vars.clear();
-
-        // Go to room 1
-        self.game_start = true;
-        self.scene_change = true;
-        self.room_target = Some(self.room_order.first().copied().ok_or(gml::Error::EndOfRoomOrder)?);
+        self.scene_change = Some(SceneChange::Restart);
         Ok(Default::default())
     }
 
@@ -3492,12 +3493,12 @@ impl Game {
 
     pub fn file_bin_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (filename, mode) = expect_args!(args, [string, int])?;
-        let result = match mode {
-            0 => self.file_manager.open(&filename, file::AccessType::Read, file::Content::Binary, false),
-            1 => self.file_manager.open(&filename, file::AccessType::Write, file::Content::Binary, false),
-            2 | _ => todo!(), // both read and write allowed, Rust can't do this...
+        let (read, write) = match mode {
+            0 => (true, false),
+            1 => (false, true),
+            2 | _ => (true, true),
         };
-        match result {
+        match self.file_manager.open(&filename, file::Content::Binary, read, write, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open", e.into())),
         }
@@ -3558,15 +3559,19 @@ impl Game {
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Read, file::Content::Text, false) {
+        match self.file_manager.open(&filename, file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_read", e.into())),
+            Err(e) => {
+                let err_str: String = e.into();
+                println!("Warning: file_text_open_read on {} failed: {}", filename, err_str);
+                Ok(Value::Real(-1.0))
+            },
         }
     }
 
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Write, file::Content::Text, false) {
+        match self.file_manager.open(&filename, file::Content::Text, false, true, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write", e.into())),
         }
@@ -3574,9 +3579,9 @@ impl Game {
 
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::AccessType::Write, file::Content::Text, true) {
+        match self.file_manager.open(&filename, file::Content::Text, false, true, true) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_write", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_append", e.into())),
         }
     }
 
@@ -3584,48 +3589,73 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
             Ok(()) => Ok(Value::Real(0.0)),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_close", e.into())),
         }
     }
 
-    pub fn file_text_read_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_read_string")
+    pub fn file_text_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.read_string(handle) {
+            Ok(s) => Ok(s.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_string", e.into())),
+        }
     }
 
-    pub fn file_text_read_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_read_real")
+    pub fn file_text_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.read_real(handle) {
+            Ok(r) => Ok(r.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_real", e.into())),
+        }
     }
 
-    pub fn file_text_readln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_readln")
+    pub fn file_text_readln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.skip_line(handle) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_readln", e.into())),
+        }
     }
 
-    pub fn file_text_eof(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_eof")
+    pub fn file_text_eof(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.is_eof(handle) {
+            Ok(res) => Ok(res.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eof", e.into())),
+        }
     }
 
-    pub fn file_text_eoln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_eoln")
+    pub fn file_text_eoln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.is_eoln(handle) {
+            Ok(res) => Ok(res.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eoln", e.into())),
+        }
     }
 
-    pub fn file_text_write_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_text_write_string")
+    pub fn file_text_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (handle, text) = expect_args!(args, [int, string])?;
+        match self.file_manager.write_string(handle, &text) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_string", e.into())),
+        }
     }
 
-    pub fn file_text_write_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_text_write_real")
+    pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (handle, num) = expect_args!(args, [int, real])?;
+        let text = if num.fract() == 0.0 { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
+        match self.file_manager.write_string(handle, &text) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_real", e.into())),
+        }
     }
 
-    pub fn file_text_writeln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_text_writeln")
+    pub fn file_text_writeln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.write_string(handle, "\r\n") {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_writeln", e.into())),
+        }
     }
 
     pub fn file_open_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3690,7 +3720,7 @@ impl Game {
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::exists(&s).into(),
+            Value::Str(s) => file::file_exists(&s).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
@@ -3703,24 +3733,37 @@ impl Game {
         }
     }
 
-    pub fn file_rename(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_rename")
+    pub fn file_rename(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (from, to) = expect_args!(args, [string, string])?;
+        if file::rename(&from, &to).is_err() {
+            // Fail silently
+            eprintln!("Warning (file_rename): could not rename {} to {}", from, to);
+        }
+        Ok(Default::default())
     }
 
-    pub fn file_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_copy")
+    pub fn file_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (from, to) = expect_args!(args, [string, string])?;
+        if file::copy(&from, &to).is_err() {
+            // Fail silently
+            eprintln!("Warning (file_copy): could not copy {} to {}", from, to);
+        }
+        Ok(Default::default())
     }
 
-    pub fn directory_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function directory_exists")
+    pub fn directory_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [any]).map(|x| match x {
+            Value::Str(s) => file::dir_exists(&s).into(),
+            Value::Real(_) => gml::FALSE.into(),
+        })
     }
 
-    pub fn directory_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function directory_create")
+    pub fn directory_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path = expect_args!(args, [string])?;
+        match file::dir_create(&path) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("directory_create", e.into())),
+        }
     }
 
     pub fn file_find_first(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3755,7 +3798,7 @@ impl Game {
     pub fn filename_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(bs) = full_path.rfind('\\') {
-            Ok(full_path[..bs+1].to_string().into())
+            Ok(full_path[..bs + 1].to_string().into())
         } else {
             Ok("".to_string().into())
         }
@@ -3773,11 +3816,7 @@ impl Game {
     pub fn filename_drive(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         let drive = full_path.chars().take(2).collect::<String>();
-        if !drive.starts_with(':') && drive.ends_with(':') {
-            Ok(drive.into())
-        } else {
-            Ok("".to_string().into())
-        }
+        if !drive.starts_with(':') && drive.ends_with(':') { Ok(drive.into()) } else { Ok("".to_string().into()) }
     }
 
     pub fn filename_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4794,12 +4833,47 @@ impl Game {
         unimplemented!("Called unimplemented kernel function external_call8")
     }
 
-    pub fn execute_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function execute_string")
+    pub fn execute_string(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(Value::Str(code)) = args.get(0) {
+            match self.compiler.compile(code) {
+                Ok(instrs) => {
+                    let mut new_args: [Value; 16] = Default::default();
+                    for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                        *dest = src.clone();
+                    }
+                    let mut new_context = Context {
+                        arguments: new_args,
+                        locals: DummyFieldHolder::new(),
+                        return_value: Default::default(),
+                        ..*context
+                    };
+                    self.execute(&instrs, &mut new_context)?;
+                    Ok(new_context.return_value)
+                },
+                Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+            }
+        } else {
+            // eg execute_string(42) - does nothing, returns 0
+            Ok(Default::default())
+        }
     }
 
-    pub fn execute_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function execute_file")
+    pub fn execute_file(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(Value::Str(path)) = args.get(0) {
+            let mut new_args: [Value; 16] = Default::default();
+            for (src, dest) in args.iter().zip(new_args.iter_mut()) {
+                *dest = src.clone();
+            }
+            match std::fs::read_to_string(path.to_string()) {
+                Ok(code) => {
+                    new_args[0] = code.into();
+                    self.execute_string(context, &new_args)
+                },
+                Err(e) => Err(gml::Error::FunctionError("execute_file", format!("{}", e))),
+            }
+        } else {
+            Err(gml::Error::FunctionError("execute_file", "Trying to execute a number.".to_string()))
+        }
     }
 
     pub fn window_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

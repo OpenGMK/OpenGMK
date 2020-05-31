@@ -216,35 +216,20 @@ impl Instance {
     pub fn update_bbox(&self, sprite: Option<&Sprite>) {
         // Do nothing if bbox isn't stale
         if self.bbox_is_stale.get() {
-            // See if we can find a valid collider from the given sprite
-            if let Some((Some(collider), origin_x, origin_y)) = sprite.map(|sprite| {
-                // If sprite is Some, then we still need to get a collider out of it
-                // In theory this should never fail, but I combined it inline with the "if let" above
-                // so that it won't panic if that does ever happen.
-                (
-                    if sprite.per_frame_colliders {
-                        sprite.colliders.get((self.image_index.get().floor() as usize) % sprite.colliders.len())
-                    } else {
-                        sprite.colliders.first()
-                    },
-                    sprite.origin_x as f64,
-                    sprite.origin_y as f64,
-                )
-            }) {
+            // Also do nothing if the given Sprite is None
+            if let Some(sprite) = sprite {
                 // Get coordinates of top-left and bottom-right corners of the collider at self's x and y,
                 // taking image scale (but not angle) into account
                 let x = self.x.get();
                 let y = self.y.get();
                 let xscale = self.image_xscale.get();
                 let yscale = self.image_yscale.get();
-                let mut top_left_x = (x - (origin_x * xscale)) + ((collider.bbox_left as f64) * xscale);
-                let mut top_left_y = (y - (origin_y * yscale)) + ((collider.bbox_top as f64) * yscale);
-                let mut bottom_right_x = top_left_x
-                    + ((((collider.bbox_right as i32) + 1 - (collider.bbox_left as i32)) as f64) * xscale)
-                    - 1.0;
-                let mut bottom_right_y = top_left_y
-                    + ((((collider.bbox_bottom as i32) + 1 - (collider.bbox_top as i32)) as f64) * yscale)
-                    - 1.0;
+                let mut top_left_x = (x - (sprite.origin_x as f64 * xscale)) + ((sprite.bbox_left as f64) * xscale);
+                let mut top_left_y = (y - (sprite.origin_y as f64 * yscale)) + ((sprite.bbox_top as f64) * yscale);
+                let mut bottom_right_x =
+                    top_left_x + (((sprite.bbox_right + 1 - sprite.bbox_left) as f64) * xscale) - 1.0;
+                let mut bottom_right_y =
+                    top_left_y + (((sprite.bbox_bottom + 1 - sprite.bbox_top) as f64) * yscale) - 1.0;
 
                 // Make sure left/right and top/bottom are the right way around
                 if xscale <= 0.0 {

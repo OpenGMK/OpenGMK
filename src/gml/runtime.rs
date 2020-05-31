@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{Game, GetAsset},
+    game::{Game, GetAsset, SceneChange},
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
@@ -839,7 +839,7 @@ impl Game {
             InstanceVariable::Argument14 => self.get_argument(context, 14),
             InstanceVariable::Argument15 => self.get_argument(context, 15),
             InstanceVariable::Argument => self.get_argument(context, array_index as usize),
-            InstanceVariable::ArgumentCount => Ok(context.arguments.len().into()),
+            InstanceVariable::ArgumentCount => Ok(context.argument_count.into()),
             InstanceVariable::Room => Ok(self.room_id.into()),
             InstanceVariable::RoomFirst => match self.room_order.get(0) {
                 Some(room) => Ok((*room).into()),
@@ -856,7 +856,7 @@ impl Game {
             InstanceVariable::Health => Ok(self.health.into()),
             InstanceVariable::GameId => Ok(self.game_id.into()),
             InstanceVariable::WorkingDirectory => {
-                let mut cwd : String = std::env::current_dir().unwrap().to_string_lossy().to_string();
+                let mut cwd: String = std::env::current_dir().unwrap().to_string_lossy().to_string();
                 if cfg!(target_os = "windows") {
                     cwd = cwd.trim_start_matches("\\\\?\\").to_string();
                 }
@@ -1137,10 +1137,7 @@ impl Game {
             InstanceVariable::Argument14 => self.set_argument(context, 14, value)?,
             InstanceVariable::Argument15 => self.set_argument(context, 15, value)?,
             InstanceVariable::Argument => self.set_argument(context, array_index as usize, value)?,
-            InstanceVariable::Room => {
-                self.scene_change = true;
-                self.room_target = Some(value.into())
-            },
+            InstanceVariable::Room => self.scene_change = Some(SceneChange::Room(value.into())),
             InstanceVariable::TransitionKind => self.transition_kind = value.into(),
             InstanceVariable::TransitionSteps => self.transition_steps = value.into(),
             InstanceVariable::Score => self.score = value.into(),

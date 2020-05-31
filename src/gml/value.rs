@@ -319,7 +319,7 @@ impl Value {
         match self {
             Self::Real(r) if r.fract() == 0.0 => format!("{:.0}", r),
             Self::Real(r) => format!("{:.2}", r),
-            Self::Str(string) => string.to_string()
+            Self::Str(string) => string.to_string(),
         }
     }
 }
