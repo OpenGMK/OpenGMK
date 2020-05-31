@@ -814,6 +814,10 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("async_load", InstanceVariable::AsyncLoad),
 ];
 
+pub fn get_instance_variable_by_name(name: &str) -> Option<&InstanceVariable> {
+    INSTANCE_VARIABLES.iter().find(|(s, _)| *s == name).map(|(_, v)| v)
+}
+
 /// Mappings of function names to fn pointers
 /// The bool indicates whether the function is constant, ie. it doesn't read or write any internal state.
 pub const FUNCTIONS: [(&str, fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>, bool); 1281] = [

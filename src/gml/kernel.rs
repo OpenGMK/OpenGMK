@@ -5,9 +5,9 @@
 use crate::{
     asset,
     game::{draw, Game, GetAsset, SceneChange},
-    gml::{self, file, Context, Value},
+    gml::{self, compiler::mappings, file, Context, Value},
     input::MouseButton,
-    instance::{DummyFieldHolder, Instance},
+    instance::{DummyFieldHolder, Field, Instance},
     util,
 };
 use std::convert::TryFrom;
@@ -4915,74 +4915,126 @@ impl Game {
         unimplemented!("Called unimplemented kernel function set_application_title")
     }
 
-    pub fn variable_global_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_global_exists")
+    pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [string])?;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(self.globals.vars.contains_key(var).into())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(self.globals.fields.contains_key(&field_id).into())
+        }
     }
 
-    pub fn variable_global_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_global_get")
+    pub fn variable_global_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [any])?;
+        self.variable_global_array_get(context, &[identifier, 0.into()])
     }
 
-    pub fn variable_global_array_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_global_array_get")
+    pub fn variable_global_array_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index) = expect_args!(args, [string, int])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(self.globals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+        }
     }
 
-    pub fn variable_global_array2_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_global_array2_get")
+    pub fn variable_global_array2_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2) = expect_args!(args, [any, int, int])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into()])
     }
 
-    pub fn variable_global_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_global_set")
+    pub fn variable_global_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, value) = expect_args!(args, [any, any])?;
+        self.variable_global_array_set(context, &[identifier, 0.into(), value])
     }
 
-    pub fn variable_global_array_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_global_array_set")
+    pub fn variable_global_array_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            if let Some(field) = self.globals.vars.get_mut(var) {
+                field.set(index, value);
+            } else {
+                self.globals.vars.insert(*var, Field::new(index, value));
+            }
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            if let Some(field) = self.globals.fields.get_mut(&field_id) {
+                field.set(index, value);
+            } else {
+                self.globals.fields.insert(field_id, Field::new(index, value));
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn variable_global_array2_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function variable_global_array2_set")
+    pub fn variable_global_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
-    pub fn variable_local_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_local_exists")
+    pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [string])?;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(context.locals.vars.contains_key(var).into())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(context.locals.fields.contains_key(&field_id).into())
+        }
     }
 
-    pub fn variable_local_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_local_get")
+    pub fn variable_local_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [any])?;
+        self.variable_local_array_get(context, &[identifier, 0.into()])
     }
 
-    pub fn variable_local_array_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_local_array_get")
+    pub fn variable_local_array_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index) = expect_args!(args, [string, int])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(context.locals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(context.locals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+        }
     }
 
-    pub fn variable_local_array2_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_local_array2_get")
+    pub fn variable_local_array2_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2) = expect_args!(args, [any, int, int])?;
+        self.variable_local_array_get(context, &[identifier, ((index1 * 32000) + index2).into()])
     }
 
-    pub fn variable_local_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_local_set")
+    pub fn variable_local_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, value) = expect_args!(args, [any, any])?;
+        self.variable_local_array_set(context, &[identifier, 0.into(), value])
     }
 
-    pub fn variable_local_array_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_local_array_set")
+    pub fn variable_local_array_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            if let Some(field) = context.locals.vars.get_mut(var) {
+                field.set(index, value);
+            } else {
+                context.locals.vars.insert(*var, Field::new(index, value));
+            }
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            if let Some(field) = context.locals.fields.get_mut(&field_id) {
+                field.set(index, value);
+            } else {
+                context.locals.fields.insert(field_id, Field::new(index, value));
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn variable_local_array2_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function variable_local_array2_set")
+    pub fn variable_local_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
     pub fn clipboard_has_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
