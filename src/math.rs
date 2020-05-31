@@ -47,11 +47,11 @@ macro_rules! fpu_binary_op {
                     fld qword ptr [{1}]
                     f", $code, "p st, st(1)
                     fstp qword ptr [{0}]
-                    mov {2}, qword ptr [{0}]",
+                    movsd {2}, qword ptr [{0}]",
                 ),
                 in(reg) &mut $op1,
                 in(reg) &$op2,
-                lateout(reg) out,
+                lateout(xmm_reg) out,
             }
         }
         out.into()
@@ -157,7 +157,7 @@ impl Real {
                 "fld qword ptr [{1}]
                 fistp qword ptr [{1}]
                 mov {0}, [{1}]",
-                out(reg) out,
+                lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
             out
@@ -173,7 +173,7 @@ impl Real {
                 fsin
                 fstp qword ptr [{1}]
                 mov {0}, [{1}]",
-                out(reg) out,
+                lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
             out.into()
@@ -189,7 +189,7 @@ impl Real {
                 fcos
                 fstp qword ptr [{1}]
                 mov {0}, [{1}]",
-                out(reg) out,
+                lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
             out.into()
@@ -206,7 +206,7 @@ impl Real {
                 fstp st(0)
                 fstp qword ptr [{1}]
                 mov {0}, [{1}]",
-                out(reg) out,
+                lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
             out.into()
