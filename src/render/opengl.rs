@@ -547,7 +547,6 @@ impl Renderer for OpenGLRenderer {
         y: i32,
         xscale: f64,
         yscale: f64,
-        angle: f64,
         colour: i32,
         alpha: f64,
         tile_end_x: f64,
@@ -575,7 +574,7 @@ impl Renderer for OpenGLRenderer {
                     util::ieee_round(y),
                     xscale,
                     yscale,
-                    angle,
+                    0.0,
                     colour,
                     alpha,
                 );

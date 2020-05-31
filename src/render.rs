@@ -85,7 +85,6 @@ pub trait Renderer {
         y: i32,
         xscale: f64,
         yscale: f64,
-        angle: f64,
         colour: i32,
         alpha: f64,
         tile_end_x: f64,
