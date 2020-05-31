@@ -144,19 +144,20 @@ impl Game {
 
         // draw backgrounds
         for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
-            if let Some(atlas_ref) =
-                self.assets.backgrounds.get_asset(background.background_id).and_then(|x| x.atlas_ref.as_ref())
-            {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    util::ieee_round(background.x_offset),
-                    util::ieee_round(background.y_offset),
-                    background.xscale,
-                    background.yscale,
-                    0.0,
-                    background.blend,
-                    background.alpha,
-                );
+            if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
+                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                    self.renderer.draw_sprite_tiled(
+                        atlas_ref,
+                        util::ieee_round(background.x_offset),
+                        util::ieee_round(background.y_offset),
+                        background.xscale,
+                        background.yscale,
+                        background.blend,
+                        background.alpha,
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                    );
+                }
             }
         }
 
@@ -201,20 +202,21 @@ impl Game {
         }
 
         // draw foregrounds
-        for background in self.backgrounds.iter().filter(|x| x.visible && x.is_foreground) {
-            if let Some(atlas_ref) =
-                self.assets.backgrounds.get_asset(background.background_id).and_then(|x| x.atlas_ref.as_ref())
-            {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    util::ieee_round(background.x_offset),
-                    util::ieee_round(background.y_offset),
-                    background.xscale,
-                    background.yscale,
-                    0.0,
-                    background.blend,
-                    background.alpha,
-                );
+        for background in self.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
+            if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
+                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                    self.renderer.draw_sprite_tiled(
+                        atlas_ref,
+                        util::ieee_round(background.x_offset),
+                        util::ieee_round(background.y_offset),
+                        background.xscale,
+                        background.yscale,
+                        background.blend,
+                        background.alpha,
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                    );
+                }
             }
         }
 
