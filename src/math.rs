@@ -36,7 +36,25 @@ impl fmt::Display for Real {
     }
 }
 
-#[rustfmt::skip]
+macro_rules! fpu_unary_op {
+    ($code: literal, $op: expr) => {
+        unsafe {
+            let out: f64;
+            asm! {
+                concat!(
+                    "fld qword ptr [{1}]
+                    ", $code, "
+                    fstp qword ptr [{1}]
+                    movsd {0}, [{1}]"
+                ),
+                lateout(xmm_reg) out,
+                in(reg) &mut $op,
+            }
+            out.into()
+        }
+    };
+}
+
 macro_rules! fpu_binary_op {
     ($code: literal, $op1: expr, $op2: expr) => {{
         let out: f64;
@@ -45,7 +63,7 @@ macro_rules! fpu_binary_op {
                 concat!(
                     "fld qword ptr [{0}]
                     fld qword ptr [{1}]
-                    f", $code, "p st, st(1)
+                    ", $code, " st, st(1)
                     fstp qword ptr [{0}]
                     movsd {2}, qword ptr [{0}]",
                 ),
@@ -63,7 +81,7 @@ impl Add for Real {
 
     #[inline(always)]
     fn add(mut self, other: Self) -> Self {
-        fpu_binary_op!("add", self, other)
+        fpu_binary_op!("faddp", self, other)
     }
 }
 
@@ -72,7 +90,7 @@ impl Sub for Real {
 
     #[inline(always)]
     fn sub(mut self, other: Self) -> Self {
-        fpu_binary_op!("sub", self, other)
+        fpu_binary_op!("fsubp", self, other)
     }
 }
 
@@ -81,7 +99,7 @@ impl Mul for Real {
 
     #[inline(always)]
     fn mul(mut self, other: Self) -> Self {
-        fpu_binary_op!("mul", self, other)
+        fpu_binary_op!("fmulp", self, other)
     }
 }
 
@@ -90,7 +108,7 @@ impl Div for Real {
 
     #[inline(always)]
     fn div(mut self, other: Self) -> Self {
-        fpu_binary_op!("div", self, other)
+        fpu_binary_op!("fdivp", self, other)
     }
 }
 
@@ -166,51 +184,21 @@ impl Real {
 
     #[inline(always)]
     pub fn sin(mut self) -> Self {
-        unsafe {
-            let out: f64;
-            asm! {
-                "fld qword ptr [{1}]
-                fsin
-                fstp qword ptr [{1}]
-                movsd {0}, [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-            }
-            out.into()
-        }
+        fpu_unary_op!("fsin", self)
     }
 
     #[inline(always)]
     pub fn cos(mut self) -> Self {
-        unsafe {
-            let out: f64;
-            asm! {
-                "fld qword ptr [{1}]
-                fcos
-                fstp qword ptr [{1}]
-                movsd {0}, [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-            }
-            out.into()
-        }
+        fpu_unary_op!("fcos", self)
     }
 
     #[inline(always)]
     pub fn tan(mut self) -> Self {
-        unsafe {
-            let out: f64;
-            asm! {
-                "fld qword ptr [{1}]
-                fptan
-                fstp st(0)
-                fstp qword ptr [{1}]
-                movsd {0}, [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-            }
-            out.into()
-        }
+        fpu_unary_op!(
+            "fptan
+            fstp st(0)",
+            self
+        )
     }
 
     #[inline(always)]
