@@ -4894,9 +4894,9 @@ impl Game {
         }
     }
 
-    pub fn window_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_handle")
+    pub fn window_handle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        return Ok(self.window.window_handle().into())
     }
 
     pub fn show_debug_message(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
