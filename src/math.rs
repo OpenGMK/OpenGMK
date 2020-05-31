@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use std::{
     cmp::Ordering,
     fmt,
@@ -11,6 +12,124 @@ pub struct Real(f64);
 
 /// The lenience between values when compared.
 const CMP_EPSILON: f64 = 1e-13;
+
+// Platform-specific implementation of the arithmetic. Should provide:
+// Add, Sub, Mul, Div, sin, cos, tan, round64
+cfg_if! {
+    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
+        macro_rules! fpu_unary_op {
+            ($code: literal, $op: expr) => {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        concat!(
+                            "fld qword ptr [{1}]
+                            ", $code, "
+                            fstp qword ptr [{1}]
+                            movsd {0}, [{1}]"
+                        ),
+                        lateout(xmm_reg) out,
+                        in(reg) &mut $op,
+                    }
+                    out.into()
+                }
+            };
+        }
+
+        macro_rules! fpu_binary_op {
+            ($code: literal, $op1: expr, $op2: expr) => {{
+                let out: f64;
+                unsafe {
+                    asm! {
+                        concat!(
+                            "fld qword ptr [{0}]
+                            fld qword ptr [{1}]
+                            ", $code, " st, st(1)
+                            fstp qword ptr [{0}]
+                            movsd {2}, qword ptr [{0}]",
+                        ),
+                        in(reg) &mut $op1,
+                        in(reg) &$op2,
+                        lateout(xmm_reg) out,
+                    }
+                }
+                out.into()
+            }};
+        }
+
+        impl Real {
+            #[inline(always)]
+            pub fn round64(mut self) -> i64 {
+                unsafe {
+                    let out: i64;
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fistp qword ptr [{1}]
+                        movsd {0}, [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                    }
+                    out
+                }
+            }
+
+            #[inline(always)]
+            pub fn sin(mut self) -> Self {
+                fpu_unary_op!("fsin", self)
+            }
+
+            #[inline(always)]
+            pub fn cos(mut self) -> Self {
+                fpu_unary_op!("fcos", self)
+            }
+
+            #[inline(always)]
+            pub fn tan(mut self) -> Self {
+                fpu_unary_op!(
+                    "fptan
+                    fstp st(0)",
+                    self
+                )
+            }
+        }
+
+        impl Add for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn add(mut self, other: Self) -> Self {
+                fpu_binary_op!("faddp", self, other)
+            }
+        }
+
+        impl Sub for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn sub(mut self, other: Self) -> Self {
+                fpu_binary_op!("fsubp", self, other)
+            }
+        }
+
+        impl Mul for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn mul(mut self, other: Self) -> Self {
+                fpu_binary_op!("fmulp", self, other)
+            }
+        }
+
+        impl Div for Real {
+            type Output = Self;
+
+            #[inline(always)]
+            fn div(mut self, other: Self) -> Self {
+                fpu_binary_op!("fdivp", self, other)
+            }
+        }
+    }
+}
 
 impl From<i32> for Real {
     fn from(i: i32) -> Self {
@@ -33,82 +152,6 @@ impl fmt::Debug for Real {
 impl fmt::Display for Real {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-macro_rules! fpu_unary_op {
-    ($code: literal, $op: expr) => {
-        unsafe {
-            let out: f64;
-            asm! {
-                concat!(
-                    "fld qword ptr [{1}]
-                    ", $code, "
-                    fstp qword ptr [{1}]
-                    movsd {0}, [{1}]"
-                ),
-                lateout(xmm_reg) out,
-                in(reg) &mut $op,
-            }
-            out.into()
-        }
-    };
-}
-
-macro_rules! fpu_binary_op {
-    ($code: literal, $op1: expr, $op2: expr) => {{
-        let out: f64;
-        unsafe {
-            asm! {
-                concat!(
-                    "fld qword ptr [{0}]
-                    fld qword ptr [{1}]
-                    ", $code, " st, st(1)
-                    fstp qword ptr [{0}]
-                    movsd {2}, qword ptr [{0}]",
-                ),
-                in(reg) &mut $op1,
-                in(reg) &$op2,
-                lateout(xmm_reg) out,
-            }
-        }
-        out.into()
-    }};
-}
-
-impl Add for Real {
-    type Output = Self;
-
-    #[inline(always)]
-    fn add(mut self, other: Self) -> Self {
-        fpu_binary_op!("faddp", self, other)
-    }
-}
-
-impl Sub for Real {
-    type Output = Self;
-
-    #[inline(always)]
-    fn sub(mut self, other: Self) -> Self {
-        fpu_binary_op!("fsubp", self, other)
-    }
-}
-
-impl Mul for Real {
-    type Output = Self;
-
-    #[inline(always)]
-    fn mul(mut self, other: Self) -> Self {
-        fpu_binary_op!("fmulp", self, other)
-    }
-}
-
-impl Div for Real {
-    type Output = Self;
-
-    #[inline(always)]
-    fn div(mut self, other: Self) -> Self {
-        fpu_binary_op!("fdivp", self, other)
     }
 }
 
@@ -162,48 +205,14 @@ impl PartialOrd for Real {
 }
 
 impl Real {
-    #[inline]
-    pub fn round(self) -> i32 {
-        (self.round64() & u32::max_value() as i64) as i32
-    }
-
-    #[inline(always)]
-    pub fn round64(mut self) -> i64 {
-        unsafe {
-            let out: i64;
-            asm! {
-                "fld qword ptr [{1}]
-                fistp qword ptr [{1}]
-                movsd {0}, [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-            }
-            out
-        }
-    }
-
-    #[inline(always)]
-    pub fn sin(mut self) -> Self {
-        fpu_unary_op!("fsin", self)
-    }
-
-    #[inline(always)]
-    pub fn cos(mut self) -> Self {
-        fpu_unary_op!("fcos", self)
-    }
-
-    #[inline(always)]
-    pub fn tan(mut self) -> Self {
-        fpu_unary_op!(
-            "fptan
-            fstp st(0)",
-            self
-        )
-    }
-
     #[inline(always)]
     pub fn abs(self) -> Self {
         self.0.abs().into()
+    }
+
+    #[inline(always)]
+    pub fn round(self) -> i32 {
+        (self.round64() & u32::max_value() as i64) as i32
     }
 }
 
