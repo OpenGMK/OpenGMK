@@ -5,7 +5,7 @@
 use crate::{
     asset,
     game::{draw, Game, GetAsset, SceneChange},
-    gml::{self, compiler::mappings, file, Context, Value},
+    gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
     util,
@@ -6587,19 +6587,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_set_precision")
     }
 
-    pub fn ds_stack_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_stack_create")
+    pub fn ds_stack_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.stacks.add(ds::Stack::new()).into())
     }
 
-    pub fn ds_stack_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_destroy")
+    pub fn ds_stack_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_destroy", e.into())),
+        }
     }
 
-    pub fn ds_stack_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_clear")
+    pub fn ds_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => {
+                stack.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_clear", e.into())),
+        }
     }
 
     pub fn ds_stack_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6617,14 +6626,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_stack_empty")
     }
 
-    pub fn ds_stack_push(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_stack_push")
+    pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.stacks.get(id) {
+            Ok(stack) => {
+                stack.push(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_push", e.into())),
+        }
     }
 
-    pub fn ds_stack_pop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_pop")
+    pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.pop().unwrap_or(Default::default())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_push", e.into())),
+        }
     }
 
     pub fn ds_stack_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
