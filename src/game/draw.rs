@@ -155,8 +155,8 @@ impl Game {
                         0.0,
                         background.blend,
                         background.alpha,
-                        (src_x + src_w).into(),
-                        (src_y + src_h).into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
                     );
                 }
             }
@@ -215,8 +215,8 @@ impl Game {
                         0.0,
                         background.blend,
                         background.alpha,
-                        (src_x + src_w).into(),
-                        (src_y + src_h).into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
                     );
                 }
             }
