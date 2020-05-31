@@ -211,6 +211,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn into_inner(self) -> f64 {
+        self.0
+    }
+
+    #[inline(always)]
     pub fn round(self) -> i32 {
         (self.round64() & u32::max_value() as i64) as i32
     }
