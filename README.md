@@ -16,3 +16,4 @@ This project has only been worked on by two people so far in their little free t
 ## Credits
 - [Adamcake](https://github.com/Adamcake)'s absurd amount of runtime research.
 - [DatZach](https://github.com/DatZach)'s [decompiler](https://github.com/WastedMeerkat/gm81decompiler) for "documenting" the loading sequence.
+- [Jabberwock-RU](https://github.com/Jabberwock-RU) for the new project (& organization) icon.
