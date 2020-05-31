@@ -156,7 +156,7 @@ impl Real {
             asm! {
                 "fld qword ptr [{1}]
                 fistp qword ptr [{1}]
-                mov {0}, [{1}]",
+                movsd {0}, [{1}]",
                 lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
@@ -172,7 +172,7 @@ impl Real {
                 "fld qword ptr [{1}]
                 fsin
                 fstp qword ptr [{1}]
-                mov {0}, [{1}]",
+                movsd {0}, [{1}]",
                 lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
@@ -188,7 +188,7 @@ impl Real {
                 "fld qword ptr [{1}]
                 fcos
                 fstp qword ptr [{1}]
-                mov {0}, [{1}]",
+                movsd {0}, [{1}]",
                 lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
@@ -205,7 +205,7 @@ impl Real {
                 fptan
                 fstp st(0)
                 fstp qword ptr [{1}]
-                mov {0}, [{1}]",
+                movsd {0}, [{1}]",
                 lateout(xmm_reg) out,
                 in(reg) &mut self,
             }
