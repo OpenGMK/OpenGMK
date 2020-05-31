@@ -15,6 +15,7 @@ use crate::{
     game::Window,
     render::{Renderer, RendererOptions},
     types::Colour,
+    util,
 };
 use cfg_if::cfg_if;
 use rect_packer::DensePacker;
@@ -537,6 +538,58 @@ impl Renderer for OpenGLRenderer {
             colour,
             alpha,
         )
+    }
+
+    fn draw_sprite_tiled(
+        &mut self,
+        texture: &AtlasRef,
+        x: i32,
+        y: i32,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+        tile_end_x: f64,
+        tile_end_y: f64,
+    ) {
+        let width = f64::from(texture.w) * xscale;
+        let height = f64::from(texture.h) * yscale;
+
+        let mut x = f64::from(x).rem_euclid(width);
+        if x > 0.0 {
+            x -= width;
+        }
+        let mut y = f64::from(y).rem_euclid(height);
+        if y > 0.0 {
+            y -= height;
+        }
+
+        let start_x = x;
+
+        loop {
+            loop {
+                self.draw_sprite(
+                    texture,
+                    util::ieee_round(x),
+                    util::ieee_round(y),
+                    xscale,
+                    yscale,
+                    angle,
+                    colour,
+                    alpha,
+                );
+                x += width;
+                if x > tile_end_x {
+                    break
+                }
+            }
+            x = start_x;
+            y += height;
+            if y > tile_end_y {
+                break
+            }
+        }
     }
 
     fn set_view(

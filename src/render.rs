@@ -76,6 +76,22 @@ pub trait Renderer {
         alpha: f64,
     );
 
+    /// Draws a sprite to the screen, tiled rightwards and downwards, starting just below 0,0 and
+    /// continuing until the given boundaries are exceeded.
+    fn draw_sprite_tiled(
+        &mut self,
+        texture: &AtlasRef,
+        x: i32,
+        y: i32,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+        tile_end_x: f64,
+        tile_end_y: f64,
+    );
+
     /// Updates the screen. Should be called only after drawing everything that should be in the current frame.
     fn finish(&mut self, width: u32, height: u32);
 }
