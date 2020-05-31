@@ -1,6 +1,6 @@
 use crate::{
-    game::{Game, GetAsset, background, Renderer},
-    gml, util, asset,
+    game::{Game, GetAsset},
+    gml, util,
 };
 use std::cmp::Ordering;
 
@@ -142,52 +142,23 @@ impl Game {
             }
         }
 
-        // I would just pass a &mut Game here, but that clashes with the reference system.
-        fn draw_background(renderer: &mut dyn Renderer, background: &background::Background, bg_asset: &asset::Background, xend: f64, yend: f64) {
-                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
-                    let width = bg_asset.width as f64 * background.xscale;
-                    let mut xstart = background.x_offset;
-                    if background.tile_horizontal {
-                        xstart = xstart.rem_euclid(width);
-                        if xstart > 0.0 {
-                            xstart -= width;
-                        }
-                    }
-                    let height = bg_asset.height as f64 * background.yscale;
-                    let mut ystart = background.y_offset;
-                    if background.tile_vertical {
-                        ystart = ystart.rem_euclid(height);
-                        if ystart > 0.0 {
-                            ystart -= height;
-                        }
-                    }
-                    let mut x = xstart;
-                    while x < xend {
-                        let mut y = ystart;
-                        while y < yend {
-                            renderer.draw_sprite(
-                                atlas_ref,
-                                util::ieee_round(x),
-                                util::ieee_round(y),
-                                background.xscale,
-                                background.yscale,
-                                0.0,
-                                background.blend,
-                                background.alpha,
-                            );
-                            if !background.tile_vertical {break;}
-                            y += height;
-                        }
-                        if !background.tile_horizontal {break;}
-                        x += width;
-                    }
-                }
-        }
-
         // draw backgrounds
         for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
-                draw_background(self.renderer.as_mut(), background, bg_asset, (src_x + src_w).into(), (src_y + src_h).into());
+                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                    self.renderer.draw_sprite_tiled(
+                        atlas_ref,
+                        util::ieee_round(background.x_offset),
+                        util::ieee_round(background.y_offset),
+                        background.xscale,
+                        background.yscale,
+                        0.0,
+                        background.blend,
+                        background.alpha,
+                        (src_x + src_w).into(),
+                        (src_y + src_h).into(),
+                    );
+                }
             }
         }
 
@@ -234,7 +205,20 @@ impl Game {
         // draw foregrounds
         for background in self.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
-                draw_background(self.renderer.as_mut(), background, bg_asset, (src_x + src_w).into(), (src_y + src_h).into());
+                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                    self.renderer.draw_sprite_tiled(
+                        atlas_ref,
+                        util::ieee_round(background.x_offset),
+                        util::ieee_round(background.y_offset),
+                        background.xscale,
+                        background.yscale,
+                        0.0,
+                        background.blend,
+                        background.alpha,
+                        (src_x + src_w).into(),
+                        (src_y + src_h).into(),
+                    );
+                }
             }
         }
 
