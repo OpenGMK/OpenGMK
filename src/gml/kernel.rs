@@ -2193,14 +2193,14 @@ impl Game {
     pub fn is_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         match expect_args!(args, [any])? {
             Value::Real(_) => Ok(gml::TRUE.into()),
-            _ => Ok(gml::TRUE.into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn is_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         match expect_args!(args, [any])? {
             Value::Str(_) => Ok(gml::TRUE.into()),
-            _ => Ok(gml::TRUE.into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
