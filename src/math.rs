@@ -154,6 +154,48 @@ cfg_if! {
                     self
                 )
             }
+
+            pub fn arctan2(mut self, mut other: Real) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fld qword ptr [{2}]
+                        fpatan
+                        fstp qword ptr [{1}]
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                        in(reg) &mut other,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn exp(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fldl2e
+                        fmulp
+                        fld st(0)
+                        frndint
+                        fsub st(1),st(0)
+                        fxch
+                        f2xm1
+                        fld1
+                        faddp
+                        fscale
+                        fstp qword ptr [{1}]
+                        fstp st(0)
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
         }
 
         impl Add for Real {
@@ -417,5 +459,16 @@ mod tests {
     #[test]
     fn arctan() {
         assert_eq!(Real(123.4).arctan(), Real(1.5626927764648464));
+    }
+
+    #[test]
+    fn arctan2() {
+        assert_eq!(Real(5.0).arctan2(Real(8.1)), Real(0.5530314441506405));
+        assert_eq!(Real(8.1).arctan2(Real(5.0)), Real(1.0177648826442560));
+    }
+
+    #[test]
+    fn exp() {
+        assert_eq!(Real(3.1).exp(), Real(22.19795128144164));
     }
 }
