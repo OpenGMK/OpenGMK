@@ -449,6 +449,20 @@ impl Real {
     pub fn fract(self) -> Self {
         Self(self.0.fract())
     }
+
+    #[inline(always)]
+    pub fn to_radians(self) -> Self {
+        // TODO: once asm! can process tword ptrs, multiply input with this instead:
+        // [AE C8 E9 94 12 35 FA 8E F9 3F]
+        Self(self.0.to_radians())
+    }
+
+    #[inline(always)]
+    pub fn to_degrees(self) -> Self {
+        // TODO: once asm! can process tword ptrs, multiply input with this instead:
+        // [C3 BD 0F 1E D3 E0 2E E5 04 40]
+        Self(self.0.to_degrees())
+    }
 }
 
 #[cfg(test)]
