@@ -451,17 +451,41 @@ impl Real {
     }
 
     #[inline(always)]
-    pub fn to_radians(self) -> Self {
-        // TODO: once asm! can process tword ptrs, multiply input with this instead:
-        // [AE C8 E9 94 12 35 FA 8E F9 3F]
-        Self(self.0.to_radians())
+    pub fn to_radians(mut self) -> Self {
+        let conversion_bytes: [u8; 10] = [0xAE, 0xC8, 0xE9, 0x94, 0x12, 0x35, 0xFA, 0x8E, 0xF9, 0x3F];
+        unsafe {
+            let out: f64;
+            asm! {
+                "fld qword ptr [{1}]
+                fld tbyte ptr [{2}]
+                fmulp
+                fstp qword ptr [{1}]
+                movsd {0}, qword ptr [{1}]",
+                lateout(xmm_reg) out,
+                in(reg) &mut self,
+                in(reg) &conversion_bytes,
+            }
+            out.into()
+        }
     }
 
     #[inline(always)]
-    pub fn to_degrees(self) -> Self {
-        // TODO: once asm! can process tword ptrs, multiply input with this instead:
-        // [C3 BD 0F 1E D3 E0 2E E5 04 40]
-        Self(self.0.to_degrees())
+    pub fn to_degrees(mut self) -> Self {
+        let conversion_bytes: [u8; 10] = [0xC3, 0xBD, 0x0F, 0x1E, 0xD3, 0xE0, 0x2E, 0xE5, 0x04, 0x40];
+        unsafe {
+            let out: f64;
+            asm! {
+                "fld qword ptr [{1}]
+                fld tbyte ptr [{2}]
+                fmulp
+                fstp qword ptr [{1}]
+                movsd {0}, qword ptr [{1}]",
+                lateout(xmm_reg) out,
+                in(reg) &mut self,
+                in(reg) &conversion_bytes,
+            }
+            out.into()
+        }
     }
 
     #[inline(always)]
@@ -643,5 +667,15 @@ mod tests {
     #[test]
     fn sqrt() {
         assert_eq!(Real(9.0).sqrt(), Real(3.0));
+    }
+
+    #[test]
+    fn to_degrees() {
+        assert_eq!(Real(std::f64::consts::PI).to_degrees(), Real(180.0));
+    }
+
+    #[test]
+    fn to_radians() {
+        assert_eq!(Real(180.0).to_radians(), Real(std::f64::consts::PI));
     }
 }
