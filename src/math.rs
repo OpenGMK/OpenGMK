@@ -196,6 +196,75 @@ cfg_if! {
                     out.into()
                 }
             }
+
+            pub fn ln(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fldln2
+                        fld qword ptr [{1}]
+                        fyl2x
+                        fstp qword ptr [{1}]
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn log2(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld1
+                        fld qword ptr [{1}]
+                        fyl2x
+                        fstp qword ptr [{1}]
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn log10(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fldlg2
+                        fld qword ptr [{1}]
+                        fyl2x
+                        fstp qword ptr [{1}]
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn logn(mut self, mut other: Real) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld1
+                        fld qword ptr [{1}]
+                        fyl2x
+                        fld1
+                        fld qword ptr [{2}]
+                        fyl2x
+                        fdivp
+                        fstp qword ptr [{1}]
+                        movsd {0}, qword ptr [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
+                        in(reg) &mut other,
+                    }
+                    out.into()
+                }
+            }
         }
 
         impl Add for Real {
@@ -470,5 +539,27 @@ mod tests {
     #[test]
     fn exp() {
         assert_eq!(Real(3.1).exp(), Real(22.19795128144164));
+    }
+
+    #[test]
+    fn ln() {
+        assert_eq!(Real(std::f64::consts::E).ln(), Real(1.0));
+    }
+
+    #[test]
+    fn log2() {
+        assert_eq!(Real(2.0).log2(), Real(1.0));
+        assert_eq!(Real(8.0).log2(), Real(3.0));
+    }
+
+    #[test]
+    fn log10() {
+        assert_eq!(Real(10.0).log10(), Real(1.0));
+        assert_eq!(Real(1000.0).log10(), Real(3.0));
+    }
+
+    #[test]
+    fn logn() {
+        assert_eq!(Real(343.0).logn(Real(7.0)), Real(3.0));
     }
 }
