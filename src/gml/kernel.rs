@@ -5,9 +5,9 @@
 use crate::{
     asset,
     game::{draw, Game, GetAsset, SceneChange},
-    gml::{self, file, Context, Value},
+    gml::{self, compiler::mappings, file, Context, Value},
     input::MouseButton,
-    instance::{DummyFieldHolder, Instance},
+    instance::{DummyFieldHolder, Field, Instance},
     math::Real,
 };
 use std::convert::TryFrom;
@@ -2440,9 +2440,22 @@ impl Game {
         expect_args!(args, [any]).map(|v| v.repr().into())
     }
 
-    pub fn string_format(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function string_format")
+    pub fn string_format(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (val, mut tot, mut dec) = expect_args!(args, [any, int, int])?;
+        match val {
+            Value::Str(_) => Ok(val),
+            Value::Real(mut x) => {
+                dec = dec.min(18);
+                tot = tot.max(0);
+                if dec < 0 {
+                    // Very strange behaviour here but I swear it's accurate
+                    let power = Real::from(10f64.powi(-dec));
+                    x = Real::from((x / power).round()) * power;
+                    dec = 18;
+                }
+                Ok(format!("{num:>width$.prec$}", num = x, prec = dec as usize, width = tot as usize).into())
+            },
+        }
     }
 
     pub fn chr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4732,19 +4745,24 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn event_perform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function event_perform")
+    pub fn event_perform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (event_type, event_number) = expect_args!(args, [int, int])?;
+        self.run_instance_event(event_type as _, event_number as _, context.this, context.other, None)?;
+        Ok(Default::default())
     }
 
-    pub fn event_user(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function event_user")
+    pub fn event_user(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let number = expect_args!(args, [int])?;
+        if number >= 0 && number <= 15 {
+            self.run_instance_event(7, (10 + number) as _, context.this, context.other, None)?;
+        }
+        Ok(Default::default())
     }
 
-    pub fn event_perform_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function event_perform_object")
+    pub fn event_perform_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object, event_type, event_number) = expect_args!(args, [int, int, int])?;
+        self.run_instance_event(event_type as _, event_number as _, context.this, context.other, Some(object))?;
+        Ok(Default::default())
     }
 
     pub fn external_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4898,9 +4916,9 @@ impl Game {
         }
     }
 
-    pub fn window_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_handle")
+    pub fn window_handle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        return Ok(self.window.window_handle().into())
     }
 
     pub fn show_debug_message(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4919,74 +4937,126 @@ impl Game {
         unimplemented!("Called unimplemented kernel function set_application_title")
     }
 
-    pub fn variable_global_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_global_exists")
+    pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [string])?;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(self.globals.vars.contains_key(var).into())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(self.globals.fields.contains_key(&field_id).into())
+        }
     }
 
-    pub fn variable_global_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_global_get")
+    pub fn variable_global_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [any])?;
+        self.variable_global_array_get(context, &[identifier, 0.into()])
     }
 
-    pub fn variable_global_array_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_global_array_get")
+    pub fn variable_global_array_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index) = expect_args!(args, [string, int])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(self.globals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+        }
     }
 
-    pub fn variable_global_array2_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_global_array2_get")
+    pub fn variable_global_array2_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2) = expect_args!(args, [any, int, int])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into()])
     }
 
-    pub fn variable_global_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_global_set")
+    pub fn variable_global_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, value) = expect_args!(args, [any, any])?;
+        self.variable_global_array_set(context, &[identifier, 0.into(), value])
     }
 
-    pub fn variable_global_array_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_global_array_set")
+    pub fn variable_global_array_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            if let Some(field) = self.globals.vars.get_mut(var) {
+                field.set(index, value);
+            } else {
+                self.globals.vars.insert(*var, Field::new(index, value));
+            }
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            if let Some(field) = self.globals.fields.get_mut(&field_id) {
+                field.set(index, value);
+            } else {
+                self.globals.fields.insert(field_id, Field::new(index, value));
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn variable_global_array2_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function variable_global_array2_set")
+    pub fn variable_global_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
-    pub fn variable_local_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_local_exists")
+    pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [string])?;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(context.locals.vars.contains_key(var).into())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(context.locals.fields.contains_key(&field_id).into())
+        }
     }
 
-    pub fn variable_local_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function variable_local_get")
+    pub fn variable_local_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let identifier = expect_args!(args, [any])?;
+        self.variable_local_array_get(context, &[identifier, 0.into()])
     }
 
-    pub fn variable_local_array_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_local_array_get")
+    pub fn variable_local_array_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index) = expect_args!(args, [string, int])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            Ok(context.locals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            Ok(context.locals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+        }
     }
 
-    pub fn variable_local_array2_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_local_array2_get")
+    pub fn variable_local_array2_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2) = expect_args!(args, [any, int, int])?;
+        self.variable_local_array_get(context, &[identifier, ((index1 * 32000) + index2).into()])
     }
 
-    pub fn variable_local_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function variable_local_set")
+    pub fn variable_local_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, value) = expect_args!(args, [any, any])?;
+        self.variable_local_array_set(context, &[identifier, 0.into(), value])
     }
 
-    pub fn variable_local_array_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function variable_local_array_set")
+    pub fn variable_local_array_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let index = index as u32;
+        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+            if let Some(field) = context.locals.vars.get_mut(var) {
+                field.set(index, value);
+            } else {
+                context.locals.vars.insert(*var, Field::new(index, value));
+            }
+        } else {
+            let field_id = self.compiler.get_field_id(&identifier);
+            if let Some(field) = context.locals.fields.get_mut(&field_id) {
+                field.set(index, value);
+            } else {
+                context.locals.fields.insert(field_id, Field::new(index, value));
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn variable_local_array2_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function variable_local_array2_set")
+    pub fn variable_local_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
+        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
     pub fn clipboard_has_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5249,14 +5319,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_exists")
     }
 
-    pub fn sprite_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_name")
+    pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.name.to_string().into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_number")
+    pub fn sprite_get_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.frames.len().into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
     pub fn sprite_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5264,7 +5342,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5273,38 +5351,62 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
-    pub fn sprite_get_xoffset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_xoffset")
+    pub fn sprite_get_xoffset(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.origin_x.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_yoffset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_yoffset")
+    pub fn sprite_get_yoffset(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.origin_y.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_bbox_left(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_left")
+    pub fn sprite_get_bbox_left(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_left.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_bbox_right(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_right")
+    pub fn sprite_get_bbox_right(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_right.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_bbox_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_top")
+    pub fn sprite_get_bbox_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_top.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
-    pub fn sprite_get_bbox_bottom(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_get_bbox_bottom")
+    pub fn sprite_get_bbox_bottom(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
+            Ok(sprite.bbox_bottom.into())
+        } else {
+            Ok(Value::Real(Real::from(-1.0)))
+        }
     }
 
     pub fn sprite_set_offset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

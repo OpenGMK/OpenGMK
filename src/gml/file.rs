@@ -126,7 +126,7 @@ impl FileManager {
                 let mut bytes = read_until(&mut f.file, |b| {
                     // If you read spaces or dashes at the start, skip them
                     if b == 0x20 || b == 0x2d {
-                        if nonspace_seen { return true } else { return false }
+                        return nonspace_seen
                     }
                     nonspace_seen = true;
                     // Comma or period
