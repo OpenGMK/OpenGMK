@@ -538,8 +538,8 @@ mod tests {
 
     #[test]
     fn rem() {
-        assert_eq!(Real(1.0), Real(3.0) / Real(7.0));
-        assert_eq!(Real(0.75), Real(2.25) / Real(160.5));
+        assert_eq!(Real(1.0), Real(7.0) % Real(3.0));
+        assert_eq!(Real(0.75), Real(160.5) % Real(2.25));
     }
 
     #[test]
