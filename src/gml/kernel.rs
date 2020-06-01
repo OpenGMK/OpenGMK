@@ -8,14 +8,14 @@ use crate::{
     gml::{self, compiler::mappings, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
-    util,
+    math::Real,
 };
 use std::convert::TryFrom;
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
-    (real, $v: expr) => {{ Ok(<Value as Into<f64>>::into($v.clone())) }};
+    (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
     (string, $v: expr) => {{ Ok(<Value as Into<std::rc::Rc<str>>>::into($v.clone())) }};
 }
 
@@ -385,27 +385,27 @@ impl Game {
 
     pub fn make_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (h, s, v) = expect_args!(args, [real, real, real])?;
-        let h = h * 360.0 / 255.0;
-        let s = s / 255.0;
-        let v = v / 255.0;
+        let h = h * Real::from(360.0) / Real::from(255.0);
+        let s = s / Real::from(255.0);
+        let v = v / Real::from(255.0);
         let chroma = v * s;
-        let hprime = (h / 60.0) % 6.0;
-        let x = chroma * (1.0 - ((hprime % 2.0) - 1.0).abs());
+        let hprime = (h / Real::from(60.0)) % Real::from(6.0);
+        let x = chroma * (Real::from(1.0) - ((hprime % Real::from(2.0)) - Real::from(1.0)).abs());
         let m = v - chroma;
 
-        let (r, g, b) = match hprime.floor() as i32 {
-            0 => (chroma, x, 0.0),
-            1 => (x, chroma, 0.0),
-            2 => (0.0, chroma, x),
-            3 => (0.0, x, chroma),
-            4 => (x, 0.0, chroma),
-            5 => (chroma, 0.0, x),
-            _ => (0.0, 0.0, 0.0),
+        let (r, g, b) = match hprime.floor().into_inner() as i32 {
+            0 => (chroma, x, Real::from(0.0)),
+            1 => (x, chroma, Real::from(0.0)),
+            2 => (Real::from(0.0), chroma, x),
+            3 => (Real::from(0.0), x, chroma),
+            4 => (x, Real::from(0.0), chroma),
+            5 => (chroma, Real::from(0.0), x),
+            _ => (Real::from(0.0), Real::from(0.0), Real::from(0.0)),
         };
 
-        let out_r = util::ieee_round((r + m) * 255.0);
-        let out_g = util::ieee_round((g + m) * 255.0);
-        let out_b = util::ieee_round((b + m) * 255.0);
+        let out_r = ((r + m) * Real::from(255.0)).round();
+        let out_g = ((g + m) * Real::from(255.0)).round();
+        let out_b = ((b + m) * Real::from(255.0)).round();
         Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
@@ -762,17 +762,17 @@ impl Game {
         expect_args!(args, [])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+            let image_index = instance.image_index.get().floor().into_inner() as i32 % sprite.frames.len() as i32;
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    util::ieee_round(instance.x.get()),
-                    util::ieee_round(instance.y.get()),
-                    instance.image_xscale.get(),
-                    instance.image_yscale.get(),
-                    instance.image_angle.get(),
+                    instance.x.get().round(),
+                    instance.y.get().round(),
+                    instance.image_xscale.get().into(),
+                    instance.image_yscale.get().into(),
+                    instance.image_angle.get().into(),
                     instance.image_blend.get(),
-                    instance.image_alpha.get(),
+                    instance.image_alpha.get().into(),
                 );
             }
             Ok(Default::default())
@@ -785,19 +785,19 @@ impl Game {
         let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, int, int])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < 0.0 { instance.image_index.get() } else { image_index };
+            let image_index = if image_index < Real::from(0.0) { instance.image_index.get() } else { image_index };
             if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x,
                     y,
-                    instance.image_xscale.get(),
-                    instance.image_yscale.get(),
-                    instance.image_angle.get(),
+                    instance.image_xscale.get().into(),
+                    instance.image_yscale.get().into(),
+                    instance.image_angle.get().into(),
                     instance.image_blend.get(),
-                    instance.image_alpha.get(),
+                    instance.image_alpha.get().into(),
                 );
             }
             Ok(Default::default())
@@ -815,12 +815,24 @@ impl Game {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
             expect_args!(args, [int, real, int, int, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index =
-                if image_index < 0.0 { self.instance_list.get(context.this).image_index.get() } else { image_index };
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
             if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
             {
-                self.renderer.draw_sprite(atlas_ref, x, y, xscale, yscale, angle, colour, alpha);
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x,
+                    y,
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
+                    colour,
+                    alpha.into(),
+                );
             }
             Ok(Default::default())
         } else {
@@ -1251,16 +1263,16 @@ impl Game {
             };
 
             // Handle each case separately
-            let (speed, direction): (f64, f64) = match offset {
-                0 => (speed, 225.0),
-                1 => (speed, 270.0),
-                2 => (speed, 315.0),
-                3 => (speed, 180.0),
-                4 => (0.0, 0.0),
-                5 => (speed, 0.0),
-                6 => (speed, 135.0),
-                7 => (speed, 90.0),
-                8 => (speed, 45.0),
+            let (speed, direction): (Real, Real) = match offset {
+                0 => (speed, Real::from(225.0)),
+                1 => (speed, Real::from(270.0)),
+                2 => (speed, Real::from(315.0)),
+                3 => (speed, Real::from(180.0)),
+                4 => (Real::from(0.0), Real::from(0.0)),
+                5 => (speed, Real::from(0.0)),
+                6 => (speed, Real::from(135.0)),
+                7 => (speed, Real::from(90.0)),
+                8 => (speed, Real::from(45.0)),
                 _ => unreachable!(),
             };
             if context.relative {
@@ -1320,7 +1332,7 @@ impl Game {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
         let instance = self.instance_list.get(context.this);
         let speed = if context.relative { instance.speed.get() + speed } else { speed };
-        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        let direction = (instance.y.get() - y).arctan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
         Ok(Default::default())
     }
@@ -1362,29 +1374,32 @@ impl Game {
         let instance = self.instance_list.get(context.this);
         // Get sprite width/height, as these are used to decide how far to wrap
         let (w, h) = if let Some(Some(sprite)) = self.assets.sprites.get(instance.sprite_index.get() as usize) {
-            ((sprite.width as f64) * instance.image_xscale.get(), (sprite.height as f64) * instance.image_yscale.get())
+            (
+                Real::from(sprite.width) * instance.image_xscale.get(),
+                Real::from(sprite.height) * instance.image_yscale.get(),
+            )
         } else {
-            (0.0, 0.0)
+            (Real::from(0.0), Real::from(0.0))
         };
 
         if horizontal {
-            let room_width = self.room_width as f64;
-            if instance.hspeed.get() > 0.0 && instance.x.get() > room_width {
+            let room_width = Real::from(self.room_width);
+            if instance.hspeed.get() > Real::from(0.0) && instance.x.get() > room_width {
                 // Wrap x right-to-left
                 instance.x.set(instance.x.get() - (room_width + w));
             }
-            if instance.hspeed.get() < 0.0 && instance.x.get() < 0.0 {
+            if instance.hspeed.get() < Real::from(0.0) && instance.x.get() < Real::from(0.0) {
                 // Wrap x left-to-right
                 instance.x.set(instance.x.get() + (room_width + w));
             }
         }
         if vertical {
-            let room_height = self.room_height as f64;
-            if instance.vspeed.get() > 0.0 && instance.y.get() > room_height {
+            let room_height = Real::from(self.room_height);
+            if instance.vspeed.get() > Real::from(0.0) && instance.y.get() > room_height {
                 // Wrap y bottom-to-top
                 instance.y.set(instance.y.get() - (room_height + h));
             }
-            if instance.vspeed.get() < 0.0 && instance.y.get() < 0.0 {
+            if instance.vspeed.get() < Real::from(0.0) && instance.y.get() < Real::from(0.0) {
                 // Wrap y top-to-bottom
                 instance.y.set(instance.y.get() + (room_height + h));
             }
@@ -1474,7 +1489,7 @@ impl Game {
                 let instance = self.instance_list.get(context.this);
                 (instance.x.get(), instance.y.get())
             } else {
-                (0.0, 0.0)
+                (Real::from(0.0), Real::from(0.0))
             };
             self.last_instance_id += 1;
             let instance = self.instance_list.insert(Instance::new(
@@ -1498,7 +1513,7 @@ impl Game {
                 let instance = self.instance_list.get(context.this);
                 (instance.x.get(), instance.y.get())
             } else {
-                (0.0, 0.0)
+                (Real::from(0.0), Real::from(0.0))
             };
             self.last_instance_id += 1;
             let instance = self.instance_list.insert(Instance::new(
@@ -1550,10 +1565,10 @@ impl Game {
             0 | _ => (false, false),
         };
         if hmirr {
-            xsc *= -1.0;
+            xsc = -xsc;
         }
         if vmirr {
-            ysc *= -1.0;
+            ysc = -ysc;
         }
         instance.image_xscale.set(xsc);
         instance.image_yscale.set(ysc);
@@ -1671,7 +1686,7 @@ impl Game {
     pub fn action_timeline_stop(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         let instance = self.instance_list.get(context.this);
-        instance.timeline_position.set(0.0);
+        instance.timeline_position.set(Real::from(0.0));
         instance.timeline_running.set(false);
         Ok(Default::default())
     }
@@ -1814,7 +1829,7 @@ impl Game {
 
     pub fn action_if_dice(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let bound = expect_args!(args, [real])?;
-        Ok((self.rand.next(bound) < 1.0).into())
+        Ok((self.rand.next(bound.into()) < 1.0).into())
     }
 
     pub fn action_if_mouse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1903,9 +1918,9 @@ impl Game {
         let (value, method) = expect_args!(args, [real, int])?;
 
         Ok(match method {
-            1 => (self.score as f64) < value,
-            2 => (self.score as f64) > value,
-            0 | _ => (self.score as f64) == value,
+            1 => Real::from(self.score) < value,
+            2 => Real::from(self.score) > value,
+            0 | _ => Real::from(self.score) == value,
         }
         .into())
     }
@@ -1939,9 +1954,9 @@ impl Game {
         let (value, method) = expect_args!(args, [real, int])?;
 
         Ok(match method {
-            1 => (self.lives as f64) < value,
-            2 => (self.lives as f64) > value,
-            0 | _ => (self.lives as f64) == value,
+            1 => Real::from(self.lives) < value,
+            2 => Real::from(self.lives) > value,
+            0 | _ => Real::from(self.lives) == value,
         }
         .into())
     }
@@ -2206,12 +2221,12 @@ impl Game {
 
     pub fn random(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let bound = expect_args!(args, [real])?;
-        Ok(self.rand.next(bound).into())
+        Ok(self.rand.next(bound.into()).into())
     }
 
     pub fn random_range(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (lower, upper) = expect_args!(args, [real, real])?;
-        Ok((lower.min(upper) + self.rand.next((upper - lower).abs())).into())
+        Ok((lower.min(upper) + Real::from(self.rand.next((upper - lower).abs().into()))).into())
     }
 
     pub fn irandom(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2246,7 +2261,7 @@ impl Game {
     }
 
     pub fn round(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| util::ieee_round(x).into())
+        expect_args!(args, [real]).map(|x| x.round().into())
     }
 
     pub fn floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2258,7 +2273,7 @@ impl Game {
     }
 
     pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.signum()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.into_inner().signum().into()))
     }
 
     pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2267,7 +2282,7 @@ impl Game {
 
     pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.sqrt() {
-            n if !n.is_nan() => Ok(Value::Real(n)),
+            n if !n.as_ref().is_nan() => Ok(Value::Real(n)),
             n => Err(gml::Error::FunctionError("sqrt(x)", format!("can't get square root of {}", n))),
         })
     }
@@ -2305,19 +2320,19 @@ impl Game {
     }
 
     pub fn arcsin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.asin()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.arcsin()))
     }
 
     pub fn arccos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.acos()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.arccos()))
     }
 
     pub fn arctan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.atan()))
+        expect_args!(args, [real]).map(|x| Value::Real(x.arctan()))
     }
 
     pub fn arctan2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real]).map(|(y, x)| Value::Real(y.atan2(x)))
+        expect_args!(args, [real, real]).map(|(y, x)| Value::Real(y.arctan2(x)))
     }
 
     pub fn degtorad(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2329,11 +2344,11 @@ impl Game {
     }
 
     pub fn power(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real]).map(|(x, n)| Value::Real(x.powf(n)))
+        expect_args!(args, [real, real]).map(|(x, n)| Value::Real(x.into_inner().powf(n.into()).into()))
     }
 
     pub fn logn(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.log(n)))
+        expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.logn(n)))
     }
 
     pub fn min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2349,7 +2364,7 @@ impl Game {
             match (value, &min) {
                 (Value::Real(v), Value::Real(m)) if m > v => min = Value::Real(*v),
                 (Value::Real(v), Value::Str(_)) => min = Value::Real(*v),
-                (Value::Str(v), Value::Real(m)) if *m > 0.0 => min = Value::Str(v.clone()),
+                (Value::Str(v), Value::Real(m)) if m.into_inner() > 0.0 => min = Value::Str(v.clone()),
                 (Value::Str(v), Value::Str(m)) if m > v => min = Value::Str(v.clone()),
                 _ => (),
             }
@@ -2368,7 +2383,7 @@ impl Game {
             match (value, &max) {
                 (Value::Real(v), Value::Real(m)) if m < v => max = Value::Real(*v),
                 (Value::Real(v), Value::Str(_)) => max = Value::Real(*v),
-                (Value::Str(v), Value::Real(m)) if *m < 0.0 => max = Value::Str(v.clone()),
+                (Value::Str(v), Value::Real(m)) if m.into_inner() < 0.0 => max = Value::Str(v.clone()),
                 (Value::Str(v), Value::Str(m)) if m < v => max = Value::Str(v.clone()),
                 _ => (),
             }
@@ -2412,9 +2427,9 @@ impl Game {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
             Value::Str(s) => match s.trim() {
-                x if x.len() == 0 => Ok(Value::Real(0.0)),
+                x if x.len() == 0 => Ok(Value::Real(Real::from(0.0))),
                 x => match x.parse::<f64>() {
-                    Ok(r) => Ok(Value::Real(r)),
+                    Ok(r) => Ok(Value::Real(r.into())),
                     Err(e) => Err(gml::Error::FunctionError("real(str)", format!("can't convert {} - {}", s, e))),
                 },
             },
@@ -2434,8 +2449,8 @@ impl Game {
                 tot = tot.max(0);
                 if dec < 0 {
                     // Very strange behaviour here but I swear it's accurate
-                    let power = 10f64.powi(-dec);
-                    x = util::ieee_round(x / power) as f64 * power;
+                    let power = Real::from(10f64.powi(-dec));
+                    x = Real::from((x / power).round()) * power;
                     dec = 18;
                 }
                 Ok(format!("{num:>width$.prec$}", num = x, prec = dec as usize, width = tot as usize).into())
@@ -2456,23 +2471,24 @@ impl Game {
     }
 
     pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real(s.chars().count() as _))
+        expect_args!(args, [string]).map(|s| Value::Real((s.chars().count() as f64).into()))
     }
 
     pub fn string_byte_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real(s.len() as _))
+        expect_args!(args, [string]).map(|s| Value::Real((s.len() as f64).into()))
     }
 
     pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
-        expect_args!(args, [string, int])
-            .map(|(s, ix)| Value::Real(s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as _))
+        expect_args!(args, [string, int]).map(|(s, ix)| {
+            Value::Real((s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as f64).into())
+        })
     }
 
     pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string])
-            .map(|(ss, s)| Value::Real(s.find(ss.as_ref()).unwrap_or_default() as f64 + 1.0))
+            .map(|(ss, s)| Value::Real(Real::from(s.find(ss.as_ref()).unwrap_or_default() as f64 + 1.0)))
     }
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2540,7 +2556,7 @@ impl Game {
     }
 
     pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.repeat(n as usize).into()))
+        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.repeat(n.into_inner() as usize).into()))
     }
 
     pub fn string_letters(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2569,13 +2585,14 @@ impl Game {
     }
 
     pub fn string_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, string]).map(|(ss, s)| Value::Real(s.matches(ss.as_ref()).count() as _))
+        expect_args!(args, [string, string])
+            .map(|(ss, s)| Value::Real(Real::from(s.matches(ss.as_ref()).count() as f64)))
     }
 
     pub fn dot_product(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
-        let l1 = x1.hypot(y1);
-        let l2 = x2.hypot(y2);
+        let l1 = Real::from(x1.into_inner().hypot(y1.into_inner()));
+        let l2 = Real::from(x2.into_inner().hypot(y2.into_inner()));
         let (x1, y1) = (x1 / l1, y1 / l1);
         let (x2, y2) = (x2 / l2, y2 / l2);
         Ok((x1 * x2 + y1 * y2).into())
@@ -2583,8 +2600,8 @@ impl Game {
 
     pub fn dot_product_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
-        let l1 = (x1.powi(2) + y1.powi(2) + z1.powi(2)).sqrt();
-        let l2 = (x2.powi(2) + y2.powi(2) + z2.powi(2)).sqrt();
+        let l1 = (x1 * x1 + y1 * y1 + z1 * z1).sqrt();
+        let l2 = (x2 * x2 + y2 * y2 + z2 * z2).sqrt();
         let (x1, y1, z1) = (x1 / l1, y1 / l1, z1 / l1);
         let (x2, y2, z2) = (x2 / l2, y2 / l2, z2 / l2);
         Ok((x1 * x2 + y1 * y2 + z1 * z2).into())
@@ -2592,17 +2609,22 @@ impl Game {
 
     pub fn point_distance_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
-        Ok(((x2 - x1).powi(2) + (y2 - y1).powi(2) + (z2 - z1).powi(2)).sqrt().into())
+        let xdist = x2 - x1;
+        let ydist = y2 - y1;
+        let zdist = z2 - z1;
+        Ok((xdist * xdist + ydist * ydist + zdist * zdist).sqrt().into())
     }
 
     pub fn point_distance(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
-        Ok(((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt().into())
+        let xdist = x2 - x1;
+        let ydist = y2 - y1;
+        Ok((xdist * xdist + ydist * ydist).sqrt().into())
     }
 
     pub fn point_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
-        Ok((y1 - y2).atan2(x2 - x1).to_degrees().into())
+        Ok((y1 - y2).arctan2(x2 - x1).to_degrees().into())
     }
 
     pub fn lengthdir_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2698,8 +2720,8 @@ impl Game {
     pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (hsnap, vsnap) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
-        instance.x.set((util::ieee_round(instance.x.get() / hsnap) as f64) * hsnap);
-        instance.y.set((util::ieee_round(instance.y.get() / vsnap) as f64) * vsnap);
+        instance.x.set(Real::from((instance.x.get() / hsnap).round()) * hsnap);
+        instance.y.set(Real::from((instance.y.get() / vsnap).round()) * vsnap);
         instance.bbox_is_stale.set(true);
         Ok(Default::default())
     }
@@ -2707,7 +2729,7 @@ impl Game {
     pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
         let instance = self.instance_list.get(context.this);
-        let direction = (instance.y.get() - y).atan2(x - instance.x.get()).to_degrees();
+        let direction = (instance.y.get() - y).arctan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
         Ok(Default::default())
     }
@@ -2936,7 +2958,7 @@ impl Game {
         instance.path_index.set(path_id);
         instance.path_speed.set(speed);
         instance.path_endaction.set(end_action);
-        instance.path_position.set(0.0);
+        instance.path_position.set(Real::from(0.0));
         if absolute.is_truthy() {
             if let Some(path_start) = self.assets.paths.get_asset(path_id).map(|x| x.start) {
                 instance.path_xstart.set(path_start.x);
@@ -3100,7 +3122,7 @@ impl Game {
             let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>();
             Ok(count.into())
         } else {
-            Ok(Value::Real(0.0))
+            Ok(Value::Real(Real::from(0.0)))
         }
     }
 
@@ -3525,7 +3547,7 @@ impl Game {
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Binary) {
-            Ok(()) => Ok(Value::Real(0.0)),
+            Ok(()) => Ok(Value::Real(Real::from(0.0))),
             Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
         }
     }
@@ -3577,7 +3599,7 @@ impl Game {
             Err(e) => {
                 let err_str: String = e.into();
                 println!("Warning: file_text_open_read on {} failed: {}", filename, err_str);
-                Ok(Value::Real(-1.0))
+                Ok(Value::Real(Real::from(-1.0)))
             },
         }
     }
@@ -3601,7 +3623,7 @@ impl Game {
     pub fn file_text_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
-            Ok(()) => Ok(Value::Real(0.0)),
+            Ok(()) => Ok(Value::Real(Real::from(0.0))),
             Err(e) => Err(gml::Error::FunctionError("file_text_close", e.into())),
         }
     }
@@ -3656,7 +3678,7 @@ impl Game {
 
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
-        let text = if num.fract() == 0.0 { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
+        let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
         match self.file_manager.write_string(handle, &text) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_real", e.into())),
@@ -5302,7 +5324,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.name.to_string().into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5311,7 +5333,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.frames.len().into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5320,7 +5342,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5329,7 +5351,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5338,7 +5360,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_x.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5347,7 +5369,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_y.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5356,7 +5378,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_left.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5365,7 +5387,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_right.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5374,7 +5396,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_top.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 
@@ -5383,7 +5405,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_bottom.into())
         } else {
-            Ok(Value::Real(-1.0))
+            Ok(Value::Real(Real::from(-1.0)))
         }
     }
 

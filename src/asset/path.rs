@@ -1,10 +1,11 @@
+use crate::math::Real;
 use std::rc::Rc;
 
 pub struct Path {
     pub name: Rc<str>,
     pub points: Vec<Point>,
     pub control_nodes: Vec<ControlNode>,
-    pub length: f64,
+    pub length: Real,
     pub curve: bool,
     pub closed: bool,
     pub precision: i32,
@@ -14,15 +15,15 @@ pub struct Path {
 
 #[derive(Copy, Clone, Default)]
 pub struct Point {
-    pub x: f64,
-    pub y: f64,
-    pub speed: f64,
+    pub x: Real,
+    pub y: Real,
+    pub speed: Real,
 }
 
 #[derive(Copy, Clone)]
 pub struct ControlNode {
     pub point: Point,
-    pub distance: f64,
+    pub distance: Real,
 }
 
 impl Path {
@@ -72,8 +73,8 @@ impl Path {
 
     fn push_control_node(&mut self, point: Point) {
         let distance = match self.control_nodes.last() {
-            Some(prev_node) => point.distance(&prev_node.point) + prev_node.distance,
-            None => 0.0,
+            Some(prev_node) => Real::from(point.distance(&prev_node.point)) + prev_node.distance,
+            None => Real::from(0.0),
         };
         if self.control_nodes.len() == 0 {
             self.start = point;
@@ -86,31 +87,31 @@ impl Path {
     fn generate_smooth(&mut self, precision: i32, point1: Point, point2: Point, point3: Point) {
         if precision > 0 {
             let point_avg = Point {
-                x: (point1.x + point2.x + point2.x + point3.x) / 4.0,
-                y: (point1.y + point2.y + point2.y + point3.y) / 4.0,
-                speed: (point1.speed + point2.speed + point2.speed + point3.speed) / 4.0,
+                x: (point1.x + point2.x + point2.x + point3.x) / Real::from(4.0),
+                y: (point1.y + point2.y + point2.y + point3.y) / Real::from(4.0),
+                speed: (point1.speed + point2.speed + point2.speed + point3.speed) / Real::from(4.0),
             };
 
-            if point1.distance(&point2) > 4.0 {
+            if point1.distance(&point2) > Real::from(4.0) {
                 self.generate_smooth(precision - 1, point1, point1.halfway_between(&point2), point_avg);
             }
 
             self.push_control_node(point_avg);
 
-            if point2.distance(&point3) > 4.0 {
+            if point2.distance(&point3) > Real::from(4.0) {
                 self.generate_smooth(precision - 1, point_avg, point2.halfway_between(&point3), point3);
             }
         }
     }
 
     /// Returns a Point on the path at the given offset, where 0 is the beginning and 1 is the end
-    pub fn get_point(&self, offset: f64) -> Point {
+    pub fn get_point(&self, offset: Real) -> Point {
         match &*self.control_nodes {
-            [] => Point { x: 0.0, y: 0.0, speed: 0.0 },
+            [] => Point { x: Real::from(0.0), y: Real::from(0.0), speed: Real::from(0.0) },
             [node] => node.point,
             nodes => {
                 let distance = offset * self.length;
-                if distance <= 0.0 {
+                if distance <= Real::from(0.0) {
                     // We're before or at the first control node, so just return that
                     self.start
                 } else {
@@ -137,12 +138,18 @@ impl Path {
 
 impl Point {
     // Gives the distance in pixels between this and the provided point
-    pub fn distance(&self, other: &Self) -> f64 {
-        ((other.x - self.x).powi(2) + (other.y - self.y).powi(2)).sqrt()
+    pub fn distance(&self, other: &Self) -> Real {
+        let xdist = other.x - self.x;
+        let ydist = other.y - self.y;
+        (xdist * xdist + ydist * ydist).sqrt()
     }
 
     // Creates a point which is halfway between this and another point
     pub fn halfway_between(&self, other: &Self) -> Self {
-        Self { x: (self.x + other.x) / 2.0, y: (self.y + other.y) / 2.0, speed: (self.speed + other.speed) / 2.0 }
+        Self {
+            x: (self.x + other.x) / Real::from(2.0),
+            y: (self.y + other.y) / Real::from(2.0),
+            speed: (self.speed + other.speed) / Real::from(2.0),
+        }
     }
 }

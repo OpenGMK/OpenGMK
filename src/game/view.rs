@@ -1,4 +1,4 @@
-use crate::util;
+use crate::{math::Real, util};
 
 /// An instance of a view in a room
 #[derive(Clone, Copy)]
@@ -31,7 +31,7 @@ pub struct View {
     pub port_h: u32,
 
     /// Angle to which this view is rotated on the screen
-    pub angle: f64,
+    pub angle: Real,
 
     /// Target object ID this view should follow
     pub follow_target: i32,
@@ -67,7 +67,14 @@ impl View {
         let mut x = src_x + (src_w * f64::from(x - self.port_x) / f64::from(self.port_w));
         let mut y = src_y + (src_h * f64::from(y - self.port_y) / f64::from(self.port_h));
         let angle = self.angle.to_radians();
-        util::rotate_around(&mut x, &mut y, src_x + (src_w / 2.0), src_y + (src_h / 2.0), angle.sin(), angle.cos());
+        util::rotate_around(
+            &mut x,
+            &mut y,
+            src_x + (src_w / 2.0),
+            src_y + (src_h / 2.0),
+            angle.sin().into(),
+            angle.cos().into(),
+        );
         (util::ieee_round(x), util::ieee_round(y))
     }
 }

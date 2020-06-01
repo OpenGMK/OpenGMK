@@ -1,3 +1,5 @@
+use crate::math::Real;
+
 /// An instance of a background in a room
 #[derive(Clone, Copy)]
 pub struct Background {
@@ -12,10 +14,10 @@ pub struct Background {
     pub background_id: i32,
 
     /// X offset from 0 at which to draw this background
-    pub x_offset: f64,
+    pub x_offset: Real,
 
     /// Y offset from 0 at which to draw this background
-    pub y_offset: f64,
+    pub y_offset: Real,
 
     /// Whether to draw this background repeatedly to cover the whole screen in X axis
     pub tile_horizontal: bool,
@@ -24,20 +26,20 @@ pub struct Background {
     pub tile_vertical: bool,
 
     /// Speed of x_offset increase per frame
-    pub hspeed: f64,
+    pub hspeed: Real,
 
     /// Speed of y_offset increase per frame
-    pub vspeed: f64,
+    pub vspeed: Real,
 
     /// X-axis scale factor
-    pub xscale: f64,
+    pub xscale: Real,
 
     /// Y-axis scale factor
-    pub yscale: f64,
+    pub yscale: Real,
 
     /// Colour blend value to draw this background with
     pub blend: i32,
 
     /// Alpha-blend value to draw this background with
-    pub alpha: f64,
+    pub alpha: Real,
 }

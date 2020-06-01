@@ -24,6 +24,7 @@ use crate::{
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
+    math::Real,
     render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
     replay::{self, Replay},
     tile,
@@ -76,7 +77,7 @@ pub struct Game {
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
     pub draw_font_id: ID,
     pub draw_colour: Colour,
-    pub draw_alpha: f64,
+    pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
 
@@ -91,7 +92,7 @@ pub struct Game {
     pub lives: i32,            // default -1
     pub lives_capt: Rc<str>,   // default "Lives: "
     pub lives_capt_d: bool,    // display in caption?
-    pub health: f64,           // default 100.0
+    pub health: Real,          // default 100.0
     pub health_capt: Rc<str>,  // default "Health: "
     pub health_capt_d: bool,   // display in caption?
 
@@ -469,7 +470,11 @@ impl Game {
                         points: b
                             .points
                             .into_iter()
-                            .map(|point| path::Point { x: point.x, y: point.y, speed: point.speed })
+                            .map(|point| path::Point {
+                                x: Real::from(point.x),
+                                y: Real::from(point.y),
+                                speed: Real::from(point.speed),
+                            })
                             .collect(),
                         control_nodes: Default::default(),
                         length: Default::default(),
@@ -547,32 +552,32 @@ impl Game {
                                 visible: bg.visible_on_start,
                                 is_foreground: bg.is_foreground,
                                 background_id: bg.source_bg,
-                                x_offset: f64::from(bg.xoffset),
-                                y_offset: f64::from(bg.yoffset),
+                                x_offset: Real::from(bg.xoffset),
+                                y_offset: Real::from(bg.yoffset),
                                 tile_horizontal: bg.tile_horz,
                                 tile_vertical: bg.tile_vert,
-                                hspeed: f64::from(bg.hspeed),
-                                vspeed: f64::from(bg.vspeed),
+                                hspeed: Real::from(bg.hspeed),
+                                vspeed: Real::from(bg.vspeed),
                                 xscale: if bg.stretch {
                                     if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
-                                        f64::from(width) / f64::from(bg_asset.width)
+                                        Real::from(width) / Real::from(bg_asset.width)
                                     } else {
-                                        f64::from(width)
+                                        Real::from(width)
                                     }
                                 } else {
-                                    1.0
+                                    Real::from(1.0)
                                 },
                                 yscale: if bg.stretch {
                                     if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
-                                        f64::from(height) / f64::from(bg_asset.height)
+                                        Real::from(height) / Real::from(bg_asset.height)
                                     } else {
-                                        f64::from(height)
+                                        Real::from(height)
                                     }
                                 } else {
-                                    1.0
+                                    Real::from(1.0)
                                 },
                                 blend: 0xFFFFFF,
-                                alpha: 1.0,
+                                alpha: Real::from(1.0),
                             })
                             .collect::<Vec<_>>()
                             .into(),
@@ -590,7 +595,7 @@ impl Game {
                                 port_y: v.port_y,
                                 port_w: v.port_w,
                                 port_h: v.port_h,
-                                angle: 0.0,
+                                angle: Real::from(0.0),
                                 follow_target: v.following.target,
                                 follow_hborder: v.following.hborder,
                                 follow_vborder: v.following.vborder,
@@ -740,7 +745,7 @@ impl Game {
             draw_font: None,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
-            draw_alpha: 1.0,
+            draw_alpha: Real::from(1.0),
             draw_halign: draw::Halign::Left,
             draw_valign: draw::Valign::Top,
             last_instance_id,
@@ -753,7 +758,7 @@ impl Game {
             score_capt: "Score: ".to_string().into(),
             lives: -1,
             lives_capt: "Lives: ".to_string().into(),
-            health: 100.0,
+            health: Real::from(100.0),
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             program_directory: program_directory.into(),
@@ -869,8 +874,8 @@ impl Game {
                 // Add instance to list
                 let handle = self.instance_list.insert(Instance::new(
                     instance.id as _,
-                    f64::from(instance.x),
-                    f64::from(instance.y),
+                    Real::from(instance.x),
+                    Real::from(instance.y),
                     instance.object,
                     object,
                 ));
@@ -969,7 +974,7 @@ impl Game {
 
                     let moments = timeline.moments.clone();
                     for (moment, tree) in moments.borrow().iter() {
-                        let f_moment = f64::from(*moment);
+                        let f_moment = Real::from(*moment);
                         if f_moment >= old_position && f_moment < new_position {
                             self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
                         }
@@ -1029,18 +1034,19 @@ impl Game {
             let instance = self.instance_list.get(handle);
             if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
                 // Calculate how much offset (0-1) we want to add to the instance's path position
-                let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / 100.0) / path.length;
+                let offset =
+                    instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0)) / path.length;
 
                 // Work out what the new position should be
                 let new_position = instance.path_position.get() + offset;
-                if (new_position <= 0.0 && instance.path_speed.get() < 0.0)
-                    || (new_position >= 1.0 && instance.path_speed.get() > 0.0)
+                if (new_position <= Real::from(0.0) && instance.path_speed.get() < Real::from(0.0))
+                    || (new_position >= Real::from(1.0) && instance.path_speed.get() > Real::from(0.0))
                 {
                     // Path end
-                    let (new_position, path_end_pos) = if instance.path_speed.get() < 0.0 {
-                        (new_position.fract() + 1.0, 0.0)
+                    let (new_position, path_end_pos) = if instance.path_speed.get() < Real::from(0.0) {
+                        (new_position.fract() + Real::from(1.0), Real::from(0.0))
                     } else {
-                        (new_position.fract(), 1.0)
+                        (new_position.fract(), Real::from(1.0))
                     };
                     match instance.path_endaction.get() {
                         1 => {
@@ -1056,7 +1062,7 @@ impl Game {
                         },
                         3 => {
                             // Reverse
-                            instance.path_position.set(1.0 - (new_position));
+                            instance.path_position.set(Real::from(1.0) - (new_position));
                             instance.path_speed.set(-instance.path_speed.get());
                         },
                         _ => {
@@ -1080,12 +1086,19 @@ impl Game {
                 point.x *= instance.path_scale.get();
                 point.y *= instance.path_scale.get();
                 let angle = instance.path_orientation.get().to_radians();
-                util::rotate_around(&mut point.x, &mut point.y, 0.0, 0.0, angle.sin(), angle.cos());
+                util::rotate_around(
+                    point.x.as_mut_ref(),
+                    point.y.as_mut_ref(),
+                    0.0,
+                    0.0,
+                    angle.sin().into(),
+                    angle.cos().into(),
+                );
 
                 // Update the instance's x, y and direction
                 let new_x = point.x + instance.path_xstart.get();
                 let new_y = point.y + instance.path_ystart.get();
-                instance.set_direction((instance.y.get() - new_y).atan2(new_x - instance.x.get()).to_degrees());
+                instance.set_direction((instance.y.get() - new_y).arctan2(new_x - instance.x.get()).to_degrees());
                 instance.x.set(new_x);
                 instance.y.set(new_y);
                 instance.path_pointspeed.set(point.speed);
@@ -1119,8 +1132,8 @@ impl Game {
                     {
                         let inst = self.instance_list.get(handle);
 
-                        let x = util::ieee_round(inst.x.get());
-                        let y = util::ieee_round(inst.y.get());
+                        let x = inst.x.get().round();
+                        let y = inst.y.get().round();
                         let border_left = x - view.follow_hborder;
                         let border_right = x + view.follow_hborder;
                         let border_top = y - view.follow_vborder;
@@ -1191,8 +1204,8 @@ impl Game {
             instance.image_index.set(new_index);
             if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
                 let frame_count = sprite.frames.len() as f64;
-                if new_index >= frame_count {
-                    instance.image_index.set(new_index - frame_count);
+                if new_index.into_inner() >= frame_count {
+                    instance.image_index.set(new_index - Real::from(frame_count));
                     self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
                 }
             }
@@ -1375,7 +1388,9 @@ impl Game {
         if let (Some(sprite1), Some(sprite2)) = (sprite1, sprite2) {
             // Get the colliders we're going to be colliding with
             let collider1 = match if sprite1.per_frame_colliders {
-                sprite1.colliders.get(inst1.image_index.get().floor() as usize % sprite1.colliders.len())
+                sprite1
+                    .colliders
+                    .get((inst1.image_index.get().floor().round() % sprite1.colliders.len() as i32) as usize)
             } else {
                 sprite1.colliders.first()
             } {
@@ -1384,7 +1399,9 @@ impl Game {
             };
 
             let collider2 = match if sprite2.per_frame_colliders {
-                sprite2.colliders.get(inst2.image_index.get().floor() as usize % sprite2.colliders.len())
+                sprite2
+                    .colliders
+                    .get((inst2.image_index.get().floor().round() % sprite2.colliders.len() as i32) as usize)
             } else {
                 sprite2.colliders.first()
             } {
@@ -1393,16 +1410,16 @@ impl Game {
             };
 
             // round x and y values, and get sin and cos of each angle...
-            let x1 = util::ieee_round(inst1.x.get());
-            let y1 = util::ieee_round(inst1.y.get());
-            let x2 = util::ieee_round(inst2.x.get());
-            let y2 = util::ieee_round(inst2.y.get());
+            let x1 = inst1.x.get().round();
+            let y1 = inst1.y.get().round();
+            let x2 = inst2.x.get().round();
+            let y2 = inst2.y.get().round();
             let angle1 = inst1.image_angle.get().to_radians();
-            let sin1 = angle1.sin();
-            let cos1 = angle1.cos();
+            let sin1 = angle1.sin().into_inner();
+            let cos1 = angle1.cos().into_inner();
             let angle2 = inst2.image_angle.get().to_radians();
-            let sin2 = angle2.sin();
-            let cos2 = angle2.cos();
+            let sin2 = angle2.sin().into_inner();
+            let cos2 = angle2.cos().into_inner();
 
             // Get intersect rectangle
             let intersect_top = inst1.bbox_top.get().max(inst2.bbox_top.get());
@@ -1415,13 +1432,13 @@ impl Game {
                 for intersect_x in intersect_left..=intersect_right {
                     // Cast the coordinates to doubles, rotate them around inst1, then scale them by inst1; then
                     // floor them, as GM8 does, to get integer coordinates on the collider relative to the instance.
-                    let mut x = f64::from(intersect_x);
-                    let mut y = f64::from(intersect_y);
-                    util::rotate_around(&mut x, &mut y, x1.into(), y1.into(), sin1, cos1);
-                    let x =
-                        (f64::from(sprite1.origin_x) + ((x - f64::from(x1)) / inst1.image_xscale.get()).floor()) as i32;
-                    let y =
-                        (f64::from(sprite1.origin_y) + ((y - f64::from(y1)) / inst1.image_yscale.get()).floor()) as i32;
+                    let mut x = Real::from(intersect_x);
+                    let mut y = Real::from(intersect_y);
+                    util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), x1.into(), y1.into(), sin1, cos1);
+                    let x = (Real::from(sprite1.origin_x) + ((x - Real::from(x1)) / inst1.image_xscale.get()).floor())
+                        .round();
+                    let y = (Real::from(sprite1.origin_y) + ((y - Real::from(y1)) / inst1.image_yscale.get()).floor())
+                        .round();
 
                     // Now look in the collider map to figure out if instance 1 is touching this pixel
                     if x >= collider1.bbox_left as i32
@@ -1435,13 +1452,15 @@ impl Game {
                             .unwrap_or(false)
                     {
                         // Do all the exact same stuff for inst2 now
-                        let mut x = f64::from(intersect_x);
-                        let mut y = f64::from(intersect_y);
-                        util::rotate_around(&mut x, &mut y, x2.into(), y2.into(), sin2, cos2);
-                        let x = (f64::from(sprite2.origin_x) + ((x - f64::from(x2)) / inst2.image_xscale.get()).floor())
-                            as i32;
-                        let y = (f64::from(sprite2.origin_y) + ((y - f64::from(y2)) / inst2.image_yscale.get()).floor())
-                            as i32;
+                        let mut x = Real::from(intersect_x);
+                        let mut y = Real::from(intersect_y);
+                        util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), x2.into(), y2.into(), sin2, cos2);
+                        let x = (Real::from(sprite2.origin_x)
+                            + ((x - Real::from(x2)) / inst2.image_xscale.get()).floor())
+                        .round();
+                        let y = (Real::from(sprite2.origin_y)
+                            + ((y - Real::from(y2)) / inst2.image_yscale.get()).floor())
+                        .round();
 
                         // And finally check if there was a hit here too. If so, we can return true immediately.
                         if x >= collider2.bbox_left as i32
@@ -1490,7 +1509,7 @@ impl Game {
         if let Some(sprite) = sprite {
             // Get collider
             let collider = match if sprite.per_frame_colliders {
-                sprite.colliders.get(inst.image_index.get().floor() as usize % sprite.colliders.len())
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
             } else {
                 sprite.colliders.first()
             } {
@@ -1500,13 +1519,20 @@ impl Game {
 
             // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
-            let mut x = f64::from(x);
-            let mut y = f64::from(y);
-            util::rotate_around(&mut x, &mut y, inst.x.get(), inst.y.get(), angle.sin(), angle.cos());
-            let x = util::ieee_round(f64::from(sprite.origin_x) + ((x - inst.x.get()) / inst.image_xscale.get()));
-            let y = util::ieee_round(f64::from(sprite.origin_y) + ((y - inst.y.get()) / inst.image_yscale.get()));
+            let mut x = Real::from(x);
+            let mut y = Real::from(y);
+            util::rotate_around(
+                x.as_mut_ref(),
+                y.as_mut_ref(),
+                inst.x.get().into(),
+                inst.y.get().into(),
+                angle.sin().into(),
+                angle.cos().into(),
+            );
+            let x = (Real::from(sprite.origin_x) + ((x - inst.x.get()) / inst.image_xscale.get())).round();
+            let y = (Real::from(sprite.origin_y) + ((y - inst.y.get()) / inst.image_yscale.get())).round();
 
-            // And finally, check look up this point in the collider
+            // And finally, look up this point in the collider
             x >= collider.bbox_left as i32
                 && y >= collider.bbox_top as i32
                 && x <= collider.bbox_right as i32

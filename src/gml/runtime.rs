@@ -7,6 +7,7 @@ use crate::{
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
+    math::Real,
 };
 use std::fmt::{self, Display};
 
@@ -688,7 +689,7 @@ impl Game {
             Ok(value)
         } else {
             if self.uninit_fields_are_zero {
-                Ok(Value::Real(0.0))
+                Ok(Value::Real(Real::from(0.0)))
             } else {
                 Err(Error::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index))
             }
@@ -762,7 +763,7 @@ impl Game {
             InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
             InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
             InstanceVariable::ImageSingle => {
-                if instance.image_speed.get() == 0.0 {
+                if instance.image_speed.get() == Real::from(0.0) {
                     Ok(instance.image_index.get().into())
                 } else {
                     Ok(Value::from(-1i32))
@@ -774,7 +775,7 @@ impl Game {
             },
             InstanceVariable::SpriteWidth => {
                 if let Some(sprite) = self.get_instance_sprite(instance_handle) {
-                    let width: f64 = sprite.width.into();
+                    let width: Real = sprite.width.into();
                     Ok((instance.image_xscale.get() * width).into())
                 } else {
                     Ok(Value::from(0.0))
@@ -782,7 +783,7 @@ impl Game {
             },
             InstanceVariable::SpriteHeight => {
                 if let Some(sprite) = self.get_instance_sprite(instance_handle) {
-                    let height: f64 = sprite.height.into();
+                    let height: Real = sprite.height.into();
                     Ok((instance.image_yscale.get() * height).into())
                 } else {
                     Ok(Value::from(0.0))
@@ -1027,14 +1028,14 @@ impl Game {
 
         match var {
             InstanceVariable::X => {
-                let v: f64 = value.into();
+                let v: Real = value.into();
                 if v != instance.x.get() {
                     instance.bbox_is_stale.set(true);
                     instance.x.set(v);
                 }
             },
             InstanceVariable::Y => {
-                let v: f64 = value.into();
+                let v: Real = value.into();
                 if v != instance.y.get() {
                     instance.bbox_is_stale.set(true);
                     instance.y.set(v);
@@ -1070,24 +1071,24 @@ impl Game {
             },
             InstanceVariable::ImageSingle => {
                 instance.image_index.set(value.into());
-                instance.image_speed.set(0.0);
+                instance.image_speed.set(Real::from(0.0));
             },
             InstanceVariable::ImageXscale => {
-                let v: f64 = value.into();
+                let v: Real = value.into();
                 if v != instance.image_xscale.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_xscale.set(v);
                 }
             },
             InstanceVariable::ImageYscale => {
-                let v: f64 = value.into();
+                let v: Real = value.into();
                 if v != instance.image_yscale.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_yscale.set(v);
                 }
             },
             InstanceVariable::ImageAngle => {
-                let v: f64 = value.into();
+                let v: Real = value.into();
                 if v != instance.image_angle.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_angle.set(v);
@@ -1104,7 +1105,7 @@ impl Game {
                 }
             },
             InstanceVariable::PathPosition => {
-                let new_value = f64::from(value).max(0.0).min(1.0);
+                let new_value = Real::from(value).max(Real::from(0.0)).min(Real::from(1.0));
                 if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
                     instance.path_pointspeed.set(path.get_point(new_value).speed);
                 }
@@ -1321,7 +1322,11 @@ impl Game {
         if let Some(value) = context.arguments.get(arg) {
             Ok(value.clone())
         } else {
-            if self.uninit_args_are_zero { Ok(Value::Real(0.0)) } else { Err(Error::UninitializedArgument(arg)) }
+            if self.uninit_args_are_zero {
+                Ok(Value::Real(Real::from(0.0)))
+            } else {
+                Err(Error::UninitializedArgument(arg))
+            }
         }
     }
 
