@@ -6582,9 +6582,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function effect_clear")
     }
 
-    pub fn ds_set_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_set_precision")
+    pub fn ds_set_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.ds_precision = expect_args!(args, [real])?;
+        Ok(Default::default())
     }
 
     pub fn ds_stack_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
