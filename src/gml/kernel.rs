@@ -6671,19 +6671,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_stack_read")
     }
 
-    pub fn ds_queue_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_queue_create")
+    pub fn ds_queue_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.queues.add(ds::Queue::new()).into())
     }
 
-    pub fn ds_queue_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_destroy")
+    pub fn ds_queue_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_destroy", e.into())),
+        }
     }
 
-    pub fn ds_queue_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_clear")
+    pub fn ds_queue_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => {
+                queue.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_clear", e.into())),
+        }
     }
 
     pub fn ds_queue_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6691,34 +6700,57 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_queue_copy")
     }
 
-    pub fn ds_queue_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_size")
+    pub fn ds_queue_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_size", e.into())),
+        }
     }
 
-    pub fn ds_queue_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_empty")
+    pub fn ds_queue_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => {
+                Ok(queue.is_empty().into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_empty", e.into())),
+        }
     }
 
-    pub fn ds_queue_enqueue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_queue_enqueue")
+    pub fn ds_queue_enqueue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.queues.get(id) {
+            Ok(queue) => {
+                queue.push_back(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_enqueue", e.into())),
+        }
     }
 
-    pub fn ds_queue_dequeue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_dequeue")
+    pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.pop_front().unwrap_or(Default::default())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue", e.into())),
+        }
     }
 
-    pub fn ds_queue_head(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_head")
+    pub fn ds_queue_head(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.front().unwrap_or(&Default::default()).clone()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_head", e.into())),
+        }
     }
 
-    pub fn ds_queue_tail(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_tail")
+    pub fn ds_queue_tail(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.back().unwrap_or(&Default::default()).clone()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_tail", e.into())),
+        }
     }
 
     pub fn ds_queue_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
