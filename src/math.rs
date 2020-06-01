@@ -2,7 +2,7 @@ use cfg_if::cfg_if;
 use std::{
     cmp::Ordering,
     fmt,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
 };
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
@@ -366,6 +366,24 @@ impl DivAssign for Real {
     }
 }
 
+impl Rem for Real {
+    type Output = Self;
+
+    #[inline(always)]
+    fn rem(self, other: Self) -> Self {
+        Real(self.0 % other.0)
+    }
+}
+
+impl Neg for Real {
+    type Output = Self;
+
+    #[inline(always)]
+    fn neg(self) -> Self {
+        Real(-self.0)
+    }
+}
+
 impl PartialEq for Real {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -444,6 +462,17 @@ mod tests {
     fn div() {
         assert_eq!(Real(3.0), Real(6.0) / Real(2.0));
         assert_eq!(Real(-1.0), Real(2.0) / Real(-2.0));
+    }
+
+    #[test]
+    fn rem() {
+        assert_eq!(Real(1.0), Real(3.0) / Real(7.0));
+        assert_eq!(Real(0.75), Real(2.25) / Real(160.5));
+    }
+
+    #[test]
+    fn neg() {
+        assert_eq!(-Real(3.0), Real(-3.0));
     }
 
     #[test]
