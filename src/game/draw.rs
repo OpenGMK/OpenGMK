@@ -38,7 +38,7 @@ impl Game {
                         view.port_y,
                         view.port_w as _,
                         view.port_h as _,
-                        view.angle,
+                        view.angle.into(),
                     )?;
                 }
                 count += 1;
