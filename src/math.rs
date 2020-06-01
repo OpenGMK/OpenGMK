@@ -312,6 +312,13 @@ impl From<i32> for Real {
     }
 }
 
+impl From<u32> for Real {
+    #[inline(always)]
+    fn from(i: u32) -> Self {
+        Real(f64::from(i))
+    }
+}
+
 impl From<f64> for Real {
     #[inline(always)]
     fn from(f: f64) -> Self {
