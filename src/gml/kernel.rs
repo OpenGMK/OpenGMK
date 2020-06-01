@@ -6628,8 +6628,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Ok(stack) => {
-                stack.clear();
-                Ok(Default::default())
+                Ok(stack.is_empty().into())
             },
             Err(e) => Err(gml::Error::FunctionError("ds_stack_empty", e.into())),
         }
