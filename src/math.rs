@@ -117,7 +117,7 @@ cfg_if! {
                         fsqrt
                         fpatan
                         fstp qword ptr [{1}]
-                        mov {0}, qword ptr [{1}]",
+                        movsd {0}, qword ptr [{1}]",
                         lateout(xmm_reg) out,
                         in(reg) &mut self,
                     }
@@ -139,7 +139,7 @@ cfg_if! {
                         fld qword ptr [{1}]
                         fpatan
                         fstp qword ptr [{1}]
-                        mov {0}, qword ptr [{1}]",
+                        movsd {0}, qword ptr [{1}]",
                         lateout(xmm_reg) out,
                         in(reg) &mut self,
                     }
