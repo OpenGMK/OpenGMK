@@ -291,6 +291,21 @@ impl Real {
     pub fn round(self) -> i32 {
         (self.round64() & u32::max_value() as i64) as i32
     }
+
+    #[inline(always)]
+    pub fn floor(self) -> Self {
+        Self(self.0.floor())
+    }
+
+    #[inline(always)]
+    pub fn ceil(self) -> Self {
+        Self(self.0.ceil())
+    }
+
+    #[inline(always)]
+    pub fn fract(self) -> Self {
+        Self(self.0.fract())
+    }
 }
 
 #[cfg(test)]
