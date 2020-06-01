@@ -265,6 +265,13 @@ cfg_if! {
                     out.into()
                 }
             }
+
+            pub fn sqrt(mut self) -> Self {
+                fpu_unary_op!(
+                    "fsqrt",
+                    self
+                )
+            }
         }
 
         impl Add for Real {
@@ -597,5 +604,10 @@ mod tests {
     #[test]
     fn logn() {
         assert_eq!(Real(343.0).logn(Real(7.0)), Real(3.0));
+    }
+
+    #[test]
+    fn sqrt() {
+        assert_eq!(Real(9.0).sqrt(), Real(3.0));
     }
 }
