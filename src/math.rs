@@ -118,7 +118,7 @@ cfg_if! {
                         fpatan
                         fstp qword ptr [{1}]
                         mov {0}, qword ptr [{1}]",
-                        lateout(reg) out,
+                        lateout(xmm_reg) out,
                         in(reg) &mut self,
                     }
                     out.into()
@@ -140,7 +140,7 @@ cfg_if! {
                         fpatan
                         fstp qword ptr [{1}]
                         mov {0}, qword ptr [{1}]",
-                        lateout(reg) out,
+                        lateout(xmm_reg) out,
                         in(reg) &mut self,
                     }
                     out.into()
