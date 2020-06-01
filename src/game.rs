@@ -552,32 +552,32 @@ impl Game {
                                 visible: bg.visible_on_start,
                                 is_foreground: bg.is_foreground,
                                 background_id: bg.source_bg,
-                                x_offset: f64::from(bg.xoffset),
-                                y_offset: f64::from(bg.yoffset),
+                                x_offset: Real::from(bg.xoffset),
+                                y_offset: Real::from(bg.yoffset),
                                 tile_horizontal: bg.tile_horz,
                                 tile_vertical: bg.tile_vert,
-                                hspeed: f64::from(bg.hspeed),
-                                vspeed: f64::from(bg.vspeed),
+                                hspeed: Real::from(bg.hspeed),
+                                vspeed: Real::from(bg.vspeed),
                                 xscale: if bg.stretch {
                                     if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
-                                        f64::from(width) / f64::from(bg_asset.width)
+                                        Real::from(width) / Real::from(bg_asset.width)
                                     } else {
-                                        f64::from(width)
+                                        Real::from(width)
                                     }
                                 } else {
-                                    1.0
+                                    Real::from(1.0)
                                 },
                                 yscale: if bg.stretch {
                                     if let Some(bg_asset) = backgrounds.get_asset(bg.source_bg) {
-                                        f64::from(height) / f64::from(bg_asset.height)
+                                        Real::from(height) / Real::from(bg_asset.height)
                                     } else {
-                                        f64::from(height)
+                                        Real::from(height)
                                     }
                                 } else {
-                                    1.0
+                                    Real::from(1.0)
                                 },
                                 blend: 0xFFFFFF,
-                                alpha: 1.0,
+                                alpha: Real::from(1.0),
                             })
                             .collect::<Vec<_>>()
                             .into(),

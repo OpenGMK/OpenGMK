@@ -149,14 +149,14 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        util::ieee_round(background.x_offset),
-                        util::ieee_round(background.y_offset),
-                        background.xscale,
-                        background.yscale,
+                        background.x_offset.round(),
+                        background.y_offset.round(),
+                        background.xscale.into(),
+                        background.yscale.into(),
                         background.blend,
-                        background.alpha,
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                        background.alpha.into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
                     );
                 }
             }
@@ -208,14 +208,14 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        util::ieee_round(background.x_offset),
-                        util::ieee_round(background.y_offset),
-                        background.xscale,
-                        background.yscale,
+                        background.x_offset.round(),
+                        background.y_offset.round(),
+                        background.xscale.into(),
+                        background.yscale.into(),
                         background.blend,
-                        background.alpha,
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                        background.alpha.into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
                     );
                 }
             }
