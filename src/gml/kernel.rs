@@ -6616,14 +6616,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_stack_copy")
     }
 
-    pub fn ds_stack_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_size")
+    pub fn ds_stack_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_size", e.into())),
+        }
     }
 
-    pub fn ds_stack_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_empty")
+    pub fn ds_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => {
+                stack.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_empty", e.into())),
+        }
     }
 
     pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6641,13 +6650,16 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Ok(stack) => Ok(stack.pop().unwrap_or(Default::default())),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_push", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_pop", e.into())),
         }
     }
 
-    pub fn ds_stack_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_top")
+    pub fn ds_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.last().unwrap_or(&Value::Real(0.0)).clone()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_top", e.into())),
+        }
     }
 
     pub fn ds_stack_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
