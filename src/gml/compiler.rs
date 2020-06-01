@@ -7,7 +7,7 @@ use super::{
     runtime::{ArrayAccessor, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType, VariableAccessor},
     Value,
 };
-use crate::gml;
+use crate::{gml, math::Real};
 use std::{collections::HashMap, rc::Rc};
 use token::Operator;
 
@@ -42,7 +42,7 @@ impl Compiler {
     /// These constants will override built-in ones, such as c_red. However, if the same constant name is
     /// registered twice, the old one will NOT be overwritten and the value will be dropped, as per GM8.
     pub fn register_constant(&mut self, name: String, value: f64) {
-        self.constants.entry(name).or_insert(Value::Real(value));
+        self.constants.entry(name).or_insert(Value::Real(value.into()));
     }
 
     /// Register a script name and its index.
@@ -228,7 +228,7 @@ impl Compiler {
     /// Compile an AST expression into a Node.
     fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&str]) -> Node {
         match expr {
-            ast::Expr::LiteralReal(real) => Node::Literal { value: Value::Real(*real) },
+            ast::Expr::LiteralReal(real) => Node::Literal { value: Value::Real(Real::from(*real)) },
 
             ast::Expr::LiteralString(string) => Node::Literal { value: Value::Str((*string).into()) },
 
@@ -236,7 +236,7 @@ impl Compiler {
                 if let Some(entry) = self.constants.get(*string) {
                     Node::Literal { value: entry.clone() }
                 } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| s == string).map(|(_, v)| v) {
-                    Node::Literal { value: Value::Real(*f) }
+                    Node::Literal { value: Value::Real(Real::from(*f)) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }

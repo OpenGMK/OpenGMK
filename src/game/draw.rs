@@ -97,20 +97,21 @@ impl Game {
                 } else {
                     // Default draw action
                     if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+                        let image_index =
+                            instance.image_index.get().floor().into_inner() as i32 % sprite.frames.len() as i32;
                         let atlas_ref = match sprite.frames.get(image_index as usize) {
                             Some(f1) => &f1.atlas_ref,
                             None => return Ok(()), // sprite with 0 frames?
                         };
                         game.renderer.draw_sprite(
                             atlas_ref,
-                            util::ieee_round(instance.x.get()),
-                            util::ieee_round(instance.y.get()),
-                            instance.image_xscale.get(),
-                            instance.image_yscale.get(),
-                            instance.image_angle.get(),
+                            instance.x.get().round(),
+                            instance.y.get().round(),
+                            instance.image_xscale.get().into(),
+                            instance.image_yscale.get().into(),
+                            instance.image_angle.get().into(),
                             instance.image_blend.get(),
-                            instance.image_alpha.get(),
+                            instance.image_alpha.get().into(),
                         )
                     }
                     Ok(())
@@ -381,7 +382,7 @@ impl Game {
                 1.0,
                 0.0,
                 u32::from(self.draw_colour) as i32,
-                self.draw_alpha,
+                self.draw_alpha.into(),
             );
 
             // Move cursor

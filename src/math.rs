@@ -463,6 +463,26 @@ impl Real {
         // [C3 BD 0F 1E D3 E0 2E E5 04 40]
         Self(self.0.to_degrees())
     }
+
+    #[inline(always)]
+    pub fn min(self, other: Real) -> Self {
+        self.0.min(other.0).into()
+    }
+
+    #[inline(always)]
+    pub fn max(self, other: Real) -> Self {
+        self.0.max(other.0).into()
+    }
+
+    #[inline(always)]
+    pub fn as_ref(&self) -> &f64 {
+        &self.0
+    }
+
+    #[inline(always)]
+    pub fn as_mut_ref(&mut self) -> &mut f64 {
+        &mut self.0
+    }
 }
 
 #[cfg(test)]
