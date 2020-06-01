@@ -103,6 +103,57 @@ cfg_if! {
                     self
                 )
             }
+
+            pub fn arcsin(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fld1
+                        fadd st(0),st(1)
+                        fld1
+                        fsub st(0),st(2)
+                        fmulp
+                        fsqrt
+                        fpatan
+                        fstp qword ptr [{1}]
+                        mov {0}, qword ptr [{1}]",
+                        lateout(reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn arccos(mut self) -> Self {
+                unsafe {
+                    let out: f64;
+                    asm! {
+                        "fld1
+                        fld qword ptr [{1}]
+                        fsub st(1),st(0)
+                        fld1
+                        faddp
+                        fmulp
+                        fsqrt
+                        fld qword ptr [{1}]
+                        fpatan
+                        fstp qword ptr [{1}]
+                        mov {0}, qword ptr [{1}]",
+                        lateout(reg) out,
+                        in(reg) &mut self,
+                    }
+                    out.into()
+                }
+            }
+
+            pub fn arctan(mut self) -> Self {
+                fpu_unary_op!(
+                    "fld1
+                    fpatan",
+                    self
+                )
+            }
         }
 
         impl Add for Real {
@@ -327,5 +378,20 @@ mod tests {
     #[test]
     fn tan() {
         assert_eq!(Real(PI).tan(), Real(0.0));
+    }
+
+    #[test]
+    fn arcsin() {
+        assert_eq!(Real(0.8).arcsin(), Real(0.9272952180016123));
+    }
+
+    #[test]
+    fn arccos() {
+        assert_eq!(Real(0.8).arccos(), Real(0.6435011087932844));
+    }
+
+    #[test]
+    fn arctan() {
+        assert_eq!(Real(123.4).arctan(), Real(1.5626927764648464));
     }
 }
