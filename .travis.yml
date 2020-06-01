@@ -10,13 +10,13 @@ env:
   - ARCH=i686
 
 rust:
-  - stable
-  - beta
+  # - stable
+  # - beta
   - nightly
 
-matrix:
-  allow_failures:
-    - rust: nightly
+# matrix:
+#   allow_failures:
+#     - rust: nightly
 
 before_install:
   - sudo apt update
