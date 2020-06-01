@@ -195,14 +195,23 @@ cfg_if! {
 }
 
 impl From<i32> for Real {
+    #[inline(always)]
     fn from(i: i32) -> Self {
         Real(f64::from(i))
     }
 }
 
 impl From<f64> for Real {
+    #[inline(always)]
     fn from(f: f64) -> Self {
         Real(f)
+    }
+}
+
+impl From<Real> for f64 {
+    #[inline(always)]
+    fn from(real: Real) -> Self {
+        real.0
     }
 }
 
