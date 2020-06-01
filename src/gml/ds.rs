@@ -61,3 +61,11 @@ impl<T> DataStructureManager<T> {
         }
     }
 }
+
+pub fn eq(v1: &Value, v2: &Value, precision: f64) -> bool {
+    match (v1, v2) {
+        (Value::Real(x), Value::Real(y)) => (x - y).abs() <= precision,
+        (Value::Str(x), Value::Str(y)) => x == y,
+        _ => false,
+    }
+}
