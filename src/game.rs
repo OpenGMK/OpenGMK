@@ -20,7 +20,14 @@ use crate::{
         Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
-    gml::{self, ds::{self, DataStructureManager}, ev, file::FileManager, rand::Random, Compiler, Context},
+    gml::{
+        self,
+        ds::{self, DataStructureManager},
+        ev,
+        file::FileManager,
+        rand::Random,
+        Compiler, Context,
+    },
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -79,6 +86,7 @@ pub struct Game {
     pub maps: DataStructureManager<ds::Map>,
     pub priority_queues: DataStructureManager<ds::Priority>,
     pub grids: DataStructureManager<ds::Grid>,
+    pub ds_precision: f64,
 
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
     pub draw_font_id: ID,
@@ -750,6 +758,7 @@ impl Game {
             maps: DataStructureManager::new(),
             priority_queues: DataStructureManager::new(),
             grids: DataStructureManager::new(),
+            ds_precision: 0.00000001,
             draw_font: None,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
