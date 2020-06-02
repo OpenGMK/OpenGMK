@@ -66,6 +66,51 @@ impl<T> DataStructureManager<T> {
     }
 }
 
+impl Map {
+    // Returns the index associated with the given key, or None if there is none.
+    pub fn get_index(&self, key: &Value, precision: Real) -> Option<usize> {
+        match self.keys.binary_search_by(|x| cmp(x, key, precision)) {
+            Ok(mut index) => {
+                while index > 0 && eq(&self.keys[index - 1], key, precision) {
+                    index -= 1;
+                }
+                Some(index)
+            },
+            Err(_) => None,
+        }
+    }
+
+    // Returns the index of the given key, or if there is none, that of its successor.
+    pub fn get_index_unchecked(&self, key: &Value, precision: Real) -> usize {
+        match self.keys.binary_search_by(|x| cmp(x, key, precision)) {
+            Ok(mut index) => {
+                while index > 0 && eq(&self.keys[index - 1], key, precision) {
+                    index -= 1;
+                }
+                index
+            },
+            Err(index) => index,
+        }
+    }
+
+    // Returns the index of the key following the given key.
+    pub fn get_next_index(&self, key: &Value, precision: Real) -> usize {
+        match self.keys.binary_search_by(|x| cmp(x, key, precision)) {
+            Ok(mut index) => {
+                while index < self.keys.len() && eq(&self.keys[index], key, precision) {
+                    index += 1;
+                }
+                index
+            },
+            Err(index) => index,
+        }
+    }
+
+    pub fn contains_key(&self, key: &Value, precision: Real) -> bool {
+        self.keys.binary_search_by(|x| cmp(x, key, precision)).is_ok()
+    }
+}
+
 pub fn eq(v1: &Value, v2: &Value, precision: Real) -> bool {
     match (v1, v2) {
         (Value::Real(x), Value::Real(y)) => (*x - *y).abs() <= precision,

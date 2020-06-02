@@ -6908,7 +6908,7 @@ impl Game {
         let (id, asc) = expect_args!(args, [int, any])?;
         match self.lists.get_mut(id) {
             Ok(list) => {
-                let precision = self.ds_precision;
+                let precision = self.ds_precision; // otherwise we get borrowing issues
                 if asc.is_truthy() {
                     list.sort_by(|x, y| ds::cmp(x, y, precision));
                 } else {
