@@ -1,4 +1,4 @@
-use crate::{gml, util};
+use crate::{gml, math::Real};
 use std::{
     fmt::{self, Display},
     rc::Rc,
@@ -6,7 +6,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Real(f64),
+    Real(Real),
     Str(Rc<str>),
 }
 
@@ -23,16 +23,16 @@ macro_rules! gml_cmp_impl {
     ($($v: vis $fname: ident aka $op_variant: ident: real: $r_cond: expr, string: $s_cond: expr)*) => {
         $(
             $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
-                let freal: fn(f64, f64) -> bool = $r_cond;
+                let freal: fn(Real, Real) -> bool = $r_cond;
                 let fstr: fn(&str, &str) -> bool = $s_cond;
                 if match (self, rhs) {
                     (Self::Real(a), Self::Real(b)) => freal(a, b),
                     (Self::Str(a), Self::Str(b)) => fstr(a.as_ref(), b.as_ref()),
                     (a, b) => return invalid_op!($op_variant, a, b),
                 } {
-                    Ok(Self::Real(super::TRUE))
+                    Ok(Self::Real(super::TRUE.into()))
                 } else {
-                    Ok(Self::Real(super::FALSE))
+                    Ok(Self::Real(super::FALSE.into()))
                 }
             }
         )*
@@ -53,11 +53,11 @@ impl Value {
     #[rustfmt::skip]
     gml_cmp_impl! {
         pub gml_eq aka Equal:
-            real: |r1, r2| (r1 - r2).abs() <= 1e-14,
+            real: |r1, r2| r1 == r2,
             string: |s1, s2| s1 == s2
 
         pub gml_ne aka NotEqual:
-            real: |r1, r2| (r1 - r2).abs() > 1e-14,
+            real: |r1, r2| r1 != r2,
             string: |s1, s2| s1 != s2
 
         pub gml_lt aka LessThan:
@@ -65,7 +65,7 @@ impl Value {
             string: |s1, s2| s1 < s2
 
         pub gml_lte aka LessThanOrEqual:
-            real: |r1, r2| r1 < r2 || (r1 - r2).abs() <= 1e-14,
+            real: |r1, r2| r1 <= r2,
             string: |s1, s2| s1 <= s2
 
         pub gml_gt aka GreaterThan:
@@ -73,7 +73,7 @@ impl Value {
             string: |s1, s2| s1 > s2
 
         pub gml_gte aka GreaterThanOrEqual:
-            real: |r1, r2| r1 > r2 || (r1 - r2).abs() <= 1e-14,
+            real: |r1, r2| r1 >= r2,
             string: |s1, s2| s1 >= s2
     }
 
@@ -87,7 +87,7 @@ impl Value {
     /// GML-like comparison, fails if self and other are different types.
     pub fn almost_equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Real(a), Self::Real(b)) => (a - b).abs() <= 1e-14,
+            (Self::Real(a), Self::Real(b)) => *a == *b,
             (Self::Str(a), Self::Str(b)) => a.as_ref() == b.as_ref(),
             _ => false,
         }
@@ -96,7 +96,7 @@ impl Value {
     /// Rounds the value to an i32. This is done very commonly by the GM8 runner.
     pub fn round(&self) -> i32 {
         match &self {
-            Self::Real(f) => util::ieee_round(*f),
+            Self::Real(f) => f.round(),
             Self::Str(_) => 0,
         }
     }
@@ -112,7 +112,7 @@ impl Value {
 
     pub fn is_truthy(&self) -> bool {
         match self {
-            Self::Real(f) => *f >= 0.5, // What a confusing line.
+            Self::Real(f) => f.into_inner() >= 0.5,
             Self::Str(_) => false,
         }
     }
@@ -120,7 +120,7 @@ impl Value {
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Self::Real(val) => Ok(Self::Real(!(util::ieee_round(val) as i32) as f64)),
+            Self::Real(val) => Ok(Self::Real(f64::from(!val.round()).into())),
             _ => invalid_op!(Complement, self),
         }
     }
@@ -135,17 +135,29 @@ impl Value {
 
     /// GML && operator
     pub fn bool_and(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() && rhs.is_truthy() { Self::Real(1.0) } else { Self::Real(0.0) })
+        Ok(if self.is_truthy() && rhs.is_truthy() {
+            Self::Real(gml::TRUE.into())
+        } else {
+            Self::Real(gml::FALSE.into())
+        })
     }
 
     /// GML || operator
     pub fn bool_or(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() || rhs.is_truthy() { Self::Real(1.0) } else { Self::Real(0.0) })
+        Ok(if self.is_truthy() || rhs.is_truthy() {
+            Self::Real(gml::TRUE.into())
+        } else {
+            Self::Real(gml::FALSE.into())
+        })
     }
 
     /// GML ^^ operator
     pub fn bool_xor(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() != rhs.is_truthy() { Self::Real(1.0) } else { Self::Real(0.0) })
+        Ok(if self.is_truthy() != rhs.is_truthy() {
+            Self::Real(gml::TRUE.into())
+        } else {
+            Self::Real(gml::FALSE.into())
+        })
     }
 
     pub fn add(self, rhs: Self) -> gml::Result<Self> {
@@ -178,54 +190,42 @@ impl Value {
 
     pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(Self::Real((util::ieee_round(lhs) as i32 & util::ieee_round(rhs) as i32) as _))
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() & rhs.round()).into())),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
 
     pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(*lhs = (util::ieee_round(*lhs) as i32 & util::ieee_round(rhs) as i32) as _)
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() & rhs.round()).into()),
             (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
 
     pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(Self::Real((util::ieee_round(lhs) as i32 | util::ieee_round(rhs) as i32) as _))
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() | rhs.round()).into())),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
 
     pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(*lhs = (util::ieee_round(*lhs) as i32 | util::ieee_round(rhs) as i32) as _)
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() | rhs.round()).into()),
             (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
 
     pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(Self::Real((util::ieee_round(lhs) as i32 ^ util::ieee_round(rhs) as i32) as _))
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() ^ rhs.round()).into())),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
 
     pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(*lhs = (util::ieee_round(*lhs) as i32 ^ util::ieee_round(rhs) as i32) as _)
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() ^ rhs.round()).into()),
             (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
@@ -255,7 +255,7 @@ impl Value {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs * rhs)),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
-                let repeat = util::ieee_round(lhs) as i32;
+                let repeat = lhs.round();
                 if repeat > 0 { rhs.repeat(repeat as usize).into() } else { "".to_string().into() }
             }),
             (x, y) => invalid_op!(Multiply, x, y),
@@ -278,25 +278,21 @@ impl Value {
 
     pub fn not(self) -> gml::Result<Self> {
         match self {
-            Self::Real(_) => Ok(Self::Real((!self.is_truthy()) as i8 as f64)),
+            Self::Real(_) => Ok(Self::Real(i32::from(!self.is_truthy()).into())),
             Self::Str(_) => invalid_op!(Not, self),
         }
     }
 
     pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(Self::Real(((util::ieee_round(lhs) as i32) << util::ieee_round(rhs) as i32) as _))
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() << rhs.round()).into())),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
     pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => {
-                Ok(Self::Real((util::ieee_round(lhs) as i32 >> util::ieee_round(rhs) as i32) as _))
-            },
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() >> rhs.round()).into())),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
@@ -317,7 +313,7 @@ impl Value {
 
     pub fn repr(&self) -> String {
         match self {
-            Self::Real(r) if r.fract() == 0.0 => format!("{:.0}", r),
+            Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r),
             Self::Real(r) => format!("{:.2}", r),
             Self::Str(string) => string.to_string(),
         }
@@ -326,7 +322,13 @@ impl Value {
 
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Self::Real(value)
+        Self::Real(value.into())
+    }
+}
+
+impl From<Real> for Value {
+    fn from(value: Real) -> Self {
+        Self::Real(value.into())
     }
 }
 
@@ -344,13 +346,13 @@ impl From<u32> for Value {
 
 impl From<usize> for Value {
     fn from(value: usize) -> Self {
-        Self::Real(value as f64)
+        Self::Real(Real::from(value as f64))
     }
 }
 
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
-        Self::Real(if value { gml::TRUE } else { gml::FALSE })
+        Self::Real(if value { gml::TRUE.into() } else { gml::FALSE.into() })
     }
 }
 
@@ -370,7 +372,7 @@ impl From<Value> for i32 {
     // For lazy-converting a value into an i32.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => util::ieee_round(r),
+            Value::Real(r) => r.round(),
             Value::Str(_) => 0,
         }
     }
@@ -380,7 +382,7 @@ impl From<Value> for u32 {
     // For lazy-converting a value into a u32.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => util::ieee_round(r) as u32,
+            Value::Real(r) => r.round() as u32,
             Value::Str(_) => 0,
         }
     }
@@ -390,8 +392,18 @@ impl From<Value> for f64 {
     // For lazy-converting a value into an f64.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => r,
+            Value::Real(r) => r.into(),
             Value::Str(_) => 0.0,
+        }
+    }
+}
+
+impl From<Value> for Real {
+    // For lazy-converting a value into a real.
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Real(r) => r.into(),
+            Value::Str(_) => Self::from(0.0),
         }
     }
 }
@@ -408,7 +420,7 @@ impl From<Value> for Rc<str> {
 
 impl Default for Value {
     fn default() -> Self {
-        Self::Real(0.0)
+        Self::Real(Real::from(0.0))
     }
 }
 
@@ -418,9 +430,9 @@ mod tests {
 
     #[test]
     fn op_add() {
-        let a = Value::Real(0.1);
-        let b = Value::Real(0.2);
-        assert!((a.add(b).unwrap()).almost_equals(&Value::Real(0.30000000000000004)));
+        let a = Value::Real(Real::from(0.1));
+        let b = Value::Real(Real::from(0.2));
+        assert!((a.add(b).unwrap()).almost_equals(&Value::Real(Real::from(0.3))));
 
         let c = Value::Str("Hello, ".to_string().into());
         let d = Value::Str("world!".to_string().into());
@@ -430,7 +442,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn op_add_invalid() {
-        let a = Value::Real(0.1);
+        let a = Value::Real(Real::from(0.1));
         let b = Value::Str("owo".to_string().into());
         let _ = a.add(b).unwrap();
     }

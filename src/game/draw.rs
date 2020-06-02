@@ -38,7 +38,7 @@ impl Game {
                         view.port_y,
                         view.port_w as _,
                         view.port_h as _,
-                        view.angle,
+                        view.angle.into(),
                     )?;
                 }
                 count += 1;
@@ -97,20 +97,21 @@ impl Game {
                 } else {
                     // Default draw action
                     if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        let image_index = instance.image_index.get().floor() as i32 % sprite.frames.len() as i32;
+                        let image_index =
+                            instance.image_index.get().floor().into_inner() as i32 % sprite.frames.len() as i32;
                         let atlas_ref = match sprite.frames.get(image_index as usize) {
                             Some(f1) => &f1.atlas_ref,
                             None => return Ok(()), // sprite with 0 frames?
                         };
                         game.renderer.draw_sprite(
                             atlas_ref,
-                            util::ieee_round(instance.x.get()),
-                            util::ieee_round(instance.y.get()),
-                            instance.image_xscale.get(),
-                            instance.image_yscale.get(),
-                            instance.image_angle.get(),
+                            instance.x.get().round(),
+                            instance.y.get().round(),
+                            instance.image_xscale.get().into(),
+                            instance.image_yscale.get().into(),
+                            instance.image_angle.get().into(),
                             instance.image_blend.get(),
-                            instance.image_alpha.get(),
+                            instance.image_alpha.get().into(),
                         )
                     }
                     Ok(())
@@ -148,14 +149,14 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        util::ieee_round(background.x_offset),
-                        util::ieee_round(background.y_offset),
-                        background.xscale,
-                        background.yscale,
+                        background.x_offset.round(),
+                        background.y_offset.round(),
+                        background.xscale.into(),
+                        background.yscale.into(),
                         background.blend,
-                        background.alpha,
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                        background.alpha.into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
                     );
                 }
             }
@@ -207,14 +208,14 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        util::ieee_round(background.x_offset),
-                        util::ieee_round(background.y_offset),
-                        background.xscale,
-                        background.yscale,
+                        background.x_offset.round(),
+                        background.y_offset.round(),
+                        background.xscale.into(),
+                        background.yscale.into(),
                         background.blend,
-                        background.alpha,
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset },
+                        background.alpha.into(),
+                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
+                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
                     );
                 }
             }
@@ -383,7 +384,7 @@ impl Game {
                 1.0,
                 0.0,
                 u32::from(self.draw_colour) as i32,
-                self.draw_alpha,
+                self.draw_alpha.into(),
             );
 
             // Move cursor

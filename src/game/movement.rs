@@ -1,4 +1,4 @@
-use crate::{game::Game, util};
+use crate::{game::Game, math::Real};
 
 impl Game {
     /// Processes movement (friction, gravity, speed/direction) for all instances
@@ -6,18 +6,18 @@ impl Game {
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list).map(|i| self.instance_list.get(i)) {
             let friction = instance.friction.get();
-            if friction != 0.0 {
+            if friction != Real::from(0.0) {
                 // "Subtract" friction from speed towards 0
                 let speed = instance.speed.get();
-                if speed >= 0.0 {
+                if speed >= Real::from(0.0) {
                     if friction > speed {
-                        instance.set_speed(0.0);
+                        instance.set_speed(Real::from(0.0));
                     } else {
                         instance.set_speed(speed - friction);
                     }
                 } else {
                     if friction > -speed {
-                        instance.set_speed(0.0);
+                        instance.set_speed(Real::from(0.0));
                     } else {
                         instance.set_speed(speed + friction);
                     }
@@ -25,7 +25,7 @@ impl Game {
             }
 
             let gravity = instance.gravity.get();
-            if gravity != 0.0 {
+            if gravity != Real::from(0.0) {
                 // Apply gravity in gravity_direction to hspeed and vspeed
                 let gravity_direction = instance.gravity_direction.get().to_radians();
                 instance.set_hvspeed(
@@ -37,7 +37,7 @@ impl Game {
             // Apply hspeed and vspeed to x and y
             let hspeed = instance.hspeed.get();
             let vspeed = instance.vspeed.get();
-            if hspeed != 0.0 || vspeed != 0.0 {
+            if hspeed != Real::from(0.0) || vspeed != Real::from(0.0) {
                 instance.x.set(instance.x.get() + hspeed);
                 instance.y.set(instance.y.get() + vspeed);
                 instance.bbox_is_stale.set(true);
@@ -96,29 +96,29 @@ impl Game {
         let old_x = instance.x.get();
         let old_y = instance.y.get();
 
-        let mut cw = util::ieee_round(instance.direction.get() / 10.0) * 10;
+        let mut cw = (instance.direction.get() / Real::from(10.0)).round() * 10;
         for _ in 0..36 {
             cw -= 10;
-            instance.x.set(instance.x.get() + instance.speed.get() * f64::from(cw).to_radians().cos());
-            instance.y.set(instance.y.get() + instance.speed.get() * f64::from(cw).to_radians().cos());
+            instance.x.set(instance.x.get() + instance.speed.get() * Real::from(cw).to_radians().cos());
+            instance.y.set(instance.y.get() + instance.speed.get() * Real::from(cw).to_radians().cos());
             instance.bbox_is_stale.set(true);
             if collider(self, handle).is_some() {
                 break
             }
         }
 
-        let mut ccw = util::ieee_round(instance.direction.get() / 10.0) * 10;
+        let mut ccw = (instance.direction.get() / Real::from(10.0)).round() * 10;
         for _ in 0..36 {
             ccw += 10;
-            instance.x.set(instance.x.get() + instance.speed.get() * f64::from(ccw).to_radians().cos());
-            instance.y.set(instance.y.get() + instance.speed.get() * f64::from(ccw).to_radians().cos());
+            instance.x.set(instance.x.get() + instance.speed.get() * Real::from(ccw).to_radians().cos());
+            instance.y.set(instance.y.get() + instance.speed.get() * Real::from(ccw).to_radians().cos());
             instance.bbox_is_stale.set(true);
             if collider(self, handle).is_some() {
                 break
             }
         }
 
-        instance.set_direction(f64::from(cw) + f64::from(ccw) + 180.0 - instance.direction.get());
+        instance.set_direction(Real::from(cw) + Real::from(ccw) + Real::from(180.0) - instance.direction.get());
         instance.x.set(old_x);
         instance.y.set(old_y);
         instance.bbox_is_stale.set(true);
