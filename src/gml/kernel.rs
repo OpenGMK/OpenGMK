@@ -3416,19 +3416,32 @@ impl Game {
         }
     }
 
-    pub fn room_previous(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_previous")
+    pub fn room_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let room = expect_args!(args, [int])?;
+        Ok(self
+            .room_order
+            .iter()
+            .position(|x| *x == room)
+            .and_then(|x| x.checked_sub(1))
+            .and_then(|x| self.room_order.get(x).copied())
+            .unwrap_or(-1)
+            .into())
     }
 
-    pub fn room_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_next")
+    pub fn room_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let room = expect_args!(args, [int])?;
+        Ok(self
+            .room_order
+            .iter()
+            .position(|x| *x == room)
+            .and_then(|x| self.room_order.get(x + 1).copied())
+            .unwrap_or(-1)
+            .into())
     }
 
     pub fn room_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function room_restart")
+        self.scene_change = Some(SceneChange::Room(self.room_id));
+        Ok(Default::default())
     }
 
     pub fn game_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
