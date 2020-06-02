@@ -6945,19 +6945,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_list_read")
     }
 
-    pub fn ds_map_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_map_create")
+    pub fn ds_map_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.maps.add(ds::Map { keys: Vec::new(), values: Vec::new() }).into())
     }
 
-    pub fn ds_map_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_destroy")
+    pub fn ds_map_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_destroy", e.into())),
+        }
     }
 
-    pub fn ds_map_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_clear")
+    pub fn ds_map_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                map.keys.clear();
+                map.values.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_clear", e.into())),
+        }
     }
 
     pub fn ds_map_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6965,59 +6975,122 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_map_copy")
     }
 
-    pub fn ds_map_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_size")
+    pub fn ds_map_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_size", e.into())),
+        }
     }
 
-    pub fn ds_map_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_empty")
+    pub fn ds_map_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_empty", e.into())),
+        }
     }
 
-    pub fn ds_map_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_map_add")
+    pub fn ds_map_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key, val) = expect_args!(args, [int, any, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                let index = map.get_next_index(&key, self.ds_precision);
+                map.keys.insert(index, key);
+                map.values.insert(index, val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_add", e.into())),
+        }
     }
 
-    pub fn ds_map_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_map_replace")
+    pub fn ds_map_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key, val) = expect_args!(args, [int, any, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                if let Some(index) = map.get_index(&key, self.ds_precision) {
+                    map.values[index] = val;
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_replace", e.into())),
+        }
     }
 
-    pub fn ds_map_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_delete")
+    pub fn ds_map_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                if let Some(index) = map.get_index(&key, self.ds_precision) {
+                    map.keys.remove(index);
+                    map.values.remove(index);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_delete", e.into())),
+        }
     }
 
-    pub fn ds_map_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_exists")
+    pub fn ds_map_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_exists", e.into())),
+        }
     }
 
-    pub fn ds_map_find_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_value")
+    pub fn ds_map_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_value", e.into())),
+        }
     }
 
-    pub fn ds_map_find_previous(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_previous")
+    pub fn ds_map_find_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => {
+                let index = map.get_index_unchecked(&key, self.ds_precision);
+                if index > 0 {
+                    Ok(map.keys[index - 1].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous", e.into())),
+        }
     }
 
-    pub fn ds_map_find_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_next")
+    pub fn ds_map_find_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => {
+                let index = map.get_next_index(&key, self.ds_precision);
+                if index < map.keys.len() {
+                    Ok(map.keys[index].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_next", e.into())),
+        }
     }
 
-    pub fn ds_map_find_first(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_find_first")
+    pub fn ds_map_find_first(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_first", e.into())),
+        }
     }
 
-    pub fn ds_map_find_last(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_find_last")
+    pub fn ds_map_find_last(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_last", e.into())),
+        }
     }
 
     pub fn ds_map_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
