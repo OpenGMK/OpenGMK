@@ -264,9 +264,9 @@ impl Game {
                     let origin_x = b.origin_x;
                     let origin_y = b.origin_y;
                     let bbox_left = b.colliders.iter().map(|x| x.bbox_left).min().unwrap_or(0);
-                    let bbox_right = b.colliders.iter().map(|x| x.bbox_right).min().unwrap_or(0);
+                    let bbox_right = b.colliders.iter().map(|x| x.bbox_right).max().unwrap_or(0);
                     let bbox_top = b.colliders.iter().map(|x| x.bbox_top).min().unwrap_or(0);
-                    let bbox_bottom = b.colliders.iter().map(|x| x.bbox_bottom).min().unwrap_or(0);
+                    let bbox_bottom = b.colliders.iter().map(|x| x.bbox_bottom).max().unwrap_or(0);
                     Ok(Box::new(Sprite {
                         name: b.name.into(),
                         frames: b
