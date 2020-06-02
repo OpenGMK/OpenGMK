@@ -6624,7 +6624,7 @@ impl Game {
 
     pub fn ds_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id) {
+        match self.stacks.get_mut(id) {
             Ok(stack) => {
                 stack.clear();
                 Ok(Default::default())
@@ -6649,16 +6649,14 @@ impl Game {
     pub fn ds_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
-            Ok(stack) => {
-                Ok(stack.is_empty().into())
-            },
+            Ok(stack) => Ok(stack.is_empty().into()),
             Err(e) => Err(gml::Error::FunctionError("ds_stack_empty", e.into())),
         }
     }
 
     pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.stacks.get(id) {
+        match self.stacks.get_mut(id) {
             Ok(stack) => {
                 stack.push(val);
                 Ok(Default::default())
@@ -6669,7 +6667,7 @@ impl Game {
 
     pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id) {
+        match self.stacks.get_mut(id) {
             Ok(stack) => Ok(stack.pop().unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_stack_pop", e.into())),
         }
@@ -6708,7 +6706,7 @@ impl Game {
 
     pub fn ds_queue_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
+        match self.queues.get_mut(id) {
             Ok(queue) => {
                 queue.clear();
                 Ok(Default::default())
@@ -6733,16 +6731,14 @@ impl Game {
     pub fn ds_queue_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
-            Ok(queue) => {
-                Ok(queue.is_empty().into())
-            },
+            Ok(queue) => Ok(queue.is_empty().into()),
             Err(e) => Err(gml::Error::FunctionError("ds_queue_empty", e.into())),
         }
     }
 
     pub fn ds_queue_enqueue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.queues.get(id) {
+        match self.queues.get_mut(id) {
             Ok(queue) => {
                 queue.push_back(val);
                 Ok(Default::default())
@@ -6753,7 +6749,7 @@ impl Game {
 
     pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
+        match self.queues.get_mut(id) {
             Ok(queue) => Ok(queue.pop_front().unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue", e.into())),
         }
@@ -6800,7 +6796,7 @@ impl Game {
 
     pub fn ds_list_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 list.clear();
                 Ok(Default::default())
@@ -6832,7 +6828,7 @@ impl Game {
 
     pub fn ds_list_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 list.push(val);
                 Ok(Default::default())
@@ -6843,7 +6839,7 @@ impl Game {
 
     pub fn ds_list_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 if index >= 0 && (index as usize) <= list.len() {
                     list.insert(index as usize, val);
@@ -6856,7 +6852,7 @@ impl Game {
 
     pub fn ds_list_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list[index as usize] = val;
@@ -6869,7 +6865,7 @@ impl Game {
 
     pub fn ds_list_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index) = expect_args!(args, [int, int])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list.remove(index as usize);
@@ -6882,12 +6878,11 @@ impl Game {
 
     pub fn ds_list_find_index(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        let precision = self.ds_precision;
         match self.lists.get(id) {
             Ok(list) => Ok(list
                 .iter()
                 .enumerate()
-                .find(|(_, x)| ds::eq(x, &val, precision))
+                .find(|(_, x)| ds::eq(x, &val, self.ds_precision))
                 .map(|(i, _)| i as i32)
                 .unwrap_or(-1)
                 .into()),
@@ -6911,9 +6906,9 @@ impl Game {
 
     pub fn ds_list_sort(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, asc) = expect_args!(args, [int, any])?;
-        let precision = self.ds_precision;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
+                let precision = self.ds_precision;
                 if asc.is_truthy() {
                     list.sort_by(|x, y| ds::cmp(x, y, precision));
                 } else {
@@ -6927,7 +6922,7 @@ impl Game {
 
     pub fn ds_list_shuffle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id) {
+        match self.lists.get_mut(id) {
             Ok(list) => {
                 for _ in 1..list.len() {
                     let id1 = self.rand.next_int(list.len() as u32 - 1);

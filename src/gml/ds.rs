@@ -50,7 +50,11 @@ impl<T> DataStructureManager<T> {
         unreachable!()
     }
 
-    pub fn get(&mut self, id: i32) -> Result<&mut T> {
+    pub fn get(&self, id: i32) -> Result<&T> {
+        self.map.get(&id).ok_or(Error::NonexistentStructure(id))
+    }
+
+    pub fn get_mut(&mut self, id: i32) -> Result<&mut T> {
         self.map.get_mut(&id).ok_or(Error::NonexistentStructure(id))
     }
 
