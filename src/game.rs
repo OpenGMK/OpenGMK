@@ -87,7 +87,7 @@ pub struct Game {
     pub maps: DataStructureManager<ds::Map>,
     pub priority_queues: DataStructureManager<ds::Priority>,
     pub grids: DataStructureManager<ds::Grid>,
-    pub ds_precision: f64,
+    pub ds_precision: Real,
 
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
     pub draw_font_id: ID,
@@ -763,7 +763,7 @@ impl Game {
             maps: DataStructureManager::new(),
             priority_queues: DataStructureManager::new(),
             grids: DataStructureManager::new(),
-            ds_precision: 0.00000001,
+            ds_precision: Real::from(0.00000001),
             draw_font: None,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),

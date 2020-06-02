@@ -1,4 +1,4 @@
-use crate::gml::Value;
+use crate::{gml::Value, math::Real};
 use std::{cmp::Ordering, collections};
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -62,18 +62,18 @@ impl<T> DataStructureManager<T> {
     }
 }
 
-pub fn eq(v1: &Value, v2: &Value, precision: f64) -> bool {
+pub fn eq(v1: &Value, v2: &Value, precision: Real) -> bool {
     match (v1, v2) {
-        (Value::Real(x), Value::Real(y)) => (x - y).abs() <= precision,
+        (Value::Real(x), Value::Real(y)) => (*x - *y).abs() <= precision,
         (Value::Str(x), Value::Str(y)) => x == y,
         _ => false,
     }
 }
 
-pub fn cmp(v1: &Value, v2: &Value, precision: f64) -> Ordering {
+pub fn cmp(v1: &Value, v2: &Value, precision: Real) -> Ordering {
     match (v1, v2) {
         (Value::Real(x), Value::Real(y)) => {
-            if (x - y).abs() <= precision {
+            if (*x - *y).abs() <= precision {
                 Ordering::Equal
             } else {
                 x.partial_cmp(&y).unwrap()

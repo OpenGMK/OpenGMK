@@ -6670,7 +6670,7 @@ impl Game {
     pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
-            Ok(stack) => Ok(stack.pop().unwrap_or(Default::default())),
+            Ok(stack) => Ok(stack.pop().unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_stack_pop", e.into())),
         }
     }
@@ -6678,7 +6678,7 @@ impl Game {
     pub fn ds_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
-            Ok(stack) => Ok(stack.last().unwrap_or(&Value::Real(0.0)).clone()),
+            Ok(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_stack_top", e.into())),
         }
     }
@@ -6754,7 +6754,7 @@ impl Game {
     pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
-            Ok(queue) => Ok(queue.pop_front().unwrap_or(Default::default())),
+            Ok(queue) => Ok(queue.pop_front().unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue", e.into())),
         }
     }
@@ -6762,7 +6762,7 @@ impl Game {
     pub fn ds_queue_head(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
-            Ok(queue) => Ok(queue.front().unwrap_or(&Default::default()).clone()),
+            Ok(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_queue_head", e.into())),
         }
     }
@@ -6770,7 +6770,7 @@ impl Game {
     pub fn ds_queue_tail(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
-            Ok(queue) => Ok(queue.back().unwrap_or(&Default::default()).clone()),
+            Ok(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
             Err(e) => Err(gml::Error::FunctionError("ds_queue_tail", e.into())),
         }
     }
