@@ -6925,9 +6925,19 @@ impl Game {
         }
     }
 
-    pub fn ds_list_shuffle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_shuffle")
+    pub fn ds_list_shuffle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get(id) {
+            Ok(list) => {
+                for _ in 1..list.len() {
+                    let id1 = self.rand.next_int(list.len() as u32 - 1);
+                    let id2 = self.rand.next_int(list.len() as u32 - 1);
+                    list.swap(id1 as usize, id2 as usize);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_shuffle", e.into())),
+        }
     }
 
     pub fn ds_list_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
