@@ -499,6 +499,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn rem_euclid(self, other: Real) -> Self {
+        self.0.rem_euclid(other.0).into()
+    }
+
+    #[inline(always)]
     pub fn as_ref(&self) -> &f64 {
         &self.0
     }
