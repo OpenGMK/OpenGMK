@@ -5759,14 +5759,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_name")
     }
 
-    pub fn path_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_exists")
+    pub fn path_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        Ok(self.assets.paths.get_asset(path_id).is_some().into())
     }
 
-    pub fn path_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_name")
+    pub fn path_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(Value::Str(path.name.clone())),
+            None => Ok("<undefined>".to_string().into()),
+        }
     }
 
     pub fn path_get_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5801,24 +5804,54 @@ impl Game {
         }
     }
 
-    pub fn path_get_number(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_get_number")
+    pub fn path_get_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => Ok(path.points.len().into()),
+            None => Ok((-1).into()),
+        }
     }
 
-    pub fn path_get_point_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_point_x")
+    pub fn path_get_point_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, point_id) = expect_args!(args, [int, int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => {
+                if point_id < 0 || point_id >= path.points.len() as i32 {
+                    Ok(0.into())
+                } else {
+                    Ok(path.points.get(point_id as usize).unwrap().x.into())
+                }
+            },
+            None => Ok((-1).into()),
+        }
     }
 
-    pub fn path_get_point_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_point_y")
+    pub fn path_get_point_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, point_id) = expect_args!(args, [int, int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => {
+                if point_id < 0 || point_id >= path.points.len() as i32 {
+                    Ok(0.into())
+                } else {
+                    Ok(path.points.get(point_id as usize).unwrap().y.into())
+                }
+            },
+            None => Ok((-1).into()),
+        }
     }
 
-    pub fn path_get_point_speed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_get_point_speed")
+    pub fn path_get_point_speed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, point_id) = expect_args!(args, [int, int])?;
+        match self.assets.paths.get_asset(path_id) {
+            Some(path) => {
+                if point_id < 0 || point_id >= path.points.len() as i32 {
+                    Ok(1.into())
+                } else {
+                    Ok(path.points.get(point_id as usize).unwrap().speed.into())
+                }
+            },
+            None => Ok((-1).into()),
+        }
     }
 
     pub fn path_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
