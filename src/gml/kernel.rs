@@ -1884,9 +1884,8 @@ impl Game {
         }
     }
 
-    pub fn action_inherited(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_inherited")
+    pub fn action_inherited(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.event_inherited(context, args)
     }
 
     pub fn action_if_variable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
