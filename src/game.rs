@@ -1358,6 +1358,10 @@ impl Game {
 
     // Checks for collision between two instances
     pub fn check_collision(&self, i1: usize, i2: usize) -> bool {
+        // Don't check for collision with yourself
+        if i1 == i2 {
+            return false;
+        }
         // Get the sprite masks we're going to use and update instances' bbox vars
         let inst1 = self.instance_list.get(i1);
         let inst2 = self.instance_list.get(i2);
