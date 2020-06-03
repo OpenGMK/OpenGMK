@@ -7052,11 +7052,7 @@ impl Game {
         match self.maps.get(id) {
             Ok(map) => {
                 let index = map.get_index_unchecked(&key, self.ds_precision);
-                if index > 0 {
-                    Ok(map.keys[index - 1].clone())
-                } else {
-                    Ok(Default::default())
-                }
+                if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
             },
             Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous", e.into())),
         }
@@ -7067,11 +7063,7 @@ impl Game {
         match self.maps.get(id) {
             Ok(map) => {
                 let index = map.get_next_index(&key, self.ds_precision);
-                if index < map.keys.len() {
-                    Ok(map.keys[index].clone())
-                } else {
-                    Ok(Default::default())
-                }
+                if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
             },
             Err(e) => Err(gml::Error::FunctionError("ds_map_find_next", e.into())),
         }
@@ -7183,14 +7175,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_priority_read")
     }
 
-    pub fn ds_grid_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_create")
+    pub fn ds_grid_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (width, height) = expect_args!(args, [int, int])?;
+        if width < 0 || height < 0 {
+            return Err(gml::Error::FunctionError("ds_grid_create", "grids cannot have negative dimensions".to_string()))
+        }
+        Ok(self.grids.add(ds::Grid::new(width as usize, height as usize)).into())
     }
 
-    pub fn ds_grid_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_destroy")
+    pub fn ds_grid_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_destroy", e.into())),
+        }
     }
 
     pub fn ds_grid_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7198,29 +7196,65 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_copy")
     }
 
-    pub fn ds_grid_resize(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_grid_resize")
+    pub fn ds_grid_resize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, width, height) = expect_args!(args, [int, int, int])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                if width < 0 || height < 0 {
+                    return Err(gml::Error::FunctionError(
+                        "ds_grid_resize",
+                        "grids cannot have negative dimensions".to_string(),
+                    ))
+                }
+                grid.resize(width as usize, height as usize);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_resize", e.into())),
+        }
     }
 
-    pub fn ds_grid_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_width")
+    pub fn ds_grid_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get(id) {
+            Ok(grid) => Ok(grid.width().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+        }
     }
 
-    pub fn ds_grid_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_height")
+    pub fn ds_grid_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get(id) {
+            Ok(grid) => Ok(grid.height().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+        }
     }
 
-    pub fn ds_grid_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_clear")
+    pub fn ds_grid_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                for x in 0..grid.width() {
+                    for y in 0..grid.height() {
+                        grid.set(x, y, val.clone());
+                    }
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_clear", e.into())),
+        }
     }
 
-    pub fn ds_grid_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function ds_grid_set")
+    pub fn ds_grid_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
+                    grid.set(x as usize, y as usize, val);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+        }
     }
 
     pub fn ds_grid_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7278,9 +7312,18 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_multiply_grid_region")
     }
 
-    pub fn ds_grid_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_grid_get")
+    pub fn ds_grid_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y) = expect_args!(args, [int, int, int])?;
+        match self.grids.get(id) {
+            Ok(grid) => {
+                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
+                    Ok(grid.get(x as usize, y as usize).clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+        }
     }
 
     pub fn ds_grid_get_sum(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
