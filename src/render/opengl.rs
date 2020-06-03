@@ -211,6 +211,9 @@ impl OpenGLRenderer {
             // Unbind VBO
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
+            // Use program
+            gl::UseProgram(shader_program);
+
             (shader_program, vao, vbo)
         };
 
