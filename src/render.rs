@@ -87,8 +87,8 @@ pub trait Renderer {
         yscale: f64,
         colour: i32,
         alpha: f64,
-        tile_end_x: f64,
-        tile_end_y: f64,
+        tile_end_x: Option<f64>,
+        tile_end_y: Option<f64>,
     );
 
     /// Updates the screen. Should be called only after drawing everything that should be in the current frame.

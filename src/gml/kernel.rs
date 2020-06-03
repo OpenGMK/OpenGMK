@@ -945,8 +945,8 @@ impl Game {
                     yscale.into(),
                     colour,
                     alpha.into(),
-                    self.room_width.into(),
-                    self.room_height.into(),
+                    Some(self.room_width.into()),
+                    Some(self.room_height.into()),
                 );
             }
             Ok(Default::default())

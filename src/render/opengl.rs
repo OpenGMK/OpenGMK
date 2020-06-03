@@ -552,19 +552,19 @@ impl Renderer for OpenGLRenderer {
         yscale: f64,
         colour: i32,
         alpha: f64,
-        tile_end_x: f64,
-        tile_end_y: f64,
+        tile_end_x: Option<f64>,
+        tile_end_y: Option<f64>,
     ) {
         let width = f64::from(texture.w) * xscale;
         let height = f64::from(texture.h) * yscale;
 
-        if tile_end_x > x {
+        if tile_end_x.is_some() {
             x = x.rem_euclid(width);
             if x > 0.0 {
                 x -= width;
             }
         }
-        if tile_end_y > y {
+        if tile_end_y.is_some() {
             y = y.rem_euclid(height);
             if y > 0.0 {
                 y -= height;
@@ -577,14 +577,16 @@ impl Renderer for OpenGLRenderer {
             loop {
                 self.draw_sprite(texture, util::ieee_round(x), util::ieee_round(y), xscale, yscale, 0.0, colour, alpha);
                 x += width;
-                if x > tile_end_x {
-                    break
+                match tile_end_x {
+                    Some(end_x) if x < end_x => (),
+                    _ => break,
                 }
             }
             x = start_x;
             y += height;
-            if y > tile_end_y {
-                break
+            match tile_end_y {
+                Some(end_y) if y < end_y => (),
+                _ => break,
             }
         }
     }

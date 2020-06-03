@@ -155,8 +155,8 @@ impl Game {
                         background.yscale.into(),
                         background.blend,
                         background.alpha.into(),
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
+                        if background.tile_horizontal { Some((src_x + src_w).into()) } else { None },
+                        if background.tile_vertical { Some((src_y + src_h).into()) } else { None },
                     );
                 }
             }
@@ -214,8 +214,8 @@ impl Game {
                         background.yscale.into(),
                         background.blend,
                         background.alpha.into(),
-                        if background.tile_horizontal { (src_x + src_w).into() } else { background.x_offset.into() },
-                        if background.tile_vertical { (src_y + src_h).into() } else { background.y_offset.into() },
+                        if background.tile_horizontal { Some((src_x + src_w).into()) } else { None },
+                        if background.tile_vertical { Some((src_y + src_h).into()) } else { None },
                     );
                 }
             }
