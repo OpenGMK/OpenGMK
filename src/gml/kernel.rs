@@ -5773,7 +5773,7 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.length.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5781,7 +5781,7 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.curve.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5789,7 +5789,7 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.closed.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5797,7 +5797,7 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.precision.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5825,7 +5825,7 @@ impl Game {
         let (path_id, offset) = expect_args!(args, [int, real])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.get_point(offset).x.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5833,7 +5833,7 @@ impl Game {
         let (path_id, offset) = expect_args!(args, [int, real])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.get_point(offset).y.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -5841,7 +5841,7 @@ impl Game {
         let (path_id, offset) = expect_args!(args, [int, real])?;
         match self.assets.paths.get_asset(path_id) {
             Some(path) => Ok(path.get_point(offset).speed.into()),
-            None => Ok(Default::default()),
+            None => Ok((-1).into()),
         }
     }
 
@@ -6153,7 +6153,7 @@ impl Game {
         if let Some(room) = self.assets.rooms.get_asset(room_id) {
             Ok(room.name.clone().into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+            Ok("<undefined>".to_string().into())
         }
     }
 
