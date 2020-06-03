@@ -5997,49 +5997,85 @@ impl Game {
         unimplemented!("Called unimplemented kernel function object_name")
     }
 
-    pub fn object_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_exists")
+    pub fn object_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(_)) = self.assets.objects.get(object_id as usize) {
+            Ok(gml::TRUE.into())
+        } else {
+            Ok(gml::FALSE.into())
+        }
     }
 
-    pub fn object_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_name")
+    pub fn object_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(Value::Str(object.name.clone()))
+        } else {
+            Ok("<undefined>".to_string().into())
+        }
     }
 
-    pub fn object_get_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_sprite")
+    pub fn object_get_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.sprite_index.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_solid")
+    pub fn object_get_solid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.solid.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_visible")
+    pub fn object_get_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.visible.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_depth")
+    pub fn object_get_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.depth.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_persistent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_persistent")
+    pub fn object_get_persistent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.persistent.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_mask(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_mask")
+    pub fn object_get_mask(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.mask_index.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn object_get_parent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_get_parent")
+    pub fn object_get_parent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let object_id = expect_args!(args, [int])?;
+        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
+            Ok(object.parent_index.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
     pub fn object_is_ancestor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
