@@ -20,7 +20,11 @@ pub struct Priority {
     pub priorities: Vec<Value>,
     pub values: Vec<Value>,
 }
-pub type Grid = Vec<Vec<Value>>;
+#[derive(Debug)]
+pub struct Grid {
+    grid: Vec<Vec<Value>>,
+    height: usize, // if width is 0, this is inaccessible otherwise
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -108,6 +112,39 @@ impl Map {
 
     pub fn contains_key(&self, key: &Value, precision: Real) -> bool {
         self.keys.binary_search_by(|x| cmp(x, key, precision)).is_ok()
+    }
+}
+
+impl Grid {
+    pub fn new(width: usize, height: usize) -> Self {
+        let grid = vec![vec![Value::from(0); height]; width];
+        Self { grid, height }
+    }
+
+    pub fn resize(&mut self, width: usize, height: usize) {
+        self.height = height;
+        self.grid.resize_with(width, || vec![Value::from(0); height]);
+        for column in &mut self.grid {
+            column.resize_with(height, Default::default);
+        }
+    }
+
+    // This will panic on OOB, so make sure you check bounds before calling
+    pub fn get(&self, x: usize, y: usize) -> &Value {
+        &self.grid[x][y]
+    }
+
+    // This will panic on OOB, so make sure you check bounds before calling
+    pub fn set(&mut self, x: usize, y: usize, val: Value) {
+        self.grid[x][y] = val;
+    }
+
+    pub fn width(&self) -> usize {
+        self.grid.len()
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
     }
 }
 
