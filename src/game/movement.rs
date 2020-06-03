@@ -1,4 +1,8 @@
-use crate::{game::Game, game::GetAsset, math::Real, util};
+use crate::{
+    game::{Game, GetAsset},
+    math::Real,
+    util,
+};
 
 impl Game {
     /// Processes movement (friction, gravity, speed/direction) for all instances
@@ -47,13 +51,12 @@ impl Game {
             instance.y.set(instance.y.get() + vspeed);
             instance.bbox_is_stale.set(true);
         }
-        
+
         // Advance paths
         let mut run_event = false;
         if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
             // Calculate how much offset (0-1) we want to add to the instance's path position
-            let offset =
-                instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0)) / path.length;
+            let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0)) / path.length;
 
             // Work out what the new position should be
             let new_position = instance.path_position.get() + offset;
