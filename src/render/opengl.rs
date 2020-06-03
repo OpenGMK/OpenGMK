@@ -543,8 +543,8 @@ impl Renderer for OpenGLRenderer {
     fn draw_sprite_tiled(
         &mut self,
         texture: &AtlasRef,
-        x: i32,
-        y: i32,
+        mut x: f64,
+        mut y: f64,
         xscale: f64,
         yscale: f64,
         colour: i32,
@@ -555,29 +555,24 @@ impl Renderer for OpenGLRenderer {
         let width = f64::from(texture.w) * xscale;
         let height = f64::from(texture.h) * yscale;
 
-        let mut x = f64::from(x).rem_euclid(width);
-        if x > 0.0 {
-            x -= width;
+        if tile_end_x > x {
+            x = x.rem_euclid(width);
+            if x > 0.0 {
+                x -= width;
+            }
         }
-        let mut y = f64::from(y).rem_euclid(height);
-        if y > 0.0 {
-            y -= height;
+        if tile_end_y > y {
+            y = y.rem_euclid(height);
+            if y > 0.0 {
+                y -= height;
+            }
         }
 
         let start_x = x;
 
         loop {
             loop {
-                self.draw_sprite(
-                    texture,
-                    util::ieee_round(x),
-                    util::ieee_round(y),
-                    xscale,
-                    yscale,
-                    0.0,
-                    colour,
-                    alpha,
-                );
+                self.draw_sprite(texture, util::ieee_round(x), util::ieee_round(y), xscale, yscale, 0.0, colour, alpha);
                 x += width;
                 if x > tile_end_x {
                     break

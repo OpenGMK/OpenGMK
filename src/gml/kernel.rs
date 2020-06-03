@@ -934,13 +934,13 @@ impl Game {
 
     pub fn draw_background_tiled_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, xscale, yscale, colour, alpha) =
-            expect_args!(args, [int, int, int, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite_tiled(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     xscale.into(),
                     yscale.into(),
                     colour,

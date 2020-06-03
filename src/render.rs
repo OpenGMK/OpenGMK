@@ -81,8 +81,8 @@ pub trait Renderer {
     fn draw_sprite_tiled(
         &mut self,
         texture: &AtlasRef,
-        x: i32,
-        y: i32,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         colour: i32,

@@ -149,8 +149,8 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        background.x_offset.round(),
-                        background.y_offset.round(),
+                        background.x_offset.into(),
+                        background.y_offset.into(),
                         background.xscale.into(),
                         background.yscale.into(),
                         background.blend,
@@ -208,8 +208,8 @@ impl Game {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
-                        background.x_offset.round(),
-                        background.y_offset.round(),
+                        background.x_offset.into(),
+                        background.y_offset.into(),
                         background.xscale.into(),
                         background.yscale.into(),
                         background.blend,
