@@ -409,19 +409,16 @@ impl Game {
         Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
-    pub fn color_get_red(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_red")
+    pub fn color_get_red(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|c| c % 256).map(Value::from)
     }
 
-    pub fn color_get_green(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_green")
+    pub fn color_get_green(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|c| (c / 256) % 256).map(Value::from)
     }
 
-    pub fn color_get_blue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_blue")
+    pub fn color_get_blue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [int]).map(|c| (c / 256 / 256) % 256).map(Value::from)
     }
 
     pub fn color_get_hue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -439,9 +436,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function color_get_value")
     }
 
-    pub fn merge_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function merge_color")
+    pub fn merge_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (c1, c2, amount) = expect_args!(args, [int, int, real])?;
+        let r = Real::from(c1 & 255) * (Real::from(1) - amount) + Real::from(c2 & 255) * amount;
+        let g = Real::from((c1 >> 8) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 8) & 255) * amount;
+        let b = Real::from((c1 >> 16) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 16) & 255) * amount;
+        Ok(Value::from((r.round() & 255) + ((g.round() & 255) << 8) + ((b.round() & 255) << 16))) 
     }
 
     pub fn draw_set_blend_mode(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
