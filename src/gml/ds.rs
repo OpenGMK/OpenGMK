@@ -115,6 +115,29 @@ impl Map {
     }
 }
 
+impl Priority {
+    fn extremity(&self, precision: Real, diff: Ordering) -> Option<usize> {
+        if self.priorities.is_empty() {
+            return None
+        }
+        let mut ext = 0;
+        for i in 1..self.priorities.len() {
+            if cmp(&self.priorities[i], &self.priorities[ext], precision) == diff {
+                ext = i;
+            }
+        }
+        Some(ext)
+    }
+
+    pub fn min_id(&self, precision: Real) -> Option<usize> {
+        self.extremity(precision, Ordering::Less)
+    }
+
+    pub fn max_id(&self, precision: Real) -> Option<usize> {
+        self.extremity(precision, Ordering::Greater)
+    }
+}
+
 impl Grid {
     pub fn new(width: usize, height: usize) -> Self {
         let grid = vec![vec![Value::from(0); height]; width];
