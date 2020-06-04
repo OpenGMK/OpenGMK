@@ -1,5 +1,6 @@
 pub mod compiler;
 pub mod context;
+pub mod ds;
 pub mod file;
 pub mod kernel;
 pub mod rand;

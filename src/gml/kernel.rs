@@ -5,7 +5,7 @@
 use crate::{
     asset,
     game::{draw, Game, GetAsset, SceneChange},
-    gml::{self, compiler::mappings, file, Context, Value},
+    gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
     math::Real,
@@ -6789,24 +6789,33 @@ impl Game {
         unimplemented!("Called unimplemented kernel function effect_clear")
     }
 
-    pub fn ds_set_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_set_precision")
+    pub fn ds_set_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.ds_precision = expect_args!(args, [real])?;
+        Ok(Default::default())
     }
 
-    pub fn ds_stack_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_stack_create")
+    pub fn ds_stack_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.stacks.add(ds::Stack::new()).into())
     }
 
-    pub fn ds_stack_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_destroy")
+    pub fn ds_stack_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_destroy", e.into())),
+        }
     }
 
-    pub fn ds_stack_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_clear")
+    pub fn ds_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get_mut(id) {
+            Ok(stack) => {
+                stack.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_clear", e.into())),
+        }
     }
 
     pub fn ds_stack_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6814,29 +6823,47 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_stack_copy")
     }
 
-    pub fn ds_stack_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_size")
+    pub fn ds_stack_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_size", e.into())),
+        }
     }
 
-    pub fn ds_stack_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_empty")
+    pub fn ds_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_empty", e.into())),
+        }
     }
 
-    pub fn ds_stack_push(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_stack_push")
+    pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.stacks.get_mut(id) {
+            Ok(stack) => {
+                stack.push(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_push", e.into())),
+        }
     }
 
-    pub fn ds_stack_pop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_pop")
+    pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get_mut(id) {
+            Ok(stack) => Ok(stack.pop().unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_pop", e.into())),
+        }
     }
 
-    pub fn ds_stack_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_top")
+    pub fn ds_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get(id) {
+            Ok(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_top", e.into())),
+        }
     }
 
     pub fn ds_stack_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6849,19 +6876,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_stack_read")
     }
 
-    pub fn ds_queue_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_queue_create")
+    pub fn ds_queue_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.queues.add(ds::Queue::new()).into())
     }
 
-    pub fn ds_queue_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_destroy")
+    pub fn ds_queue_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_destroy", e.into())),
+        }
     }
 
-    pub fn ds_queue_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_clear")
+    pub fn ds_queue_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get_mut(id) {
+            Ok(queue) => {
+                queue.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_clear", e.into())),
+        }
     }
 
     pub fn ds_queue_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6869,34 +6905,55 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_queue_copy")
     }
 
-    pub fn ds_queue_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_size")
+    pub fn ds_queue_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_size", e.into())),
+        }
     }
 
-    pub fn ds_queue_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_empty")
+    pub fn ds_queue_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_empty", e.into())),
+        }
     }
 
-    pub fn ds_queue_enqueue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_queue_enqueue")
+    pub fn ds_queue_enqueue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.queues.get_mut(id) {
+            Ok(queue) => {
+                queue.push_back(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_enqueue", e.into())),
+        }
     }
 
-    pub fn ds_queue_dequeue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_dequeue")
+    pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get_mut(id) {
+            Ok(queue) => Ok(queue.pop_front().unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue", e.into())),
+        }
     }
 
-    pub fn ds_queue_head(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_head")
+    pub fn ds_queue_head(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_head", e.into())),
+        }
     }
 
-    pub fn ds_queue_tail(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_queue_tail")
+    pub fn ds_queue_tail(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.queues.get(id) {
+            Ok(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_tail", e.into())),
+        }
     }
 
     pub fn ds_queue_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6909,19 +6966,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_queue_read")
     }
 
-    pub fn ds_list_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_list_create")
+    pub fn ds_list_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.lists.add(ds::List::new()).into())
     }
 
-    pub fn ds_list_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_destroy")
+    pub fn ds_list_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_destroy", e.into())),
+        }
     }
 
-    pub fn ds_list_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_clear")
+    pub fn ds_list_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                list.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_clear", e.into())),
+        }
     }
 
     pub fn ds_list_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6929,54 +6995,129 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_list_copy")
     }
 
-    pub fn ds_list_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_size")
+    pub fn ds_list_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get(id) {
+            Ok(list) => Ok(list.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_size", e.into())),
+        }
     }
 
-    pub fn ds_list_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_empty")
+    pub fn ds_list_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get(id) {
+            Ok(list) => Ok(list.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_empty", e.into())),
+        }
     }
 
-    pub fn ds_list_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_add")
+    pub fn ds_list_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                list.push(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_add", e.into())),
+        }
     }
 
-    pub fn ds_list_insert(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_list_insert")
+    pub fn ds_list_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, index, val) = expect_args!(args, [int, int, any])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                if index >= 0 && (index as usize) <= list.len() {
+                    list.insert(index as usize, val);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_insert", e.into())),
+        }
     }
 
-    pub fn ds_list_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_list_replace")
+    pub fn ds_list_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, index, val) = expect_args!(args, [int, int, any])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                if index >= 0 && (index as usize) < list.len() {
+                    list[index as usize] = val;
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_replace", e.into())),
+        }
     }
 
-    pub fn ds_list_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_delete")
+    pub fn ds_list_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, index) = expect_args!(args, [int, int])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                if index >= 0 && (index as usize) < list.len() {
+                    list.remove(index as usize);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_delete", e.into())),
+        }
     }
 
-    pub fn ds_list_find_index(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_find_index")
+    pub fn ds_list_find_index(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.lists.get(id) {
+            Ok(list) => Ok(list
+                .iter()
+                .enumerate()
+                .find(|(_, x)| ds::eq(x, &val, self.ds_precision))
+                .map(|(i, _)| i as i32)
+                .unwrap_or(-1)
+                .into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_find_index", e.into())),
+        }
     }
 
-    pub fn ds_list_find_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_find_value")
+    pub fn ds_list_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, index) = expect_args!(args, [int, int])?;
+        match self.lists.get(id) {
+            Ok(list) => {
+                if index >= 0 && (index as usize) < list.len() {
+                    Ok(list[index as usize].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_find_value", e.into())),
+        }
     }
 
-    pub fn ds_list_sort(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_sort")
+    pub fn ds_list_sort(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, asc) = expect_args!(args, [int, any])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                let precision = self.ds_precision; // otherwise we get borrowing issues
+                if asc.is_truthy() {
+                    list.sort_by(|x, y| ds::cmp(x, y, precision));
+                } else {
+                    list.sort_by(|x, y| ds::cmp(y, x, precision));
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_sort", e.into())),
+        }
     }
 
-    pub fn ds_list_shuffle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_shuffle")
+    pub fn ds_list_shuffle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                for _ in 1..list.len() {
+                    let id1 = self.rand.next_int(list.len() as u32 - 1);
+                    let id2 = self.rand.next_int(list.len() as u32 - 1);
+                    list.swap(id1 as usize, id2 as usize);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_shuffle", e.into())),
+        }
     }
 
     pub fn ds_list_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6989,19 +7130,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_list_read")
     }
 
-    pub fn ds_map_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_map_create")
+    pub fn ds_map_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.maps.add(ds::Map { keys: Vec::new(), values: Vec::new() }).into())
     }
 
-    pub fn ds_map_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_destroy")
+    pub fn ds_map_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_destroy", e.into())),
+        }
     }
 
-    pub fn ds_map_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_clear")
+    pub fn ds_map_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                map.keys.clear();
+                map.values.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_clear", e.into())),
+        }
     }
 
     pub fn ds_map_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7009,59 +7160,114 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_map_copy")
     }
 
-    pub fn ds_map_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_size")
+    pub fn ds_map_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_size", e.into())),
+        }
     }
 
-    pub fn ds_map_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_empty")
+    pub fn ds_map_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_empty", e.into())),
+        }
     }
 
-    pub fn ds_map_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_map_add")
+    pub fn ds_map_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key, val) = expect_args!(args, [int, any, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                let index = map.get_next_index(&key, self.ds_precision);
+                map.keys.insert(index, key);
+                map.values.insert(index, val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_add", e.into())),
+        }
     }
 
-    pub fn ds_map_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_map_replace")
+    pub fn ds_map_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key, val) = expect_args!(args, [int, any, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                if let Some(index) = map.get_index(&key, self.ds_precision) {
+                    map.values[index] = val;
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_replace", e.into())),
+        }
     }
 
-    pub fn ds_map_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_delete")
+    pub fn ds_map_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                if let Some(index) = map.get_index(&key, self.ds_precision) {
+                    map.keys.remove(index);
+                    map.values.remove(index);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_delete", e.into())),
+        }
     }
 
-    pub fn ds_map_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_exists")
+    pub fn ds_map_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_exists", e.into())),
+        }
     }
 
-    pub fn ds_map_find_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_value")
+    pub fn ds_map_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_value", e.into())),
+        }
     }
 
-    pub fn ds_map_find_previous(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_previous")
+    pub fn ds_map_find_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => {
+                let index = map.get_index_unchecked(&key, self.ds_precision);
+                if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous", e.into())),
+        }
     }
 
-    pub fn ds_map_find_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_find_next")
+    pub fn ds_map_find_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, key) = expect_args!(args, [int, any])?;
+        match self.maps.get(id) {
+            Ok(map) => {
+                let index = map.get_next_index(&key, self.ds_precision);
+                if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_next", e.into())),
+        }
     }
 
-    pub fn ds_map_find_first(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_find_first")
+    pub fn ds_map_find_first(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_first", e.into())),
+        }
     }
 
-    pub fn ds_map_find_last(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_find_last")
+    pub fn ds_map_find_last(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get(id) {
+            Ok(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_last", e.into())),
+        }
     }
 
     pub fn ds_map_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7074,19 +7280,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_map_read")
     }
 
-    pub fn ds_priority_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_priority_create")
+    pub fn ds_priority_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.priority_queues.add(ds::Priority { priorities: Vec::new(), values: Vec::new() }).into())
     }
 
-    pub fn ds_priority_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_destroy")
+    pub fn ds_priority_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_destroy", e.into())),
+        }
     }
 
-    pub fn ds_priority_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_clear")
+    pub fn ds_priority_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                pq.priorities.clear();
+                pq.values.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
     pub fn ds_priority_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7094,54 +7310,134 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_priority_copy")
     }
 
-    pub fn ds_priority_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_size")
+    pub fn ds_priority_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => Ok(pq.priorities.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
-    pub fn ds_priority_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_empty")
+    pub fn ds_priority_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => Ok(pq.priorities.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
-    pub fn ds_priority_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_priority_add")
+    pub fn ds_priority_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val, prio) = expect_args!(args, [int, any, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                pq.priorities.push(prio);
+                pq.values.push(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_add", e.into())),
+        }
     }
 
-    pub fn ds_priority_change_priority(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_priority_change_priority")
+    pub fn ds_priority_change_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val, prio) = expect_args!(args, [int, any, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    pq.priorities[pos] = prio;
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_change_priority", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_priority(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_find_priority")
+    pub fn ds_priority_find_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    Ok(pq.priorities[pos].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_priority", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_value")
+    pub fn ds_priority_delete_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    pq.priorities.remove(pos);
+                    pq.values.remove(pos);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_value", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_min")
+    pub fn ds_priority_delete_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                if let Some(min) = pq.min_id(self.ds_precision) {
+                    pq.priorities.remove(min);
+                    Ok(pq.values.remove(min))
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_min", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_find_min")
+    pub fn ds_priority_find_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                if let Some(min) = pq.min_id(self.ds_precision) {
+                    Ok(pq.values[min].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_min", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_max(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_max")
+    pub fn ds_priority_delete_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                if let Some(max) = pq.max_id(self.ds_precision) {
+                    pq.priorities.remove(max);
+                    Ok(pq.values.remove(max))
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_max", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_max(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_find_max")
+    pub fn ds_priority_find_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                if let Some(max) = pq.max_id(self.ds_precision) {
+                    Ok(pq.values[max].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_max", e.into())),
+        }
     }
 
     pub fn ds_priority_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7154,14 +7450,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_priority_read")
     }
 
-    pub fn ds_grid_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_create")
+    pub fn ds_grid_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (width, height) = expect_args!(args, [int, int])?;
+        if width < 0 || height < 0 {
+            return Err(gml::Error::FunctionError("ds_grid_create", "grids cannot have negative dimensions".to_string()))
+        }
+        Ok(self.grids.add(ds::Grid::new(width as usize, height as usize)).into())
     }
 
-    pub fn ds_grid_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_destroy")
+    pub fn ds_grid_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_destroy", e.into())),
+        }
     }
 
     pub fn ds_grid_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7169,29 +7471,65 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_copy")
     }
 
-    pub fn ds_grid_resize(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_grid_resize")
+    pub fn ds_grid_resize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, width, height) = expect_args!(args, [int, int, int])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                if width < 0 || height < 0 {
+                    return Err(gml::Error::FunctionError(
+                        "ds_grid_resize",
+                        "grids cannot have negative dimensions".to_string(),
+                    ))
+                }
+                grid.resize(width as usize, height as usize);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_resize", e.into())),
+        }
     }
 
-    pub fn ds_grid_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_width")
+    pub fn ds_grid_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get(id) {
+            Ok(grid) => Ok(grid.width().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+        }
     }
 
-    pub fn ds_grid_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_height")
+    pub fn ds_grid_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get(id) {
+            Ok(grid) => Ok(grid.height().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+        }
     }
 
-    pub fn ds_grid_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_clear")
+    pub fn ds_grid_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                for x in 0..grid.width() {
+                    for y in 0..grid.height() {
+                        grid.set(x, y, val.clone());
+                    }
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_clear", e.into())),
+        }
     }
 
-    pub fn ds_grid_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function ds_grid_set")
+    pub fn ds_grid_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
+                    grid.set(x as usize, y as usize, val);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+        }
     }
 
     pub fn ds_grid_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7249,9 +7587,18 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_multiply_grid_region")
     }
 
-    pub fn ds_grid_get(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_grid_get")
+    pub fn ds_grid_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y) = expect_args!(args, [int, int, int])?;
+        match self.grids.get(id) {
+            Ok(grid) => {
+                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
+                    Ok(grid.get(x as usize, y as usize).clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+        }
     }
 
     pub fn ds_grid_get_sum(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
