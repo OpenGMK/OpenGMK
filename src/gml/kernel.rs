@@ -3590,9 +3590,12 @@ impl Game {
         }
     }
 
-    pub fn file_bin_rewrite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_bin_rewrite")
+    pub fn file_bin_rewrite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let handle = expect_args!(args, [int])?;
+        match self.file_manager.clear(handle) {
+            Ok(()) => Ok(Value::Real(Real::from(0.0))),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
+        }
     }
 
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
