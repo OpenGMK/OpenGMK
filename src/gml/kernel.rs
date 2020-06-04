@@ -3234,15 +3234,17 @@ impl Game {
             let object =
                 self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
             let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            let mut maxdist = 0.0;
+            let mut maxdist = Real::from(0.0);
             let mut nearest = None;
             loop {
                 match iter.next(&self.instance_list) {
                     Some(target) => {
                         let ti = self.instance_list.get(target);
-                        let d = (ti.x.get() - x).powi(2) + (ti.y.get() - y).powi(2);
-                        if nearest.is_none() || d < maxdist {
-                            maxdist = d;
+                        let xdist = ti.x.get() - x;
+                        let ydist = ti.y.get() - y;
+                        let dist = (xdist * xdist) + (ydist * ydist);
+                        if nearest.is_none() || dist < maxdist {
+                            maxdist = dist;
                             nearest = Some(target);
                         }
                     },
@@ -3268,15 +3270,17 @@ impl Game {
             let object =
                 self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
             let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            let mut maxdist = 0.0;
+            let mut maxdist = Real::from(0.0);
             let mut nearest = None;
             loop {
                 match iter.next(&self.instance_list) {
                     Some(target) => {
                         let ti = self.instance_list.get(target);
-                        let d = (ti.x.get() - x).powi(2) + (ti.y.get() - y).powi(2);
-                        if nearest.is_none() || d > maxdist {
-                            maxdist = d;
+                        let xdist = ti.x.get() - x;
+                        let ydist = ti.y.get() - y;
+                        let dist = (xdist * xdist) + (ydist * ydist);
+                        if nearest.is_none() || dist > maxdist {
+                            maxdist = dist;
                             nearest = Some(target);
                         }
                     },
