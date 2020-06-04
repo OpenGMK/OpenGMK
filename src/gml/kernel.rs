@@ -7095,19 +7095,29 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_map_read")
     }
 
-    pub fn ds_priority_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ds_priority_create")
+    pub fn ds_priority_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.priority_queues.add(ds::Priority { priorities: Vec::new(), values: Vec::new() }).into())
     }
 
-    pub fn ds_priority_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_destroy")
+    pub fn ds_priority_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.destroy(id) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_destroy", e.into())),
+        }
     }
 
-    pub fn ds_priority_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_clear")
+    pub fn ds_priority_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                pq.priorities.clear();
+                pq.values.clear();
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
     pub fn ds_priority_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7115,54 +7125,134 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_priority_copy")
     }
 
-    pub fn ds_priority_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_size")
+    pub fn ds_priority_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => Ok(pq.priorities.len().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
-    pub fn ds_priority_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_empty")
+    pub fn ds_priority_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => Ok(pq.priorities.is_empty().into()),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+        }
     }
 
-    pub fn ds_priority_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_priority_add")
+    pub fn ds_priority_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val, prio) = expect_args!(args, [int, any, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                pq.priorities.push(prio);
+                pq.values.push(val);
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_add", e.into())),
+        }
     }
 
-    pub fn ds_priority_change_priority(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ds_priority_change_priority")
+    pub fn ds_priority_change_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val, prio) = expect_args!(args, [int, any, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    pq.priorities[pos] = prio;
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_change_priority", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_priority(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_find_priority")
+    pub fn ds_priority_find_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    Ok(pq.priorities[pos].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_priority", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_value")
+    pub fn ds_priority_delete_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, val) = expect_args!(args, [int, any])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let precision = self.ds_precision;
+                if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
+                    pq.priorities.remove(pos);
+                    pq.values.remove(pos);
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_value", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_min")
+    pub fn ds_priority_delete_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                if let Some(min) = pq.min_id(self.ds_precision) {
+                    pq.priorities.remove(min);
+                    Ok(pq.values.remove(min))
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_min", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_min(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_find_min")
+    pub fn ds_priority_find_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                if let Some(min) = pq.min_id(self.ds_precision) {
+                    Ok(pq.values[min].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_min", e.into())),
+        }
     }
 
-    pub fn ds_priority_delete_max(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_delete_max")
+    pub fn ds_priority_delete_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                if let Some(max) = pq.max_id(self.ds_precision) {
+                    pq.priorities.remove(max);
+                    Ok(pq.values.remove(max))
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_max", e.into())),
+        }
     }
 
-    pub fn ds_priority_find_max(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_find_max")
+    pub fn ds_priority_find_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get(id) {
+            Ok(pq) => {
+                if let Some(max) = pq.max_id(self.ds_precision) {
+                    Ok(pq.values[max].clone())
+                } else {
+                    Ok(Default::default())
+                }
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_max", e.into())),
+        }
     }
 
     pub fn ds_priority_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
