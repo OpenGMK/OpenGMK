@@ -11,7 +11,7 @@ pub struct AtlasBuilder {
     textures: Vec<(AtlasRef, Box<[u8]>)>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct AtlasRef {
     pub atlas_id: u32,
