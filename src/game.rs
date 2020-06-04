@@ -909,7 +909,23 @@ impl Game {
             self.game_start = false;
         }
 
-        // TODO: run room's creation code (event_type = 11)
+        // Run room creation code
+        let dummy_instance =
+            self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+        self.execute(&room.creation_code, &mut Context {
+            this: dummy_instance,
+            other: dummy_instance,
+            event_action: 0,
+            relative: false,
+            event_type: 11,
+            event_number: 0,
+            event_object: 0,
+            arguments: Default::default(),
+            argument_count: 0,
+            locals: Default::default(),
+            return_value: Default::default(),
+        })?;
+        self.instance_list.remove_dummy(dummy_instance);
 
         // Run room start event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
@@ -1360,7 +1376,7 @@ impl Game {
     pub fn check_collision(&self, i1: usize, i2: usize) -> bool {
         // Don't check for collision with yourself
         if i1 == i2 {
-            return false;
+            return false
         }
         // Get the sprite masks we're going to use and update instances' bbox vars
         let inst1 = self.instance_list.get(i1);
