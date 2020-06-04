@@ -10,19 +10,16 @@ pub struct Font {
     pub italic: bool,
     pub first: u32,
     pub last: u32,
-    pub atlas_ref: AtlasRef,
     pub tallest_char_height: u32,
     pub chars: Rc<[Character]>,
+    pub own_graphics: bool, // Does this Font own the graphics associated with it?
 }
 
 #[derive(Clone, Copy)]
 pub struct Character {
-    pub x: u32,
-    pub y: u32,
-    pub width: u32,
-    pub height: u32,
     pub offset: u32,
     pub distance: u32,
+    pub atlas_ref: AtlasRef,
 }
 
 impl Font {

@@ -272,7 +272,7 @@ impl Game {
 
             // Check if we're going over the max width
             if let Some(max_width) = max_width {
-                if current_line_width + character.width > max_width && current_line_width != 0 {
+                if current_line_width + character.offset > max_width && current_line_width != 0 {
                     height += line_height;
                     if current_line_width > width {
                         width = current_line_width;
@@ -365,19 +365,15 @@ impl Game {
             // Check if we're going over the max width
             if let Some(max_width) = max_width {
                 let line_width = (cursor_x - start_x) as u32;
-                if line_width + character.width > max_width && line_width != 0 {
+                if line_width + character.offset > max_width && line_width != 0 {
                     cursor_x = start_x;
                     cursor_y += line_height;
                 }
             }
 
             // Draw the character to the screen
-            self.renderer.draw_sprite_partial(
-                &font.atlas_ref,
-                character.x as _,
-                character.y as _,
-                character.width as _,
-                character.height as _,
+            self.renderer.draw_sprite(
+                &character.atlas_ref,
                 (character.distance as i32 + cursor_x).into(),
                 cursor_y.into(),
                 1.0,

@@ -43,7 +43,6 @@ use indexmap::IndexMap;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    iter::repeat,
     path::PathBuf,
     rc::Rc,
     thread,
@@ -351,20 +350,36 @@ impl Game {
             .into_iter()
             .map(|o| {
                 o.map(|b| {
+                    let mut tallest_char_height = 0;
                     let chars = b
                         .dmap
                         .chunks_exact(6)
                         .skip(b.range_start as usize)
                         .take(((b.range_end - b.range_start) + 1) as usize)
-                        .map(|x| Character {
-                            x: x[0],
-                            y: x[1],
-                            width: x[2],
-                            height: x[3],
-                            offset: x[4],
-                            distance: x[5],
+                        .map(|char_blob| {
+                            if tallest_char_height < char_blob[3] {
+                                tallest_char_height = char_blob[3];
+                            }
+                            let mut data: Vec<u8> = Vec::with_capacity((char_blob[2] * char_blob[3] * 4) as usize);
+                            for y in 0..char_blob[3] {
+                                for x in 0..char_blob[2] {
+                                    data.push(0xFF);
+                                    data.push(0xFF);
+                                    data.push(0xFF);
+                                    data.push(
+                                        b.pixel_map[((y + char_blob[1]) * b.map_width + x + char_blob[0]) as usize],
+                                    );
+                                }
+                            }
+                            Ok(Character {
+                                offset: char_blob[4],
+                                distance: char_blob[5],
+                                atlas_ref: atlases
+                                    .texture(char_blob[2] as _, char_blob[3] as _, 0, 0, data.into_boxed_slice())
+                                    .ok_or(())?,
+                            })
                         })
-                        .collect::<Rc<_>>();
+                        .collect::<Result<Rc<_>, ()>>()?;
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -373,21 +388,9 @@ impl Game {
                         italic: b.italic,
                         first: b.range_start,
                         last: b.range_end,
-                        atlas_ref: atlases
-                            .texture(
-                                b.map_width as _,
-                                b.map_height as _,
-                                0,
-                                0,
-                                b.pixel_map
-                                    .into_iter()
-                                    .flat_map(|x| repeat(0xFF).take(3).chain(Some(*x)))
-                                    .collect::<Vec<u8>>()
-                                    .into_boxed_slice(),
-                            )
-                            .ok_or(())?,
-                        tallest_char_height: chars.iter().map(|x| x.height).max().unwrap_or_default(),
+                        tallest_char_height,
                         chars,
+                        own_graphics: true,
                     }))
                 })
                 .transpose()
@@ -1056,7 +1059,7 @@ impl Game {
             return Ok(())
         }
 
-        // Movement: apply friction, gravity, and hspeed/vspeed 
+        // Movement: apply friction, gravity, and hspeed/vspeed
         self.process_speeds();
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
