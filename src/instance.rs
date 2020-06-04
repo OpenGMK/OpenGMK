@@ -148,6 +148,62 @@ impl Instance {
         }
     }
 
+    pub fn new_dummy(object: Option<&Object>) -> Self {
+        Self {
+            state: Cell::new(InstanceState::Active),
+            id: Cell::new(0),
+            object_index: Cell::new(0),
+            solid: Cell::new(object.map(|x| x.solid).unwrap_or(false)),
+            visible: Cell::new(object.map(|x| x.visible).unwrap_or(false)),
+            persistent: Cell::new(object.map(|x| x.persistent).unwrap_or(false)),
+            depth: Cell::new(object.map(|x| x.depth).unwrap_or(0)),
+            sprite_index: Cell::new(object.map(|x| x.sprite_index).unwrap_or(0)),
+            image_alpha: Cell::new(Real::from(0.0)),
+            image_blend: Cell::new(0xFFFFFF),
+            image_index: Cell::new(Real::from(0.0)),
+            image_speed: Cell::new(Real::from(0.0)),
+            image_xscale: Cell::new(Real::from(0.0)),
+            image_yscale: Cell::new(Real::from(0.0)),
+            image_angle: Cell::new(Real::from(0.0)),
+            mask_index: Cell::new(object.map(|x| x.mask_index).unwrap_or(0)),
+            direction: Cell::new(Real::from(0.0)),
+            gravity: Cell::new(Real::from(0.0)),
+            gravity_direction: Cell::new(Real::from(0.0)),
+            hspeed: Cell::new(Real::from(0.0)),
+            vspeed: Cell::new(Real::from(0.0)),
+            speed: Cell::new(Real::from(0.0)),
+            friction: Cell::new(Real::from(0.0)),
+            x: Cell::new(Real::from(0.0)),
+            y: Cell::new(Real::from(0.0)),
+            xprevious: Cell::new(Real::from(0.0)),
+            yprevious: Cell::new(Real::from(0.0)),
+            xstart: Cell::new(Real::from(0.0)),
+            ystart: Cell::new(Real::from(0.0)),
+            path_index: Cell::new(0),
+            path_position: Cell::new(Real::from(0.0)),
+            path_positionprevious: Cell::new(Real::from(0.0)),
+            path_speed: Cell::new(Real::from(0.0)),
+            path_scale: Cell::new(Real::from(0.0)),
+            path_orientation: Cell::new(Real::from(0.0)),
+            path_endaction: Cell::new(0),
+            path_xstart: Cell::new(Real::from(0.0)),
+            path_ystart: Cell::new(Real::from(0.0)),
+            path_pointspeed: Cell::new(Real::from(0.0)),
+            timeline_index: Cell::new(0),
+            timeline_running: Cell::new(false),
+            timeline_speed: Cell::new(Real::from(0.0)),
+            timeline_position: Cell::new(Real::from(0.0)),
+            timeline_loop: Cell::new(false),
+            bbox_top: Cell::new(0),
+            bbox_left: Cell::new(0),
+            bbox_right: Cell::new(0),
+            bbox_bottom: Cell::new(0),
+            bbox_is_stale: Cell::new(false),
+            fields: RefCell::new(HashMap::new()),
+            alarms: RefCell::new(HashMap::new()),
+        }
+    }
+
     // Sets direction, also updating hspeed and vspeed
     pub fn set_direction(&self, direction: Real) {
         self.direction.set(direction.rem_euclid(Real::from(360.0)));
