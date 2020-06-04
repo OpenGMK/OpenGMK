@@ -117,6 +117,21 @@ impl FileManager {
         }
     }
 
+    pub fn clear(&mut self, handle: i32) -> Result<()> {
+        if handle > 0 {
+            match self.handles.get_mut((handle - 1) as usize) {
+                Some(Some(f)) => {
+                    f.file.seek(SeekFrom::Start(0))?;
+                    f.file.set_len(0)?;
+                    Ok(())
+                },
+                _ => Err(Error::InvalidFile(handle)),
+            }
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn read_real(&mut self, handle: i32) -> Result<f64> {
         match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
