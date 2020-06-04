@@ -189,19 +189,18 @@ impl Game {
         // Event type is gml::ev::MOUSE, you must provide the sub-event.
         macro_rules! try_mouse_events {
             ($sub: literal) => {{
-                let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&$sub)) {
-                    Some(e) => e.clone(),
-                    None => return Ok(()),
-                };
-                let mut position = 0;
-                while let Some(&object_id) = holders.borrow().get(position) {
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
-                        if self.check_collision_point(handle, mouse_x, mouse_y) {
-                            self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
+                if let Some(holders) = self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&$sub)) {
+                    let holders = holders.clone();
+                    let mut position = 0;
+                    while let Some(&object_id) = holders.borrow().get(position) {
+                        let mut iter = self.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.instance_list) {
+                            if self.check_collision_point(handle, mouse_x, mouse_y) {
+                                self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
+                            }
                         }
+                        position += 1;
                     }
-                    position += 1;
                 }
             }};
         }
