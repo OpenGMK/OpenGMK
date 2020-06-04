@@ -3226,14 +3226,72 @@ impl Game {
         }
     }
 
-    pub fn instance_nearest(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function instance_nearest")
+    pub fn instance_nearest(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, obj) = expect_args!(args, [real, real, int])?;
+        // Check collision with target
+        let other: Option<usize> = if obj <= 100000 {
+            // Target is an object ID
+            let object =
+                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+            let mut maxdist = 0.0;
+            let mut nearest = None;
+            loop {
+                match iter.next(&self.instance_list) {
+                    Some(target) => {
+                        let ti = self.instance_list.get(target);
+                        let d = (ti.x.get() - x).powi(2) + (ti.y.get() - y).powi(2);
+                        if nearest.is_none() || d < maxdist {
+                            maxdist = d;
+                            nearest = Some(target);
+                        }
+                    },
+                    None => break nearest,
+                }
+            }
+        } else {
+            // Target is an instance ID
+            None
+        };
+
+        match other {
+            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
-    pub fn instance_furthest(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function instance_furthest")
+    pub fn instance_furthest(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, obj) = expect_args!(args, [real, real, int])?;
+        // Check collision with target
+        let other: Option<usize> = if obj <= 100000 {
+            // Target is an object ID
+            let object =
+                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+            let mut maxdist = 0.0;
+            let mut nearest = None;
+            loop {
+                match iter.next(&self.instance_list) {
+                    Some(target) => {
+                        let ti = self.instance_list.get(target);
+                        let d = (ti.x.get() - x).powi(2) + (ti.y.get() - y).powi(2);
+                        if nearest.is_none() || d > maxdist {
+                            maxdist = d;
+                            nearest = Some(target);
+                        }
+                    },
+                    None => break nearest,
+                }
+            }
+        } else {
+            // Target is an instance ID
+            None
+        };
+
+        match other {
+            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn instance_place(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
