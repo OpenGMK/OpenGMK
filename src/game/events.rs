@@ -479,9 +479,11 @@ impl Game {
                                 inst1.x.set(inst1.xprevious.get());
                                 inst1.y.set(inst1.yprevious.get());
                                 inst1.bbox_is_stale.set(true);
+                                inst1.path_position.set(inst1.path_positionprevious.get());
                                 inst2.x.set(inst2.xprevious.get());
                                 inst2.y.set(inst2.yprevious.get());
                                 inst2.bbox_is_stale.set(true);
+                                inst2.path_position.set(inst2.path_positionprevious.get());
                             }
 
                             // Run both collision events
@@ -492,21 +494,19 @@ impl Game {
                             let inst1 = self.instance_list.get(instance);
                             let inst2 = self.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
-                                inst1.x.set(inst1.x.get() + inst1.hspeed.get());
-                                inst1.y.set(inst1.y.get() + inst1.vspeed.get());
-                                inst1.bbox_is_stale.set(true);
-                                inst2.x.set(inst2.x.get() + inst2.hspeed.get());
-                                inst2.y.set(inst2.y.get() + inst2.vspeed.get());
-                                inst2.bbox_is_stale.set(true);
+                                self.apply_speeds(instance);
+                                self.apply_speeds(target);
 
                                 // If they're still colliding, move them back again
                                 if self.check_collision(instance, target) {
                                     inst1.x.set(inst1.xprevious.get());
                                     inst1.y.set(inst1.yprevious.get());
                                     inst1.bbox_is_stale.set(true);
+                                    inst1.path_position.set(inst1.path_positionprevious.get());
                                     inst2.x.set(inst2.xprevious.get());
                                     inst2.y.set(inst2.yprevious.get());
                                     inst2.bbox_is_stale.set(true);
+                                    inst2.path_position.set(inst2.path_positionprevious.get());
                                 }
                             }
                         }
