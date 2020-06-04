@@ -97,6 +97,12 @@ impl<T> ChunkList<T> {
         self.0.iter_mut()
     }
 
+    fn remove(&mut self, idx: usize) {
+        let idx_div = idx / CHUNK_SIZE;
+        let idx_mod = idx % CHUNK_SIZE;
+        self.0.get_mut(idx_div).map(|chunk| chunk.slots[idx_mod] = None);
+    }
+
     fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) {
         for chunk in self.iter_mut() {
             for slot in chunk.slots.iter_mut() {
@@ -285,6 +291,14 @@ impl InstanceList {
         self.draw_order.push(value);
         self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
         value
+    }
+
+    pub fn insert_dummy(&mut self, el: Instance) -> usize {
+        self.chunks.insert(el)
+    }
+
+    pub fn remove_dummy(&mut self, instance: usize) {
+        self.chunks.remove(instance)
     }
 
     pub fn mark_deleted(&mut self, instance: usize) {
