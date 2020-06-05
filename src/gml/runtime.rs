@@ -225,6 +225,7 @@ impl Game {
                 let target = self.get_target(context, &accessor.owner)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 let value = self.eval(value, context)?;
+                context.return_value = value.clone();
                 match target {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
@@ -265,6 +266,7 @@ impl Game {
                 let target = self.get_target(context, &accessor.owner)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 let value = self.eval(value, context)?;
+                context.return_value = value.clone();
                 match target {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
@@ -301,9 +303,8 @@ impl Game {
                     },
                 }
             },
-            Instruction::EvalExpression { node } => match self.eval(node, context) {
-                Err(e) => return Err(e),
-                _ => (),
+            Instruction::EvalExpression { node } => {
+                context.return_value = self.eval(node, context)?;
             },
             Instruction::IfElse { cond, if_body, else_body } => {
                 let return_type = if self.eval(cond, context)?.is_truthy() {
