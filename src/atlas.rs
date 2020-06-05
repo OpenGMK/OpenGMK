@@ -62,15 +62,7 @@ impl AtlasBuilder {
         }
 
         if width <= 0 || height <= 0 {
-            return Some(AtlasRef {
-                atlas_id: 0,
-                w: width,
-                h: height,
-                x: 0,
-                y: 0,
-                origin_x: 0.0,
-                origin_y: 0.0,
-            })
+            return Some(AtlasRef { atlas_id: 0, w: width, h: height, x: 0, y: 0, origin_x: 0.0, origin_y: 0.0 })
         }
 
         if width > self.max_size || height > self.max_size {
