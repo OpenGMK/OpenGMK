@@ -1788,14 +1788,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_splash_settings")
     }
 
-    pub fn action_end_game(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_end_game")
+    pub fn action_end_game(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.game_end(context, args)
     }
 
-    pub fn action_restart_game(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_restart_game")
+    pub fn action_restart_game(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.game_restart(context, args)
     }
 
     pub fn action_save_game(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
