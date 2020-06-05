@@ -17,6 +17,7 @@ use crate::{
         path::{self, Path},
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
+        trigger::{self, Trigger},
         Object, Script, Timeline,
     },
     atlas::AtlasBuilder,
@@ -143,6 +144,7 @@ pub struct Assets {
     pub scripts: Vec<Option<Box<Script>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
+    pub triggers: Vec<Option<Box<Trigger>>>,
     // todo
 }
 
@@ -671,6 +673,20 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let triggers = triggers
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let condition = match compiler.compile(&b.condition) {
+                        Ok(s) => s,
+                        Err(e) => return Err(format!("Compiler error in trigger {}: {}", b.name, e)),
+                    };
+                    Ok(Box::new(Trigger { name: b.name.into(), condition, moment: b.moment.into() }))
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
         for object in objects.iter().flatten() {
@@ -745,7 +761,7 @@ impl Game {
             rand: Random::new(),
             renderer: Box::new(renderer),
             input_manager: InputManager::new(),
-            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines },
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
             custom_draw_objects,
             views_enabled: false,
