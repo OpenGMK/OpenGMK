@@ -1750,9 +1750,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_message(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_message")
+    pub fn action_message(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.show_message(context, args)
     }
 
     pub fn action_show_info(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
