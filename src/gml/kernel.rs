@@ -4,11 +4,13 @@
 
 use crate::{
     asset,
-    game::{draw, Game, GetAsset, SceneChange},
+    game::{draw, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
     math::Real,
+    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    types::Colour,
 };
 use std::convert::TryFrom;
 
@@ -4247,9 +4249,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function show_text")
     }
 
-    pub fn show_message(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function show_message")
+    pub fn show_message(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _text = expect_args!(args, [string])?;
+        let width = 300;
+        let height = 200;
+
+        let options = RendererOptions {
+            title: "",
+            size: (width, height),
+            icons: vec![],
+            global_clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
+            resizable: false,
+            on_top: true,
+            decorations: true,
+            fullscreen: false,
+            vsync: false,
+        };
+
+        // TODO: this should block as a dialog, not block the entire fucking thread
+        // otherwise windows thinks it's not responding or whatever
+
+        let wb = window::WindowBuilder::new().with_size(width, height);
+        let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message", e))?;
+        let mut renderer =
+            OpenGLRenderer::new(options, &window).map_err(|e| gml::Error::FunctionError("show_message", e))?;
+        window.set_visible(true);
+        renderer.swap_interval(0);
+
+        loop {
+            window.process_events();
+            if window.close_requested() {
+                break
+            }
+
+            renderer.finish(width, height);
+        }
+
+        // restore renderer
+        self.renderer.set_current();
+
+        Ok(Default::default())
     }
 
     pub fn show_question(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
