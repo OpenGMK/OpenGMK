@@ -1,4 +1,5 @@
 use crate::{
+    asset::trigger::TriggerTime,
     game::{Game, GetAsset},
     gml, input,
     types::ID,
@@ -85,6 +86,43 @@ impl Game {
             self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
         }
 
+        Ok(())
+    }
+
+    pub fn run_triggers(&mut self, moment: TriggerTime) -> gml::Result<()> {
+        let mut i = 0;
+        while let Some((trigger_id, objects)) =
+            self.event_holders[gml::ev::TRIGGER].get_index(i).map(|(x, y)| (*x, y.clone()))
+        {
+            if let Some(trigger) = self.assets.triggers[trigger_id as usize].as_ref() {
+                if trigger.moment == moment {
+                    let trigger = trigger.clone();
+                    for object_id in objects.borrow().iter().copied() {
+                        let mut iter = self.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.instance_list) {
+                            let mut context = gml::Context {
+                                this: handle,
+                                other: handle,
+                                event_action: 0,
+                                relative: false,
+                                event_type: 11,
+                                event_number: trigger_id as _,
+                                event_object: self.instance_list.get(handle).object_index.get(),
+                                arguments: Default::default(),
+                                argument_count: 0,
+                                locals: Default::default(),
+                                return_value: Default::default(),
+                            };
+                            self.execute(&trigger.condition, &mut context)?;
+                            if context.return_value.is_truthy() {
+                                self.run_instance_event(gml::ev::TRIGGER, trigger_id, handle, handle, None)?;
+                            }
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
         Ok(())
     }
 
