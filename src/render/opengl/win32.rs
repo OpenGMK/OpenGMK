@@ -15,15 +15,18 @@ use winapi::{
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
         wingdi::{
-            wglCreateContext, wglDeleteContext, wglGetProcAddress, wglMakeCurrent, ChoosePixelFormat, SetPixelFormat,
-            SwapBuffers, PFD_DOUBLEBUFFER, PFD_DRAW_TO_WINDOW, PFD_MAIN_PLANE, PFD_SUPPORT_OPENGL, PFD_TYPE_RGBA,
-            PIXELFORMATDESCRIPTOR,
+            wglCreateContext, wglDeleteContext, wglGetCurrentContext, wglGetProcAddress, wglMakeCurrent,
+            ChoosePixelFormat, SetPixelFormat, SwapBuffers, PFD_DOUBLEBUFFER, PFD_DRAW_TO_WINDOW, PFD_MAIN_PLANE,
+            PFD_SUPPORT_OPENGL, PFD_TYPE_RGBA, PIXELFORMATDESCRIPTOR,
         },
         winuser::GetDC,
     },
 };
 
-pub struct PlatformGL(HDC, HGLRC);
+pub struct PlatformGL {
+    hdc: HDC,
+    hglrc: HGLRC,
+}
 
 static PIXEL_FORMAT: PIXELFORMATDESCRIPTOR = PIXELFORMATDESCRIPTOR {
     nSize: size_of::<PIXELFORMATDESCRIPTOR>() as _,
@@ -89,8 +92,8 @@ unsafe fn load_gl_function(name: *const c_char, gl32_hi: HINSTANCE) -> *const c_
     }
 }
 
-pub fn setup(window: &WindowImpl) -> PlatformGL {
-    unsafe {
+impl PlatformGL {
+    pub unsafe fn new(window: &WindowImpl) -> Self {
         // query device context, set up pixel format
         let device = GetDC(window.get_hwnd());
         let format = ChoosePixelFormat(device, &PIXEL_FORMAT);
@@ -134,32 +137,29 @@ pub fn setup(window: &WindowImpl) -> PlatformGL {
         let vendor_str = std::ffi::CStr::from_ptr(gl::GetString(gl::VENDOR) as *const _).to_str().unwrap();
         println!("OpenGL Vendor: {}", vendor_str);
 
-        PlatformGL(device, context2)
+        PlatformGL { hdc: device, hglrc: context2 }
     }
-}
 
-pub fn swap_buffers(plat: &PlatformGL) {
-    unsafe {
-        SwapBuffers(plat.0);
+    #[inline(always)]
+    pub unsafe fn swap_buffers(&self) {
+        SwapBuffers(self.hdc);
     }
-}
 
-pub fn swap_interval(_plat: &PlatformGL, n: u32) {
-    unsafe {
+    pub unsafe fn swap_interval(&self, n: u32) {
         let gl32 = LoadLibraryA(b"opengl32.dll\0".as_ptr() as *const c_char);
         let fp = load_gl_function(b"wglSwapIntervalEXT\0".as_ptr() as *const c_char, gl32);
         assert!(!fp.is_null(), "wglSwapIntervalEXT was not found");
         transmute::<_, extern "C" fn(c_int) -> BOOL>(fp)(n as c_int);
     }
-}
 
-pub fn cleanup(plat: &PlatformGL) {
-    unsafe {
-        if !plat.0.is_null() {
-            wglMakeCurrent(plat.0, ptr::null_mut());
-            if !plat.1.is_null() {
-                wglDeleteContext(plat.1);
-            }
+    #[must_use]
+    pub unsafe fn cleanup(&self) -> bool {
+        if !self.hdc.is_null() && wglGetCurrentContext() == self.hglrc {
+            wglMakeCurrent(self.hdc, ptr::null_mut());
+            wglDeleteContext(self.hglrc);
+            true
+        } else {
+            false
         }
     }
 }
