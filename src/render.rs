@@ -28,6 +28,10 @@ pub trait Renderer {
     /// If None is provided, the background will not be cleared at all.
     fn set_background_colour(&mut self, colour: Option<Colour>);
 
+    /// Makes the renderer current. OpenGL global mutable spam C-nile design bullshit. Holy fuck.
+    fn set_current(&self) -> bool;
+    fn is_current(&self) -> bool;
+
     /// Updates the view (source rectangle, angle and viewport) to use when drawing things.
     fn set_view(
         &mut self,

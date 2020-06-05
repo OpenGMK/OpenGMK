@@ -4,13 +4,13 @@ use super::gl;
 use crate::game::window::win32::WindowImpl;
 use std::{
     ffi::CStr,
-    mem::{self, size_of, transmute},
+    mem::{self, size_of},
     os::raw::{c_char, c_int, c_void},
     ptr,
 };
 use winapi::{
     shared::{
-        minwindef::{BOOL, HINSTANCE},
+        minwindef::HINSTANCE,
         windef::{HDC, HGLRC},
     },
     um::{
@@ -156,6 +156,14 @@ impl PlatformGL {
         } else {
             eprintln!("wglSwapIntervalEXT missing!");
         }
+    }
+
+    pub unsafe fn make_current(&self) -> bool {
+        wglMakeCurrent(self.hdc, self.hglrc) != 0
+    }
+
+    pub unsafe fn is_current(&self) -> bool {
+        wglGetCurrentContext() == self.hglrc
     }
 
     #[must_use]
