@@ -713,6 +713,14 @@ impl Renderer for OpenGLRenderer {
     fn swap_interval(&mut self, n: u32) {
         unsafe { self.platform_gl.swap_interval(n) }
     }
+
+    fn set_current(&self) -> bool {
+        unsafe { self.platform_gl.make_current() }
+    }
+
+    fn is_current(&self) -> bool {
+        unsafe { self.platform_gl.is_current() }
+    }
 }
 
 impl Drop for OpenGLRenderer {
