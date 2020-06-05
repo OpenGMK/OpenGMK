@@ -97,7 +97,7 @@ impl OpenGLRenderer {
             Some(x) => x,
             None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
         };
-        let platform_gl = platform::setup(&window_impl);
+        let platform_gl = unsafe { platform::PlatformGL::new(&window_impl) };
 
         let (program, vao, vbo) = unsafe {
             // Compile vertex shader
@@ -674,10 +674,10 @@ impl Renderer for OpenGLRenderer {
     fn finish(&mut self, width: u32, height: u32) {
         // Finish drawing frame
         self.flush();
-        platform::swap_buffers(&self.platform_gl);
 
         // Start next frame
         unsafe {
+            self.platform_gl.swap_buffers();
             gl::Viewport(0, 0, width as _, height as _);
             gl::Scissor(0, 0, width as _, height as _);
             gl::ClearColor(
@@ -711,7 +711,7 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn swap_interval(&mut self, n: u32) {
-        platform::swap_interval(&self.platform_gl, n);
+        unsafe { self.platform_gl.swap_interval(n) }
     }
 }
 
