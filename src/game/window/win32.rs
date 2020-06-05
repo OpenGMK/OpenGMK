@@ -31,7 +31,7 @@ use winapi::{
             GWL_STYLE, HWND_TOP, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW,
             IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MSG,
             PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE,
-            TRACKMOUSEEVENT, WM_CLOSE, WM_DESTROY, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
+            TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
             WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
             WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP,
             WS_SYSMENU, WS_THICKFRAME,
@@ -237,6 +237,8 @@ impl WindowImpl {
             user_data.client_size = (client_width, client_height);
             user_data.cursor_handle = load_cursor(builder.cursor);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, user_data.as_ref() as *const _ as LONG_PTR as _);
+            WINDOW_COUNT.fetch_add(1, atomic::Ordering::AcqRel);
+            println!("Window Created! Window Count: {}", WINDOW_COUNT.load(atomic::Ordering::Acquire));
             Ok(Self {
                 cursor: builder.cursor,
                 style: builder.style,
@@ -383,8 +385,8 @@ impl WindowTrait for WindowImpl {
 
 impl Drop for WindowImpl {
     fn drop(&mut self) {
-        let count = WINDOW_COUNT.fetch_sub(1, atomic::Ordering::AcqRel);
-        if count == 0 {
+        WINDOW_COUNT.fetch_sub(1, atomic::Ordering::AcqRel);
+        if WINDOW_COUNT.load(atomic::Ordering::Acquire) == 0 {
             let atom = WINDOW_CLASS_ATOM.swap(0, atomic::Ordering::AcqRel);
             unsafe {
                 UnregisterClassW(atom as _, this_hinstance());
