@@ -929,7 +929,7 @@ impl Game {
             // Run game start event for each instance
             let mut iter = self.instance_list.iter_by_insertion();
             while let Some(instance) = iter.next(&self.instance_list) {
-                self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
+                self.run_instance_event(ev::OTHER, 2, instance, instance, None)?;
             }
             self.game_start = false;
         }
