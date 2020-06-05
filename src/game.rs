@@ -1012,6 +1012,12 @@ impl Game {
             instance.path_positionprevious.set(instance.path_position.get());
         }
 
+        // Begin step trigger events
+        self.run_triggers(trigger::TriggerTime::BeginStep)?;
+        if self.scene_change.is_some() {
+            return Ok(())
+        }
+
         // Begin step event
         self.run_object_event(ev::STEP, 1, None)?;
         if self.scene_change.is_some() {
@@ -1069,6 +1075,12 @@ impl Game {
             return Ok(())
         }
 
+        // Step trigger events
+        self.run_triggers(trigger::TriggerTime::Step)?;
+        if self.scene_change.is_some() {
+            return Ok(())
+        }
+
         // Step event
         self.run_object_event(ev::STEP, 0, None)?;
         if self.scene_change.is_some() {
@@ -1092,6 +1104,12 @@ impl Game {
 
         // Run collision events
         self.run_collisions()?;
+        if self.scene_change.is_some() {
+            return Ok(())
+        }
+
+        // End step trigger events
+        self.run_triggers(trigger::TriggerTime::EndStep)?;
         if self.scene_change.is_some() {
             return Ok(())
         }
