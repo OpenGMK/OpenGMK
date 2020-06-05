@@ -73,6 +73,9 @@ impl Game {
 
     /// Runs room end followed by game end events for all instances. Should be called only when the game ends.
     pub fn run_game_end_events(&mut self) -> gml::Result<()> {
+        // Reset this so the events will run
+        self.scene_change = None;
+        
         // Room end
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {

@@ -823,6 +823,9 @@ impl Game {
             return Err(format!("Tried to load non-existent room with id {}", room_id).into())
         };
 
+        // Update this early so the other events run
+        self.scene_change = None;
+
         // Run room end event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
@@ -879,7 +882,6 @@ impl Game {
         self.room_height = room.height as _;
         self.room_speed = room.speed;
         self.caption = room.caption;
-        self.scene_change = None;
         self.input_manager.clear_presses();
 
         // Load all tiles in new room
@@ -959,6 +961,7 @@ impl Game {
         }
 
         if let Some(change) = self.scene_change {
+            self.scene_change = None;
             if let SceneChange::Room(target) = change {
                 // A room change has been requested during this room change, so let's recurse...
                 self.load_room(target)
