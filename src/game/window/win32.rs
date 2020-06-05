@@ -405,9 +405,6 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             }
             return 0
         },
-        WM_DESTROY => {
-            println!("Got me a WM_DESTROY thingy");
-        },
 
         // keyboard events
         WM_KEYDOWN => {
