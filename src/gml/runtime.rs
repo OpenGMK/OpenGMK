@@ -82,6 +82,7 @@ pub enum ArrayAccessor {
 /// then we can represent it that way in the tree and skip evaluating it during runtime.
 #[derive(Clone, Debug)]
 pub enum InstanceIdentifier {
+    Unknown,
     Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
     Other,
     Global,
@@ -222,7 +223,7 @@ impl Game {
     fn exec_instruction(&mut self, instruction: &Instruction, context: &mut Context) -> gml::Result<ReturnType> {
         match instruction {
             Instruction::SetField { accessor, value } => {
-                let target = self.get_target(context, &accessor.owner)?;
+                let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 let value = self.eval(value, context)?;
                 match target {
@@ -262,7 +263,7 @@ impl Game {
                 }
             },
             Instruction::SetVariable { accessor, value } => {
-                let target = self.get_target(context, &accessor.owner)?;
+                let target = self.get_target(context, &accessor.owner, false)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 let value = self.eval(value, context)?;
                 match target {
@@ -484,7 +485,7 @@ impl Game {
                 }
             },
             Node::Field { accessor } => {
-                let target = self.get_target(context, &accessor.owner)?;
+                let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 match target {
                     Target::Single(None) if self.uninit_fields_are_zero => Ok(Default::default()),
@@ -557,7 +558,7 @@ impl Game {
                 }
             },
             Node::Variable { accessor } => {
-                let target = self.get_target(context, &accessor.owner)?;
+                let target = self.get_target(context, &accessor.owner, false)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 match target {
                     Target::Single(None) if self.uninit_fields_are_zero => Ok(Default::default()),
@@ -1342,12 +1343,19 @@ impl Game {
     }
 
     // Resolves an InstanceIdentifier to a Target
-    fn get_target(&mut self, context: &mut Context, identifier: &InstanceIdentifier) -> gml::Result<Target> {
+    fn get_target(&mut self, context: &mut Context, identifier: &InstanceIdentifier, in_globalvars: bool) -> gml::Result<Target> {
         match identifier {
             InstanceIdentifier::Own => Ok(Target::Single(Some(context.this))),
             InstanceIdentifier::Other => Ok(Target::Single(Some(context.other))),
             InstanceIdentifier::Global => Ok(Target::Global),
             InstanceIdentifier::Local => Ok(Target::Local),
+            InstanceIdentifier::Unknown => {
+                if in_globalvars {
+                    Ok(Target::Global)
+                } else {
+                    Ok(Target::Single(Some(context.this)))
+                }
+            },
             InstanceIdentifier::Expression(node) => {
                 let value = self.eval(node, context).map(i32::from)?;
                 match value {
