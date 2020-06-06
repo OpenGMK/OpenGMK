@@ -29,6 +29,7 @@ pub enum Expr<'a> {
     Repeat(Box<RepeatExpr<'a>>),
     Switch(Box<SwitchExpr<'a>>),
     Var(Box<VarExpr<'a>>),
+    GlobalVar(Box<GlobalVarExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
 
@@ -100,6 +101,11 @@ pub struct VarExpr<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct GlobalVarExpr<'a> {
+    pub vars: Vec<&'a str>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct WithExpr<'a> {
     pub target: Expr<'a>,
     pub body: Expr<'a>,
@@ -159,6 +165,11 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Var(var) => write!(
                 f,
                 "(var {})",
+                var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
+            ),
+            Expr::GlobalVar(var) => write!(
+                f,
+                "(globalvar {})",
                 var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
             ),
             Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
@@ -268,7 +279,7 @@ impl<'a> AST<'a> {
         let ret = match token {
             Token::Keyword(key) => {
                 match key {
-                    Keyword::Var => {
+                    Keyword::Var | Keyword::GlobalVar => {
                         // Read var identifiers
                         if let Some(&Token::Identifier(id)) = lex.peek() {
                             lex.next();
@@ -299,10 +310,20 @@ impl<'a> AST<'a> {
                                 }
                             }
 
-                            Ok(Some(Expr::Var(Box::new(VarExpr { vars }))))
+                            match key {
+                                Keyword::Var => Ok(Some(Expr::Var(Box::new(VarExpr { vars })))),
+                                Keyword::GlobalVar => Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars })))),
+                                _ => unreachable!(),
+                            }
                         } else {
                             // This doesn't do anything in GML. We could probably make it a NOP.
-                            Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] }))))
+                            match key {
+                                Keyword::Var => Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] })))),
+                                Keyword::GlobalVar => {
+                                    Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars: vec![] }))))
+                                },
+                                _ => unreachable!(),
+                            }
                         }
                     },
 

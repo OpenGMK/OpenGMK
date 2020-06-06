@@ -78,6 +78,7 @@ pub struct Game {
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
 
     pub globals: DummyFieldHolder,
+    pub globalvars: HashSet<usize>,
     pub game_start: bool,
 
     pub stacks: DataStructureManager<ds::Stack>,
@@ -759,6 +760,7 @@ impl Game {
             room_speed: room1_speed,
             scene_change: None,
             globals: DummyFieldHolder::new(),
+            globalvars: HashSet::new(),
             game_start: true,
             stacks: DataStructureManager::new(),
             queues: DataStructureManager::new(),
