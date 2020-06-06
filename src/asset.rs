@@ -6,6 +6,7 @@ pub mod room;
 pub mod script;
 pub mod sprite;
 pub mod timeline;
+pub mod trigger;
 
 pub use background::Background;
 pub use font::Font;
@@ -15,6 +16,7 @@ pub use room::Room;
 pub use script::Script;
 pub use sprite::Sprite;
 pub use timeline::Timeline;
+pub use trigger::Trigger;
 
 use std::fmt::{self, Display};
 
