@@ -279,7 +279,7 @@ impl<'a> AST<'a> {
         let ret = match token {
             Token::Keyword(key) => {
                 match key {
-                    Keyword::Var => {
+                    Keyword::Var | Keyword::GlobalVar => {
                         // Read var identifiers
                         if let Some(&Token::Identifier(id)) = lex.peek() {
                             lex.next();
@@ -310,10 +310,18 @@ impl<'a> AST<'a> {
                                 }
                             }
 
-                            Ok(Some(Expr::Var(Box::new(VarExpr { vars }))))
+                            match key {
+                                Keyword::Var => Ok(Some(Expr::Var(Box::new(VarExpr { vars })))),
+                                Keyword::GlobalVar => Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars })))),
+                                _ => unreachable!(),
+                            }
                         } else {
                             // This doesn't do anything in GML. We could probably make it a NOP.
-                            Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] }))))
+                            match key {
+                                Keyword::Var => Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] })))),
+                                Keyword::GlobalVar => Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars: vec![] })))),
+                                _ => unreachable!(),
+                            }
                         }
                     },
 

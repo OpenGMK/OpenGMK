@@ -17,6 +17,7 @@ pub enum Token<'a> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Keyword {
     Var,
+    GlobalVar,
     If,
     Else,
     With,
@@ -188,6 +189,7 @@ impl fmt::Display for Keyword {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Keyword::Var => write!(f, "var"),
+            Keyword::GlobalVar => write!(f, "globalvar"),
             Keyword::If => write!(f, "if"),
             Keyword::Else => write!(f, "else"),
             Keyword::With => write!(f, "with"),

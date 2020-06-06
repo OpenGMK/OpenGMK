@@ -83,6 +83,7 @@ impl<'a> Iterator for Lexer<'a> {
                 match identifier {
                     // Keywords
                     "var" => Token::Keyword(Keyword::Var),
+                    "globalvar" => Token::Keyword(Keyword::GlobalVar),
                     "if" => Token::Keyword(Keyword::If),
                     "else" => Token::Keyword(Keyword::Else),
                     "with" => Token::Keyword(Keyword::With),
