@@ -319,7 +319,9 @@ impl<'a> AST<'a> {
                             // This doesn't do anything in GML. We could probably make it a NOP.
                             match key {
                                 Keyword::Var => Ok(Some(Expr::Var(Box::new(VarExpr { vars: vec![] })))),
-                                Keyword::GlobalVar => Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars: vec![] })))),
+                                Keyword::GlobalVar => {
+                                    Ok(Some(Expr::GlobalVar(Box::new(GlobalVarExpr { vars: vec![] }))))
+                                },
                                 _ => unreachable!(),
                             }
                         }

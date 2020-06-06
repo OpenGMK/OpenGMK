@@ -1346,7 +1346,12 @@ impl Game {
     }
 
     // Resolves an InstanceIdentifier to a Target
-    fn get_target(&mut self, context: &mut Context, identifier: &InstanceIdentifier, in_globalvars: bool) -> gml::Result<Target> {
+    fn get_target(
+        &mut self,
+        context: &mut Context,
+        identifier: &InstanceIdentifier,
+        in_globalvars: bool,
+    ) -> gml::Result<Target> {
         match identifier {
             InstanceIdentifier::Own => Ok(Target::Single(Some(context.this))),
             InstanceIdentifier::Other => Ok(Target::Single(Some(context.other))),
