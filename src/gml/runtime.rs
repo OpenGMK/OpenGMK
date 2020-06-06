@@ -26,6 +26,7 @@ pub enum Instruction {
     SetReturnValue { value: Node },
     Switch { input: Node, cases: Box<[(Node, usize)]>, default: Option<usize>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },
+    GlobalVar { fields: Vec<usize> },
     RuntimeError { error: Error },
 }
 
@@ -186,6 +187,7 @@ impl fmt::Debug for Instruction {
                 write!(f, "Switch({:?}, cases={:?}, default={:?}, {:?}", input, cases, default, body)
             },
             Instruction::With { target, body } => write!(f, "With({:?}, {:?})", target, body),
+            Instruction::GlobalVar { fields } => write!(f, "GlobalVar({:?})", fields),
             Instruction::RuntimeError { error } => write!(f, "RuntimeError({:?})", error),
         }
     }
@@ -440,6 +442,7 @@ impl Game {
                 context.this = old_this;
                 context.other = old_other;
             },
+            Instruction::GlobalVar { fields } => self.globalvars.extend(fields),
             Instruction::RuntimeError { error } => return Err(error.clone()),
         }
 
