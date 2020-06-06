@@ -477,7 +477,7 @@ impl Compiler {
                 if locals.iter().any(|x| *x == identifier) {
                     InstanceIdentifier::Local
                 } else {
-                    InstanceIdentifier::Own
+                    InstanceIdentifier::Unknown
                 }
             },
         };
@@ -506,7 +506,7 @@ impl Compiler {
                 if locals.iter().any(|x| *x == identifier) {
                     InstanceIdentifier::Local
                 } else {
-                    InstanceIdentifier::Own
+                    InstanceIdentifier::Unknown
                 }
             },
         };
@@ -536,7 +536,7 @@ impl Compiler {
                 if locals.iter().any(|x| *x == identifier) {
                     InstanceIdentifier::Local
                 } else {
-                    InstanceIdentifier::Own
+                    InstanceIdentifier::Unknown
                 }
             },
         };
