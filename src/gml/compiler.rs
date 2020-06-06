@@ -202,6 +202,12 @@ impl Compiler {
                 locals.extend_from_slice(&var_expr.vars);
             },
 
+            ast::Expr::GlobalVar(globalvar_expr) => {
+                // globalvar doesn't work on builtins
+                let fields = globalvar_expr.vars.iter().map(|x| self.get_field_id(x)).collect();
+                output.push(Instruction::GlobalVar { fields });
+            },
+
             // "while" block
             ast::Expr::While(while_expr) => {
                 let cond = self.compile_ast_expr(&while_expr.cond, locals);

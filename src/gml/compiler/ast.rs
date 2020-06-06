@@ -29,6 +29,7 @@ pub enum Expr<'a> {
     Repeat(Box<RepeatExpr<'a>>),
     Switch(Box<SwitchExpr<'a>>),
     Var(Box<VarExpr<'a>>),
+    GlobalVar(Box<GlobalVarExpr<'a>>),
     With(Box<WithExpr<'a>>),
     While(Box<WhileExpr<'a>>),
 
@@ -100,6 +101,11 @@ pub struct VarExpr<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct GlobalVarExpr<'a> {
+    pub vars: Vec<&'a str>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct WithExpr<'a> {
     pub target: Expr<'a>,
     pub body: Expr<'a>,
@@ -159,6 +165,11 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Var(var) => write!(
                 f,
                 "(var {})",
+                var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
+            ),
+            Expr::GlobalVar(var) => write!(
+                f,
+                "(globalvar {})",
                 var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
             ),
             Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
