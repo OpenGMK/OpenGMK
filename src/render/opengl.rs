@@ -214,6 +214,17 @@ impl OpenGLRenderer {
             // Use program
             gl::UseProgram(shader_program);
 
+            // Prepare first frame
+            gl::Viewport(0, 0, options.size.0 as _, options.size.1 as _);
+            gl::Scissor(0, 0, options.size.0 as _, options.size.1 as _);
+            gl::ClearColor(
+                options.global_clear_colour.r as f32,
+                options.global_clear_colour.g as f32,
+                options.global_clear_colour.b as f32,
+                1.0,
+            );
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
             (shader_program, vao, vbo)
         };
 
@@ -687,7 +698,6 @@ impl Renderer for OpenGLRenderer {
                 1.0,
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::UseProgram(self.program);
         }
     }
 
