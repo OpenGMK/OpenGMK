@@ -120,6 +120,7 @@ impl Game {
             let new_x = point.x + instance.path_xstart.get();
             let new_y = point.y + instance.path_ystart.get();
             instance.set_direction((instance.y.get() - new_y).arctan2(new_x - instance.x.get()).to_degrees());
+            instance.set_speed(0.into());
             instance.x.set(new_x);
             instance.y.set(new_y);
             instance.path_pointspeed.set(point.speed);
