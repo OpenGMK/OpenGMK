@@ -3376,7 +3376,7 @@ impl Game {
                 let object =
                     self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
                 let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                let mut maxdist = Real::from(0.0);
+                let mut maxdist = Real::from(10000000000.0); // GML default
                 let mut nearest = None;
                 loop {
                     match iter.next(&self.instance_list) {
