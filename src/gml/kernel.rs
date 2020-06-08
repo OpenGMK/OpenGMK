@@ -3163,23 +3163,9 @@ impl Game {
         }
     }
 
-    pub fn instance_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn instance_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [int, int, int])?;
         let id: Option<usize> = match object_id {
-            gml::SELF => {
-                if self.check_collision_point(context.this, x, y) {
-                    Some(context.this)
-                } else {
-                    None
-                }
-            },
-            gml::OTHER => {
-                if self.check_collision_point(context.other, x, y) {
-                    Some(context.other)
-                } else {
-                    None
-                }
-            },
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
                 loop {
@@ -3193,7 +3179,8 @@ impl Game {
                     }
                 }
             },
-            object_id if object_id <= 100000 => {
+            _ if object_id < 0 => None, // Doesn't even check for other
+            object_id if object_id < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
                     let mut iter = self.instance_list.iter_by_identity(ids);
                     loop {
