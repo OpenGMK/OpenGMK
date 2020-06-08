@@ -1487,6 +1487,96 @@ impl Game {
         }
     }
 
+    // Checks if an instance is colliding with a rectangle
+    pub fn check_collision_rectangle(&self, inst: usize, x1: i32, y1: i32, x2: i32, y2: i32, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let rect_left = x1.min(x2);
+        let rect_top = y1.min(y2);
+        let rect_right = x1.max(x2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if inst.bbox_right.get() < rect_left
+            || rect_right < inst.bbox_left.get()
+            || inst.bbox_bottom.get() < rect_top
+            || rect_bottom < inst.bbox_top.get()
+        {
+            return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            // Get intersect rectangle
+            let intersect_top = inst.bbox_top.get().max(rect_top);
+            let intersect_bottom = inst.bbox_bottom.get().min(rect_bottom);
+            let intersect_left = inst.bbox_left.get().max(rect_left);
+            let intersect_right = inst.bbox_right.get().min(rect_right);
+
+            // Go through each pixel in the intersect
+            for intersect_y in intersect_top..=intersect_bottom {
+                for intersect_x in intersect_left..=intersect_right {
+                    // Transform point to be relative to collider
+                    let mut x = Real::from(intersect_x);
+                    let mut y = Real::from(intersect_y);
+                    util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
+                    let x = (Real::from(sprite.origin_x)
+                        + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
+                    .round();
+                    let y = (Real::from(sprite.origin_y)
+                        + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
+                    .round();
+
+                    // And finally, look up this point in the collider
+                    if x >= collider.bbox_left as i32
+                        && y >= collider.bbox_top as i32
+                        && x <= collider.bbox_right as i32
+                        && y <= collider.bbox_bottom as i32
+                        && collider
+                            .data
+                            .get((y as usize * collider.width as usize) + x as usize)
+                            .copied()
+                            .unwrap_or(false)
+                    {
+                        return true
+                    }
+                }
+            }
+
+            false
+        } else {
+            false
+        }
+    }
+
     // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
         let mut iter = self.instance_list.iter_by_insertion();
