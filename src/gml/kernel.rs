@@ -3194,7 +3194,7 @@ impl Game {
                 loop {
                     match iter.next(&self.instance_list) {
                         Some(handle) => {
-                            if self.check_collision_point(handle, x, y) {
+                            if self.check_collision_point(handle, x, y, true) {
                                 break Some(handle)
                             }
                         },
@@ -3209,7 +3209,7 @@ impl Game {
                     loop {
                         match iter.next(&self.instance_list) {
                             Some(handle) => {
-                                if self.check_collision_point(handle, x, y) {
+                                if self.check_collision_point(handle, x, y, true) {
                                     break Some(handle)
                                 }
                             },
@@ -3222,7 +3222,7 @@ impl Game {
             },
             instance_id => {
                 if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if self.check_collision_point(handle, x, y) { Some(handle) } else { None }
+                    if self.check_collision_point(handle, x, y, true) { Some(handle) } else { None }
                 } else {
                     None
                 }
@@ -3510,14 +3510,14 @@ impl Game {
     pub fn position_meeting(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [int, int, int])?;
         let meeting = match object_id {
-            gml::SELF => self.check_collision_point(context.this, x, y),
-            gml::OTHER => self.check_collision_point(context.other, x, y),
+            gml::SELF => self.check_collision_point(context.this, x, y, true),
+            gml::OTHER => self.check_collision_point(context.other, x, y, true),
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
                 loop {
                     match iter.next(&self.instance_list) {
                         Some(handle) => {
-                            if self.check_collision_point(handle, x, y) {
+                            if self.check_collision_point(handle, x, y, true) {
                                 break true
                             }
                         },
@@ -3531,7 +3531,7 @@ impl Game {
                     loop {
                         match iter.next(&self.instance_list) {
                             Some(handle) => {
-                                if self.check_collision_point(handle, x, y) {
+                                if self.check_collision_point(handle, x, y, true) {
                                     break true
                                 }
                             },
@@ -3544,7 +3544,7 @@ impl Game {
             },
             instance_id => {
                 if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    self.check_collision_point(handle, x, y)
+                    self.check_collision_point(handle, x, y, true)
                 } else {
                     false
                 }

@@ -1425,7 +1425,7 @@ impl Game {
     }
 
     // Checks if an instance is colliding with a point
-    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32) -> bool {
+    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
         let sprite = self
@@ -1442,6 +1442,11 @@ impl Game {
             || y < inst.bbox_top.get()
         {
             return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
         }
 
         // Can't collide if no sprite or no associated collider

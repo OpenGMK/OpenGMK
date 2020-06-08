@@ -76,7 +76,7 @@ impl Game {
     pub fn run_game_end_events(&mut self) -> gml::Result<()> {
         // Reset this so the events will run
         self.scene_change = None;
-        
+
         // Room end
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
@@ -236,7 +236,7 @@ impl Game {
                     while let Some(&object_id) = holders.borrow().get(position) {
                         let mut iter = self.instance_list.iter_by_object(object_id);
                         while let Some(handle) = iter.next(&self.instance_list) {
-                            if self.check_collision_point(handle, mouse_x, mouse_y) {
+                            if self.check_collision_point(handle, mouse_x, mouse_y, true) {
                                 self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
                             }
                         }
@@ -305,8 +305,8 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
-                if self.check_collision_point(handle, mouse_x, mouse_y)
-                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous)
+                if self.check_collision_point(handle, mouse_x, mouse_y, true)
+                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
                 {
                     self.run_instance_event(gml::ev::MOUSE, 10, handle, handle, None)?;
                 }
@@ -323,8 +323,8 @@ impl Game {
         while let Some(&object_id) = holders.borrow().get(position) {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
-                if self.check_collision_point(handle, mouse_x, mouse_y)
-                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous)
+                if self.check_collision_point(handle, mouse_x, mouse_y, true)
+                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
                 {
                     self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
                 }
