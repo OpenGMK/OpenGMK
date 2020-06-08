@@ -72,6 +72,9 @@ pub struct Game {
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
 
+    pub particle_systems: Vec<Option<Box<particle::System>>>,
+    pub particle_types: Vec<Option<Box<particle::ParticleType>>>,
+
     pub room_id: i32,
     pub room_width: i32,
     pub room_height: i32,
@@ -770,6 +773,8 @@ impl Game {
             view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
+            particle_systems: Vec::new(),
+            particle_types: Vec::new(),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
