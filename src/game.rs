@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod movement;
+pub mod tas;
 pub mod view;
 pub mod window;
 
@@ -29,7 +30,7 @@ use crate::{
         rand::Random,
         Compiler, Context,
     },
-    input::InputManager,
+    input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
@@ -1202,6 +1203,42 @@ impl Game {
                 time_now += duration;
             } else {
                 time_now = Instant::now();
+            }
+        }
+    }
+
+    // Create a TAS for this game
+    pub fn record(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use window::Event;
+
+        let mut panel = tas::ControlPanel::new()?;
+
+        //let mut time_now = Instant::now();
+        loop {
+            self.window.process_events();
+
+            for event in panel.window.process_events().copied() {
+                match event {
+                    Event::KeyboardDown(input::Key::Space) => {
+                        self.renderer.set_current();
+                        self.frame()?;
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+                            None => (),
+                        }
+                        panel.set_current();
+                        break // It doesn't compile without this, don't ask
+                    },
+                    _ => (),
+                }
+            }
+
+            panel.draw();
+
+            if panel.window.close_requested() || self.window.close_requested() {
+                break Ok(())
             }
         }
     }
