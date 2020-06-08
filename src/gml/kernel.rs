@@ -2701,9 +2701,26 @@ impl Game {
         Ok(free.into())
     }
 
-    pub fn place_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function place_empty")
+    pub fn place_empty(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+
+        // Set self's position to the new coordinates
+        let instance = self.instance_list.get(context.this);
+        let old_x = instance.x.get();
+        let old_y = instance.y.get();
+        instance.x.set(x);
+        instance.y.set(y);
+        instance.bbox_is_stale.set(true);
+
+        // Check collision with any instance
+        let empty = self.check_collision_any(context.this).is_none();
+
+        // Move self back to where it was
+        instance.x.set(old_x);
+        instance.y.set(old_y);
+        instance.bbox_is_stale.set(true);
+
+        Ok(empty.into())
     }
 
     pub fn place_meeting(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3485,14 +3502,55 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_sprite")
     }
 
-    pub fn position_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function position_empty")
+    pub fn position_empty(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [any, any])?;
+        Ok((!self.position_meeting(context, &[gml::ALL.into(), x, y])?.is_truthy()).into())
     }
 
-    pub fn position_meeting(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function position_meeting")
+    pub fn position_meeting(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, object_id) = expect_args!(args, [int, int, int])?;
+        let meeting = match object_id {
+            gml::SELF => self.check_collision_point(context.this, x, y),
+            gml::OTHER => self.check_collision_point(context.other, x, y),
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if self.check_collision_point(handle, x, y) {
+                                break true
+                            }
+                        },
+                        None => break false,
+                    }
+                }
+            },
+            object_id if object_id < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if self.check_collision_point(handle, x, y) {
+                                    break true
+                                }
+                            },
+                            None => break false,
+                        }
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    self.check_collision_point(handle, x, y)
+                } else {
+                    false
+                }
+            },
+        };
+        Ok(meeting.into())
     }
 
     pub fn position_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
