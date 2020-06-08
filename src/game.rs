@@ -1131,6 +1131,12 @@ impl Game {
             return Ok(())
         }
 
+        for system in self.particle_systems.iter_mut().filter_map(|x| x.as_mut()) {
+            if system.auto_update {
+                system.update(&mut self.rand, &self.particle_types);
+            }
+        }
+
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
