@@ -2718,27 +2718,33 @@ impl Game {
         instance.bbox_is_stale.set(true);
 
         // Check collision with target
-        let collision = if obj <= 100000 {
-            // Target is an object ID
-            let object =
-                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            loop {
-                match iter.next(&self.instance_list) {
-                    Some(target) => {
-                        if target != context.this && self.check_collision(context.this, target) {
-                            break true
-                        }
-                    },
-                    None => break false,
+        let collision = match obj {
+            gml::SELF => false,
+            gml::OTHER => self.check_collision(context.this, context.other),
+            gml::ALL => self.check_collision_any(context.this).is_some(),
+            obj if obj < 100000 => {
+                // Target is an object ID
+                let object =
+                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            if target != context.this && self.check_collision(context.this, target) {
+                                break true
+                            }
+                        },
+                        None => break false,
+                    }
                 }
-            }
-        } else {
-            // Target is an instance ID
-            match self.instance_list.get_by_instid(obj) {
-                Some(id) => id != context.this && self.check_collision(context.this, id),
-                None => false,
-            }
+            },
+            instance_id => {
+                // Target is an instance ID
+                match self.instance_list.get_by_instid(instance_id) {
+                    Some(id) => id != context.this && self.check_collision(context.this, id),
+                    None => false,
+                }
+            },
         };
 
         // Move self back to where it was
@@ -3215,34 +3221,56 @@ impl Game {
     pub fn instance_nearest(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
         // Check collision with target
-        let other: Option<usize> = if obj <= 100000 {
-            // Target is an object ID
-            let object =
-                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            let mut maxdist = Real::from(0.0);
-            let mut nearest = None;
-            loop {
-                match iter.next(&self.instance_list) {
-                    Some(target) => {
-                        let ti = self.instance_list.get(target);
-                        let xdist = ti.x.get() - x;
-                        let ydist = ti.y.get() - y;
-                        let dist = (xdist * xdist) + (ydist * ydist);
-                        if nearest.is_none() || dist < maxdist {
-                            maxdist = dist;
-                            nearest = Some(target);
-                        }
-                    },
-                    None => break nearest,
+        let nearest = match obj {
+            gml::ALL => {
+                // Target is all objects
+                let mut iter = self.instance_list.iter_by_insertion();
+                let mut maxdist = Real::from(10000000000.0); // GML default
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            let ti = self.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if dist < maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
+                    }
                 }
-            }
-        } else {
-            // Target is an instance ID
-            None
+            },
+            obj if obj >= 0 && obj < 100000 => {
+                // Target is an object ID
+                let object =
+                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                let mut maxdist = Real::from(0.0);
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            let ti = self.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if dist < maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
+                    }
+                }
+            },
+            // Target is an instance id
+            _ => None,
         };
 
-        match other {
+        match nearest {
             Some(t) => Ok(self.instance_list.get(t).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
@@ -3251,31 +3279,53 @@ impl Game {
     pub fn instance_furthest(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
         // Check collision with target
-        let other: Option<usize> = if obj <= 100000 {
-            // Target is an object ID
-            let object =
-                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            let mut maxdist = Real::from(0.0);
-            let mut nearest = None;
-            loop {
-                match iter.next(&self.instance_list) {
-                    Some(target) => {
-                        let ti = self.instance_list.get(target);
-                        let xdist = ti.x.get() - x;
-                        let ydist = ti.y.get() - y;
-                        let dist = (xdist * xdist) + (ydist * ydist);
-                        if nearest.is_none() || dist > maxdist {
-                            maxdist = dist;
-                            nearest = Some(target);
-                        }
-                    },
-                    None => break nearest,
+        let other: Option<usize> = match obj {
+            gml::ALL => {
+                // Target is an object ID
+                let mut iter = self.instance_list.iter_by_insertion();
+                let mut maxdist = Real::from(0.0);
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            let ti = self.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if nearest.is_none() || dist > maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
+                    }
                 }
-            }
-        } else {
+            },
+            obj if obj >= 0 && obj < 100000 => {
+                // Target is an object ID
+                let object =
+                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                let mut maxdist = Real::from(0.0);
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            let ti = self.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if nearest.is_none() || dist > maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
+                    }
+                }
+            },
             // Target is an instance ID
-            None
+            _ => None,
         };
 
         match other {
@@ -3296,27 +3346,45 @@ impl Game {
         instance.bbox_is_stale.set(true);
 
         // Check collision with target
-        let other: Option<usize> = if obj <= 100000 {
-            // Target is an object ID
-            let object =
-                self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-            loop {
-                match iter.next(&self.instance_list) {
-                    Some(target) => {
-                        if target != context.this && self.check_collision(context.this, target) {
-                            break Some(target)
-                        }
-                    },
-                    None => break None,
+        let other: Option<usize> = match obj {
+            gml::ALL => {
+                // Target is all instances
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            if target != context.this && self.check_collision(context.this, target) {
+                                break Some(target)
+                            }
+                        },
+                        None => break None,
+                    }
                 }
-            }
-        } else {
-            // Target is an instance ID
-            match self.instance_list.get_by_instid(obj) {
-                Some(id) if id != context.this && self.check_collision(context.this, id) => Some(id),
-                _ => None,
-            }
+            },
+            _ if obj < 0 => None, // Doesn't even check for other
+            obj if obj < 100000 => {
+                // Target is an object ID
+                let object =
+                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
+                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(target) => {
+                            if target != context.this && self.check_collision(context.this, target) {
+                                break Some(target)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            instance_id => {
+                // Target is an instance ID
+                match self.instance_list.get_by_instid(instance_id) {
+                    Some(id) if id != context.this && self.check_collision(context.this, id) => Some(id),
+                    _ => None,
+                }
+            },
         };
 
         // Move self back to where it was
