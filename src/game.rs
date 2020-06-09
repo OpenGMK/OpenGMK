@@ -1208,7 +1208,7 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         use window::Event;
 
         let mut panel = tas::ControlPanel::new()?;
