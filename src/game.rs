@@ -1173,6 +1173,7 @@ impl Game {
                 match event {
                     Event::KeyboardDown(key) => self.input_manager.key_press(key),
                     Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                    Event::MenuOption(_) => (),
                     Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
                     Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
                     Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
@@ -1212,10 +1213,64 @@ impl Game {
         use window::Event;
 
         let mut panel = tas::ControlPanel::new()?;
+        let mut game_mousex = 0;
+        let mut game_mousey = 0;
 
         //let mut time_now = Instant::now();
         loop {
-            self.window.process_events();
+            for event in self.window.process_events().copied() {
+                match event {
+                    Event::MouseMove(x, y) => {
+                        game_mousex = x;
+                        game_mousey = y;
+                    },
+
+                    Event::MouseButtonUp(input::MouseButton::Right) => {
+                        let mut options: Vec<(String, usize)> = Vec::new();
+                        let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
+                        let mut iter = self.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.instance_list) {
+                            let instance = self.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            if instance.visible.get()
+                                && x >= instance.bbox_left.get()
+                                && x <= instance.bbox_right.get()
+                                && y >= instance.bbox_top.get()
+                                && y <= instance.bbox_bottom.get()
+                            {
+                                let id = instance.id.get();
+                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => format!("{} ({})\0", obj.name, id.to_string()),
+                                    None => format!("<deleted object> ({})\0", id.to_string()),
+                                };
+                                options.push((description, id as usize));
+                            }
+                        }
+                        self.window.show_context_menu(&options);
+                        break
+                    },
+
+                    Event::MenuOption(id) => {
+                        if let Some(handle) = self.instance_list.get_by_instid(id as _) {
+                            let instance = self.instance_list.get(handle);
+                            println!(
+                                "Requested info for instance #{} (object \"{}\"; x={} y={})",
+                                id,
+                                match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => obj.name.as_ref(),
+                                    None => "<deleted object>",
+                                },
+                                instance.x.get(),
+                                instance.y.get(),
+                            );
+                        } else {
+                            println!("Requested info for instance #{} [non-existent or deleted]", id);
+                        }
+                    },
+
+                    _ => (),
+                }
+            }
 
             for event in panel.window.process_events().copied() {
                 match event {
@@ -1229,7 +1284,7 @@ impl Game {
                             None => (),
                         }
                         panel.set_current();
-                        break // It doesn't compile without this, don't ask
+                        break
                     },
                     _ => (),
                 }
@@ -1295,24 +1350,17 @@ impl Game {
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_location();
-        let x = x as i32;
-        let y = y as i32;
-        if self.views_enabled {
-            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
-                Some(view) => view.transform_point(x, y),
-                None => match self.views.iter().find(|view| view.visible) {
-                    Some(view) => view.transform_point(x, y),
-                    None => (x, y),
-                },
-            }
-        } else {
-            (x, y)
-        }
+        self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_previous_location();
+        self.translate_screen_to_room(x, y)
+    }
+
+    // Translates screen coordinates to room coordinates
+    pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
         let x = x as i32;
         let y = y as i32;
         if self.views_enabled {
