@@ -46,6 +46,7 @@ pub enum Event {
     Resize(u32, u32),
     KeyboardDown(Key),
     KeyboardUp(Key),
+    MenuOption(usize),
     MouseButtonDown(MouseButton),
     MouseButtonUp(MouseButton),
     MouseWheelUp,
@@ -87,6 +88,7 @@ pub trait WindowTrait {
     fn set_title(&mut self, title: &str);
     fn get_visible(&self) -> bool;
     fn set_visible(&mut self, visible: bool);
+    fn show_context_menu(&mut self, options: &[(String, usize)]);
     fn window_handle(&self) -> usize;
 }
 
@@ -159,6 +161,12 @@ impl Window {
     /// Sets whether the window is visible at all.
     pub fn set_visible(&mut self, visible: bool) {
         self.0.set_visible(visible)
+    }
+
+    /// Opens a context menu at the current mouse position with the given options.
+    /// This does not block. When the user clicks an option (if any) it will be presented as an Event::MenuOption.
+    pub fn show_context_menu(&mut self, options: &[(String, usize)]) {
+        self.0.show_context_menu(options)
     }
 
     /// Returns the platform-specific window handle.
