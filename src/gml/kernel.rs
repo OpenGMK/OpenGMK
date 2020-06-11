@@ -4304,54 +4304,133 @@ impl Game {
         unimplemented!("Called unimplemented kernel function registry_set_root")
     }
 
-    pub fn ini_open(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_open")
+    pub fn ini_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let name = expect_args!(args, [string])?;
+        if file::file_exists(&name) {
+            match ini::Ini::load_from_file(name.as_ref()) {
+                Ok(ini) => {
+                    self.open_ini = Some((ini, name));
+                    Ok(Default::default())
+                },
+                Err(e) => Err(gml::Error::FunctionError("ini_open", format!("{}", e))),
+            }
+        } else {
+            self.open_ini = Some((ini::Ini::new(), name));
+            Ok(Default::default())
+        }
     }
 
-    pub fn ini_close(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ini_close")
+    pub fn ini_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_ini.as_ref() {
+            Some((ini, path)) => match ini.write_to_file(path.as_ref()) {
+                Ok(()) => {
+                    self.open_ini = None;
+                    Ok(Default::default())
+                },
+                Err(e) => Err(gml::Error::FunctionError("ini_close", format!("{}", e))),
+            },
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn ini_read_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_read_string")
+    pub fn ini_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, default) = expect_args!(args, [string, string, string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => {
+                Ok(ini.section(Some(section.as_ref())).and_then(|s| s.get(key)).unwrap_or(&default).to_string().into())
+            },
+            None => {
+                Err(gml::Error::FunctionError("ini_read_string", "Trying to read from undefined INI file".to_string()))
+            },
+        }
     }
 
-    pub fn ini_read_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_read_real")
+    pub fn ini_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, default) = expect_args!(args, [string, string, real])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => match ini.section(Some(section.as_ref())).and_then(|s| s.get(key)) {
+                Some(val) => match val.parse::<f64>() {
+                    Ok(x) => Ok(x.into()),
+                    Err(_) => Ok(Default::default()),
+                },
+                None => Ok(default.into()),
+            },
+            None => {
+                Err(gml::Error::FunctionError("ini_read_real", "Trying to read from undefined INI file".to_string()))
+            },
+        }
     }
 
-    pub fn ini_write_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_write_string")
+    pub fn ini_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, val) = expect_args!(args, [string, string, string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.as_ref());
+                Ok(Default::default())
+            },
+            None => {
+                Err(gml::Error::FunctionError("ini_write_string", "Trying to write to undefined INI file".to_string()))
+            },
+        }
     }
 
-    pub fn ini_write_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_write_real")
+    pub fn ini_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, val) = expect_args!(args, [string, string, real])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.to_string());
+                Ok(Default::default())
+            },
+            None => {
+                Err(gml::Error::FunctionError("ini_write_real", "Trying to write to undefined INI file".to_string()))
+            },
+        }
     }
 
-    pub fn ini_key_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ini_key_exists")
+    pub fn ini_key_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key) = expect_args!(args, [string, string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => {
+                Ok(ini.section(Some(section.as_ref())).map(|s| s.contains_key(key)).unwrap_or(false).into())
+            },
+            None => {
+                Err(gml::Error::FunctionError("ini_key_exists", "Trying to read from undefined INI file".to_string()))
+            },
+        }
     }
 
-    pub fn ini_section_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_section_exists")
+    pub fn ini_section_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let section = expect_args!(args, [string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => Ok(ini.section(Some(section.as_ref())).is_some().into()),
+            None => Err(gml::Error::FunctionError(
+                "ini_section_exists",
+                "Trying to read from undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_key_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ini_key_delete")
+    pub fn ini_key_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key) = expect_args!(args, [string, string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.delete_from(Some(section.as_ref()), &key);
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError("ini_key_delete", "Trying to change undefined INI file".to_string())),
+        }
     }
 
-    pub fn ini_section_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_section_delete")
+    pub fn ini_section_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let section = expect_args!(args, [string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.delete(Some(section.as_ref()));
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError("ini_key_delete", "Trying to change undefined INI file".to_string())),
+        }
     }
 
     pub fn disk_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
