@@ -1577,6 +1577,129 @@ impl Game {
         }
     }
 
+    pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let bbox_left: Real = inst.bbox_left.get().into();
+        let bbox_right: Real = inst.bbox_right.get().into();
+        let bbox_top: Real = inst.bbox_top.get().into();
+        let bbox_bottom: Real = inst.bbox_bottom.get().into();
+
+        let rect_left = x1.min(x2);
+        let rect_right = x1.max(x2);
+        let rect_top = y1.min(y2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if bbox_right + Real::from(1.0) <= rect_left
+            || rect_right < bbox_left
+            || bbox_bottom + Real::from(1.0) <= rect_top
+            || rect_bottom < bbox_top
+        {
+            return false
+        }
+
+        // Truncate to the line horizontally
+        let (mut x1, mut y1, mut x2, mut y2) = if x2 < x1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+        if x1 < bbox_left {
+            y1 = (y2 - y1) * (bbox_left - x1) / (x2 - x1) + y1;
+            x1 = bbox_left;
+        }
+        if x2 > bbox_right + Real::from(1.0) {
+            let new_x2 = bbox_right + Real::from(1.0);
+            y2 = (y2 - y1) * (new_x2 - x2) / (x2 - x1) + y2;
+            x2 = new_x2;
+        }
+
+        // Check for overlap
+        if (bbox_top > y1 && bbox_top > y2)
+            || (y1 >= bbox_bottom + Real::from(1.0) && y2 >= bbox_bottom + Real::from(1.0))
+        {
+            return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            // Round everything, as GM does
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            let x1 = x1.round();
+            let y1 = y1.round();
+            let x2 = x2.round();
+            let y2 = y2.round();
+
+            // Set up the iterator
+            let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
+            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
+            // If iterating vertically, make sure we're going top to bottom
+            let (x1, y1, x2, y2) = if iter_vert && y2 < y1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+            // Helper function for getting points on the line
+            let get_point = |i: i32| {
+                // Avoid dividing by zero
+                if point_count == 1 {
+                    return (Real::from(x1), Real::from(y1))
+                }
+                if iter_vert {
+                    let slope = Real::from(x2 - x1) / Real::from(y2 - y1);
+                    (Real::from(x1) + Real::from(i) * slope, Real::from(y1 + i))
+                } else {
+                    let slope = Real::from(y2 - y1) / Real::from(x2 - x1);
+                    (Real::from(x1 + i), Real::from(y1) + Real::from(i) * slope)
+                }
+            };
+
+            for i in 0..point_count {
+                let (mut x, mut y) = get_point(i);
+
+                // Transform point to be relative to collider
+                util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
+                let x = (Real::from(sprite.origin_x) + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
+                    .round();
+                let y = (Real::from(sprite.origin_y) + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
+                    .round();
+
+                // And finally, look up this point in the collider
+                if x >= collider.bbox_left as i32
+                    && y >= collider.bbox_top as i32
+                    && x <= collider.bbox_right as i32
+                    && y <= collider.bbox_bottom as i32
+                    && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+                {
+                    return true
+                }
+            }
+            false
+        } else {
+            false
+        }
+    }
+
     // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
         let mut iter = self.instance_list.iter_by_insertion();
