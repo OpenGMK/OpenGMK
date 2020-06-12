@@ -3266,9 +3266,66 @@ impl Game {
         unimplemented!("Called unimplemented kernel function collision_ellipse")
     }
 
-    pub fn collision_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function collision_line")
+    pub fn collision_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, object_id, precise, exclude_self) =
+            expect_args!(args, [real, real, real, real, int, any, any])?;
+        let precise = precise.is_truthy();
+        let include_self = !exclude_self.is_truthy();
+        let id = match object_id {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if (include_self || handle != context.this)
+                                && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                            {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            _ if object_id < 0 => None,
+            object_id if object_id < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if (include_self || handle != context.this)
+                                    && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                                {
+                                    break Some(handle)
+                                }
+                            },
+                            None => break None,
+                        }
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    if (include_self || handle != context.this)
+                        && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                    {
+                        Some(handle)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+        };
+
+        match id {
+            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn instance_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
