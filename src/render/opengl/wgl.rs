@@ -3,7 +3,7 @@
 #![cfg(target_os = "windows")]
 
 use crate::{
-    game::Window,
+    game::window::win32::WindowImpl,
     render::opengl::gl::{self, types::GLint},
 };
 use std::{
@@ -16,7 +16,7 @@ use std::{
 use winapi::{
     shared::{
         minwindef::HINSTANCE,
-        windef::{HDC, HGLRC, HWND},
+        windef::{HDC, HGLRC},
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
@@ -114,7 +114,7 @@ macro_rules! wapi_call {
         }
     }};
 }
-fn wapi_error_string() -> String {
+unsafe fn wapi_error_string() -> String {
     let mut buf_ptr: *mut WCHAR = ptr::null_mut();
     let char_count = FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -173,19 +173,19 @@ unsafe fn load_function(name: *const c_char, gl32_dll: HINSTANCE) -> *const c_vo
         // All of these return values mean failure, as much as the docs say it's just NULL.
         // You load some of them like this, but only if wglGetProcAddress failed.
         // The ones that would are the 1.1 functions because they're in opengl32.dll.
-        -1 | 0 | 1 | 2 | 3 => GetProcAddress(gl32_dll, name) as *const c_void,
+        -1 | 0 | 1 | 2 | 3 => GetProcAddress(gl32_dll, name).cast(),
         _ => addr as *const c_void,
     }
 }
 
 impl PlatformImpl {
-    pub unsafe fn new(window: &Window) -> Result<Self, String> {
+    pub unsafe fn new(window: &WindowImpl) -> Result<Self, String> {
         static mut GL_LOADED: bool = false;
         static mut WGL_LOADED: bool = false;
         static mut OPENGL32_DLL: HINSTANCE = ptr::null_mut();
 
         // our device context
-        let device = wapi_call!(GetDC(window.window_handle() as HWND))?;
+        let device = wapi_call!(GetDC(window.get_hwnd()))?;
 
         // set up pixel format
         let pixel_format = wapi_call!(ChoosePixelFormat(device, &PIXEL_FORMAT))?;
@@ -196,6 +196,7 @@ impl PlatformImpl {
             x if x.is_null() => wapi_call!(LoadLibraryA(b"opengl32.dll\0".as_ptr() as *const c_char))?,
             x => x,
         };
+        OPENGL32_DLL = gl32;
 
         // basic context we can work with
         let mut context = create_context_basic(device)?;
@@ -219,9 +220,9 @@ impl PlatformImpl {
         }
 
         // debug print
-        let ver_str = CStr::from_ptr(gl::GetString(gl::VERSION) as *const _).to_str().unwrap();
+        let ver_str = CStr::from_ptr(gl::GetString(gl::VERSION).cast()).to_str().unwrap();
         println!("OpenGL Version: {}", ver_str);
-        let vendor_str = CStr::from_ptr(gl::GetString(gl::VENDOR) as *const _).to_str().unwrap();
+        let vendor_str = CStr::from_ptr(gl::GetString(gl::VENDOR).cast()).to_str().unwrap();
         println!("OpenGL Vendor: {}", vendor_str);
 
         // don't leak memory

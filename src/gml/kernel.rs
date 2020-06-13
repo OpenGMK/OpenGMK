@@ -9,7 +9,7 @@ use crate::{
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
     math::Real,
-    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    render::{Renderer, RendererOptions},
     types::Colour,
 };
 use std::convert::TryFrom;
@@ -4478,14 +4478,8 @@ impl Game {
         let height = 200;
 
         let options = RendererOptions {
-            title: "",
             size: (width, height),
-            icons: vec![],
-            global_clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
-            resizable: false,
-            on_top: true,
-            decorations: true,
-            fullscreen: false,
+            clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
             vsync: false,
         };
 
@@ -4495,9 +4489,9 @@ impl Game {
         let wb = window::WindowBuilder::new().with_size(width, height);
         let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message", e))?;
         let mut renderer =
-            OpenGLRenderer::new(options, &window).map_err(|e| gml::Error::FunctionError("show_message", e))?;
+            Renderer::new((), &options, &window).map_err(|e| gml::Error::FunctionError("show_message", e))?;
         window.set_visible(true);
-        renderer.swap_interval(0);
+        renderer.set_swap_interval(None);
 
         loop {
             window.process_events();
@@ -4509,7 +4503,7 @@ impl Game {
         }
 
         // restore renderer
-        self.renderer.set_current();
+        // self.renderer.set_current(); <- TODO, obviously
 
         Ok(Default::default())
     }
