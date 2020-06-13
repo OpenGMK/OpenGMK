@@ -1,6 +1,6 @@
 use crate::{
     game::{Game, GetAsset},
-    gml, util,
+    gml,
 };
 use std::cmp::Ordering;
 
@@ -172,8 +172,8 @@ impl Game {
                         };
                         game.renderer.draw_sprite(
                             atlas_ref,
-                            instance.x.get().round(),
-                            instance.y.get().round(),
+                            instance.x.get().into(),
+                            instance.y.get().into(),
                             instance.image_xscale.get().into(),
                             instance.image_yscale.get().into(),
                             instance.image_angle.get().into(),
@@ -198,8 +198,8 @@ impl Game {
                         tile.tile_y as _,
                         tile.width as _,
                         tile.height as _,
-                        util::ieee_round(tile.x),
-                        util::ieee_round(tile.y),
+                        tile.x,
+                        tile.y,
                         tile.xscale,
                         tile.yscale,
                         0.0,
