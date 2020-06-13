@@ -1,7 +1,6 @@
 #version 330 core
-#extension GL_ARB_explicit_uniform_location : require
 
-layout(location = 1) uniform sampler2D tex;
+uniform sampler2D tex;
 
 in vec2 frag_tex_coord;
 in vec4 frag_atlas_xywh;

@@ -34,7 +34,7 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
-    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    render::{Renderer, RendererOptions},
     replay::{self, Replay},
     tile,
     types::{Colour, ID},
@@ -58,7 +58,7 @@ pub struct Game {
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
-    pub renderer: Box<dyn Renderer>,
+    pub renderer: Renderer,
     pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
@@ -116,6 +116,7 @@ pub struct Game {
     pub game_id: i32,
     pub program_directory: Rc<str>,
     pub gm_version: GameVersion,
+    pub open_ini: Option<(ini::Ini, Rc<str>)>, // keep the filename for writing
 
     // window caption
     pub caption: Rc<str>,
@@ -174,7 +175,7 @@ impl Game {
             backgrounds,
             constants,
             fonts,
-            icon_data,
+            icon_data: _,
             last_instance_id,
             last_tile_id,
             objects,
@@ -251,14 +252,8 @@ impl Game {
 
         // Set up a Renderer
         let options = RendererOptions {
-            title: &room1.caption,
             size: (room1_width, room1_height),
-            icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
-            global_clear_colour: settings.clear_colour.into(),
-            resizable: settings.allow_resize,
-            on_top: settings.window_on_top,
-            decorations: !settings.dont_draw_border,
-            fullscreen: settings.fullscreen,
+            clear_colour: settings.clear_colour.into(),
             vsync: settings.vsync, // TODO: Overrideable
         };
 
@@ -268,9 +263,9 @@ impl Game {
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
-        let mut renderer = OpenGLRenderer::new(options, &window)?;
+        let mut renderer = Renderer::new((), &options, &window)?;
 
-        let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
+        let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
@@ -753,7 +748,7 @@ impl Game {
         let custom_draw_objects =
             event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
 
-        renderer.upload_atlases(atlases)?;
+        renderer.push_atlases(atlases)?;
 
         let mut game = Self {
             compiler,
@@ -761,7 +756,7 @@ impl Game {
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand: Random::new(),
-            renderer: Box::new(renderer),
+            renderer: renderer,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -807,6 +802,7 @@ impl Game {
             game_id: game_id as i32,
             program_directory: program_directory.into(),
             gm_version: version,
+            open_ini: None,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -821,7 +817,6 @@ impl Game {
 
         game.load_room(room1_id)?;
         game.window.set_visible(true);
-        game.renderer.swap_interval(0); // no vsync
 
         Ok(game)
     }
@@ -1510,7 +1505,7 @@ impl Game {
     }
 
     // Checks if an instance is colliding with a point
-    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32) -> bool {
+    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
         let sprite = self
@@ -1527,6 +1522,11 @@ impl Game {
             || y < inst.bbox_top.get()
         {
             return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
         }
 
         // Can't collide if no sprite or no associated collider
@@ -1562,6 +1562,219 @@ impl Game {
                 && x <= collider.bbox_right as i32
                 && y <= collider.bbox_bottom as i32
                 && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+        } else {
+            false
+        }
+    }
+
+    // Checks if an instance is colliding with a rectangle
+    pub fn check_collision_rectangle(&self, inst: usize, x1: i32, y1: i32, x2: i32, y2: i32, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let rect_left = x1.min(x2);
+        let rect_top = y1.min(y2);
+        let rect_right = x1.max(x2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if inst.bbox_right.get() < rect_left
+            || rect_right < inst.bbox_left.get()
+            || inst.bbox_bottom.get() < rect_top
+            || rect_bottom < inst.bbox_top.get()
+        {
+            return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            // Get intersect rectangle
+            let intersect_top = inst.bbox_top.get().max(rect_top);
+            let intersect_bottom = inst.bbox_bottom.get().min(rect_bottom);
+            let intersect_left = inst.bbox_left.get().max(rect_left);
+            let intersect_right = inst.bbox_right.get().min(rect_right);
+
+            // Go through each pixel in the intersect
+            for intersect_y in intersect_top..=intersect_bottom {
+                for intersect_x in intersect_left..=intersect_right {
+                    // Transform point to be relative to collider
+                    let mut x = Real::from(intersect_x);
+                    let mut y = Real::from(intersect_y);
+                    util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
+                    let x = (Real::from(sprite.origin_x)
+                        + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
+                    .round();
+                    let y = (Real::from(sprite.origin_y)
+                        + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
+                    .round();
+
+                    // And finally, look up this point in the collider
+                    if x >= collider.bbox_left as i32
+                        && y >= collider.bbox_top as i32
+                        && x <= collider.bbox_right as i32
+                        && y <= collider.bbox_bottom as i32
+                        && collider
+                            .data
+                            .get((y as usize * collider.width as usize) + x as usize)
+                            .copied()
+                            .unwrap_or(false)
+                    {
+                        return true
+                    }
+                }
+            }
+
+            false
+        } else {
+            false
+        }
+    }
+
+    pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let bbox_left: Real = inst.bbox_left.get().into();
+        let bbox_right: Real = inst.bbox_right.get().into();
+        let bbox_top: Real = inst.bbox_top.get().into();
+        let bbox_bottom: Real = inst.bbox_bottom.get().into();
+
+        let rect_left = x1.min(x2);
+        let rect_right = x1.max(x2);
+        let rect_top = y1.min(y2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if bbox_right + Real::from(1.0) <= rect_left
+            || rect_right < bbox_left
+            || bbox_bottom + Real::from(1.0) <= rect_top
+            || rect_bottom < bbox_top
+        {
+            return false
+        }
+
+        // Truncate to the line horizontally
+        let (mut x1, mut y1, mut x2, mut y2) = if x2 < x1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+        if x1 < bbox_left {
+            y1 = (y2 - y1) * (bbox_left - x1) / (x2 - x1) + y1;
+            x1 = bbox_left;
+        }
+        if x2 > bbox_right + Real::from(1.0) {
+            let new_x2 = bbox_right + Real::from(1.0);
+            y2 = (y2 - y1) * (new_x2 - x2) / (x2 - x1) + y2;
+            x2 = new_x2;
+        }
+
+        // Check for overlap
+        if (bbox_top > y1 && bbox_top > y2)
+            || (y1 >= bbox_bottom + Real::from(1.0) && y2 >= bbox_bottom + Real::from(1.0))
+        {
+            return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            // Round everything, as GM does
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            let x1 = x1.round();
+            let y1 = y1.round();
+            let x2 = x2.round();
+            let y2 = y2.round();
+
+            // Set up the iterator
+            let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
+            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
+            // If iterating vertically, make sure we're going top to bottom
+            let (x1, y1, x2, y2) = if iter_vert && y2 < y1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+            // Helper function for getting points on the line
+            let get_point = |i: i32| {
+                // Avoid dividing by zero
+                if point_count == 1 {
+                    return (Real::from(x1), Real::from(y1))
+                }
+                if iter_vert {
+                    let slope = Real::from(x2 - x1) / Real::from(y2 - y1);
+                    (Real::from(x1) + Real::from(i) * slope, Real::from(y1 + i))
+                } else {
+                    let slope = Real::from(y2 - y1) / Real::from(x2 - x1);
+                    (Real::from(x1 + i), Real::from(y1) + Real::from(i) * slope)
+                }
+            };
+
+            for i in 0..point_count {
+                let (mut x, mut y) = get_point(i);
+
+                // Transform point to be relative to collider
+                util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
+                let x = (Real::from(sprite.origin_x) + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
+                    .round();
+                let y = (Real::from(sprite.origin_y) + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
+                    .round();
+
+                // And finally, look up this point in the collider
+                if x >= collider.bbox_left as i32
+                    && y >= collider.bbox_top as i32
+                    && x <= collider.bbox_right as i32
+                    && y <= collider.bbox_bottom as i32
+                    && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+                {
+                    return true
+                }
+            }
+            false
         } else {
             false
         }

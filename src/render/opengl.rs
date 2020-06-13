@@ -1,83 +1,31 @@
-//! OpenGL bindings & functions
-//!
-//! The raw bindings are generated at build time, see build.rs
-
-/// Auto-generated OpenGL bindings from gl_generator
-#[allow(clippy::all)]
-pub mod gl {
-    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-}
-
-use memoffset::offset_of;
+mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    game::Window,
-    render::{Renderer, RendererOptions},
+    game::window::Window,
+    render::{mat4mult, RendererOptions, RendererTrait},
     types::Colour,
-    util,
 };
 use cfg_if::cfg_if;
+use memoffset::offset_of;
 use rect_packer::DensePacker;
-use std::{
-    fs,
-    io::{self, BufWriter},
-    mem::size_of,
-    ops::Drop,
-    os::raw::{c_char, c_void},
-    path::PathBuf,
-    ptr,
-};
+use std::{any::Any, mem::size_of, ptr};
+
+/// Auto-generated OpenGL bindings from gl_generator
+pub mod gl {
+    #![allow(clippy::all)]
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
+use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
-        mod win32;
-        use win32 as platform;
-        use crate::game::window::win32::WindowImpl;
+        use crate::game::window::win32 as w_imp;
+        use wgl as imp;
     } else {
-        mod xorg;
-        use xorg as platform;
-        use crate::game::window::xorg::WindowImpl;
+        // TODO: This won't work when Wayland but that's okay just make a function for it.
+        use crate::game::window::xorg as w_imp;
     }
-}
-
-// OpenGL typedefs
-use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
-
-pub struct OpenGLRenderer {
-    // Device/context info
-    platform_gl: platform::PlatformGL,
-
-    // Colour to clear the screen with at the start of each frame (RGB)
-    global_clear_colour: Colour,
-    // Colour to clear each view rectangle (RGB; None means do not clear)
-    view_clear_colour: Option<Colour>,
-
-    // Draw command queue
-    draw_commands: Vec<DrawCommand>,
-
-    // Shaders and OpenGL objects
-    program: u32,
-    vao: u32,
-    vbo: u32,
-
-    // -- TEXTURE ATLASES --
-    /// Whether the initial atlases have been uploaded (see upload_atlases).
-    atlases_initialized: bool,
-    /// Atlases' rectangle packers to be reused for dynamic sprite loading.
-    atlas_packers: Vec<DensePacker>,
-    /// OpenGL's texture handles in identical order to the atlases.
-    texture_ids: Vec<GLuint>,
-    /// The currently bound texture atlas ID. Only valid after atlases have been initialized.
-    current_atlas: u32,
-}
-
-// A command to draw a sprite or section of a sprite. These are queued and executed
-pub struct DrawCommand {
-    pub atlas_ref: AtlasRef,
-    pub model_view_matrix: [f32; 16],
-    pub blend: (f32, f32, f32),
-    pub alpha: f32,
 }
 
 macro_rules! shader_file {
@@ -86,87 +34,105 @@ macro_rules! shader_file {
     };
 }
 
-const VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
-const FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
+pub struct RendererImpl {
+    background_colour: Option<Colour>,
+    clear_colour: Colour,
+    imp: imp::PlatformImpl,
+    program: GLuint,
+    vao: GLuint,
+    vbo: GLuint,
 
-impl OpenGLRenderer {
-    pub fn new(options: RendererOptions, window: &Window) -> Result<Self, String> {
-        // TODO: redo icons
+    atlas_packers: Vec<DensePacker>,
+    texture_ids: Vec<GLuint>,
+    current_atlas: GLuint,
 
-        let window_impl = match window.as_any().downcast_ref::<WindowImpl>() {
+    draw_queue: Vec<DrawCommand>,
+
+    loc_tex: GLint,  // uniform sampler2D tex
+    loc_proj: GLint, // uniform mat4 projection
+}
+
+static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
+static FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
+
+/// A command to draw a sprite or section of a sprite.
+/// These are queued and executed (instanced if possible).
+pub struct DrawCommand {
+    pub atlas_ref: AtlasRef,
+    pub model_view_matrix: [f32; 16],
+    pub blend: (f32, f32, f32),
+    pub alpha: f32,
+}
+
+unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
+    let mut info_len: GLint = 0;
+    gl::GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut info_len);
+    let mut info = vec![0u8; info_len as usize];
+    gl::GetShaderInfoLog(id, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
+    info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
+    format!(
+        "Failed to compile {} shader, compiler output:\n{}",
+        name,
+        std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
+    )
+}
+
+impl RendererImpl {
+    pub fn new(options: &RendererOptions, window: &Window) -> Result<Self, String> {
+        let window_impl: &w_imp::WindowImpl = match window.as_any().downcast_ref() {
             Some(x) => x,
             None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
         };
-        let platform_gl = unsafe { platform::PlatformGL::new(&window_impl) };
 
-        let (program, vao, vbo) = unsafe {
+        unsafe {
+            let imp = imp::PlatformImpl::new(window_impl)?;
+
+            if options.vsync {
+                imp.set_swap_interval(1);
+            } else {
+                imp.set_swap_interval(0);
+            }
+
+            let (v_maj, v_min) = imp.version();
+            assert!((v_maj == 3 && v_min >= 3) || v_maj > 3);
+
             // Compile vertex shader
             let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
+            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr().cast()), ptr::null());
             gl::CompileShader(vertex_shader);
 
             // Check for vertex shader compile errors
             let mut success = gl::FALSE as GLint;
             gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                let mut info_len: GLint = 0;
-                gl::GetShaderiv(vertex_shader, gl::INFO_LOG_LENGTH, &mut info_len);
-                let mut info = vec![0u8; info_len as usize];
-                gl::GetShaderInfoLog(
-                    vertex_shader,
-                    info_len as GLsizei,
-                    ptr::null_mut(),
-                    info.as_mut_ptr() as *mut GLchar,
-                );
-                info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
-                return Err(format!(
-                    "Failed to compile vertex shader, compiler output:\n{}",
-                    std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ))
+                return Err(shader_info_log("vertex", vertex_shader))
             }
 
             // Compile fragment shader
             let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr() as *const c_char), ptr::null());
+            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr().cast()), ptr::null());
             gl::CompileShader(fragment_shader);
 
             // Check for fragment shader compile errors
             gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                let mut info_len: GLint = 0;
-                gl::GetShaderiv(fragment_shader, gl::INFO_LOG_LENGTH, &mut info_len);
-                let mut info = vec![0u8; info_len as usize];
-                gl::GetShaderInfoLog(
-                    fragment_shader,
-                    info_len as GLsizei,
-                    ptr::null_mut(),
-                    info.as_mut_ptr() as *mut GLchar,
-                );
-                info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
-                return Err(format!(
-                    "Failed to compile fragment shader, compiler output:\n{}",
-                    std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ))
+                return Err(shader_info_log("fragment", fragment_shader))
             }
 
             // Link shaders
-            let shader_program = gl::CreateProgram();
-            gl::AttachShader(shader_program, vertex_shader);
-            gl::AttachShader(shader_program, fragment_shader);
-            gl::LinkProgram(shader_program);
+            let program = gl::CreateProgram();
+            gl::AttachShader(program, vertex_shader);
+            gl::AttachShader(program, fragment_shader);
+            gl::LinkProgram(program);
 
             // Check for linking errors
-            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
+            // TODO: generalize this like with shader info logs!! please!!!
+            gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
             if success != gl::TRUE as GLint {
                 let mut info_len: GLint = 0;
-                gl::GetProgramiv(shader_program, gl::INFO_LOG_LENGTH, &mut info_len);
+                gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut info_len);
                 let mut info = vec![0u8; info_len as usize];
-                gl::GetProgramInfoLog(
-                    shader_program,
-                    info_len as GLsizei,
-                    ptr::null_mut(),
-                    info.as_mut_ptr() as *mut GLchar,
-                );
+                gl::GetProgramInfoLog(program, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
                 info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
                 return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
@@ -192,7 +158,7 @@ impl OpenGLRenderer {
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (vertices.len() * size_of::<GLfloat>()) as GLsizeiptr,
-                vertices.as_ptr() as *const c_void,
+                vertices.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
 
@@ -212,56 +178,226 @@ impl OpenGLRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
             // Use program
-            gl::UseProgram(shader_program);
+            gl::UseProgram(program);
 
             // Prepare first frame
             gl::Viewport(0, 0, options.size.0 as _, options.size.1 as _);
             gl::Scissor(0, 0, options.size.0 as _, options.size.1 as _);
             gl::ClearColor(
-                options.global_clear_colour.r as f32,
-                options.global_clear_colour.g as f32,
-                options.global_clear_colour.b as f32,
+                options.clear_colour.r as f32,
+                options.clear_colour.g as f32,
+                options.clear_colour.b as f32,
                 1.0,
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            (shader_program, vao, vbo)
-        };
+            Ok(Self {
+                background_colour: None,
+                clear_colour: options.clear_colour,
 
-        Ok(Self {
-            platform_gl,
+                imp,
+                program,
+                vao,
+                vbo,
 
-            draw_commands: Vec::with_capacity(256),
+                atlas_packers: vec![],
+                texture_ids: vec![],
+                current_atlas: 0,
 
-            global_clear_colour: options.global_clear_colour,
-            view_clear_colour: None,
+                draw_queue: Vec::with_capacity(256),
 
-            program,
-            vao,
-            vbo,
+                loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
+                loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
+            })
+        }
+    }
+}
 
-            atlases_initialized: false,
-            atlas_packers: Vec::new(),
-            texture_ids: Vec::new(),
-            current_atlas: 0,
-        })
+impl RendererTrait for RendererImpl {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn max_texture_size(&self) -> u32 {
+        let mut size: GLint = 0;
+        unsafe {
+            gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+        }
+        size.max(0) as u32
+    }
+
+    fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
+        assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
+        let (packers, sprites) = atl.into_inner();
+
+        unsafe {
+            let textures: Vec<GLuint> = {
+                let mut buf = vec![0 as GLuint; packers.len()];
+                gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
+                for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
+                    let (width, height) = packer.size();
+
+                    gl::ActiveTexture(gl::TEXTURE0 + i as u32);
+                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.current_atlas = i as u32;
+
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,    // target
+                        0,                 // level
+                        gl::RGBA as _,     // internalformat
+                        width as _,        // width
+                        height as _,       // height
+                        0,                 // border ("must be 0")
+                        gl::BGRA,          // format
+                        gl::UNSIGNED_BYTE, // type
+                        ptr::null(),       // data
+                    );
+                }
+                buf
+            };
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
+            }
+
+            // upload textures
+            for (atl_ref, pixels) in &sprites {
+                if self.current_atlas != atl_ref.atlas_id {
+                    gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
+                    self.current_atlas = atl_ref.atlas_id;
+                }
+
+                gl::TexSubImage2D(
+                    gl::TEXTURE_2D,       // target
+                    0,                    // level
+                    atl_ref.x as _,       // xoffset
+                    atl_ref.y as _,       // yoffset
+                    atl_ref.w as _,       // width
+                    atl_ref.h as _,       // height
+                    gl::BGRA,             // format
+                    gl::UNSIGNED_BYTE,    // type
+                    pixels.as_ptr() as _, // pixels
+                );
+            }
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
+            }
+
+            // store opengl texture handles
+            self.texture_ids = textures;
+        }
+
+        // store packers, discard pixeldata
+        self.atlas_packers = packers;
+
+        Ok(())
+    }
+
+    fn set_background_colour(&mut self, colour: Option<Colour>) {
+        self.background_colour = colour;
+    }
+
+    fn set_swap_interval(&self, n: Option<u32>) -> bool {
+        unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
+    }
+
+    fn draw_sprite(
+        &mut self,
+        texture: &AtlasRef,
+        x: i32,
+        y: i32,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        colour: i32,
+        alpha: f64,
+    ) {
+        let atlas_ref = texture.clone();
+
+        if atlas_ref.atlas_id != self.current_atlas {
+            self.flush_queue();
+            unsafe {
+                gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
+                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize]);
+            }
+            self.current_atlas = atlas_ref.atlas_id;
+        }
+
+        let angle = -angle.to_radians();
+        let angle_sin = angle.sin() as f32;
+        let angle_cos = angle.cos() as f32;
+
+        #[rustfmt::skip]
+        let model_view_matrix = mat4mult(
+            mat4mult(
+                mat4mult(
+                    // Translate so sprite origin is at [0,0]
+                    [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
+                    ],
+                    // Scale according to image size and xscale/yscale
+                    [
+                        xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
+                        0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0.0, 0.0, 0.0, 1.0,
+                    ]
+                ),
+                // Rotate by image_angle
+                [
+                    angle_cos,  angle_sin, 0.0, 0.0,
+                    -angle_sin, angle_cos, 0.0, 0.0,
+                    0.0,        0.0,       1.0, 0.0,
+                    0.0,        0.0,       0.0, 1.0,
+                ]
+            ),
+            // Move the image into "world coordinates"
+            [
+                1.0,      0.0,      0.0, 0.0,
+                0.0,      1.0,      0.0, 0.0,
+                0.0,      0.0,      1.0, 0.0,
+                x as f32, y as f32, 0.0, 1.0,
+            ]
+        );
+
+        self.draw_queue.push(DrawCommand {
+            atlas_ref,
+            model_view_matrix,
+            blend: (
+                ((colour & 0xFF) as f32) / 255.0,
+                (((colour >> 8) & 0xFF) as f32) / 255.0,
+                (((colour >> 16) & 0xFF) as f32) / 255.0,
+            ),
+            alpha: alpha as f32,
+        });
     }
 
     /// Does anything that's queued to be done.
-    fn flush(&mut self) {
+    fn flush_queue(&mut self) {
         unsafe {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<DrawCommand>() * self.draw_commands.len()) as _,
-                self.draw_commands.as_ptr() as _,
+                (size_of::<DrawCommand>() * self.draw_queue.len()) as _,
+                self.draw_queue.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
 
-            // layout(location = 1) uniform sampler2D tex;
-            gl::Uniform1i(1, self.current_atlas as _);
+            gl::Uniform1i(self.loc_tex, self.current_atlas as _);
 
             // layout (location = 1) in mat4 model_view;
             // layout (location = 6) in vec4 atlas_xywh;
@@ -344,262 +480,12 @@ impl OpenGLRenderer {
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribPointer(5, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
 
-            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_commands.len() as i32);
+            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_queue.len() as i32);
 
             gl::DeleteBuffers(1, &commands_vbo);
         }
 
-        self.draw_commands.clear();
-    }
-}
-
-impl Renderer for OpenGLRenderer {
-    fn max_gpu_texture_size(&self) -> usize {
-        unsafe {
-            let mut v: GLint = 0;
-            gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut v as _);
-            v as _
-        }
-    }
-
-    fn upload_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
-        assert!(!self.atlases_initialized, "atlases should be initialized only once");
-
-        let (packers, sprites) = atl.into_inner();
-
-        unsafe {
-            let textures: Vec<GLuint> = {
-                let mut buf = vec![0 as GLuint; packers.len()];
-                gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
-                for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
-                    let (width, height) = packer.size();
-
-                    gl::ActiveTexture(gl::TEXTURE0 + i as u32);
-                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
-                    self.current_atlas = i as u32;
-
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
-                    gl::TexImage2D(
-                        gl::TEXTURE_2D,    // target
-                        0,                 // level
-                        gl::RGBA as _,     // internalformat
-                        width as _,        // width
-                        height as _,       // height
-                        0,                 // border ("must be 0")
-                        gl::BGRA,          // format
-                        gl::UNSIGNED_BYTE, // type
-                        ptr::null(),       // data
-                    );
-                }
-                buf
-            };
-
-            // verify it actually worked
-            match gl::GetError() {
-                0 => (),
-                err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
-            }
-
-            // upload textures
-            for (atl_ref, pixels) in &sprites {
-                if self.current_atlas != atl_ref.atlas_id {
-                    gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
-                    self.current_atlas = atl_ref.atlas_id;
-                }
-
-                gl::TexSubImage2D(
-                    gl::TEXTURE_2D,       // target
-                    0,                    // level
-                    atl_ref.x as _,       // xoffset
-                    atl_ref.y as _,       // yoffset
-                    atl_ref.w as _,       // width
-                    atl_ref.h as _,       // height
-                    gl::BGRA,             // format
-                    gl::UNSIGNED_BYTE,    // type
-                    pixels.as_ptr() as _, // pixels
-                );
-            }
-
-            // verify it actually worked
-            match gl::GetError() {
-                0 => (),
-                err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
-            }
-
-            // store opengl texture handles
-            self.texture_ids = textures;
-        }
-
-        // store packers, discard pixeldata
-        self.atlas_packers = packers;
-
-        // generate texture handles
-        self.atlases_initialized = true;
-        Ok(())
-    }
-
-    fn set_background_colour(&mut self, colour: Option<Colour>) {
-        self.view_clear_colour = colour;
-    }
-
-    fn draw_sprite(
-        &mut self,
-        atlas_ref: &AtlasRef,
-        x: i32,
-        y: i32,
-        xscale: f64,
-        yscale: f64,
-        angle: f64,
-        colour: i32,
-        alpha: f64,
-    ) {
-        let atlas_ref = atlas_ref.clone();
-
-        if atlas_ref.atlas_id != self.current_atlas {
-            self.flush();
-            unsafe {
-                gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
-                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize]);
-            }
-            self.current_atlas = atlas_ref.atlas_id;
-        }
-
-        let angle = -angle.to_radians();
-        let angle_sin = angle.sin() as f32;
-        let angle_cos = angle.cos() as f32;
-
-        #[rustfmt::skip]
-        let model_view_matrix = mat4mult(
-            mat4mult(
-                mat4mult(
-                    // Translate so sprite origin is at [0,0]
-                    [
-                        1.0, 0.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
-                    ],
-                    // Scale according to image size and xscale/yscale
-                    [
-                        xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
-                        0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        0.0, 0.0, 0.0, 1.0,
-                    ]
-                ),
-                // Rotate by image_angle
-                [
-                    angle_cos,  angle_sin, 0.0, 0.0,
-                    -angle_sin, angle_cos, 0.0, 0.0,
-                    0.0,        0.0,       1.0, 0.0,
-                    0.0,        0.0,       0.0, 1.0,
-                ]
-            ),
-            // Move the image into "world coordinates"
-            [
-                1.0,      0.0,      0.0, 0.0,
-                0.0,      1.0,      0.0, 0.0,
-                0.0,      0.0,      1.0, 0.0,
-                x as f32, y as f32, 0.0, 1.0,
-            ]
-        );
-
-        self.draw_commands.push(DrawCommand {
-            atlas_ref,
-            model_view_matrix,
-            blend: (
-                ((colour & 0xFF) as f32) / 255.0,
-                (((colour >> 8) & 0xFF) as f32) / 255.0,
-                (((colour >> 16) & 0xFF) as f32) / 255.0,
-            ),
-            alpha: alpha as f32,
-        });
-    }
-
-    fn draw_sprite_partial(
-        &mut self,
-        texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
-        part_w: i32,
-        part_h: i32,
-        x: i32,
-        y: i32,
-        xscale: f64,
-        yscale: f64,
-        angle: f64,
-        colour: i32,
-        alpha: f64,
-    ) {
-        self.draw_sprite(
-            &AtlasRef {
-                atlas_id: texture.atlas_id,
-                w: part_w,
-                h: part_h,
-                x: texture.x + part_x,
-                y: texture.y + part_y,
-                origin_x: 0.0,
-                origin_y: 0.0,
-            },
-            x,
-            y,
-            xscale,
-            yscale,
-            angle,
-            colour,
-            alpha,
-        )
-    }
-
-    fn draw_sprite_tiled(
-        &mut self,
-        texture: &AtlasRef,
-        mut x: f64,
-        mut y: f64,
-        xscale: f64,
-        yscale: f64,
-        colour: i32,
-        alpha: f64,
-        tile_end_x: Option<f64>,
-        tile_end_y: Option<f64>,
-    ) {
-        let width = f64::from(texture.w) * xscale;
-        let height = f64::from(texture.h) * yscale;
-
-        if tile_end_x.is_some() {
-            x = x.rem_euclid(width);
-            if x > 0.0 {
-                x -= width;
-            }
-        }
-        if tile_end_y.is_some() {
-            y = y.rem_euclid(height);
-            if y > 0.0 {
-                y -= height;
-            }
-        }
-
-        let start_x = x;
-
-        loop {
-            loop {
-                self.draw_sprite(texture, util::ieee_round(x), util::ieee_round(y), xscale, yscale, 0.0, colour, alpha);
-                x += width;
-                match tile_end_x {
-                    Some(end_x) if x < end_x => (),
-                    _ => break,
-                }
-            }
-            x = start_x;
-            y += height;
-            match tile_end_y {
-                Some(end_y) if y < end_y => (),
-                _ => break,
-            }
-        }
+        self.draw_queue.clear();
     }
 
     fn set_view(
@@ -619,7 +505,7 @@ impl Renderer for OpenGLRenderer {
         port_h: i32,
     ) {
         // Draw anything that was meant to be drawn with the old view first
-        self.flush();
+        self.flush_queue();
 
         // Make projection matrix for new view
         // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
@@ -671,11 +557,10 @@ impl Renderer for OpenGLRenderer {
             gl::Viewport(port_x, port_y, port_w, port_h);
             gl::Scissor(port_x, port_y, port_w, port_h);
 
-            // layout(location = 0) uniform mat4 projection;
-            gl::UniformMatrix4fv(0, 1, gl::FALSE, &projection as _);
+            gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, projection.as_ptr());
 
             // Clear view rectangle
-            if let Some(colour) = self.view_clear_colour {
+            if let Some(colour) = self.background_colour {
                 gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
@@ -684,82 +569,15 @@ impl Renderer for OpenGLRenderer {
 
     fn finish(&mut self, width: u32, height: u32) {
         // Finish drawing frame
-        self.flush();
+        self.flush_queue();
 
         // Start next frame
         unsafe {
-            self.platform_gl.swap_buffers();
+            self.imp.swap_buffers();
             gl::Viewport(0, 0, width as _, height as _);
             gl::Scissor(0, 0, width as _, height as _);
-            gl::ClearColor(
-                self.global_clear_colour.r as f32,
-                self.global_clear_colour.g as f32,
-                self.global_clear_colour.b as f32,
-                1.0,
-            );
+            gl::ClearColor(self.clear_colour.r as f32, self.clear_colour.g as f32, self.clear_colour.b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
-
-    fn dump_atlases(&self, path: fn(usize) -> PathBuf) -> io::Result<()> {
-        for ((i, texture), packer) in self.texture_ids.iter().enumerate().zip(self.atlas_packers.iter()) {
-            let w = BufWriter::new(fs::File::create(&path(i))?);
-            let (width, height) = packer.size();
-            let mut encoder = png::Encoder::new(w, width as _, height as _);
-            encoder.set_color(png::ColorType::RGBA);
-            encoder.set_depth(png::BitDepth::Eight);
-            let mut writer = encoder.write_header().unwrap();
-            let mut buf = vec![0u8; width as usize * height as usize * 4];
-            unsafe {
-                gl::BindTexture(gl::TEXTURE_2D, *texture);
-                gl::GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, buf.as_mut_ptr() as *mut _);
-            }
-            writer.write_image_data(&buf).unwrap();
-        }
-
-        Ok(())
-    }
-
-    fn swap_interval(&mut self, n: u32) {
-        unsafe { self.platform_gl.swap_interval(n) }
-    }
-
-    fn set_current(&self) -> bool {
-        unsafe { self.platform_gl.make_current() }
-    }
-
-    fn is_current(&self) -> bool {
-        unsafe { self.platform_gl.is_current() }
-    }
-}
-
-impl Drop for OpenGLRenderer {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteTextures(self.texture_ids.len() as _, self.texture_ids.as_mut_ptr() as *mut _);
-            let _ = self.platform_gl.cleanup(); // TODO: care for this, please
-        }
-    }
-}
-
-// Helper fn - multiply two mat4s together
-fn mat4mult(m1: [f32; 16], m2: [f32; 16]) -> [f32; 16] {
-    [
-        (m1[0] * m2[0]) + (m1[1] * m2[4]) + (m1[2] * m2[8]) + (m1[3] * m2[12]),
-        (m1[0] * m2[1]) + (m1[1] * m2[5]) + (m1[2] * m2[9]) + (m1[3] * m2[13]),
-        (m1[0] * m2[2]) + (m1[1] * m2[6]) + (m1[2] * m2[10]) + (m1[3] * m2[14]),
-        (m1[0] * m2[3]) + (m1[1] * m2[7]) + (m1[2] * m2[11]) + (m1[3] * m2[15]),
-        (m1[4] * m2[0]) + (m1[5] * m2[4]) + (m1[6] * m2[8]) + (m1[7] * m2[12]),
-        (m1[4] * m2[1]) + (m1[5] * m2[5]) + (m1[6] * m2[9]) + (m1[7] * m2[13]),
-        (m1[4] * m2[2]) + (m1[5] * m2[6]) + (m1[6] * m2[10]) + (m1[7] * m2[14]),
-        (m1[4] * m2[3]) + (m1[5] * m2[7]) + (m1[6] * m2[11]) + (m1[7] * m2[15]),
-        (m1[8] * m2[0]) + (m1[9] * m2[4]) + (m1[10] * m2[8]) + (m1[11] * m2[12]),
-        (m1[8] * m2[1]) + (m1[9] * m2[5]) + (m1[10] * m2[9]) + (m1[11] * m2[13]),
-        (m1[8] * m2[2]) + (m1[9] * m2[6]) + (m1[10] * m2[10]) + (m1[11] * m2[14]),
-        (m1[8] * m2[3]) + (m1[9] * m2[7]) + (m1[10] * m2[11]) + (m1[11] * m2[15]),
-        (m1[12] * m2[0]) + (m1[13] * m2[4]) + (m1[14] * m2[8]) + (m1[15] * m2[12]),
-        (m1[12] * m2[1]) + (m1[13] * m2[5]) + (m1[14] * m2[9]) + (m1[15] * m2[13]),
-        (m1[12] * m2[2]) + (m1[13] * m2[6]) + (m1[14] * m2[10]) + (m1[15] * m2[14]),
-        (m1[12] * m2[3]) + (m1[13] * m2[7]) + (m1[14] * m2[11]) + (m1[15] * m2[15]),
-    ]
 }
