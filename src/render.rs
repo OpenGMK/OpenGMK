@@ -52,7 +52,11 @@ pub trait RendererTrait {
         colour: i32,
         alpha: f64,
     ) {
-        // TODO: Bounds check!!
+        let part_x = part_x.max(0);
+        let part_y = part_y.max(0);
+        let part_w = (part_x + part_w).min(texture.w) - part_x;
+        let part_h = (part_y + part_h).min(texture.h) - part_y;
+
         self.draw_sprite(
             &AtlasRef {
                 atlas_id: texture.atlas_id,
