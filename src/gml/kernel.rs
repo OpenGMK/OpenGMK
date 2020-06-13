@@ -6597,9 +6597,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_name")
     }
 
-    pub fn room_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_exists")
+    pub fn room_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let room_id = expect_args!(args, [int])?;
+        Ok(self.assets.rooms.get_asset(room_id).is_some().into())
     }
 
     pub fn room_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
