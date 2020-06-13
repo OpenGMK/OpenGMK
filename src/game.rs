@@ -115,6 +115,7 @@ pub struct Game {
     pub game_id: i32,
     pub program_directory: Rc<str>,
     pub gm_version: GameVersion,
+    pub open_ini: Option<(ini::Ini, Rc<str>)>, // keep the filename for writing
 
     // window caption
     pub caption: Rc<str>,
@@ -806,6 +807,7 @@ impl Game {
             game_id: game_id as i32,
             program_directory: program_directory.into(),
             gm_version: version,
+            open_ini: None,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
