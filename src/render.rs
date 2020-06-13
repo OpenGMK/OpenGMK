@@ -219,8 +219,8 @@ impl Renderer {
     pub fn draw_sprite_tiled(
         &mut self,
         texture: &AtlasRef,
-        mut x: f64,
-        mut y: f64,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         colour: i32,
