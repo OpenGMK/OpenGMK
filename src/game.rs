@@ -33,7 +33,7 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
-    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    render::{Renderer, RendererOptions},
     replay::{self, Replay},
     tile,
     types::{Colour, ID},
@@ -57,7 +57,7 @@ pub struct Game {
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
-    pub renderer: Box<dyn Renderer>,
+    pub renderer: Renderer,
     pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
@@ -174,7 +174,7 @@ impl Game {
             backgrounds,
             constants,
             fonts,
-            icon_data,
+            icon_data: _,
             last_instance_id,
             last_tile_id,
             objects,
@@ -251,14 +251,8 @@ impl Game {
 
         // Set up a Renderer
         let options = RendererOptions {
-            title: &room1.caption,
             size: (room1_width, room1_height),
-            icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
-            global_clear_colour: settings.clear_colour.into(),
-            resizable: settings.allow_resize,
-            on_top: settings.window_on_top,
-            decorations: !settings.dont_draw_border,
-            fullscreen: settings.fullscreen,
+            clear_colour: settings.clear_colour.into(),
             vsync: settings.vsync, // TODO: Overrideable
         };
 
@@ -268,9 +262,9 @@ impl Game {
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
-        let mut renderer = OpenGLRenderer::new(options, &window)?;
+        let mut renderer = Renderer::new((), &options, &window)?;
 
-        let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
+        let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
@@ -753,7 +747,7 @@ impl Game {
         let custom_draw_objects =
             event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
 
-        renderer.upload_atlases(atlases)?;
+        renderer.push_atlases(atlases)?;
 
         let mut game = Self {
             compiler,
@@ -761,7 +755,7 @@ impl Game {
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand: Random::new(),
-            renderer: Box::new(renderer),
+            renderer: renderer,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -822,7 +816,6 @@ impl Game {
 
         game.load_room(room1_id)?;
         game.window.set_visible(true);
-        game.renderer.swap_interval(0); // no vsync
 
         Ok(game)
     }

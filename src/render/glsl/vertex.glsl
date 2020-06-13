@@ -1,7 +1,6 @@
 #version 330 core
-#extension GL_ARB_explicit_uniform_location : require
 
-layout(location = 0) uniform mat4 projection;
+uniform mat4 projection;
 
 layout (location = 0) in vec3 pos;
 layout (location = 1) in mat4 model_view;
