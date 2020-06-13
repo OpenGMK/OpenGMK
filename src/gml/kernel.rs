@@ -4429,7 +4429,9 @@ impl Game {
                 ini.delete(Some(section.as_ref()));
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ini_key_delete", "Trying to change undefined INI file".to_string())),
+            None => {
+                Err(gml::Error::FunctionError("ini_section_delete", "Trying to change undefined INI file".to_string()))
+            },
         }
     }
 
