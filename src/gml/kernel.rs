@@ -768,8 +768,8 @@ impl Game {
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    instance.x.get().round(),
-                    instance.y.get().round(),
+                    instance.x.get().into(),
+                    instance.y.get().into(),
                     instance.image_xscale.get().into(),
                     instance.image_yscale.get().into(),
                     instance.image_angle.get().into(),
@@ -784,7 +784,7 @@ impl Game {
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, int, int])?;
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) { instance.image_index.get() } else { image_index };
@@ -793,8 +793,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     instance.image_xscale.get().into(),
                     instance.image_yscale.get().into(),
                     instance.image_angle.get().into(),
@@ -815,7 +815,7 @@ impl Game {
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, real, int, int, real, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
                 self.instance_list.get(context.this).image_index.get()
@@ -827,8 +827,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     xscale.into(),
                     yscale.into(),
                     angle.into(),
@@ -884,13 +884,13 @@ impl Game {
 
     pub fn draw_background_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, int, int, real, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     xscale.into(),
                     yscale.into(),
                     angle.into(),

@@ -2,7 +2,7 @@
 
 mod opengl;
 
-use crate::{atlas::AtlasBuilder, game::window::Window, types::Colour, util};
+use crate::{atlas::AtlasBuilder, game::window::Window, types::Colour};
 use std::any::Any;
 
 // Re-export for more logical module pathing
@@ -17,7 +17,7 @@ pub trait RendererTrait {
     fn set_background_colour(&mut self, colour: Option<Colour>);
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
 
-    fn draw_sprite(&mut self, tex: &AtlasRef, x: i32, y: i32, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
+    fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
     fn set_view(
         &mut self,
         width: u32,
@@ -40,37 +40,49 @@ pub trait RendererTrait {
     fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
+        mut part_x: i32,
+        mut part_y: i32,
         part_w: i32,
         part_h: i32,
-        x: i32,
-        y: i32,
+        mut x: f64,
+        mut y: f64,
         xscale: f64,
         yscale: f64,
         angle: f64,
         colour: i32,
         alpha: f64,
     ) {
-        // TODO: Bounds check!!
-        self.draw_sprite(
-            &AtlasRef {
-                atlas_id: texture.atlas_id,
-                w: part_w,
-                h: part_h,
-                x: texture.x + part_x,
-                y: texture.y + part_y,
-                origin_x: 0.0,
-                origin_y: 0.0,
-            },
-            x,
-            y,
-            xscale,
-            yscale,
-            angle,
-            colour,
-            alpha,
-        )
+        if part_x < 0 {
+            x -= f64::from(part_x);
+            part_x = 0;
+        }
+        if part_y < 0 {
+            y -= f64::from(part_y);
+            part_y = 0;
+        }
+        let part_w = (part_x + part_w).min(texture.w) - part_x;
+        let part_h = (part_y + part_h).min(texture.h) - part_y;
+
+        if part_w >= 0 && part_h >= 0 {
+            self.draw_sprite(
+                &AtlasRef {
+                    atlas_id: texture.atlas_id,
+                    w: part_w,
+                    h: part_h,
+                    x: texture.x + part_x,
+                    y: texture.y + part_y,
+                    origin_x: 0.0,
+                    origin_y: 0.0,
+                },
+                x,
+                y,
+                xscale,
+                yscale,
+                angle,
+                colour,
+                alpha,
+            )
+        }
     }
     fn draw_sprite_tiled(
         &mut self,
@@ -104,7 +116,7 @@ pub trait RendererTrait {
 
         loop {
             loop {
-                self.draw_sprite(texture, util::ieee_round(x), util::ieee_round(y), xscale, yscale, 0.0, colour, alpha);
+                self.draw_sprite(texture, x, y, xscale, yscale, 0.0, colour, alpha);
                 x += width;
                 match tile_end_x {
                     Some(end_x) if x < end_x => (),
@@ -154,8 +166,8 @@ impl Renderer {
     pub fn draw_sprite(
         &mut self,
         texture: &AtlasRef,
-        x: i32,
-        y: i32,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         angle: f64,
@@ -205,8 +217,8 @@ impl Renderer {
         part_y: i32,
         part_w: i32,
         part_h: i32,
-        x: i32,
-        y: i32,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         angle: f64,
@@ -219,8 +231,8 @@ impl Renderer {
     pub fn draw_sprite_tiled(
         &mut self,
         texture: &AtlasRef,
-        mut x: f64,
-        mut y: f64,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         colour: i32,
