@@ -1270,7 +1270,6 @@ impl Game {
             for event in panel.window.process_events().copied() {
                 match event {
                     Event::KeyboardDown(input::Key::Space) => {
-                        self.renderer.set_current();
                         self.frame()?;
                         match self.scene_change {
                             Some(SceneChange::Room(id)) => self.load_room(id)?,
@@ -1278,14 +1277,11 @@ impl Game {
                             Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
                             None => (),
                         }
-                        panel.set_current();
                         break
                     },
                     _ => (),
                 }
             }
-
-            panel.draw();
 
             if panel.window.close_requested() || self.window.close_requested() {
                 break Ok(())
