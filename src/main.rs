@@ -129,7 +129,7 @@ fn xmain() -> i32 {
         },
     };
 
-    if let Err(err) = components.run() {
+    if let Err(err) = components.record() {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
     } else {
