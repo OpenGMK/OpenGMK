@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -11,7 +11,7 @@ pub const VERSION_EVENT: u32 = 400;
 
 pub struct Object {
     /// The asset name present in GML and the editor.
-    pub name: String,
+    pub name: PascalString,
 
     /// Default sprite_index for this Object
     /// Note: any negative sprite_index (usually -1) indicates no sprite.

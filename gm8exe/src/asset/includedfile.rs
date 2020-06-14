@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -10,10 +10,10 @@ pub const VERSION: u32 = 800;
 
 pub struct IncludedFile {
     /// The name of the included file.
-    pub file_name: String,
+    pub file_name: PascalString,
 
     /// The path of the source file (from the developer's PC).
-    pub source_path: String,
+    pub source_path: PascalString,
 
     /// Whether the file data exists.
     pub data_exists: bool,
@@ -45,7 +45,7 @@ pub enum ExportSetting {
     NoExport,
     TempFolder,
     GameFolder,
-    CustomFolder(String),
+    CustomFolder(PascalString),
 }
 
 impl Asset for IncludedFile {
@@ -126,15 +126,15 @@ impl Asset for IncludedFile {
         match &self.export_settings {
             ExportSetting::NoExport => {
                 result += writer.write_u32_le(0)?;
-                result += writer.write_pas_string("")?;
+                result += writer.write_pas_string(&"".into())?;
             },
             ExportSetting::TempFolder => {
                 result += writer.write_u32_le(1)?;
-                result += writer.write_pas_string("")?;
+                result += writer.write_pas_string(&"".into())?;
             },
             ExportSetting::GameFolder => {
                 result += writer.write_u32_le(2)?;
-                result += writer.write_pas_string("")?;
+                result += writer.write_pas_string(&"".into())?;
             },
             ExportSetting::CustomFolder(folder) => {
                 result += writer.write_u32_le(3)?;

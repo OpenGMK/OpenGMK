@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -10,10 +10,10 @@ pub const VERSION: u32 = 800;
 
 pub struct Script {
     /// The asset name present in GML and the editor.
-    pub name: String,
+    pub name: PascalString,
 
     /// The GML code in the script.
-    pub source: String,
+    pub source: PascalString,
 }
 
 impl Asset for Script {

@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -16,16 +16,16 @@ pub struct Trigger {
     ///
     /// I don't think this actually has any purpose.
     /// The trigger is referred to in GML by its constant_name field.
-    pub name: String,
+    pub name: PascalString,
 
     /// The trigger condition - a single GML expression to evaluate.
-    pub condition: String,
+    pub condition: PascalString,
 
     /// What event to run the check on.
     pub moment: TriggerKind,
 
     /// Constant name used to refer to the trigger in GML.
-    pub constant_name: String,
+    pub constant_name: PascalString,
 }
 
 #[derive(Copy, Clone, PartialEq)]

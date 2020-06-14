@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, AssetDataError, ReadPascalString},
+    asset::{assert_ver, AssetDataError, PascalString, ReadPascalString},
     reader::inflate,
 };
 
@@ -12,10 +12,10 @@ const ARG_MAX: usize = 17;
 
 pub struct Extension {
     /// The name of the extension.
-    pub name: String,
+    pub name: PascalString,
 
     /// Name of the temporary folder to extract to at runtime.
-    pub folder_name: String,
+    pub folder_name: PascalString,
 
     /// Files contained in the extension.
     pub files: Vec<File>,
@@ -23,16 +23,16 @@ pub struct Extension {
 
 pub struct File {
     /// The name of the file.
-    pub name: String,
+    pub name: PascalString,
 
     /// What kind of file this is, used to determine the usage.
     pub kind: FileKind,
 
     /// Initialization code for DLLs or GML files. Not used for other types.
-    pub initializer: String,
+    pub initializer: PascalString,
 
     /// Finalization code for DLLs or GML files. Not used for other types.
-    pub finalizer: String,
+    pub finalizer: PascalString,
 
     /// GML or external functions you can invoke from the file.
     pub functions: Vec<FileFunction>,
@@ -45,8 +45,8 @@ pub struct File {
 }
 
 pub struct FileConst {
-    pub name: String,
-    pub value: String,
+    pub name: PascalString,
+    pub value: PascalString,
 }
 
 /// These const values are in line with the GM8 format. There is no zero.
@@ -88,8 +88,8 @@ impl From<u32> for FunctionValueKind {
 }
 
 pub struct FileFunction {
-    pub name: String,
-    pub external_name: String,
+    pub name: PascalString,
+    pub external_name: PascalString,
     pub convention: CallingConvention,
     pub id: u32,
     pub arg_count: i32,

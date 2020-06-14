@@ -54,7 +54,7 @@ pub struct GameAssets {
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
-    pub library_init_strings: Vec<String>,
+    pub library_init_strings: Vec<PascalString>,
     pub room_order: Vec<i32>,
 
     pub settings: Settings,

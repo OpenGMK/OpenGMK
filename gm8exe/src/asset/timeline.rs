@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -11,7 +11,7 @@ pub const VERSION_MOMENT: u32 = 400;
 
 pub struct Timeline {
     /// The asset name present in GML and the editor.
-    pub name: String,
+    pub name: PascalString,
 
     /// The list of moments in the timeline with their associated [THING].
     pub moments: Vec<(u32, Vec<CodeAction>)>,

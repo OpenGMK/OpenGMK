@@ -1,7 +1,7 @@
 use crate::{collision, zlib::ZlibWriter};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
-    asset::{self, includedfile::ExportSetting},
+    asset::{self, includedfile::ExportSetting, PascalString},
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };
@@ -10,8 +10,8 @@ use rayon::prelude::*;
 use std::{io, u32};
 
 pub trait WritePascalString: WriteBuffer + minio::WritePrimitives {
-    fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
-        self.write_u32_le(s.len() as u32).and_then(|x| self.write_buffer(s.as_bytes()).map(|y| y + x))
+    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<usize> {
+        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write_buffer(s.0.as_ref()).map(|y| y + x))
     }
 }
 impl<W> WritePascalString for W where W: io::Write {}
@@ -148,20 +148,20 @@ where
         )?,
     };
 
-    enc.write_pas_string("decompiler clan :police_car: :police_car: :police_car:")?; // author
-    enc.write_pas_string("")?; // version string
+    enc.write_pas_string(&"decompiler clan :police_car: :police_car: :police_car:".into())?; // author
+    enc.write_pas_string(&"".into())?; // version string
     write_timestamp(&mut enc)?; // timestamp
-    enc.write_pas_string("")?; // information
+    enc.write_pas_string(&"".into())?; // information
 
     // TODO: extract all this stuff from .rsrc in gm8x
     enc.write_u32_le(1)?; // major version
     enc.write_u32_le(0)?; // minor version
     enc.write_u32_le(0)?; // release version
     enc.write_u32_le(0)?; // build version
-    enc.write_pas_string("")?; // company
-    enc.write_pas_string("")?; // product
-    enc.write_pas_string("")?; // copyright info
-    enc.write_pas_string("")?; // description
+    enc.write_pas_string(&"".into())?; // company
+    enc.write_pas_string(&"".into())?; // product
+    enc.write_pas_string(&"".into())?; // copyright info
+    enc.write_pas_string(&"".into())?; // description
     write_timestamp(&mut enc)?; // timestamp
 
     result += enc.finish(writer)?;
@@ -642,15 +642,15 @@ where
         match &file.export_settings {
             ExportSetting::NoExport => {
                 enc.write_u32_le(0)?;
-                enc.write_pas_string("")?;
+                enc.write_pas_string(&"".into())?;
             },
             ExportSetting::TempFolder => {
                 enc.write_u32_le(1)?;
-                enc.write_pas_string("")?;
+                enc.write_pas_string(&"".into())?;
             },
             ExportSetting::GameFolder => {
                 enc.write_u32_le(2)?;
-                enc.write_pas_string("")?;
+                enc.write_pas_string(&"".into())?;
             },
             ExportSetting::CustomFolder(f) => {
                 enc.write_u32_le(3)?;
@@ -703,7 +703,7 @@ where
 }
 
 // Write library initialization code strings to GMK
-pub fn write_library_init_code<W>(writer: &mut W, init_code: &[String]) -> io::Result<usize>
+pub fn write_library_init_code<W>(writer: &mut W, init_code: &[PascalString]) -> io::Result<usize>
 where
     W: io::Write,
 {
@@ -740,12 +740,12 @@ where
         let mut result = writer.write_u32_le(1)?;
         result += writer.write_u32_le(index)?;
         result += writer.write_u32_le(0)?;
-        result += writer.write_pas_string(name)?;
+        result += writer.write_pas_string(&name.into())?;
         result += writer.write_u32_le(count as u32)?;
         Ok(result)
     }
 
-    fn write_rt_asset<W>(writer: &mut W, name: &str, group: u32, index: u32) -> io::Result<usize>
+    fn write_rt_asset<W>(writer: &mut W, name: &PascalString, group: u32, index: u32) -> io::Result<usize>
     where
         W: io::Write,
     {
@@ -815,8 +815,8 @@ where
             println!("WARNING: non-existent room id {} referenced in Room Order; skipping it", *room_id);
         }
     }
-    write_rt_asset(writer, "Game Information", 10, 0)?;
-    write_rt_asset(writer, "Global Game Settings", 11, 0)?;
-    write_rt_asset(writer, "Extension Packages", 13, 0)?;
+    write_rt_asset(writer, &"Game Information".into(), 10, 0)?;
+    write_rt_asset(writer, &"Global Game Settings".into(), 11, 0)?;
+    write_rt_asset(writer, &"Extension Packages".into(), 13, 0)?;
     Ok(result)
 }
