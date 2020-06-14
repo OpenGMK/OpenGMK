@@ -1,15 +1,16 @@
-use crate::gml::runtime::Instruction;
+use crate::{game::string::RCStr, gml::runtime::Instruction};
 use gm8exe::asset::trigger::TriggerKind;
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Trigger {
-    pub name: Rc<str>,
+    pub name: RCStr,
     pub condition: Rc<[Instruction]>,
     pub moment: TriggerTime,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum TriggerTime {
     Step,
     BeginStep,

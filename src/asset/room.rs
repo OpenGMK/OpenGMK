@@ -1,15 +1,16 @@
 use crate::{
-    game::{Background, View},
+    game::{string::RCStr, Background, View},
     gml::runtime::Instruction,
     tile::Tile,
     types::{Colour, ID},
 };
+use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Room {
-    pub name: Rc<str>,
-    pub caption: Rc<str>,
+    pub name: RCStr,
+    pub caption: RCStr,
     pub width: u32,
     pub height: u32,
     pub speed: u32,
@@ -26,6 +27,7 @@ pub struct Room {
 }
 
 /// An instance stored in a Room
+#[derive(Serialize, Deserialize)]
 pub struct Instance {
     pub x: i32,
     pub y: i32,

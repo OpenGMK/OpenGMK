@@ -9,6 +9,7 @@ use std::any::Any;
 pub use crate::atlas::AtlasRef;
 
 pub struct Renderer(Box<dyn RendererTrait>);
+
 pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
@@ -249,6 +250,14 @@ impl Renderer {
 
     pub fn finish(&mut self, width: u32, height: u32) {
         self.0.finish(width, height)
+    }
+}
+
+impl Default for Renderer {
+    // This only exists for cases where you want to replace the window later.
+    // Do NOT create a default window and attempt to use it.
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
     }
 }
 

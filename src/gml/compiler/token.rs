@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
@@ -35,7 +36,7 @@ pub enum Keyword {
     Exit,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Operator {
     /// `+` Add or unary positive (redundant)
     Add,

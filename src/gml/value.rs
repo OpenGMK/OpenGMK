@@ -1,13 +1,11 @@
-use crate::{gml, math::Real};
-use std::{
-    fmt::{self, Display},
-    rc::Rc,
-};
+use crate::{game::string::RCStr, gml, math::Real};
+use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
-    Str(Rc<str>),
+    Str(RCStr),
 }
 
 impl Display for Value {
@@ -164,10 +162,10 @@ impl Value {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs + rhs)),
             (Self::Str(lhs), Self::Str(rhs)) => Ok(Self::Str({
-                let mut string = String::with_capacity(lhs.len() + rhs.len());
+                let mut string = String::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
-                Rc::from(string)
+                RCStr::from(string)
             })),
             (x, y) => invalid_op!(Add, x, y),
         }
@@ -178,7 +176,7 @@ impl Value {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs += rhs),
             (Self::Str(lhs), Self::Str(ref rhs)) => {
                 // TODO: a
-                let mut string = String::with_capacity(lhs.len() + rhs.len());
+                let mut string = String::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
                 string.push_str(lhs.as_ref());
                 string.push_str(rhs.as_ref());
                 *lhs = string.into();
@@ -256,7 +254,7 @@ impl Value {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs * rhs)),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
                 let repeat = lhs.round();
-                if repeat > 0 { rhs.repeat(repeat as usize).into() } else { "".to_string().into() }
+                if repeat > 0 { rhs.as_ref().repeat(repeat as usize).into() } else { "".to_string().into() }
             }),
             (x, y) => invalid_op!(Multiply, x, y),
         }
@@ -356,8 +354,8 @@ impl From<bool> for Value {
     }
 }
 
-impl From<Rc<str>> for Value {
-    fn from(value: Rc<str>) -> Self {
+impl From<RCStr> for Value {
+    fn from(value: RCStr) -> Self {
         Self::Str(value)
     }
 }
@@ -408,8 +406,8 @@ impl From<Value> for Real {
     }
 }
 
-impl From<Value> for Rc<str> {
-    // For lazy-converting a value into an Rc<str>.
+impl From<Value> for RCStr {
+    // For lazy-converting a value into an RCStr.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(_) => String::new().into(),

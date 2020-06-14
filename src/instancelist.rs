@@ -4,11 +4,16 @@ use crate::{
     tile::Tile,
     types::ID,
 };
+use serde::{
+    de::{SeqAccess, Visitor},
+    ser::SerializeSeq,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use std::{
     alloc,
     cell::RefCell,
     collections::{HashMap, HashSet},
-    ptr,
+    fmt, ptr,
     rc::Rc,
 };
 
@@ -146,6 +151,7 @@ fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
     })
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
     insert_order: Vec<usize>,
@@ -342,6 +348,7 @@ impl InstanceList {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct TileList {
     chunks: ChunkList<Tile>,
     insert_order: Vec<usize>,
@@ -401,6 +408,65 @@ impl TileList {
         self.chunks.clear();
         self.insert_order.clear();
         self.draw_order.clear();
+    }
+}
+
+impl<T> Serialize for ChunkList<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let count = self.0.iter().map(|x| CHUNK_SIZE - x.vacant).sum();
+        let mut seq = serializer.serialize_seq(Some(count))?;
+        for element in self.0.iter().map(|x| x.slots.iter()).flatten() {
+            if let Some(inst) = element {
+                seq.serialize_element(inst)?;
+            }
+        }
+        seq.end()
+    }
+}
+
+impl<'de, T> Deserialize<'de> for ChunkList<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct InstanceVisitor<T> {
+            phantom: std::marker::PhantomData<T>,
+        };
+
+        impl<'v, T> Visitor<'v> for InstanceVisitor<T>
+        where
+            T: Deserialize<'v>,
+        {
+            type Value = ChunkList<T>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'v>,
+            {
+                let mut list = ChunkList::new();
+
+                while let Some(instance) = seq.next_element::<T>()? {
+                    list.insert(instance);
+                }
+
+                Ok(list)
+            }
+        }
+
+        deserializer.deserialize_seq(InstanceVisitor::<T> { phantom: Default::default() })
     }
 }
 

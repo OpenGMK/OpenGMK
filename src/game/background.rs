@@ -1,7 +1,8 @@
 use crate::math::Real;
+use serde::{Deserialize, Serialize};
 
 /// An instance of a background in a room
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Background {
     /// Whether to draw this background
     pub visible: bool,

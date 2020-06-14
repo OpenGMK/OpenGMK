@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod movement;
+pub mod string;
 pub mod view;
 pub mod window;
 
@@ -39,8 +40,8 @@ use crate::{
     types::{Colour, ID},
     util,
 };
-use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -49,19 +50,24 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use string::RCStr;
 
 /// Structure which contains all the components of a game.
+#[derive(Serialize, Deserialize)]
 pub struct Game {
     pub compiler: Compiler,
+    #[serde(skip)]
     pub file_manager: FileManager,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
-    pub renderer: Renderer,
     pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
+
+    #[serde(skip)]
+    pub renderer: Renderer,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -103,25 +109,27 @@ pub struct Game {
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
-    pub score_capt: Rc<str>,   // default "Score: "
+    pub score_capt: RCStr,     // default "Score: "
     pub score_capt_d: bool,    // display in caption?
     pub lives: i32,            // default -1
-    pub lives_capt: Rc<str>,   // default "Lives: "
+    pub lives_capt: RCStr,     // default "Lives: "
     pub lives_capt_d: bool,    // display in caption?
     pub health: Real,          // default 100.0
-    pub health_capt: Rc<str>,  // default "Health: "
+    pub health_capt: RCStr,    // default "Health: "
     pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
-    pub program_directory: Rc<str>,
-    pub gm_version: GameVersion,
-    pub open_ini: Option<(ini::Ini, Rc<str>)>, // keep the filename for writing
+    pub program_directory: RCStr,
+    pub gm_version: Version,
+    #[serde(skip)]
+    pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
 
     // window caption
-    pub caption: Rc<str>,
+    pub caption: RCStr,
     pub caption_stale: bool,
 
     // winit windowing
+    #[serde(skip)]
     pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_width: u32,
@@ -129,14 +137,22 @@ pub struct Game {
     unscaled_height: u32,
 }
 
-// Various different types of scene change which can be requested by GML
-#[derive(Clone, Copy)]
+/// Enum indicating which GameMaker version a game was built with
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Version {
+    GameMaker8_0,
+    GameMaker8_1,
+}
+
+/// Various different types of scene change which can be requested by GML
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum SceneChange {
     Room(ID), // Go to the specified room
     Restart,  // Restart the game and go to the first room
     End,      // End the game
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
@@ -151,7 +167,7 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn launch(assets: gm8exe::GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
         file_path2.pop();
@@ -164,12 +180,12 @@ impl Game {
             param_string = param_string.trim_start_matches("\\\\?\\");
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
-        // TODO: store these as Rc<str> probably?
+        // TODO: store these as RCStr probably?
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
         // Destructure assets
-        let GameAssets {
+        let gm8exe::GameAssets {
             game_id,
             backgrounds,
             constants,
@@ -190,6 +206,11 @@ impl Game {
             version,
             ..
         } = assets;
+
+        let gm_version = match version {
+            gm8exe::GameVersion::GameMaker8_0 => Version::GameMaker8_0,
+            gm8exe::GameVersion::GameMaker8_1 => Version::GameMaker8_1,
+        };
 
         // If there are no rooms, you can't build a GM8 game. Fatal error.
         // We need a lot of the initialization info from the first room,
@@ -377,7 +398,7 @@ impl Game {
                                     .ok_or(())?,
                             })
                         })
-                        .collect::<Result<Rc<_>, ()>>()?;
+                        .collect::<Result<Box<_>, ()>>()?;
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -800,7 +821,7 @@ impl Game {
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             program_directory: program_directory.into(),
-            gm_version: version,
+            gm_version,
             open_ini: None,
             caption: "".to_string().into(),
             caption_stale: false,
@@ -1152,7 +1173,7 @@ impl Game {
             }
             self.window.set_title(&caption);
         } else {
-            self.window.set_title(&self.caption);
+            self.window.set_title(self.caption.as_ref());
         }
 
         Ok(())

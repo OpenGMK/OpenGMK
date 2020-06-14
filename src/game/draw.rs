@@ -2,16 +2,17 @@ use crate::{
     game::{Game, GetAsset},
     gml,
 };
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Halign {
     Left,
     Middle,
     Right,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Valign {
     Top,
     Middle,

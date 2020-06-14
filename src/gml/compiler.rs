@@ -4,13 +4,18 @@ pub mod mappings;
 pub mod token;
 
 use super::{
-    runtime::{ArrayAccessor, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType, VariableAccessor},
+    runtime::{
+        ArrayAccessor, BinaryOperator, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType, UnaryOperator,
+        VariableAccessor,
+    },
     Value,
 };
 use crate::{gml, math::Real};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 use token::Operator;
 
+#[derive(Serialize, Deserialize)]
 pub struct Compiler {
     /// List of identifiers which represent const values
     constants: HashMap<String, Value>,
@@ -292,26 +297,26 @@ impl Compiler {
 
                 op => {
                     let op_function = match op {
-                        Operator::Add => Value::add,
-                        Operator::And => Value::bool_and,
-                        Operator::BitwiseAnd => Value::bitand,
-                        Operator::BitwiseOr => Value::bitor,
-                        Operator::BinaryShiftLeft => Value::shl,
-                        Operator::BinaryShiftRight => Value::shr,
-                        Operator::BitwiseXor => Value::bitxor,
-                        Operator::Divide => Value::div,
-                        Operator::Equal => Value::gml_eq,
-                        Operator::GreaterThan => Value::gml_gt,
-                        Operator::GreaterThanOrEqual => Value::gml_gte,
-                        Operator::IntDivide => Value::intdiv,
-                        Operator::LessThan => Value::gml_lt,
-                        Operator::LessThanOrEqual => Value::gml_lte,
-                        Operator::Multiply => Value::mul,
-                        Operator::Modulo => Value::modulo,
-                        Operator::NotEqual => Value::gml_ne,
-                        Operator::Or => Value::bool_or,
-                        Operator::Subtract => Value::sub,
-                        Operator::Xor => Value::bool_xor,
+                        Operator::Add => BinaryOperator::Add,
+                        Operator::And => BinaryOperator::And,
+                        Operator::BitwiseAnd => BinaryOperator::BitwiseAnd,
+                        Operator::BitwiseOr => BinaryOperator::BitwiseOr,
+                        Operator::BinaryShiftLeft => BinaryOperator::BinaryShiftLeft,
+                        Operator::BinaryShiftRight => BinaryOperator::BinaryShiftRight,
+                        Operator::BitwiseXor => BinaryOperator::BitwiseXor,
+                        Operator::Divide => BinaryOperator::Divide,
+                        Operator::Equal => BinaryOperator::Equal,
+                        Operator::GreaterThan => BinaryOperator::GreaterThan,
+                        Operator::GreaterThanOrEqual => BinaryOperator::GreaterThanOrEqual,
+                        Operator::IntDivide => BinaryOperator::IntDivide,
+                        Operator::LessThan => BinaryOperator::LessThan,
+                        Operator::LessThanOrEqual => BinaryOperator::LessThanOrEqual,
+                        Operator::Multiply => BinaryOperator::Multiply,
+                        Operator::Modulo => BinaryOperator::Modulo,
+                        Operator::NotEqual => BinaryOperator::NotEqual,
+                        Operator::Or => BinaryOperator::Or,
+                        Operator::Subtract => BinaryOperator::Subtract,
+                        Operator::Xor => BinaryOperator::Xor,
                         op => return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) },
                     };
 
@@ -320,7 +325,7 @@ impl Compiler {
 
                     match (left, right) {
                         (Node::Literal { value: lhs @ _ }, Node::Literal { value: rhs @ _ }) => {
-                            match op_function(lhs, rhs) {
+                            match op_function.call(lhs, rhs) {
                                 Ok(value) => Node::Literal { value },
                                 Err(error) => Node::RuntimeError { error },
                             }
@@ -344,7 +349,7 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some((_, f_ptr, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
+                } else if let Some((_, func, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
                     Node::Function {
                         args: function
                             .params
@@ -352,7 +357,7 @@ impl Compiler {
                             .map(|x| self.compile_ast_expr(&x, locals))
                             .collect::<Vec<_>>()
                             .into_boxed_slice(),
-                        function: *f_ptr,
+                        function: *func,
                     }
                 } else {
                     Node::RuntimeError { error: gml::Error::UnknownFunction(function.name.to_string()) }
@@ -363,13 +368,13 @@ impl Compiler {
                 let new_node = self.compile_ast_expr(&unary_expr.child, locals);
                 let operator = match unary_expr.op {
                     Operator::Add => return new_node,
-                    Operator::Subtract => Value::neg,
-                    Operator::Not => Value::not,
-                    Operator::Complement => Value::complement,
+                    Operator::Subtract => UnaryOperator::Neg,
+                    Operator::Not => UnaryOperator::Not,
+                    Operator::Complement => UnaryOperator::Complement,
                     _ => return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) },
                 };
                 match new_node {
-                    Node::Literal { value } => match operator(value) {
+                    Node::Literal { value } => match operator.call(value) {
                         Ok(value) => Node::Literal { value },
                         Err(error) => Node::RuntimeError { error },
                     },
@@ -395,15 +400,15 @@ impl Compiler {
 
     /// Converts an AST BinaryExpr to an Instruction.
     fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&str]) -> Instruction {
-        let modification_type: Option<fn(Value, Value) -> gml::Result<Value>> = match binary_expr.op {
+        let modification_type = match binary_expr.op {
             Operator::Assign => None,
-            Operator::AssignAdd => Some(Value::add),
-            Operator::AssignSubtract => Some(Value::sub),
-            Operator::AssignMultiply => Some(Value::mul),
-            Operator::AssignDivide => Some(Value::div),
-            Operator::AssignBitwiseAnd => Some(Value::bitand),
-            Operator::AssignBitwiseOr => Some(Value::bitor),
-            Operator::AssignBitwiseXor => Some(Value::bitxor),
+            Operator::AssignAdd => Some(BinaryOperator::Add),
+            Operator::AssignSubtract => Some(BinaryOperator::Subtract),
+            Operator::AssignMultiply => Some(BinaryOperator::Multiply),
+            Operator::AssignDivide => Some(BinaryOperator::Divide),
+            Operator::AssignBitwiseAnd => Some(BinaryOperator::BitwiseAnd),
+            Operator::AssignBitwiseOr => Some(BinaryOperator::BitwiseOr),
+            Operator::AssignBitwiseXor => Some(BinaryOperator::BitwiseXor),
             _ => unreachable!("Invalid assignment operator: {}", binary_expr.op),
         };
 
@@ -532,7 +537,7 @@ impl Compiler {
         identifier: &str,
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
-        operator: fn(Value, Value) -> gml::Result<Value>,
+        operator: BinaryOperator,
         value: Node,
         locals: &[&str],
     ) -> Instruction {

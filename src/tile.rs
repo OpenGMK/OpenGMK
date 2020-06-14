@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// An instance of a background tile.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Tile {
     /// The tile's x position in the room
     pub x: f64,

@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt,
@@ -6,7 +7,7 @@ use std::{
 };
 
 /// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct Real(f64);
 
