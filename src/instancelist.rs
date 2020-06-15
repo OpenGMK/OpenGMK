@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::{
     de::{SeqAccess, Visitor},
-    ser::SerializeSeq,
+    ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
@@ -156,7 +156,7 @@ fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
     })
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
     insert_order: Vec<usize>,
@@ -353,7 +353,7 @@ impl InstanceList {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct TileList {
     chunks: ChunkList<Tile>,
     insert_order: Vec<usize>,
@@ -473,6 +473,41 @@ where
 
         deserializer.deserialize_seq(InstanceVisitor::<T> { phantom: Default::default() })
     }
+}
+
+impl Serialize for InstanceList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut list = serializer.serialize_struct("InstanceList", 4)?;
+        list.serialize_field("chunks", &self.chunks)?;
+        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
+        list.serialize_field("draw_order", &defrag(&self.draw_order))?;
+        list.serialize_field("id_map", &self.id_map)?;
+        list.end()
+    }
+}
+
+impl Serialize for TileList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut list = serializer.serialize_struct("TileList", 3)?;
+        list.serialize_field("chunks", &self.chunks)?;
+        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
+        list.serialize_field("draw_order", &defrag(&self.draw_order))?;
+        list.end()
+    }
+}
+
+fn defrag(list: &[usize]) -> Vec<usize> {
+    let mut output = Vec::with_capacity(list.len());
+    for i in list.iter() {
+        output.push(list.iter().copied().filter(|x| x < i).count())
+    }
+    output
 }
 
 // TODO: Maybe preallocating order/draw_order would increase perf - test this!
