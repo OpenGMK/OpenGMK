@@ -7281,149 +7281,343 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn part_attractor_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_attractor_create")
+    pub fn part_attractor_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+            let at = particle::Attractor::new();
+            if let Some(id) = ps.attractors.iter().position(|x| x.is_none()) {
+                ps.attractors[id] = Some(at);
+                Ok(id.into())
+            } else {
+                ps.attractors.push(Some(at));
+                Ok((self.particle_systems.len() - 1).into())
+            }
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn part_attractor_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_attractor_destroy")
+    pub fn part_attractor_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if ps.attractors.get_asset(id).is_some() {
+                ps.attractors[id as usize] = None;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_attractor_destroy_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_attractor_destroy_all")
+    pub fn part_attractor_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let psid = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            ps.attractors.clear();
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_attractor_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_attractor_exists")
+    pub fn part_attractor_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset(psid) {
+            Ok(ps.attractors.get_asset(id).is_some().into())
+        } else {
+            Ok(gml::FALSE.into())
+        }
     }
 
-    pub fn part_attractor_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_attractor_clear")
+    pub fn part_attractor_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(at) = ps.attractors.get_asset_mut(id) {
+                *at = particle::Attractor::new();
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_attractor_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function part_attractor_position")
+    pub fn part_attractor_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, x, y) = expect_args!(args, [int, int, real, real])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(at) = ps.attractors.get_asset_mut(id) {
+                at.x = x;
+                at.y = y;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_attractor_force(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function part_attractor_force")
+    pub fn part_attractor_force(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, force, dist, kind, additive) = expect_args!(args, [int, int, real, real, int, any])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(at) = ps.attractors.get_asset_mut(id) {
+                at.force = force;
+                at.dist = dist;
+                at.kind = match kind {
+                    1 => particle::ForceKind::Linear,
+                    2 => particle::ForceKind::Quadratic,
+                    _ => particle::ForceKind::Constant,
+                };
+                at.additive = additive.is_truthy();
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_destroyer_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_destroyer_create")
+    pub fn part_destroyer_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+            let de = particle::Destroyer::new();
+            if let Some(id) = ps.destroyers.iter().position(|x| x.is_none()) {
+                ps.destroyers[id] = Some(de);
+                Ok(id.into())
+            } else {
+                ps.destroyers.push(Some(de));
+                Ok((self.particle_systems.len() - 1).into())
+            }
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn part_destroyer_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_destroyer_destroy")
+    pub fn part_destroyer_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if ps.destroyers.get_asset(id).is_some() {
+                ps.destroyers[id as usize] = None;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_destroyer_destroy_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_destroyer_destroy_all")
+    pub fn part_destroyer_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let psid = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            ps.destroyers.clear();
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_destroyer_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_destroyer_exists")
+    pub fn part_destroyer_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset(psid) {
+            Ok(ps.destroyers.get_asset(id).is_some().into())
+        } else {
+            Ok(gml::FALSE.into())
+        }
     }
 
-    pub fn part_destroyer_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_destroyer_clear")
+    pub fn part_destroyer_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.destroyers.get_asset_mut(id) {
+                *de = particle::Destroyer::new();
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_destroyer_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function part_destroyer_region")
+    pub fn part_destroyer_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, xmin, xmax, ymin, ymax, shape) = expect_args!(args, [int, int, real, real, real, real, int])?;
+        let shape = match shape {
+            1 => particle::Shape::Ellipse,
+            2 => particle::Shape::Diamond,
+            _ => particle::Shape::Rectangle,
+        };
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.destroyers.get_asset_mut(id) {
+                de.xmin = xmin;
+                de.xmax = xmax;
+                de.ymin = ymin;
+                de.ymax = ymax;
+                de.shape = shape;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_deflector_create")
+    pub fn part_deflector_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+            let de = particle::Deflector::new();
+            if let Some(id) = ps.deflectors.iter().position(|x| x.is_none()) {
+                ps.deflectors[id] = Some(de);
+                Ok(id.into())
+            } else {
+                ps.deflectors.push(Some(de));
+                Ok((self.particle_systems.len() - 1).into())
+            }
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn part_deflector_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_deflector_destroy")
+    pub fn part_deflector_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if ps.deflectors.get_asset(id).is_some() {
+                ps.deflectors[id as usize] = None;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_destroy_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_deflector_destroy_all")
+    pub fn part_deflector_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let psid = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            ps.deflectors.clear();
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_deflector_exists")
+    pub fn part_deflector_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset(psid) {
+            Ok(ps.deflectors.get_asset(id).is_some().into())
+        } else {
+            Ok(gml::FALSE.into())
+        }
     }
 
-    pub fn part_deflector_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_deflector_clear")
+    pub fn part_deflector_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.deflectors.get_asset_mut(id) {
+                *de = particle::Deflector::new();
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function part_deflector_region")
+    pub fn part_deflector_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, xmin, xmax, ymin, ymax) = expect_args!(args, [int, int, real, real, real, real])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.deflectors.get_asset_mut(id) {
+                de.xmin = xmin;
+                de.xmax = xmax;
+                de.ymin = ymin;
+                de.ymax = ymax;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_kind(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function part_deflector_kind")
+    pub fn part_deflector_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, kind) = expect_args!(args, [int, int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.deflectors.get_asset_mut(id) {
+                de.kind = match kind {
+                    1 => particle::DeflectorKind::Horizontal,
+                    _ => particle::DeflectorKind::Vertical,
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_deflector_friction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function part_deflector_friction")
+    pub fn part_deflector_friction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, friction) = expect_args!(args, [int, int, real])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(de) = ps.deflectors.get_asset_mut(id) {
+                de.friction = friction;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_changer_create")
+    pub fn part_changer_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+            let ch = particle::Changer::new();
+            if let Some(id) = ps.changers.iter().position(|x| x.is_none()) {
+                ps.changers[id] = Some(ch);
+                Ok(id.into())
+            } else {
+                ps.changers.push(Some(ch));
+                Ok((self.particle_systems.len() - 1).into())
+            }
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn part_changer_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_changer_destroy")
+    pub fn part_changer_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if ps.changers.get_asset(id).is_some() {
+                ps.changers[id as usize] = None;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_destroy_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function part_changer_destroy_all")
+    pub fn part_changer_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let psid = expect_args!(args, [int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            ps.changers.clear();
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_changer_exists")
+    pub fn part_changer_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset(psid) {
+            Ok(ps.changers.get_asset(id).is_some().into())
+        } else {
+            Ok(gml::FALSE.into())
+        }
     }
 
-    pub fn part_changer_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function part_changer_clear")
+    pub fn part_changer_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id) = expect_args!(args, [int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(ch) = ps.changers.get_asset_mut(id) {
+                *ch = particle::Changer::new();
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function part_changer_region")
+    pub fn part_changer_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, xmin, xmax, ymin, ymax, shape) = expect_args!(args, [int, int, real, real, real, real, int])?;
+        let shape = match shape {
+            1 => particle::Shape::Ellipse,
+            2 => particle::Shape::Diamond,
+            _ => particle::Shape::Rectangle,
+        };
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(ch) = ps.changers.get_asset_mut(id) {
+                ch.xmin = xmin;
+                ch.xmax = xmax;
+                ch.ymin = ymin;
+                ch.ymax = ymax;
+                ch.shape = shape;
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_kind(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function part_changer_kind")
+    pub fn part_changer_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, kind) = expect_args!(args, [int, int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(ch) = ps.changers.get_asset_mut(id) {
+                ch.kind = match kind {
+                    0 => particle::ChangerKind::All,
+                    1 => particle::ChangerKind::Shape,
+                    _ => particle::ChangerKind::Motion,
+                };
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn part_changer_types(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function part_changer_types")
+    pub fn part_changer_types(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (psid, id, parttype1, parttype2) = expect_args!(args, [int, int, int, int])?;
+        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+            if let Some(ch) = ps.changers.get_asset_mut(id) {
+                ch.parttype1 = parttype1;
+                ch.parttype2 = parttype2;
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn effect_create_below(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
