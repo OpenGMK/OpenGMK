@@ -448,7 +448,6 @@ impl Game {
                             mask_index: b.mask_index,
                             parent_index: b.parent_index,
                             events,
-                            identities: Rc::new(RefCell::new(HashSet::new())),
                             children: Rc::new(RefCell::new(HashSet::new())),
                         }))
                     })
@@ -458,21 +457,7 @@ impl Game {
 
             // Populate identity lists
             for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
-                object.identities.borrow_mut().insert(i as _);
                 object.children.borrow_mut().insert(i as _);
-                let mut parent_index = object.parent_index;
-                while parent_index >= 0 {
-                    object.identities.borrow_mut().insert(parent_index);
-                    if let Some(Some(parent)) = object_parents.get(parent_index as usize) {
-                        parent_index = *parent;
-                    } else {
-                        return Err(format!(
-                            "Invalid parent tree for object {}: non-existent object: {}",
-                            object.name, parent_index
-                        )
-                        .into())
-                    }
-                }
             }
             for (i, mut parent_index) in
                 object_parents.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, *x)))
