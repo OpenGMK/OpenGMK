@@ -180,18 +180,8 @@ impl RendererImpl {
             // Use program
             gl::UseProgram(program);
 
-            // Prepare first frame
-            gl::Viewport(0, 0, options.size.0 as _, options.size.1 as _);
-            gl::Scissor(0, 0, options.size.0 as _, options.size.1 as _);
-            gl::ClearColor(
-                options.clear_colour.r as f32,
-                options.clear_colour.g as f32,
-                options.clear_colour.b as f32,
-                1.0,
-            );
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-
-            Ok(Self {
+            // Create Renderer
+            let mut renderer = Self {
                 background_colour: None,
                 clear_colour: options.clear_colour,
 
@@ -208,7 +198,21 @@ impl RendererImpl {
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
-            })
+            };
+
+            // Start first frame
+            renderer.setup_frame(options.size.0, options.size.1);
+
+            Ok(renderer)
+        }
+    }
+
+    fn setup_frame(&mut self, width: u32, height: u32) {
+        unsafe {
+            gl::Viewport(0, 0, width as _, height as _);
+            gl::Scissor(0, 0, width as _, height as _);
+            gl::ClearColor(self.clear_colour.r as f32, self.clear_colour.g as f32, self.clear_colour.b as f32, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 }
@@ -308,6 +312,33 @@ impl RendererTrait for RendererImpl {
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
+    }
+
+    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+        unsafe {
+            let len = (w * h) as usize;
+            let mut data: Vec<u8> = Vec::with_capacity(len);
+            data.set_len(len);
+            gl::ReadPixels(0, 0, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            data.into_boxed_slice()
+        }
+    }
+
+    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
+        unsafe {
+            let mut tex: GLuint = 0;
+            gl::GenTextures(1, &mut tex);
+            gl::BindTexture(gl::TEXTURE_2D, tex);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
+
+            todo!("Draw pixels to screen here");
+
+            //self.imp.swap_buffers();
+
+            //gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize]);
+        }
+        //self.draw_queue.clear();
+        //self.setup_frame(w as _, h as _);
     }
 
     fn draw_sprite(
@@ -571,13 +602,12 @@ impl RendererTrait for RendererImpl {
         // Finish drawing frame
         self.flush_queue();
 
-        // Start next frame
+        // Swap buffers
         unsafe {
             self.imp.swap_buffers();
-            gl::Viewport(0, 0, width as _, height as _);
-            gl::Scissor(0, 0, width as _, height as _);
-            gl::ClearColor(self.clear_colour.r as f32, self.clear_colour.g as f32, self.clear_colour.b as f32, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+
+        // Start next frame
+        self.setup_frame(width, height)
     }
 }

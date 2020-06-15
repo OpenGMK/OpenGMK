@@ -38,6 +38,9 @@ pub trait RendererTrait {
     fn flush_queue(&mut self);
     fn finish(&mut self, width: u32, height: u32);
 
+    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
+    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32);
+
     fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
@@ -242,6 +245,14 @@ impl Renderer {
         tile_end_y: Option<f64>,
     ) {
         self.0.draw_sprite_tiled(texture, x, y, xscale, yscale, colour, alpha, tile_end_x, tile_end_y)
+    }
+
+    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+        self.0.get_pixels(w, h)
+    }
+
+    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
+        self.0.draw_pixels(rgb, w, h)
     }
 
     pub fn flush_queue(&mut self) {
