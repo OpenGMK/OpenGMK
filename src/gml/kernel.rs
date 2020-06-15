@@ -6635,39 +6635,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function object_is_ancestor")
     }
 
-    pub fn object_set_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_sprite")
+    pub fn object_set_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, sprite_id) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.sprite_index = sprite_id);
+        Ok(Default::default())
     }
 
-    pub fn object_set_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_solid")
+    pub fn object_set_solid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, visible) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.visible = visible.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_visible")
+    pub fn object_set_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, visible) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.visible = visible.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_depth")
+    pub fn object_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, depth) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.depth = depth);
+        Ok(Default::default())
     }
 
-    pub fn object_set_persistent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_persistent")
+    pub fn object_set_persistent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, persistent) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.persistent = persistent.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_mask(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_mask")
+    pub fn object_set_mask(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, mask_id) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.mask_index = mask_id);
+        Ok(Default::default())
     }
 
-    pub fn object_set_parent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_parent")
+    pub fn object_set_parent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, parent) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.parent_index = parent);
+        Ok(Default::default())
     }
 
     pub fn object_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
