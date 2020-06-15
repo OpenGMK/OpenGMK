@@ -316,7 +316,7 @@ impl RendererTrait for RendererImpl {
 
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
-            let len = (w * h) as usize;
+            let len = (w * h * 3) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
             gl::ReadPixels(0, 0, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
