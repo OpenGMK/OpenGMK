@@ -1227,7 +1227,7 @@ impl Game {
         let mut game_mousex = 0;
         let mut game_mousey = 0;
 
-        let mut savestate: Option<tas::SaveState> = None;
+        let mut savestate: Option<Vec<u8>> = None;
 
         //let mut time_now = Instant::now();
         loop {
@@ -1300,13 +1300,14 @@ impl Game {
 
                     Event::KeyboardDown(input::Key::Q) => {
                         let t1 = std::time::Instant::now();
-                        savestate = Some(tas::SaveState::from(self));
+                        savestate = Some(bincode::serialize(&tas::SaveState::from(self))?);
                         println!("Saved in {:?}", t1.elapsed());
                     },
 
                     Event::KeyboardDown(input::Key::W) => {
                         if let Some(ss) = &savestate {
                             let t1 = std::time::Instant::now();
+                            let ss: tas::SaveState = bincode::deserialize(ss)?;
                             ss.clone().load_into(self);
                             println!("Loaded in {:?}", t1.elapsed());
                         } else {
