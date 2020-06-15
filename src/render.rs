@@ -253,14 +253,6 @@ impl Renderer {
     }
 }
 
-impl Default for Renderer {
-    // This only exists for cases where you want to replace the window later.
-    // Do NOT create a default window and attempt to use it.
-    fn default() -> Self {
-        unsafe { std::mem::zeroed() }
-    }
-}
-
 /// Multiply two mat4's together
 fn mat4mult(m1: [f32; 16], m2: [f32; 16]) -> [f32; 16] {
     [

@@ -17,14 +17,14 @@ const BBOX_DEFAULT: i32 = -100000;
 // Rust can't represent this many decimal places yet I think. In GM8 it's a TBYTE definition
 const PI: f64 = 3.1415926535897932380;
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum InstanceState {
     Active,
     Inactive,
     Deleted,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Instance {
     pub state: Cell<InstanceState>,
     pub id: Cell<ID>,
@@ -87,7 +87,7 @@ pub enum Field {
     Array(HashMap<u32, Value>),
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DummyFieldHolder {
     pub fields: HashMap<usize, Field>,
     pub vars: HashMap<InstanceVariable, Field>,

@@ -62,7 +62,7 @@ pub const MB_MIDDLE: u8 = 0x02;
 const KEY_COUNT: usize = 124;
 const MOUSE_BUTTON_COUNT: usize = 3;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InputManager {
     // Keyboard
     kb_held: BoolMap,
@@ -88,7 +88,7 @@ pub struct InputManager {
     mouse_scroll_down: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct BoolMap(Vec<bool>);
 
 impl BoolMap {

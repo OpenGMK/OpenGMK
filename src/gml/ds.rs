@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections};
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DataStructureManager<T> {
     map: collections::HashMap<i32, T>,
 }
@@ -11,17 +11,17 @@ pub struct DataStructureManager<T> {
 pub type Stack = Vec<Value>;
 pub type Queue = collections::VecDeque<Value>;
 pub type List = Vec<Value>;
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Map {
     pub keys: Vec<Value>, // should be pre-sorted
     pub values: Vec<Value>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Priority {
     pub priorities: Vec<Value>,
     pub values: Vec<Value>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Grid {
     grid: Vec<Vec<Value>>,
     height: usize, // if width is 0, this is inaccessible otherwise

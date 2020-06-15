@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 use token::Operator;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Compiler {
     /// List of identifiers which represent const values
     constants: HashMap<String, Value>,

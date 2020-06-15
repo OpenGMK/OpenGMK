@@ -54,10 +54,8 @@ use std::{
 use string::RCStr;
 
 /// Structure which contains all the components of a game.
-#[derive(Serialize, Deserialize)]
 pub struct Game {
     pub compiler: Compiler,
-    #[serde(skip)]
     pub file_manager: FileManager,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
@@ -67,7 +65,6 @@ pub struct Game {
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
 
-    #[serde(skip)]
     pub renderer: Renderer,
 
     pub last_instance_id: ID,
@@ -122,7 +119,6 @@ pub struct Game {
     pub game_id: i32,
     pub program_directory: RCStr,
     pub gm_version: Version,
-    #[serde(skip)]
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
 
     // window caption
@@ -130,7 +126,6 @@ pub struct Game {
     pub caption_stale: bool,
 
     // winit windowing
-    #[serde(skip)]
     pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     unscaled_width: u32,
@@ -146,14 +141,14 @@ pub enum Version {
 }
 
 /// Various different types of scene change which can be requested by GML
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
 pub enum SceneChange {
     Room(ID), // Go to the specified room
     Restart,  // Restart the game and go to the first room
     End,      // End the game
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
@@ -1232,6 +1227,8 @@ impl Game {
         let mut game_mousex = 0;
         let mut game_mousey = 0;
 
+        let mut savestate: Option<tas::SaveState> = None;
+
         //let mut time_now = Instant::now();
         loop {
             for event in self.window.process_events().copied() {
@@ -1300,6 +1297,23 @@ impl Game {
                         }
                         break
                     },
+
+                    Event::KeyboardDown(input::Key::Q) => {
+                        let t1 = std::time::Instant::now();
+                        savestate = Some(tas::SaveState::from(self));
+                        println!("Saved in {:?}", t1.elapsed());
+                    },
+
+                    Event::KeyboardDown(input::Key::W) => {
+                        if let Some(ss) = &savestate {
+                            let t1 = std::time::Instant::now();
+                            ss.clone().load_into(self);
+                            println!("Loaded in {:?}", t1.elapsed());
+                        } else {
+                            println!("Nothing to load");
+                        }
+                    },
+
                     _ => (),
                 }
             }

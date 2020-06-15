@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Object {
     pub name: RCStr,
     pub solid: bool,

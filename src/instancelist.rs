@@ -25,6 +25,7 @@ const CHUNK_SIZE: usize = 256;
 type ChunkArray<T> = [Option<T>; CHUNK_SIZE];
 
 /// Slab-like fixed size memory chunk with standard vacant/occupied system.
+#[derive(Clone)]
 struct Chunk<T> {
     slots: Box<ChunkArray<T>>,
     vacant: usize,
@@ -34,6 +35,7 @@ struct Chunk<T> {
 static CHUNKS_PREALLOCATED: usize = 8;
 
 /// Growable container managing allocated Chunks.
+#[derive(Clone)]
 struct ChunkList<T>(Vec<Chunk<T>>);
 
 impl<T> Chunk<T> {
@@ -151,7 +153,7 @@ fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
     })
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
     insert_order: Vec<usize>,
@@ -348,7 +350,7 @@ impl InstanceList {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TileList {
     chunks: ChunkList<Tile>,
     insert_order: Vec<usize>,

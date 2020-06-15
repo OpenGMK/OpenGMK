@@ -1,7 +1,7 @@
 use crate::{game::string::RCStr, render::AtlasRef};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Sprite {
     pub name: RCStr,
     pub frames: Vec<Frame>,
@@ -17,14 +17,14 @@ pub struct Sprite {
     pub bbox_bottom: u32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,
     pub atlas_ref: AtlasRef,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Collider {
     pub width: u32,
     pub height: u32,

@@ -176,14 +176,6 @@ impl Window {
     }
 }
 
-impl Default for Window {
-    // This only exists for cases where you want to replace the window later.
-    // Do NOT create a default window and attempt to use it.
-    fn default() -> Self {
-        unsafe { std::mem::zeroed() }
-    }
-}
-
 pub struct WindowBuilder {
     cursor: Cursor,
     size: (u32, u32),
