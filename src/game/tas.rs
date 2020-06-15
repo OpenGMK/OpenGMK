@@ -1,7 +1,7 @@
 use crate::{
     asset::font::Font,
     game::{
-        background, draw,
+        background, draw, particle,
         string::RCStr,
         view::View,
         window::{Window, WindowBuilder},
@@ -72,6 +72,9 @@ pub struct SaveState {
     pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
+
+    pub particle_systems: Vec<Option<Box<particle::System>>>,
+    pub particle_types: Vec<Option<Box<particle::ParticleType>>>,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -148,6 +151,8 @@ impl SaveState {
             view_current: game.view_current.clone(),
             views: game.views.clone(),
             backgrounds: game.backgrounds.clone(),
+            particle_systems: game.particle_systems.clone(),
+            particle_types: game.particle_types.clone(),
             room_id: game.room_id.clone(),
             room_width: game.room_width.clone(),
             room_height: game.room_height.clone(),
@@ -212,6 +217,8 @@ impl SaveState {
         game.view_current = self.view_current;
         game.views = self.views;
         game.backgrounds = self.backgrounds;
+        game.particle_systems = self.particle_systems;
+        game.particle_types = self.particle_types;
         game.room_id = self.room_id;
         game.room_width = self.room_width;
         game.room_height = self.room_height;
