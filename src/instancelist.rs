@@ -107,7 +107,10 @@ impl<T> ChunkList<T> {
     fn remove(&mut self, idx: usize) {
         let idx_div = idx / CHUNK_SIZE;
         let idx_mod = idx % CHUNK_SIZE;
-        self.0.get_mut(idx_div).map(|chunk| chunk.slots[idx_mod] = None);
+        self.0.get_mut(idx_div).map(|chunk| {
+            chunk.slots[idx_mod] = None;
+            chunk.vacant += 1;
+        });
     }
 
     fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) {
