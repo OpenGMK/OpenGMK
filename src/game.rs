@@ -2,6 +2,8 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod movement;
+pub mod string;
+pub mod tas;
 pub mod view;
 pub mod window;
 
@@ -29,7 +31,7 @@ use crate::{
         rand::Random,
         Compiler, Context,
     },
-    input::InputManager,
+    input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
@@ -39,8 +41,8 @@ use crate::{
     types::{Colour, ID},
     util,
 };
-use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -49,6 +51,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use string::RCStr;
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -57,11 +60,12 @@ pub struct Game {
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
-    pub renderer: Renderer,
     pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
+
+    pub renderer: Renderer,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -103,22 +107,22 @@ pub struct Game {
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
-    pub score_capt: Rc<str>,   // default "Score: "
+    pub score_capt: RCStr,     // default "Score: "
     pub score_capt_d: bool,    // display in caption?
     pub lives: i32,            // default -1
-    pub lives_capt: Rc<str>,   // default "Lives: "
+    pub lives_capt: RCStr,     // default "Lives: "
     pub lives_capt_d: bool,    // display in caption?
     pub health: Real,          // default 100.0
-    pub health_capt: Rc<str>,  // default "Health: "
+    pub health_capt: RCStr,    // default "Health: "
     pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
-    pub program_directory: Rc<str>,
-    pub gm_version: GameVersion,
-    pub open_ini: Option<(ini::Ini, Rc<str>)>, // keep the filename for writing
+    pub program_directory: RCStr,
+    pub gm_version: Version,
+    pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
 
     // window caption
-    pub caption: Rc<str>,
+    pub caption: RCStr,
     pub caption_stale: bool,
 
     // winit windowing
@@ -129,7 +133,14 @@ pub struct Game {
     unscaled_height: u32,
 }
 
-// Various different types of scene change which can be requested by GML
+/// Enum indicating which GameMaker version a game was built with
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Version {
+    GameMaker8_0,
+    GameMaker8_1,
+}
+
+/// Various different types of scene change which can be requested by GML
 #[derive(Clone, Copy)]
 pub enum SceneChange {
     Room(ID), // Go to the specified room
@@ -137,6 +148,7 @@ pub enum SceneChange {
     End,      // End the game
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
@@ -151,7 +163,7 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn launch(assets: gm8exe::GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
         file_path2.pop();
@@ -164,12 +176,12 @@ impl Game {
             param_string = param_string.trim_start_matches("\\\\?\\");
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
-        // TODO: store these as Rc<str> probably?
+        // TODO: store these as RCStr probably?
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
         // Destructure assets
-        let GameAssets {
+        let gm8exe::GameAssets {
             game_id,
             backgrounds,
             constants,
@@ -190,6 +202,11 @@ impl Game {
             version,
             ..
         } = assets;
+
+        let gm_version = match version {
+            gm8exe::GameVersion::GameMaker8_0 => Version::GameMaker8_0,
+            gm8exe::GameVersion::GameMaker8_1 => Version::GameMaker8_1,
+        };
 
         // If there are no rooms, you can't build a GM8 game. Fatal error.
         // We need a lot of the initialization info from the first room,
@@ -377,7 +394,7 @@ impl Game {
                                     .ok_or(())?,
                             })
                         })
-                        .collect::<Result<Rc<_>, ()>>()?;
+                        .collect::<Result<Box<_>, ()>>()?;
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -800,7 +817,7 @@ impl Game {
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             program_directory: program_directory.into(),
-            gm_version: version,
+            gm_version,
             open_ini: None,
             caption: "".to_string().into(),
             caption_stale: false,
@@ -1152,7 +1169,7 @@ impl Game {
             }
             self.window.set_title(&caption);
         } else {
-            self.window.set_title(&self.caption);
+            self.window.set_title(self.caption.as_ref());
         }
 
         Ok(())
@@ -1167,6 +1184,7 @@ impl Game {
                 match event {
                     Event::KeyboardDown(key) => self.input_manager.key_press(key),
                     Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                    Event::MenuOption(_) => (),
                     Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
                     Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
                     Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
@@ -1197,6 +1215,112 @@ impl Game {
                 time_now += duration;
             } else {
                 time_now = Instant::now();
+            }
+        }
+    }
+
+    // Create a TAS for this game
+    pub fn record(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use window::Event;
+
+        let mut panel = tas::ControlPanel::new()?;
+        let mut game_mousex = 0;
+        let mut game_mousey = 0;
+
+        let mut savestate: Option<Vec<u8>> = None;
+
+        //let mut time_now = Instant::now();
+        loop {
+            for event in self.window.process_events().copied() {
+                match event {
+                    Event::MouseMove(x, y) => {
+                        game_mousex = x;
+                        game_mousey = y;
+                    },
+
+                    Event::MouseButtonUp(input::MouseButton::Right) => {
+                        let mut options: Vec<(String, usize)> = Vec::new();
+                        let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
+                        let mut iter = self.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.instance_list) {
+                            let instance = self.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            if instance.visible.get()
+                                && x >= instance.bbox_left.get()
+                                && x <= instance.bbox_right.get()
+                                && y >= instance.bbox_top.get()
+                                && y <= instance.bbox_bottom.get()
+                            {
+                                let id = instance.id.get();
+                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => format!("{} ({})\0", obj.name, id.to_string()),
+                                    None => format!("<deleted object> ({})\0", id.to_string()),
+                                };
+                                options.push((description, id as usize));
+                            }
+                        }
+                        self.window.show_context_menu(&options);
+                        break
+                    },
+
+                    Event::MenuOption(id) => {
+                        if let Some(handle) = self.instance_list.get_by_instid(id as _) {
+                            let instance = self.instance_list.get(handle);
+                            println!(
+                                "Requested info for instance #{} (object \"{}\"; x={} y={})",
+                                id,
+                                match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => obj.name.as_ref(),
+                                    None => "<deleted object>",
+                                },
+                                instance.x.get(),
+                                instance.y.get(),
+                            );
+                        } else {
+                            println!("Requested info for instance #{} [non-existent or deleted]", id);
+                        }
+                    },
+
+                    _ => (),
+                }
+            }
+
+            for event in panel.window.process_events().copied() {
+                match event {
+                    Event::KeyboardDown(input::Key::Space) => {
+                        self.frame()?;
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+                            None => (),
+                        }
+                        break
+                    },
+
+                    Event::KeyboardDown(input::Key::Q) => {
+                        let t1 = std::time::Instant::now();
+                        savestate = Some(bincode::serialize(&tas::SaveState::from(self))?);
+                        println!("Saved in {:?}", t1.elapsed());
+                    },
+
+                    Event::KeyboardDown(input::Key::W) => {
+                        if let Some(ss) = &savestate {
+                            let t1 = std::time::Instant::now();
+                            let ss: tas::SaveState = bincode::deserialize(ss)?;
+                            ss.clone().load_into(self);
+                            println!("Loaded in {:?}", t1.elapsed());
+                        } else {
+                            println!("Nothing to load");
+                        }
+                    },
+
+                    _ => (),
+                }
+            }
+
+            if panel.window.close_requested() || self.window.close_requested() {
+                break Ok(())
             }
         }
     }
@@ -1253,24 +1377,17 @@ impl Game {
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_location();
-        let x = x as i32;
-        let y = y as i32;
-        if self.views_enabled {
-            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
-                Some(view) => view.transform_point(x, y),
-                None => match self.views.iter().find(|view| view.visible) {
-                    Some(view) => view.transform_point(x, y),
-                    None => (x, y),
-                },
-            }
-        } else {
-            (x, y)
-        }
+        self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_previous_location();
+        self.translate_screen_to_room(x, y)
+    }
+
+    // Translates screen coordinates to room coordinates
+    pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
         let x = x as i32;
         let y = y as i32;
         if self.views_enabled {

@@ -9,6 +9,7 @@ use std::any::Any;
 pub use crate::atlas::AtlasRef;
 
 pub struct Renderer(Box<dyn RendererTrait>);
+
 pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
@@ -36,6 +37,9 @@ pub trait RendererTrait {
     );
     fn flush_queue(&mut self);
     fn finish(&mut self, width: u32, height: u32);
+
+    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
+    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32);
 
     fn draw_sprite_partial(
         &mut self,
@@ -241,6 +245,14 @@ impl Renderer {
         tile_end_y: Option<f64>,
     ) {
         self.0.draw_sprite_tiled(texture, x, y, xscale, yscale, colour, alpha, tile_end_x, tile_end_y)
+    }
+
+    pub fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+        self.0.get_pixels(w, h)
+    }
+
+    pub fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
+        self.0.draw_pixels(rgb, w, h)
     }
 
     pub fn flush_queue(&mut self) {

@@ -18,9 +18,10 @@ pub use sprite::Sprite;
 pub use timeline::Timeline;
 pub use trigger::Trigger;
 
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Type {
     Background,
     Font,

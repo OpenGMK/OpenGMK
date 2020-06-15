@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::convert::identity;
 
 // We put the WINAPI constants here because gamemaker GML works with them and needs them :l
@@ -61,11 +62,12 @@ pub const MB_MIDDLE: u8 = 0x02;
 const KEY_COUNT: usize = 124;
 const MOUSE_BUTTON_COUNT: usize = 3;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InputManager {
     // Keyboard
-    kb_held: [bool; KEY_COUNT],
-    kb_pressed: [bool; KEY_COUNT],
-    kb_released: [bool; KEY_COUNT],
+    kb_held: BoolMap,
+    kb_pressed: BoolMap,
+    kb_released: BoolMap,
     kb_lshift: bool,
     kb_rshift: bool,
     kb_lctrl: bool,
@@ -79,19 +81,56 @@ pub struct InputManager {
     mouse_y: f64,
     mouse_x_previous: f64,
     mouse_y_previous: f64,
-    mouse_held: [bool; MOUSE_BUTTON_COUNT],
-    mouse_pressed: [bool; MOUSE_BUTTON_COUNT],
-    mouse_released: [bool; MOUSE_BUTTON_COUNT],
+    mouse_held: BoolMap,
+    mouse_pressed: BoolMap,
+    mouse_released: BoolMap,
     mouse_scroll_up: bool,
     mouse_scroll_down: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct BoolMap(Vec<bool>);
+
+impl BoolMap {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self(Vec::with_capacity(cap))
+    }
+
+    pub fn get(&self, index: usize) -> bool {
+        self.0.get(index).copied().unwrap_or(false)
+    }
+
+    pub fn set(&mut self, index: usize, value: bool) {
+        match self.0.get_mut(index) {
+            Some(b) => *b = value,
+            None => {
+                while self.0.len() < index {
+                    self.0.push(false);
+                }
+                self.0.push(value);
+            },
+        }
+    }
+
+    pub fn any(&self) -> bool {
+        self.0.iter().copied().any(identity)
+    }
+
+    pub fn clear(&mut self) {
+        self.0.iter_mut().for_each(|b| *b = false)
+    }
+}
+
 impl InputManager {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            kb_held: [false; KEY_COUNT],
-            kb_pressed: [false; KEY_COUNT],
-            kb_released: [false; KEY_COUNT],
+            kb_held: BoolMap::with_capacity(KEY_COUNT),
+            kb_pressed: BoolMap::with_capacity(KEY_COUNT),
+            kb_released: BoolMap::with_capacity(KEY_COUNT),
             kb_lshift: false,
             kb_rshift: false,
             kb_lctrl: false,
@@ -103,9 +142,9 @@ impl InputManager {
             mouse_y: 0.0,
             mouse_x_previous: 0.0,
             mouse_y_previous: 0.0,
-            mouse_held: [false; MOUSE_BUTTON_COUNT],
-            mouse_pressed: [false; MOUSE_BUTTON_COUNT],
-            mouse_released: [false; MOUSE_BUTTON_COUNT],
+            mouse_held: BoolMap::with_capacity(MOUSE_BUTTON_COUNT),
+            mouse_pressed: BoolMap::with_capacity(MOUSE_BUTTON_COUNT),
+            mouse_released: BoolMap::with_capacity(MOUSE_BUTTON_COUNT),
             mouse_scroll_up: false,
             mouse_scroll_down: false,
         }
@@ -115,11 +154,9 @@ impl InputManager {
     pub fn key_press(&mut self, key: Key) {
         // self.kb_handle_direct(key, true);
         let code = key as usize;
-        if code < KEY_COUNT {
-            if !self.kb_held[code] {
-                self.kb_held[code] = true;
-                self.kb_pressed[code] = true;
-            }
+        if !self.kb_held.get(code) {
+            self.kb_held.set(code, true);
+            self.kb_pressed.set(code, true);
         }
     }
 
@@ -128,26 +165,26 @@ impl InputManager {
         // self.kb_handle_direct(key, false);
         let code = key as usize;
         if code < KEY_COUNT {
-            if self.kb_held[code] {
-                self.kb_held[code] = false;
-                self.kb_released[code] = true;
+            if self.kb_held.get(code) {
+                self.kb_held.set(code, false);
+                self.kb_released.set(code, true);
             }
         }
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check(&self, code: usize) -> bool {
-        self.kb_held.get(code).copied().unwrap_or(false)
+        self.kb_held.get(code)
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check_pressed(&self, code: usize) -> bool {
-        self.kb_pressed.get(code).copied().unwrap_or(false)
+        self.kb_pressed.get(code)
     }
 
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check_released(&self, code: usize) -> bool {
-        self.kb_released.get(code).copied().unwrap_or(false)
+        self.kb_released.get(code)
     }
 
     /// Checks if left shift is pressed (for compat with keyboard_check_direct)
@@ -182,17 +219,17 @@ impl InputManager {
 
     /// Checks if any keyboard key is held
     pub fn key_check_any(&self) -> bool {
-        self.kb_held.iter().copied().any(identity)
+        self.kb_held.any()
     }
 
     /// Checks if any keyboard key was pressed
     pub fn key_check_any_pressed(&self) -> bool {
-        self.kb_pressed.iter().copied().any(identity)
+        self.kb_pressed.any()
     }
 
     /// Checks if any keyboard key was released
     pub fn key_check_any_released(&self) -> bool {
-        self.kb_released.iter().copied().any(identity)
+        self.kb_released.any()
     }
 
     /// Checks if the spoofed numlock is pressed
@@ -215,18 +252,18 @@ impl InputManager {
     /// Informs the input manager that a mouse button has been pressed
     pub fn mouse_press(&mut self, button: MouseButton) {
         let code = button as usize;
-        if code < MOUSE_BUTTON_COUNT {
-            self.mouse_pressed[code] = true;
-            self.mouse_held[code] = true;
+        if !self.mouse_held.get(code) {
+            self.mouse_pressed.set(code, true);
+            self.mouse_held.set(code, true);
         }
     }
 
     /// Informs the input manager that a mouse button has been released
     pub fn mouse_release(&mut self, button: MouseButton) {
         let code = button as usize;
-        if code < MOUSE_BUTTON_COUNT {
-            self.mouse_released[code] = true;
-            self.mouse_held[code] = false;
+        if self.mouse_held.get(code) {
+            self.mouse_released.set(code, true);
+            self.mouse_held.set(code, false);
         }
     }
 
@@ -254,17 +291,17 @@ impl InputManager {
 
     /// Checks if a mouse button is currently held
     pub fn mouse_check(&self, button: MouseButton) -> bool {
-        self.mouse_held.get(button as usize).copied().unwrap_or(false)
+        self.mouse_held.get(button as usize)
     }
 
     /// Checks if a mouse button is currently held
     pub fn mouse_check_pressed(&self, button: MouseButton) -> bool {
-        self.mouse_pressed.get(button as usize).copied().unwrap_or(false)
+        self.mouse_pressed.get(button as usize)
     }
 
     /// Checks if a mouse button is currently held
     pub fn mouse_check_released(&self, button: MouseButton) -> bool {
-        self.mouse_released.get(button as usize).copied().unwrap_or(false)
+        self.mouse_released.get(button as usize)
     }
 
     /// Checks if the mouse wheel was scrolled up on this frame
@@ -279,26 +316,26 @@ impl InputManager {
 
     /// Checks if any mouse button is held
     pub fn mouse_check_any(&self) -> bool {
-        self.mouse_held.iter().copied().any(identity)
+        self.mouse_held.any()
     }
 
     /// Checks if any mouse button was pressed
     pub fn mouse_check_any_pressed(&self) -> bool {
-        self.mouse_pressed.iter().copied().any(identity)
+        self.mouse_pressed.any()
     }
 
     /// Checks if any mouse button is held
     pub fn mouse_check_any_released(&self) -> bool {
-        self.mouse_released.iter().copied().any(identity)
+        self.mouse_released.any()
     }
 
     /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
     /// Should be called in between each frame.
     pub fn clear_presses(&mut self) {
-        self.kb_pressed.iter_mut().for_each(|x| *x = false);
-        self.kb_released.iter_mut().for_each(|x| *x = false);
-        self.mouse_pressed.iter_mut().for_each(|x| *x = false);
-        self.mouse_released.iter_mut().for_each(|x| *x = false);
+        self.kb_pressed.clear();
+        self.kb_released.clear();
+        self.mouse_pressed.clear();
+        self.mouse_released.clear();
     }
 
     /// Updates previous mouse position to be the current one

@@ -2,7 +2,9 @@
 //!
 //! The modulus is 32, the increment & multiplier are exposed in constants.
 
-#[derive(Clone, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Random(i32);
 
 /// Increment value in the LCG algorithm.

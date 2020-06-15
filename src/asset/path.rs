@@ -1,8 +1,9 @@
-use crate::math::Real;
-use std::rc::Rc;
+use crate::{game::string::RCStr, math::Real};
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Path {
-    pub name: Rc<str>,
+    pub name: RCStr,
     pub points: Vec<Point>,
     pub control_nodes: Vec<ControlNode>,
     pub length: Real,
@@ -13,14 +14,14 @@ pub struct Path {
     pub end: Point,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Serialize, Deserialize)]
 pub struct Point {
     pub x: Real,
     pub y: Real,
     pub speed: Real,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct ControlNode {
     pub point: Point,
     pub distance: Real,

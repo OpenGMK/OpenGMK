@@ -24,17 +24,18 @@ use winapi::{
         errhandlingapi::GetLastError,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
-            AdjustWindowRect, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
-            GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, LoadImageW, PeekMessageW, RegisterClassExW,
-            ReleaseCapture, SetCapture, SetCursor, SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow,
-            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA,
-            GWL_STYLE, HWND_TOP, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW,
-            IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MSG,
-            PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE,
-            TRACKMOUSEEVENT, WM_CLOSE, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
-            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
-            WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP,
-            WS_SYSMENU, WS_THICKFRAME,
+            AdjustWindowRect, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+            GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, InsertMenuA, LoadImageW, PeekMessageW,
+            RegisterClassExW, ReleaseCapture, SetCapture, SetCursor, SetForegroundWindow, SetWindowLongPtrW,
+            SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu, TranslateMessage, UnregisterClassW,
+            COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP, IDC_APPSTARTING,
+            IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE,
+            IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION, MF_STRING, MSG, PM_REMOVE,
+            SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE, TPM_LEFTALIGN,
+            TPM_TOPALIGN, TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN,
+            WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN,
+            WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
+            WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -378,6 +379,19 @@ impl WindowTrait for WindowImpl {
         }
     }
 
+    fn show_context_menu(&mut self, options: &[(String, usize)]) {
+        unsafe {
+            let menu = CreatePopupMenu();
+            for (description, id) in options.iter() {
+                InsertMenuA(menu, 0, MF_BYPOSITION | MF_STRING, *id as _, description.as_ptr().cast());
+            }
+            SetForegroundWindow(self.hwnd);
+            let mut pos: winapi::shared::windef::POINT = std::mem::zeroed();
+            GetCursorPos(&mut pos);
+            TrackPopupMenu(menu, TPM_TOPALIGN | TPM_LEFTALIGN, pos.x, pos.y, 0, self.hwnd, std::ptr::null());
+        }
+    }
+
     fn window_handle(&self) -> usize {
         self.hwnd as _
     }
@@ -550,6 +564,12 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
                 SetCursor(ptr::null_mut());
             }
             return TRUE as LRESULT
+        },
+
+        WM_COMMAND => {
+            if let Some(window_data) = hwnd_windowdata(hwnd) {
+                window_data.events.push(Event::MenuOption(wparam as usize));
+            }
         },
 
         _ => (),

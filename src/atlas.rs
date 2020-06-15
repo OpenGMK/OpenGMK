@@ -1,4 +1,5 @@
 use rect_packer::DensePacker;
+use serde::{Deserialize, Serialize};
 
 #[inline]
 fn next_pow2(n: i32) -> i32 {
@@ -11,7 +12,7 @@ pub struct AtlasBuilder {
     textures: Vec<(AtlasRef, Box<[u8]>)>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub struct AtlasRef {
     pub atlas_id: u32,

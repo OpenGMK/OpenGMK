@@ -1,7 +1,8 @@
 use crate::{math::Real, util};
+use serde::{Deserialize, Serialize};
 
 /// An instance of a view in a room
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct View {
     /// Whether to draw this view
     pub visible: bool,

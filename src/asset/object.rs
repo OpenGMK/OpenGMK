@@ -1,12 +1,14 @@
-use crate::action::Tree;
+use crate::{action::Tree, game::string::RCStr};
+use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     rc::Rc,
 };
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Object {
-    pub name: Rc<str>,
+    pub name: RCStr,
     pub solid: bool,
     pub visible: bool,
     pub persistent: bool,
