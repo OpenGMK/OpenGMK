@@ -180,6 +180,9 @@ impl RendererImpl {
             // Use program
             gl::UseProgram(program);
 
+            // Configure gl::ReadPixels() to read from the front buffer
+            gl::ReadBuffer(gl::FRONT);
+
             // Create Renderer
             let mut renderer = Self {
                 background_colour: None,
