@@ -4,7 +4,9 @@ use crate::{
     math::Real,
     render::Renderer,
 };
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParticleType {
     pub graphic: ParticleGraphic,
     pub size_min: Real,
@@ -41,11 +43,13 @@ pub struct ParticleType {
     pub additive_blending: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParticleGraphic {
     Sprite { sprite: i32, animat: bool, stretch: bool, random: bool },
     Shape(i32),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParticleColor {
     One(i32),
     Two(i32, i32),
@@ -67,6 +71,7 @@ fn color_lerp(c1: i32, c2: i32, lerp: Real) -> i32 {
     r | (g << 8) | (b << 16)
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Particle {
     ptype: i32,
     timer: i32,
@@ -85,6 +90,7 @@ pub struct Particle {
     random_start: i32,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct System {
     pub particles: Vec<Particle>,
     pub emitters: Vec<Option<Emitter>>,
@@ -100,6 +106,7 @@ pub struct System {
     pub auto_draw: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Attractor {
     pub x: Real,
     pub y: Real,
@@ -109,13 +116,14 @@ pub struct Attractor {
     pub additive: bool,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ForceKind {
     Constant,
     Linear,
     Quadratic,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Changer {
     pub xmin: Real,
     pub xmax: Real,
@@ -127,12 +135,14 @@ pub struct Changer {
     pub kind: ChangerKind,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ChangerKind {
     Motion,
     Shape,
     All,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Deflector {
     pub xmin: Real,
     pub xmax: Real,
@@ -142,11 +152,13 @@ pub struct Deflector {
     pub friction: Real,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DeflectorKind {
     Horizontal,
     Vertical,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Destroyer {
     pub xmin: Real,
     pub xmax: Real,
@@ -155,6 +167,7 @@ pub struct Destroyer {
     pub shape: Shape,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Emitter {
     pub xmin: Real,
     pub xmax: Real,
@@ -166,7 +179,7 @@ pub struct Emitter {
     pub number: i32,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Distribution {
     Linear,
     Gaussian,
@@ -206,7 +219,7 @@ impl Distribution {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Shape {
     Rectangle,
     Ellipse,
