@@ -6672,8 +6672,25 @@ impl Game {
     }
 
     pub fn object_set_parent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (object_id, parent) = expect_args!(args, [int, int])?;
-        self.assets.objects.get_asset_mut(object_id).map(|o| o.parent_index = parent);
+        let (object_id, new_parent) = expect_args!(args, [int, int])?;
+        if let Some(object) = self.assets.objects.get_asset(object_id) {
+            // Remove object and all its children from old parents
+            let children = object.children.borrow();
+            let mut parent_index = object.parent_index;
+            while let Some(parent) = self.assets.objects.get_asset(parent_index) {
+                parent.children.borrow_mut().retain(|c| !children.contains(c));
+                parent_index = parent.parent_index;
+            }
+            // Add object and all its children to new parents
+            parent_index = new_parent;
+            while let Some(parent) = self.assets.objects.get_asset(parent_index) {
+                parent.children.borrow_mut().extend(children.iter());
+                parent_index = parent.parent_index;
+            }
+        }
+
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.parent_index = new_parent);
+        self.refresh_event_holders();
         Ok(Default::default())
     }
 
