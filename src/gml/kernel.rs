@@ -7239,6 +7239,7 @@ impl Game {
         let shape = match shape {
             1 => particle::Shape::Ellipse,
             2 => particle::Shape::Diamond,
+            3 => particle::Shape::Line,
             _ => particle::Shape::Rectangle,
         };
         let distr = match distr {
