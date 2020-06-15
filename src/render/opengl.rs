@@ -326,19 +326,49 @@ impl RendererTrait for RendererImpl {
 
     fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
         unsafe {
+            // MASSIVE TODO: PLEASE STOP ASSUMING W/H == WINDOW W/H
+            // also "draw_pixels" describes like 1 of the things it does
+
+            // store previous texture, upload new texture to gpu
+            let (mut prev_tex2d, mut prev_tex_multi) = (0, 0);
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            gl::GetIntegerv(gl::ACTIVE_TEXTURE, &mut prev_tex_multi);
             let mut tex: GLuint = 0;
             gl::GenTextures(1, &mut tex);
             gl::BindTexture(gl::TEXTURE_2D, tex);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
 
-            todo!("Draw pixels to screen here");
+            assert_eq!(gl::GetError(), 0);
 
-            //self.imp.swap_buffers();
+            // store read fbo
+            let mut prev_read_fbo: GLint = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
 
-            //gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize]);
+            // setup temp fbo
+            let mut fbo: GLuint = 0;
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+
+            // bind texture to fbo
+            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
+
+            // draw the damn thing
+            gl::BlitFramebuffer(0, 0, w, h, 0, 0, w, h, gl::COLOR_BUFFER_BIT, gl::NEAREST); // <- TODO applies here
+
+            assert_eq!(gl::GetError(), 0);
+
+            // cleanup
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
+            gl::ActiveTexture(prev_tex_multi as GLuint);
+            gl::DeleteFramebuffers(1, &fbo);
+            gl::DeleteTextures(1, &tex);
+
+            self.imp.swap_buffers();
         }
-        //self.draw_queue.clear();
-        //self.setup_frame(w as _, h as _);
+        self.draw_queue.clear();
+        self.setup_frame(w as _, h as _);
     }
 
     fn draw_sprite(
