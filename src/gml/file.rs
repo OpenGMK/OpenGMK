@@ -301,6 +301,12 @@ impl FileManager {
     }
 }
 
+impl Default for FileManager {
+    fn default() -> Self {
+        Self { handles: Default::default() }
+    }
+}
+
 pub fn file_exists(path: &str) -> bool {
     Path::new(path).is_file()
 }

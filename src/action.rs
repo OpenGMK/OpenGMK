@@ -8,6 +8,7 @@ use crate::{
     },
 };
 use gm8exe::asset::etc::CodeAction;
+use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 
 /// Consts which match those used in GM8
@@ -28,7 +29,7 @@ pub mod execution_type {
 }
 
 /// A drag-n-drop action.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Action {
     /// The original index of this action in its list, starting at 0
     pub index: usize,
@@ -49,11 +50,11 @@ pub struct Action {
 
 /// Abstraction for a tree of Actions
 /// Note that Vec is necessary here due to functions such as object_event_add and object_event_clear
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Tree(Vec<Action>);
 
 /// Body of an action, depending on the action kind.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Body {
     Normal {
         /// The arguments to be passed to the function or code body
@@ -75,11 +76,13 @@ pub enum Body {
     Exit,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum GmlBody {
-    Function(fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value>),
+    Function(gml::Function),
     Code(Rc<[Instruction]>),
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnType {
     Continue,
     Exit,
@@ -349,7 +352,7 @@ impl Game {
                             }
 
                             returned_value = match gml_body {
-                                GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
+                                GmlBody::Function(f) => f.call(self, &mut context, &arg_values[..args.len()])?,
                                 GmlBody::Code(code) => {
                                     context.arguments = arg_values;
                                     context.argument_count = args.len();
@@ -373,7 +376,9 @@ impl Game {
                                     }
 
                                     returned_value = match gml_body {
-                                        GmlBody::Function(f) => f(self, &mut context, &arg_values[..args.len()])?,
+                                        GmlBody::Function(f) => {
+                                            f.call(self, &mut context, &arg_values[..args.len()])?
+                                        },
                                         GmlBody::Code(code) => {
                                             context.arguments = arg_values;
                                             context.argument_count = args.len();

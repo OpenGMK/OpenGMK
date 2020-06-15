@@ -315,7 +315,7 @@ impl System {
         }
     }
 
-    pub fn draw(&self, renderer: &mut dyn Renderer, assets: &Assets, types: &dyn GetAsset<Box<ParticleType>>) {
+    pub fn draw(&self, renderer: &mut Renderer, assets: &Assets, types: &dyn GetAsset<Box<ParticleType>>) {
         // TODO set texture lerp on just for this function
         if self.draw_old_to_new {
             for particle in &self.particles {
@@ -578,7 +578,7 @@ impl Particle {
         &self,
         system_x: Real,
         system_y: Real,
-        renderer: &mut dyn Renderer,
+        renderer: &mut Renderer,
         assets: &Assets,
         types: &dyn GetAsset<Box<ParticleType>>,
     ) {
@@ -625,8 +625,8 @@ impl Particle {
         if let Some(atlas_ref) = atlas_ref {
             renderer.draw_sprite(
                 atlas_ref,
-                (system_x + self.x).round(),
-                (system_y + self.y).round(),
+                (system_x + self.x).into(),
+                (system_y + self.y).into(),
                 (ptype.xscale * size).into(),
                 (ptype.yscale * size).into(),
                 angle.into(),

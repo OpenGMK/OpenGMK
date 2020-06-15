@@ -4,11 +4,16 @@ use crate::{
     tile::Tile,
     types::ID,
 };
+use serde::{
+    de::{SeqAccess, Visitor},
+    ser::{SerializeSeq, SerializeStruct},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use std::{
     alloc,
     cell::RefCell,
     collections::{HashMap, HashSet},
-    ptr,
+    fmt, ptr,
     rc::Rc,
 };
 
@@ -20,6 +25,7 @@ const CHUNK_SIZE: usize = 256;
 type ChunkArray<T> = [Option<T>; CHUNK_SIZE];
 
 /// Slab-like fixed size memory chunk with standard vacant/occupied system.
+#[derive(Clone)]
 struct Chunk<T> {
     slots: Box<ChunkArray<T>>,
     vacant: usize,
@@ -29,6 +35,7 @@ struct Chunk<T> {
 static CHUNKS_PREALLOCATED: usize = 8;
 
 /// Growable container managing allocated Chunks.
+#[derive(Clone)]
 struct ChunkList<T>(Vec<Chunk<T>>);
 
 impl<T> Chunk<T> {
@@ -100,7 +107,10 @@ impl<T> ChunkList<T> {
     fn remove(&mut self, idx: usize) {
         let idx_div = idx / CHUNK_SIZE;
         let idx_mod = idx % CHUNK_SIZE;
-        self.0.get_mut(idx_div).map(|chunk| chunk.slots[idx_mod] = None);
+        self.0.get_mut(idx_div).map(|chunk| {
+            chunk.slots[idx_mod] = None;
+            chunk.vacant += 1;
+        });
     }
 
     fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) {
@@ -146,6 +156,7 @@ fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
     })
 }
 
+#[derive(Clone, Deserialize)]
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
     insert_order: Vec<usize>,
@@ -342,6 +353,7 @@ impl InstanceList {
     }
 }
 
+#[derive(Clone, Deserialize)]
 pub struct TileList {
     chunks: ChunkList<Tile>,
     insert_order: Vec<usize>,
@@ -402,6 +414,100 @@ impl TileList {
         self.insert_order.clear();
         self.draw_order.clear();
     }
+}
+
+impl<T> Serialize for ChunkList<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let count = self.0.iter().map(|x| x.slots.iter().flatten().count()).sum();
+        let mut seq = serializer.serialize_seq(Some(count))?;
+        for element in self.0.iter().map(|x| x.slots.iter()).flatten() {
+            if let Some(inst) = element {
+                seq.serialize_element(inst)?;
+            }
+        }
+        seq.end()
+    }
+}
+
+impl<'de, T> Deserialize<'de> for ChunkList<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct InstanceVisitor<T> {
+            phantom: std::marker::PhantomData<T>,
+        };
+
+        impl<'v, T> Visitor<'v> for InstanceVisitor<T>
+        where
+            T: Deserialize<'v>,
+        {
+            type Value = ChunkList<T>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'v>,
+            {
+                let mut list = ChunkList::new();
+
+                while let Some(instance) = seq.next_element::<T>()? {
+                    list.insert(instance);
+                }
+
+                Ok(list)
+            }
+        }
+
+        deserializer.deserialize_seq(InstanceVisitor::<T> { phantom: Default::default() })
+    }
+}
+
+impl Serialize for InstanceList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut list = serializer.serialize_struct("InstanceList", 4)?;
+        list.serialize_field("chunks", &self.chunks)?;
+        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
+        list.serialize_field("draw_order", &defrag(&self.draw_order))?;
+        list.serialize_field("id_map", &self.id_map)?;
+        list.end()
+    }
+}
+
+impl Serialize for TileList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut list = serializer.serialize_struct("TileList", 3)?;
+        list.serialize_field("chunks", &self.chunks)?;
+        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
+        list.serialize_field("draw_order", &defrag(&self.draw_order))?;
+        list.end()
+    }
+}
+
+fn defrag(list: &[usize]) -> Vec<usize> {
+    let mut output = Vec::with_capacity(list.len());
+    for i in list.iter() {
+        output.push(list.iter().copied().filter(|x| x < i).count())
+    }
+    output
 }
 
 // TODO: Maybe preallocating order/draw_order would increase perf - test this!

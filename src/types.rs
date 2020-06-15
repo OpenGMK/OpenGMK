@@ -18,6 +18,7 @@
 pub type ID = i32;
 
 // -- OLD STUFF --
+use serde::{Deserialize, Serialize};
 
 pub struct BoundingBox {
     pub width: u32,
@@ -31,7 +32,7 @@ pub struct BoundingBox {
 
 pub const RGB_RANGE: f64 = 255.0;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Colour {
     pub r: f64,
     pub g: f64,
@@ -97,17 +98,19 @@ impl From<Colour> for (u8, u8, u8) {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Dimensions {
     pub width: u32,
     pub height: u32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Rectangle {
     pub x: i32,
     pub y: i32,

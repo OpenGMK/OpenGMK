@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{Game, GetAsset, SceneChange},
+    game::{Game, GetAsset, SceneChange, Version},
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
@@ -9,11 +9,13 @@ use crate::{
     instance::{DummyFieldHolder, Field},
     math::Real,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
 const DEFAULT_ALARM: i32 = -1;
 
 /// A compiled runtime instruction. Generally represents a line of code.
+#[derive(Serialize, Deserialize)]
 pub enum Instruction {
     SetField { accessor: FieldAccessor, value: Node },
     SetVariable { accessor: VariableAccessor, value: Node },
@@ -31,20 +33,53 @@ pub enum Instruction {
 }
 
 /// Node representing one value in an expression.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Node {
     Literal { value: Value },
-    Function { args: Box<[Node]>, function: fn(&mut Game, &mut Context, &[Value]) -> gml::Result<Value> },
+    Function { args: Box<[Node]>, function: gml::Function },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
-    Binary { left: Box<Node>, right: Box<Node>, operator: fn(Value, Value) -> gml::Result<Value> },
-    Unary { child: Box<Node>, operator: fn(Value) -> gml::Result<Value> },
+    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator },
+    Unary { child: Box<Node>, operator: UnaryOperator },
     RuntimeError { error: Error },
 }
 
+/// Represents a compiled binary operator
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum BinaryOperator {
+    Add,
+    And,
+    BitwiseAnd,
+    BitwiseOr,
+    BinaryShiftLeft,
+    BinaryShiftRight,
+    BitwiseXor,
+    Divide,
+    Equal,
+    GreaterThan,
+    GreaterThanOrEqual,
+    IntDivide,
+    LessThan,
+    LessThanOrEqual,
+    Multiply,
+    Modulo,
+    NotEqual,
+    Or,
+    Subtract,
+    Xor,
+}
+
+/// Represents a compiled unary operator - does not include + as this isn't compiled
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum UnaryOperator {
+    Neg,
+    Not,
+    Complement,
+}
+
 /// The reason for stopping execution of the current function.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ReturnType {
     Normal,
     Continue,
@@ -53,7 +88,7 @@ pub enum ReturnType {
 }
 
 /// Represents an owned field which can either be read or set.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FieldAccessor {
     pub index: usize,
     pub array: ArrayAccessor,
@@ -61,7 +96,7 @@ pub struct FieldAccessor {
 }
 
 /// Represents an owned field which can either be read or set.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VariableAccessor {
     pub var: InstanceVariable,
     pub array: ArrayAccessor,
@@ -71,7 +106,7 @@ pub struct VariableAccessor {
 /// Represents an array accessor, which can be either 1D or 2D.
 /// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
 /// Anything beyond a 2D array results in a runtime error.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ArrayAccessor {
     None,
     Single(Box<Node>),
@@ -81,7 +116,7 @@ pub enum ArrayAccessor {
 /// Identifies an instance or multiple instances.
 /// If we know at compile time that this represents a magic value (self, other, global, local)
 /// then we can represent it that way in the tree and skip evaluating it during runtime.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InstanceIdentifier {
     Unknown,
     Own, // Can't call it Self, that's a Rust keyword. Yeah, I know, sorry.
@@ -91,7 +126,7 @@ pub enum InstanceIdentifier {
     Expression(Box<Node>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {
     EndOfRoomOrder,
     InvalidOperandsUnary(Operator, Value),
@@ -114,7 +149,7 @@ pub enum Error {
     UninitializedArgument(usize),
     TooManyArrayDimensions(usize),
     WrongArgumentCount(usize, usize),
-    FunctionError(&'static str, String),
+    FunctionError(String, String),
 }
 
 impl std::error::Error for Error {}
@@ -161,6 +196,7 @@ impl Display for Error {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum Target {
     Single(Option<usize>),
     Objects(i32),
@@ -208,6 +244,45 @@ impl fmt::Debug for Node {
             Node::Unary { child, operator: _ } => write!(f, "<unary: {:?}>", child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
+    }
+}
+
+impl BinaryOperator {
+    pub fn call(&self, lhs: Value, rhs: Value) -> gml::Result<Value> {
+        let f = match self {
+            Self::Add => Value::add,
+            Self::And => Value::bool_and,
+            Self::BitwiseAnd => Value::bitand,
+            Self::BitwiseOr => Value::bitor,
+            Self::BinaryShiftLeft => Value::shl,
+            Self::BinaryShiftRight => Value::shr,
+            Self::BitwiseXor => Value::bitxor,
+            Self::Divide => Value::div,
+            Self::Equal => Value::gml_eq,
+            Self::GreaterThan => Value::gml_gt,
+            Self::GreaterThanOrEqual => Value::gml_gte,
+            Self::IntDivide => Value::intdiv,
+            Self::LessThan => Value::gml_lt,
+            Self::LessThanOrEqual => Value::gml_lte,
+            Self::Multiply => Value::mul,
+            Self::Modulo => Value::modulo,
+            Self::NotEqual => Value::gml_ne,
+            Self::Or => Value::bool_or,
+            Self::Subtract => Value::sub,
+            Self::Xor => Value::bool_xor,
+        };
+        f(lhs, rhs)
+    }
+}
+
+impl UnaryOperator {
+    pub fn call(&self, value: Value) -> gml::Result<Value> {
+        let f = match self {
+            Self::Neg => Value::neg,
+            Self::Not => Value::not,
+            Self::Complement => Value::complement,
+        };
+        f(value)
     }
 }
 
@@ -458,7 +533,7 @@ impl Game {
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
-                function(self, context, &arg_values[..args.len()])
+                function.call(self, context, &arg_values[..args.len()])
             },
             Node::Script { args, script_id } => {
                 if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
@@ -658,8 +733,10 @@ impl Game {
                     },
                 }
             },
-            Node::Binary { left, right, operator } => operator(self.eval(left, context)?, self.eval(right, context)?),
-            Node::Unary { child, operator } => operator(self.eval(child, context)?),
+            Node::Binary { left, right, operator } => {
+                operator.call(self.eval(left, context)?, self.eval(right, context)?)
+            },
+            Node::Unary { child, operator } => operator.call(self.eval(child, context)?),
             Node::RuntimeError { error } => Err(error.clone()),
         }
     }
@@ -1003,8 +1080,8 @@ impl Game {
             InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
             InstanceVariable::GamemakerVersion => Ok(match self.gm_version {
                 // the docs claim these range from 800-809, 810-819. they don't.
-                gm8exe::GameVersion::GameMaker8_0 => 800f64.into(),
-                gm8exe::GameVersion::GameMaker8_1 => 810f64.into(),
+                Version::GameMaker8_0 => 800f64.into(),
+                Version::GameMaker8_1 => 810f64.into(),
             }),
             InstanceVariable::OsType => Ok(gml_constants::OS_WIN32.into()), // not on other OSes...
             InstanceVariable::OsDevice => Ok(gml_constants::DEVICE_IOS_IPHONE.into()), // default

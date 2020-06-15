@@ -2,6 +2,7 @@ use crate::{
     asset::trigger::TriggerTime,
     game::{Game, GetAsset},
     gml, input,
+    instance::Instance,
     types::ID,
 };
 
@@ -392,6 +393,18 @@ impl Game {
 
     /// Runs all outside room, intersect boundary, and outside/intersect view events.
     pub fn run_bound_events(&mut self) -> gml::Result<()> {
+        fn instance_outside_rect(i: &Instance, x1: i32, y1: i32, x2: i32, y2: i32) -> bool {
+            i.bbox_right.get() < x1 || i.bbox_bottom.get() < y1 || i.bbox_left.get() > x2 || i.bbox_top.get() > y2
+        }
+
+        fn point_outside_rect(x: f64, y: f64, x1: i32, y1: i32, x2: i32, y2: i32) -> bool {
+            (x.floor() as i32) < x1 || (y.floor() as i32) < y1 || (x.ceil() as i32) > x2 || (y.ceil() as i32 > y2)
+        }
+
+        fn instance_intersect_rect(i: &Instance, x1: i32, y1: i32, x2: i32, y2: i32) -> bool {
+            i.bbox_left.get() < x1 || i.bbox_top.get() < y1 || i.bbox_right.get() > x2 || i.bbox_bottom.get() > y2
+        }
+
         // Outside room events
         let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&0)) {
             Some(e) => e.clone(),
@@ -402,12 +415,22 @@ impl Game {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
                 let instance = self.instance_list.get(handle);
-                instance.update_bbox(self.get_instance_mask_sprite(handle));
-                if instance.bbox_right.get() < 0
-                    || instance.bbox_bottom.get() < 0
-                    || instance.bbox_left.get() > self.room_width
-                    || instance.bbox_top.get() > self.room_height
-                {
+                let mask = self.get_instance_mask_sprite(handle);
+
+                let outside = if mask.is_some() {
+                    instance.update_bbox(mask);
+                    instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
+                } else {
+                    point_outside_rect(
+                        instance.x.get().into(),
+                        instance.y.get().into(),
+                        0,
+                        0,
+                        self.room_width,
+                        self.room_height,
+                    )
+                };
+                if outside {
                     self.run_instance_event(gml::ev::OTHER, 0, handle, handle, None)?;
                 }
             }
@@ -424,12 +447,22 @@ impl Game {
             let mut iter = self.instance_list.iter_by_object(object_id);
             while let Some(handle) = iter.next(&self.instance_list) {
                 let instance = self.instance_list.get(handle);
-                instance.update_bbox(self.get_instance_mask_sprite(handle));
-                if instance.bbox_left.get() < 0
-                    || instance.bbox_top.get() < 0
-                    || instance.bbox_right.get() > self.room_width
-                    || instance.bbox_bottom.get() > self.room_height
-                {
+                let mask = self.get_instance_mask_sprite(handle);
+
+                let intersect = if mask.is_some() {
+                    instance.update_bbox(mask);
+                    instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
+                } else {
+                    point_outside_rect(
+                        instance.x.get().into(),
+                        instance.y.get().into(),
+                        0,
+                        0,
+                        self.room_width,
+                        self.room_height,
+                    )
+                };
+                if intersect {
                     self.run_instance_event(gml::ev::OTHER, 1, handle, handle, None)?;
                 }
             }
@@ -450,13 +483,29 @@ impl Game {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle);
-                    instance.update_bbox(self.get_instance_mask_sprite(handle));
+                    let mask = self.get_instance_mask_sprite(handle);
                     let view = &self.views[i];
-                    if instance.bbox_right.get() < view.source_x
-                        || instance.bbox_bottom.get() < view.source_y
-                        || instance.bbox_left.get() > view.source_x + view.source_w as i32
-                        || instance.bbox_top.get() > view.source_y + view.source_h as i32
-                    {
+
+                    let outside = if mask.is_some() {
+                        instance.update_bbox(mask);
+                        instance_outside_rect(
+                            instance,
+                            view.source_x,
+                            view.source_y,
+                            view.source_x + view.source_w as i32,
+                            view.source_y + view.source_h as i32,
+                        )
+                    } else {
+                        point_outside_rect(
+                            instance.x.get().into(),
+                            instance.y.get().into(),
+                            view.source_x,
+                            view.source_y,
+                            view.source_x + view.source_w as i32,
+                            view.source_y + view.source_h as i32,
+                        )
+                    };
+                    if outside {
                         self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
                     }
                 }
@@ -476,13 +525,29 @@ impl Game {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle);
-                    instance.update_bbox(self.get_instance_mask_sprite(handle));
+                    let mask = self.get_instance_mask_sprite(handle);
                     let view = &self.views[i];
-                    if instance.bbox_left.get() < view.source_x
-                        || instance.bbox_top.get() < view.source_y
-                        || instance.bbox_right.get() > view.source_x + view.source_w as i32
-                        || instance.bbox_bottom.get() > view.source_y + view.source_h as i32
-                    {
+
+                    let intersect = if mask.is_some() {
+                        instance.update_bbox(mask);
+                        instance_intersect_rect(
+                            instance,
+                            view.source_x,
+                            view.source_y,
+                            view.source_x + view.source_w as i32,
+                            view.source_y + view.source_h as i32,
+                        )
+                    } else {
+                        point_outside_rect(
+                            instance.x.get().into(),
+                            instance.y.get().into(),
+                            view.source_x,
+                            view.source_y,
+                            view.source_x + view.source_w as i32,
+                            view.source_y + view.source_h as i32,
+                        )
+                    };
+                    if intersect {
                         self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
                     }
                 }

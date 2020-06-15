@@ -3,6 +3,8 @@ pub mod draw;
 pub mod events;
 pub mod movement;
 pub mod particle;
+pub mod string;
+pub mod tas;
 pub mod view;
 pub mod window;
 
@@ -30,18 +32,18 @@ use crate::{
         rand::Random,
         Compiler, Context,
     },
-    input::InputManager,
+    input::{self, InputManager},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
-    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    render::{Renderer, RendererOptions},
     replay::{self, Replay},
     tile,
     types::{Colour, ID},
     util,
 };
-use gm8exe::{GameAssets, GameVersion};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -50,6 +52,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use string::RCStr;
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -58,11 +61,12 @@ pub struct Game {
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
-    pub renderer: Box<dyn Renderer>,
     pub input_manager: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
+
+    pub renderer: Renderer,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -107,21 +111,22 @@ pub struct Game {
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
-    pub score_capt: Rc<str>,   // default "Score: "
+    pub score_capt: RCStr,     // default "Score: "
     pub score_capt_d: bool,    // display in caption?
     pub lives: i32,            // default -1
-    pub lives_capt: Rc<str>,   // default "Lives: "
+    pub lives_capt: RCStr,     // default "Lives: "
     pub lives_capt_d: bool,    // display in caption?
     pub health: Real,          // default 100.0
-    pub health_capt: Rc<str>,  // default "Health: "
+    pub health_capt: RCStr,    // default "Health: "
     pub health_capt_d: bool,   // display in caption?
 
     pub game_id: i32,
-    pub program_directory: Rc<str>,
-    pub gm_version: GameVersion,
+    pub program_directory: RCStr,
+    pub gm_version: Version,
+    pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
 
     // window caption
-    pub caption: Rc<str>,
+    pub caption: RCStr,
     pub caption_stale: bool,
 
     // winit windowing
@@ -132,7 +137,14 @@ pub struct Game {
     unscaled_height: u32,
 }
 
-// Various different types of scene change which can be requested by GML
+/// Enum indicating which GameMaker version a game was built with
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum Version {
+    GameMaker8_0,
+    GameMaker8_1,
+}
+
+/// Various different types of scene change which can be requested by GML
 #[derive(Clone, Copy)]
 pub enum SceneChange {
     Room(ID), // Go to the specified room
@@ -140,6 +152,7 @@ pub enum SceneChange {
     End,      // End the game
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
     pub fonts: Vec<Option<Box<Font>>>,
@@ -154,7 +167,7 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn launch(assets: gm8exe::GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
         file_path2.pop();
@@ -167,17 +180,17 @@ impl Game {
             param_string = param_string.trim_start_matches("\\\\?\\");
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
-        // TODO: store these as Rc<str> probably?
+        // TODO: store these as RCStr probably?
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
         // Destructure assets
-        let GameAssets {
+        let gm8exe::GameAssets {
             game_id,
             backgrounds,
             constants,
             fonts,
-            icon_data,
+            icon_data: _,
             last_instance_id,
             last_tile_id,
             objects,
@@ -193,6 +206,11 @@ impl Game {
             version,
             ..
         } = assets;
+
+        let gm_version = match version {
+            gm8exe::GameVersion::GameMaker8_0 => Version::GameMaker8_0,
+            gm8exe::GameVersion::GameMaker8_1 => Version::GameMaker8_1,
+        };
 
         // If there are no rooms, you can't build a GM8 game. Fatal error.
         // We need a lot of the initialization info from the first room,
@@ -254,14 +272,8 @@ impl Game {
 
         // Set up a Renderer
         let options = RendererOptions {
-            title: &room1.caption,
             size: (room1_width, room1_height),
-            icons: icon_data.into_iter().map(|x| (x.bgra_data, x.width, x.height)).collect(),
-            global_clear_colour: settings.clear_colour.into(),
-            resizable: settings.allow_resize,
-            on_top: settings.window_on_top,
-            decorations: !settings.dont_draw_border,
-            fullscreen: settings.fullscreen,
+            clear_colour: settings.clear_colour.into(),
             vsync: settings.vsync, // TODO: Overrideable
         };
 
@@ -271,9 +283,9 @@ impl Game {
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
-        let mut renderer = OpenGLRenderer::new(options, &window)?;
+        let mut renderer = Renderer::new((), &options, &window)?;
 
-        let mut atlases = AtlasBuilder::new(renderer.max_gpu_texture_size() as _);
+        let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
@@ -386,7 +398,7 @@ impl Game {
                                     .ok_or(())?,
                             })
                         })
-                        .collect::<Result<Rc<_>, ()>>()?;
+                        .collect::<Result<Box<_>, ()>>()?;
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
@@ -440,7 +452,6 @@ impl Game {
                             mask_index: b.mask_index,
                             parent_index: b.parent_index,
                             events,
-                            identities: Rc::new(RefCell::new(HashSet::new())),
                             children: Rc::new(RefCell::new(HashSet::new())),
                         }))
                     })
@@ -450,21 +461,7 @@ impl Game {
 
             // Populate identity lists
             for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
-                object.identities.borrow_mut().insert(i as _);
                 object.children.borrow_mut().insert(i as _);
-                let mut parent_index = object.parent_index;
-                while parent_index >= 0 {
-                    object.identities.borrow_mut().insert(parent_index);
-                    if let Some(Some(parent)) = object_parents.get(parent_index as usize) {
-                        parent_index = *parent;
-                    } else {
-                        return Err(format!(
-                            "Invalid parent tree for object {}: non-existent object: {}",
-                            object.name, parent_index
-                        )
-                        .into())
-                    }
-                }
             }
             for (i, mut parent_index) in
                 object_parents.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, *x)))
@@ -692,8 +689,107 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
+        Self::fill_event_holders(&mut event_holders, &objects);
+
+        // Make list of objects with custom draw events
+        let custom_draw_objects =
+            event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+
+        renderer.push_atlases(atlases)?;
+
+        let mut game = Self {
+            compiler,
+            file_manager: FileManager::new(),
+            instance_list: InstanceList::new(),
+            tile_list: TileList::new(),
+            rand: Random::new(),
+            renderer: renderer,
+            input_manager: InputManager::new(),
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
+            event_holders,
+            custom_draw_objects,
+            views_enabled: false,
+            view_current: 0,
+            views: Vec::new(),
+            backgrounds: Vec::new(),
+            particle_systems: Vec::new(),
+            particle_types: Vec::new(),
+            room_id: room1_id,
+            room_width: room1_width as i32,
+            room_height: room1_height as i32,
+            room_order: room_order.into_boxed_slice(),
+            room_speed: room1_speed,
+            scene_change: None,
+            globals: DummyFieldHolder::new(),
+            globalvars: HashSet::new(),
+            game_start: true,
+            stacks: DataStructureManager::new(),
+            queues: DataStructureManager::new(),
+            lists: DataStructureManager::new(),
+            maps: DataStructureManager::new(),
+            priority_queues: DataStructureManager::new(),
+            grids: DataStructureManager::new(),
+            ds_precision: Real::from(0.00000001),
+            draw_font: None,
+            draw_font_id: -1,
+            draw_colour: Colour::new(0.0, 0.0, 0.0),
+            draw_alpha: Real::from(1.0),
+            draw_halign: draw::Halign::Left,
+            draw_valign: draw::Valign::Top,
+            last_instance_id,
+            last_tile_id,
+            uninit_fields_are_zero: settings.zero_uninitialized_vars,
+            uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            transition_kind: 0,
+            transition_steps: 80,
+            score: 0,
+            score_capt: "Score: ".to_string().into(),
+            lives: -1,
+            lives_capt: "Lives: ".to_string().into(),
+            health: Real::from(100.0),
+            health_capt: "Health: ".to_string().into(),
+            game_id: game_id as i32,
+            program_directory: program_directory.into(),
+            gm_version,
+            open_ini: None,
+            caption: "".to_string().into(),
+            caption_stale: false,
+            score_capt_d: false,
+            lives_capt_d: false,
+            health_capt_d: false,
+            window,
+
+            // load_room sets this
+            unscaled_width: 0,
+            unscaled_height: 0,
+        };
+
+        game.load_room(room1_id)?;
+        game.window.set_visible(true);
+
+        Ok(game)
+    }
+
+    pub fn refresh_event_holders(&mut self) {
+        // It might be better to not redo the entire holder list from scratch?
+
+        // Clear holder lists
+        for holder_list in self.event_holders.iter_mut() {
+            holder_list.clear();
+        }
+
+        // Refill holder lists
+        Self::fill_event_holders(&mut self.event_holders, &self.assets.objects);
+
+        // Make list of objects with custom draw events
+        self.custom_draw_objects =
+            self.event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+    }
+
+    fn fill_event_holders(event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>], objects: &Vec<Option<Box<Object>>>) {
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
@@ -751,84 +847,6 @@ impl Game {
                 list.borrow_mut().sort();
             }
         }
-
-        // Make list of objects with custom draw events
-        let custom_draw_objects =
-            event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
-
-        renderer.upload_atlases(atlases)?;
-
-        let mut game = Self {
-            compiler,
-            file_manager: FileManager::new(),
-            instance_list: InstanceList::new(),
-            tile_list: TileList::new(),
-            rand: Random::new(),
-            renderer: Box::new(renderer),
-            input_manager: InputManager::new(),
-            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
-            event_holders,
-            custom_draw_objects,
-            views_enabled: false,
-            view_current: 0,
-            views: Vec::new(),
-            backgrounds: Vec::new(),
-            particle_systems: Vec::new(),
-            particle_types: Vec::new(),
-            room_id: room1_id,
-            room_width: room1_width as i32,
-            room_height: room1_height as i32,
-            room_order: room_order.into_boxed_slice(),
-            room_speed: room1_speed,
-            scene_change: None,
-            globals: DummyFieldHolder::new(),
-            globalvars: HashSet::new(),
-            game_start: true,
-            stacks: DataStructureManager::new(),
-            queues: DataStructureManager::new(),
-            lists: DataStructureManager::new(),
-            maps: DataStructureManager::new(),
-            priority_queues: DataStructureManager::new(),
-            grids: DataStructureManager::new(),
-            ds_precision: Real::from(0.00000001),
-            draw_font: None,
-            draw_font_id: -1,
-            draw_colour: Colour::new(0.0, 0.0, 0.0),
-            draw_alpha: Real::from(1.0),
-            draw_halign: draw::Halign::Left,
-            draw_valign: draw::Valign::Top,
-            last_instance_id,
-            last_tile_id,
-            uninit_fields_are_zero: settings.zero_uninitialized_vars,
-            uninit_args_are_zero: !settings.error_on_uninitialized_args,
-            transition_kind: 0,
-            transition_steps: 80,
-            score: 0,
-            score_capt: "Score: ".to_string().into(),
-            lives: -1,
-            lives_capt: "Lives: ".to_string().into(),
-            health: Real::from(100.0),
-            health_capt: "Health: ".to_string().into(),
-            game_id: game_id as i32,
-            program_directory: program_directory.into(),
-            gm_version: version,
-            caption: "".to_string().into(),
-            caption_stale: false,
-            score_capt_d: false,
-            lives_capt_d: false,
-            health_capt_d: false,
-            window,
-
-            // load_room sets this
-            unscaled_width: 0,
-            unscaled_height: 0,
-        };
-
-        game.load_room(room1_id)?;
-        game.window.set_visible(true);
-        game.renderer.swap_interval(0); // no vsync
-
-        Ok(game)
     }
 
     fn resize_window(&mut self, width: u32, height: u32) {
@@ -1169,7 +1187,7 @@ impl Game {
             }
             self.window.set_title(&caption);
         } else {
-            self.window.set_title(&self.caption);
+            self.window.set_title(self.caption.as_ref());
         }
 
         Ok(())
@@ -1184,6 +1202,7 @@ impl Game {
                 match event {
                     Event::KeyboardDown(key) => self.input_manager.key_press(key),
                     Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                    Event::MenuOption(_) => (),
                     Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
                     Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
                     Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
@@ -1214,6 +1233,112 @@ impl Game {
                 time_now += duration;
             } else {
                 time_now = Instant::now();
+            }
+        }
+    }
+
+    // Create a TAS for this game
+    pub fn record(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use window::Event;
+
+        let mut panel = tas::ControlPanel::new()?;
+        let mut game_mousex = 0;
+        let mut game_mousey = 0;
+
+        let mut savestate: Option<Vec<u8>> = None;
+
+        //let mut time_now = Instant::now();
+        loop {
+            for event in self.window.process_events().copied() {
+                match event {
+                    Event::MouseMove(x, y) => {
+                        game_mousex = x;
+                        game_mousey = y;
+                    },
+
+                    Event::MouseButtonUp(input::MouseButton::Right) => {
+                        let mut options: Vec<(String, usize)> = Vec::new();
+                        let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
+                        let mut iter = self.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.instance_list) {
+                            let instance = self.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            if instance.visible.get()
+                                && x >= instance.bbox_left.get()
+                                && x <= instance.bbox_right.get()
+                                && y >= instance.bbox_top.get()
+                                && y <= instance.bbox_bottom.get()
+                            {
+                                let id = instance.id.get();
+                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => format!("{} ({})\0", obj.name, id.to_string()),
+                                    None => format!("<deleted object> ({})\0", id.to_string()),
+                                };
+                                options.push((description, id as usize));
+                            }
+                        }
+                        self.window.show_context_menu(&options);
+                        break
+                    },
+
+                    Event::MenuOption(id) => {
+                        if let Some(handle) = self.instance_list.get_by_instid(id as _) {
+                            let instance = self.instance_list.get(handle);
+                            println!(
+                                "Requested info for instance #{} (object \"{}\"; x={} y={})",
+                                id,
+                                match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => obj.name.as_ref(),
+                                    None => "<deleted object>",
+                                },
+                                instance.x.get(),
+                                instance.y.get(),
+                            );
+                        } else {
+                            println!("Requested info for instance #{} [non-existent or deleted]", id);
+                        }
+                    },
+
+                    _ => (),
+                }
+            }
+
+            for event in panel.window.process_events().copied() {
+                match event {
+                    Event::KeyboardDown(input::Key::Space) => {
+                        self.frame()?;
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+                            None => (),
+                        }
+                        break
+                    },
+
+                    Event::KeyboardDown(input::Key::Q) => {
+                        let t1 = std::time::Instant::now();
+                        savestate = Some(bincode::serialize(&tas::SaveState::from(self))?);
+                        println!("Saved in {:?}", t1.elapsed());
+                    },
+
+                    Event::KeyboardDown(input::Key::W) => {
+                        if let Some(ss) = &savestate {
+                            let t1 = std::time::Instant::now();
+                            let ss: tas::SaveState = bincode::deserialize(ss)?;
+                            ss.clone().load_into(self);
+                            println!("Loaded in {:?}", t1.elapsed());
+                        } else {
+                            println!("Nothing to load");
+                        }
+                    },
+
+                    _ => (),
+                }
+            }
+
+            if panel.window.close_requested() || self.window.close_requested() {
+                break Ok(())
             }
         }
     }
@@ -1270,24 +1395,17 @@ impl Game {
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_location();
-        let x = x as i32;
-        let y = y as i32;
-        if self.views_enabled {
-            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
-                Some(view) => view.transform_point(x, y),
-                None => match self.views.iter().find(|view| view.visible) {
-                    Some(view) => view.transform_point(x, y),
-                    None => (x, y),
-                },
-            }
-        } else {
-            (x, y)
-        }
+        self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
         let (x, y) = self.input_manager.mouse_get_previous_location();
+        self.translate_screen_to_room(x, y)
+    }
+
+    // Translates screen coordinates to room coordinates
+    pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
         let x = x as i32;
         let y = y as i32;
         if self.views_enabled {
@@ -1583,6 +1701,129 @@ impl Game {
                 }
             }
 
+            false
+        } else {
+            false
+        }
+    }
+
+    pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let bbox_left: Real = inst.bbox_left.get().into();
+        let bbox_right: Real = inst.bbox_right.get().into();
+        let bbox_top: Real = inst.bbox_top.get().into();
+        let bbox_bottom: Real = inst.bbox_bottom.get().into();
+
+        let rect_left = x1.min(x2);
+        let rect_right = x1.max(x2);
+        let rect_top = y1.min(y2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if bbox_right + Real::from(1.0) <= rect_left
+            || rect_right < bbox_left
+            || bbox_bottom + Real::from(1.0) <= rect_top
+            || rect_bottom < bbox_top
+        {
+            return false
+        }
+
+        // Truncate to the line horizontally
+        let (mut x1, mut y1, mut x2, mut y2) = if x2 < x1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+        if x1 < bbox_left {
+            y1 = (y2 - y1) * (bbox_left - x1) / (x2 - x1) + y1;
+            x1 = bbox_left;
+        }
+        if x2 > bbox_right + Real::from(1.0) {
+            let new_x2 = bbox_right + Real::from(1.0);
+            y2 = (y2 - y1) * (new_x2 - x2) / (x2 - x1) + y2;
+            x2 = new_x2;
+        }
+
+        // Check for overlap
+        if (bbox_top > y1 && bbox_top > y2)
+            || (y1 >= bbox_bottom + Real::from(1.0) && y2 >= bbox_bottom + Real::from(1.0))
+        {
+            return false
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            // Round everything, as GM does
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            let x1 = x1.round();
+            let y1 = y1.round();
+            let x2 = x2.round();
+            let y2 = y2.round();
+
+            // Set up the iterator
+            let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
+            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
+            // If iterating vertically, make sure we're going top to bottom
+            let (x1, y1, x2, y2) = if iter_vert && y2 < y1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+            // Helper function for getting points on the line
+            let get_point = |i: i32| {
+                // Avoid dividing by zero
+                if point_count == 1 {
+                    return (Real::from(x1), Real::from(y1))
+                }
+                if iter_vert {
+                    let slope = Real::from(x2 - x1) / Real::from(y2 - y1);
+                    (Real::from(x1) + Real::from(i) * slope, Real::from(y1 + i))
+                } else {
+                    let slope = Real::from(y2 - y1) / Real::from(x2 - x1);
+                    (Real::from(x1 + i), Real::from(y1) + Real::from(i) * slope)
+                }
+            };
+
+            for i in 0..point_count {
+                let (mut x, mut y) = get_point(i);
+
+                // Transform point to be relative to collider
+                util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
+                let x = (Real::from(sprite.origin_x) + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
+                    .round();
+                let y = (Real::from(sprite.origin_y) + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
+                    .round();
+
+                // And finally, look up this point in the collider
+                if x >= collider.bbox_left as i32
+                    && y >= collider.bbox_top as i32
+                    && x <= collider.bbox_right as i32
+                    && y <= collider.bbox_bottom as i32
+                    && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+                {
+                    return true
+                }
+            }
             false
         } else {
             false

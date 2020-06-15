@@ -1,9 +1,9 @@
-use crate::render::AtlasRef;
-use std::rc::Rc;
+use crate::{game::string::RCStr, render::AtlasRef};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Font {
-    pub name: Rc<str>,
+    pub name: RCStr,
     pub sys_name: String,
     pub size: u32,
     pub bold: bool,
@@ -11,11 +11,11 @@ pub struct Font {
     pub first: u32,
     pub last: u32,
     pub tallest_char_height: u32,
-    pub chars: Rc<[Character]>,
+    pub chars: Box<[Character]>,
     pub own_graphics: bool, // Does this Font own the graphics associated with it?
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Character {
     pub offset: u32,
     pub distance: u32,

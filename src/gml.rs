@@ -7,12 +7,14 @@ pub mod rand;
 pub mod runtime;
 pub mod value;
 
-pub use compiler::Compiler;
+pub use compiler::{mappings::Function, Compiler};
 pub use context::Context;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
+
+use serde::{Deserialize, Serialize};
 
 pub const TRUE: f64 = 1.0;
 pub const FALSE: f64 = 0.0;
@@ -41,7 +43,7 @@ pub mod ev {
 }
 
 /// Enum for each instance variable
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum InstanceVariable {
     X,
     Y,

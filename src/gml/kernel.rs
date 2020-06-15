@@ -4,12 +4,12 @@
 
 use crate::{
     asset,
-    game::{draw, particle, window, Game, GetAsset, SceneChange},
+    game::{draw, particle, string::RCStr, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance},
     math::Real,
-    render::{opengl::OpenGLRenderer, Renderer, RendererOptions},
+    render::{Renderer, RendererOptions},
     types::Colour,
 };
 use std::convert::TryFrom;
@@ -18,7 +18,7 @@ macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
-    (string, $v: expr) => {{ Ok(<Value as Into<std::rc::Rc<str>>>::into($v.clone())) }};
+    (string, $v: expr) => {{ Ok(<Value as Into<RCStr>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {
@@ -171,7 +171,7 @@ impl Game {
 
     pub fn window_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let caption = expect_args!(args, [string])?;
-        self.window.set_title(&caption);
+        self.window.set_title(caption.as_ref());
         Ok(Default::default())
     }
 
@@ -685,20 +685,20 @@ impl Game {
 
     pub fn string_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let string = expect_args!(args, [string])?;
-        let (width, _) = self.get_string_size(&string, None, None);
+        let (width, _) = self.get_string_size(string.as_ref(), None, None);
         Ok(width.into())
     }
 
     pub fn string_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let string = expect_args!(args, [string])?;
-        let (_, height) = self.get_string_size(&string, None, None);
+        let (_, height) = self.get_string_size(string.as_ref(), None, None);
         Ok(height.into())
     }
 
     pub fn string_width_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
         let (width, _) = self.get_string_size(
-            &string,
+            string.as_ref(),
             if line_height < 0 { None } else { Some(line_height as _) },
             if max_width < 0 { None } else { Some(max_width as _) },
         );
@@ -708,7 +708,7 @@ impl Game {
     pub fn string_height_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
         let (_, height) = self.get_string_size(
-            &string,
+            string.as_ref(),
             if line_height < 0 { None } else { Some(line_height as _) },
             if max_width < 0 { None } else { Some(max_width as _) },
         );
@@ -768,8 +768,8 @@ impl Game {
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    instance.x.get().round(),
-                    instance.y.get().round(),
+                    instance.x.get().into(),
+                    instance.y.get().into(),
                     instance.image_xscale.get().into(),
                     instance.image_yscale.get().into(),
                     instance.image_angle.get().into(),
@@ -784,7 +784,7 @@ impl Game {
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, int, int])?;
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) { instance.image_index.get() } else { image_index };
@@ -793,8 +793,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     instance.image_xscale.get().into(),
                     instance.image_yscale.get().into(),
                     instance.image_angle.get().into(),
@@ -815,7 +815,7 @@ impl Game {
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, real, int, int, real, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
                 self.instance_list.get(context.this).image_index.get()
@@ -827,8 +827,8 @@ impl Game {
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     xscale.into(),
                     yscale.into(),
                     angle.into(),
@@ -884,13 +884,13 @@ impl Game {
 
     pub fn draw_background_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, int, int, real, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite(
                     atlas_ref,
-                    x,
-                    y,
+                    x.into(),
+                    y.into(),
                     xscale.into(),
                     yscale.into(),
                     angle.into(),
@@ -1280,10 +1280,10 @@ impl Game {
         let (dir_string, speed) = expect_args!(args, [string, real])?;
         let instance = self.instance_list.get(context.this);
         // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
-        let bytes = dir_string.as_bytes();
+        let bytes = dir_string.as_ref().as_bytes();
         if bytes.len() != 9 {
             return Err(gml::Error::FunctionError(
-                "action_move",
+                "action_move".into(),
                 format!("Invalid argument to action_move: {}", dir_string),
             ))
         }
@@ -1539,7 +1539,7 @@ impl Game {
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("action_create_object", format!("Invalid object ID: {}", object_id)))
+            Err(gml::Error::FunctionError("action_create_object".into(), format!("Invalid object ID: {}", object_id)))
         }
     }
 
@@ -1564,7 +1564,10 @@ impl Game {
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("action_create_object_motion", format!("Invalid object ID: {}", object_id)))
+            Err(gml::Error::FunctionError(
+                "action_create_object_motion".into(),
+                format!("Invalid object ID: {}", object_id),
+            ))
         }
     }
 
@@ -2320,7 +2323,7 @@ impl Game {
     pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.sqrt() {
             n if !n.as_ref().is_nan() => Ok(Value::Real(n)),
-            n => Err(gml::Error::FunctionError("sqrt(x)", format!("can't get square root of {}", n))),
+            n => Err(gml::Error::FunctionError("sqrt".into(), format!("can't get square root of {}", n))),
         })
     }
 
@@ -2463,11 +2466,11 @@ impl Game {
     pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
-            Value::Str(s) => match s.trim() {
+            Value::Str(s) => match s.as_ref().trim() {
                 x if x.len() == 0 => Ok(Value::Real(Real::from(0.0))),
                 x => match x.parse::<f64>() {
                     Ok(r) => Ok(Value::Real(r.into())),
-                    Err(e) => Err(gml::Error::FunctionError("real(str)", format!("can't convert {} - {}", s, e))),
+                    Err(e) => Err(gml::Error::FunctionError("real".into(), format!("can't convert {} - {}", s, e))),
                 },
             },
         })
@@ -2504,15 +2507,15 @@ impl Game {
     }
 
     pub fn ord(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| s.chars().nth(0).map(|x| x as u32).unwrap_or_default().into())
+        expect_args!(args, [string]).map(|s| s.as_ref().chars().nth(0).map(|x| x as u32).unwrap_or_default().into())
     }
 
     pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real((s.chars().count() as f64).into()))
+        expect_args!(args, [string]).map(|s| Value::Real((s.as_ref().chars().count() as f64).into()))
     }
 
     pub fn string_byte_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real((s.len() as f64).into()))
+        expect_args!(args, [string]).map(|s| Value::Real((s.as_ref().len() as f64).into()))
     }
 
     pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2525,7 +2528,7 @@ impl Game {
 
     pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string])
-            .map(|(ss, s)| Value::Real(Real::from(s.find(ss.as_ref()).unwrap_or_default() as f64 + 1.0)))
+            .map(|(ss, s)| Value::Real(Real::from(s.as_ref().find(ss.as_ref()).unwrap_or_default() as f64 + 1.0)))
     }
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2534,7 +2537,7 @@ impl Game {
         expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
             let sub = s
                 .as_ref()
-                .get(s.char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
+                .get(s.as_ref().char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
                 .unwrap_or("");
             Value::Str(
                 sub.get(..sub.char_indices().nth(len as usize).map_or(sub.len(), |(i, _)| i))
@@ -2547,17 +2550,24 @@ impl Game {
 
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, int]).map(|(s, ix)| {
-            Value::Str(s.chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()))
+            Value::Str(
+                s.as_ref().chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()),
+            )
         })
     }
 
     pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // See the comment on string_copy.
         expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
-            let sub = s.as_ref().get(..s.char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
+            let sub = s.as_ref().get(..s.as_ref().char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
             let sub2 = s
                 .as_ref()
-                .get(s.char_indices().nth((ix as isize + len as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
+                .get(
+                    s.as_ref()
+                        .char_indices()
+                        .nth((ix as isize + len as isize - 1).max(0) as usize)
+                        .map_or(0, |(i, _)| i)..,
+                )
                 .unwrap_or("");
             Value::Str(format!("{}{}", sub, sub2).into())
         })
@@ -2567,11 +2577,12 @@ impl Game {
         expect_args!(args, [string, string, int]).map(|(ss, s, ix)| {
             // TODO: This edge case could be less disgusting.
             let ix = (ix as isize - 1).max(0) as usize;
-            Value::Str(if s.is_char_boundary(ix) {
-                s.chars()
+            Value::Str(if s.as_ref().is_char_boundary(ix) {
+                s.as_ref()
+                    .chars()
                     .take(ix)
-                    .chain(ss.chars())
-                    .chain(s.chars().skip(ix + ss.chars().count()))
+                    .chain(ss.as_ref().chars())
+                    .chain(s.as_ref().chars().skip(ix + ss.as_ref().chars().count()))
                     .collect::<String>()
                     .into()
             } else {
@@ -2584,46 +2595,46 @@ impl Game {
 
     pub fn string_lower(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
-            .map(|s| Value::Str(s.chars().map(|ch| ch.to_ascii_lowercase()).collect::<String>().into()))
+            .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_lowercase()).collect::<String>().into()))
     }
 
     pub fn string_upper(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
-            .map(|s| Value::Str(s.chars().map(|ch| ch.to_ascii_uppercase()).collect::<String>().into()))
+            .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_uppercase()).collect::<String>().into()))
     }
 
     pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.repeat(n.into_inner() as usize).into()))
+        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.as_ref().repeat(n.into_inner() as usize).into()))
     }
 
     pub fn string_letters(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
-            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_alphabetic()).collect::<String>().into()))
+            .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_alphabetic()).collect::<String>().into()))
     }
 
     pub fn string_digits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
-            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_digit()).collect::<String>().into()))
+            .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_digit()).collect::<String>().into()))
     }
 
     pub fn string_lettersdigits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
-            .map(|s| Value::Str(s.chars().filter(|ch| ch.is_ascii_alphanumeric()).collect::<String>().into()))
+            .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_alphanumeric()).collect::<String>().into()))
     }
 
     pub fn string_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string, string])
-            .map(|(s, x, y)| Value::Str(s.replacen(x.as_ref(), y.as_ref(), 1).into()))
+            .map(|(s, x, y)| Value::Str(s.as_ref().replacen(x.as_ref(), y.as_ref(), 1).into()))
     }
 
     pub fn string_replace_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string, string])
-            .map(|(s, x, y)| Value::Str(s.replace(x.as_ref(), y.as_ref()).into()))
+            .map(|(s, x, y)| Value::Str(s.as_ref().replace(x.as_ref(), y.as_ref()).into()))
     }
 
     pub fn string_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string])
-            .map(|(ss, s)| Value::Real(Real::from(s.matches(ss.as_ref()).count() as f64)))
+            .map(|(ss, s)| Value::Real(Real::from(s.as_ref().matches(ss.as_ref()).count() as f64)))
     }
 
     pub fn dot_product(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3266,9 +3277,66 @@ impl Game {
         unimplemented!("Called unimplemented kernel function collision_ellipse")
     }
 
-    pub fn collision_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function collision_line")
+    pub fn collision_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, object_id, precise, exclude_self) =
+            expect_args!(args, [real, real, real, real, int, any, any])?;
+        let precise = precise.is_truthy();
+        let include_self = !exclude_self.is_truthy();
+        let id = match object_id {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if (include_self || handle != context.this)
+                                && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                            {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            _ if object_id < 0 => None,
+            object_id if object_id < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if (include_self || handle != context.this)
+                                    && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                                {
+                                    break Some(handle)
+                                }
+                            },
+                            None => break None,
+                        }
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    if (include_self || handle != context.this)
+                        && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+                    {
+                        Some(handle)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+        };
+
+        match id {
+            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn instance_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3534,7 +3602,7 @@ impl Game {
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(self.last_instance_id.into())
         } else {
-            Err(gml::Error::FunctionError("instance_create", format!("Invalid object ID: {}", object_id)))
+            Err(gml::Error::FunctionError("instance_create".into(), format!("Invalid object ID: {}", object_id)))
         }
     }
 
@@ -3869,9 +3937,9 @@ impl Game {
             1 => (false, true),
             2 | _ => (true, true),
         };
-        match self.file_manager.open(&filename, file::Content::Binary, read, write, false) {
+        match self.file_manager.open(filename.as_ref(), file::Content::Binary, read, write, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_open", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.into())),
         }
     }
 
@@ -3879,7 +3947,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.clear(handle) {
             Ok(()) => Ok(Value::Real(Real::from(0.0))),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
         }
     }
 
@@ -3887,7 +3955,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Binary) {
             Ok(()) => Ok(Value::Real(Real::from(0.0))),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
         }
     }
 
@@ -3895,7 +3963,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.tell(handle) {
             Ok(p) => Ok(f64::from(p as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_position", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_position".into(), e.into())),
         }
     }
 
@@ -3903,7 +3971,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.size(handle) {
             Ok(l) => Ok(f64::from(l as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_size", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_size".into(), e.into())),
         }
     }
 
@@ -3911,7 +3979,7 @@ impl Game {
         let (handle, pos) = expect_args!(args, [int, int])?;
         match self.file_manager.seek(handle, pos) {
             Ok(()) => Ok(Value::from(0.0)),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_seek", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.into())),
         }
     }
 
@@ -3919,7 +3987,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_byte(handle) {
             Ok(b) => Ok(f64::from(b).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte".into(), e.into())),
         }
     }
 
@@ -3927,13 +3995,13 @@ impl Game {
         let (handle, byte) = expect_args!(args, [int, int])?;
         match self.file_manager.write_byte(handle, byte as u8) {
             Ok(()) => Ok(Value::from(0.0)),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.into())),
         }
     }
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::Content::Text, true, false, false) {
+        match self.file_manager.open(filename.as_ref(), file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => {
                 let err_str: String = e.into();
@@ -3945,17 +4013,17 @@ impl Game {
 
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::Content::Text, false, true, false) {
+        match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_write", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.into())),
         }
     }
 
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(&filename, file::Content::Text, false, true, true) {
+        match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, true) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_append", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.into())),
         }
     }
 
@@ -3963,7 +4031,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
             Ok(()) => Ok(Value::Real(Real::from(0.0))),
-            Err(e) => Err(gml::Error::FunctionError("file_text_close", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.into())),
         }
     }
 
@@ -3971,7 +4039,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_string(handle) {
             Ok(s) => Ok(s.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_string", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_string".into(), e.into())),
         }
     }
 
@@ -3979,7 +4047,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_real(handle) {
             Ok(r) => Ok(r.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_real", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_real".into(), e.into())),
         }
     }
 
@@ -3987,7 +4055,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.skip_line(handle) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_readln", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_readln".into(), e.into())),
         }
     }
 
@@ -3995,7 +4063,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.is_eof(handle) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eof", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eof".into(), e.into())),
         }
     }
 
@@ -4003,15 +4071,15 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.is_eoln(handle) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eoln", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eoln".into(), e.into())),
         }
     }
 
     pub fn file_text_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, text) = expect_args!(args, [int, string])?;
-        match self.file_manager.write_string(handle, &text) {
+        match self.file_manager.write_string(handle, text.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_string", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.into())),
         }
     }
 
@@ -4020,7 +4088,7 @@ impl Game {
         let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
         match self.file_manager.write_string(handle, &text) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_real", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.into())),
         }
     }
 
@@ -4028,7 +4096,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.write_string(handle, "\r\n") {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_writeln", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.into())),
         }
     }
 
@@ -4094,22 +4162,22 @@ impl Game {
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::file_exists(&s).into(),
+            Value::Str(s) => file::file_exists(s.as_ref()).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
     pub fn file_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::delete(&filename) {
+        match file::delete(filename.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_delete", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_delete".into(), e.into())),
         }
     }
 
     pub fn file_rename(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
-        if file::rename(&from, &to).is_err() {
+        if file::rename(from.as_ref(), to.as_ref()).is_err() {
             // Fail silently
             eprintln!("Warning (file_rename): could not rename {} to {}", from, to);
         }
@@ -4118,7 +4186,7 @@ impl Game {
 
     pub fn file_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
-        if file::copy(&from, &to).is_err() {
+        if file::copy(from.as_ref(), to.as_ref()).is_err() {
             // Fail silently
             eprintln!("Warning (file_copy): could not copy {} to {}", from, to);
         }
@@ -4127,16 +4195,16 @@ impl Game {
 
     pub fn directory_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::dir_exists(&s).into(),
+            Value::Str(s) => file::dir_exists(s.as_ref()).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
     pub fn directory_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let path = expect_args!(args, [string])?;
-        match file::dir_create(&path) {
+        match file::dir_create(path.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("directory_create", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("directory_create".into(), e.into())),
         }
     }
 
@@ -4162,7 +4230,7 @@ impl Game {
 
     pub fn filename_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
-        if let Some(name) = full_path.rsplitn(2, '\\').next() {
+        if let Some(name) = full_path.as_ref().rsplitn(2, '\\').next() {
             Ok(name.to_string().into())
         } else {
             Ok(full_path.into())
@@ -4171,8 +4239,8 @@ impl Game {
 
     pub fn filename_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
-        if let Some(bs) = full_path.rfind('\\') {
-            Ok(full_path[..bs + 1].to_string().into())
+        if let Some(bs) = full_path.as_ref().rfind('\\') {
+            Ok(full_path.as_ref()[..bs + 1].to_string().into())
         } else {
             Ok("".to_string().into())
         }
@@ -4180,8 +4248,8 @@ impl Game {
 
     pub fn filename_dir(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
-        if let Some(bs) = full_path.rfind('\\') {
-            Ok(full_path[..bs].to_string().into())
+        if let Some(bs) = full_path.as_ref().rfind('\\') {
+            Ok(full_path.as_ref()[..bs].to_string().into())
         } else {
             Ok("".to_string().into())
         }
@@ -4189,14 +4257,14 @@ impl Game {
 
     pub fn filename_drive(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
-        let drive = full_path.chars().take(2).collect::<String>();
+        let drive = full_path.as_ref().chars().take(2).collect::<String>();
         if !drive.starts_with(':') && drive.ends_with(':') { Ok(drive.into()) } else { Ok("".to_string().into()) }
     }
 
     pub fn filename_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
-        if let Some(dot) = full_path.rfind('.') {
-            Ok(full_path[dot..].to_string().into())
+        if let Some(dot) = full_path.as_ref().rfind('.') {
+            Ok(full_path.as_ref()[dot..].to_string().into())
         } else {
             Ok("".to_string().into())
         }
@@ -4204,8 +4272,8 @@ impl Game {
 
     pub fn filename_change_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (full_path, new_ext) = expect_args!(args, [string, string])?;
-        let mut new_path = full_path.rsplitn(2, '.').last().unwrap_or(&full_path).to_string();
-        new_path.push_str(&new_ext);
+        let mut new_path = full_path.as_ref().rsplitn(2, '.').last().unwrap_or(full_path.as_ref()).to_string();
+        new_path.push_str(new_ext.as_ref());
         Ok(new_path.into())
     }
 
@@ -4304,54 +4372,147 @@ impl Game {
         unimplemented!("Called unimplemented kernel function registry_set_root")
     }
 
-    pub fn ini_open(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_open")
+    pub fn ini_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let name = expect_args!(args, [string])?;
+        if file::file_exists(name.as_ref()) {
+            match ini::Ini::load_from_file(name.as_ref()) {
+                Ok(ini) => {
+                    self.open_ini = Some((ini, name));
+                    Ok(Default::default())
+                },
+                Err(e) => Err(gml::Error::FunctionError("ini_open".into(), format!("{}", e))),
+            }
+        } else {
+            self.open_ini = Some((ini::Ini::new(), name));
+            Ok(Default::default())
+        }
     }
 
-    pub fn ini_close(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function ini_close")
+    pub fn ini_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_ini.as_ref() {
+            Some((ini, path)) => match ini.write_to_file(path.as_ref()) {
+                Ok(()) => {
+                    self.open_ini = None;
+                    Ok(Default::default())
+                },
+                Err(e) => Err(gml::Error::FunctionError("ini_close".into(), format!("{}", e))),
+            },
+            None => Ok(Default::default()),
+        }
     }
 
-    pub fn ini_read_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_read_string")
+    pub fn ini_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, default) = expect_args!(args, [string, string, string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => Ok(ini
+                .section(Some(section.as_ref()))
+                .and_then(|s| s.get(key))
+                .unwrap_or(default.as_ref())
+                .to_string()
+                .into()),
+            None => Err(gml::Error::FunctionError(
+                "ini_read_string".into(),
+                "Trying to read from undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_read_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_read_real")
+    pub fn ini_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, default) = expect_args!(args, [string, string, real])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => match ini.section(Some(section.as_ref())).and_then(|s| s.get(key)) {
+                Some(val) => match val.parse::<f64>() {
+                    Ok(x) => Ok(x.into()),
+                    Err(_) => Ok(Default::default()),
+                },
+                None => Ok(default.into()),
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_read_real".into(),
+                "Trying to read from undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_write_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_write_string")
+    pub fn ini_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, val) = expect_args!(args, [string, string, string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.as_ref());
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_write_string".into(),
+                "Trying to write to undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_write_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function ini_write_real")
+    pub fn ini_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key, val) = expect_args!(args, [string, string, real])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.to_string());
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_write_real".into(),
+                "Trying to write to undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_key_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ini_key_exists")
+    pub fn ini_key_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key) = expect_args!(args, [string, string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => {
+                Ok(ini.section(Some(section.as_ref())).map(|s| s.contains_key(key)).unwrap_or(false).into())
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_key_exists".into(),
+                "Trying to read from undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_section_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_section_exists")
+    pub fn ini_section_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let section = expect_args!(args, [string])?;
+        match self.open_ini.as_ref() {
+            Some((ini, _)) => Ok(ini.section(Some(section.as_ref())).is_some().into()),
+            None => Err(gml::Error::FunctionError(
+                "ini_section_exists".into(),
+                "Trying to read from undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_key_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ini_key_delete")
+    pub fn ini_key_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (section, key) = expect_args!(args, [string, string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.delete_from(Some(section.as_ref()), key.as_ref());
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_key_delete".into(),
+                "Trying to change undefined INI file".to_string(),
+            )),
+        }
     }
 
-    pub fn ini_section_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ini_section_delete")
+    pub fn ini_section_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let section = expect_args!(args, [string])?;
+        match self.open_ini.as_mut() {
+            Some((ini, _)) => {
+                ini.delete(Some(section.as_ref()));
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "ini_section_delete".into(),
+                "Trying to change undefined INI file".to_string(),
+            )),
+        }
     }
 
     pub fn disk_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4478,14 +4639,8 @@ impl Game {
         let height = 200;
 
         let options = RendererOptions {
-            title: "",
             size: (width, height),
-            icons: vec![],
-            global_clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
-            resizable: false,
-            on_top: true,
-            decorations: true,
-            fullscreen: false,
+            clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
             vsync: false,
         };
 
@@ -4493,11 +4648,11 @@ impl Game {
         // otherwise windows thinks it's not responding or whatever
 
         let wb = window::WindowBuilder::new().with_size(width, height);
-        let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message", e))?;
+        let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
         let mut renderer =
-            OpenGLRenderer::new(options, &window).map_err(|e| gml::Error::FunctionError("show_message", e))?;
+            Renderer::new((), &options, &window).map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
         window.set_visible(true);
-        renderer.swap_interval(0);
+        renderer.set_swap_interval(None);
 
         loop {
             window.process_events();
@@ -4509,7 +4664,7 @@ impl Game {
         }
 
         // restore renderer
-        self.renderer.set_current();
+        // self.renderer.set_current(); <- TODO, obviously
 
         Ok(Default::default())
     }
@@ -5251,7 +5406,7 @@ impl Game {
 
     pub fn execute_string(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         if let Some(Value::Str(code)) = args.get(0) {
-            match self.compiler.compile(code) {
+            match self.compiler.compile(code.as_ref()) {
                 Ok(instrs) => {
                     let mut new_args: [Value; 16] = Default::default();
                     for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
@@ -5266,7 +5421,7 @@ impl Game {
                     self.execute(&instrs, &mut new_context)?;
                     Ok(new_context.return_value)
                 },
-                Err(e) => Err(gml::Error::FunctionError("execute_string", e.message)),
+                Err(e) => Err(gml::Error::FunctionError("execute_string".into(), e.message)),
             }
         } else {
             // eg execute_string(42) - does nothing, returns 0
@@ -5285,10 +5440,10 @@ impl Game {
                     new_args[0] = code.into();
                     self.execute_string(context, &new_args)
                 },
-                Err(e) => Err(gml::Error::FunctionError("execute_file", format!("{}", e))),
+                Err(e) => Err(gml::Error::FunctionError("execute_file".into(), format!("{}", e))),
             }
         } else {
-            Err(gml::Error::FunctionError("execute_file", "Trying to execute a number.".to_string()))
+            Err(gml::Error::FunctionError("execute_file".into(), "Trying to execute a number.".to_string()))
         }
     }
 
@@ -5315,10 +5470,10 @@ impl Game {
 
     pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let identifier = expect_args!(args, [string])?;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.contains_key(var).into())
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             Ok(self.globals.fields.contains_key(&field_id).into())
         }
     }
@@ -5331,10 +5486,10 @@ impl Game {
     pub fn variable_global_array_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index) = expect_args!(args, [string, int])?;
         let index = index as u32;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             Ok(self.globals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
         }
     }
@@ -5352,14 +5507,14 @@ impl Game {
     pub fn variable_global_array_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index, value) = expect_args!(args, [string, int, any])?;
         let index = index as u32;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             if let Some(field) = self.globals.vars.get_mut(var) {
                 field.set(index, value);
             } else {
                 self.globals.vars.insert(*var, Field::new(index, value));
             }
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             if let Some(field) = self.globals.fields.get_mut(&field_id) {
                 field.set(index, value);
             } else {
@@ -5376,10 +5531,10 @@ impl Game {
 
     pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let identifier = expect_args!(args, [string])?;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(context.locals.vars.contains_key(var).into())
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             Ok(context.locals.fields.contains_key(&field_id).into())
         }
     }
@@ -5392,10 +5547,10 @@ impl Game {
     pub fn variable_local_array_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index) = expect_args!(args, [string, int])?;
         let index = index as u32;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(context.locals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             Ok(context.locals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
         }
     }
@@ -5413,14 +5568,14 @@ impl Game {
     pub fn variable_local_array_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index, value) = expect_args!(args, [string, int, any])?;
         let index = index as u32;
-        if let Some(var) = mappings::get_instance_variable_by_name(&identifier) {
+        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             if let Some(field) = context.locals.vars.get_mut(var) {
                 field.set(index, value);
             } else {
                 context.locals.vars.insert(*var, Field::new(index, value));
             }
         } else {
-            let field_id = self.compiler.get_field_id(&identifier);
+            let field_id = self.compiler.get_field_id(identifier.as_ref());
             if let Some(field) = context.locals.fields.get_mut(&field_id) {
                 field.set(index, value);
             } else {
@@ -6480,39 +6635,63 @@ impl Game {
         unimplemented!("Called unimplemented kernel function object_is_ancestor")
     }
 
-    pub fn object_set_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_sprite")
+    pub fn object_set_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, sprite_id) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.sprite_index = sprite_id);
+        Ok(Default::default())
     }
 
-    pub fn object_set_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_solid")
+    pub fn object_set_solid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, visible) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.visible = visible.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_visible")
+    pub fn object_set_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, visible) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.visible = visible.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_depth")
+    pub fn object_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, depth) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.depth = depth);
+        Ok(Default::default())
     }
 
-    pub fn object_set_persistent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_persistent")
+    pub fn object_set_persistent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, persistent) = expect_args!(args, [int, any])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.persistent = persistent.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn object_set_mask(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_mask")
+    pub fn object_set_mask(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, mask_id) = expect_args!(args, [int, int])?;
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.mask_index = mask_id);
+        Ok(Default::default())
     }
 
-    pub fn object_set_parent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_set_parent")
+    pub fn object_set_parent(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_id, new_parent) = expect_args!(args, [int, int])?;
+        if let Some(object) = self.assets.objects.get_asset(object_id) {
+            // Remove object and all its children from old parents
+            let children = object.children.borrow();
+            let mut parent_index = object.parent_index;
+            while let Some(parent) = self.assets.objects.get_asset(parent_index) {
+                parent.children.borrow_mut().retain(|c| !children.contains(c));
+                parent_index = parent.parent_index;
+            }
+            // Add object and all its children to new parents
+            parent_index = new_parent;
+            while let Some(parent) = self.assets.objects.get_asset(parent_index) {
+                parent.children.borrow_mut().extend(children.iter());
+                parent_index = parent.parent_index;
+            }
+        }
+
+        self.assets.objects.get_asset_mut(object_id).map(|o| o.parent_index = new_parent);
+        self.refresh_event_holders();
+        Ok(Default::default())
     }
 
     pub fn object_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6540,9 +6719,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_name")
     }
 
-    pub fn room_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_exists")
+    pub fn room_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let room_id = expect_args!(args, [int])?;
+        Ok(self.assets.rooms.get_asset(room_id).is_some().into())
     }
 
     pub fn room_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6963,7 +7142,7 @@ impl Game {
     pub fn part_system_drawit(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         if let Some(ps) = self.particle_systems.get_asset_mut(id) {
-            ps.draw(self.renderer.as_mut(), &self.assets, &self.particle_types);
+            ps.draw(&mut self.renderer, &self.assets, &self.particle_types);
         }
         Ok(Default::default())
     }
@@ -7275,7 +7454,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_destroy".into(), e.into())),
         }
     }
 
@@ -7286,7 +7465,7 @@ impl Game {
                 stack.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_clear".into(), e.into())),
         }
     }
 
@@ -7299,7 +7478,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Ok(stack) => Ok(stack.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_size", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_size".into(), e.into())),
         }
     }
 
@@ -7307,7 +7486,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Ok(stack) => Ok(stack.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_empty", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_empty".into(), e.into())),
         }
     }
 
@@ -7318,7 +7497,7 @@ impl Game {
                 stack.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_push", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_push".into(), e.into())),
         }
     }
 
@@ -7326,7 +7505,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get_mut(id) {
             Ok(stack) => Ok(stack.pop().unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_pop", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_pop".into(), e.into())),
         }
     }
 
@@ -7334,7 +7513,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Ok(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_top", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_top".into(), e.into())),
         }
     }
 
@@ -7357,7 +7536,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_destroy".into(), e.into())),
         }
     }
 
@@ -7368,7 +7547,7 @@ impl Game {
                 queue.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_clear".into(), e.into())),
         }
     }
 
@@ -7381,7 +7560,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Ok(queue) => Ok(queue.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_size", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_size".into(), e.into())),
         }
     }
 
@@ -7389,7 +7568,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Ok(queue) => Ok(queue.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_empty", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_empty".into(), e.into())),
         }
     }
 
@@ -7400,7 +7579,7 @@ impl Game {
                 queue.push_back(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_enqueue", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_enqueue".into(), e.into())),
         }
     }
 
@@ -7408,7 +7587,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get_mut(id) {
             Ok(queue) => Ok(queue.pop_front().unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue".into(), e.into())),
         }
     }
 
@@ -7416,7 +7595,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Ok(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_head", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_head".into(), e.into())),
         }
     }
 
@@ -7424,7 +7603,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Ok(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_tail", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_tail".into(), e.into())),
         }
     }
 
@@ -7447,7 +7626,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.lists.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_destroy".into(), e.into())),
         }
     }
 
@@ -7458,20 +7637,30 @@ impl Game {
                 list.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_clear".into(), e.into())),
         }
     }
 
-    pub fn ds_list_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_copy")
+    pub fn ds_list_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.lists.get(src_id) {
+            Ok(list) => list.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+        };
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                *list = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_list_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         match self.lists.get(id) {
             Ok(list) => Ok(list.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_size", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_size".into(), e.into())),
         }
     }
 
@@ -7479,7 +7668,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.lists.get(id) {
             Ok(list) => Ok(list.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_empty", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_empty".into(), e.into())),
         }
     }
 
@@ -7490,7 +7679,7 @@ impl Game {
                 list.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_add", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_add".into(), e.into())),
         }
     }
 
@@ -7503,7 +7692,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_insert", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_insert".into(), e.into())),
         }
     }
 
@@ -7516,7 +7705,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_replace", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_replace".into(), e.into())),
         }
     }
 
@@ -7529,7 +7718,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_delete", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_delete".into(), e.into())),
         }
     }
 
@@ -7543,7 +7732,7 @@ impl Game {
                 .map(|(i, _)| i as i32)
                 .unwrap_or(-1)
                 .into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_find_index", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_find_index".into(), e.into())),
         }
     }
 
@@ -7557,7 +7746,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_find_value", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_find_value".into(), e.into())),
         }
     }
 
@@ -7573,7 +7762,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_sort", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_sort".into(), e.into())),
         }
     }
 
@@ -7588,7 +7777,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_shuffle", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_list_shuffle".into(), e.into())),
         }
     }
 
@@ -7611,7 +7800,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_destroy".into(), e.into())),
         }
     }
 
@@ -7623,7 +7812,7 @@ impl Game {
                 map.values.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_clear".into(), e.into())),
         }
     }
 
@@ -7636,7 +7825,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.keys.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_size", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_size".into(), e.into())),
         }
     }
 
@@ -7644,7 +7833,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.keys.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_empty", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_empty".into(), e.into())),
         }
     }
 
@@ -7657,7 +7846,7 @@ impl Game {
                 map.values.insert(index, val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_add", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_add".into(), e.into())),
         }
     }
 
@@ -7670,7 +7859,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_replace", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_replace".into(), e.into())),
         }
     }
 
@@ -7684,7 +7873,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_delete", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_delete".into(), e.into())),
         }
     }
 
@@ -7692,7 +7881,7 @@ impl Game {
         let (id, key) = expect_args!(args, [int, any])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_exists", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_exists".into(), e.into())),
         }
     }
 
@@ -7700,7 +7889,7 @@ impl Game {
         let (id, key) = expect_args!(args, [int, any])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_value", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_value".into(), e.into())),
         }
     }
 
@@ -7711,7 +7900,7 @@ impl Game {
                 let index = map.get_index_unchecked(&key, self.ds_precision);
                 if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous".into(), e.into())),
         }
     }
 
@@ -7722,7 +7911,7 @@ impl Game {
                 let index = map.get_next_index(&key, self.ds_precision);
                 if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_next", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_next".into(), e.into())),
         }
     }
 
@@ -7730,7 +7919,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_first", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_first".into(), e.into())),
         }
     }
 
@@ -7738,7 +7927,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Ok(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_last", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_map_find_last".into(), e.into())),
         }
     }
 
@@ -7761,7 +7950,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.priority_queues.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_destroy".into(), e.into())),
         }
     }
 
@@ -7773,7 +7962,7 @@ impl Game {
                 pq.values.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
         }
     }
 
@@ -7786,7 +7975,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.priority_queues.get(id) {
             Ok(pq) => Ok(pq.priorities.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
         }
     }
 
@@ -7794,7 +7983,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.priority_queues.get(id) {
             Ok(pq) => Ok(pq.priorities.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
         }
     }
 
@@ -7806,7 +7995,7 @@ impl Game {
                 pq.values.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_add", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_add".into(), e.into())),
         }
     }
 
@@ -7820,7 +8009,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_change_priority", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_change_priority".into(), e.into())),
         }
     }
 
@@ -7835,7 +8024,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_priority", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_priority".into(), e.into())),
         }
     }
 
@@ -7850,7 +8039,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_value", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_value".into(), e.into())),
         }
     }
 
@@ -7865,7 +8054,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_min", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_min".into(), e.into())),
         }
     }
 
@@ -7879,7 +8068,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_min", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_min".into(), e.into())),
         }
     }
 
@@ -7894,7 +8083,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_max", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_max".into(), e.into())),
         }
     }
 
@@ -7908,7 +8097,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_max", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_max".into(), e.into())),
         }
     }
 
@@ -7925,7 +8114,10 @@ impl Game {
     pub fn ds_grid_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
         if width < 0 || height < 0 {
-            return Err(gml::Error::FunctionError("ds_grid_create", "grids cannot have negative dimensions".to_string()))
+            return Err(gml::Error::FunctionError(
+                "ds_grid_create".into(),
+                "grids cannot have negative dimensions".to_string(),
+            ))
         }
         Ok(self.grids.add(ds::Grid::new(width as usize, height as usize)).into())
     }
@@ -7934,7 +8126,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.grids.destroy(id) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_destroy", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_destroy".into(), e.into())),
         }
     }
 
@@ -7949,14 +8141,14 @@ impl Game {
             Ok(grid) => {
                 if width < 0 || height < 0 {
                     return Err(gml::Error::FunctionError(
-                        "ds_grid_resize",
+                        "ds_grid_resize".into(),
                         "grids cannot have negative dimensions".to_string(),
                     ))
                 }
                 grid.resize(width as usize, height as usize);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_resize", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_resize".into(), e.into())),
         }
     }
 
@@ -7964,7 +8156,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.grids.get(id) {
             Ok(grid) => Ok(grid.width().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width".into(), e.into())),
         }
     }
 
@@ -7972,7 +8164,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.grids.get(id) {
             Ok(grid) => Ok(grid.height().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_width", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_width".into(), e.into())),
         }
     }
 
@@ -7987,7 +8179,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_clear", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_clear".into(), e.into())),
         }
     }
 
@@ -8000,7 +8192,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set".into(), e.into())),
         }
     }
 
@@ -8069,7 +8261,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_set", e.into())),
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_set".into(), e.into())),
         }
     }
 
