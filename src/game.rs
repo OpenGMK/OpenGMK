@@ -700,65 +700,10 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
-        for object in objects.iter().flatten() {
-            for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
-                for (sub, _) in object_events.iter() {
-                    let mut sub_list = holder_list.entry(*sub).or_insert(Default::default()).borrow_mut();
-                    for object_id in object.children.borrow().iter() {
-                        if !sub_list.contains(object_id) {
-                            sub_list.push(*object_id);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Swap collision events over to targets and their children etc...
-        let collision_holders = &mut event_holders[ev::COLLISION];
-        let mut i = 0;
-        while let Some(key) = collision_holders.get_index(i).map(|(x, _)| *x) {
-            if let Some(Some(object)) = objects.get(key as usize) {
-                let list = collision_holders[&key].clone();
-                let mut j = 0;
-                while let Some(collider) = {
-                    let a = list.borrow();
-                    a.get(j).copied()
-                } {
-                    {
-                        let mut sub_list =
-                            collision_holders.entry(collider as _).or_insert(Default::default()).borrow_mut();
-                        for child in object.children.borrow().iter() {
-                            if !sub_list.contains(child) {
-                                sub_list.push(*child);
-                            }
-                        }
-                    }
-                    for child in object.children.borrow().iter().copied() {
-                        let mut sub_list =
-                            collision_holders.entry(child as _).or_insert(Default::default()).borrow_mut();
-                        if !sub_list.contains(&collider) {
-                            sub_list.push(collider);
-                        }
-                    }
-                    j += 1;
-                }
-            }
-            i += 1;
-        }
-        for (sub, list) in collision_holders.iter() {
-            list.borrow_mut().retain(|x| *x >= *sub as _);
-        }
-        event_holders[ev::COLLISION].retain(|_, x| !x.borrow_mut().is_empty());
-
-        // Sort all the event holder lists into ascending order
-        for map in event_holders.iter_mut() {
-            map.sort_by(|x, _, y, _| x.cmp(y));
-            for list in map.values_mut() {
-                list.borrow_mut().sort();
-            }
-        }
+        Self::fill_event_holders(&mut event_holders, &objects);
 
         // Make list of objects with custom draw events
         let custom_draw_objects =
@@ -835,6 +780,82 @@ impl Game {
         game.window.set_visible(true);
 
         Ok(game)
+    }
+
+    pub fn refresh_event_holders(&mut self) {
+        // It might be better to not redo the entire holder list from scratch?
+
+        // Clear holder lists
+        for holder_list in self.event_holders.iter_mut() {
+            holder_list.clear();
+        }
+
+        // Refill holder lists
+        Self::fill_event_holders(&mut self.event_holders, &self.assets.objects);
+
+        // Make list of objects with custom draw events
+        self.custom_draw_objects =
+            self.event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+    }
+
+    fn fill_event_holders(event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>], objects: &Vec<Option<Box<Object>>>) {
+        for object in objects.iter().flatten() {
+            for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
+                for (sub, _) in object_events.iter() {
+                    let mut sub_list = holder_list.entry(*sub).or_insert(Default::default()).borrow_mut();
+                    for object_id in object.children.borrow().iter() {
+                        if !sub_list.contains(object_id) {
+                            sub_list.push(*object_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Swap collision events over to targets and their children etc...
+        let collision_holders = &mut event_holders[ev::COLLISION];
+        let mut i = 0;
+        while let Some(key) = collision_holders.get_index(i).map(|(x, _)| *x) {
+            if let Some(Some(object)) = objects.get(key as usize) {
+                let list = collision_holders[&key].clone();
+                let mut j = 0;
+                while let Some(collider) = {
+                    let a = list.borrow();
+                    a.get(j).copied()
+                } {
+                    {
+                        let mut sub_list =
+                            collision_holders.entry(collider as _).or_insert(Default::default()).borrow_mut();
+                        for child in object.children.borrow().iter() {
+                            if !sub_list.contains(child) {
+                                sub_list.push(*child);
+                            }
+                        }
+                    }
+                    for child in object.children.borrow().iter().copied() {
+                        let mut sub_list =
+                            collision_holders.entry(child as _).or_insert(Default::default()).borrow_mut();
+                        if !sub_list.contains(&collider) {
+                            sub_list.push(collider);
+                        }
+                    }
+                    j += 1;
+                }
+            }
+            i += 1;
+        }
+        for (sub, list) in collision_holders.iter() {
+            list.borrow_mut().retain(|x| *x >= *sub as _);
+        }
+        event_holders[ev::COLLISION].retain(|_, x| !x.borrow_mut().is_empty());
+
+        // Sort all the event holder lists into ascending order
+        for map in event_holders.iter_mut() {
+            map.sort_by(|x, _, y, _| x.cmp(y));
+            for list in map.values_mut() {
+                list.borrow_mut().sort();
+            }
+        }
     }
 
     fn resize_window(&mut self, width: u32, height: u32) {
