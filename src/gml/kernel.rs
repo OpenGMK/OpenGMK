@@ -7429,9 +7429,19 @@ impl Game {
         }
     }
 
-    pub fn ds_list_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_copy")
+    pub fn ds_list_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.lists.get(src_id) {
+            Ok(list) => list.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+        };
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                *list = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_list_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
