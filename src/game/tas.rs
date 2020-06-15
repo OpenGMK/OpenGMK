@@ -122,10 +122,17 @@ pub struct SaveState {
 
     unscaled_width: u32,
     unscaled_height: u32,
+
+    screenshot: Box<[u8]>,
+    screenshot_width: u32,
+    screenshot_height: u32,
 }
 
 impl SaveState {
     pub fn from(game: &Game) -> Self {
+        let (width, height) = game.window.get_inner_size();
+        let screenshot = game.renderer.get_pixels(width as _, height as _);
+
         Self {
             compiler: game.compiler.clone(),
             instance_list: game.instance_list.clone(),
@@ -182,10 +189,15 @@ impl SaveState {
             caption_stale: game.caption_stale.clone(),
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
+            screenshot,
+            screenshot_width: width,
+            screenshot_height: height,
         }
     }
 
     pub fn load_into(self, game: &mut Game) {
+        game.renderer.draw_pixels(self.screenshot, self.screenshot_width as _, self.screenshot_height as _);
+
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
         game.tile_list = self.tile_list;
@@ -194,25 +206,20 @@ impl SaveState {
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
-
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
-
         game.views_enabled = self.views_enabled;
         game.view_current = self.view_current;
         game.views = self.views;
         game.backgrounds = self.backgrounds;
-
         game.room_id = self.room_id;
         game.room_width = self.room_width;
         game.room_height = self.room_height;
         game.room_order = self.room_order;
         game.room_speed = self.room_speed;
-
         game.globals = self.globals;
         game.globalvars = self.globalvars;
         game.game_start = self.game_start;
-
         game.stacks = self.stacks;
         game.queues = self.queues;
         game.lists = self.lists;
@@ -220,17 +227,14 @@ impl SaveState {
         game.priority_queues = self.priority_queues;
         game.grids = self.grids;
         game.ds_precision = self.ds_precision;
-
         game.draw_font = self.draw_font;
         game.draw_font_id = self.draw_font_id;
         game.draw_colour = self.draw_colour;
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
-
         game.transition_kind = self.transition_kind;
         game.transition_steps = self.transition_steps;
         game.score = self.score;
@@ -242,14 +246,11 @@ impl SaveState {
         game.health = self.health;
         game.health_capt = self.health_capt;
         game.health_capt_d = self.health_capt_d;
-
         game.game_id = self.game_id;
         game.program_directory = self.program_directory;
         game.gm_version = self.gm_version;
-
         game.caption = self.caption;
         game.caption_stale = self.caption_stale;
-
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
     }
