@@ -424,7 +424,7 @@ where
     where
         S: Serializer,
     {
-        let count = self.0.iter().map(|x| CHUNK_SIZE - x.vacant).sum();
+        let count = self.0.iter().map(|x| x.slots.iter().flatten().count()).sum();
         let mut seq = serializer.serialize_seq(Some(count))?;
         for element in self.0.iter().map(|x| x.slots.iter()).flatten() {
             if let Some(inst) = element {
