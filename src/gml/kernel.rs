@@ -12,7 +12,7 @@ use crate::{
     render::{Renderer, RendererOptions},
     types::Colour,
 };
-use std::convert::TryFrom;
+use std::{convert::TryFrom, io::Read};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -7335,14 +7335,51 @@ impl Game {
         }
     }
 
-    pub fn ds_stack_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_stack_write")
+    pub fn ds_stack_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.stacks.get_mut(id) {
+            Ok(stack) => {
+                let mut output = "65000000".to_string();
+                output.push_str(&hex::encode_upper((stack.len() as u32).to_le_bytes()));
+                output.extend(stack.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_write".into(), e.into())),
+        }
     }
 
-    pub fn ds_stack_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_stack_read")
+    pub fn ds_stack_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        match self.stacks.get_mut(id) {
+            Ok(old_stack) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        let mut reader = data.as_slice();
+                        // Read header and size
+                        let mut buf = [0u8; 4];
+                        if reader.read_exact(&mut buf).is_ok()
+                            && u32::from_le_bytes(buf) == 0x65
+                            && reader.read_exact(&mut buf).is_ok()
+                        {
+                            let size = u32::from_le_bytes(buf) as usize;
+                            // Read each item
+                            let mut stack = ds::Stack::with_capacity(size);
+                            for _ in 0..size {
+                                if let Some(val) = Value::from_reader(&mut reader) {
+                                    stack.push(val);
+                                } else {
+                                    return Ok(Default::default())
+                                }
+                            }
+                            *old_stack = stack;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_stack_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_read".into(), e.into())),
+        }
     }
 
     pub fn ds_queue_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
