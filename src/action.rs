@@ -284,6 +284,22 @@ impl Tree {
             .map_err(|e| e.message)?
             .into_boxed_slice())
     }
+
+    pub fn new_from_code(code: Rc<[Instruction]>) -> Rc<RefCell<Self>> {
+        let mut tree = Self(Vec::new());
+        tree.push_code(code);
+        Rc::new(RefCell::new(tree))
+    }
+
+    pub fn push_code(&mut self, code: Rc<[Instruction]>) {
+        self.0.push(Action {
+            index: self.0.len(),
+            target: None,
+            relative: false,
+            invert_condition: false,
+            body: Body::Normal { args: Box::new([]), body: GmlBody::Code(code), if_else: None },
+        });
+    }
 }
 
 impl Game {
