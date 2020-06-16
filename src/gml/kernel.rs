@@ -3,7 +3,7 @@
 #![allow(unused_macros)]
 
 use crate::{
-    asset,
+    action, asset,
     game::{draw, string::RCStr, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
@@ -6704,14 +6704,34 @@ impl Game {
         unimplemented!("Called unimplemented kernel function object_delete")
     }
 
-    pub fn object_event_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function object_event_clear")
+    pub fn object_event_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_index, ev_type, ev_number) = expect_args!(args, [int, int, int])?;
+        if let Some(object) = self.assets.objects.get_asset_mut(object_index) {
+            object.events[ev_type as usize].remove(&(ev_number as u32));
+            self.refresh_event_holders();
+        }
+        Ok(Default::default())
     }
 
-    pub fn object_event_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function object_event_add")
+    pub fn object_event_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object_index, ev_type, ev_number, code) = expect_args!(args, [int, int, int, string])?;
+        if let Some(object) = self.assets.objects.get_asset_mut(object_index) {
+            let instrs = match self.compiler.compile(code.as_ref()) {
+                Ok(instrs) => instrs,
+                Err(e) => return Err(gml::Error::FunctionError("object_event_add".into(), e.message)),
+            };
+            let object_event_map = &mut object.events[ev_type as usize];
+            match object_event_map.get_mut(&(ev_number as u32)) {
+                Some(tree) => {
+                    tree.borrow_mut().push_code(instrs);
+                },
+                None => {
+                    object_event_map.insert(ev_number as u32, action::Tree::new_from_code(instrs));
+                    self.refresh_event_holders();
+                },
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn room_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
