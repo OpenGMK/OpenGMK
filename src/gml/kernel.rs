@@ -7277,9 +7277,19 @@ impl Game {
         }
     }
 
-    pub fn ds_stack_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_stack_copy")
+    pub fn ds_stack_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.stacks.get(src_id) {
+            Ok(stack) => stack.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_stack_copy".into(), e.into())),
+        };
+        match self.stacks.get_mut(id) {
+            Ok(stack) => {
+                *stack = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_stack_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_stack_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7359,9 +7369,19 @@ impl Game {
         }
     }
 
-    pub fn ds_queue_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_queue_copy")
+    pub fn ds_queue_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.queues.get(src_id) {
+            Ok(queue) => queue.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_queue_copy".into(), e.into())),
+        };
+        match self.queues.get_mut(id) {
+            Ok(queue) => {
+                *queue = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_queue_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_queue_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7624,9 +7644,19 @@ impl Game {
         }
     }
 
-    pub fn ds_map_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_copy")
+    pub fn ds_map_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.maps.get(src_id) {
+            Ok(map) => map.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_map_copy".into(), e.into())),
+        };
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                *map = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_map_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7774,9 +7804,19 @@ impl Game {
         }
     }
 
-    pub fn ds_priority_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_copy")
+    pub fn ds_priority_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src = match self.priority_queues.get(src_id) {
+            Ok(queue) => queue.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_priority_copy".into(), e.into())),
+        };
+        match self.priority_queues.get_mut(id) {
+            Ok(queue) => {
+                *queue = src;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_priority_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7938,9 +7978,19 @@ impl Game {
         }
     }
 
-    pub fn ds_grid_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_copy")
+    pub fn ds_grid_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, src_id) = expect_args!(args, [int, int])?;
+        let src_grid = match self.grids.get(src_id) {
+            Ok(grid) => grid.clone(),
+            Err(e) => return Err(gml::Error::FunctionError("ds_grid_copy".into(), e.into())),
+        };
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                *grid = src_grid;
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_copy".into(), e.into())),
+        }
     }
 
     pub fn ds_grid_resize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
