@@ -7657,9 +7657,36 @@ impl Game {
         }
     }
 
-    pub fn ds_list_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_read")
+    pub fn ds_list_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_list(mut reader: &[u8]) -> Option<ds::List> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x12d {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let size = u32::from_le_bytes(buf) as usize;
+            let mut list = ds::List::with_capacity(size);
+            for _ in 0..size {
+                list.push(Value::from_reader(&mut reader)?);
+            }
+            Some(list)
+        }
+        match self.lists.get_mut(id) {
+            Ok(old_list) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(list) = read_list(data.as_slice()) {
+                            *old_list = list;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_list_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_read".into(), e.into())),
+        }
     }
 
     pub fn ds_map_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
