@@ -44,6 +44,7 @@ fn xmain() -> i32 {
     opts.optflag("s", "strict", "enable various data integrity checks");
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
+    opts.optopt("p", "port", "port to open for external game control", "PORT");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -68,6 +69,13 @@ fn xmain() -> i32 {
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let verbose = matches.opt_present("v");
+    let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("invalid port provided: {}", e);
+            return EXIT_FAILURE
+        },
+    };
     let input = {
         if matches.free.len() == 1 {
             &matches.free[0]
@@ -129,7 +137,7 @@ fn xmain() -> i32 {
         },
     };
 
-    if let Err(err) = components.run() {
+    if let Err(err) = if let Some(port) = port { components.record(port) } else { components.run() } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
     } else {

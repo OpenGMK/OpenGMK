@@ -46,6 +46,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    io::Read,
     path::PathBuf,
     rc::Rc,
     thread,
@@ -1226,8 +1227,11 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         use window::Event;
+
+        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", tcp_port))?;
+        listener.set_nonblocking(true)?;
 
         let mut panel = tas::ControlPanel::new()?;
         let mut game_mousex = 0;
@@ -1237,6 +1241,28 @@ impl Game {
 
         //let mut time_now = Instant::now();
         loop {
+            for stream in listener.incoming() {
+                match stream {
+                    Ok(mut s) => {
+                        let mut message: Vec<u8> = Vec::new();
+                        let mut buffer = [0; 256];
+                        s.set_nonblocking(false)?;
+
+                        let mut len = s.read(&mut buffer)?;
+                        while len == buffer.len() {
+                            message.extend_from_slice(&buffer);
+                            len = s.read(&mut buffer)?;
+                        }
+                        message.extend_from_slice(&buffer[..len]);
+                        println!("Got TCP message: {}", String::from_utf8(message)?);
+                    },
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        break
+                    },
+                    Err(e) => return Err(e.into()),
+                }
+            }
+
             for event in self.window.process_events().copied() {
                 match event {
                     Event::MouseMove(x, y) => {
