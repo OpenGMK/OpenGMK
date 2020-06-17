@@ -7644,9 +7644,17 @@ impl Game {
         }
     }
 
-    pub fn ds_list_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_write")
+    pub fn ds_list_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                let mut output = "2d010000".to_string();
+                output.push_str(&hex::encode_upper((list.len() as u32).to_le_bytes()));
+                output.extend(list.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_write".into(), e.into())),
+        }
     }
 
     pub fn ds_list_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7804,9 +7812,18 @@ impl Game {
         }
     }
 
-    pub fn ds_map_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_write")
+    pub fn ds_map_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                let mut output = "91010000".to_string();
+                output.push_str(&hex::encode_upper((map.keys.len() as u32).to_le_bytes()));
+                output.extend(map.keys.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                output.extend(map.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_write".into(), e.into())),
+        }
     }
 
     pub fn ds_map_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7984,9 +8001,18 @@ impl Game {
         }
     }
 
-    pub fn ds_priority_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_write")
+    pub fn ds_priority_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let mut output = "F5010000".to_string();
+                output.push_str(&hex::encode_upper((pq.priorities.len() as u32).to_le_bytes()));
+                output.extend(pq.priorities.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                output.extend(pq.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_write".into(), e.into())),
+        }
     }
 
     pub fn ds_priority_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8233,9 +8259,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_shuffle")
     }
 
-    pub fn ds_grid_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_write")
+    pub fn ds_grid_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                let mut output = "59020000".to_string();
+                output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
+                output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
+                for x in 0..grid.width() {
+                    for y in 0..grid.height() {
+                        output.push_str(&hex::encode_upper(grid.get(x,y).as_bytes()));
+                    }
+                }
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_write".into(), e.into())),
+        }
     }
 
     pub fn ds_grid_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
