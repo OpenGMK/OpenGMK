@@ -237,13 +237,11 @@ impl Game {
     }
 
     pub fn window_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_width")
+        Ok(self.window.get_inner_size().0.into())
     }
 
     pub fn window_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_height")
+        Ok(self.window.get_inner_size().1.into())
     }
 
     pub fn window_set_region_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
