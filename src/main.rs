@@ -44,7 +44,8 @@ fn xmain() -> i32 {
     opts.optflag("s", "strict", "enable various data integrity checks");
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
-    opts.optopt("p", "port", "port to open for external game control", "PORT");
+    opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
+    opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -75,7 +76,14 @@ fn xmain() -> i32 {
             eprintln!("invalid port provided: {}", e);
             return EXIT_FAILURE
         },
-    };
+    }
+    .unwrap_or(15560);
+    let project_path = matches.opt_str("n").map(|name| {
+        let mut p = env::current_dir().expect("std::env::current_dir() failed");
+        p.push("projects");
+        p.push(name);
+        p
+    });
     let input = {
         if matches.free.len() == 1 {
             &matches.free[0]
@@ -137,7 +145,7 @@ fn xmain() -> i32 {
         },
     };
 
-    if let Err(err) = if let Some(port) = port { components.record(port) } else { components.run() } {
+    if let Err(err) = if let Some(path) = project_path { components.record(path, port) } else { components.run() } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
     } else {

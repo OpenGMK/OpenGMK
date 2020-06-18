@@ -686,7 +686,6 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
         Self::fill_event_holders(&mut event_holders, &objects);
@@ -780,11 +779,16 @@ impl Game {
         Self::fill_event_holders(&mut self.event_holders, &self.assets.objects);
 
         // Make list of objects with custom draw events
-        self.custom_draw_objects =
-            self.event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+        self.custom_draw_objects = self.event_holders[ev::DRAW]
+            .iter()
+            .flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>())
+            .collect();
     }
 
-    fn fill_event_holders(event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>], objects: &Vec<Option<Box<Object>>>) {
+    fn fill_event_holders(
+        event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>],
+        objects: &Vec<Option<Box<Object>>>,
+    ) {
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
@@ -1227,41 +1231,34 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, _project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         use window::Event;
 
-        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", tcp_port))?;
-        listener.set_nonblocking(true)?;
+        let bind_addr = format!("127.0.0.1:{}", tcp_port);
+        println!("Waiting on TCP connection to {}", bind_addr);
+        let listener = std::net::TcpListener::bind(bind_addr)?;
+        let (mut stream, remote_addr) = listener.accept()?;
+        stream.set_nonblocking(true)?;
+        println!("Connection established with {}", &remote_addr);
 
-        let mut panel = tas::ControlPanel::new()?;
         let mut game_mousex = 0;
         let mut game_mousey = 0;
-
-        let mut savestate: Option<Vec<u8>> = None;
+        //let mut savestate: Option<Vec<u8>> = None;
 
         //let mut time_now = Instant::now();
         loop {
-            for stream in listener.incoming() {
-                match stream {
-                    Ok(mut s) => {
-                        let mut message: Vec<u8> = Vec::new();
-                        let mut buffer = [0; 256];
-                        s.set_nonblocking(false)?;
+            let mut buffer = [0; 4];
 
-                        let mut len = s.read(&mut buffer)?;
-                        while len == buffer.len() {
-                            message.extend_from_slice(&buffer);
-                            len = s.read(&mut buffer)?;
-                        }
-                        message.extend_from_slice(&buffer[..len]);
-                        println!("Got TCP message: {}", String::from_utf8(message)?);
-                    },
-                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        break
-                    },
-                    Err(e) => return Err(e.into()),
-                }
-            }
+            match stream.read(&mut buffer) {
+                Ok(_) => {
+                    let mut message: Vec<u8> = Vec::new();
+                    message.resize_with(u32::from_le_bytes(buffer) as usize, Default::default);
+                    stream.read(&mut message)?;
+                    println!("Got TCP message: {}", String::from_utf8(message)?);
+                },
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
+                Err(e) => return Err(e.into()),
+            };
 
             for event in self.window.process_events().copied() {
                 match event {
@@ -1317,6 +1314,7 @@ impl Game {
                 }
             }
 
+            /*
             for event in panel.window.process_events().copied() {
                 match event {
                     Event::KeyboardDown(input::Key::Space) => {
@@ -1349,9 +1347,9 @@ impl Game {
 
                     _ => (),
                 }
-            }
+            }*/
 
-            if panel.window.close_requested() || self.window.close_requested() {
+            if self.window.close_requested() {
                 break Ok(())
             }
         }

@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Adamcake", "viri"]
 license = "GPL-2.0-only"
 edition = "2018"
+default-run = "gm8emulator"
 
 [build-dependencies]
 gl_generator = "0.14.0"
@@ -34,3 +35,7 @@ features = ["xlib"]
 codegen-units = 1
 lto = true
 opt-level = 3
+
+[[bin]]
+name = "control-panel"
+path = "src/bin/control-panel/main.rs"
