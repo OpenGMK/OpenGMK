@@ -1,10 +1,14 @@
+#[path = "../../game/tas/message.rs"]
+pub mod message;
+
 use std::{
     env,
-    io::{BufRead, Write},
+    io::BufRead,
     net::{SocketAddr, TcpStream},
     path::Path,
     process,
 };
+use message::MessageStream;
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -91,9 +95,8 @@ fn xmain() -> i32 {
     println!("-----");
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
-        let line = line.unwrap();
-        stream.write(&(line.len() as u32).to_le_bytes()).unwrap();
-        stream.write_all(line.as_bytes()).unwrap();
+        let line: String = line.unwrap();
+        stream.send_message(line).expect("couldn't send message");
     }
 
     EXIT_SUCCESS

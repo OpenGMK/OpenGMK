@@ -46,13 +46,13 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    io::Read,
     path::PathBuf,
     rc::Rc,
     thread,
     time::{Duration, Instant},
 };
 use string::RCStr;
+use tas::message::MessageStream;
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -1243,22 +1243,14 @@ impl Game {
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
+        let mut read_buffer: Vec<u8> = Vec::new();
         //let mut savestate: Option<Vec<u8>> = None;
 
         //let mut time_now = Instant::now();
         loop {
-            let mut buffer = [0; 4];
-
-            match stream.read(&mut buffer) {
-                Ok(_) => {
-                    let mut message: Vec<u8> = Vec::new();
-                    message.resize_with(u32::from_le_bytes(buffer) as usize, Default::default);
-                    stream.read(&mut message)?;
-                    println!("Got TCP message: {}", String::from_utf8(message)?);
-                },
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
-                Err(e) => return Err(e.into()),
-            };
+            if let Some(s) = stream.receive_message::<String>(&mut read_buffer)? {
+                println!("Got TCP message: '{}'", s);
+            }
 
             for event in self.window.process_events().copied() {
                 match event {
