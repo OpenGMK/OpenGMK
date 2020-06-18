@@ -12,7 +12,7 @@ use crate::{
     render::{Renderer, RendererOptions},
     types::Colour,
 };
-use std::{convert::TryFrom, io::Read};
+use std::{convert::TryFrom, io::Read, process::Command};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -4290,9 +4290,60 @@ impl Game {
         unimplemented!("Called unimplemented kernel function discard_include_file")
     }
 
-    pub fn execute_program(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function execute_program")
+    pub fn execute_program(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (prog, prog_args, wait) = expect_args!(args, [string, string, any])?;
+        // Rust doesn't let you execute a program with just a string, so unescape it manually
+        let mut command_array = Vec::new();
+        let mut buf = Some(String::new());
+        let mut quote_count = 0;
+        for c in format!("{} {}", prog, prog_args).replace("\\\"", "\"\"\"").chars() {
+            match c {
+                '"' => {
+                    buf = buf.or(Some("".into()));
+                    quote_count += 1;
+                    if quote_count > 2 {
+                        quote_count = 0;
+                        buf.as_mut().unwrap().push('"');
+                    }
+                },
+                c if c.is_whitespace() && quote_count != 1 => {
+                    quote_count %= 2;
+                    if let Some(s) = buf {
+                        command_array.push(s);
+                        buf = None;
+                    }
+                },
+                c => {
+                    quote_count %= 2;
+                    buf = buf.or(Some("".into()));
+                    buf.as_mut().unwrap().push(c);
+                },
+            }
+        }
+        if let Some(s) = buf {
+            command_array.push(s);
+        }
+        if command_array.is_empty() {
+            return Err(gml::Error::FunctionError("execute_program".into(), "Cannot execute an empty string".into()))
+        }
+        // Actually run the program
+        match Command::new(&command_array[0]).args(&command_array[1..]).spawn() {
+            Ok(mut child) => {
+                if wait.is_truthy() {
+                    // wait() closes stdin. This is inaccurate, but Rust doesn't offer an alternative.
+                    if let Err(e) = child.wait() {
+                        return Err(gml::Error::FunctionError(
+                            "execute_program".into(),
+                            format!("Cannot wait for {}: {}", prog, e),
+                        ))
+                    }
+                }
+                Ok(Default::default())
+            },
+            Err(e) => {
+                Err(gml::Error::FunctionError("execute_program".into(), format!("Cannot execute {}: {}", prog, e)))
+            },
+        }
     }
 
     pub fn execute_shell(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
