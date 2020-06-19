@@ -112,13 +112,25 @@ fn xmain() -> i32 {
         .expect("failed to execute process");
 
     let (mut stream, remote_addr) = listener.accept().unwrap();
+    stream.set_nonblocking(true).unwrap();
     println!("Connection established with {}", &remote_addr);
 
     stream.send_message(String::from("Hello World")).expect("Couldn't send message");
+    let mut read_buffer: Vec<u8> = Vec::new();
 
     loop {
+        match stream.receive_message::<String>(&mut read_buffer) {
+            Ok(None) => break,
+            Ok(Some(Some(s))) => println!("Got TCP message: '{}'", s),
+            Ok(Some(None)) => (),
+            Err(e) => {
+                eprintln!("error reading from tcp stream: {}", e);
+                return EXIT_FAILURE
+            }
+        }
+
+        panel.update();
         panel.draw();
-        panel.window.process_events();
         if panel.window.close_requested() {
             break;
         }

@@ -1245,8 +1245,10 @@ impl Game {
 
         //let mut time_now = Instant::now();
         loop {
-            if let Some(s) = stream.receive_message::<String>(&mut read_buffer)? {
-                println!("Got TCP message: '{}'", s);
+            match stream.receive_message::<String>(&mut read_buffer)? {
+                Some(None) => (),
+                Some(Some(s)) => println!("Got TCP message: '{}'", s),
+                None => break Ok(()),
             }
 
             for event in self.window.process_events().copied() {
