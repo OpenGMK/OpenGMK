@@ -2845,19 +2845,105 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_contact_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_contact_all")
+    pub fn move_contact_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already colliding with another instance, do nothing if so
+        if self.check_collision_any(context.this).is_none() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward, but back up old coordinates
+                let old_x = instance.x.get();
+                let old_y = instance.y.get();
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're colliding with another instance now
+                if self.check_collision_any(context.this).is_some() {
+                    // Move self back to where it was, then exit
+                    instance.x.set(old_x);
+                    instance.y.set(old_y);
+                    instance.bbox_is_stale.set(true);
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
-    pub fn move_outside_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_outside_solid")
+    pub fn move_outside_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already outside all solids, do nothing if so
+        if self.check_collision_solid(context.this).is_some() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're outside all solids now
+                if self.check_collision_solid(context.this).is_none() {
+                    // Outside a solid, exit
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
-    pub fn move_outside_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_outside_all")
+    pub fn move_outside_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already not colliding with anything, do nothing if so
+        if self.check_collision_any(context.this).is_some() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're not colliding with anything now
+                if self.check_collision_any(context.this).is_none() {
+                    // Outside a solid, exit
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
     pub fn move_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
