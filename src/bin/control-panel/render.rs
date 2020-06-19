@@ -2,6 +2,11 @@
 /// There's no way around this for now until Rust fixes bug #35016
 /// (though it's been open since 2016 so the outlook is not so good)
 
+pub mod gl {
+    #![allow(clippy::all)]
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
+
 mod opengl;
 
 use crate::{atlas::AtlasBuilder, window::Window, types::Colour};

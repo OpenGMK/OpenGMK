@@ -12,10 +12,7 @@ use rect_packer::DensePacker;
 use std::{any::Any, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
-pub mod gl {
-    #![allow(clippy::all)]
-    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-}
+use super::gl;
 use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 cfg_if! {
