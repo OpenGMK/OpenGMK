@@ -6470,8 +6470,36 @@ impl Game {
         unimplemented!("Called unimplemented kernel function script_get_text")
     }
 
-    pub fn script_execute(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function script_execute")
+    pub fn script_execute(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(script_id) = args.get(0) {
+            let script_id = script_id.round();
+            if let Some(script) = self.assets.scripts.get_asset(script_id) {
+                let instructions = script.compiled.clone();
+                let mut new_args: [Value; 16] = Default::default();
+                for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                    *dest = src.clone();
+                }
+                let mut new_context = Context {
+                    this: context.this,
+                    other: context.other,
+                    event_action: context.event_action,
+                    relative: context.relative,
+                    event_type: context.event_type,
+                    event_number: context.event_number,
+                    event_object: context.event_object,
+                    arguments: new_args,
+                    argument_count: args.len() - 1,
+                    locals: DummyFieldHolder::new(),
+                    return_value: Default::default(),
+                };
+                self.execute(&instructions, &mut new_context)?;
+                Ok(new_context.return_value)
+            } else {
+                Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+            }
+        } else {
+            Err(gml::runtime::Error::WrongArgumentCount(1, 0))
+        }
     }
 
     pub fn path_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
