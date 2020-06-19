@@ -7,7 +7,7 @@ use crate::{
     game::{draw, string::RCStr, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
-    instance::{DummyFieldHolder, Field, Instance},
+    instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
     render::{Renderer, RendererOptions},
     types::Colour,
@@ -3423,9 +3423,32 @@ impl Game {
         }
     }
 
-    pub fn instance_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function instance_find")
+    pub fn instance_find(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (obj, n) = expect_args!(args, [int, int])?;
+        if n < 0 {
+            return Ok(gml::NOONE.into())
+        }
+        let handle = match obj {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+            },
+            _ if obj < 0 => None,
+            obj if obj < 100000 => {
+                let mut iter = self.instance_list.iter_by_object(obj);
+                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+            },
+            inst_id => {
+                if n == 0 {
+                    None
+                } else {
+                    self.instance_list
+                        .get_by_instid(inst_id)
+                        .filter(|h| self.instance_list.get(*h).state.get() == InstanceState::Active)
+                }
+            },
+        };
+        Ok(handle.map(|h| self.instance_list.get(h).id.get()).unwrap_or(gml::NOONE).into())
     }
 
     pub fn instance_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
