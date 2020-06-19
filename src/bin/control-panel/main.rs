@@ -1,9 +1,23 @@
+#![allow(dead_code)]
+
+#[path = "../../atlas.rs"]
+pub mod atlas;
+
+#[path = "../../input.rs"]
+pub mod input;
+
 #[path = "../../game/tas/message.rs"]
 pub mod message;
 
+#[path = "../../types.rs"]
+pub mod types;
+
+mod panel;
+mod render;
+mod window;
+
 use std::{
     env,
-    io::BufRead,
     net::{SocketAddr, TcpStream},
     path::Path,
     process,
@@ -12,6 +26,9 @@ use message::MessageStream;
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
+
+const WINDOW_WIDTH: u32 = 300;
+const WINDOW_HEIGHT: u32 = 750;
 
 fn main() {
     process::exit(xmain());
@@ -74,6 +91,14 @@ fn xmain() -> i32 {
 
     println!("input {}, project name {}, verbose {}", input, project_name, verbose);
 
+    let mut panel = match panel::ControlPanel::new() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error starting control panel: {}", e);
+            return EXIT_FAILURE
+        },
+    };
+
     let mut emu = process::Command::new("gm8emulator.exe");
     let _emu_handle = if verbose { emu.arg(input).arg("v") } else { emu.arg(input) }
         .arg("-n")
@@ -91,12 +116,14 @@ fn xmain() -> i32 {
         },
     };
 
-    println!("Enter messages to send via TCP:");
-    println!("-----");
-    let stdin = std::io::stdin();
-    for line in stdin.lock().lines() {
-        let line: String = line.unwrap();
-        stream.send_message(line).expect("couldn't send message");
+    stream.send_message(String::from("Hello World")).expect("Couldn't send message");
+
+    loop {
+        panel.draw();
+        panel.window.process_events();
+        if panel.window.close_requested() {
+            break;
+        }
     }
 
     EXIT_SUCCESS
