@@ -18,7 +18,6 @@ mod window;
 
 use std::{
     env,
-    net::{SocketAddr, TcpStream},
     path::Path,
     process,
 };
@@ -99,6 +98,10 @@ fn xmain() -> i32 {
         },
     };
 
+    let bind_addr = format!("127.0.0.1:15560");
+    println!("Waiting on TCP connection to {}", bind_addr);
+    let listener = std::net::TcpListener::bind(bind_addr).unwrap();
+
     let mut emu = process::Command::new("gm8emulator.exe");
     let _emu_handle = if verbose { emu.arg(input).arg("v") } else { emu.arg(input) }
         .arg("-n")
@@ -108,13 +111,8 @@ fn xmain() -> i32 {
         .spawn()
         .expect("failed to execute process");
 
-    let mut stream = match TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], 15560))) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("could not open outbound TCP connection: {}", e);
-            return EXIT_FAILURE
-        },
-    };
+    let (mut stream, remote_addr) = listener.accept().unwrap();
+    println!("Connection established with {}", &remote_addr);
 
     stream.send_message(String::from("Hello World")).expect("Couldn't send message");
 

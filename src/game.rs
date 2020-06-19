@@ -46,6 +46,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    net::{SocketAddr, TcpStream},
     path::PathBuf,
     rc::Rc,
     thread,
@@ -1234,12 +1235,8 @@ impl Game {
     pub fn record(&mut self, _project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         use window::Event;
 
-        let bind_addr = format!("127.0.0.1:{}", tcp_port);
-        println!("Waiting on TCP connection to {}", bind_addr);
-        let listener = std::net::TcpListener::bind(bind_addr)?;
-        let (mut stream, remote_addr) = listener.accept()?;
+        let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
         stream.set_nonblocking(true)?;
-        println!("Connection established with {}", &remote_addr);
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
