@@ -850,14 +850,57 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_sprite_stretched_ext")
     }
 
-    pub fn draw_sprite_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_part")
+    pub fn draw_sprite_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, left, top, width, height, x, y) =
+            expect_args!(args, [any, any, any, any, any, any, any, any])?;
+        self.draw_sprite_part_ext(context, &[
+            sprite_index,
+            image_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            1.into(),
+            1.into(),
+            0xFFFFFF.into(),
+            1.into(),
+        ])
     }
 
-    pub fn draw_sprite_part_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 12
-        unimplemented!("Called unimplemented kernel function draw_sprite_part_ext")
+    pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: left, top, width, height should be reals (yes, really)
+        let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_partial(
+                    atlas_ref,
+                    left.round(),
+                    top.round(),
+                    width.round(),
+                    height.round(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
