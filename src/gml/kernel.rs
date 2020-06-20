@@ -7,12 +7,12 @@ use crate::{
     game::{draw, string::RCStr, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
-    instance::{DummyFieldHolder, Field, Instance},
+    instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
     render::{Renderer, RendererOptions},
     types::Colour,
 };
-use std::{convert::TryFrom, io::Read};
+use std::{convert::TryFrom, io::Read, process::Command};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -479,9 +479,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_line_width")
     }
 
-    pub fn draw_rectangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_rectangle")
+    pub fn draw_rectangle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [real, real, real, real, any])?;
+        if outline.is_truthy() {
+            self.renderer.draw_rectangle_outline(
+                x1.into(),
+                y1.into(),
+                x2.into(),
+                y2.into(),
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+        } else {
+            self.renderer.draw_rectangle(
+                x1.into(),
+                y1.into(),
+                x2.into(),
+                y2.into(),
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_roundrect(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -850,14 +869,57 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_sprite_stretched_ext")
     }
 
-    pub fn draw_sprite_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_part")
+    pub fn draw_sprite_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, left, top, width, height, x, y) =
+            expect_args!(args, [any, any, any, any, any, any, any, any])?;
+        self.draw_sprite_part_ext(context, &[
+            sprite_index,
+            image_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            1.into(),
+            1.into(),
+            0xFFFFFF.into(),
+            1.into(),
+        ])
     }
 
-    pub fn draw_sprite_part_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 12
-        unimplemented!("Called unimplemented kernel function draw_sprite_part_ext")
+    pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: left, top, width, height should be reals (yes, really)
+        let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_partial(
+                    atlas_ref,
+                    left.round(),
+                    top.round(),
+                    width.round(),
+                    height.round(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2022,10 +2084,84 @@ impl Game {
         .into())
     }
 
-    pub fn action_draw_health(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        // TODO
-        //unimplemented!("Called unimplemented kernel function action_draw_health")
+    pub fn action_draw_health(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x1, mut y1, mut x2, mut y2, back_col, col) = expect_args!(args, [real, real, real, real, int, int])?;
+
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            let x = instance.x.get();
+            let y = instance.y.get();
+            x1 += x;
+            x2 += x;
+            y1 += y;
+            y2 += y;
+        }
+
+        let health_ratio = f64::from(self.health / Real::from(100.0));
+
+        use mappings::constants;
+        let bar_colour = match col {
+            0 => {
+                // green to red (actually c_lime to c_red)
+                if health_ratio > 0.5 {
+                    i32::from_le_bytes([((1.0 - health_ratio) * (2.0 * 255.0)) as u8, 255, 0, 0])
+                } else {
+                    i32::from_le_bytes([255, (health_ratio * (2.0 * 255.0)) as u8, 0, 0])
+                }
+            },
+            1 => {
+                // white to black
+                let value = (health_ratio * 255.0) as u8;
+                i32::from_le_bytes([value, value, value, 0])
+            },
+            2 => constants::C_BLACK as i32,
+            3 => constants::C_GRAY as i32,
+            4 => constants::C_SILVER as i32,
+            5 => constants::C_WHITE as i32,
+            6 => constants::C_MAROON as i32,
+            7 => constants::C_GREEN as i32,
+            8 => constants::C_OLIVE as i32,
+            9 => constants::C_NAVY as i32,
+            10 => constants::C_PURPLE as i32,
+            11 => constants::C_TEAL as i32,
+            12 => constants::C_RED as i32,
+            13 => constants::C_LIME as i32,
+            14 => constants::C_YELLOW as i32,
+            15 => constants::C_BLUE as i32,
+            16 => constants::C_FUCHSIA as i32,
+            17 => constants::C_AQUA as i32,
+            _ => constants::C_BLACK as i32,
+        };
+        let back_colour = match back_col {
+            0 => None,
+            1 => Some(constants::C_BLACK as i32),
+            2 => Some(constants::C_GRAY as i32),
+            3 => Some(constants::C_SILVER as i32),
+            4 => Some(constants::C_WHITE as i32),
+            5 => Some(constants::C_MAROON as i32),
+            6 => Some(constants::C_GREEN as i32),
+            7 => Some(constants::C_OLIVE as i32),
+            8 => Some(constants::C_NAVY as i32),
+            9 => Some(constants::C_PURPLE as i32),
+            10 => Some(constants::C_TEAL as i32),
+            11 => Some(constants::C_RED as i32),
+            12 => Some(constants::C_LIME as i32),
+            13 => Some(constants::C_YELLOW as i32),
+            14 => Some(constants::C_BLUE as i32),
+            15 => Some(constants::C_FUCHSIA as i32),
+            16 => Some(constants::C_AQUA as i32),
+            _ => Some(constants::C_PURPLE as i32),
+        };
+
+        if let Some(colour) = back_colour {
+            self.renderer.draw_rectangle(x1.into(), y1.into(), x2.into(), y2.into(), colour, self.draw_alpha.into());
+            self.renderer.draw_rectangle_outline(x1.into(), y1.into(), x2.into(), y2.into(), 0, self.draw_alpha.into());
+        }
+
+        x2 = x1 + ((x2 - x1) * health_ratio.into());
+        self.renderer.draw_rectangle(x1.into(), y1.into(), x2.into(), y2.into(), bar_colour, self.draw_alpha.into());
+        self.renderer.draw_rectangle_outline(x1.into(), y1.into(), x2.into(), y2.into(), 0, self.draw_alpha.into());
+
         Ok(Default::default())
     }
 
@@ -2175,9 +2311,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_text_transformed")
     }
 
-    pub fn action_draw_rectangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function action_draw_rectangle")
+    pub fn action_draw_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, border) = expect_args!(args, [real, real, real, real, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            let x = instance.x.get();
+            let y = instance.y.get();
+            self.draw_rectangle(context, &[
+                Value::from(x1 + x),
+                Value::from(y1 + y),
+                Value::from(x2 + x),
+                Value::from(y2 + y),
+                border,
+            ])
+        } else {
+            self.draw_rectangle(context, &[Value::from(x1), Value::from(y1), Value::from(x2), Value::from(y2), border])
+        }
     }
 
     pub fn action_draw_gradient_hor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2520,7 +2669,10 @@ impl Game {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
         expect_args!(args, [string, int]).map(|(s, ix)| {
-            Value::Real((s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as f64).into())
+            Value::Real(
+                (s.as_ref().as_bytes().get((ix as isize - 1).max(0) as usize).copied().unwrap_or_default() as f64)
+                    .into(),
+            )
         })
     }
 
@@ -2549,7 +2701,10 @@ impl Game {
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, int]).map(|(s, ix)| {
             Value::Str(
-                s.as_ref().chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()),
+                s.as_ref()
+                    .chars()
+                    .nth((ix as isize - 1).max(0) as usize)
+                    .map_or("".to_string().into(), |ch| ch.to_string().into()),
             )
         })
     }
@@ -2845,19 +3000,105 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_contact_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_contact_all")
+    pub fn move_contact_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already colliding with another instance, do nothing if so
+        if self.check_collision_any(context.this).is_none() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward, but back up old coordinates
+                let old_x = instance.x.get();
+                let old_y = instance.y.get();
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're colliding with another instance now
+                if self.check_collision_any(context.this).is_some() {
+                    // Move self back to where it was, then exit
+                    instance.x.set(old_x);
+                    instance.y.set(old_y);
+                    instance.bbox_is_stale.set(true);
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
-    pub fn move_outside_solid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_outside_solid")
+    pub fn move_outside_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already outside all solids, do nothing if so
+        if self.check_collision_solid(context.this).is_some() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're outside all solids now
+                if self.check_collision_solid(context.this).is_none() {
+                    // Outside a solid, exit
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
-    pub fn move_outside_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function move_outside_all")
+    pub fn move_outside_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance) = expect_args!(args, [real, int])?;
+        let max_distance = if max_distance > 0 {
+            max_distance
+        } else {
+            1000 // GML default
+        };
+
+        // Figure out how far we're going to step in x and y between each check
+        let step_x = direction.to_radians().cos();
+        let step_y = -direction.to_radians().sin();
+
+        // Check if we're already not colliding with anything, do nothing if so
+        if self.check_collision_any(context.this).is_some() {
+            let instance = self.instance_list.get(context.this);
+            for _ in 0..max_distance {
+                // Step forward
+                instance.x.set(instance.x.get() + step_x);
+                instance.y.set(instance.y.get() + step_y);
+                instance.bbox_is_stale.set(true);
+
+                // Check if we're not colliding with anything now
+                if self.check_collision_any(context.this).is_none() {
+                    // Outside a solid, exit
+                    break
+                }
+            }
+        }
+
+        Ok(Default::default())
     }
 
     pub fn move_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3337,9 +3578,36 @@ impl Game {
         }
     }
 
-    pub fn instance_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function instance_find")
+    pub fn instance_find(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (obj, n) = expect_args!(args, [int, int])?;
+        if n < 0 {
+            return Ok(gml::NOONE.into())
+        }
+        let handle = match obj {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+            },
+            _ if obj < 0 => None,
+            obj if obj < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                } else {
+                    None
+                }
+            },
+            inst_id => {
+                if n == 0 {
+                    None
+                } else {
+                    self.instance_list
+                        .get_by_instid(inst_id)
+                        .filter(|h| self.instance_list.get(*h).state.get() == InstanceState::Active)
+                }
+            },
+        };
+        Ok(handle.map(|h| self.instance_list.get(h).id.get()).unwrap_or(gml::NOONE).into())
     }
 
     pub fn instance_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3740,14 +4008,45 @@ impl Game {
         unimplemented!("Called unimplemented kernel function position_change")
     }
 
-    pub fn instance_deactivate_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_deactivate_all")
+    pub fn instance_deactivate_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let notme = expect_args!(args, [any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            if handle != context.this || !notme.is_truthy() {
+                self.instance_list.deactivate(handle);
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn instance_deactivate_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_deactivate_object")
+    pub fn instance_deactivate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let obj = expect_args!(args, [int])?;
+        match obj {
+            gml::SELF => self.instance_list.deactivate(context.this),
+            gml::OTHER => self.instance_list.deactivate(context.other),
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    self.instance_list.deactivate(handle);
+                }
+            },
+            obj if obj < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.instance_list.deactivate(handle);
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
+                }
+            },
+            inst_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
+                    self.instance_list.deactivate(handle);
+                }
+            },
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_deactivate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3755,14 +4054,43 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_deactivate_region")
     }
 
-    pub fn instance_activate_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function instance_activate_all")
+    pub fn instance_activate_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let mut iter = self.instance_list.iter_inactive();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            self.instance_list.activate(handle);
+        }
+        Ok(Default::default())
     }
 
-    pub fn instance_activate_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_activate_object")
+    pub fn instance_activate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let obj = expect_args!(args, [int])?;
+        match obj {
+            gml::SELF => self.instance_list.activate(context.this),
+            gml::OTHER => self.instance_list.activate(context.other),
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    self.instance_list.activate(handle);
+                }
+            },
+            obj if obj < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_inactive_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.instance_list.activate(handle);
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
+                }
+            },
+            inst_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
+                    self.instance_list.activate(handle);
+                }
+            },
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_activate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4290,9 +4618,60 @@ impl Game {
         unimplemented!("Called unimplemented kernel function discard_include_file")
     }
 
-    pub fn execute_program(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function execute_program")
+    pub fn execute_program(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (prog, prog_args, wait) = expect_args!(args, [string, string, any])?;
+        // Rust doesn't let you execute a program with just a string, so unescape it manually
+        let mut command_array = Vec::new();
+        let mut buf = Some(String::new());
+        let mut quote_count = 0;
+        for c in format!("{} {}", prog, prog_args).replace("\\\"", "\"\"\"").chars() {
+            match c {
+                '"' => {
+                    buf = buf.or(Some("".into()));
+                    quote_count += 1;
+                    if quote_count > 2 {
+                        quote_count = 0;
+                        buf.as_mut().unwrap().push('"');
+                    }
+                },
+                c if c.is_whitespace() && quote_count != 1 => {
+                    quote_count %= 2;
+                    if let Some(s) = buf {
+                        command_array.push(s);
+                        buf = None;
+                    }
+                },
+                c => {
+                    quote_count %= 2;
+                    buf = buf.or(Some("".into()));
+                    buf.as_mut().unwrap().push(c);
+                },
+            }
+        }
+        if let Some(s) = buf {
+            command_array.push(s);
+        }
+        if command_array.is_empty() {
+            return Err(gml::Error::FunctionError("execute_program".into(), "Cannot execute an empty string".into()))
+        }
+        // Actually run the program
+        match Command::new(&command_array[0]).args(&command_array[1..]).spawn() {
+            Ok(mut child) => {
+                if wait.is_truthy() {
+                    // wait() closes stdin. This is inaccurate, but Rust doesn't offer an alternative.
+                    if let Err(e) = child.wait() {
+                        return Err(gml::Error::FunctionError(
+                            "execute_program".into(),
+                            format!("Cannot wait for {}: {}", prog, e),
+                        ))
+                    }
+                }
+                Ok(Default::default())
+            },
+            Err(e) => {
+                Err(gml::Error::FunctionError("execute_program".into(), format!("Cannot execute {}: {}", prog, e)))
+            },
+        }
     }
 
     pub fn execute_shell(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5838,14 +6217,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_is_today")
     }
 
-    pub fn sprite_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_name")
+    pub fn sprite_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.sprite_get_name(context, args)
     }
 
-    pub fn sprite_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_exists")
+    pub fn sprite_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        Ok(self.assets.sprites.get_asset(sprite).is_some().into())
     }
 
     pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6267,8 +6645,36 @@ impl Game {
         unimplemented!("Called unimplemented kernel function script_get_text")
     }
 
-    pub fn script_execute(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function script_execute")
+    pub fn script_execute(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(script_id) = args.get(0) {
+            let script_id = script_id.round();
+            if let Some(script) = self.assets.scripts.get_asset(script_id) {
+                let instructions = script.compiled.clone();
+                let mut new_args: [Value; 16] = Default::default();
+                for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
+                    *dest = src.clone();
+                }
+                let mut new_context = Context {
+                    this: context.this,
+                    other: context.other,
+                    event_action: context.event_action,
+                    relative: context.relative,
+                    event_type: context.event_type,
+                    event_number: context.event_number,
+                    event_object: context.event_object,
+                    arguments: new_args,
+                    argument_count: args.len() - 1,
+                    locals: DummyFieldHolder::new(),
+                    return_value: Default::default(),
+                };
+                self.execute(&instructions, &mut new_context)?;
+                Ok(new_context.return_value)
+            } else {
+                Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+            }
+        } else {
+            Err(gml::runtime::Error::WrongArgumentCount(1, 0))
+        }
     }
 
     pub fn path_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7644,14 +8050,49 @@ impl Game {
         }
     }
 
-    pub fn ds_list_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_list_write")
+    pub fn ds_list_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.lists.get_mut(id) {
+            Ok(list) => {
+                let mut output = "2D010000".to_string();
+                output.push_str(&hex::encode_upper((list.len() as u32).to_le_bytes()));
+                output.extend(list.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_write".into(), e.into())),
+        }
     }
 
-    pub fn ds_list_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_list_read")
+    pub fn ds_list_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_list(mut reader: &[u8]) -> Option<ds::List> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x12d {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let size = u32::from_le_bytes(buf) as usize;
+            let mut list = ds::List::with_capacity(size);
+            for _ in 0..size {
+                list.push(Value::from_reader(&mut reader)?);
+            }
+            Some(list)
+        }
+        match self.lists.get_mut(id) {
+            Ok(old_list) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(list) = read_list(data.as_slice()) {
+                            *old_list = list;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_list_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_list_read".into(), e.into())),
+        }
     }
 
     pub fn ds_map_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7804,9 +8245,18 @@ impl Game {
         }
     }
 
-    pub fn ds_map_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_map_write")
+    pub fn ds_map_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.maps.get_mut(id) {
+            Ok(map) => {
+                let mut output = "91010000".to_string();
+                output.push_str(&hex::encode_upper((map.keys.len() as u32).to_le_bytes()));
+                output.extend(map.keys.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                output.extend(map.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_write".into(), e.into())),
+        }
     }
 
     pub fn ds_map_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7984,9 +8434,18 @@ impl Game {
         }
     }
 
-    pub fn ds_priority_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_priority_write")
+    pub fn ds_priority_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.priority_queues.get_mut(id) {
+            Ok(pq) => {
+                let mut output = "F5010000".to_string();
+                output.push_str(&hex::encode_upper((pq.priorities.len() as u32).to_le_bytes()));
+                output.extend(pq.priorities.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                output.extend(pq.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_write".into(), e.into())),
+        }
     }
 
     pub fn ds_priority_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8233,9 +8692,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_shuffle")
     }
 
-    pub fn ds_grid_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function ds_grid_write")
+    pub fn ds_grid_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.grids.get_mut(id) {
+            Ok(grid) => {
+                let mut output = "59020000".to_string();
+                output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
+                output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
+                for x in 0..grid.width() {
+                    for y in 0..grid.height() {
+                        output.push_str(&hex::encode_upper(grid.get(x, y).as_bytes()));
+                    }
+                }
+                Ok(output.into())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_write".into(), e.into())),
+        }
     }
 
     pub fn ds_grid_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

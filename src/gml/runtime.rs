@@ -971,8 +971,18 @@ impl Game {
             InstanceVariable::BackgroundY => {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).y_offset.into())
             },
-            InstanceVariable::BackgroundWidth => todo!(),
-            InstanceVariable::BackgroundHeight => todo!(),
+            InstanceVariable::BackgroundWidth => {
+                let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
+                if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
+            },
+            InstanceVariable::BackgroundHeight => {
+                let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
+                if let Some(bg) = self.assets.backgrounds.get_asset(index) {
+                    Ok(bg.height.into())
+                } else {
+                    Ok(0.into())
+                }
+            },
             InstanceVariable::BackgroundHtiled => {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_horizontal.into())
             },
@@ -1073,7 +1083,7 @@ impl Game {
             InstanceVariable::EventObject => Ok(context.event_object.into()),
             InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
-            InstanceVariable::DebugMode => todo!(),
+            InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
