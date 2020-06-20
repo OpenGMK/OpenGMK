@@ -7879,7 +7879,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.lists.get_mut(id) {
             Ok(list) => {
-                let mut output = "2d010000".to_string();
+                let mut output = "2D010000".to_string();
                 output.push_str(&hex::encode_upper((list.len() as u32).to_le_bytes()));
                 output.extend(list.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
@@ -8526,7 +8526,7 @@ impl Game {
                 output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
                 for x in 0..grid.width() {
                     for y in 0..grid.height() {
-                        output.push_str(&hex::encode_upper(grid.get(x,y).as_bytes()));
+                        output.push_str(&hex::encode_upper(grid.get(x, y).as_bytes()));
                     }
                 }
                 Ok(output.into())
