@@ -2237,9 +2237,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_text_transformed")
     }
 
-    pub fn action_draw_rectangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function action_draw_rectangle")
+    pub fn action_draw_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, border) = expect_args!(args, [real, real, real, real, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            let x = instance.x.get();
+            let y = instance.y.get();
+            self.draw_rectangle(context, &[
+                Value::from(x1 + x),
+                Value::from(y1 + y),
+                Value::from(x2 + x),
+                Value::from(y2 + y),
+                border,
+            ])
+        } else {
+            self.draw_rectangle(context, &[Value::from(x1), Value::from(y1), Value::from(x2), Value::from(y2), border])
+        }
     }
 
     pub fn action_draw_gradient_hor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
