@@ -2563,7 +2563,10 @@ impl Game {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
         expect_args!(args, [string, int]).map(|(s, ix)| {
-            Value::Real((s.as_ref().as_bytes().get(ix as usize + 1).copied().unwrap_or_default() as f64).into())
+            Value::Real(
+                (s.as_ref().as_bytes().get((ix as isize - 1).max(0) as usize).copied().unwrap_or_default() as f64)
+                    .into(),
+            )
         })
     }
 
@@ -2592,7 +2595,10 @@ impl Game {
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, int]).map(|(s, ix)| {
             Value::Str(
-                s.as_ref().chars().nth(ix as usize + 1).map_or("".to_string().into(), |ch| ch.to_string().into()),
+                s.as_ref()
+                    .chars()
+                    .nth((ix as isize - 1).max(0) as usize)
+                    .map_or("".to_string().into(), |ch| ch.to_string().into()),
             )
         })
     }
