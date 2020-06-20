@@ -6052,7 +6052,7 @@ impl Game {
     }
 
     pub fn sprite_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        Ok(self.sprite_get_name(context, args))
+        self.sprite_get_name(context, args)
     }
 
     pub fn sprite_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
