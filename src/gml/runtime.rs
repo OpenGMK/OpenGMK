@@ -973,13 +973,9 @@ impl Game {
             },
             InstanceVariable::BackgroundWidth => {
                 let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
-                if let Some(bg) = self.assets.backgrounds.get_asset(index) {
-                    Ok(bg.width.into())
-                } else {
-                    Ok(0.into())
-                }
+                if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
             },
-            InstanceVariable::BackgroundHeight =>{
+            InstanceVariable::BackgroundHeight => {
                 let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) {
                     Ok(bg.height.into())
@@ -1087,7 +1083,7 @@ impl Game {
             InstanceVariable::EventObject => Ok(context.event_object.into()),
             InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
-            InstanceVariable::DebugMode => todo!(),
+            InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
             InstanceVariable::ErrorOccurred => todo!(),
             InstanceVariable::ErrorLast => todo!(),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
