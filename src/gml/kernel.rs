@@ -479,9 +479,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_line_width")
     }
 
-    pub fn draw_rectangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_rectangle")
+    pub fn draw_rectangle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [real, real, real, real, any])?;
+        if outline.is_truthy() {
+            self.renderer.draw_rectangle_outline(
+                x1.into(),
+                y1.into(),
+                x2.into(),
+                y2.into(),
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+        } else {
+            self.renderer.draw_rectangle(
+                x1.into(),
+                y1.into(),
+                x2.into(),
+                y2.into(),
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_roundrect(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
