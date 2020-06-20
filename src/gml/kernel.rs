@@ -6047,14 +6047,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_is_today")
     }
 
-    pub fn sprite_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_name")
+    pub fn sprite_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        Ok(self.sprite_get_name(context, args))
     }
 
-    pub fn sprite_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_exists")
+    pub fn sprite_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite = expect_args!(args, [int])?;
+        Ok(self.assets.sprites.get_asset(sprite).is_some().into())
     }
 
     pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
