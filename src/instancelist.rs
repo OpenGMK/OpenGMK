@@ -137,15 +137,13 @@ impl<T> ChunkList<T> {
 }
 
 // non-borrowing instancelist iterator things
-fn nb_il_iter(coll: &[usize], idx: &mut usize, list: &InstanceList) -> Option<usize> {
-    coll.get(*idx..)?
-        .iter()
-        .enumerate()
-        .find(|(_, &inst_idx)| list.get(inst_idx).state.get() == InstanceState::Active)
-        .map(|(idx_offset, val)| {
+fn nb_il_iter(coll: &[usize], idx: &mut usize, list: &InstanceList, state: InstanceState) -> Option<usize> {
+    coll.get(*idx..)?.iter().enumerate().find(|(_, &inst_idx)| list.get(inst_idx).state.get() == state).map(
+        |(idx_offset, val)| {
             *idx += idx_offset + 1;
             *val
-        })
+        },
+    )
 }
 
 // the function above but more generic
@@ -162,19 +160,26 @@ pub struct InstanceList {
     insert_order: Vec<usize>,
     draw_order: Vec<usize>,
     id_map: HashMap<ID, usize>, // Object ID <-> Count
+    inactive_id_map: HashMap<ID, usize>,
 }
 
 // generic purpose non-borrowing iterators
 pub struct ILIterDrawOrder(usize);
 pub struct ILIterInsertOrder(usize);
+pub struct ILIterInactive(usize);
 impl ILIterDrawOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.draw_order, &mut self.0, &list)
+        nb_il_iter(&list.draw_order, &mut self.0, &list, InstanceState::Active)
     }
 }
 impl ILIterInsertOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.insert_order, &mut self.0, &list)
+        nb_il_iter(&list.insert_order, &mut self.0, &list, InstanceState::Active)
+    }
+}
+impl ILIterInactive {
+    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
+        nb_il_iter(&list.insert_order, &mut self.0, &list, InstanceState::Inactive)
     }
 }
 
@@ -183,13 +188,14 @@ pub struct IdentityIter {
     count: usize,
     position: usize,
     children: Rc<RefCell<HashSet<ID>>>,
+    state: InstanceState,
 }
 impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         if self.count > 0 {
             for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
                 let inst = list.get(instance);
-                if inst.state.get() == InstanceState::Active {
+                if inst.state.get() == self.state {
                     let oidx = inst.object_index.get();
                     if self.children.borrow().contains(&oidx) {
                         self.count -= 1;
@@ -232,7 +238,13 @@ impl ObjectIter {
 
 impl InstanceList {
     pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new(), id_map: HashMap::new() }
+        Self {
+            chunks: ChunkList::new(),
+            insert_order: Vec::new(),
+            draw_order: Vec::new(),
+            id_map: HashMap::new(),
+            inactive_id_map: HashMap::new(),
+        }
     }
 
     pub fn get(&self, idx: usize) -> &Instance {
@@ -282,9 +294,19 @@ impl InstanceList {
         ILIterInsertOrder(0)
     }
 
+    pub const fn iter_inactive(&self) -> ILIterInactive {
+        ILIterInactive(0)
+    }
+
     pub fn iter_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
         let count = identities.borrow().iter().fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities }
+        IdentityIter { count, position: 0, children: identities, state: InstanceState::Active }
+    }
+
+    pub fn iter_inactive_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
+        let count =
+            identities.borrow().iter().fold(0, |acc, x| acc + self.inactive_id_map.get(x).copied().unwrap_or_default());
+        IdentityIter { count, position: 0, children: identities, state: InstanceState::Inactive }
     }
 
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
@@ -310,6 +332,42 @@ impl InstanceList {
 
     pub fn remove_dummy(&mut self, instance: usize) {
         self.chunks.remove(instance)
+    }
+
+    pub fn deactivate(&mut self, instance: usize) {
+        let instance = self.get(instance);
+        if instance.state.get() == InstanceState::Active {
+            instance.state.set(InstanceState::Inactive);
+
+            let object_id = instance.object_index.get();
+            // Add to inactive
+            self.inactive_id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+            // Remove from active
+            let entry = self.id_map.entry(object_id).and_modify(|n| *n -= 1);
+            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                if *occupied.get() == 0 {
+                    occupied.remove_entry();
+                }
+            }
+        }
+    }
+
+    pub fn activate(&mut self, instance: usize) {
+        let instance = self.get(instance);
+        if instance.state.get() == InstanceState::Inactive {
+            instance.state.set(InstanceState::Active);
+
+            let object_id = instance.object_index.get();
+            // Add to active
+            self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+            // Remove from inactive
+            let entry = self.inactive_id_map.entry(object_id).and_modify(|n| *n -= 1);
+            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                if *occupied.get() == 0 {
+                    occupied.remove_entry();
+                }
+            }
+        }
     }
 
     pub fn mark_deleted(&mut self, instance: usize) {

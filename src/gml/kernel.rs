@@ -3902,14 +3902,45 @@ impl Game {
         unimplemented!("Called unimplemented kernel function position_change")
     }
 
-    pub fn instance_deactivate_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_deactivate_all")
+    pub fn instance_deactivate_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let notme = expect_args!(args, [any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            if handle != context.this || !notme.is_truthy() {
+                self.instance_list.deactivate(handle);
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn instance_deactivate_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_deactivate_object")
+    pub fn instance_deactivate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let obj = expect_args!(args, [int])?;
+        match obj {
+            gml::SELF => self.instance_list.deactivate(context.this),
+            gml::OTHER => self.instance_list.deactivate(context.other),
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    self.instance_list.deactivate(handle);
+                }
+            },
+            obj if obj < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.instance_list.deactivate(handle);
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
+                }
+            },
+            inst_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
+                    self.instance_list.deactivate(handle);
+                }
+            },
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_deactivate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3917,14 +3948,43 @@ impl Game {
         unimplemented!("Called unimplemented kernel function instance_deactivate_region")
     }
 
-    pub fn instance_activate_all(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function instance_activate_all")
+    pub fn instance_activate_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let mut iter = self.instance_list.iter_inactive();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            self.instance_list.activate(handle);
+        }
+        Ok(Default::default())
     }
 
-    pub fn instance_activate_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_activate_object")
+    pub fn instance_activate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let obj = expect_args!(args, [int])?;
+        match obj {
+            gml::SELF => self.instance_list.activate(context.this),
+            gml::OTHER => self.instance_list.activate(context.other),
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    self.instance_list.activate(handle);
+                }
+            },
+            obj if obj < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_inactive_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        self.instance_list.activate(handle);
+                    }
+                } else {
+                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
+                }
+            },
+            inst_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
+                    self.instance_list.activate(handle);
+                }
+            },
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_activate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
