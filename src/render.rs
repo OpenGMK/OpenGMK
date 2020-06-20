@@ -135,6 +135,9 @@ pub trait RendererTrait {
             }
         }
     }
+
+    fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
+    fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
 }
 
 pub struct RendererOptions {
@@ -245,6 +248,14 @@ impl Renderer {
         tile_end_y: Option<f64>,
     ) {
         self.0.draw_sprite_tiled(texture, x, y, xscale, yscale, colour, alpha, tile_end_x, tile_end_y)
+    }
+
+    pub fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        self.0.draw_rectangle(x1, y1, x2, y2, colour, alpha)
+    }
+
+    pub fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        self.0.draw_rectangle_outline(x1, y1, x2, y2, colour, alpha)
     }
 
     pub fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
