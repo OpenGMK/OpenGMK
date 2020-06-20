@@ -26,6 +26,8 @@ pub struct ControlPanel {
     key_button_r_held: AtlasRef,
     key_button_r_held2: AtlasRef,
     key_button_r_held3: AtlasRef,
+
+    context_menu_key: Option<input::Key>,
 }
 
 pub struct KeyButton {
@@ -99,18 +101,20 @@ impl ControlPanel {
             key_button_r_held,
             key_button_r_held2,
             key_button_r_held3,
+
+            context_menu_key: None,
         })
     }
 
     pub fn update(&mut self) {
-        for event in self.window.process_events() {
+        'evloop: for event in self.window.process_events() {
             match event {
                 Event::MouseMove(x, y) => {
                     self.mouse_x = *x;
                     self.mouse_y = *y;
                 },
 
-                Event::MouseButtonDown(input::MouseButton::Left) => {
+                Event::MouseButtonUp(input::MouseButton::Left) => {
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
@@ -119,6 +123,42 @@ impl ControlPanel {
                                 KeyButtonState::Held => KeyButtonState::HeldWillRelease,
                                 KeyButtonState::HeldWillRelease | KeyButtonState::HeldWillRP | KeyButtonState::HeldWillRPR => KeyButtonState::Held,
                             };
+                        }
+                    }
+                },
+
+                Event::MouseButtonUp(input::MouseButton::Right) => {
+                    for button in self.key_buttons.iter_mut() {
+                        if button.contains_point(self.mouse_x, self.mouse_y) {
+                            let options = match button.state {
+                                KeyButtonState::Neutral | KeyButtonState::NeutralWillPress | KeyButtonState::NeutralWillPR | KeyButtonState::NeutralWillPRP => [("Press-Release-Press\0".into(), 3), ("Press-Release\0".into(), 2), ("Press\0".into(), 1), ("Reset\0".into(), 0)],
+                                KeyButtonState::Held | KeyButtonState::HeldWillRelease | KeyButtonState::HeldWillRP | KeyButtonState::HeldWillRPR => [("Release-Press-Release\0".into(), 7), ("Release-Press\0".into(), 6), ("Release\0".into(), 5), ("Reset\0".into(), 4)],
+                            };
+                            self.window.show_context_menu(&options);
+                            self.context_menu_key = Some(button.key);
+                            break 'evloop;
+                        }
+                    }
+                },
+
+                Event::MenuOption(option) => {
+                    if let Some(target_key) = self.context_menu_key {
+                        let new_state = match option {
+                            0 => KeyButtonState::Neutral,
+                            1 => KeyButtonState::NeutralWillPress,
+                            2 => KeyButtonState::NeutralWillPR,
+                            3 => KeyButtonState::NeutralWillPRP,
+                            4 => KeyButtonState::Held,
+                            5 => KeyButtonState::HeldWillRelease,
+                            6 => KeyButtonState::HeldWillRP,
+                            7 => KeyButtonState::HeldWillRPR,
+                            _ => continue,
+                        };
+
+                        for button in self.key_buttons.iter_mut() {
+                            if button.key == target_key {
+                                button.state = new_state;
+                            }
                         }
                     }
                 },
