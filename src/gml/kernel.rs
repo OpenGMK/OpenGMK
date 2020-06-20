@@ -3484,8 +3484,12 @@ impl Game {
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
-                let mut iter = self.instance_list.iter_by_object(obj);
-                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                } else {
+                    None
+                }
             },
             inst_id => {
                 if n == 0 {
