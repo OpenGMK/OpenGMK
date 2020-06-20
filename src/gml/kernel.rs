@@ -2097,83 +2097,64 @@ impl Game {
             y2 += y;
         }
 
+        let health_ratio = f64::from(self.health / Real::from(100.0));
+
         use mappings::constants;
-        let (bar_colour, bar_colour_to) = match col {
-            0 => (constants::C_GREEN, Some(constants::C_RED)),
-            1 => (constants::C_WHITE, Some(constants::C_BLACK)),
-            2 => (constants::C_BLACK, None),
-            3 => (constants::C_GRAY, None),
-            4 => (constants::C_SILVER, None),
-            5 => (constants::C_WHITE, None),
-            6 => (constants::C_MAROON, None),
-            7 => (constants::C_GREEN, None),
-            8 => (constants::C_OLIVE, None),
-            9 => (constants::C_NAVY, None),
-            10 => (constants::C_PURPLE, None),
-            11 => (constants::C_TEAL, None),
-            12 => (constants::C_RED, None),
-            13 => (constants::C_LIME, None),
-            14 => (constants::C_YELLOW, None),
-            15 => (constants::C_BLUE, None),
-            16 => (constants::C_FUCHSIA, None),
-            17 => (constants::C_AQUA, None),
-            _ => (constants::C_BLACK, None),
+        let bar_colour = match col {
+            0 => {
+                // green to red (actually c_lime to c_red)
+                if health_ratio > 0.5 {
+                    i32::from_le_bytes([((1.0 - health_ratio) * (2.0 * 255.0)) as u8, 255, 0, 0])
+                } else {
+                    i32::from_le_bytes([255, (health_ratio * (2.0 * 255.0)) as u8, 0, 0])
+                }
+            },
+            1 => {
+                // white to black
+                let value = (health_ratio * 255.0) as u8;
+                i32::from_le_bytes([value, value, value, 0])
+            },
+            2 => constants::C_BLACK as i32,
+            3 => constants::C_GRAY as i32,
+            4 => constants::C_SILVER as i32,
+            5 => constants::C_WHITE as i32,
+            6 => constants::C_MAROON as i32,
+            7 => constants::C_GREEN as i32,
+            8 => constants::C_OLIVE as i32,
+            9 => constants::C_NAVY as i32,
+            10 => constants::C_PURPLE as i32,
+            11 => constants::C_TEAL as i32,
+            12 => constants::C_RED as i32,
+            13 => constants::C_LIME as i32,
+            14 => constants::C_YELLOW as i32,
+            15 => constants::C_BLUE as i32,
+            16 => constants::C_FUCHSIA as i32,
+            17 => constants::C_AQUA as i32,
+            _ => constants::C_BLACK as i32,
         };
         let back_colour = match back_col {
             0 => None,
-            1 => Some(constants::C_BLACK),
-            2 => Some(constants::C_GRAY),
-            3 => Some(constants::C_SILVER),
-            4 => Some(constants::C_WHITE),
-            5 => Some(constants::C_MAROON),
-            6 => Some(constants::C_GREEN),
-            7 => Some(constants::C_OLIVE),
-            8 => Some(constants::C_NAVY),
-            9 => Some(constants::C_PURPLE),
-            10 => Some(constants::C_TEAL),
-            11 => Some(constants::C_RED),
-            12 => Some(constants::C_LIME),
-            13 => Some(constants::C_YELLOW),
-            14 => Some(constants::C_BLUE),
-            15 => Some(constants::C_FUCHSIA),
-            16 => Some(constants::C_AQUA),
-            _ => Some(constants::C_PURPLE),
-        };
-
-        let health_ratio = f64::from(self.health / Real::from(100.0));
-
-        fn lerp_u8(from: u8, to: u8, ratio: f64) -> u8 {
-            if from <= to {
-                from + ((to - from) as f64 * ratio) as u8
-            } else {
-                from - ((from - to) as f64 * ratio) as u8
-            }
-        }
-
-        let bar_colour = if let Some(c_to) = bar_colour_to {
-            // No, these aren't backwards. "from green to red" actually means we want a fully-green bar
-            // at full health, so we are actually lerping from red to green by scalar health.
-            let bytes_to = (bar_colour as i32).to_le_bytes();
-            let bytes_from = (c_to as i32).to_le_bytes();
-            i32::from_le_bytes([
-                lerp_u8(bytes_from[0], bytes_to[0], health_ratio),
-                lerp_u8(bytes_from[1], bytes_to[1], health_ratio),
-                lerp_u8(bytes_from[1], bytes_to[2], health_ratio),
-                0,
-            ])
-        } else {
-            bar_colour as i32
+            1 => Some(constants::C_BLACK as i32),
+            2 => Some(constants::C_GRAY as i32),
+            3 => Some(constants::C_SILVER as i32),
+            4 => Some(constants::C_WHITE as i32),
+            5 => Some(constants::C_MAROON as i32),
+            6 => Some(constants::C_GREEN as i32),
+            7 => Some(constants::C_OLIVE as i32),
+            8 => Some(constants::C_NAVY as i32),
+            9 => Some(constants::C_PURPLE as i32),
+            10 => Some(constants::C_TEAL as i32),
+            11 => Some(constants::C_RED as i32),
+            12 => Some(constants::C_LIME as i32),
+            13 => Some(constants::C_YELLOW as i32),
+            14 => Some(constants::C_BLUE as i32),
+            15 => Some(constants::C_FUCHSIA as i32),
+            16 => Some(constants::C_AQUA as i32),
+            _ => Some(constants::C_PURPLE as i32),
         };
 
         if let Some(colour) = back_colour {
-            self.renderer.draw_rectangle(
-                x1.into(),
-                y1.into(),
-                x2.into(),
-                y2.into(),
-                colour as i32,
-                self.draw_alpha.into(),
-            );
+            self.renderer.draw_rectangle(x1.into(), y1.into(), x2.into(), y2.into(), colour, self.draw_alpha.into());
             self.renderer.draw_rectangle_outline(x1.into(), y1.into(), x2.into(), y2.into(), 0, self.draw_alpha.into());
         }
 
