@@ -2062,9 +2062,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_life")
     }
 
-    pub fn action_draw_life_images(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_life_images")
+    pub fn action_draw_life_images(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, sprite_index) = expect_args!(args, [real, real, int])?;
+        if context.relative {
+            let inst = self.instance_list.get(context.this);
+            x += inst.x.get();
+            y += inst.y.get();
+        }
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            if let Some(atlas_ref) = sprite.frames.get(0).map(|x| &x.atlas_ref) {
+                for _ in 0..self.lives {
+                    self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
+                    x += sprite.width.into();
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn action_set_health(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
