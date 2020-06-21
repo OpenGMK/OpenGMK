@@ -4063,9 +4063,21 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_deactivate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function instance_deactivate_region")
+    pub fn instance_deactivate_region(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (left, top, width, height, inside, notme) = expect_args!(args, [real, real, real, real, any, any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let inst = self.instance_list.get(handle);
+            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
+                != inside.is_truthy()
+            {
+                self.instance_list.deactivate(handle);
+            }
+        }
+        if notme.is_truthy() {
+            self.instance_list.activate(context.this);
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_activate_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4107,9 +4119,18 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_activate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function instance_activate_region")
+    pub fn instance_activate_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let inst = self.instance_list.get(handle);
+            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
+                != inside.is_truthy()
+            {
+                self.instance_list.activate(handle);
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
