@@ -69,6 +69,8 @@ pub struct Game {
 
     pub renderer: Renderer,
 
+    pub externals: Vec<Option<external::External>>,
+
     pub last_instance_id: ID,
     pub last_tile_id: ID,
 
@@ -687,7 +689,6 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
         Self::fill_event_holders(&mut event_holders, &objects);
@@ -705,6 +706,7 @@ impl Game {
             tile_list: TileList::new(),
             rand: Random::new(),
             renderer: renderer,
+            externals: Vec::new(),
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -781,11 +783,16 @@ impl Game {
         Self::fill_event_holders(&mut self.event_holders, &self.assets.objects);
 
         // Make list of objects with custom draw events
-        self.custom_draw_objects =
-            self.event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+        self.custom_draw_objects = self.event_holders[ev::DRAW]
+            .iter()
+            .flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>())
+            .collect();
     }
 
-    fn fill_event_holders(event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>], objects: &Vec<Option<Box<Object>>>) {
+    fn fill_event_holders(
+        event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>],
+        objects: &Vec<Option<Box<Object>>>,
+    ) {
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
@@ -1257,9 +1264,7 @@ impl Game {
                         message.extend_from_slice(&buffer[..len]);
                         println!("Got TCP message: {}", String::from_utf8(message)?);
                     },
-                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        break
-                    },
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                     Err(e) => return Err(e.into()),
                 }
             }
