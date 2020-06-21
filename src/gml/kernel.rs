@@ -4025,9 +4025,10 @@ impl Game {
         let notme = expect_args!(args, [any])?;
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
-            if handle != context.this || !notme.is_truthy() {
-                self.instance_list.deactivate(handle);
-            }
+            self.instance_list.deactivate(handle);
+        }
+        if notme.is_truthy() {
+            self.instance_list.activate(context.this);
         }
         Ok(Default::default())
     }
