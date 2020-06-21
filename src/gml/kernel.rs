@@ -2178,9 +2178,19 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_set_caption")
+    pub fn action_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sc_show, sc_cap, lv_show, lv_cap, hl_show, hl_cap) =
+            expect_args!(args, [any, string, any, string, any, string])?;
+
+        self.score_capt_d = sc_show.is_truthy();
+        self.lives_capt_d = lv_show.is_truthy();
+        self.health_capt_d = hl_show.is_truthy();
+
+        self.score_capt = sc_cap;
+        self.lives_capt = lv_cap;
+        self.health_capt = hl_cap;
+
+        Ok(Default::default())
     }
 
     pub fn action_partsyst_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
