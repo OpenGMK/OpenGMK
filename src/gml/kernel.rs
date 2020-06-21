@@ -4,7 +4,7 @@
 
 use crate::{
     action, asset,
-    game::{draw, string::RCStr, window, Game, GetAsset, SceneChange},
+    game::{draw, external, string::RCStr, window, Game, GetAsset, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     input::MouseButton,
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
@@ -5673,17 +5673,62 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn external_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function external_define")
+    pub fn external_define(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let (Some(dll), Some(name), Some(calltype), Some(restype), Some(argnumb)) =
+            (args.get(0), args.get(1), args.get(2), args.get(3), args.get(4))
+        {
+            let dll = RCStr::from(dll.clone());
+            let name = RCStr::from(name.clone());
+            let calltype = match calltype.round() {
+                0 => external::CallConv::Cdecl,
+                _ => external::CallConv::Stdcall,
+            };
+            let restype = match restype.round() {
+                0 => external::ArgType::Real,
+                _ => external::ArgType::Str,
+            };
+            let argnumb = argnumb.round();
+            if args.len() as i32 != 5 + argnumb {
+                return Err(gml::Error::WrongArgumentCount(5 + argnumb.max(5) as usize, args.len()))
+            }
+            let argtypes = args[5..]
+                .iter()
+                .map(|v| match v.round() {
+                    0 => external::ArgType::Real,
+                    _ => external::ArgType::Str,
+                })
+                .collect::<Vec<_>>();
+            self.externals.push(Some(
+                external::External::new(dll.as_ref(), name.as_ref(), calltype, restype, &argtypes)
+                    .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
+            ));
+            Ok((self.externals.len() - 1).into())
+        } else {
+            Err(gml::Error::WrongArgumentCount(5, args.len()))
+        }
     }
 
-    pub fn external_call(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function external_call")
+    pub fn external_call(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if let Some(id) = args.get(0) {
+            let id = id.round();
+            if let Some(external) = self.externals.get_asset(id) {
+                return external.call(&args[1..])
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn external_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function external_free")
+    pub fn external_free(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let dll_name = expect_args!(args, [string])?;
+        for e_opt in self.externals.iter_mut() {
+            if let Some(e) = e_opt {
+                if e.dll_name == dll_name {
+                    drop(e);
+                    *e_opt = None;
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn get_function_address(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
