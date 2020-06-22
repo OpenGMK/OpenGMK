@@ -1,10 +1,9 @@
 use gmio::{
     atlas::{AtlasBuilder, AtlasRef},
-    input,
     render::{Renderer, RendererOptions},
     window::{Event, Window, WindowBuilder},
 };
-use shared::types::Colour;
+use shared::{input, types::Colour};
 
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;

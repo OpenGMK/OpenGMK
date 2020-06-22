@@ -1,4 +1,4 @@
-use gmio::input::{Key, MouseButton};
+use shared::input::{Key, MouseButton};
 use serde::{Deserialize, Serialize};
 use std::convert::identity;
 

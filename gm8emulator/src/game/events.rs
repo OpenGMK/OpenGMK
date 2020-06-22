@@ -4,8 +4,7 @@ use crate::{
     gml,
     instance::Instance,
 };
-use gmio::input::MouseButton;
-use shared::types::ID;
+use shared::{input::MouseButton, types::ID};
 
 impl Game {
     /// Runs an event for all objects which hold the given event.

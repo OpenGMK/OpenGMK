@@ -1,7 +1,7 @@
 #![cfg(target_os = "windows")]
 
 use super::{Cursor, Event, Style, WindowBuilder, WindowTrait};
-use crate::input::{Key, MouseButton};
+use shared::input::{Key, MouseButton};
 use std::{
     any::Any,
     ffi::OsStr,

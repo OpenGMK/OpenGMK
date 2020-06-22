@@ -10,11 +10,10 @@ use crate::{
     math::Real,
 };
 use gmio::{
-    input::MouseButton,
     render::{Renderer, RendererOptions},
     window,
 };
-use shared::types::Colour;
+use shared::{input::MouseButton, types::Colour};
 use std::{convert::TryFrom, io::Read, process::Command};
 
 macro_rules! _arg_into {

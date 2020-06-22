@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // WINAPI constants also used by GM8
 pub const VK_ADD: u8 = 0x6B;

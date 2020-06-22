@@ -3,7 +3,7 @@
 pub mod win32;
 pub mod xorg;
 
-use crate::input::{Key, MouseButton};
+use shared::input::{Key, MouseButton};
 use std::{any::Any, slice};
 
 #[cfg(target_os = "windows")]

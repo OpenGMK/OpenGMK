@@ -39,13 +39,13 @@ use crate::{
 };
 use gmio::{
     atlas::AtlasBuilder,
-    input::MouseButton,
     render::{Renderer, RendererOptions},
     window::{Window, WindowBuilder},
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::{
+    input::MouseButton,
     message::{self, Message, MessageStream},
     types::{Colour, ID},
 };
