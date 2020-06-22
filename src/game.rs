@@ -927,6 +927,7 @@ impl Game {
         }
 
         // Load all instances in new room, unless they already exist due to persistence
+        let mut new_handles: Vec<(usize, &asset::room::Instance)> = Vec::new();
         for instance in room.instances.iter() {
             if self.instance_list.get_by_instid(instance.id).is_none() {
                 // Get object
@@ -936,32 +937,33 @@ impl Game {
                 };
 
                 // Add instance to list
-                let handle = self.instance_list.insert(Instance::new(
+                new_handles.push((self.instance_list.insert(Instance::new(
                     instance.id as _,
                     Real::from(instance.x),
                     Real::from(instance.y),
                     instance.object,
                     object,
-                ));
-
-                // Run this instance's room creation code
-                self.execute(&instance.creation, &mut Context {
-                    this: handle,
-                    other: handle,
-                    event_action: 0,
-                    relative: false,
-                    event_type: 11, // GM8 does this for some reason
-                    event_number: 0,
-                    event_object: instance.object,
-                    arguments: Default::default(),
-                    argument_count: 0,
-                    locals: Default::default(),
-                    return_value: Default::default(),
-                })?;
-
-                // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, handle, handle, None)?;
+                )), instance));
             }
+        }
+        for (handle, instance) in &new_handles {
+            // Run this instance's room creation code
+            self.execute(&instance.creation, &mut Context {
+                this: *handle,
+                other: *handle,
+                event_action: 0,
+                relative: false,
+                event_type: 11, // GM8 does this for some reason
+                event_number: 0,
+                event_object: instance.object,
+                arguments: Default::default(),
+                argument_count: 0,
+                locals: Default::default(),
+                return_value: Default::default(),
+            })?;
+
+            // Run create event for this instance
+            self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
         }
 
         if self.game_start {
