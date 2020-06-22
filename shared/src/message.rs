@@ -1,4 +1,4 @@
-use crate::types::ID;
+use crate::{input, types::ID};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io};
 
@@ -6,7 +6,7 @@ use std::{collections::HashMap, io};
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     /// Tells the game to advance a frame and then send us an update
-    Advance { key_inputs: Vec<(u8, bool)>, mouse_inputs: Vec<(u8, bool)>, mouse_location: (f64, f64) },
+    Advance { key_inputs: Vec<(input::Key, bool)>, mouse_inputs: Vec<(input::MouseButton, bool)>, mouse_location: (f64, f64) },
 
     /// Tells the game to create a savestate in the given index
     Save { index: usize },
@@ -20,15 +20,15 @@ pub enum Message {
 pub enum Information {
     /// Updates the controller on the state of the game
     Update {
-        keys_held: Vec<u8>,
-        mouse_buttons_held: Vec<u8>,
+        keys_held: Vec<input::Key>,
+        mouse_buttons_held: Vec<input::MouseButton>,
         mouse_location: (f64, f64),
         seed: i32,
         instance: Option<InstanceDetails>,
     },
 
     /// Tells the controller that a key was pressed while the game window was focused
-    KeyPressed { key: u8 },
+    KeyPressed { key: input::Key },
 
     /// Tells the controller that the user clicked on an instance and provides its details
     InstanceClicked { details: InstanceDetails },

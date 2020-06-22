@@ -1371,7 +1371,7 @@ impl Game {
                     },
 
                     Event::KeyboardDown(key) => {
-                        stream.send_message(message::Information::KeyPressed { key: key as u8 })?;
+                        stream.send_message(message::Information::KeyPressed { key })?;
                     },
 
                     _ => (),
