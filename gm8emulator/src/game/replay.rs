@@ -2,7 +2,7 @@ use crate::gml::Value;
 use gmio::input::{Key, MouseButton};
 
 // Represents an entire replay (TAS) file
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Replay {
     // System time to use at the beginning of this replay.
     // Will be used to spoof some GML variables such as `current_time`.
@@ -16,7 +16,7 @@ pub struct Replay {
 }
 
 // Associated data for a single frame of playback
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Frame {
     pub fps: u32,
     pub mouse_x: i32,
@@ -26,7 +26,7 @@ pub struct Frame {
 }
 
 // Stored events for certain things which must always happen the same way during replay
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     GetInteger(Value),   // value returned from get_integer()
     GetString(Value),    // value returned from get_string()
@@ -37,7 +37,7 @@ pub enum Event {
 }
 
 // An input event which takes place during a frame
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Input {
     KeyPress(Key),
     KeyRelease(Key),
