@@ -12,7 +12,7 @@ mod math;
 mod tile;
 mod util;
 
-use std::{env, fs, path::Path, process};
+use std::{env, fs, path::Path, process, time};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -40,6 +40,7 @@ fn xmain() -> i32 {
     opts.optflag("s", "strict", "enable various data integrity checks");
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
+    opts.optflag("r", "realtime", "disables clock spoofing");
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
 
@@ -65,6 +66,7 @@ fn xmain() -> i32 {
 
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
+    let spoof_time = !matches.opt_present("r");
     let verbose = matches.opt_present("v");
     let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
         Ok(p) => p,
@@ -133,7 +135,13 @@ fn xmain() -> i32 {
         },
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path) {
+    let time_nanos = if spoof_time {
+        Some(time::SystemTime::now().duration_since(time::UNIX_EPOCH).map(|x| x.as_nanos()).unwrap_or(0))
+    } else {
+        None
+    };
+
+    let mut components = match game::Game::launch(assets, absolute_path, time_nanos) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

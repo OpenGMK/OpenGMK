@@ -1,6 +1,6 @@
 use crate::{
     asset::font::Font,
-    game::{background, draw, Replay, string::RCStr, view::View, Assets, Game, Version},
+    game::{background, draw, string::RCStr, view::View, Assets, Game, Replay, Version},
     gml::{
         ds::{self, DataStructureManager},
         rand::Random,
@@ -79,7 +79,7 @@ pub struct SaveState {
     pub game_id: i32,
     pub program_directory: RCStr,
     pub gm_version: Version,
-
+    pub spoofed_time_nanos: Option<u128>,
     pub caption: RCStr,
     pub caption_stale: bool,
 
@@ -149,6 +149,7 @@ impl SaveState {
             game_id: game.game_id.clone(),
             program_directory: game.program_directory.clone(),
             gm_version: game.gm_version.clone(),
+            spoofed_time_nanos: game.spoofed_time_nanos,
             caption: game.caption.clone(),
             caption_stale: game.caption_stale.clone(),
             unscaled_width: game.unscaled_width,
@@ -215,6 +216,7 @@ impl SaveState {
         game.game_id = self.game_id;
         game.program_directory = self.program_directory;
         game.gm_version = self.gm_version;
+        game.spoofed_time_nanos = self.spoofed_time_nanos;
         game.caption = self.caption;
         game.caption_stale = self.caption_stale;
         game.unscaled_width = self.unscaled_width;

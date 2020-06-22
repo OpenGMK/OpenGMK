@@ -127,6 +127,7 @@ pub struct Game {
     pub program_directory: RCStr,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
+    pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
 
     // window caption
     pub caption: RCStr,
@@ -170,7 +171,11 @@ pub struct Assets {
 }
 
 impl Game {
-    pub fn launch(assets: gm8exe::GameAssets, file_path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn launch(
+        assets: gm8exe::GameAssets,
+        file_path: PathBuf,
+        spoofed_time_nanos: Option<u128>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
         file_path2.pop();
@@ -755,6 +760,7 @@ impl Game {
             program_directory: program_directory.into(),
             gm_version,
             open_ini: None,
+            spoofed_time_nanos,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -1227,6 +1233,9 @@ impl Game {
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
             let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                *t += duration.as_nanos();
+            }
             if let Some(time) = duration.checked_sub(diff) {
                 thread::sleep(time);
                 time_now += duration;
@@ -1389,6 +1398,9 @@ impl Game {
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
             let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                *t += duration.as_nanos();
+            }
             if let Some(time) = duration.checked_sub(diff) {
                 thread::sleep(time);
                 time_now += duration;

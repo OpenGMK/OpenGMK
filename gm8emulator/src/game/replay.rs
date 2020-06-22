@@ -1,6 +1,6 @@
 use crate::gml::Value;
 use gmio::input::{Key, MouseButton};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // Represents an entire replay (TAS) file
 #[derive(Clone, Debug, Serialize, Deserialize)]
