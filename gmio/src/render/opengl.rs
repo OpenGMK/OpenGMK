@@ -2,8 +2,8 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    window::Window,
     render::{mat4mult, RendererOptions, RendererTrait},
+    window::Window,
 };
 use cfg_if::cfg_if;
 use memoffset::offset_of;

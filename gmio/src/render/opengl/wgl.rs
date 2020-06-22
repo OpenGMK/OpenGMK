@@ -3,8 +3,8 @@
 #![cfg(target_os = "windows")]
 
 use crate::{
-    window::win32::WindowImpl,
     render::opengl::gl::{self, types::GLint},
+    window::win32::WindowImpl,
 };
 use std::{
     ffi::CStr,

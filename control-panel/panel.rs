@@ -1,9 +1,8 @@
-
 use gmio::{
     atlas::{AtlasBuilder, AtlasRef},
-    window::{Event, Window, WindowBuilder},
     input,
     render::{Renderer, RendererOptions},
+    window::{Event, Window, WindowBuilder},
 };
 use shared::types::Colour;
 
@@ -60,7 +59,8 @@ impl ControlPanel {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let wb = WindowBuilder::new().with_size(WINDOW_WIDTH, WINDOW_HEIGHT);
         let mut window = wb.build()?;
-        let mut renderer = Renderer::new((),
+        let mut renderer = Renderer::new(
+            (),
             &RendererOptions {
                 size: (WINDOW_WIDTH, WINDOW_HEIGHT),
                 clear_colour: Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0),
@@ -120,9 +120,13 @@ impl ControlPanel {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
                                 KeyButtonState::Neutral => KeyButtonState::NeutralWillPress,
-                                KeyButtonState::NeutralWillPress | KeyButtonState::NeutralWillPR | KeyButtonState::NeutralWillPRP => KeyButtonState::Neutral,
+                                KeyButtonState::NeutralWillPress
+                                | KeyButtonState::NeutralWillPR
+                                | KeyButtonState::NeutralWillPRP => KeyButtonState::Neutral,
                                 KeyButtonState::Held => KeyButtonState::HeldWillRelease,
-                                KeyButtonState::HeldWillRelease | KeyButtonState::HeldWillRP | KeyButtonState::HeldWillRPR => KeyButtonState::Held,
+                                KeyButtonState::HeldWillRelease
+                                | KeyButtonState::HeldWillRP
+                                | KeyButtonState::HeldWillRPR => KeyButtonState::Held,
                             };
                         }
                     }
@@ -132,12 +136,28 @@ impl ControlPanel {
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
-                                KeyButtonState::Neutral | KeyButtonState::NeutralWillPress | KeyButtonState::NeutralWillPR | KeyButtonState::NeutralWillPRP => [("Press-Release-Press\0".into(), 3), ("Press-Release\0".into(), 2), ("Press\0".into(), 1), ("Reset\0".into(), 0)],
-                                KeyButtonState::Held | KeyButtonState::HeldWillRelease | KeyButtonState::HeldWillRP | KeyButtonState::HeldWillRPR => [("Release-Press-Release\0".into(), 7), ("Release-Press\0".into(), 6), ("Release\0".into(), 5), ("Reset\0".into(), 4)],
+                                KeyButtonState::Neutral
+                                | KeyButtonState::NeutralWillPress
+                                | KeyButtonState::NeutralWillPR
+                                | KeyButtonState::NeutralWillPRP => [
+                                    ("Press-Release-Press\0".into(), 3),
+                                    ("Press-Release\0".into(), 2),
+                                    ("Press\0".into(), 1),
+                                    ("Reset\0".into(), 0),
+                                ],
+                                KeyButtonState::Held
+                                | KeyButtonState::HeldWillRelease
+                                | KeyButtonState::HeldWillRP
+                                | KeyButtonState::HeldWillRPR => [
+                                    ("Release-Press-Release\0".into(), 7),
+                                    ("Release-Press\0".into(), 6),
+                                    ("Release\0".into(), 5),
+                                    ("Reset\0".into(), 4),
+                                ],
                             };
                             self.window.show_context_menu(&options);
                             self.context_menu_key = Some(button.key);
-                            break 'evloop;
+                            break 'evloop
                         }
                     }
                 },
@@ -170,12 +190,32 @@ impl ControlPanel {
     }
 
     pub fn draw(&mut self) {
-        self.renderer.set_view(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, WINDOW_WIDTH as _, WINDOW_HEIGHT as _, 0.0, 0, 0, WINDOW_WIDTH as _, WINDOW_HEIGHT as _);
+        self.renderer.set_view(
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT,
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT,
+            0,
+            0,
+            WINDOW_WIDTH as _,
+            WINDOW_HEIGHT as _,
+            0.0,
+            0,
+            0,
+            WINDOW_WIDTH as _,
+            WINDOW_HEIGHT as _,
+        );
         for button in self.key_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
-                KeyButtonState::Neutral | KeyButtonState::NeutralWillPress | KeyButtonState::NeutralWillPR | KeyButtonState::NeutralWillPRP => &self.key_button_l_neutral,
-                KeyButtonState::Held | KeyButtonState::HeldWillRelease | KeyButtonState::HeldWillRP | KeyButtonState::HeldWillRPR => &self.key_button_l_neutral,
+                KeyButtonState::Neutral
+                | KeyButtonState::NeutralWillPress
+                | KeyButtonState::NeutralWillPR
+                | KeyButtonState::NeutralWillPRP => &self.key_button_l_neutral,
+                KeyButtonState::Held
+                | KeyButtonState::HeldWillRelease
+                | KeyButtonState::HeldWillRP
+                | KeyButtonState::HeldWillRPR => &self.key_button_l_neutral,
             };
             let atlas_ref_r = match button.state {
                 KeyButtonState::Neutral | KeyButtonState::HeldWillRelease => &self.key_button_r_neutral,
@@ -186,7 +226,16 @@ impl ControlPanel {
                 KeyButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            self.renderer.draw_sprite(atlas_ref_r, (button.x + atlas_ref_l.w) as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
+            self.renderer.draw_sprite(
+                atlas_ref_r,
+                (button.x + atlas_ref_l.w) as _,
+                button.y as _,
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
         }
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT)
     }
@@ -194,7 +243,7 @@ impl ControlPanel {
     // Little helper function, input MUST be a BMP file in 32-bit RGBA format. Best used with include_bytes!()
     fn upload_bmp(atlases: &mut AtlasBuilder, bmp: &[u8]) -> AtlasRef {
         fn read_u32(data: &[u8], pos: usize) -> u32 {
-            let bytes = &data[pos..pos+4];
+            let bytes = &data[pos..pos + 4];
             u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
         }
 
@@ -206,7 +255,8 @@ impl ControlPanel {
         for bytes in rgba.rchunks_exact((w * 4) as usize) {
             corrected_rgba.extend_from_slice(bytes);
         }
-        atlases.texture(w as _, h as _, 0, 0, corrected_rgba.into_boxed_slice())
+        atlases
+            .texture(w as _, h as _, 0, 0, corrected_rgba.into_boxed_slice())
             .expect("Failed to pack a texture for control panel")
     }
 }

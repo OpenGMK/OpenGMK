@@ -34,18 +34,20 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
     replay::{self, Replay},
-    tile,
-    util,
+    tile, util,
 };
 use gmio::{
     atlas::AtlasBuilder,
     input::MouseButton,
     render::{Renderer, RendererOptions},
-    window::{Window, WindowBuilder}
+    window::{Window, WindowBuilder},
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use shared::types::{Colour, ID};
+use shared::{
+    message::MessageStream,
+    types::{Colour, ID},
+};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -56,7 +58,6 @@ use std::{
     time::{Duration, Instant},
 };
 use string::RCStr;
-use shared::message::MessageStream;
 
 /// Structure which contains all the components of a game.
 pub struct Game {

@@ -3,11 +3,7 @@
 mod panel;
 
 use shared::message::MessageStream;
-use std::{
-    env,
-    path::Path,
-    process,
-};
+use std::{env, path::Path, process};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -112,13 +108,13 @@ fn xmain() -> i32 {
             Err(e) => {
                 eprintln!("error reading from tcp stream: {}", e);
                 return EXIT_FAILURE
-            }
+            },
         }
 
         panel.update();
         panel.draw();
         if panel.window.close_requested() {
-            break;
+            break
         }
     }
 

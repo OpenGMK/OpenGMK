@@ -1,4 +1,4 @@
-use crate::{game::string::RCStr};
+use crate::game::string::RCStr;
 use gmio::render::AtlasRef;
 use serde::{Deserialize, Serialize};
 

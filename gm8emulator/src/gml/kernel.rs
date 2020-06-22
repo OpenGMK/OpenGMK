@@ -9,7 +9,11 @@ use crate::{
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
-use gmio::{input::MouseButton, render::{Renderer, RendererOptions}, window};
+use gmio::{
+    input::MouseButton,
+    render::{Renderer, RendererOptions},
+    window,
+};
 use shared::types::Colour;
 use std::{convert::TryFrom, io::Read, process::Command};
 
