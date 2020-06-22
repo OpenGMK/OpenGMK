@@ -649,19 +649,19 @@ impl Game {
                             .tiles
                             .into_iter()
                             .map(|t| tile::Tile {
-                                x: f64::from(t.x),
-                                y: f64::from(t.y),
+                                x: Real::from(t.x),
+                                y: Real::from(t.y),
                                 background_index: t.source_bg,
                                 tile_x: t.tile_x,
                                 tile_y: t.tile_y,
                                 width: t.width,
                                 height: t.height,
-                                depth: t.depth,
+                                depth: Real::from(t.depth),
                                 id: t.id as usize,
-                                alpha: 1.0,
+                                alpha: Real::from(1.0),
                                 blend: 0xFFFFFF,
-                                xscale: 1.0,
-                                yscale: 1.0,
+                                xscale: Real::from(1.0),
+                                yscale: Real::from(1.0),
                                 visible: true,
                             })
                             .collect::<Vec<_>>()

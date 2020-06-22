@@ -282,7 +282,7 @@ impl InstanceList {
             let right = chunks.get(idx2).unwrap();
 
             // Draw order is sorted by depth (higher is lowest...)
-            right.depth.get().cmp(&left.depth.get())
+            right.depth.get().cmp_nan_first(&left.depth.get())
         })
     }
 
@@ -456,7 +456,7 @@ impl TileList {
             let left = chunks.get(idx1).unwrap();
             let right = chunks.get(idx2).unwrap();
 
-            right.depth.cmp(&left.depth)
+            right.depth.cmp_nan_first(&left.depth)
         })
     }
 

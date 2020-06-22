@@ -199,13 +199,13 @@ impl Game {
                         tile.tile_y as _,
                         tile.width as _,
                         tile.height as _,
-                        tile.x,
-                        tile.y,
-                        tile.xscale,
-                        tile.yscale,
+                        tile.x.into(),
+                        tile.y.into(),
+                        tile.xscale.into(),
+                        tile.yscale.into(),
                         0.0,
                         tile.blend,
-                        tile.alpha,
+                        tile.alpha.into(),
                     )
                 }
             }
@@ -241,7 +241,7 @@ impl Game {
                 (Some(idx_inst), Some(idx_tile)) => {
                     let inst = self.instance_list.get(idx_inst);
                     let tile = self.tile_list.get(idx_tile);
-                    match inst.depth.get().cmp(&tile.depth) {
+                    match inst.depth.get().cmp_nan_first(&tile.depth) {
                         Ordering::Greater | Ordering::Equal => {
                             draw_instance(self, idx_inst)?;
                             iter_inst_v = iter_inst.next(&self.instance_list);
