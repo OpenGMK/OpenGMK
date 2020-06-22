@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 // WINAPI constants also used by GM8
 pub const VK_ADD: u8 = 0x6B;
 pub const VK_ALT: u8 = 0x12; // real name: VK_MENU
@@ -56,7 +58,7 @@ pub const MB_LEFT: u8 = 0x00;
 pub const MB_RIGHT: u8 = 0x01;
 pub const MB_MIDDLE: u8 = 0x02;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 #[rustfmt::skip]
 pub enum Key {
@@ -185,7 +187,7 @@ impl Key {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 #[rustfmt::skip]
 pub enum MouseButton {
