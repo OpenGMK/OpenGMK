@@ -46,12 +46,14 @@ use gmio::{
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::{
-    message::MessageStream,
+    message::{self, Message, MessageStream},
     types::{Colour, ID},
 };
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    fs::File,
+    io::Write,
     net::{SocketAddr, TcpStream},
     path::PathBuf,
     rc::Rc,
@@ -1246,7 +1248,7 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, _project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         use gmio::window::Event;
 
         let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
@@ -1255,13 +1257,33 @@ impl Game {
         let mut game_mousex = 0;
         let mut game_mousey = 0;
         let mut read_buffer: Vec<u8> = Vec::new();
-        //let mut savestate: Option<Vec<u8>> = None;
+        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
 
         //let mut time_now = Instant::now();
         loop {
-            match stream.receive_message::<String>(&mut read_buffer)? {
+            match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => (),
-                Some(Some(s)) => println!("Got TCP message: '{}'", s),
+                Some(Some(m)) => match m {
+                    Message::Advance { key_inputs, mouse_inputs, mouse_location } => {
+                        // todo
+                    },
+
+                    Message::Save { index } => {
+                        let mut path = project_path.clone();
+                        path.push(format!("save{}.bin", index));
+                        let mut f = File::create(&path)?;
+                        f.write_all(&bincode::serialize(&SaveState::from(self, replay.clone()))?)?;
+                    },
+
+                    Message::Load { index } => {
+                        let mut path = project_path.clone();
+                        path.push(format!("save{}.bin", index));
+                        let f = File::open(&path)?;
+                        let state = bincode::deserialize_from::<_, SaveState>(f)?;
+                        replay = state.load_into(self);
+                        // send an update
+                    },
+                },
                 None => break Ok(()),
             }
 
@@ -1300,59 +1322,61 @@ impl Game {
                     Event::MenuOption(id) => {
                         if let Some(handle) = self.instance_list.get_by_instid(id as _) {
                             let instance = self.instance_list.get(handle);
-                            println!(
-                                "Requested info for instance #{} (object \"{}\"; x={} y={})",
-                                id,
-                                match self.assets.objects.get_asset(instance.object_index.get()) {
-                                    Some(obj) => obj.name.as_ref(),
-                                    None => "<deleted object>",
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            stream.send_message(message::Information::InstanceClicked {
+                                details: message::InstanceDetails {
+                                    id: instance.id.get(),
+                                    object_name: match self.assets.objects.get_asset(instance.object_index.get()) {
+                                        Some(obj) => obj.name.as_ref().into(),
+                                        None => "<deleted object>".into(),
+                                    },
+                                    x: instance.x.get().into(),
+                                    y: instance.y.get().into(),
+                                    speed: instance.speed.get().into(),
+                                    direction: instance.direction.get().into(),
+                                    timeline_info: if self
+                                        .assets
+                                        .timelines
+                                        .get_asset(instance.timeline_index.get())
+                                        .is_some()
+                                    {
+                                        Some((
+                                            instance.timeline_index.get(),
+                                            instance.timeline_position.get().into(),
+                                            instance.timeline_speed.get().into(),
+                                        ))
+                                    } else {
+                                        None
+                                    },
+                                    path_info: if self.assets.paths.get_asset(instance.path_index.get()).is_some() {
+                                        Some((
+                                            instance.path_index.get(),
+                                            instance.path_position.get().into(),
+                                            instance.path_speed.get().into(),
+                                        ))
+                                    } else {
+                                        None
+                                    },
+                                    alarms: instance.alarms.borrow().clone(),
+                                    bbox_top: instance.bbox_top.get(),
+                                    bbox_left: instance.bbox_left.get(),
+                                    bbox_right: instance.bbox_right.get(),
+                                    bbox_bottom: instance.bbox_bottom.get(),
                                 },
-                                instance.x.get(),
-                                instance.y.get(),
-                            );
+                            })?;
+                            break
                         } else {
                             println!("Requested info for instance #{} [non-existent or deleted]", id);
                         }
                     },
 
+                    Event::KeyboardDown(key) => {
+                        stream.send_message(message::Information::KeyPressed { key: key as u8 })?;
+                    },
+
                     _ => (),
                 }
             }
-
-            /*
-            for event in panel.window.process_events().copied() {
-                match event {
-                    Event::KeyboardDown(input::Key::Space) => {
-                        self.frame()?;
-                        match self.scene_change {
-                            Some(SceneChange::Room(id)) => self.load_room(id)?,
-                            Some(SceneChange::Restart) => self.restart()?,
-                            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-                            None => (),
-                        }
-                        break
-                    },
-
-                    Event::KeyboardDown(input::Key::Q) => {
-                        let t1 = std::time::Instant::now();
-                        savestate = Some(bincode::serialize(&tas::SaveState::from(self))?);
-                        println!("Saved in {:?}", t1.elapsed());
-                    },
-
-                    Event::KeyboardDown(input::Key::W) => {
-                        if let Some(ss) = &savestate {
-                            let t1 = std::time::Instant::now();
-                            let ss: tas::SaveState = bincode::deserialize(ss)?;
-                            ss.clone().load_into(self);
-                            println!("Loaded in {:?}", t1.elapsed());
-                        } else {
-                            println!("Nothing to load");
-                        }
-                    },
-
-                    _ => (),
-                }
-            }*/
 
             if self.window.close_requested() {
                 break Ok(())
