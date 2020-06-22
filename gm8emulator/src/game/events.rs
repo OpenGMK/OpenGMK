@@ -299,39 +299,37 @@ impl Game {
         }
 
         // Mouse enter
-        let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&10)) {
-            Some(e) => e.clone(),
-            None => return Ok(()),
-        };
-        let mut position = 0;
-        while let Some(&object_id) = holders.borrow().get(position) {
-            let mut iter = self.instance_list.iter_by_object(object_id);
-            while let Some(handle) = iter.next(&self.instance_list) {
-                if self.check_collision_point(handle, mouse_x, mouse_y, true)
-                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
-                {
-                    self.run_instance_event(gml::ev::MOUSE, 10, handle, handle, None)?;
+        if let Some(holders) = self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&10)) {
+            let holders = holders.clone();
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    if self.check_collision_point(handle, mouse_x, mouse_y, true)
+                        && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
+                    {
+                        self.run_instance_event(gml::ev::MOUSE, 10, handle, handle, None)?;
+                    }
                 }
+                position += 1;
             }
-            position += 1;
         }
 
         // Mouse leave
-        let holders = match self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&11)) {
-            Some(e) => e.clone(),
-            None => return Ok(()),
-        };
-        let mut position = 0;
-        while let Some(&object_id) = holders.borrow().get(position) {
-            let mut iter = self.instance_list.iter_by_object(object_id);
-            while let Some(handle) = iter.next(&self.instance_list) {
-                if self.check_collision_point(handle, mouse_x, mouse_y, true)
-                    && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
-                {
-                    self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
+        if let Some(holders) = self.event_holders.get(gml::ev::MOUSE).and_then(|x| x.get(&11)) {
+            let holders = holders.clone();
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    if self.check_collision_point(handle, mouse_x, mouse_y, true)
+                        && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
+                    {
+                        self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
+                    }
                 }
+                position += 1;
             }
-            position += 1;
         }
 
         // Global left button

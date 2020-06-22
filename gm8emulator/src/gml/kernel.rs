@@ -1994,9 +1994,15 @@ impl Game {
         operator(lhs, rhs)
     }
 
-    pub fn action_draw_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_variable")
+        let (variable, mut x, mut y) = expect_args!(args, [any, real, real])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), variable])
     }
 
     pub fn action_set_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2061,9 +2067,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_draw_life")
     }
 
-    pub fn action_draw_life_images(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_life_images")
+    pub fn action_draw_life_images(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, sprite_index) = expect_args!(args, [real, real, int])?;
+        if context.relative {
+            let inst = self.instance_list.get(context.this);
+            x += inst.x.get();
+            y += inst.y.get();
+        }
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            if let Some(atlas_ref) = sprite.frames.get(0).map(|x| &x.atlas_ref) {
+                for _ in 0..self.lives {
+                    self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
+                    x += sprite.width.into();
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn action_set_health(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2164,9 +2183,19 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_set_caption")
+    pub fn action_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sc_show, sc_cap, lv_show, lv_cap, hl_show, hl_cap) =
+            expect_args!(args, [any, string, any, string, any, string])?;
+
+        self.score_capt_d = sc_show.is_truthy();
+        self.lives_capt_d = lv_show.is_truthy();
+        self.health_capt_d = hl_show.is_truthy();
+
+        self.score_capt = sc_cap;
+        self.lives_capt = lv_cap;
+        self.health_capt = hl_cap;
+
+        Ok(Default::default())
     }
 
     pub fn action_partsyst_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4011,9 +4040,10 @@ impl Game {
         let notme = expect_args!(args, [any])?;
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
-            if handle != context.this || !notme.is_truthy() {
-                self.instance_list.deactivate(handle);
-            }
+            self.instance_list.deactivate(handle);
+        }
+        if notme.is_truthy() {
+            self.instance_list.activate(context.this);
         }
         Ok(Default::default())
     }
@@ -4048,9 +4078,21 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_deactivate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function instance_deactivate_region")
+    pub fn instance_deactivate_region(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (left, top, width, height, inside, notme) = expect_args!(args, [real, real, real, real, any, any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let inst = self.instance_list.get(handle);
+            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
+                != inside.is_truthy()
+            {
+                self.instance_list.deactivate(handle);
+            }
+        }
+        if notme.is_truthy() {
+            self.instance_list.activate(context.this);
+        }
+        Ok(Default::default())
     }
 
     pub fn instance_activate_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4092,9 +4134,18 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_activate_region(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function instance_activate_region")
+    pub fn instance_activate_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, any])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            let inst = self.instance_list.get(handle);
+            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
+                != inside.is_truthy()
+            {
+                self.instance_list.activate(handle);
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn room_goto(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
