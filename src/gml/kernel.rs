@@ -1995,9 +1995,15 @@ impl Game {
         operator(lhs, rhs)
     }
 
-    pub fn action_draw_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_variable")
+        let (variable, mut x, mut y) = expect_args!(args, [any, real, real])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), variable])
     }
 
     pub fn action_set_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
