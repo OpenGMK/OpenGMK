@@ -161,6 +161,7 @@ impl SaveState {
     }
 
     pub fn load_into(self, game: &mut Game) -> Replay {
+        game.window.resize(self.screenshot_width, self.screenshot_height);
         game.renderer.draw_pixels(self.screenshot, self.screenshot_width as _, self.screenshot_height as _);
 
         game.compiler = self.compiler;

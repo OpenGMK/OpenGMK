@@ -331,9 +331,6 @@ impl RendererTrait for RendererImpl {
 
     fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
         unsafe {
-            // MASSIVE TODO: PLEASE STOP ASSUMING W/H == WINDOW W/H
-            // also "draw_pixels" describes like 1 of the things it does
-
             // store previous texture, upload new texture to gpu
             let (mut prev_tex2d, mut prev_tex_multi) = (0, 0);
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
