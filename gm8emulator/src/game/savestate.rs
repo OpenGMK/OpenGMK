@@ -1,6 +1,6 @@
 use crate::{
     asset::font::Font,
-    game::{background, draw, string::RCStr, view::View, Assets, Game, Version},
+    game::{background, draw, Replay, string::RCStr, view::View, Assets, Game, Version},
     gml::{
         ds::{self, DataStructureManager},
         rand::Random,
@@ -86,13 +86,14 @@ pub struct SaveState {
     unscaled_width: u32,
     unscaled_height: u32,
 
+    replay: Replay,
     screenshot: Box<[u8]>,
     screenshot_width: u32,
     screenshot_height: u32,
 }
 
 impl SaveState {
-    pub fn from(game: &Game) -> Self {
+    pub fn from(game: &Game, replay: Replay) -> Self {
         let (width, height) = game.window.get_inner_size();
         let screenshot = game.renderer.get_pixels(width as _, height as _);
 
@@ -152,13 +153,14 @@ impl SaveState {
             caption_stale: game.caption_stale.clone(),
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
+            replay,
             screenshot,
             screenshot_width: width,
             screenshot_height: height,
         }
     }
 
-    pub fn load_into(self, game: &mut Game) {
+    pub fn load_into(self, game: &mut Game) -> Replay {
         game.renderer.draw_pixels(self.screenshot, self.screenshot_width as _, self.screenshot_height as _);
 
         game.compiler = self.compiler;
@@ -216,5 +218,6 @@ impl SaveState {
         game.caption_stale = self.caption_stale;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
+        self.replay
     }
 }
