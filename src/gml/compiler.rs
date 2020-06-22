@@ -53,9 +53,7 @@ impl Compiler {
     /// Register a script name and its index.
     /// Panics if two identical script names are registered - GM8 does not allow this.
     pub fn register_script(&mut self, name: String, index: usize) {
-        if let Some(v) = self.script_names.insert(name, index) {
-            panic!("Two scripts with the same name registered: at index {} and {}", v, index);
-        }
+        self.script_names.entry(name).or_insert(index);
     }
 
     /// Compile a GML string into instructions.

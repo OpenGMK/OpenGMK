@@ -60,27 +60,34 @@ cfg_if! {
 
         impl Real {
             #[inline(always)]
+            #[cfg(target_arch = "x86_64")]
             pub fn round64(mut self) -> i64 {
                 unsafe {
                     let out: i64;
-                    if cfg!(target_arch = "x86_64") {
-                        asm! {
-                            "fld qword ptr [{1}]
-                            fistp qword ptr [{1}]
-                            mov {0}, qword ptr [{1}]",
-                            lateout(reg) out,
-                            in(reg) &mut self,
-                        }
-                    } else {
-                        // OPTIMIZE: Using an SSE register here probably isn't the fastest?
-                        // How the fuck do I specify "stack value"?
-                        asm! {
-                            "fld qword ptr [{1}]
-                            fistp qword ptr [{1}]
-                            movsd {0}, [{1}]",
-                            lateout(xmm_reg) out,
-                            in(reg) &mut self,
-                        }
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fistp qword ptr [{1}]
+                        mov {0}, qword ptr [{1}]",
+                        lateout(reg) out,
+                        in(reg) &mut self,
+                    }
+                    out
+                }
+            }
+
+            #[inline(always)]
+            #[cfg(target_arch = "x86")]
+            pub fn round64(mut self) -> i64 {
+                unsafe {
+                    let out: i64;
+                    // OPTIMIZE: Using an SSE register here probably isn't the fastest?
+                    // How the fuck do I specify "stack value"?
+                    asm! {
+                        "fld qword ptr [{1}]
+                        fistp qword ptr [{1}]
+                        movsd {0}, [{1}]",
+                        lateout(xmm_reg) out,
+                        in(reg) &mut self,
                     }
                     out
                 }
@@ -512,6 +519,20 @@ impl Real {
     #[inline(always)]
     pub fn as_mut_ref(&mut self) -> &mut f64 {
         &mut self.0
+    }
+
+    #[inline(always)]
+    pub fn cmp_nan_first(&self, other: &Self) -> Ordering {
+        if self.0.is_nan() {
+            if other.0.is_nan() {
+                return Ordering::Equal
+            }
+            return Ordering::Less
+        }
+        if other.0.is_nan() {
+            return Ordering::Greater
+        }
+        self.partial_cmp(other).unwrap()
     }
 }
 

@@ -45,7 +45,7 @@ pub struct RendererImpl {
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<GLuint>,
     current_atlas: GLuint,
-
+    white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
 
     loc_tex: GLint,  // uniform sampler2D tex
@@ -196,7 +196,7 @@ impl RendererImpl {
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 current_atlas: 0,
-
+                white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
@@ -233,8 +233,10 @@ impl RendererTrait for RendererImpl {
         size.max(0) as u32
     }
 
-    fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
+    fn push_atlases(&mut self, mut atl: AtlasBuilder) -> Result<(), String> {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
+        self.white_pixel =
+            atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
         let (packers, sprites) = atl.into_inner();
 
         unsafe {
@@ -446,6 +448,19 @@ impl RendererTrait for RendererImpl {
             ),
             alpha: alpha as f32,
         });
+    }
+
+    fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        let copied_pixel = self.white_pixel;
+        self.draw_sprite(&copied_pixel, x1, y1, x2 + 1.0 - x1, y2 + 1.0 - y1, 0.0, colour, alpha)
+    }
+
+    fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        let copied_pixel = self.white_pixel;
+        self.draw_sprite(&copied_pixel, x1, y1, x2 + 1.0 - x1, 1.0, 0.0, colour, alpha); // top line
+        self.draw_sprite(&copied_pixel, x1, y2, x2 + 1.0 - x1, 1.0, 0.0, colour, alpha); // bottom line
+        self.draw_sprite(&copied_pixel, x1, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // left line
+        self.draw_sprite(&copied_pixel, x2, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // right line
     }
 
     /// Does anything that's queued to be done.

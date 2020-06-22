@@ -1,6 +1,9 @@
 use crate::{game::string::RCStr, gml, math::Real};
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    convert::TryInto,
+    fmt::{self, Display},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
@@ -314,6 +317,43 @@ impl Value {
             Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r),
             Self::Real(r) => format!("{:.2}", r),
             Self::Str(string) => string.to_string(),
+        }
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        match self {
+            Self::Real(x) => {
+                bytes.resize(4, 0);
+                bytes.extend_from_slice(&f64::from(*x).to_le_bytes());
+                bytes.resize(16, 0);
+            },
+            Self::Str(s) => {
+                bytes.push(1);
+                bytes.resize(12, 0);
+                bytes.extend_from_slice(&(s.as_ref().len() as u32).to_le_bytes());
+                bytes.extend_from_slice(s.as_ref().as_bytes());
+            },
+        }
+        bytes
+    }
+
+    pub fn from_reader(reader: &mut dyn std::io::Read) -> Option<Self> {
+        let mut block = [0u8; 16];
+        reader.read_exact(&mut block).ok()?;
+        if block.len() == 16 {
+            match u32::from_le_bytes(block[0..4].try_into().unwrap()) {
+                0 => Some(Self::Real(Real::from(f64::from_le_bytes(block[4..12].try_into().unwrap())))),
+                1 => {
+                    let len = u32::from_le_bytes(block[12..16].try_into().unwrap());
+                    let mut buf = vec![0; len as usize];
+                    reader.read_exact(&mut buf).ok()?;
+                    String::from_utf8(buf).ok().map(|s| s.into())
+                },
+                _ => None,
+            }
+        } else {
+            None
         }
     }
 }

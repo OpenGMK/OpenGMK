@@ -1,13 +1,14 @@
+use crate::math::Real;
 use serde::{Deserialize, Serialize};
 
 /// An instance of a background tile.
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Tile {
     /// The tile's x position in the room
-    pub x: f64,
+    pub x: Real,
 
     /// The tile's y position in the room
-    pub y: f64,
+    pub y: Real,
 
     /// Index of the background which this tile will draw a section of
     pub background_index: i32,
@@ -25,22 +26,22 @@ pub struct Tile {
     pub height: u32,
 
     /// Depth of this tile in the room
-    pub depth: i32,
+    pub depth: Real,
 
     /// Unique ID of this tile - tile IDs are above 10,000,000
     pub id: usize,
 
     /// Alpha value of this tile, from 0.0 (invisible) to 1.0 (opaque)
-    pub alpha: f64,
+    pub alpha: Real,
 
     /// Colour blend value of this tile
     pub blend: i32,
 
     /// xscale with which to draw this tile
-    pub xscale: f64,
+    pub xscale: Real,
 
     /// yscale with which to draw this tile
-    pub yscale: f64,
+    pub yscale: Real,
 
     /// Whether this tile will be drawn
     pub visible: bool,
