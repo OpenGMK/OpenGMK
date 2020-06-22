@@ -2,11 +2,13 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod movement;
+pub mod replay;
 pub mod savestate;
 pub mod string;
 pub mod view;
 
 pub use background::Background;
+pub use replay::Replay;
 pub use savestate::SaveState;
 pub use view::View;
 
@@ -33,7 +35,6 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
-    replay::{self, Replay},
     tile, util,
 };
 use gmio::{
