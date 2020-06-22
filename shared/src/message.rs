@@ -1,5 +1,62 @@
+use crate::types::ID;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{collections::HashMap, io};
+
+/// A message sent from the controller to the client.
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Message {
+    /// Tells the game to advance a frame and then send us an update
+    Advance { key_inputs: Vec<(u8, bool)>, mouse_inputs: Vec<(u8, bool)>, mouse_location: (f64, f64) },
+
+    /// Tells the game to create a savestate in the given index
+    Save { index: usize },
+
+    /// Tells the game to load the savestate with the given index and then send us an update
+    Load { index: usize },
+}
+
+/// A message sent from the client to the controller.
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Information {
+    /// Updates the controller on the state of the game
+    Update {
+        keys_held: Vec<u8>,
+        mouse_buttons_held: Vec<u8>,
+        mouse_location: (f64, f64),
+        seed: i32,
+        instance: Option<InstanceDetails>,
+    },
+
+    /// Tells the controller that a key was pressed while the game window was focused
+    KeyPressed { key: u8 },
+
+    /// Tells the controller that the user clicked on an instance and provides its details
+    InstanceClicked { details: InstanceDetails },
+
+    /// Tells the controller that the game encountered an error
+    GameError { error: String },
+
+    /// Sends the controller some general info which should be shown to the user
+    General { message: String },
+}
+
+/// The details of an instance sent to the control panel for display.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InstanceDetails {
+    pub id: ID,
+    pub object_name: String,
+    pub x: f64,
+    pub y: f64,
+    pub speed: f64,
+    pub direction: f64,
+    pub timeline_info: Option<(i32, f64, f64)>,
+    pub path_info: Option<(i32, f64, f64)>,
+    pub alarms: HashMap<u32, i32>,
+    pub bbox_top: i32,
+    pub bbox_left: i32,
+    pub bbox_right: i32,
+    pub bbox_bottom: i32,
+}
 
 pub trait MessageStream {
     /// Serializes an object using bincode, then writes it as a length-tagged byte stream.
