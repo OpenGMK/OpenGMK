@@ -1316,7 +1316,7 @@ impl Game {
                         })?;
                         break
                     },
-                    m => return Err(format!("Waiting for greeting from server, but got {:?}", m)),
+                    m => return Err(format!("Waiting for greeting from server, but got {:?}", m).into()),
                 },
                 None => return Ok(()),
             }
@@ -1416,6 +1416,8 @@ impl Game {
                                 .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
                         })?;
                     },
+
+                    m => break Err(format!("Unexpected message from server: {:?}", m).into()),
                 },
                 None => break Ok(()),
             }
