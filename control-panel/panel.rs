@@ -201,7 +201,7 @@ impl ControlPanel {
                 },
 
                 Event::KeyboardDown(input::Key::Q) => {
-                    stream.send_message(&message::Message::Save { index: 0 }).unwrap();
+                    stream.send_message(&message::Message::Save { filename: "save.bin".into() }).unwrap();
                     println!("Probably saved");
                     break
                 },
@@ -211,7 +211,7 @@ impl ControlPanel {
                         .send_message(&message::Message::Load {
                             keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
                             mouse_buttons_requested: Vec::new(),
-                            index: 0,
+                            filename: "save.bin".into(),
                         })
                         .unwrap();
                     self.await_update(stream);

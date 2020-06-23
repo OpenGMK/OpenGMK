@@ -1417,20 +1417,20 @@ impl Game {
                         })?
                     },
 
-                    Message::Save { index } => {
+                    Message::Save { filename } => {
                         // Save a savestate to a file
                         let mut path = project_path.clone();
                         std::fs::create_dir_all(&path)?;
-                        path.push(format!("save{}.bin", index));
+                        path.push(filename);
                         let mut f = File::create(&path)?;
                         let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
                         f.write_all(&bytes)?;
                     },
 
-                    Message::Load { index, keys_requested, mouse_buttons_requested } => {
+                    Message::Load { filename, keys_requested, mouse_buttons_requested } => {
                         // Load savestate from a file
                         let mut path = project_path.clone();
-                        path.push(format!("save{}.bin", index));
+                        path.push(filename);
                         let f = File::open(&path)?;
                         let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
                         replay = state.load_into(self);

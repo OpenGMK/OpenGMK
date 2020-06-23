@@ -18,10 +18,10 @@ pub enum Message {
     },
 
     /// Tells the game to create a savestate in the given index
-    Save { index: usize },
+    Save { filename: String },
 
     /// Tells the game to load the savestate with the given index and then send us an update
-    Load { index: usize, keys_requested: Vec<input::Key>, mouse_buttons_requested: Vec<input::MouseButton> },
+    Load { filename: String, keys_requested: Vec<input::Key>, mouse_buttons_requested: Vec<input::MouseButton> },
 }
 
 /// A message sent from the client to the controller.
