@@ -1,0 +1,16 @@
+[package]
+name = "control-panel"
+version = "0.1.0"
+authors = ["Adam <gm8emulator@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+getopts = "0.2.21"
+gmio = { path = "../gmio" }
+shared = { path = "../shared" }
+
+[[bin]]
+name = "control-panel"
+path = "main.rs"
