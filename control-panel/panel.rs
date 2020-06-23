@@ -3,7 +3,12 @@ use gmio::{
     render::{Renderer, RendererOptions},
     window::{Event, Window, WindowBuilder},
 };
-use shared::{input, types::Colour};
+use shared::{
+    input,
+    message::{self, MessageStream},
+    types::Colour,
+};
+use std::net::TcpStream;
 
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
@@ -27,6 +32,8 @@ pub struct ControlPanel {
     key_button_r_held3: AtlasRef,
 
     context_menu_key: Option<input::Key>,
+
+    pub read_buffer: Vec<u8>,
 }
 
 pub struct KeyButton {
@@ -103,10 +110,11 @@ impl ControlPanel {
             key_button_r_held3,
 
             context_menu_key: None,
+            read_buffer: Vec::new(),
         })
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, stream: &mut TcpStream) {
         'evloop: for event in self.window.process_events() {
             match event {
                 Event::MouseMove(x, y) => {
@@ -183,6 +191,76 @@ impl ControlPanel {
                     }
                 },
 
+                Event::KeyboardDown(input::Key::Space) => {
+                    self.send_advance(stream);
+                    break
+                },
+
+                _ => (),
+            }
+        }
+    }
+
+    fn send_advance(&mut self, stream: &mut TcpStream) {
+        let mut key_inputs = Vec::new();
+        let mut keys_requested = Vec::new();
+
+        for key in self.key_buttons.iter() {
+            keys_requested.push(key.key);
+            match key.state {
+                KeyButtonState::Neutral | KeyButtonState::Held => (),
+                KeyButtonState::NeutralWillPress => key_inputs.push((key.key, true)),
+                KeyButtonState::HeldWillRelease => key_inputs.push((key.key, false)),
+                KeyButtonState::NeutralWillPR => {
+                    key_inputs.push((key.key, true));
+                    key_inputs.push((key.key, false));
+                },
+                KeyButtonState::NeutralWillPRP => {
+                    key_inputs.push((key.key, true));
+                    key_inputs.push((key.key, false));
+                    key_inputs.push((key.key, true));
+                },
+                KeyButtonState::HeldWillRP => {
+                    key_inputs.push((key.key, false));
+                    key_inputs.push((key.key, true));
+                },
+                KeyButtonState::HeldWillRPR => {
+                    key_inputs.push((key.key, false));
+                    key_inputs.push((key.key, true));
+                    key_inputs.push((key.key, false));
+                },
+            }
+        }
+
+        stream
+            .send_message(message::Message::Advance {
+                key_inputs,
+                mouse_inputs: Vec::new(),
+                mouse_location: (0.0, 0.0),
+                keys_requested,
+                mouse_buttons_requested: Vec::new(),
+            })
+            .unwrap();
+
+        loop {
+            match stream.receive_message::<message::Information>(&mut self.read_buffer) {
+                Ok(Some(Some(message::Information::Update {
+                    keys_held,
+                    mouse_buttons_held: _,
+                    mouse_location: _,
+                    seed: _,
+                    instance: _,
+                }))) => {
+                    for button in self.key_buttons.iter_mut() {
+                        if keys_held.contains(&button.key) {
+                            button.state = KeyButtonState::Held;
+                        } else {
+                            button.state = KeyButtonState::Neutral;
+                        }
+                    }
+                    break
+                },
+                Err(e) => panic!(e),
                 _ => (),
             }
         }
@@ -214,7 +292,7 @@ impl ControlPanel {
                 KeyButtonState::Held
                 | KeyButtonState::HeldWillRelease
                 | KeyButtonState::HeldWillRP
-                | KeyButtonState::HeldWillRPR => &self.key_button_l_neutral,
+                | KeyButtonState::HeldWillRPR => &self.key_button_l_held,
             };
             let atlas_ref_r = match button.state {
                 KeyButtonState::Neutral | KeyButtonState::HeldWillRelease => &self.key_button_r_neutral,
