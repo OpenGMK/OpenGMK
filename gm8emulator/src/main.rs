@@ -12,7 +12,7 @@ mod math;
 mod tile;
 mod util;
 
-use std::{env, fs, path::Path, process, time};
+use std::{env, fs, io::BufReader, path::Path, process, time};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -43,6 +43,7 @@ fn xmain() -> i32 {
     opts.optflag("r", "realtime", "disables clock spoofing");
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
+    opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -81,6 +82,10 @@ fn xmain() -> i32 {
         p.push("projects");
         p.push(name);
         p
+    });
+    let replay = matches.opt_str("f").map(|filename| {
+        let f = fs::File::open(filename).unwrap();
+        bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay()
     });
     let input = {
         if matches.free.len() == 1 {
@@ -149,7 +154,11 @@ fn xmain() -> i32 {
         },
     };
 
-    if let Err(err) = if let Some(path) = project_path { components.record(path, port) } else { components.run() } {
+    if let Err(err) = if let Some(path) = project_path {
+        components.record(path, port)
+    } else {
+        if let Some(replay) = replay { components.replay(replay) } else { components.run() }
+    } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
     } else {
