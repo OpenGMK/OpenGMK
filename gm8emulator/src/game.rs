@@ -955,13 +955,16 @@ impl Game {
                 };
 
                 // Add instance to list
-                new_handles.push((self.instance_list.insert(Instance::new(
-                    instance.id as _,
-                    Real::from(instance.x),
-                    Real::from(instance.y),
-                    instance.object,
-                    object,
-                )), instance));
+                new_handles.push((
+                    self.instance_list.insert(Instance::new(
+                        instance.id as _,
+                        Real::from(instance.x),
+                        Real::from(instance.y),
+                        instance.object,
+                        object,
+                    )),
+                    instance,
+                ));
             }
         }
         for (handle, instance) in &new_handles {

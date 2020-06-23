@@ -1,6 +1,6 @@
 use crate::gml::Value;
-use shared::input::{Key, MouseButton};
 use serde::{Deserialize, Serialize};
+use shared::input::{Key, MouseButton};
 
 // Represents an entire replay (TAS) file
 #[derive(Clone, Debug, Serialize, Deserialize)]

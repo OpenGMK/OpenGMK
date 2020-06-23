@@ -106,7 +106,14 @@ fn xmain() -> i32 {
         match stream.receive_message::<Information>(&mut panel.read_buffer) {
             Ok(None) => return EXIT_SUCCESS,
             Ok(Some(Some(s))) => match s {
-                Information::Update { keys_held, mouse_buttons_held: _, mouse_location: _, frame_count: _, seed: _, instance: _ } => {
+                Information::Update {
+                    keys_held,
+                    mouse_buttons_held: _,
+                    mouse_location: _,
+                    frame_count: _,
+                    seed: _,
+                    instance: _,
+                } => {
                     println!("Received update from game client");
                     for key in panel.key_buttons.iter_mut() {
                         if keys_held.contains(&key.key) {

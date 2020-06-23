@@ -203,11 +203,13 @@ impl ControlPanel {
                 },
 
                 Event::KeyboardDown(input::Key::W) => {
-                    stream.send_message(&message::Message::Load {
-                        keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                        mouse_buttons_requested: Vec::new(),
-                        index: 0,
-                    }).unwrap();
+                    stream
+                        .send_message(&message::Message::Load {
+                            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
+                            mouse_buttons_requested: Vec::new(),
+                            index: 0,
+                        })
+                        .unwrap();
                     self.await_update(stream);
                     println!("Loaded");
                     break

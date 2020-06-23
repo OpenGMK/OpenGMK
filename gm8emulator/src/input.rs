@@ -1,5 +1,5 @@
-use shared::input::{Key, MouseButton};
 use serde::{Deserialize, Serialize};
+use shared::input::{Key, MouseButton};
 use std::convert::identity;
 
 const KEY_COUNT: usize = 124;
