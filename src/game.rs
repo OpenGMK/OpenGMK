@@ -77,8 +77,7 @@ pub struct Game {
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
 
-    pub particle_systems: Vec<Option<Box<particle::System>>>,
-    pub particle_types: Vec<Option<Box<particle::ParticleType>>>,
+    pub particles: particle::Manager,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -690,7 +689,6 @@ impl Game {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
         Self::fill_event_holders(&mut event_holders, &objects);
@@ -716,8 +714,7 @@ impl Game {
             view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
-            particle_systems: Vec::new(),
-            particle_types: Vec::new(),
+            particles: particle::Manager::new(),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
@@ -786,11 +783,16 @@ impl Game {
         Self::fill_event_holders(&mut self.event_holders, &self.assets.objects);
 
         // Make list of objects with custom draw events
-        self.custom_draw_objects =
-            self.event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
+        self.custom_draw_objects = self.event_holders[ev::DRAW]
+            .iter()
+            .flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>())
+            .collect();
     }
 
-    fn fill_event_holders(event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>], objects: &Vec<Option<Box<Object>>>) {
+    fn fill_event_holders(
+        event_holders: &mut [IndexMap<u32, Rc<RefCell<Vec<ID>>>>],
+        objects: &Vec<Option<Box<Object>>>,
+    ) {
         for object in objects.iter().flatten() {
             for (holder_list, object_events) in event_holders.iter_mut().zip(object.events.iter()) {
                 for (sub, _) in object_events.iter() {
@@ -943,13 +945,16 @@ impl Game {
                 };
 
                 // Add instance to list
-                new_handles.push((self.instance_list.insert(Instance::new(
-                    instance.id as _,
-                    Real::from(instance.x),
-                    Real::from(instance.y),
-                    instance.object,
-                    object,
-                )), instance));
+                new_handles.push((
+                    self.instance_list.insert(Instance::new(
+                        instance.id as _,
+                        Real::from(instance.x),
+                        Real::from(instance.y),
+                        instance.object,
+                        object,
+                    )),
+                    instance,
+                ));
             }
         }
         for (handle, instance) in &new_handles {
@@ -1152,11 +1157,7 @@ impl Game {
             return Ok(())
         }
 
-        for system in self.particle_systems.iter_mut().filter_map(|x| x.as_mut()) {
-            if system.auto_update {
-                system.update(&mut self.rand, &self.particle_types);
-            }
-        }
+        self.particles.auto_update_systems(&mut self.rand);
 
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
@@ -1270,9 +1271,7 @@ impl Game {
                         message.extend_from_slice(&buffer[..len]);
                         println!("Got TCP message: {}", String::from_utf8(message)?);
                     },
-                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        break
-                    },
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                     Err(e) => return Err(e.into()),
                 }
             }

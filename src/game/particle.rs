@@ -6,6 +6,142 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+pub struct PSIterDrawOrder(usize);
+impl PSIterDrawOrder {
+    pub fn next(&mut self, manager: &Manager) -> Option<i32> {
+        manager.draw_order.get(self.0).map(|val| {
+            self.0 += 1 + manager
+                .draw_order
+                .iter()
+                .skip(self.0 + 1)
+                .position(|i| manager.systems.get_asset(*i).map(|s| s.auto_draw).is_some())
+                .unwrap_or(manager.draw_order.len());
+            *val
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Manager {
+    systems: Vec<Option<Box<System>>>,
+    types: Vec<Option<Box<ParticleType>>>,
+    draw_order: Vec<i32>,
+}
+
+impl Manager {
+    pub fn new() -> Self {
+        Self { systems: Vec::new(), types: Vec::new(), draw_order: Vec::new() }
+    }
+
+    pub fn create_system(&mut self) -> i32 {
+        let ps = Box::new(System::new());
+        let id = if let Some(id) = self.systems.iter().position(|x| x.is_none()) {
+            self.systems[id] = Some(ps);
+            id as i32
+        } else {
+            self.systems.push(Some(ps));
+            self.systems.len() as i32 - 1
+        };
+        self.draw_order.push(id);
+        id
+    }
+
+    pub fn get_system(&self, id: i32) -> Option<&Box<System>> {
+        self.systems.get_asset(id)
+    }
+
+    pub fn get_system_mut(&mut self, id: i32) -> Option<&mut Box<System>> {
+        self.systems.get_asset_mut(id)
+    }
+
+    pub fn auto_update_systems(&mut self, rand: &mut Random) {
+        for ps in self.systems.iter_mut().filter_map(|x| x.as_mut().filter(|s| s.auto_update)) {
+            ps.update(rand, &self.types);
+        }
+    }
+
+    pub fn update_system(&mut self, id: i32, rand: &mut Random) {
+        if let Some(ps) = self.systems.get_asset_mut(id) {
+            ps.update(rand, &self.types);
+        }
+    }
+
+    pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets) {
+        if let Some(ps) = self.systems.get_asset_mut(id) {
+            ps.draw(renderer, assets, &self.types);
+        }
+    }
+
+    pub fn system_create_particles(
+        &mut self,
+        id: i32,
+        x: Real,
+        y: Real,
+        ptype: i32,
+        color: Option<i32>,
+        number: i32,
+        rand: &mut Random,
+    ) {
+        if let Some(ps) = self.systems.get_asset_mut(id) {
+            ps.create_particles(x, y, ptype, color, number, rand, &self.types);
+        }
+    }
+
+    pub fn emitter_burst(&mut self, psid: i32, id: i32, parttype: i32, number: i32, rand: &mut Random) {
+        if let Some(ps) = self.systems.get_asset_mut(psid) {
+            if let Some(em) = ps.emitters.get_asset(id) {
+                em.burst(parttype, number, &mut ps.particles, rand, &self.types);
+            }
+        }
+    }
+
+    pub fn destroy_system(&mut self, id: i32) {
+        if self.systems.get_asset(id).is_some() {
+            self.systems[id as usize] = None;
+        }
+    }
+
+    pub fn draw_sort(&mut self) {
+        let systems = &self.systems; // borrowck :)
+        self.draw_order.retain(|id| systems[*id as usize].is_some());
+        self.draw_order.sort_by(|id1, id2| {
+            let left = systems.get_asset(*id1).unwrap();
+            let right = systems.get_asset(*id2).unwrap();
+
+            right.depth.cmp_nan_first(&left.depth)
+        });
+    }
+
+    pub fn iter_by_drawing(&self) -> PSIterDrawOrder {
+        PSIterDrawOrder(0)
+    }
+
+    pub fn create_type(&mut self) -> i32 {
+        let pt = Box::new(ParticleType::new());
+        if let Some(id) = self.types.iter().position(|x| x.is_none()) {
+            self.types[id] = Some(pt);
+            id as i32
+        } else {
+            self.types.push(Some(pt));
+            self.types.len() as i32 - 1
+        }
+    }
+
+    pub fn get_type(&self, id: i32) -> Option<&Box<ParticleType>> {
+        self.types.get_asset(id)
+    }
+
+    pub fn get_type_mut(&mut self, id: i32) -> Option<&mut Box<ParticleType>> {
+        self.types.get_asset_mut(id)
+    }
+
+    pub fn destroy_type(&mut self, id: i32) {
+        if self.types.get_asset(id).is_some() {
+            self.types[id as usize] = None;
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParticleType {
     pub graphic: ParticleGraphic,
@@ -346,30 +482,13 @@ impl System {
         x: Real,
         y: Real,
         ptype: i32,
+        color: Option<i32>,
         number: i32,
         rand: &mut Random,
         types: &dyn GetAsset<Box<ParticleType>>,
     ) {
         for _ in 0..number {
-            if let Some(particle) = Particle::new(ptype, x, y, rand, types) {
-                self.particles.push(particle);
-            }
-        }
-    }
-
-    pub fn create_particles_color(
-        &mut self,
-        x: Real,
-        y: Real,
-        ptype: i32,
-        color: i32,
-        number: i32,
-        rand: &mut Random,
-        types: &dyn GetAsset<Box<ParticleType>>,
-    ) {
-        for _ in 0..number {
-            if let Some(mut particle) = Particle::new(ptype, x, y, rand, types) {
-                particle.color = color;
+            if let Some(particle) = Particle::new(ptype, x, y, rand, types, color) {
                 self.particles.push(particle);
             }
         }
@@ -388,14 +507,14 @@ impl System {
                     if number < 0 && rand.next_int((-number) as u32) == 0 {
                         number = 1;
                     }
-                    self.create_particles(x, y, ptype.death_type, number, rand, types);
+                    self.create_particles(x, y, ptype.death_type, None, number, rand, types);
                 } else {
                     // particle is alive
                     let mut number = ptype.step_number;
                     if number < 0 && rand.next_int((-number) as u32) == 0 {
                         number = 1;
                     }
-                    self.create_particles(x, y, ptype.step_type, number, rand, types);
+                    self.create_particles(x, y, ptype.step_type, None, number, rand, types);
                 }
             }
         }
@@ -410,13 +529,14 @@ impl Particle {
         y: Real,
         rand: &mut Random,
         types: &dyn GetAsset<Box<ParticleType>>,
+        color_arg: Option<i32>,
     ) -> Option<Self> {
         if let Some(ptype) = types.get_asset(ptype_id) {
             let speed = Distribution::Linear.range(rand, ptype.speed_min.into(), ptype.speed_max.into()).into();
             let direction = Distribution::Linear.range(rand, ptype.dir_min.into(), ptype.dir_max.into()).into();
             let image_angle = Distribution::Linear.range(rand, ptype.ang_min.into(), ptype.ang_max.into()).into();
             let lifetime = Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round();
-            let color = Self::init_color(rand, &ptype.color);
+            let color = Self::init_color(rand, &ptype.color); // do this despite color_arg for rng parity
             let alpha = ptype.alpha1;
             let size = Distribution::Linear.range(rand, ptype.size_min.into(), ptype.size_max.into()).into();
             let mut subimage = 0;
@@ -437,7 +557,7 @@ impl Particle {
                 speed,
                 direction,
                 image_angle,
-                color,
+                color: color_arg.unwrap_or(color),
                 alpha,
                 size,
                 subimage,
@@ -717,7 +837,7 @@ impl Changer {
                 if self.shape.contains(particle.x, particle.y, self.xmin, self.ymin, self.xmax, self.ymax)
                     && self.parttype1 == particle.ptype
                 {
-                    if let Some(new_part) = Particle::new(self.parttype2, particle.x, particle.y, rand, types) {
+                    if let Some(new_part) = Particle::new(self.parttype2, particle.x, particle.y, rand, types, None) {
                         particle.ptype = new_part.ptype;
                         match self.kind {
                             ChangerKind::Motion => {
@@ -816,6 +936,7 @@ impl Emitter {
                 (self.ymax - self.ymin) * yspawn + self.ymin,
                 rand,
                 types,
+                None,
             ) {
                 particles.push(particle);
             }

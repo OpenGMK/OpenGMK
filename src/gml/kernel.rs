@@ -7310,32 +7310,23 @@ impl Game {
 
     pub fn part_type_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let pt = Box::new(particle::ParticleType::new());
-        if let Some(id) = self.particle_types.iter().position(|x| x.is_none()) {
-            self.particle_types[id] = Some(pt);
-            Ok(id.into())
-        } else {
-            self.particle_types.push(Some(pt));
-            Ok((self.particle_types.len() - 1).into())
-        }
+        Ok(self.particles.create_type().into())
     }
 
     pub fn part_type_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.particle_types.get_asset(id).is_some() {
-            self.particle_types[id as usize] = None;
-        }
+        self.particles.destroy_type(id);
         Ok(Default::default())
     }
 
     pub fn part_type_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        Ok(self.particle_types.get_asset(id).is_some().into())
+        Ok(self.particles.get_type(id).is_some().into())
     }
 
     pub fn part_type_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             *pt = Box::new(particle::ParticleType::new());
         }
         Ok(Default::default())
@@ -7343,7 +7334,7 @@ impl Game {
 
     pub fn part_type_shape(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, shape) = expect_args!(args, [int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.graphic = particle::ParticleGraphic::Shape(shape);
         }
         Ok(Default::default())
@@ -7351,7 +7342,7 @@ impl Game {
 
     pub fn part_type_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, sprite, animat, stretch, random) = expect_args!(args, [int, int, any, any, any])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.graphic = particle::ParticleGraphic::Sprite {
                 sprite,
                 animat: animat.is_truthy(),
@@ -7364,7 +7355,7 @@ impl Game {
 
     pub fn part_type_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, size_min, size_max, size_incr, size_wiggle) = expect_args!(args, [int, real, real, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.size_min = size_min;
             pt.size_max = size_max;
             pt.size_incr = size_incr;
@@ -7375,7 +7366,7 @@ impl Game {
 
     pub fn part_type_scale(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, xscale, yscale) = expect_args!(args, [int, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.xscale = xscale;
             pt.yscale = yscale;
         }
@@ -7384,7 +7375,7 @@ impl Game {
 
     pub fn part_type_life(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, life_min, life_max) = expect_args!(args, [int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.life_min = life_min;
             pt.life_max = life_max;
         }
@@ -7393,7 +7384,7 @@ impl Game {
 
     pub fn part_type_step(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, step_number, step_type) = expect_args!(args, [int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.step_number = step_number;
             pt.step_type = step_type;
         }
@@ -7402,7 +7393,7 @@ impl Game {
 
     pub fn part_type_death(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, death_number, death_type) = expect_args!(args, [int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.death_number = death_number;
             pt.death_type = death_type;
         }
@@ -7411,7 +7402,7 @@ impl Game {
 
     pub fn part_type_speed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, speed_min, speed_max, speed_incr, speed_wiggle) = expect_args!(args, [int, real, real, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.speed_min = speed_min;
             pt.speed_max = speed_max;
             pt.speed_incr = speed_incr;
@@ -7422,7 +7413,7 @@ impl Game {
 
     pub fn part_type_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, dir_min, dir_max, dir_incr, dir_wiggle) = expect_args!(args, [int, real, real, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.dir_min = dir_min;
             pt.dir_max = dir_max;
             pt.dir_incr = dir_incr;
@@ -7434,7 +7425,7 @@ impl Game {
     pub fn part_type_orientation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, ang_min, ang_max, ang_incr, ang_wiggle, ang_relative) =
             expect_args!(args, [int, real, real, real, real, any])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.ang_min = ang_min;
             pt.ang_max = ang_max;
             pt.ang_incr = ang_incr;
@@ -7446,7 +7437,7 @@ impl Game {
 
     pub fn part_type_gravity(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, grav_amount, grav_dir) = expect_args!(args, [int, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.grav_amount = grav_amount;
             pt.grav_dir = grav_dir.rem_euclid(Real::from(360.0));
         }
@@ -7455,7 +7446,7 @@ impl Game {
 
     pub fn part_type_color_mix(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::Mix(c1, c2);
         }
         Ok(Default::default())
@@ -7463,7 +7454,7 @@ impl Game {
 
     pub fn part_type_color_rgb(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, rmin, rmax, gmin, gmax, bmin, bmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::RGB { rmin, rmax, gmin, gmax, bmin, bmax };
         }
         Ok(Default::default())
@@ -7471,7 +7462,7 @@ impl Game {
 
     pub fn part_type_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, hmin, hmax, smin, smax, vmin, vmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::HSV { hmin, hmax, smin, smax, vmin, vmax };
         }
         Ok(Default::default())
@@ -7479,7 +7470,7 @@ impl Game {
 
     pub fn part_type_color1(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, col) = expect_args!(args, [int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::One(col);
         }
         Ok(Default::default())
@@ -7487,7 +7478,7 @@ impl Game {
 
     pub fn part_type_color2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::Two(c1, c2);
         }
         Ok(Default::default())
@@ -7495,7 +7486,7 @@ impl Game {
 
     pub fn part_type_color3(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2, c3) = expect_args!(args, [int, int, int, int])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.color = particle::ParticleColor::Three(c1, c2, c3);
         }
         Ok(Default::default())
@@ -7507,7 +7498,7 @@ impl Game {
 
     pub fn part_type_alpha1(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, alpha) = expect_args!(args, [int, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.alpha1 = alpha;
             pt.alpha2 = alpha;
             pt.alpha3 = alpha;
@@ -7517,7 +7508,7 @@ impl Game {
 
     pub fn part_type_alpha2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, alpha1, alpha2) = expect_args!(args, [int, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.alpha1 = alpha1;
             pt.alpha2 = (alpha1 + alpha2) / Real::from(2.0);
             pt.alpha3 = alpha2;
@@ -7527,7 +7518,7 @@ impl Game {
 
     pub fn part_type_alpha3(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, alpha1, alpha2, alpha3) = expect_args!(args, [int, real, real, real])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.alpha1 = alpha1;
             pt.alpha2 = alpha2;
             pt.alpha3 = alpha3;
@@ -7541,7 +7532,7 @@ impl Game {
 
     pub fn part_type_blend(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, additive) = expect_args!(args, [int, any])?;
-        if let Some(pt) = self.particle_types.get_asset_mut(id) {
+        if let Some(pt) = self.particles.get_type_mut(id) {
             pt.additive_blending = additive.is_truthy();
         }
         Ok(Default::default())
@@ -7549,32 +7540,23 @@ impl Game {
 
     pub fn part_system_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let ps = Box::new(particle::System::new());
-        if let Some(id) = self.particle_systems.iter().position(|x| x.is_none()) {
-            self.particle_systems[id] = Some(ps);
-            Ok(id.into())
-        } else {
-            self.particle_systems.push(Some(ps));
-            Ok((self.particle_systems.len() - 1).into())
-        }
+        Ok(self.particles.create_system().into())
     }
 
     pub fn part_system_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.particle_systems.get_asset(id).is_some() {
-            self.particle_systems[id as usize] = None;
-        }
+        self.particles.destroy_system(id);
         Ok(Default::default())
     }
 
     pub fn part_system_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        Ok(self.particle_systems.get_asset(id).is_some().into())
+        Ok(self.particles.get_system(id).is_some().into())
     }
 
     pub fn part_system_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             *ps = Box::new(particle::System::new());
         }
         Ok(Default::default())
@@ -7582,7 +7564,7 @@ impl Game {
 
     pub fn part_system_draw_order(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, oldtonew) = expect_args!(args, [int, any])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.draw_old_to_new = oldtonew.is_truthy();
         }
         Ok(Default::default())
@@ -7590,7 +7572,7 @@ impl Game {
 
     pub fn part_system_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, depth) = expect_args!(args, [int, real])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.depth = depth;
         }
         Ok(Default::default())
@@ -7598,7 +7580,7 @@ impl Game {
 
     pub fn part_system_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y) = expect_args!(args, [int, real, real])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.x = x;
             ps.y = y;
         }
@@ -7607,7 +7589,7 @@ impl Game {
 
     pub fn part_system_automatic_update(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, automatic) = expect_args!(args, [int, any])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.auto_update = automatic.is_truthy();
         }
         Ok(Default::default())
@@ -7615,7 +7597,7 @@ impl Game {
 
     pub fn part_system_automatic_draw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, automatic) = expect_args!(args, [int, any])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.auto_draw = automatic.is_truthy();
         }
         Ok(Default::default())
@@ -7623,39 +7605,31 @@ impl Game {
 
     pub fn part_system_update(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
-            ps.update(&mut self.rand, &self.particle_types);
-        }
+        self.particles.update_system(id, &mut self.rand);
         Ok(Default::default())
     }
 
     pub fn part_system_drawit(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
-            ps.draw(&mut self.renderer, &self.assets, &self.particle_types);
-        }
+        self.particles.draw_system(id, &mut self.renderer, &self.assets);
         Ok(Default::default())
     }
 
     pub fn part_particles_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y, parttype, number) = expect_args!(args, [int, real, real, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
-            ps.create_particles(x, y, parttype, number, &mut self.rand, &self.particle_types);
-        }
+        self.particles.system_create_particles(id, x, y, parttype, None, number, &mut self.rand);
         Ok(Default::default())
     }
 
     pub fn part_particles_create_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y, parttype, color, number) = expect_args!(args, [int, real, real, int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
-            ps.create_particles_color(x, y, parttype, color, number, &mut self.rand, &self.particle_types);
-        }
+        self.particles.system_create_particles(id, x, y, parttype, Some(color), number, &mut self.rand);
         Ok(Default::default())
     }
 
     pub fn part_particles_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             ps.particles.clear();
         }
         Ok(Default::default())
@@ -7663,7 +7637,7 @@ impl Game {
 
     pub fn part_particles_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset(id) {
+        if let Some(ps) = self.particles.get_system(id) {
             Ok(ps.particles.len().into())
         } else {
             Ok(Default::default())
@@ -7672,14 +7646,14 @@ impl Game {
 
     pub fn part_emitter_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             let em = particle::Emitter::new();
             if let Some(id) = ps.emitters.iter().position(|x| x.is_none()) {
                 ps.emitters[id] = Some(em);
                 Ok(id.into())
             } else {
                 ps.emitters.push(Some(em));
-                Ok((self.particle_systems.len() - 1).into())
+                Ok((ps.emitters.len() - 1).into())
             }
         } else {
             Ok((-1).into())
@@ -7688,7 +7662,7 @@ impl Game {
 
     pub fn part_emitter_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if ps.emitters.get_asset(id).is_some() {
                 ps.emitters[id as usize] = None;
             }
@@ -7698,7 +7672,7 @@ impl Game {
 
     pub fn part_emitter_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let psid = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             ps.emitters.clear();
         }
         Ok(Default::default())
@@ -7706,7 +7680,7 @@ impl Game {
 
     pub fn part_emitter_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset(psid) {
+        if let Some(ps) = self.particles.get_system(psid) {
             Ok(ps.emitters.get_asset(id).is_some().into())
         } else {
             Ok(gml::FALSE.into())
@@ -7715,7 +7689,7 @@ impl Game {
 
     pub fn part_emitter_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(em) = ps.emitters.get_asset_mut(id) {
                 *em = particle::Emitter::new();
             }
@@ -7737,7 +7711,7 @@ impl Game {
             2 => particle::Distribution::InvGaussian,
             _ => particle::Distribution::Linear,
         };
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(em) = ps.emitters.get_asset_mut(id) {
                 em.xmin = xmin;
                 em.xmax = xmax;
@@ -7752,17 +7726,13 @@ impl Game {
 
     pub fn part_emitter_burst(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, parttype, number) = expect_args!(args, [int, int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
-            if let Some(em) = ps.emitters.get_asset(id) {
-                em.burst(parttype, number, &mut ps.particles, &mut self.rand, &self.particle_types);
-            }
-        }
+        self.particles.emitter_burst(psid, id, parttype, number, &mut self.rand);
         Ok(Default::default())
     }
 
     pub fn part_emitter_stream(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, parttype, number) = expect_args!(args, [int, int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(em) = ps.emitters.get_asset_mut(id) {
                 em.ptype = parttype;
                 em.number = number;
@@ -7773,7 +7743,7 @@ impl Game {
 
     pub fn part_attractor_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             let at = particle::Attractor::new();
             if let Some(id) = ps.attractors.iter().position(|x| x.is_none()) {
                 ps.attractors[id] = Some(at);
@@ -7789,7 +7759,7 @@ impl Game {
 
     pub fn part_attractor_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if ps.attractors.get_asset(id).is_some() {
                 ps.attractors[id as usize] = None;
             }
@@ -7799,7 +7769,7 @@ impl Game {
 
     pub fn part_attractor_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let psid = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             ps.attractors.clear();
         }
         Ok(Default::default())
@@ -7807,7 +7777,7 @@ impl Game {
 
     pub fn part_attractor_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset(psid) {
+        if let Some(ps) = self.particles.get_system(psid) {
             Ok(ps.attractors.get_asset(id).is_some().into())
         } else {
             Ok(gml::FALSE.into())
@@ -7816,7 +7786,7 @@ impl Game {
 
     pub fn part_attractor_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(at) = ps.attractors.get_asset_mut(id) {
                 *at = particle::Attractor::new();
             }
@@ -7826,7 +7796,7 @@ impl Game {
 
     pub fn part_attractor_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, x, y) = expect_args!(args, [int, int, real, real])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(at) = ps.attractors.get_asset_mut(id) {
                 at.x = x;
                 at.y = y;
@@ -7837,7 +7807,7 @@ impl Game {
 
     pub fn part_attractor_force(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, force, dist, kind, additive) = expect_args!(args, [int, int, real, real, int, any])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(at) = ps.attractors.get_asset_mut(id) {
                 at.force = force;
                 at.dist = dist;
@@ -7854,7 +7824,7 @@ impl Game {
 
     pub fn part_destroyer_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             let de = particle::Destroyer::new();
             if let Some(id) = ps.destroyers.iter().position(|x| x.is_none()) {
                 ps.destroyers[id] = Some(de);
@@ -7870,7 +7840,7 @@ impl Game {
 
     pub fn part_destroyer_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if ps.destroyers.get_asset(id).is_some() {
                 ps.destroyers[id as usize] = None;
             }
@@ -7880,7 +7850,7 @@ impl Game {
 
     pub fn part_destroyer_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let psid = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             ps.destroyers.clear();
         }
         Ok(Default::default())
@@ -7888,7 +7858,7 @@ impl Game {
 
     pub fn part_destroyer_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset(psid) {
+        if let Some(ps) = self.particles.get_system(psid) {
             Ok(ps.destroyers.get_asset(id).is_some().into())
         } else {
             Ok(gml::FALSE.into())
@@ -7897,7 +7867,7 @@ impl Game {
 
     pub fn part_destroyer_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.destroyers.get_asset_mut(id) {
                 *de = particle::Destroyer::new();
             }
@@ -7912,7 +7882,7 @@ impl Game {
             2 => particle::Shape::Diamond,
             _ => particle::Shape::Rectangle,
         };
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.destroyers.get_asset_mut(id) {
                 de.xmin = xmin;
                 de.xmax = xmax;
@@ -7926,7 +7896,7 @@ impl Game {
 
     pub fn part_deflector_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             let de = particle::Deflector::new();
             if let Some(id) = ps.deflectors.iter().position(|x| x.is_none()) {
                 ps.deflectors[id] = Some(de);
@@ -7942,7 +7912,7 @@ impl Game {
 
     pub fn part_deflector_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if ps.deflectors.get_asset(id).is_some() {
                 ps.deflectors[id as usize] = None;
             }
@@ -7952,7 +7922,7 @@ impl Game {
 
     pub fn part_deflector_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let psid = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             ps.deflectors.clear();
         }
         Ok(Default::default())
@@ -7960,7 +7930,7 @@ impl Game {
 
     pub fn part_deflector_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset(psid) {
+        if let Some(ps) = self.particles.get_system(psid) {
             Ok(ps.deflectors.get_asset(id).is_some().into())
         } else {
             Ok(gml::FALSE.into())
@@ -7969,7 +7939,7 @@ impl Game {
 
     pub fn part_deflector_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.deflectors.get_asset_mut(id) {
                 *de = particle::Deflector::new();
             }
@@ -7979,7 +7949,7 @@ impl Game {
 
     pub fn part_deflector_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, xmin, xmax, ymin, ymax) = expect_args!(args, [int, int, real, real, real, real])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.deflectors.get_asset_mut(id) {
                 de.xmin = xmin;
                 de.xmax = xmax;
@@ -7992,7 +7962,7 @@ impl Game {
 
     pub fn part_deflector_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, kind) = expect_args!(args, [int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.deflectors.get_asset_mut(id) {
                 de.kind = match kind {
                     1 => particle::DeflectorKind::Horizontal,
@@ -8005,7 +7975,7 @@ impl Game {
 
     pub fn part_deflector_friction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, friction) = expect_args!(args, [int, int, real])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(de) = ps.deflectors.get_asset_mut(id) {
                 de.friction = friction;
             }
@@ -8015,7 +7985,7 @@ impl Game {
 
     pub fn part_changer_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(id) {
+        if let Some(ps) = self.particles.get_system_mut(id) {
             let ch = particle::Changer::new();
             if let Some(id) = ps.changers.iter().position(|x| x.is_none()) {
                 ps.changers[id] = Some(ch);
@@ -8031,7 +8001,7 @@ impl Game {
 
     pub fn part_changer_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if ps.changers.get_asset(id).is_some() {
                 ps.changers[id as usize] = None;
             }
@@ -8041,7 +8011,7 @@ impl Game {
 
     pub fn part_changer_destroy_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let psid = expect_args!(args, [int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             ps.changers.clear();
         }
         Ok(Default::default())
@@ -8049,7 +8019,7 @@ impl Game {
 
     pub fn part_changer_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset(psid) {
+        if let Some(ps) = self.particles.get_system(psid) {
             Ok(ps.changers.get_asset(id).is_some().into())
         } else {
             Ok(gml::FALSE.into())
@@ -8058,7 +8028,7 @@ impl Game {
 
     pub fn part_changer_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id) = expect_args!(args, [int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(ch) = ps.changers.get_asset_mut(id) {
                 *ch = particle::Changer::new();
             }
@@ -8073,7 +8043,7 @@ impl Game {
             2 => particle::Shape::Diamond,
             _ => particle::Shape::Rectangle,
         };
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(ch) = ps.changers.get_asset_mut(id) {
                 ch.xmin = xmin;
                 ch.xmax = xmax;
@@ -8087,7 +8057,7 @@ impl Game {
 
     pub fn part_changer_kind(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, kind) = expect_args!(args, [int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(ch) = ps.changers.get_asset_mut(id) {
                 ch.kind = match kind {
                     0 => particle::ChangerKind::All,
@@ -8101,7 +8071,7 @@ impl Game {
 
     pub fn part_changer_types(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (psid, id, parttype1, parttype2) = expect_args!(args, [int, int, int, int])?;
-        if let Some(ps) = self.particle_systems.get_asset_mut(psid) {
+        if let Some(ps) = self.particles.get_system_mut(psid) {
             if let Some(ch) = ps.changers.get_asset_mut(id) {
                 ch.parttype1 = parttype1;
                 ch.parttype2 = parttype2;
