@@ -268,7 +268,7 @@ impl ControlPanel {
         self.await_update(stream);
     }
 
-    fn await_update(&mut self, stream: &mut TcpStream) {
+    pub fn await_update(&mut self, stream: &mut TcpStream) {
         loop {
             match stream.receive_message::<message::Information>(&mut self.read_buffer) {
                 Ok(Some(Some(message::Information::Update {

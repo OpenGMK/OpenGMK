@@ -102,40 +102,7 @@ fn xmain() -> i32 {
     println!("Sending 'Hello' with {} keys, {} mouse buttons", keys.len(), buttons.len());
     stream.send_message(&Message::Hello { keys_requested: keys, mouse_buttons_requested: buttons }).unwrap();
 
-    loop {
-        match stream.receive_message::<Information>(&mut panel.read_buffer) {
-            Ok(None) => return EXIT_SUCCESS,
-            Ok(Some(Some(s))) => match s {
-                Information::Update {
-                    keys_held,
-                    mouse_buttons_held: _,
-                    mouse_location: _,
-                    frame_count: _,
-                    seed: _,
-                    instance: _,
-                } => {
-                    println!("Received update from game client");
-                    for key in panel.key_buttons.iter_mut() {
-                        if keys_held.contains(&key.key) {
-                            key.state = panel::KeyButtonState::Held;
-                        } else {
-                            key.state = panel::KeyButtonState::Neutral;
-                        }
-                    }
-                    break
-                },
-                m => {
-                    eprintln!("Unexpected response to 'Hello': {:?}", m);
-                    return EXIT_FAILURE
-                },
-            },
-            Ok(Some(None)) => (),
-            Err(e) => {
-                eprintln!("error reading from tcp stream: {}", e);
-                return EXIT_FAILURE
-            },
-        }
-    }
+    panel.await_update(&mut stream);
 
     loop {
         match stream.receive_message::<Information>(&mut panel.read_buffer) {
