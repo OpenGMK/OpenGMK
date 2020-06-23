@@ -1528,6 +1528,7 @@ impl Game {
 
         let mut time_now = std::time::Instant::now();
         loop {
+            self.window.process_events();
             self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 self.stored_events.clear();
