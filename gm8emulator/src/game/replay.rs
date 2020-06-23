@@ -20,8 +20,8 @@ pub struct Replay {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
     pub fps: u32,
-    pub mouse_x: i32,
-    pub mouse_y: i32,
+    pub mouse_x: f64,
+    pub mouse_y: f64,
     pub inputs: Vec<Input>,
     pub events: Vec<Event>,
 }
@@ -59,7 +59,7 @@ impl Replay {
     pub fn new_frame(&mut self, fps: u32) -> &mut Frame {
         let (mouse_x, mouse_y) = match self.frames.last() {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
-            None => (0, 0),
+            None => (0.0, 0.0),
         };
         self.frames.push(Frame { fps, mouse_x, mouse_y, inputs: Vec::new(), events: Vec::new() });
         self.frames.last_mut().unwrap() // Last cannot be None since we just pushed an element
