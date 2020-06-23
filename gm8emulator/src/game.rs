@@ -53,7 +53,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     fs::File,
-    io::Write,
+    io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
     path::PathBuf,
     rc::Rc,
@@ -1398,7 +1398,7 @@ impl Game {
                         let mut path = project_path.clone();
                         path.push(format!("save{}.bin", index));
                         let f = File::open(&path)?;
-                        let state = bincode::deserialize_from::<_, SaveState>(f)?;
+                        let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
                         replay = state.load_into(self);
 
                         // Send an update
