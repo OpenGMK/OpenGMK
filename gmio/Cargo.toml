@@ -1,0 +1,23 @@
+[package]
+name = "gmio"
+version = "0.1.0"
+authors = ["Adam <gm8emulator@gmail.com>"]
+edition = "2018"
+
+[build-dependencies]
+gl_generator = "0.14.0"
+
+[dependencies]
+cfg-if = "0.1"
+memoffset = "0.5.3"
+rect_packer = "0.2.1"
+serde = { version = "1.0" }
+shared = { path = "../shared" }
+
+[target.'cfg(target_os = "windows")'.dependencies.winapi]
+version = "0.3"
+features = ["commctrl", "errhandlingapi", "libloaderapi", "winbase", "windowsx", "wingdi", "winuser"]
+
+[target.'cfg(target_os = "linux")'.dependencies.x11]
+version = "2.18.2"
+features = ["xlib"]

@@ -1,0 +1,9 @@
+[package]
+name = "shared"
+version = "0.1.0"
+authors = ["Adam <gm8emulator@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bincode = "1.2"
+serde = { version = "1.0", features = ["derive"] }
