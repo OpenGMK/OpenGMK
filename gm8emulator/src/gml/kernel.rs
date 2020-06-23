@@ -1887,14 +1887,24 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_replace_background")
     }
 
-    pub fn action_if_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_if_empty")
+    pub fn action_if_empty(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        Ok((!self.action_if_collision(context, args)?.is_truthy()).into())
     }
 
-    pub fn action_if_collision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_if_collision")
+    pub fn action_if_collision(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, collision) = expect_args!(args, [real, real, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        Ok((!if collision.is_truthy() {
+            self.place_empty(context, &[x.into(), y.into()])
+        } else {
+            self.place_free(context, &[x.into(), y.into()])
+        }?
+        .is_truthy())
+        .into())
     }
 
     pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1916,9 +1926,14 @@ impl Game {
         }
     }
 
-    pub fn action_if_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_if_object")
+    pub fn action_if_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (object, mut x, mut y) = expect_args!(args, [any, real, real])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.place_meeting(context, &[x.into(), y.into(), object])
     }
 
     pub fn action_if_question(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

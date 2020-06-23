@@ -520,6 +520,20 @@ impl Real {
     pub fn as_mut_ref(&mut self) -> &mut f64 {
         &mut self.0
     }
+
+    #[inline(always)]
+    pub fn cmp_nan_first(&self, other: &Self) -> Ordering {
+        if self.0.is_nan() {
+            if other.0.is_nan() {
+                return Ordering::Equal
+            }
+            return Ordering::Less
+        }
+        if other.0.is_nan() {
+            return Ordering::Greater
+        }
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 #[cfg(test)]
