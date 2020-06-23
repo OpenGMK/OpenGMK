@@ -51,7 +51,7 @@ use shared::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -135,8 +135,8 @@ pub struct Game {
     pub caption: RCStr,
     pub caption_stale: bool,
 
-    play_type: PlayType,
-    stored_events: Vec<replay::Event>,
+    pub play_type: PlayType,
+    pub stored_events: VecDeque<replay::Event>,
 
     // winit windowing
     pub window: Window,
@@ -781,7 +781,7 @@ impl Game {
             health_capt_d: false,
             window,
             play_type: PlayType::Normal,
-            stored_events: Vec::new(),
+            stored_events: VecDeque::new(),
 
             // load_room sets this
             unscaled_width: 0,
