@@ -1488,6 +1488,7 @@ impl Game {
     pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
+        self.spoofed_time_nanos = Some(replay.start_time);
 
         let mut time_now = std::time::Instant::now();
         loop {
