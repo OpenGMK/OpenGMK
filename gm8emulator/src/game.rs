@@ -1205,6 +1205,7 @@ impl Game {
 
         let mut time_now = Instant::now();
         loop {
+            self.input_manager.mouse_update_previous();
             for event in self.window.process_events().copied() {
                 match event {
                     Event::KeyboardDown(key) => self.input_manager.key_press(key),
@@ -1251,6 +1252,44 @@ impl Game {
     pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         use gmio::window::Event;
 
+        // Helper fn: Instance -> InstanceDetails
+        fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
+            message::InstanceDetails {
+                id: instance.id.get(),
+                object_name: match assets.objects.get_asset(instance.object_index.get()) {
+                    Some(obj) => obj.name.as_ref().into(),
+                    None => "<deleted object>".into(),
+                },
+                x: instance.x.get().into(),
+                y: instance.y.get().into(),
+                speed: instance.speed.get().into(),
+                direction: instance.direction.get().into(),
+                timeline_info: if assets.timelines.get_asset(instance.timeline_index.get()).is_some() {
+                    Some((
+                        instance.timeline_index.get(),
+                        instance.timeline_position.get().into(),
+                        instance.timeline_speed.get().into(),
+                    ))
+                } else {
+                    None
+                },
+                path_info: if assets.paths.get_asset(instance.path_index.get()).is_some() {
+                    Some((
+                        instance.path_index.get(),
+                        instance.path_position.get().into(),
+                        instance.path_speed.get().into(),
+                    ))
+                } else {
+                    None
+                },
+                alarms: instance.alarms.borrow().clone(),
+                bbox_top: instance.bbox_top.get(),
+                bbox_left: instance.bbox_left.get(),
+                bbox_right: instance.bbox_right.get(),
+                bbox_bottom: instance.bbox_bottom.get(),
+            }
+        }
+
         let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
         stream.set_nonblocking(true)?;
 
@@ -1258,30 +1297,97 @@ impl Game {
         let mut game_mousey = 0;
         let mut read_buffer: Vec<u8> = Vec::new();
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+        let mut watched_id: Option<ID> = None;
 
         //let mut time_now = Instant::now();
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => (),
                 Some(Some(m)) => match m {
-                    Message::Advance { key_inputs, mouse_inputs, mouse_location } => {
-                        // todo
+                    Message::Advance {
+                        key_inputs,
+                        mouse_inputs,
+                        mouse_location,
+                        keys_requested,
+                        mouse_buttons_requested,
+                    } => {
+                        // Process inputs
+                        for (key, press) in key_inputs.into_iter() {
+                            if press {
+                                self.input_manager.key_press(key);
+                            } else {
+                                self.input_manager.key_release(key);
+                            }
+                        }
+                        for (button, press) in mouse_inputs.into_iter() {
+                            if press {
+                                self.input_manager.mouse_press(button);
+                            } else {
+                                self.input_manager.mouse_release(button);
+                            }
+                        }
+                        self.input_manager.mouse_update_previous();
+                        self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
+
+                        // Advance a frame
+                        self.frame()?;
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
+                            None => (),
+                        }
+
+                        // Send an update
+                        stream.send_message(&message::Information::Update {
+                            keys_held: keys_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .collect(),
+                            mouse_buttons_held: mouse_buttons_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .collect(),
+                            mouse_location: self.input_manager.mouse_get_location(),
+                            seed: self.rand.seed(),
+                            instance: watched_id
+                                .and_then(|x| self.instance_list.get_by_instid(x))
+                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                        })?
                     },
 
                     Message::Save { index } => {
+                        // Save a savestate to a file
                         let mut path = project_path.clone();
                         path.push(format!("save{}.bin", index));
                         let mut f = File::create(&path)?;
                         f.write_all(&bincode::serialize(&SaveState::from(self, replay.clone()))?)?;
                     },
 
-                    Message::Load { index } => {
+                    Message::Load { index, keys_requested, mouse_buttons_requested } => {
+                        // Load savestate from a file
                         let mut path = project_path.clone();
                         path.push(format!("save{}.bin", index));
                         let f = File::open(&path)?;
                         let state = bincode::deserialize_from::<_, SaveState>(f)?;
                         replay = state.load_into(self);
-                        // send an update
+
+                        // Send an update
+                        stream.send_message(&message::Information::Update {
+                            keys_held: keys_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .collect(),
+                            mouse_buttons_held: mouse_buttons_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .collect(),
+                            mouse_location: self.input_manager.mouse_get_location(),
+                            seed: self.rand.seed(),
+                            instance: watched_id
+                                .and_then(|x| self.instance_list.get_by_instid(x))
+                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                        })?;
                     },
                 },
                 None => break Ok(()),
@@ -1321,48 +1427,11 @@ impl Game {
 
                     Event::MenuOption(id) => {
                         if let Some(handle) = self.instance_list.get_by_instid(id as _) {
+                            watched_id = Some(id as ID);
                             let instance = self.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
                             stream.send_message(message::Information::InstanceClicked {
-                                details: message::InstanceDetails {
-                                    id: instance.id.get(),
-                                    object_name: match self.assets.objects.get_asset(instance.object_index.get()) {
-                                        Some(obj) => obj.name.as_ref().into(),
-                                        None => "<deleted object>".into(),
-                                    },
-                                    x: instance.x.get().into(),
-                                    y: instance.y.get().into(),
-                                    speed: instance.speed.get().into(),
-                                    direction: instance.direction.get().into(),
-                                    timeline_info: if self
-                                        .assets
-                                        .timelines
-                                        .get_asset(instance.timeline_index.get())
-                                        .is_some()
-                                    {
-                                        Some((
-                                            instance.timeline_index.get(),
-                                            instance.timeline_position.get().into(),
-                                            instance.timeline_speed.get().into(),
-                                        ))
-                                    } else {
-                                        None
-                                    },
-                                    path_info: if self.assets.paths.get_asset(instance.path_index.get()).is_some() {
-                                        Some((
-                                            instance.path_index.get(),
-                                            instance.path_position.get().into(),
-                                            instance.path_speed.get().into(),
-                                        ))
-                                    } else {
-                                        None
-                                    },
-                                    alarms: instance.alarms.borrow().clone(),
-                                    bbox_top: instance.bbox_top.get(),
-                                    bbox_left: instance.bbox_left.get(),
-                                    bbox_right: instance.bbox_right.get(),
-                                    bbox_bottom: instance.bbox_bottom.get(),
-                                },
+                                details: instance_details(&self.assets, instance),
                             })?;
                             break
                         } else {

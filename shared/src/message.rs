@@ -6,13 +6,19 @@ use std::{collections::HashMap, io};
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     /// Tells the game to advance a frame and then send us an update
-    Advance { key_inputs: Vec<(input::Key, bool)>, mouse_inputs: Vec<(input::MouseButton, bool)>, mouse_location: (f64, f64) },
+    Advance {
+        key_inputs: Vec<(input::Key, bool)>,
+        mouse_inputs: Vec<(input::MouseButton, bool)>,
+        mouse_location: (f64, f64),
+        keys_requested: Vec<input::Key>,
+        mouse_buttons_requested: Vec<input::MouseButton>,
+    },
 
     /// Tells the game to create a savestate in the given index
     Save { index: usize },
 
     /// Tells the game to load the savestate with the given index and then send us an update
-    Load { index: usize },
+    Load { index: usize, keys_requested: Vec<input::Key>, mouse_buttons_requested: Vec<input::MouseButton> },
 }
 
 /// A message sent from the client to the controller.
