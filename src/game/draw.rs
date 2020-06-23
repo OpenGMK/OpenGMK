@@ -3,7 +3,6 @@ use crate::{
     gml,
 };
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Halign {
@@ -211,6 +210,10 @@ impl Game {
             }
         }
 
+        fn draw_part_syst(game: &mut Game, id: i32) {
+            game.particles.draw_system(id, &mut game.renderer, &game.assets);
+        }
+
         // draw backgrounds
         for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
@@ -236,37 +239,49 @@ impl Game {
         self.tile_list.draw_sort();
         let mut iter_tile = self.tile_list.iter_by_drawing();
         let mut iter_tile_v = iter_tile.next(&self.tile_list);
+        let mut iter_part = self.particles.iter_by_drawing();
+        let mut iter_part_v = iter_part.next(&self.particles);
         loop {
-            match (iter_inst_v, iter_tile_v) {
-                (Some(idx_inst), Some(idx_tile)) => {
-                    let inst = self.instance_list.get(idx_inst);
-                    let tile = self.tile_list.get(idx_tile);
-                    match inst.depth.get().cmp_nan_first(&tile.depth) {
-                        Ordering::Greater | Ordering::Equal => {
-                            draw_instance(self, idx_inst)?;
-                            iter_inst_v = iter_inst.next(&self.instance_list);
-                        },
-                        Ordering::Less => {
-                            draw_tile(self, idx_tile);
-                            iter_tile_v = iter_tile.next(&self.tile_list);
-                        },
-                    }
-                },
-                (Some(idx_inst), None) => {
+            match (iter_inst_v, iter_tile_v, iter_part_v) {
+                (None, None, None) => break,
+                (Some(idx_inst), None, None) => {
                     draw_instance(self, idx_inst)?;
                     while let Some(idx_inst) = iter_inst.next(&self.instance_list) {
                         draw_instance(self, idx_inst)?;
                     }
                     break
                 },
-                (None, Some(idx_tile)) => {
+                (None, Some(idx_tile), None) => {
                     draw_tile(self, idx_tile);
                     while let Some(idx_tile) = iter_tile.next(&self.tile_list) {
                         draw_tile(self, idx_tile);
                     }
                     break
                 },
-                (None, None) => break,
+                (None, None, Some(idx_part)) => {
+                    draw_part_syst(self, idx_part);
+                    while let Some(idx_part) = iter_part.next(&self.particles) {
+                        draw_part_syst(self, idx_part);
+                    }
+                    break
+                },
+                (idx_opt_inst, idx_opt_tile, idx_opt_part) => {
+                    let inst_depth = idx_opt_inst.map(|h| self.instance_list.get(h).depth.get());
+                    let tile_depth = idx_opt_tile.map(|h| self.tile_list.get(h).depth);
+                    let part_depth = idx_opt_part.map(|h| self.particles.get_system(h).unwrap().depth);
+                    if part_depth < inst_depth && part_depth < tile_depth {
+                        if inst_depth < tile_depth {
+                            draw_tile(self, idx_opt_tile.unwrap());
+                            iter_tile_v = iter_tile.next(&self.tile_list);
+                        } else {
+                            draw_instance(self, idx_opt_inst.unwrap())?;
+                            iter_inst_v = iter_inst.next(&self.instance_list);
+                        }
+                    } else {
+                        draw_part_syst(self, idx_opt_part.unwrap());
+                        iter_part_v = iter_part.next(&self.particles);
+                    }
+                },
             }
         }
 
