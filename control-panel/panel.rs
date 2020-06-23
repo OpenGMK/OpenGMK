@@ -196,6 +196,23 @@ impl ControlPanel {
                     break
                 },
 
+                Event::KeyboardDown(input::Key::Q) => {
+                    stream.send_message(&message::Message::Save { index: 0 }).unwrap();
+                    println!("Probably saved");
+                    break
+                },
+
+                Event::KeyboardDown(input::Key::W) => {
+                    stream.send_message(&message::Message::Load {
+                        keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
+                        mouse_buttons_requested: Vec::new(),
+                        index: 0,
+                    }).unwrap();
+                    self.await_update(stream);
+                    println!("Loaded");
+                    break
+                },
+
                 _ => (),
             }
         }
@@ -242,6 +259,10 @@ impl ControlPanel {
             })
             .unwrap();
 
+        self.await_update(stream);
+    }
+
+    fn await_update(&mut self, stream: &mut TcpStream) {
         loop {
             match stream.receive_message::<message::Information>(&mut self.read_buffer) {
                 Ok(Some(Some(message::Information::Update {

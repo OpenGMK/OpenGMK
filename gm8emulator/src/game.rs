@@ -1386,9 +1386,11 @@ impl Game {
                     Message::Save { index } => {
                         // Save a savestate to a file
                         let mut path = project_path.clone();
+                        std::fs::create_dir_all(&path)?;
                         path.push(format!("save{}.bin", index));
                         let mut f = File::create(&path)?;
-                        f.write_all(&bincode::serialize(&SaveState::from(self, replay.clone()))?)?;
+                        let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
+                        f.write_all(&bytes)?;
                     },
 
                     Message::Load { index, keys_requested, mouse_buttons_requested } => {
