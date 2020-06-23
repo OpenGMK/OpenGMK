@@ -135,6 +135,9 @@ pub struct Game {
     pub caption: RCStr,
     pub caption_stale: bool,
 
+    play_type: PlayType,
+    stored_events: Vec<replay::Event>,
+
     // winit windowing
     pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
@@ -148,6 +151,14 @@ pub struct Game {
 pub enum Version {
     GameMaker8_0,
     GameMaker8_1,
+}
+
+/// Enum indicating how this game is being played - normal, recording or replaying
+#[derive(Clone, Debug)]
+pub enum PlayType {
+    Normal,
+    Record,
+    Replay,
 }
 
 /// Various different types of scene change which can be requested by GML
@@ -769,6 +780,8 @@ impl Game {
             lives_capt_d: false,
             health_capt_d: false,
             window,
+            play_type: PlayType::Normal,
+            stored_events: Vec::new(),
 
             // load_room sets this
             unscaled_width: 0,
@@ -1332,6 +1345,7 @@ impl Game {
         let mut game_mousey = 0;
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
         let mut watched_id: Option<ID> = None;
+        self.play_type = PlayType::Record;
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
@@ -1497,6 +1511,7 @@ impl Game {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
+        self.play_type = PlayType::Replay;
 
         let mut time_now = std::time::Instant::now();
         loop {
