@@ -538,11 +538,12 @@ impl Serialize for InstanceList {
     where
         S: Serializer,
     {
-        let mut list = serializer.serialize_struct("InstanceList", 4)?;
+        let mut list = serializer.serialize_struct("InstanceList", 5)?;
         list.serialize_field("chunks", &self.chunks)?;
         list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
         list.serialize_field("id_map", &self.id_map)?;
+        list.serialize_field("inactive_id_map", &self.inactive_id_map)?;
         list.end()
     }
 }
