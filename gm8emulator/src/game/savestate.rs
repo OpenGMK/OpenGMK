@@ -223,4 +223,8 @@ impl SaveState {
         game.unscaled_height = self.unscaled_height;
         self.replay
     }
+
+    pub fn into_replay(self) -> Replay {
+        self.replay
+    }
 }
