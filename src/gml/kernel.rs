@@ -7780,7 +7780,7 @@ impl Game {
                 Ok(id.into())
             } else {
                 ps.attractors.push(Some(at));
-                Ok((self.particle_systems.len() - 1).into())
+                Ok((ps.attractors.len() - 1).into())
             }
         } else {
             Ok((-1).into())
@@ -7861,7 +7861,7 @@ impl Game {
                 Ok(id.into())
             } else {
                 ps.destroyers.push(Some(de));
-                Ok((self.particle_systems.len() - 1).into())
+                Ok((ps.destroyers.len() - 1).into())
             }
         } else {
             Ok((-1).into())
@@ -7933,7 +7933,7 @@ impl Game {
                 Ok(id.into())
             } else {
                 ps.deflectors.push(Some(de));
-                Ok((self.particle_systems.len() - 1).into())
+                Ok((ps.deflectors.len() - 1).into())
             }
         } else {
             Ok((-1).into())
@@ -8022,7 +8022,7 @@ impl Game {
                 Ok(id.into())
             } else {
                 ps.changers.push(Some(ch));
-                Ok((self.particle_systems.len() - 1).into())
+                Ok((ps.changers.len() - 1).into())
             }
         } else {
             Ok((-1).into())
