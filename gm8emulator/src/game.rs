@@ -1358,19 +1358,28 @@ impl Game {
                         keys_requested,
                         mouse_buttons_requested,
                     } => {
+                        // Create a frame...
+                        let mut frame = replay.new_frame(self.room_speed);
+                        frame.mouse_x = mouse_location.0;
+                        frame.mouse_y = mouse_location.1;
+
                         // Process inputs
                         for (key, press) in key_inputs.into_iter() {
                             if press {
                                 self.input_manager.key_press(key);
+                                frame.inputs.push(replay::Input::KeyPress(key));
                             } else {
                                 self.input_manager.key_release(key);
+                                frame.inputs.push(replay::Input::KeyRelease(key));
                             }
                         }
                         for (button, press) in mouse_inputs.into_iter() {
                             if press {
                                 self.input_manager.mouse_press(button);
+                                frame.inputs.push(replay::Input::MousePress(button));
                             } else {
                                 self.input_manager.mouse_release(button);
+                                frame.inputs.push(replay::Input::MouseRelease(button));
                             }
                         }
                         self.input_manager.mouse_update_previous();
@@ -1384,6 +1393,10 @@ impl Game {
                             Some(SceneChange::End) => self.restart()?,
                             None => (),
                         }
+                        for ev in self.stored_events.iter() {
+                            frame.events.push(ev.clone());
+                        }
+                        self.stored_events.clear();
 
                         // Send an update
                         stream.send_message(&message::Information::Update {
@@ -1517,7 +1530,12 @@ impl Game {
         loop {
             self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
-                self.input_manager.set_mouse_pos(f64::from(frame.mouse_x), f64::from(frame.mouse_y));
+                self.stored_events.clear();
+                for ev in frame.events.iter() {
+                    self.stored_events.push_back(ev.clone());
+                }
+
+                self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
                 for ev in frame.inputs.iter() {
                     match ev {
                         replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
