@@ -150,6 +150,7 @@ pub enum Error {
     TooManyArrayDimensions(usize),
     WrongArgumentCount(usize, usize),
     FunctionError(String, String),
+    ReplayError(String),
 }
 
 impl std::error::Error for Error {}
@@ -192,6 +193,7 @@ impl Display for Error {
             Self::TooManyArrayDimensions(n) => write!(f, "too many array dimensions ({})", n),
             Self::WrongArgumentCount(exp, got) => write!(f, "wrong argument count (expected: {}, got: {})", exp, got),
             Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
+            Self::ReplayError(s) => write!(f, "{}", s),
         }
     }
 }

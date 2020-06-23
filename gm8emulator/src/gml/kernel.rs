@@ -4,7 +4,7 @@
 
 use crate::{
     action, asset,
-    game::{draw, string::RCStr, Game, GetAsset, SceneChange},
+    game::{draw, replay, string::RCStr, Game, GetAsset, PlayType, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
@@ -2485,7 +2485,20 @@ impl Game {
 
     pub fn randomize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.rand.randomize();
+        match self.play_type {
+            PlayType::Normal => self.rand.randomize(),
+            PlayType::Record => {
+                self.rand.randomize();
+                self.stored_events.push_back(replay::Event::Randomize(self.rand.seed()));
+            },
+            PlayType::Replay => {
+                if let Some(replay::Event::Randomize(seed)) = self.stored_events.pop_front() {
+                    self.rand.set_seed(seed);
+                } else {
+                    return Err(gml::Error::ReplayError("randomize".into()))
+                }
+            },
+        }
         Ok(Default::default())
     }
 
