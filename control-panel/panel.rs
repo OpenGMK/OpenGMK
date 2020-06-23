@@ -269,6 +269,7 @@ impl ControlPanel {
                     keys_held,
                     mouse_buttons_held: _,
                     mouse_location: _,
+                    frame_count: _,
                     seed: _,
                     instance: _,
                 }))) => {

@@ -32,6 +32,7 @@ pub enum Information {
         keys_held: Vec<input::Key>,
         mouse_buttons_held: Vec<input::MouseButton>,
         mouse_location: (f64, f64),
+        frame_count: usize,
         seed: i32,
         instance: Option<InstanceDetails>,
     },

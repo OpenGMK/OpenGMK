@@ -70,6 +70,11 @@ impl Replay {
         self.frames.get(index)
     }
 
+    // Gets the replay's frame count
+    pub fn frame_count(&self) -> usize {
+        self.frames.len()
+    }
+
     // Calculates the length of this replay in milliseconds
     pub fn get_length(&self) -> f64 {
         // We want to do this in a way that'll avoid FPI as much as possible (for example in a 60FPS game)

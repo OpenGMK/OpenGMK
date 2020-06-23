@@ -1311,6 +1311,7 @@ impl Game {
                                 .filter(|x| self.input_manager.mouse_check(*x))
                                 .collect(),
                             mouse_location: self.input_manager.mouse_get_location(),
+                            frame_count: 0,
                             seed: self.rand.seed(),
                             instance: None,
                         })?;
@@ -1376,6 +1377,7 @@ impl Game {
                                 .filter(|x| self.input_manager.mouse_check(*x))
                                 .collect(),
                             mouse_location: self.input_manager.mouse_get_location(),
+                            frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: watched_id
                                 .and_then(|x| self.instance_list.get_by_instid(x))
@@ -1412,6 +1414,7 @@ impl Game {
                                 .filter(|x| self.input_manager.mouse_check(*x))
                                 .collect(),
                             mouse_location: self.input_manager.mouse_get_location(),
+                            frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: watched_id
                                 .and_then(|x| self.instance_list.get_by_instid(x))
