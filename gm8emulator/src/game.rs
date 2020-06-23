@@ -1292,14 +1292,41 @@ impl Game {
 
         let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
         stream.set_nonblocking(true)?;
+        let mut read_buffer: Vec<u8> = Vec::new();
+
+        // Wait for a Hello, then send an update
+        loop {
+            match stream.receive_message::<Message>(&mut read_buffer)? {
+                Some(None) => (),
+                Some(Some(m)) => match m {
+                    Message::Hello { keys_requested, mouse_buttons_requested } => {
+                        // Send an update
+                        stream.send_message(&message::Information::Update {
+                            keys_held: keys_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .collect(),
+                            mouse_buttons_held: mouse_buttons_requested
+                                .into_iter()
+                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .collect(),
+                            mouse_location: self.input_manager.mouse_get_location(),
+                            seed: self.rand.seed(),
+                            instance: None,
+                        })?;
+                        break
+                    },
+                    m => return Err(format!("Waiting for greeting from server, but got {:?}", m)),
+                },
+                None => return Ok(()),
+            }
+        }
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
-        let mut read_buffer: Vec<u8> = Vec::new();
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
         let mut watched_id: Option<ID> = None;
 
-        //let mut time_now = Instant::now();
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => (),
@@ -1334,7 +1361,7 @@ impl Game {
                         match self.scene_change {
                             Some(SceneChange::Room(id)) => self.load_room(id)?,
                             Some(SceneChange::Restart) => self.restart()?,
-                            Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
+                            Some(SceneChange::End) => self.restart()?,
                             None => (),
                         }
 

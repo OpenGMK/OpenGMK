@@ -5,6 +5,9 @@ use std::{collections::HashMap, io};
 /// A message sent from the controller to the client.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
+    /// Initializes a recording session, asking the client for an update prior to any inputs
+    Hello { keys_requested: Vec<input::Key>, mouse_buttons_requested: Vec<input::MouseButton> },
+
     /// Tells the game to advance a frame and then send us an update
     Advance {
         key_inputs: Vec<(input::Key, bool)>,
