@@ -1496,8 +1496,7 @@ impl Game {
                         while let Some(handle) = iter.next(&self.instance_list) {
                             let instance = self.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            if instance.visible.get()
-                                && x >= instance.bbox_left.get()
+                            if x >= instance.bbox_left.get()
                                 && x <= instance.bbox_right.get()
                                 && y >= instance.bbox_top.get()
                                 && y <= instance.bbox_bottom.get()
