@@ -19,6 +19,7 @@ const SAVE_BUTTON_SIZE: usize = 30;
 pub struct ControlPanel {
     pub window: Window,
     pub renderer: Renderer,
+    pub clear_colour: Colour,
     pub key_buttons: Vec<KeyButton>,
     pub stream: TcpStream,
     mouse_x: i32,
@@ -74,14 +75,12 @@ impl ControlPanel {
     pub fn new(stream: TcpStream) -> Result<Self, Box<dyn std::error::Error>> {
         let wb = WindowBuilder::new().with_size(WINDOW_WIDTH, WINDOW_HEIGHT);
         let mut window = wb.build()?;
+        let clear_colour = Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0);
         let mut renderer = Renderer::new(
             (),
-            &RendererOptions {
-                size: (WINDOW_WIDTH, WINDOW_HEIGHT),
-                clear_colour: Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0),
-                vsync: false,
-            },
+            &RendererOptions { size: (WINDOW_WIDTH, WINDOW_HEIGHT), vsync: false },
             &window,
+            clear_colour,
         )?;
         window.set_visible(true);
 
@@ -96,10 +95,11 @@ impl ControlPanel {
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
         renderer.push_atlases(atlases)?;
 
-        renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT);
+        renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, clear_colour);
         Ok(Self {
             window,
             renderer,
+            clear_colour,
             key_buttons: vec![
                 KeyButton { x: 103, y: 100, key: input::Key::Left, state: KeyButtonState::Neutral },
                 KeyButton { x: 151, y: 100, key: input::Key::Down, state: KeyButtonState::Neutral },
@@ -368,7 +368,7 @@ impl ControlPanel {
                 alpha,
             );
         }
-        self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }
 
     // Little helper function, input MUST be a BMP file in 32-bit RGBA format. Best used with include_bytes!()

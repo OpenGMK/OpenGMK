@@ -118,7 +118,7 @@ impl Game {
 
         // Tell renderer to finish the frame and start the next one
         let (width, height) = self.window.get_inner_size();
-        self.renderer.finish(width, height);
+        self.renderer.finish(width, height, self.background_colour);
 
         // Clear inputs for this frame
         self.input_manager.clear_presses();
@@ -155,6 +155,10 @@ impl Game {
             port_w,
             port_h,
         );
+
+        if let Some(colour) = self.room_colour {
+            self.renderer.clear_view(colour);
+        }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
             let instance = game.instance_list.get(idx);

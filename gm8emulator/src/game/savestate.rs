@@ -28,6 +28,9 @@ pub struct SaveState {
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
 
+    pub background_colour: Colour,
+    pub room_colour: Option<Colour>,
+
     pub last_instance_id: ID,
     pub last_tile_id: ID,
 
@@ -106,6 +109,8 @@ impl SaveState {
             assets: game.assets.clone(),
             event_holders: game.event_holders.clone(),
             custom_draw_objects: game.custom_draw_objects.clone(),
+            background_colour: game.background_colour,
+            room_colour: game.room_colour,
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -163,7 +168,12 @@ impl SaveState {
 
     pub fn load_into(self, game: &mut Game) -> Replay {
         game.window.resize(self.screenshot_width, self.screenshot_height);
-        game.renderer.draw_pixels(self.screenshot, self.screenshot_width as _, self.screenshot_height as _);
+        game.renderer.draw_raw_frame(
+            self.screenshot,
+            self.screenshot_width as _,
+            self.screenshot_height as _,
+            game.background_colour,
+        );
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
@@ -173,6 +183,8 @@ impl SaveState {
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
+        game.background_colour = self.background_colour;
+        game.room_colour = self.room_colour;
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
         game.views_enabled = self.views_enabled;

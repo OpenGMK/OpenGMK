@@ -75,6 +75,8 @@ pub struct Game {
     pub custom_draw_objects: HashSet<ID>,
 
     pub renderer: Renderer,
+    pub background_colour: Colour,
+    pub room_colour: Option<Colour>,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -244,6 +246,7 @@ impl Game {
         let room1_width = room1.width;
         let room1_height = room1.height;
         let room1_speed = room1.speed;
+        let room1_colour = if room1.clear_screen { Some(room1.bg_colour.as_decimal().into()) } else { None };
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -294,7 +297,6 @@ impl Game {
         // Set up a Renderer
         let options = RendererOptions {
             size: (room1_width, room1_height),
-            clear_colour: settings.clear_colour.into(),
             vsync: settings.vsync, // TODO: Overrideable
         };
 
@@ -304,7 +306,7 @@ impl Game {
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
-        let mut renderer = Renderer::new((), &options, &window)?;
+        let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
@@ -727,6 +729,8 @@ impl Game {
             tile_list: TileList::new(),
             rand: Random::new(),
             renderer: renderer,
+            background_colour: settings.clear_colour.into(),
+            room_colour: room1_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -934,7 +938,7 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
+        self.room_colour = if room.clear_screen { Some(room.bg_colour) } else { None };
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs

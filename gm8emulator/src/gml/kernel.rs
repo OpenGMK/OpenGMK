@@ -5096,19 +5096,16 @@ impl Game {
         let width = 300;
         let height = 200;
 
-        let options = RendererOptions {
-            size: (width, height),
-            clear_colour: Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0),
-            vsync: false,
-        };
+        let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
+        let options = RendererOptions { size: (width, height), vsync: false };
 
         // TODO: this should block as a dialog, not block the entire fucking thread
         // otherwise windows thinks it's not responding or whatever
 
         let wb = window::WindowBuilder::new().with_size(width, height);
         let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
-        let mut renderer =
-            Renderer::new((), &options, &window).map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
+        let mut renderer = Renderer::new((), &options, &window, clear_colour)
+            .map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
         window.set_visible(true);
         renderer.set_swap_interval(None);
 
@@ -5118,7 +5115,7 @@ impl Game {
                 break
             }
 
-            renderer.finish(width, height);
+            renderer.finish(width, height, clear_colour);
         }
 
         // restore renderer
