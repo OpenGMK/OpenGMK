@@ -14,7 +14,7 @@ impl PSIterDrawOrder {
                 .draw_order
                 .iter()
                 .skip(self.0 + 1)
-                .position(|i| manager.systems.get_asset(*i).map(|s| s.auto_draw).is_some())
+                .position(|i| manager.systems.get_asset(*i).filter(|s| s.auto_draw).is_some())
                 .unwrap_or(manager.draw_order.len());
             *val
         })
