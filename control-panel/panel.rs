@@ -25,6 +25,7 @@ pub struct ControlPanel {
     pub font_small: Font,
     pub advance_button: AdvanceButton,
     pub key_buttons: Vec<KeyButton>,
+    pub big_save_button: BigSaveButton,
     pub save_buttons: Vec<SaveButton>,
     pub stream: TcpStream,
     mouse_x: i32,
@@ -36,6 +37,7 @@ pub struct ControlPanel {
     pub game_mouse_pos: (f64, f64),
 
     advance_button_normal: AtlasRef,
+    big_save_button_normal: AtlasRef,
     key_button_l_neutral: AtlasRef,
     key_button_l_held: AtlasRef,
     key_button_r_neutral: AtlasRef,
@@ -47,10 +49,17 @@ pub struct ControlPanel {
     save_button_active: AtlasRef,
     save_button_inactive: AtlasRef,
 
-    context_menu_key: Option<input::Key>,
+    menu_context: Option<MenuContext>,
 
     pub read_buffer: Vec<u8>,
     pub project_dir: PathBuf,
+}
+
+#[derive(Clone)]
+pub enum MenuContext {
+    KeyButton(input::Key),
+    SaveButton(String),
+    BigSaveButton,
 }
 
 #[derive(Clone, Copy)]
@@ -65,6 +74,12 @@ pub struct KeyButton {
     pub y: i32,
     pub key: input::Key,
     pub state: KeyButtonState,
+}
+
+#[derive(Clone, Copy)]
+pub struct BigSaveButton {
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Clone)]
@@ -91,6 +106,12 @@ pub enum KeyButtonState {
 impl AdvanceButton {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
         x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 40)
+    }
+}
+
+impl BigSaveButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 30)
     }
 }
 
@@ -123,6 +144,7 @@ impl ControlPanel {
 
         let mut atlases = AtlasBuilder::new(1024);
         let advance_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/advance.bmp"));
+        let big_save_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/save_main.bmp"));
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLNeutral.bmp"));
         let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLHeld.bmp"));
         let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral.bmp"));
@@ -183,7 +205,7 @@ impl ControlPanel {
                 project_dir.pop();
                 save_buttons.push(SaveButton {
                     x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
-                    y: 246 + (SAVE_BUTTON_SIZE * y) as i32,
+                    y: 278 + (SAVE_BUTTON_SIZE * y) as i32,
                     name: id.to_string(),
                     filename,
                     exists,
@@ -210,6 +232,7 @@ impl ControlPanel {
                 KeyButton { x: 270, y: 90, key: input::Key::F2, state: KeyButtonState::Neutral },
                 KeyButton { x: 270, y: 150, key: input::Key::Z, state: KeyButtonState::Neutral },
             ],
+            big_save_button: BigSaveButton { x: 125, y: 240 },
             save_buttons,
             stream,
             mouse_x: 0,
@@ -221,6 +244,7 @@ impl ControlPanel {
             game_mouse_pos: (0.0, 0.0),
 
             advance_button_normal,
+            big_save_button_normal,
             key_button_l_neutral,
             key_button_l_held,
             key_button_r_neutral,
@@ -232,7 +256,7 @@ impl ControlPanel {
             save_button_active,
             save_button_inactive,
 
-            context_menu_key: None,
+            menu_context: None,
             read_buffer: Vec::new(),
             project_dir,
         })
@@ -311,31 +335,74 @@ impl ControlPanel {
                                 ],
                             };
                             self.window.show_context_menu(&options);
-                            self.context_menu_key = Some(button.key);
+                            self.menu_context = Some(MenuContext::KeyButton(button.key));
                             break 'evloop
                         }
+                    }
+
+                    for button in self.save_buttons.iter() {
+                        if button.contains_point(self.mouse_x, self.mouse_y) && button.exists {
+                            self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+                            self.menu_context = Some(MenuContext::SaveButton(button.filename.clone()));
+                            break 'evloop
+                        }
+                    }
+
+                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
+                        self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
+                        break
                     }
                 },
 
                 Event::MenuOption(option) => {
-                    if let Some(target_key) = self.context_menu_key {
-                        let new_state = match option {
-                            0 => KeyButtonState::Neutral,
-                            1 => KeyButtonState::NeutralWillPress,
-                            2 => KeyButtonState::NeutralWillPR,
-                            3 => KeyButtonState::NeutralWillPRP,
-                            4 => KeyButtonState::Held,
-                            5 => KeyButtonState::HeldWillRelease,
-                            6 => KeyButtonState::HeldWillRP,
-                            7 => KeyButtonState::HeldWillRPR,
-                            _ => continue,
-                        };
+                    match &self.menu_context {
+                        Some(MenuContext::KeyButton(target_key)) => {
+                            let new_state = match option {
+                                0 => KeyButtonState::Neutral,
+                                1 => KeyButtonState::NeutralWillPress,
+                                2 => KeyButtonState::NeutralWillPR,
+                                3 => KeyButtonState::NeutralWillPRP,
+                                4 => KeyButtonState::Held,
+                                5 => KeyButtonState::HeldWillRelease,
+                                6 => KeyButtonState::HeldWillRP,
+                                7 => KeyButtonState::HeldWillRPR,
+                                _ => continue,
+                            };
 
-                        for button in self.key_buttons.iter_mut() {
-                            if button.key == target_key {
-                                button.state = new_state;
+                            for button in self.key_buttons.iter_mut() {
+                                if button.key == *target_key {
+                                    button.state = new_state;
+                                }
                             }
-                        }
+                        },
+
+                        Some(MenuContext::SaveButton(filename)) => {
+                            match option {
+                                0 => {
+                                    // Save
+                                    self.stream.send_message(&message::Message::Save { filename: filename.clone() })?;
+                                    println!("Probably saved to {}", filename);
+                                },
+
+                                1 => {
+                                    // Load
+                                    self.stream.send_message(&message::Message::Load {
+                                        keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
+                                        mouse_buttons_requested: Vec::new(),
+                                        filename: filename.clone(),
+                                        instance_requested: self.watched_id,
+                                    })?;
+                                    self.await_update()?;
+                                    println!("Loaded");
+                                    break
+                                },
+
+                                _ => continue,
+                            }
+                        },
+
+                        _ => (),
                     }
                 },
 
@@ -515,6 +582,17 @@ impl ControlPanel {
                 alpha,
             );
         }
+
+        self.renderer.draw_sprite(
+            &self.big_save_button_normal,
+            self.big_save_button.x.into(),
+            self.big_save_button.y.into(),
+            1.0,
+            1.0,
+            0.0,
+            0xFFFFFF,
+            if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
+        );
 
         for button in self.save_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
