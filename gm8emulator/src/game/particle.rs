@@ -1317,19 +1317,19 @@ impl Particle {
                 self.direction = -vspeed.arctan2(hspeed).to_degrees();
             }
 
-            let mut dir_wiggle = Real::from((self.timer + self.random_start * 3) % 24) / Real::from(6.0);
-            if Real::from(2.0) < dir_wiggle {
-                dir_wiggle = Real::from(4.0) - dir_wiggle;
+            let mut dir_wiggle_factor = Real::from((self.timer + self.random_start * 3) % 24) / Real::from(6.0);
+            if Real::from(2.0) < dir_wiggle_factor {
+                dir_wiggle_factor = Real::from(4.0) - dir_wiggle_factor;
             }
-            dir_wiggle -= Real::from(1.0);
-            let direction = self.direction + dir_wiggle;
+            dir_wiggle_factor -= Real::from(1.0);
+            let direction = self.direction + ptype.dir_wiggle * dir_wiggle_factor;
 
-            let mut speed_wiggle = Real::from((self.timer + self.random_start * 4) % 20) / Real::from(5.0);
-            if Real::from(2.0) < speed_wiggle {
-                speed_wiggle = Real::from(4.0) - speed_wiggle;
+            let mut speed_wiggle_factor = Real::from((self.timer + self.random_start * 4) % 20) / Real::from(5.0);
+            if Real::from(2.0) < speed_wiggle_factor {
+                speed_wiggle_factor = Real::from(4.0) - speed_wiggle_factor;
             }
-            speed_wiggle -= Real::from(1.0);
-            let speed = self.speed + speed_wiggle;
+            speed_wiggle_factor -= Real::from(1.0);
+            let speed = self.speed + ptype.speed_wiggle * speed_wiggle_factor;
 
             self.x += direction.to_radians().cos() * speed;
             self.y -= direction.to_radians().sin() * speed;
@@ -1396,21 +1396,21 @@ impl Particle {
             },
             ParticleGraphic::Shape(_) => None, // TODO
         };
-        let mut angle_wiggle = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
-        if 2.0 < angle_wiggle {
-            angle_wiggle = 4.0 - angle_wiggle;
+        let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
+        if 2.0 < angle_wiggle_factor {
+            angle_wiggle_factor = 4.0 - angle_wiggle_factor;
         }
-        angle_wiggle -= 1.0;
-        let mut angle = self.image_angle + ptype.ang_wiggle * angle_wiggle.into();
+        angle_wiggle_factor -= 1.0;
+        let mut angle = self.image_angle + ptype.ang_wiggle * angle_wiggle_factor.into();
         if ptype.ang_relative {
             angle += self.direction;
         }
-        let mut size_wiggle = ((self.timer + self.random_start) % 16) as f64 / 4.0;
-        if 2.0 < size_wiggle {
-            size_wiggle = 4.0 - size_wiggle;
+        let mut size_wiggle_factor = ((self.timer + self.random_start) % 16) as f64 / 4.0;
+        if 2.0 < size_wiggle_factor {
+            size_wiggle_factor = 4.0 - size_wiggle_factor;
         }
-        size_wiggle -= 1.0;
-        let size = self.size + ptype.size_wiggle * size_wiggle.into();
+        size_wiggle_factor -= 1.0;
+        let size = self.size + ptype.size_wiggle * size_wiggle_factor.into();
         // TODO set blend mode to bm_add if additive
         if let Some(atlas_ref) = atlas_ref {
             renderer.draw_sprite(
