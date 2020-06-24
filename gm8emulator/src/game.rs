@@ -313,6 +313,8 @@ impl Game {
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
+        let particle_shapes = particle::load_shapes(&mut atlases);
+
         let sprites = sprites
             .into_iter()
             .map(|o| {
@@ -738,7 +740,7 @@ impl Game {
             view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
-            particles: particle::Manager::new(),
+            particles: particle::Manager::new(particle_shapes),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,

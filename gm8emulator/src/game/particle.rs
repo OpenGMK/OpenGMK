@@ -3,8 +3,12 @@ use crate::{
     gml::rand::Random,
     math::Real,
 };
-use gmio::render::Renderer;
+use gmio::{
+    atlas::{AtlasBuilder, AtlasRef},
+    render::Renderer,
+};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 pub struct PSIterDrawOrder(usize);
 impl PSIterDrawOrder {
@@ -45,6 +49,7 @@ pub struct Manager {
     systems: Vec<Option<Box<System>>>,
     types: Vec<Option<Box<ParticleType>>>,
     draw_order: Vec<i32>,
+    shapes: Vec<AtlasRef>,
 
     dnd_system: i32,
     dnd_types: [i32; 16],
@@ -54,11 +59,12 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new() -> Self {
+    pub fn new(shapes: Vec<AtlasRef>) -> Self {
         Self {
             systems: Vec::new(),
             types: Vec::new(),
             draw_order: Vec::new(),
+            shapes,
             dnd_system: -1,
             dnd_types: [-1; 16],
             dnd_emitters: [-1; 8],
@@ -101,7 +107,7 @@ impl Manager {
 
     pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets) {
         if let Some(ps) = self.systems.get_asset_mut(id) {
-            ps.draw(renderer, assets, &self.types);
+            ps.draw(renderer, assets, &self.types, &self.shapes);
         }
     }
 
@@ -1121,15 +1127,21 @@ impl System {
         }
     }
 
-    pub fn draw(&self, renderer: &mut Renderer, assets: &Assets, types: &dyn GetAsset<Box<ParticleType>>) {
+    pub fn draw(
+        &self,
+        renderer: &mut Renderer,
+        assets: &Assets,
+        types: &dyn GetAsset<Box<ParticleType>>,
+        shapes: &Vec<AtlasRef>,
+    ) {
         // TODO set texture lerp on just for this function
         if self.draw_old_to_new {
             for particle in &self.particles {
-                particle.draw(self.x, self.y, renderer, assets, types);
+                particle.draw(self.x, self.y, renderer, assets, types, shapes);
             }
         } else {
             for particle in self.particles.iter().rev() {
-                particle.draw(self.x, self.y, renderer, assets, types);
+                particle.draw(self.x, self.y, renderer, assets, types, shapes);
             }
         }
     }
@@ -1371,6 +1383,7 @@ impl Particle {
         renderer: &mut Renderer,
         assets: &Assets,
         types: &dyn GetAsset<Box<ParticleType>>,
+        shapes: &Vec<AtlasRef>,
     ) {
         let ptype = types.get_asset(self.ptype);
         if ptype.is_none() {
@@ -1394,7 +1407,7 @@ impl Particle {
                     None
                 }
             },
-            ParticleGraphic::Shape(_) => None, // TODO
+            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s)),
         };
         let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
         if 2.0 < angle_wiggle_factor {
@@ -1599,4 +1612,17 @@ impl Emitter {
             }
         }
     }
+}
+
+pub fn load_shapes(atlases: &mut AtlasBuilder) -> Vec<AtlasRef> {
+    let raw = include_bytes!("../../data/particles.dat");
+    let mut atlas_refs = Vec::with_capacity(14);
+    for i in 0..14 {
+        let mut rgba = Box::new([255u8; 64 * 64 * 4]);
+        for j in 0..64 * 64 {
+            rgba[4 * j + 3] = raw[64 * 64 * i + j];
+        }
+        atlas_refs.push(atlases.texture(64, 64, 32, 32, rgba).expect("failed to pack particle shapes"));
+    }
+    atlas_refs
 }
