@@ -21,6 +21,25 @@ impl PSIterDrawOrder {
     }
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct EffectManager {
+    system_above: i32,
+    system_below: i32,
+
+    explosion_types: [i32; 6],
+    ring_types: [i32; 3],
+    ellipse_types: [i32; 3],
+    firework_types: [i32; 3],
+    smoke_types: [i32; 3],
+    smokeup_types: [i32; 3],
+    star_types: [i32; 3],
+    spark_types: [i32; 3],
+    flare_types: [i32; 3],
+    cloud_types: [i32; 3],
+    rain_type: i32,
+    snow_type: i32,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Manager {
     systems: Vec<Option<Box<System>>>,
@@ -30,6 +49,8 @@ pub struct Manager {
     dnd_system: i32,
     dnd_types: [i32; 16],
     dnd_emitters: [i32; 8],
+
+    effects: Option<EffectManager>,
 }
 
 impl Manager {
@@ -41,6 +62,7 @@ impl Manager {
             dnd_system: -1,
             dnd_types: [-1; 16],
             dnd_emitters: [-1; 8],
+            effects: None,
         }
     }
 
@@ -228,6 +250,553 @@ impl Manager {
     pub fn dnd_emitter_burst(&mut self, id: usize, parttype: usize, number: i32, rand: &mut Random) {
         self.emitter_burst(self.dnd_system, self.dnd_emitters[id], self.dnd_types[parttype], number, rand);
     }
+
+    pub fn create_effect(
+        &mut self,
+        kind: EffectType,
+        x: Real,
+        y: Real,
+        size: EffectSize,
+        col: i32,
+        below: bool,
+        fps_mod: Real,
+        room_width: i32,
+        room_height: i32,
+        rand: &mut Random,
+    ) {
+        if self.effects.is_none() {
+            let system_below = self.create_system();
+            let system_above = self.create_system();
+            self.effects = Some(EffectManager {
+                system_below,
+                system_above,
+                explosion_types: [
+                    self.create_type(),
+                    self.create_type(),
+                    self.create_type(),
+                    self.create_type(),
+                    self.create_type(),
+                    self.create_type(),
+                ],
+                ring_types: [self.create_type(), self.create_type(), self.create_type()],
+                ellipse_types: [self.create_type(), self.create_type(), self.create_type()],
+                firework_types: [self.create_type(), self.create_type(), self.create_type()],
+                smoke_types: [self.create_type(), self.create_type(), self.create_type()],
+                smokeup_types: [self.create_type(), self.create_type(), self.create_type()],
+                star_types: [self.create_type(), self.create_type(), self.create_type()],
+                spark_types: [self.create_type(), self.create_type(), self.create_type()],
+                flare_types: [self.create_type(), self.create_type(), self.create_type()],
+                cloud_types: [self.create_type(), self.create_type(), self.create_type()],
+                rain_type: self.create_type(),
+                snow_type: self.create_type(),
+            });
+            self.get_system_mut(system_below).unwrap().depth = 100000.into();
+            self.get_system_mut(system_above).unwrap().depth = (-100000).into();
+        }
+        let effects = self.effects.as_ref().unwrap();
+        let system = if below { effects.system_below } else { effects.system_above };
+        let size_num = match size {
+            EffectSize::Small => 0,
+            EffectSize::Medium => 1,
+            EffectSize::Large => 2,
+        };
+        match kind {
+            EffectType::Explosion => {
+                let (id1, id2) = (effects.explosion_types[size_num * 2], effects.explosion_types[size_num * 2 + 1]);
+                let pt = self.types.get_asset_mut(id1).unwrap();
+                pt.graphic = ParticleGraphic::Shape(10);
+                pt.size_wiggle = 0.into();
+                pt.ang_min = 0.into();
+                pt.ang_max = 360.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = false;
+                pt.dir_min = 0.into();
+                pt.dir_max = 360.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.alpha1 = 0.6.into();
+                pt.alpha2 = 0.3.into();
+                pt.alpha3 = 0.into();
+
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.1.into();
+                        pt.size_incr = fps_mod * 0.05.into();
+                        pt.speed_min = fps_mod * 2.into();
+                        pt.speed_incr = fps_mod * (-0.1).into();
+                        pt.life_min = (Real::from(10) / fps_mod).round();
+                        pt.life_max = (Real::from(15) / fps_mod).round();
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.3.into();
+                        pt.size_incr = fps_mod * 0.1.into();
+                        pt.speed_min = fps_mod * 4.into();
+                        pt.speed_incr = fps_mod * (-0.18).into();
+                        pt.life_min = (Real::from(12) / fps_mod).round();
+                        pt.life_max = (Real::from(17) / fps_mod).round();
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 0.4.into();
+                        pt.size_incr = fps_mod * 0.2.into();
+                        pt.speed_min = fps_mod * 7.into();
+                        pt.speed_incr = fps_mod * (-0.2).into();
+                        pt.life_min = (Real::from(15) / fps_mod).round();
+                        pt.life_max = (Real::from(20) / fps_mod).round();
+                    },
+                }
+                pt.size_max = pt.size_min;
+                pt.speed_max = pt.speed_min;
+
+                let pt = self.types.get_asset_mut(id2).unwrap();
+
+                pt.graphic = ParticleGraphic::Shape(10);
+                pt.ang_min = 0.into();
+                pt.ang_max = 360.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = false;
+                pt.dir_min = 0.into();
+                pt.dir_max = 360.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.alpha1 = 0.8.into();
+                pt.alpha2 = 0.4.into();
+                pt.alpha3 = 0.into();
+
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.1.into();
+                        pt.size_incr = fps_mod * 0.1.into();
+                        pt.life_min = (Real::from(15) / fps_mod).round();
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.3.into();
+                        pt.size_incr = fps_mod * 0.2.into();
+                        pt.life_min = (Real::from(17) / fps_mod).round();
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 0.4.into();
+                        pt.size_incr = fps_mod * 0.4.into();
+                        pt.life_min = (Real::from(20) / fps_mod).round();
+                    },
+                }
+
+                pt.size_max = pt.size_min;
+                pt.life_max = pt.life_min;
+                self.system_create_particles(system, x, y, id1, Some(col), 20, rand);
+                self.system_create_particles(system, x, y, id2, Some(0), 1, rand);
+            },
+            EffectType::Ring => {
+                let id = effects.ring_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(6);
+                pt.alpha1 = 1.into();
+                pt.alpha2 = 0.5.into();
+                pt.alpha3 = 0.into();
+                pt.size_min = 0.into();
+                pt.size_max = 0.into();
+                pt.size_wiggle = 0.into();
+                match size {
+                    EffectSize::Small => {
+                        pt.size_incr = fps_mod * 0.15.into();
+                        pt.life_min = (Real::from(10) / fps_mod).round();
+                        pt.life_max = (Real::from(12) / fps_mod).round();
+                    },
+                    EffectSize::Medium => {
+                        pt.size_incr = fps_mod * 0.25.into();
+                        pt.life_min = (Real::from(13) / fps_mod).round();
+                        pt.life_max = (Real::from(15) / fps_mod).round();
+                    },
+                    EffectSize::Large => {
+                        pt.size_incr = fps_mod * 0.4.into();
+                        pt.life_min = (Real::from(18) / fps_mod).round();
+                        pt.life_max = (Real::from(20) / fps_mod).round();
+                    },
+                }
+                self.system_create_particles(system, x, y, id, Some(col), 1, rand);
+            },
+            EffectType::Ellipse => {
+                let id = effects.ellipse_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(6);
+                pt.alpha1 = 1.into();
+                pt.alpha2 = 0.5.into();
+                pt.alpha3 = 0.into();
+                pt.size_min = 0.into();
+                pt.size_max = 0.into();
+                pt.size_wiggle = 0.into();
+                pt.xscale = 1.into();
+                pt.yscale = 0.5.into();
+                match size {
+                    EffectSize::Small => {
+                        pt.size_incr = fps_mod * 0.2.into();
+                        pt.life_min = (Real::from(10) / fps_mod).round();
+                        pt.life_max = (Real::from(12) / fps_mod).round();
+                    },
+                    EffectSize::Medium => {
+                        pt.size_incr = fps_mod * 0.35.into();
+                        pt.life_min = (Real::from(13) / fps_mod).round();
+                        pt.life_max = (Real::from(15) / fps_mod).round();
+                    },
+                    EffectSize::Large => {
+                        pt.size_incr = fps_mod * 0.6.into();
+                        pt.life_min = (Real::from(18) / fps_mod).round();
+                        pt.life_max = (Real::from(20) / fps_mod).round();
+                    },
+                }
+                self.system_create_particles(system, x, y, id, Some(col), 1, rand);
+            },
+            EffectType::Firework => {
+                let id = effects.firework_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(8);
+                pt.size_min = 0.1.into();
+                pt.size_max = 0.2.into();
+                pt.size_incr = 0.into();
+                pt.size_wiggle = 0.into();
+                pt.speed_min = fps_mod * 0.5.into();
+                pt.speed_incr = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.dir_min = 0.into();
+                pt.dir_max = 360.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 0.into();
+                pt.alpha1 = 1.into();
+                pt.alpha2 = 0.7.into();
+                pt.alpha3 = 0.4.into();
+                pt.grav_dir = 270.into();
+                let number = match size {
+                    EffectSize::Small => {
+                        pt.speed_max = fps_mod * 3.into();
+                        pt.life_min = (Real::from(15) / fps_mod).round();
+                        pt.life_max = (Real::from(25) / fps_mod).round();
+                        pt.grav_amount = 0.1.into();
+                        75
+                    },
+                    EffectSize::Medium => {
+                        pt.speed_max = fps_mod * 6.into();
+                        pt.life_min = (Real::from(20) / fps_mod).round();
+                        pt.life_max = (Real::from(30) / fps_mod).round();
+                        pt.grav_amount = 0.15.into();
+                        150
+                    },
+                    EffectSize::Large => {
+                        pt.speed_max = fps_mod * 8.into();
+                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_max = (Real::from(40) / fps_mod).round();
+                        pt.grav_amount = 0.17.into();
+                        250
+                    },
+                };
+                self.system_create_particles(system, x, y, id, Some(col), number, rand);
+            },
+            EffectType::Smoke => {
+                let id = effects.smoke_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(10);
+                pt.size_incr = fps_mod * (-0.01).into();
+                pt.size_wiggle = 0.into();
+                pt.alpha1 = 0.4.into();
+                pt.alpha2 = 0.2.into();
+                pt.alpha3 = 0.into();
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.2.into();
+                        pt.size_max = 0.4.into();
+                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..6 {
+                            let dx = rand.next_int(9) - 5;
+                            let dy = rand.next_int(9) - 5;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.4.into();
+                        pt.size_max = 0.7.into();
+                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..11 {
+                            let dx = rand.next_int(29) - 15;
+                            let dy = rand.next_int(29) - 15;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 0.4.into();
+                        pt.size_max = 1.into();
+                        pt.life_min = (Real::from(50) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..16 {
+                            let dx = rand.next_int(59) - 30;
+                            let dy = rand.next_int(59) - 30;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                }
+            },
+            EffectType::SmokeUp => {
+                let id = effects.smokeup_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(10);
+                pt.size_incr = fps_mod * (-0.01).into();
+                pt.size_wiggle = 0.into();
+                pt.alpha1 = 0.4.into();
+                pt.alpha2 = 0.2.into();
+                pt.alpha3 = 0.into();
+                pt.speed_incr = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.dir_min = 90.into();
+                pt.dir_max = 90.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 0.into();
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.2.into();
+                        pt.size_max = 0.4.into();
+                        pt.speed_min = fps_mod * 3.into();
+                        pt.speed_max = fps_mod * 4.into();
+                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..6 {
+                            let dx = rand.next_int(9) - 5;
+                            let dy = rand.next_int(9) - 5;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.4.into();
+                        pt.size_max = 0.7.into();
+                        pt.speed_min = fps_mod * 5.into();
+                        pt.speed_max = fps_mod * 6.into();
+                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..11 {
+                            let dx = rand.next_int(29) - 15;
+                            let dy = rand.next_int(29) - 15;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 0.4.into();
+                        pt.size_max = 1.into();
+                        pt.speed_min = fps_mod * 6.into();
+                        pt.speed_max = fps_mod * 7.into();
+                        pt.life_min = (Real::from(50) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                        for _ in 0..16 {
+                            let dx = rand.next_int(59) - 30;
+                            let dy = rand.next_int(59) - 30;
+                            self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
+                        }
+                    },
+                }
+            },
+            EffectType::Star => {
+                let id = effects.star_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(4);
+                pt.size_wiggle = 0.into();
+                pt.ang_min = 0.into();
+                pt.ang_max = 360.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = false;
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.4.into();
+                        pt.size_max = 0.3.into(); // yes this way round
+                        pt.size_incr = fps_mod * (-0.02).into();
+                        pt.life_min = (Real::from(20) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.75.into();
+                        pt.size_max = 0.75.into();
+                        pt.size_incr = fps_mod * (-0.03).into();
+                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 1.2.into();
+                        pt.size_max = 1.2.into();
+                        pt.size_incr = fps_mod * (-0.04).into();
+                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_max = pt.life_min;
+                    },
+                }
+                self.system_create_particles(system, x, y, id, Some(col), 1, rand);
+            },
+            EffectType::Spark | EffectType::Flare => {
+                let id = if kind == EffectType::Spark {
+                    effects.spark_types[size_num]
+                } else {
+                    effects.flare_types[size_num]
+                };
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic =
+                    if kind == EffectType::Spark { ParticleGraphic::Shape(9) } else { ParticleGraphic::Shape(8) };
+                pt.size_wiggle = 0.into();
+                pt.ang_min = 0.into();
+                pt.ang_max = 360.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = false;
+                match size {
+                    EffectSize::Small => {
+                        pt.size_min = 0.4.into();
+                        pt.size_incr = Real::from(-0.02) / fps_mod;
+                        pt.life_min = (Real::from(20) / fps_mod).round();
+                    },
+                    EffectSize::Medium => {
+                        pt.size_min = 0.75.into();
+                        pt.size_incr = Real::from(-0.03) / fps_mod;
+                        pt.life_min = (Real::from(25) / fps_mod).round();
+                    },
+                    EffectSize::Large => {
+                        pt.size_min = 1.2.into();
+                        pt.size_incr = Real::from(-0.04) / fps_mod;
+                        pt.life_min = (Real::from(30) / fps_mod).round();
+                    },
+                }
+                pt.size_max = pt.size_min;
+                pt.life_max = pt.life_min;
+                self.system_create_particles(system, x, y, id, Some(col), 1, rand);
+            },
+            EffectType::Cloud => {
+                let id = effects.cloud_types[size_num];
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(10);
+                pt.size_incr = 0.into();
+                pt.size_wiggle = 0.into();
+                pt.xscale = 1.into();
+                pt.yscale = 0.5.into();
+                pt.alpha1 = 0.into();
+                pt.alpha2 = 0.3.into();
+                pt.alpha3 = 0.into();
+                pt.life_min = (Real::from(100) / fps_mod).round();
+                pt.life_max = pt.life_min;
+                pt.size_min = match size {
+                    EffectSize::Small => 2.into(),
+                    EffectSize::Medium => 4.into(),
+                    EffectSize::Large => 8.into(),
+                };
+                pt.size_max = pt.size_min;
+                self.system_create_particles(system, x, y, id, Some(col), 1, rand);
+            },
+            EffectType::Rain => {
+                let id = effects.rain_type;
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(3);
+                pt.size_min = 0.2.into();
+                pt.size_max = 0.3.into();
+                pt.size_incr = 0.into();
+                pt.size_wiggle = 0.into();
+                pt.ang_min = 0.into();
+                pt.ang_max = 0.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = true;
+                pt.speed_min = fps_mod * 7.into();
+                pt.speed_max = pt.speed_min;
+                pt.speed_incr = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.dir_min = 260.into();
+                pt.dir_max = 260.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 0.into();
+                pt.alpha1 = 0.4.into();
+                pt.alpha2 = 0.4.into();
+                pt.alpha3 = 0.4.into();
+                pt.life_min = (Real::from(0.2) / fps_mod * room_height.into()).round();
+                pt.life_max = pt.life_min;
+                let number = match size {
+                    EffectSize::Small => 2,
+                    EffectSize::Medium => 5,
+                    EffectSize::Large => 9,
+                };
+                for _ in 0..number {
+                    self.system_create_particles(
+                        system,
+                        Real::from(rand.next(1.2)) * room_width.into(),
+                        Real::from(rand.next_int(19) - 30),
+                        id,
+                        Some(col),
+                        1,
+                        rand,
+                    );
+                }
+            },
+            EffectType::Snow => {
+                let id = effects.snow_type;
+                let pt = self.get_type_mut(id).unwrap();
+                pt.graphic = ParticleGraphic::Shape(13);
+                pt.size_min = 0.1.into();
+                pt.size_max = 0.25.into();
+                pt.size_incr = 0.into();
+                pt.size_wiggle = 0.into();
+                pt.alpha1 = 0.6.into();
+                pt.alpha2 = 0.6.into();
+                pt.alpha3 = 0.6.into();
+                pt.ang_min = 0.into();
+                pt.ang_max = 360.into();
+                pt.ang_incr = 0.into();
+                pt.ang_wiggle = 0.into();
+                pt.ang_relative = false;
+                pt.speed_min = fps_mod * 2.5.into();
+                pt.speed_max = fps_mod * 3.into();
+                pt.speed_incr = 0.into();
+                pt.speed_wiggle = 0.into();
+                pt.dir_min = 240.into();
+                pt.dir_max = 300.into();
+                pt.dir_incr = 0.into();
+                pt.dir_wiggle = 20.into();
+                pt.life_min = (Real::from(0.5) / fps_mod * room_height.into()).round();
+                pt.life_max = pt.life_min;
+                let number = match size {
+                    EffectSize::Small => 1,
+                    EffectSize::Medium => 3,
+                    EffectSize::Large => 7,
+                };
+                for _ in 0..number {
+                    self.system_create_particles(
+                        system,
+                        Real::from(rand.next(1.2)) * room_width.into() - 60.into(),
+                        Real::from(rand.next_int(19) - 30),
+                        id,
+                        Some(col),
+                        1,
+                        rand,
+                    );
+                }
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EffectType {
+    Explosion,
+    Ring,
+    Ellipse,
+    Firework,
+    Smoke,
+    SmokeUp,
+    Star,
+    Spark,
+    Flare,
+    Cloud,
+    Rain,
+    Snow,
+}
+
+pub enum EffectSize {
+    Small,
+    Medium,
+    Large,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
