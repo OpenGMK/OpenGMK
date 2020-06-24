@@ -6,8 +6,8 @@ use gmio::{
 };
 use shared::{
     input,
-    message::{self, Information, MessageStream},
-    types::Colour,
+    message::{self, Information, InstanceDetails, MessageStream},
+    types::{Colour, ID},
 };
 use std::{net::TcpStream, path::PathBuf};
 
@@ -22,11 +22,14 @@ pub struct ControlPanel {
     pub renderer: Renderer,
     pub clear_colour: Colour,
     pub font: Font,
+    pub font_small: Font,
     pub key_buttons: Vec<KeyButton>,
     pub save_buttons: Vec<SaveButton>,
     pub stream: TcpStream,
     mouse_x: i32,
     mouse_y: i32,
+    watched_id: Option<ID>,
+    watched_instance: Option<InstanceDetails>,
 
     key_button_l_neutral: AtlasRef,
     key_button_l_held: AtlasRef,
@@ -113,45 +116,57 @@ impl ControlPanel {
         let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
         let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
 
-        let font = rusttype::Font::try_from_bytes(include_bytes!("misc/visitor.ttf")).ok_or("Couldn't load font")?;
-        let chars: Vec<font::Character> = (0..=127)
-            .map(|i| {
-                let scale = rusttype::Scale::uniform(20.0);
-                let glyph = font.glyph(char::from(i)).scaled(scale).positioned(rusttype::Point { x: 0.0, y: 0.0 });
-                let (x, y, w, h) = match glyph.pixel_bounding_box() {
-                    Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
-                    None => (0, 0, 0, 0),
-                };
-                let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
-                glyph.draw(|_, _, a| {
-                    data.push(0xFF);
-                    data.push(0xFF);
-                    data.push(0xFF);
-                    data.push((a * 255.0) as u8);
-                });
-                let atlas_ref = atlases.texture(w, h, x, y, data.into_boxed_slice()).ok_or("Couldn't pack font")?;
-                let hmetrics = glyph.unpositioned().h_metrics();
-                Ok(font::Character {
-                    atlas_ref,
-                    advance_width: hmetrics.advance_width.into(),
-                    left_side_bearing: hmetrics.left_side_bearing.into(),
+        // Helper fn: create a Font
+        fn make_font(
+            font: &rusttype::Font,
+            scale: f32,
+            atlases: &mut AtlasBuilder,
+        ) -> Result<Font, Box<dyn std::error::Error>> {
+            (0..=127)
+                .map(|i| {
+                    let scale = rusttype::Scale::uniform(scale);
+                    let glyph = font.glyph(char::from(i)).scaled(scale).positioned(rusttype::Point { x: 0.0, y: 0.0 });
+                    let (x, y, w, h) = match glyph.pixel_bounding_box() {
+                        Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
+                        None => (0, 0, 0, 0),
+                    };
+                    let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
+                    glyph.draw(|_, _, a| {
+                        data.push(0xFF);
+                        data.push(0xFF);
+                        data.push(0xFF);
+                        data.push((a * 255.0) as u8);
+                    });
+                    let atlas_ref = atlases.texture(w, h, x, y, data.into_boxed_slice()).ok_or("Couldn't pack font")?;
+                    let hmetrics = glyph.unpositioned().h_metrics();
+                    Ok(font::Character {
+                        atlas_ref,
+                        advance_width: hmetrics.advance_width.into(),
+                        left_side_bearing: hmetrics.left_side_bearing.into(),
+                    })
                 })
-            })
-            .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+                .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()
+                .map(|x| x.into_boxed_slice().into())
+        }
+
+        let rt_font = rusttype::Font::try_from_bytes(include_bytes!("misc/visitor.ttf")).ok_or("Couldn't load font")?;
+        let font = make_font(&rt_font, 20.0, &mut atlases)?;
+        let font_small = make_font(&rt_font, 15.0, &mut atlases)?;
 
         renderer.push_atlases(atlases)?;
 
         let mut save_buttons = Vec::with_capacity(2 * 8);
         for y in 0..2 {
             for x in 0..8 {
-                let filename = format!("save{}.bin", (y * 8) + x);
+                let id = (y * 8) + x + 1;
+                let filename = format!("save{}.bin", id);
                 project_dir.push(&filename);
                 let exists = project_dir.exists();
                 project_dir.pop();
                 save_buttons.push(SaveButton {
                     x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
                     y: 200 + (SAVE_BUTTON_SIZE * y) as i32,
-                    name: ((y * 8) + x).to_string(),
+                    name: id.to_string(),
                     filename,
                     exists,
                 });
@@ -164,7 +179,8 @@ impl ControlPanel {
             window,
             renderer,
             clear_colour,
-            font: chars.into_boxed_slice().into(),
+            font,
+            font_small,
             key_buttons: vec![
                 KeyButton { x: 103, y: 100, key: input::Key::Left, state: KeyButtonState::Neutral },
                 KeyButton { x: 151, y: 100, key: input::Key::Down, state: KeyButtonState::Neutral },
@@ -179,6 +195,8 @@ impl ControlPanel {
             stream,
             mouse_x: 0,
             mouse_y: 0,
+            watched_id: None,
+            watched_instance: None,
 
             key_button_l_neutral,
             key_button_l_held,
@@ -201,6 +219,10 @@ impl ControlPanel {
         match self.stream.receive_message::<Information>(&mut self.read_buffer)? {
             None => return Ok(false),
             Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
+            Some(Some(Information::InstanceClicked { details })) => {
+                self.watched_id = Some(details.id);
+                self.watched_instance = Some(details);
+            },
             Some(Some(s)) => println!("Got TCP message: '{:?}'", s),
             Some(None) => (),
         }
@@ -318,6 +340,7 @@ impl ControlPanel {
                     keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
                     mouse_buttons_requested: Vec::new(),
                     filename: "save.bin".into(),
+                    instance_requested: self.watched_id,
                 })?;
                 self.await_update()?;
                 println!("Loaded");
@@ -366,6 +389,7 @@ impl ControlPanel {
             mouse_location: (0.0, 0.0),
             keys_requested,
             mouse_buttons_requested: Vec::new(),
+            instance_requested: self.watched_id,
         })?;
 
         self.await_update()
@@ -380,8 +404,9 @@ impl ControlPanel {
                     mouse_location: _,
                     frame_count: _,
                     seed: _,
-                    instance: _,
+                    instance,
                 }))) => {
+                    self.watched_instance = instance;
                     for button in self.key_buttons.iter_mut() {
                         if keys_held.contains(&button.key) {
                             button.state = KeyButtonState::Held;
@@ -463,6 +488,113 @@ impl ControlPanel {
 
         draw_text(&mut self.renderer, "Keyboard", 123.0, 32.0, &self.font, 0, 1.0);
         draw_text(&mut self.renderer, "Saves", 143.0, 180.0, &self.font, 0, 1.0);
+
+        if let Some(id) = self.watched_id.as_ref() {
+            draw_text(&mut self.renderer, "Watching:", 8.0, 300.0, &self.font, 0, 1.0);
+            if let Some(details) = self.watched_instance.as_ref() {
+                draw_text(
+                    &mut self.renderer,
+                    &format!("{} ({})", details.object_name, details.id),
+                    8.0,
+                    320.0,
+                    &self.font_small,
+                    0,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("x: {}", details.x),
+                    8.0,
+                    334.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("y: {}", details.y),
+                    8.0,
+                    348.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("speed: {}", details.speed),
+                    8.0,
+                    362.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("direction: {}", details.direction),
+                    8.0,
+                    376.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("bbox_left: {}", details.bbox_left),
+                    8.0,
+                    390.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("bbox_right: {}", details.bbox_right),
+                    8.0,
+                    404.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("bbox_top: {}", details.bbox_top),
+                    8.0,
+                    418.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                draw_text(
+                    &mut self.renderer,
+                    &format!("bbox_bottom: {}", details.bbox_bottom),
+                    8.0,
+                    432.0,
+                    &self.font_small,
+                    0x303030,
+                    1.0,
+                );
+                let mut alarms = details
+                    .alarms
+                    .iter()
+                    .filter(|(_, x)| **x > 0)
+                    .map(|(index, timer)| format!("[{}]={}", index, timer))
+                    .collect::<Vec<_>>();
+                if alarms.len() > 0 {
+                    alarms.sort();
+                    draw_text(
+                        &mut self.renderer,
+                        &format!("alarms: {}", alarms.join(", ")),
+                        8.0,
+                        446.0,
+                        &self.font_small,
+                        0x303030,
+                        1.0,
+                    );
+                }
+            } else {
+                draw_text(&mut self.renderer, &format!("<deleted> ({})", id), 8.0, 320.0, &self.font_small, 0, 1.0);
+            }
+        }
 
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }

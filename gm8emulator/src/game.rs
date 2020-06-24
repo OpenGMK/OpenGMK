@@ -1348,7 +1348,6 @@ impl Game {
         let mut game_mousex = 0;
         let mut game_mousey = 0;
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
-        let mut watched_id: Option<ID> = None;
         self.play_type = PlayType::Record;
 
         loop {
@@ -1361,6 +1360,7 @@ impl Game {
                         mouse_location,
                         keys_requested,
                         mouse_buttons_requested,
+                        instance_requested,
                     } => {
                         // Create a frame...
                         let mut frame = replay.new_frame(self.room_speed);
@@ -1415,9 +1415,11 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: watched_id
-                                .and_then(|x| self.instance_list.get_by_instid(x))
-                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
+                                instance_details(&self.assets, instance)
+                            }),
                         })?
                     },
 
@@ -1431,7 +1433,7 @@ impl Game {
                         f.write_all(&bytes)?;
                     },
 
-                    Message::Load { filename, keys_requested, mouse_buttons_requested } => {
+                    Message::Load { filename, keys_requested, mouse_buttons_requested, instance_requested } => {
                         // Load savestate from a file
                         let mut path = project_path.clone();
                         path.push(filename);
@@ -1452,9 +1454,11 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: watched_id
-                                .and_then(|x| self.instance_list.get_by_instid(x))
-                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
+                                instance_details(&self.assets, instance)
+                            }),
                         })?;
                     },
 
@@ -1497,7 +1501,6 @@ impl Game {
 
                     Event::MenuOption(id) => {
                         if let Some(handle) = self.instance_list.get_by_instid(id as _) {
-                            watched_id = Some(id as ID);
                             let instance = self.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
                             stream.send_message(message::Information::InstanceClicked {

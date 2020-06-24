@@ -15,13 +15,19 @@ pub enum Message {
         mouse_location: (f64, f64),
         keys_requested: Vec<input::Key>,
         mouse_buttons_requested: Vec<input::MouseButton>,
+        instance_requested: Option<ID>,
     },
 
     /// Tells the game to create a savestate in the given index
     Save { filename: String },
 
     /// Tells the game to load the savestate with the given index and then send us an update
-    Load { filename: String, keys_requested: Vec<input::Key>, mouse_buttons_requested: Vec<input::MouseButton> },
+    Load {
+        filename: String,
+        keys_requested: Vec<input::Key>,
+        mouse_buttons_requested: Vec<input::MouseButton>,
+        instance_requested: Option<ID>,
+    },
 }
 
 /// A message sent from the client to the controller.
