@@ -5,7 +5,7 @@ use gmio::{
 };
 use shared::{
     input,
-    message::{self, MessageStream},
+    message::{self, Information, MessageStream},
     types::Colour,
 };
 use std::net::TcpStream;
@@ -14,11 +14,13 @@ const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
 
 const KEY_BUTTON_SIZE: usize = 48;
+const SAVE_BUTTON_SIZE: usize = 30;
 
 pub struct ControlPanel {
     pub window: Window,
     pub renderer: Renderer,
     pub key_buttons: Vec<KeyButton>,
+    pub stream: TcpStream,
     mouse_x: i32,
     mouse_y: i32,
 
@@ -43,6 +45,13 @@ pub struct KeyButton {
     pub state: KeyButtonState,
 }
 
+pub struct SaveButton {
+    pub x: i32,
+    pub y: i32,
+    pub filename: String,
+    pub exists: bool,
+}
+
 #[derive(Clone, Copy)]
 pub enum KeyButtonState {
     Neutral,
@@ -62,7 +71,7 @@ impl KeyButton {
 }
 
 impl ControlPanel {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(stream: TcpStream) -> Result<Self, Box<dyn std::error::Error>> {
         let wb = WindowBuilder::new().with_size(WINDOW_WIDTH, WINDOW_HEIGHT);
         let mut window = wb.build()?;
         let mut renderer = Renderer::new(
@@ -101,6 +110,7 @@ impl ControlPanel {
                 KeyButton { x: 270, y: 50, key: input::Key::F2, state: KeyButtonState::Neutral },
                 KeyButton { x: 270, y: 100, key: input::Key::Z, state: KeyButtonState::Neutral },
             ],
+            stream,
             mouse_x: 0,
             mouse_y: 0,
 
@@ -118,7 +128,14 @@ impl ControlPanel {
         })
     }
 
-    pub fn update(&mut self, stream: &mut TcpStream) {
+    pub fn update(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+        match self.stream.receive_message::<Information>(&mut self.read_buffer)? {
+            None => return Ok(false),
+            Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
+            Some(Some(s)) => println!("Got TCP message: '{:?}'", s),
+            Some(None) => (),
+        }
+
         'evloop: for event in self.window.process_events() {
             match event {
                 Event::MouseMove(x, y) => {
@@ -195,36 +212,47 @@ impl ControlPanel {
                     }
                 },
 
-                Event::KeyboardDown(input::Key::Space) => {
-                    self.send_advance(stream);
-                    break
-                },
-
-                Event::KeyboardDown(input::Key::Q) => {
-                    stream.send_message(&message::Message::Save { filename: "save.bin".into() }).unwrap();
-                    println!("Probably saved");
-                    break
-                },
-
-                Event::KeyboardDown(input::Key::W) => {
-                    stream
-                        .send_message(&message::Message::Load {
-                            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                            mouse_buttons_requested: Vec::new(),
-                            filename: "save.bin".into(),
-                        })
-                        .unwrap();
-                    self.await_update(stream);
-                    println!("Loaded");
+                Event::KeyboardDown(key) => {
+                    let key = *key;
+                    self.handle_key(key)?;
                     break
                 },
 
                 _ => (),
             }
         }
+
+        Ok(true)
     }
 
-    fn send_advance(&mut self, stream: &mut TcpStream) {
+    pub fn handle_key(&mut self, key: input::Key) -> Result<(), Box<dyn std::error::Error>> {
+        match key {
+            input::Key::Space => {
+                self.send_advance()?;
+            },
+
+            input::Key::Q => {
+                self.stream.send_message(&message::Message::Save { filename: "save.bin".into() })?;
+                println!("Probably saved");
+            },
+
+            input::Key::W => {
+                self.stream.send_message(&message::Message::Load {
+                    keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
+                    mouse_buttons_requested: Vec::new(),
+                    filename: "save.bin".into(),
+                })?;
+                self.await_update()?;
+                println!("Loaded");
+            },
+
+            _ => (),
+        }
+
+        Ok(())
+    }
+
+    fn send_advance(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         let mut key_inputs = Vec::new();
         let mut keys_requested = Vec::new();
 
@@ -255,22 +283,20 @@ impl ControlPanel {
             }
         }
 
-        stream
-            .send_message(message::Message::Advance {
-                key_inputs,
-                mouse_inputs: Vec::new(),
-                mouse_location: (0.0, 0.0),
-                keys_requested,
-                mouse_buttons_requested: Vec::new(),
-            })
-            .unwrap();
+        self.stream.send_message(message::Message::Advance {
+            key_inputs,
+            mouse_inputs: Vec::new(),
+            mouse_location: (0.0, 0.0),
+            keys_requested,
+            mouse_buttons_requested: Vec::new(),
+        })?;
 
-        self.await_update(stream);
+        self.await_update()
     }
 
-    pub fn await_update(&mut self, stream: &mut TcpStream) {
+    pub fn await_update(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         loop {
-            match stream.receive_message::<message::Information>(&mut self.read_buffer) {
+            match self.stream.receive_message::<message::Information>(&mut self.read_buffer) {
                 Ok(Some(Some(message::Information::Update {
                     keys_held,
                     mouse_buttons_held: _,
@@ -286,9 +312,9 @@ impl ControlPanel {
                             button.state = KeyButtonState::Neutral;
                         }
                     }
-                    break
+                    break Ok(true)
                 },
-                Err(e) => panic!(e),
+                Err(e) => break Err(e.into()),
                 _ => (),
             }
         }

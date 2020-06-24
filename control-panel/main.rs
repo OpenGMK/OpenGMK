@@ -2,7 +2,7 @@
 
 mod panel;
 
-use shared::message::{Information, Message, MessageStream};
+use shared::message::{Message, MessageStream};
 use std::{env, path::Path, process};
 
 const EXIT_SUCCESS: i32 = 0;
@@ -72,14 +72,6 @@ fn xmain() -> i32 {
 
     println!("input {}, project name {}, verbose {}", input, project_name, verbose);
 
-    let mut panel = match panel::ControlPanel::new() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("error starting control panel: {}", e);
-            return EXIT_FAILURE
-        },
-    };
-
     let bind_addr = format!("127.0.0.1:15560");
     println!("Waiting on TCP connection to {}", bind_addr);
     let listener = std::net::TcpListener::bind(bind_addr).unwrap();
@@ -93,29 +85,41 @@ fn xmain() -> i32 {
         .spawn()
         .expect("failed to execute process");
 
-    let (mut stream, remote_addr) = listener.accept().unwrap();
+    let (stream, remote_addr) = listener.accept().unwrap();
     stream.set_nonblocking(true).unwrap();
     println!("Connection established with {}", &remote_addr);
+
+    let mut panel = match panel::ControlPanel::new(stream) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error starting control panel: {}", e);
+            return EXIT_FAILURE
+        },
+    };
 
     let keys = panel.key_buttons.iter().map(|x| x.key).collect::<Vec<_>>();
     let buttons = Vec::new();
     println!("Sending 'Hello' with {} keys, {} mouse buttons", keys.len(), buttons.len());
-    stream.send_message(&Message::Hello { keys_requested: keys, mouse_buttons_requested: buttons }).unwrap();
-
-    panel.await_update(&mut stream);
+    panel.stream.send_message(&Message::Hello { keys_requested: keys, mouse_buttons_requested: buttons }).unwrap();
+    match panel.await_update() {
+        Ok(true) => (),
+        Ok(false) => return EXIT_SUCCESS,
+        Err(e) => {
+            eprintln!("error during handshake: {}", e);
+            return EXIT_FAILURE
+        },
+    };
 
     loop {
-        match stream.receive_message::<Information>(&mut panel.read_buffer) {
-            Ok(None) => break,
-            Ok(Some(Some(s))) => println!("Got TCP message: '{:?}'", s),
-            Ok(Some(None)) => (),
+        match panel.update() {
+            Ok(true) => (),
+            Ok(false) => return EXIT_SUCCESS,
             Err(e) => {
-                eprintln!("error reading from tcp stream: {}", e);
+                eprintln!("error during handshake: {}", e);
                 return EXIT_FAILURE
             },
-        }
+        };
 
-        panel.update(&mut stream);
         panel.draw();
         if panel.window.close_requested() {
             break
