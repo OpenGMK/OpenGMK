@@ -1,3 +1,4 @@
+use crate::font::{self, Font};
 use gmio::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{Renderer, RendererOptions},
@@ -20,6 +21,7 @@ pub struct ControlPanel {
     pub window: Window,
     pub renderer: Renderer,
     pub clear_colour: Colour,
+    pub font: Font,
     pub key_buttons: Vec<KeyButton>,
     pub save_buttons: Vec<SaveButton>,
     pub stream: TcpStream,
@@ -55,6 +57,7 @@ pub struct KeyButton {
 pub struct SaveButton {
     pub x: i32,
     pub y: i32,
+    pub name: String,
     pub filename: String,
     pub exists: bool,
 }
@@ -97,7 +100,6 @@ impl ControlPanel {
             &window,
             clear_colour,
         )?;
-        window.set_visible(true);
 
         let mut atlases = AtlasBuilder::new(1024);
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLNeutral.bmp"));
@@ -110,6 +112,33 @@ impl ControlPanel {
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
         let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
         let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
+
+        let font = rusttype::Font::try_from_bytes(include_bytes!("misc/visitor.ttf")).ok_or("Couldn't load font")?;
+        let chars: Vec<font::Character> = (0..=127)
+            .map(|i| {
+                let scale = rusttype::Scale::uniform(20.0);
+                let glyph = font.glyph(char::from(i)).scaled(scale).positioned(rusttype::Point { x: 0.0, y: 0.0 });
+                let (x, y, w, h) = match glyph.pixel_bounding_box() {
+                    Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
+                    None => (0, 0, 0, 0),
+                };
+                let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
+                glyph.draw(|_, _, a| {
+                    data.push(0xFF);
+                    data.push(0xFF);
+                    data.push(0xFF);
+                    data.push((a * 255.0) as u8);
+                });
+                let atlas_ref = atlases.texture(w, h, x, y, data.into_boxed_slice()).ok_or("Couldn't pack font")?;
+                let hmetrics = glyph.unpositioned().h_metrics();
+                Ok(font::Character {
+                    atlas_ref,
+                    advance_width: hmetrics.advance_width.into(),
+                    left_side_bearing: hmetrics.left_side_bearing.into(),
+                })
+            })
+            .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+
         renderer.push_atlases(atlases)?;
 
         let mut save_buttons = Vec::with_capacity(2 * 8);
@@ -122,17 +151,20 @@ impl ControlPanel {
                 save_buttons.push(SaveButton {
                     x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
                     y: 200 + (SAVE_BUTTON_SIZE * y) as i32,
+                    name: ((y * 8) + x).to_string(),
                     filename,
                     exists,
                 });
             }
         }
 
+        window.set_visible(true);
         renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, clear_colour);
         Ok(Self {
             window,
             renderer,
             clear_colour,
+            font: chars.into_boxed_slice().into(),
             key_buttons: vec![
                 KeyButton { x: 103, y: 100, key: input::Key::Left, state: KeyButtonState::Neutral },
                 KeyButton { x: 151, y: 100, key: input::Key::Down, state: KeyButtonState::Neutral },
@@ -418,7 +450,19 @@ impl ControlPanel {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
             let atlas_ref = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
             self.renderer.draw_sprite(atlas_ref, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
+            draw_text(
+                &mut self.renderer,
+                &button.name,
+                f64::from(button.x) + 8.0,
+                f64::from(button.y) + 20.0,
+                &self.font,
+                0,
+                alpha,
+            );
         }
+
+        draw_text(&mut self.renderer, "Keyboard", 123.0, 32.0, &self.font, 0, 1.0);
+        draw_text(&mut self.renderer, "Saves", 143.0, 180.0, &self.font, 0, 1.0);
 
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }
@@ -441,5 +485,23 @@ impl ControlPanel {
         atlases
             .texture(w as _, h as _, 0, 0, corrected_rgba.into_boxed_slice())
             .expect("Failed to pack a texture for control panel")
+    }
+}
+
+fn draw_text(renderer: &mut Renderer, text: &str, mut x: f64, y: f64, font: &Font, colour: i32, alpha: f64) {
+    for c in text.chars() {
+        if let Some(character) = font.get(c as u8) {
+            renderer.draw_sprite(
+                &character.atlas_ref,
+                x + character.left_side_bearing,
+                y,
+                1.0,
+                1.0,
+                0.0,
+                colour,
+                alpha,
+            );
+            x += character.advance_width;
+        }
     }
 }

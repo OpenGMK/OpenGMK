@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod font;
 mod panel;
 
 use shared::message::{Message, MessageStream};

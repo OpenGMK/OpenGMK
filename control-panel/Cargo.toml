@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 getopts = "0.2.21"
 gmio = { path = "../gmio" }
+rusttype = "0.9"
 shared = { path = "../shared" }
 
 [[bin]]
