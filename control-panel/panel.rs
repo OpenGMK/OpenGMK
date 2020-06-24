@@ -23,6 +23,7 @@ pub struct ControlPanel {
     pub clear_colour: Colour,
     pub font: Font,
     pub font_small: Font,
+    pub advance_button: AdvanceButton,
     pub key_buttons: Vec<KeyButton>,
     pub save_buttons: Vec<SaveButton>,
     pub stream: TcpStream,
@@ -34,6 +35,7 @@ pub struct ControlPanel {
     pub frame_count: usize,
     pub game_mouse_pos: (f64, f64),
 
+    advance_button_normal: AtlasRef,
     key_button_l_neutral: AtlasRef,
     key_button_l_held: AtlasRef,
     key_button_r_neutral: AtlasRef,
@@ -49,6 +51,12 @@ pub struct ControlPanel {
 
     pub read_buffer: Vec<u8>,
     pub project_dir: PathBuf,
+}
+
+#[derive(Clone, Copy)]
+pub struct AdvanceButton {
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -80,6 +88,12 @@ pub enum KeyButtonState {
     HeldWillRPR,
 }
 
+impl AdvanceButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 40)
+    }
+}
+
 impl KeyButton {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
         x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
@@ -108,6 +122,7 @@ impl ControlPanel {
         )?;
 
         let mut atlases = AtlasBuilder::new(1024);
+        let advance_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/advance.bmp"));
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLNeutral.bmp"));
         let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLHeld.bmp"));
         let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral.bmp"));
@@ -168,7 +183,7 @@ impl ControlPanel {
                 project_dir.pop();
                 save_buttons.push(SaveButton {
                     x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
-                    y: 200 + (SAVE_BUTTON_SIZE * y) as i32,
+                    y: 246 + (SAVE_BUTTON_SIZE * y) as i32,
                     name: id.to_string(),
                     filename,
                     exists,
@@ -184,15 +199,16 @@ impl ControlPanel {
             clear_colour,
             font,
             font_small,
+            advance_button: AdvanceButton { x: 240, y: 8 },
             key_buttons: vec![
-                KeyButton { x: 103, y: 100, key: input::Key::Left, state: KeyButtonState::Neutral },
-                KeyButton { x: 151, y: 100, key: input::Key::Down, state: KeyButtonState::Neutral },
-                KeyButton { x: 199, y: 100, key: input::Key::Right, state: KeyButtonState::Neutral },
-                KeyButton { x: 151, y: 52, key: input::Key::Up, state: KeyButtonState::Neutral },
-                KeyButton { x: 32, y: 50, key: input::Key::R, state: KeyButtonState::Neutral },
-                KeyButton { x: 32, y: 100, key: input::Key::Shift, state: KeyButtonState::Neutral },
-                KeyButton { x: 270, y: 50, key: input::Key::F2, state: KeyButtonState::Neutral },
-                KeyButton { x: 270, y: 100, key: input::Key::Z, state: KeyButtonState::Neutral },
+                KeyButton { x: 103, y: 150, key: input::Key::Left, state: KeyButtonState::Neutral },
+                KeyButton { x: 151, y: 150, key: input::Key::Down, state: KeyButtonState::Neutral },
+                KeyButton { x: 199, y: 150, key: input::Key::Right, state: KeyButtonState::Neutral },
+                KeyButton { x: 151, y: 102, key: input::Key::Up, state: KeyButtonState::Neutral },
+                KeyButton { x: 32, y: 90, key: input::Key::R, state: KeyButtonState::Neutral },
+                KeyButton { x: 32, y: 150, key: input::Key::Shift, state: KeyButtonState::Neutral },
+                KeyButton { x: 270, y: 90, key: input::Key::F2, state: KeyButtonState::Neutral },
+                KeyButton { x: 270, y: 150, key: input::Key::Z, state: KeyButtonState::Neutral },
             ],
             save_buttons,
             stream,
@@ -204,6 +220,7 @@ impl ControlPanel {
             frame_count: 0,
             game_mouse_pos: (0.0, 0.0),
 
+            advance_button_normal,
             key_button_l_neutral,
             key_button_l_held,
             key_button_r_neutral,
@@ -241,6 +258,11 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
+                    if self.advance_button.contains_point(self.mouse_x, self.mouse_y) {
+                        self.send_advance()?;
+                        break
+                    }
+
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
@@ -446,6 +468,21 @@ impl ControlPanel {
             WINDOW_WIDTH as _,
             WINDOW_HEIGHT as _,
         );
+
+        draw_text(&mut self.renderer, "Frame:", 4.0, 19.0, &self.font, 0, 1.0);
+        draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
+
+        self.renderer.draw_sprite(
+            &self.advance_button_normal,
+            self.advance_button.x.into(),
+            self.advance_button.y.into(),
+            1.0,
+            1.0,
+            0.0,
+            0xFFFFFF,
+            if self.advance_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
+        );
+
         for button in self.key_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
@@ -494,17 +531,17 @@ impl ControlPanel {
             );
         }
 
-        draw_text(&mut self.renderer, "Keyboard", 123.0, 32.0, &self.font, 0, 1.0);
-        draw_text(&mut self.renderer, "Saves", 143.0, 180.0, &self.font, 0, 1.0);
+        draw_text(&mut self.renderer, "Keyboard", 123.0, 82.0, &self.font, 0, 1.0);
+        draw_text(&mut self.renderer, "Saves", 143.0, 230.0, &self.font, 0, 1.0);
 
         if let Some(id) = self.watched_id.as_ref() {
-            draw_text(&mut self.renderer, "Watching:", 8.0, 300.0, &self.font, 0, 1.0);
+            draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);
             if let Some(details) = self.watched_instance.as_ref() {
                 draw_text(
                     &mut self.renderer,
                     &format!("{} ({})", details.object_name, details.id),
                     8.0,
-                    320.0,
+                    618.0,
                     &self.font_small,
                     0,
                     1.0,
@@ -513,7 +550,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("x: {}", details.x),
                     8.0,
-                    334.0,
+                    638.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -522,7 +559,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("y: {}", details.y),
                     8.0,
-                    348.0,
+                    651.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -531,7 +568,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("speed: {}", details.speed),
                     8.0,
-                    362.0,
+                    664.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -540,7 +577,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("direction: {}", details.direction),
                     8.0,
-                    376.0,
+                    677.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -549,7 +586,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("bbox_left: {}", details.bbox_left),
                     8.0,
-                    390.0,
+                    690.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -558,7 +595,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("bbox_right: {}", details.bbox_right),
                     8.0,
-                    404.0,
+                    703.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -567,7 +604,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("bbox_top: {}", details.bbox_top),
                     8.0,
-                    418.0,
+                    716.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -576,7 +613,7 @@ impl ControlPanel {
                     &mut self.renderer,
                     &format!("bbox_bottom: {}", details.bbox_bottom),
                     8.0,
-                    432.0,
+                    729.0,
                     &self.font_small,
                     0x303030,
                     1.0,
@@ -593,14 +630,14 @@ impl ControlPanel {
                         &mut self.renderer,
                         &format!("alarms: {}", alarms.join(", ")),
                         8.0,
-                        446.0,
+                        742.0,
                         &self.font_small,
                         0x303030,
                         1.0,
                     );
                 }
             } else {
-                draw_text(&mut self.renderer, &format!("<deleted> ({})", id), 8.0, 320.0, &self.font_small, 0, 1.0);
+                draw_text(&mut self.renderer, &format!("<deleted> ({})", id), 8.0, 618.0, &self.font_small, 0, 1.0);
             }
         }
 
