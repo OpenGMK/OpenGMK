@@ -26,11 +26,22 @@ pub struct Manager {
     systems: Vec<Option<Box<System>>>,
     types: Vec<Option<Box<ParticleType>>>,
     draw_order: Vec<i32>,
+
+    dnd_system: i32,
+    dnd_types: [i32; 16],
+    dnd_emitters: [i32; 8],
 }
 
 impl Manager {
     pub fn new() -> Self {
-        Self { systems: Vec::new(), types: Vec::new(), draw_order: Vec::new() }
+        Self {
+            systems: Vec::new(),
+            types: Vec::new(),
+            draw_order: Vec::new(),
+            dnd_system: -1,
+            dnd_types: [-1; 16],
+            dnd_emitters: [-1; 8],
+        }
     }
 
     pub fn create_system(&mut self) -> i32 {
@@ -139,6 +150,83 @@ impl Manager {
         if self.types.get_asset(id).is_some() {
             self.types[id as usize] = None;
         }
+    }
+
+    pub fn get_dnd_system_mut(&mut self) -> &mut Box<System> {
+        if self.get_system(self.dnd_system).is_none() {
+            self.dnd_system = self.create_system();
+        }
+        self.get_system_mut(self.dnd_system).unwrap()
+    }
+
+    pub fn destroy_dnd_system(&mut self) {
+        self.destroy_system(self.dnd_system);
+        self.dnd_system = -1;
+    }
+
+    pub fn get_dnd_type_mut(&mut self, id: usize) -> &mut Box<ParticleType> {
+        if self.get_type(self.dnd_types[id]).is_none() {
+            self.dnd_types[id] = self.create_type();
+        }
+        self.get_type_mut(self.dnd_types[id]).unwrap()
+    }
+
+    pub fn dnd_type_secondary(
+        &mut self,
+        id: usize,
+        step_type: usize,
+        step_number: i32,
+        death_type: usize,
+        death_number: i32,
+    ) {
+        let step_type = self.dnd_types[step_type];
+        let death_type = self.dnd_types[death_type];
+        let pt = self.get_dnd_type_mut(id);
+        pt.step_type = step_type;
+        pt.step_number = step_number;
+        pt.death_type = death_type;
+        pt.death_number = death_number;
+    }
+
+    pub fn get_dnd_emitter_mut(&mut self, id: usize) -> &mut Emitter {
+        self.get_dnd_system_mut(); // make sure the system is there so we can smartly borrow it
+        let id = &mut self.dnd_emitters[id];
+        let ps = self.systems.get_asset_mut(self.dnd_system).unwrap();
+        if ps.emitters.get_asset(*id).is_none() {
+            *id = {
+                let em = Emitter::new();
+                if let Some(id) = ps.emitters.iter().position(|x| x.is_none()) {
+                    ps.emitters[id] = Some(em);
+                    id as i32
+                } else {
+                    ps.emitters.push(Some(em));
+                    ps.emitters.len() as i32 - 1
+                }
+            };
+        }
+        ps.emitters.get_asset_mut(*id).unwrap()
+    }
+
+    pub fn destroy_dnd_emitter(&mut self, id: usize) {
+        let em_id = self.dnd_emitters[id];
+        if let Some(ps) = self.systems.get_asset_mut(self.dnd_system) {
+            let em = &mut ps.emitters[em_id as usize];
+            if em.is_some() {
+                *em = None;
+            }
+        }
+        self.dnd_emitters[id] = -1;
+    }
+
+    pub fn dnd_emitter_stream(&mut self, id: usize, parttype: usize, number: i32) {
+        let ptype = self.dnd_types[parttype];
+        let em = self.get_dnd_emitter_mut(id);
+        em.ptype = ptype;
+        em.number = number;
+    }
+
+    pub fn dnd_emitter_burst(&mut self, id: usize, parttype: usize, number: i32, rand: &mut Random) {
+        self.emitter_burst(self.dnd_system, self.dnd_emitters[id], self.dnd_types[parttype], number, rand);
     }
 }
 
