@@ -79,7 +79,7 @@ fn xmain() -> i32 {
     let mut emu = process::Command::new("gm8emulator.exe");
     let _emu_handle = if verbose { emu.arg(input).arg("v") } else { emu.arg(input) }
         .arg("-n")
-        .arg(project_name)
+        .arg(project_name.clone())
         .arg("-p")
         .arg("15560")
         .spawn()
@@ -89,7 +89,7 @@ fn xmain() -> i32 {
     stream.set_nonblocking(true).unwrap();
     println!("Connection established with {}", &remote_addr);
 
-    let mut panel = match panel::ControlPanel::new(stream) {
+    let mut panel = match panel::ControlPanel::new(stream, &project_name) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("error starting control panel: {}", e);

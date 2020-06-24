@@ -8,19 +8,20 @@ use shared::{
     message::{self, Information, MessageStream},
     types::Colour,
 };
-use std::net::TcpStream;
+use std::{net::TcpStream, path::PathBuf};
 
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
 
 const KEY_BUTTON_SIZE: usize = 48;
-const SAVE_BUTTON_SIZE: usize = 30;
+const SAVE_BUTTON_SIZE: usize = 32;
 
 pub struct ControlPanel {
     pub window: Window,
     pub renderer: Renderer,
     pub clear_colour: Colour,
     pub key_buttons: Vec<KeyButton>,
+    pub save_buttons: Vec<SaveButton>,
     pub stream: TcpStream,
     mouse_x: i32,
     mouse_y: i32,
@@ -33,12 +34,16 @@ pub struct ControlPanel {
     key_button_r_held: AtlasRef,
     key_button_r_held2: AtlasRef,
     key_button_r_held3: AtlasRef,
+    save_button_active: AtlasRef,
+    save_button_inactive: AtlasRef,
 
     context_menu_key: Option<input::Key>,
 
     pub read_buffer: Vec<u8>,
+    pub project_dir: PathBuf,
 }
 
+#[derive(Clone, Copy)]
 pub struct KeyButton {
     pub x: i32,
     pub y: i32,
@@ -46,6 +51,7 @@ pub struct KeyButton {
     pub state: KeyButtonState,
 }
 
+#[derive(Clone)]
 pub struct SaveButton {
     pub x: i32,
     pub y: i32,
@@ -71,8 +77,17 @@ impl KeyButton {
     }
 }
 
+impl SaveButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + SAVE_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + SAVE_BUTTON_SIZE as i32)
+    }
+}
+
 impl ControlPanel {
-    pub fn new(stream: TcpStream) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut project_dir = std::env::current_dir()?;
+        project_dir.push("projects");
+        project_dir.push(project_name);
         let wb = WindowBuilder::new().with_size(WINDOW_WIDTH, WINDOW_HEIGHT);
         let mut window = wb.build()?;
         let clear_colour = Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0);
@@ -93,7 +108,25 @@ impl ControlPanel {
         let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld.bmp"));
         let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld2.bmp"));
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
+        let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
+        let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
         renderer.push_atlases(atlases)?;
+
+        let mut save_buttons = Vec::with_capacity(2 * 8);
+        for y in 0..2 {
+            for x in 0..8 {
+                let filename = format!("save{}.bin", (y * 8) + x);
+                project_dir.push(&filename);
+                let exists = project_dir.exists();
+                project_dir.pop();
+                save_buttons.push(SaveButton {
+                    x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
+                    y: 200 + (SAVE_BUTTON_SIZE * y) as i32,
+                    filename,
+                    exists,
+                });
+            }
+        }
 
         renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, clear_colour);
         Ok(Self {
@@ -110,6 +143,7 @@ impl ControlPanel {
                 KeyButton { x: 270, y: 50, key: input::Key::F2, state: KeyButtonState::Neutral },
                 KeyButton { x: 270, y: 100, key: input::Key::Z, state: KeyButtonState::Neutral },
             ],
+            save_buttons,
             stream,
             mouse_x: 0,
             mouse_y: 0,
@@ -122,9 +156,12 @@ impl ControlPanel {
             key_button_r_held,
             key_button_r_held2,
             key_button_r_held3,
+            save_button_active,
+            save_button_inactive,
 
             context_menu_key: None,
             read_buffer: Vec::new(),
+            project_dir,
         })
     }
 
@@ -156,6 +193,14 @@ impl ControlPanel {
                                 | KeyButtonState::HeldWillRP
                                 | KeyButtonState::HeldWillRPR => KeyButtonState::Held,
                             };
+                        }
+                    }
+
+                    for button in self.save_buttons.iter_mut() {
+                        if button.contains_point(self.mouse_x, self.mouse_y) {
+                            self.stream.send_message(&message::Message::Save { filename: button.filename.clone() })?;
+                            println!("Probably saved to {}", &button.filename);
+                            button.exists = true;
                         }
                     }
                 },
@@ -368,6 +413,13 @@ impl ControlPanel {
                 alpha,
             );
         }
+
+        for button in self.save_buttons.iter() {
+            let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
+            let atlas_ref = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
+            self.renderer.draw_sprite(atlas_ref, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
+        }
+
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }
 
