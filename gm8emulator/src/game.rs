@@ -1327,13 +1327,13 @@ impl Game {
                         // Create or load savefile, depending if it exists
                         let mut path = project_path.clone();
                         std::fs::create_dir_all(&path)?;
-                        path.push(filename);
+                        path.push(&filename);
                         if path.exists() {
-                            println!("Exists, loading");
+                            println!("{} exists, loading workspace", filename);
                             let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
                             replay = state.load_into(self);
                         } else {
-                            println!("Doesn't exist, making");
+                            println!("{} doesn't exist, creating workspace", filename);
                             let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
                             File::create(&path)?.write_all(&bytes)?;
                         }
@@ -1349,7 +1349,7 @@ impl Game {
                                 .filter(|x| self.input_manager.mouse_check(*x))
                                 .collect(),
                             mouse_location: self.input_manager.mouse_get_location(),
-                            frame_count: 0,
+                            frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: None,
                         })?;
