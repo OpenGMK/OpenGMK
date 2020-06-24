@@ -309,6 +309,12 @@ impl ControlPanel {
                             button.exists = true;
                         }
                     }
+
+                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
+                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
+                        break
+                    }
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Right) => {
