@@ -31,6 +31,9 @@ pub struct ControlPanel {
     watched_id: Option<ID>,
     watched_instance: Option<InstanceDetails>,
 
+    pub frame_count: usize,
+    pub game_mouse_pos: (f64, f64),
+
     key_button_l_neutral: AtlasRef,
     key_button_l_held: AtlasRef,
     key_button_r_neutral: AtlasRef,
@@ -197,6 +200,9 @@ impl ControlPanel {
             mouse_y: 0,
             watched_id: None,
             watched_instance: None,
+
+            frame_count: 0,
+            game_mouse_pos: (0.0, 0.0),
 
             key_button_l_neutral,
             key_button_l_held,
@@ -386,7 +392,7 @@ impl ControlPanel {
         self.stream.send_message(message::Message::Advance {
             key_inputs,
             mouse_inputs: Vec::new(),
-            mouse_location: (0.0, 0.0),
+            mouse_location: self.game_mouse_pos,
             keys_requested,
             mouse_buttons_requested: Vec::new(),
             instance_requested: self.watched_id,
@@ -401,11 +407,13 @@ impl ControlPanel {
                 Ok(Some(Some(message::Information::Update {
                     keys_held,
                     mouse_buttons_held: _,
-                    mouse_location: _,
-                    frame_count: _,
+                    mouse_location,
+                    frame_count,
                     seed: _,
                     instance,
                 }))) => {
+                    self.frame_count = frame_count;
+                    self.game_mouse_pos = mouse_location;
                     self.watched_instance = instance;
                     for button in self.key_buttons.iter_mut() {
                         if keys_held.contains(&button.key) {
