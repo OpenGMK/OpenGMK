@@ -101,7 +101,14 @@ fn xmain() -> i32 {
     let keys = panel.key_buttons.iter().map(|x| x.key).collect::<Vec<_>>();
     let buttons = Vec::new();
     println!("Sending 'Hello' with {} keys, {} mouse buttons", keys.len(), buttons.len());
-    panel.stream.send_message(&Message::Hello { keys_requested: keys, mouse_buttons_requested: buttons }).unwrap();
+    panel
+        .stream
+        .send_message(&Message::Hello {
+            keys_requested: keys,
+            mouse_buttons_requested: buttons,
+            filename: "save.bin".into(),
+        })
+        .unwrap();
     match panel.await_update() {
         Ok(true) => (),
         Ok(false) => return EXIT_SUCCESS,

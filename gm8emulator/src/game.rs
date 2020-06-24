@@ -1316,12 +1316,28 @@ impl Game {
         stream.set_nonblocking(true)?;
         let mut read_buffer: Vec<u8> = Vec::new();
 
+        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+
         // Wait for a Hello, then send an update
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => (),
                 Some(Some(m)) => match m {
-                    Message::Hello { keys_requested, mouse_buttons_requested } => {
+                    Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
+                        // Create or load savefile, depending if it exists
+                        let mut path = project_path.clone();
+                        std::fs::create_dir_all(&path)?;
+                        path.push(filename);
+                        if path.exists() {
+                            println!("Exists, loading");
+                            let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
+                            replay = state.load_into(self);
+                        } else {
+                            println!("Doesn't exist, making");
+                            let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
+                            File::create(&path)?.write_all(&bytes)?;
+                        }
+
                         // Send an update
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
@@ -1347,7 +1363,6 @@ impl Game {
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
-        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
         self.play_type = PlayType::Record;
 
         loop {
