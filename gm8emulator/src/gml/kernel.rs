@@ -1439,6 +1439,7 @@ impl Game {
     pub fn action_move_to(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
+        let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
         instance.x.set(x);
         instance.y.set(y);
         instance.bbox_is_stale.set(true);
