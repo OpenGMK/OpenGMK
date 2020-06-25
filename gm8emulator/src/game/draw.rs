@@ -243,6 +243,7 @@ impl Game {
         self.tile_list.draw_sort();
         let mut iter_tile = self.tile_list.iter_by_drawing();
         let mut iter_tile_v = iter_tile.next(&self.tile_list);
+        self.particles.draw_sort();
         let mut iter_part = self.particles.iter_by_drawing();
         let mut iter_part_v = iter_part.next(&self.particles);
         loop {
