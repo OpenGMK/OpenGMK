@@ -787,6 +787,13 @@ impl Manager {
             },
         }
     }
+
+    pub fn effect_clear(&mut self) {
+        if let Some((system_below, system_above)) = self.effects.as_ref().map(|e| (e.system_below, e.system_above)) {
+            self.get_system_mut(system_below).map(|ps| ps.particles.clear());
+            self.get_system_mut(system_above).map(|ps| ps.particles.clear());
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

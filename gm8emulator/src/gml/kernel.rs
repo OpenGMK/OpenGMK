@@ -8223,9 +8223,10 @@ impl Game {
         self.action_effect(context, &[kind, x, y, size, color, gml::FALSE.into()])
     }
 
-    pub fn effect_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function effect_clear")
+    pub fn effect_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.particles.effect_clear();
+        Ok(Default::default())
     }
 
     pub fn ds_set_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
