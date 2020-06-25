@@ -12,7 +12,12 @@ mod math;
 mod tile;
 mod util;
 
-use std::{env, fs, io::BufReader, path::Path, process, time};
+use std::{
+    env, fs,
+    io::{BufReader, Write},
+    path::{Path, PathBuf},
+    process, time,
+};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -84,8 +89,25 @@ fn xmain() -> i32 {
         p
     });
     let replay = matches.opt_str("f").map(|filename| {
-        let f = fs::File::open(filename).unwrap();
-        bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay()
+        let mut filepath = PathBuf::from(&filename);
+        match filepath.extension().and_then(|x| x.to_str()) {
+            Some("bin") => {
+                let f = fs::File::open(&filepath).unwrap();
+                let replay = bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay();
+                filepath.set_extension("gmtas");
+                fs::File::create(&filepath).unwrap().write_all(&bincode::serialize(&replay).unwrap()).unwrap();
+                replay
+            },
+
+            Some("gmtas") => {
+                bincode::deserialize_from::<_, game::Replay>(BufReader::new(fs::File::open(&filepath).unwrap()))
+                    .unwrap()
+            },
+
+            _ => {
+                panic!("Unknown filetype for -f, expected '.bin' or '.gmtas'");
+            },
+        }
     });
     let input = {
         if matches.free.len() == 1 {
