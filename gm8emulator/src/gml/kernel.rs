@@ -1455,9 +1455,42 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_move_random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_move_random")
+    pub fn action_move_random(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hsnap, vsnap) = expect_args!(args, [int, int])?;
+        let inst = self.instance_list.get(context.this);
+        let (mut left, mut right, mut top, mut bottom) = (0, self.room_width, 0, self.room_height);
+        if let Some(sprite) = self
+            .assets
+            .sprites
+            .get_asset(inst.sprite_index.get())
+            .or(self.assets.sprites.get_asset(inst.mask_index.get()))
+        {
+            inst.update_bbox(Some(sprite));
+            left = (inst.x.get() - inst.bbox_left.get().into()).round();
+            right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round();
+            top = (inst.y.get() - inst.bbox_top.get().into()).round();
+            bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round();
+        };
+        drop(inst); // le borrow
+        let (mut x, mut y) = Default::default();
+        for _ in 0..100 {
+            x = Real::from(self.rand.next_int((right - left - 1) as u32) + left);
+            if hsnap > 0 {
+                x = (x / hsnap.into()).floor() * hsnap.into();
+            }
+            y = Real::from(self.rand.next_int((bottom - top - 1) as u32) + top);
+            if vsnap > 0 {
+                y = (y / vsnap.into()).floor() * vsnap.into();
+            }
+            if self.place_free(context, &[x.into(), y.into()])?.is_truthy() {
+                break
+            }
+        }
+        let inst = self.instance_list.get(context.this);
+        inst.x.set(x);
+        inst.y.set(y);
+        inst.bbox_is_stale.set(true);
+        Ok(Default::default())
     }
 
     pub fn action_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
