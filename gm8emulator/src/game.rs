@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod movement;
+pub mod particle;
 pub mod replay;
 pub mod savestate;
 pub mod string;
@@ -85,6 +86,8 @@ pub struct Game {
     pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
+
+    pub particles: particle::Manager,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -311,6 +314,8 @@ impl Game {
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
+
+        let particle_shapes = particle::load_shapes(&mut atlases);
 
         let sprites = sprites
             .into_iter()
@@ -739,6 +744,7 @@ impl Game {
             view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
+            particles: particle::Manager::new(particle_shapes),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
@@ -1183,6 +1189,8 @@ impl Game {
         if self.scene_change.is_some() {
             return Ok(())
         }
+
+        self.particles.auto_update_systems(&mut self.rand);
 
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);

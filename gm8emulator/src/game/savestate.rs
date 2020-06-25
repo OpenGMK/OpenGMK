@@ -1,6 +1,6 @@
 use crate::{
     asset::font::Font,
-    game::{background, draw, string::RCStr, view::View, Assets, Game, Replay, Version},
+    game::{background, draw, particle, string::RCStr, view::View, Assets, Game, Replay, Version},
     gml::{
         ds::{self, DataStructureManager},
         rand::Random,
@@ -38,6 +38,8 @@ pub struct SaveState {
     pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
+
+    pub particles: particle::Manager,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -117,6 +119,7 @@ impl SaveState {
             view_current: game.view_current.clone(),
             views: game.views.clone(),
             backgrounds: game.backgrounds.clone(),
+            particles: game.particles.clone(),
             room_id: game.room_id.clone(),
             room_width: game.room_width.clone(),
             room_height: game.room_height.clone(),
@@ -191,6 +194,7 @@ impl SaveState {
         game.view_current = self.view_current;
         game.views = self.views;
         game.backgrounds = self.backgrounds;
+        game.particles = self.particles;
         game.room_id = self.room_id;
         game.room_width = self.room_width;
         game.room_height = self.room_height;
