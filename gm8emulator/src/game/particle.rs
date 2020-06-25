@@ -137,12 +137,12 @@ impl Manager {
     pub fn destroy_system(&mut self, id: i32) {
         if self.systems.get_asset(id).is_some() {
             self.systems[id as usize] = None;
+            self.draw_order.retain(|e| *e != id);
         }
     }
 
     pub fn draw_sort(&mut self) {
         let systems = &self.systems; // borrowck :)
-        self.draw_order.retain(|id| systems[*id as usize].is_some());
         self.draw_order.sort_by(|id1, id2| {
             let left = systems.get_asset(*id1).unwrap();
             let right = systems.get_asset(*id2).unwrap();
