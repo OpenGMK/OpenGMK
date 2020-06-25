@@ -2264,7 +2264,7 @@ impl Game {
 
     pub fn action_partsyst_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        *self.particles.get_dnd_system_mut() = Box::new(particle::System::new());
+        self.particles.clear_dnd_system();
         Ok(Default::default())
     }
 

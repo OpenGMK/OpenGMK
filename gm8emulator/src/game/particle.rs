@@ -191,6 +191,12 @@ impl Manager {
         self.destroy_system(self.dnd_system);
         self.dnd_system = -1;
     }
+    
+    pub fn clear_dnd_system(&mut self) {
+        if let Some(ps) = self.get_system_mut(self.dnd_system) {
+            ps.particles.clear();
+        }
+    }
 
     pub fn get_dnd_type_mut(&mut self, id: usize) -> &mut Box<ParticleType> {
         if self.get_type(self.dnd_types[id]).is_none() {
