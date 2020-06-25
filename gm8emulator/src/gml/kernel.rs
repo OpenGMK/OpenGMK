@@ -2268,9 +2268,16 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_parttype_create_old(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_parttype_create_old")
+    pub fn action_parttype_create_old(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, shape, size_min, size_max, col1, col2) = expect_args!(args, [int, int, real, real, int, int])?;
+        let pt = self.particles.get_dnd_type_mut(id as usize);
+        pt.graphic = particle::ParticleGraphic::Shape(shape);
+        pt.size_min = size_min;
+        pt.size_max = size_max;
+        pt.size_incr = 0.into();
+        pt.size_wiggle = 0.into();
+        pt.color = particle::ParticleColor::Two(col1, col2);
+        Ok(Default::default())
     }
 
     pub fn action_parttype_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
