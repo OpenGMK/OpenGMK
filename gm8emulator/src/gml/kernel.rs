@@ -2284,6 +2284,7 @@ impl Game {
         pt.size_min = size_min;
         pt.size_max = size_max;
         pt.size_incr = size_incr;
+        pt.size_wiggle = 0.into();
         Ok(Default::default())
     }
 
