@@ -961,6 +961,7 @@ impl Game {
         self.room_speed = room.speed;
         self.caption = room.caption;
         self.input_manager.clear_presses();
+        self.particles.effect_clear();
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
