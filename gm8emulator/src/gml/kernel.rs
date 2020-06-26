@@ -6593,9 +6593,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_merge")
     }
 
-    pub fn sprite_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sprite_save")
+    pub fn sprite_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            let image_index = subimg % sprite.frames.len() as i32;
+            if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
+                // get RGBA
+                let data = self.renderer.dump_sprite(atlas_ref);
+
+                // encode to PNG
+                let w = std::io::BufWriter::new(
+                    std::fs::File::create(fname.as_ref())
+                        .map_err(|e| gml::Error::FunctionError("sprite_save".into(), format!("{}", e)))?,
+                );
+                let mut encoder = png::Encoder::new(w, atlas_ref.w as u32, atlas_ref.h as u32);
+                encoder.set_color(png::ColorType::RGBA);
+                encoder.set_depth(png::BitDepth::Eight);
+                let mut writer = encoder.write_header().unwrap();
+                writer.write_image_data(&data).unwrap();
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn sprite_save_strip(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
