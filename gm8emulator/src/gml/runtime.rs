@@ -791,7 +791,7 @@ impl Game {
     }
 
     // Get an instance variable from an instance, converted into a Value
-    fn get_instance_var(
+    pub fn get_instance_var(
         &self,
         instance_handle: usize,
         var: &InstanceVariable,
@@ -1110,7 +1110,7 @@ impl Game {
     }
 
     // Set an instance variable on an instance
-    fn set_instance_var(
+    pub fn set_instance_var(
         &mut self,
         instance_handle: usize,
         var: &InstanceVariable,
