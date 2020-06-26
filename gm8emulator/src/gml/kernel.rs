@@ -2539,8 +2539,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_snapshot")
     }
 
-    pub fn action_effect(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, col, below) = expect_args!(args, [int, real, real, int, int, any])?;
+    pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, mut x, mut y, size, col, below) = expect_args!(args, [int, real, real, int, int, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
         let kind = match kind {
             0 => particle::EffectType::Explosion,
             1 => particle::EffectType::Ring,
