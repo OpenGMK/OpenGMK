@@ -136,6 +136,11 @@ impl Game {
         let instance = self.instance_list.get(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
+        if collider(self, handle).is_some() {
+            instance.x.set(instance.xprevious.get());
+            instance.y.set(instance.yprevious.get());
+        }
+
         let old_x = instance.x.get();
         let old_y = instance.y.get();
 
@@ -179,14 +184,19 @@ impl Game {
         let instance = self.instance_list.get(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
+        if collider(self, handle).is_some() {
+            instance.x.set(instance.xprevious.get());
+            instance.y.set(instance.yprevious.get());
+        }
+
         let old_x = instance.x.get();
         let old_y = instance.y.get();
 
         let mut cw = (instance.direction.get() / Real::from(10.0)).round() * 10;
         for _ in 0..36 {
             cw -= 10;
-            instance.x.set(instance.x.get() + instance.speed.get() * Real::from(cw).to_radians().cos());
-            instance.y.set(instance.y.get() + instance.speed.get() * Real::from(cw).to_radians().cos());
+            instance.x.set(old_x + instance.speed.get() * Real::from(cw).to_radians().cos());
+            instance.y.set(old_y - instance.speed.get() * Real::from(cw).to_radians().sin());
             instance.bbox_is_stale.set(true);
             if collider(self, handle).is_some() {
                 break
@@ -196,8 +206,8 @@ impl Game {
         let mut ccw = (instance.direction.get() / Real::from(10.0)).round() * 10;
         for _ in 0..36 {
             ccw += 10;
-            instance.x.set(instance.x.get() + instance.speed.get() * Real::from(ccw).to_radians().cos());
-            instance.y.set(instance.y.get() + instance.speed.get() * Real::from(ccw).to_radians().cos());
+            instance.x.set(old_x + instance.speed.get() * Real::from(ccw).to_radians().cos());
+            instance.y.set(old_y - instance.speed.get() * Real::from(ccw).to_radians().sin());
             instance.bbox_is_stale.set(true);
             if collider(self, handle).is_some() {
                 break
