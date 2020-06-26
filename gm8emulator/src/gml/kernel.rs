@@ -466,9 +466,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_clear_alpha")
     }
 
-    pub fn draw_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_point")
+    pub fn draw_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+        self.renderer.draw_rectangle(
+            x.into(),
+            y.into(),
+            x.into(),
+            y.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -545,9 +553,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_path")
     }
 
-    pub fn draw_point_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_point_color")
+    pub fn draw_point_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, col) = expect_args!(args, [real, real, int])?;
+        self.renderer.draw_rectangle(x.into(), y.into(), x.into(), y.into(), col, self.draw_alpha.into());
+        Ok(Default::default())
     }
 
     pub fn draw_line_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
