@@ -6115,11 +6115,12 @@ impl Game {
 
     pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let identifier = expect_args!(args, [string])?;
-        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            Ok(context.locals.vars.contains_key(var).into())
+        if mappings::get_instance_variable_by_name(identifier.as_ref()).is_some() {
+            Ok(gml::TRUE.into())
         } else {
+            let instance = self.instance_list.get(context.this);
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(context.locals.fields.contains_key(&field_id).into())
+            Ok(instance.fields.borrow().contains_key(&field_id).into())
         }
     }
 
@@ -6132,10 +6133,11 @@ impl Game {
         let (identifier, index) = expect_args!(args, [string, int])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            Ok(context.locals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+            self.get_instance_var(context.this, var, index, context)
         } else {
+            let instance = self.instance_list.get(context.this);
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(context.locals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+            Ok(instance.fields.borrow().get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
         }
     }
 
@@ -6153,17 +6155,14 @@ impl Game {
         let (identifier, index, value) = expect_args!(args, [string, int, any])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            if let Some(field) = context.locals.vars.get_mut(var) {
-                field.set(index, value);
-            } else {
-                context.locals.vars.insert(*var, Field::new(index, value));
-            }
+            self.set_instance_var(context.this, var, index, value, context)?;
         } else {
+            let mut fields = self.instance_list.get(context.this).fields.borrow_mut();
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            if let Some(field) = context.locals.fields.get_mut(&field_id) {
+            if let Some(field) = fields.get_mut(&field_id) {
                 field.set(index, value);
             } else {
-                context.locals.fields.insert(field_id, Field::new(index, value));
+                fields.insert(field_id, Field::new(index, value));
             }
         }
         Ok(Default::default())
