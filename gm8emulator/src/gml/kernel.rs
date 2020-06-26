@@ -6835,9 +6835,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function font_replace")
     }
 
-    pub fn font_add_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function font_add_sprite")
+    pub fn font_add_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, first, prop, sep) = expect_args!(args, [int, int, any, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            let chars = asset::font::create_chars_from_sprite(sprite, prop.is_truthy(), sep, &self.renderer);
+            let font_id = self.assets.fonts.len();
+            self.assets.fonts.push(Some(Box::new(asset::Font {
+                name: format!("__newfont{}", font_id).into(),
+                sys_name: "".into(),
+                size: 12,
+                bold: false,
+                italic: false,
+                first: first.max(0).min(255) as _,
+                last: (first as u32 + chars.len() as u32 - 1).min(255),
+                tallest_char_height: sprite.height,
+                chars,
+                own_graphics: false,
+            })));
+            Ok(font_id.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
     pub fn font_replace_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
