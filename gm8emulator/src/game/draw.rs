@@ -313,7 +313,7 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string(&self, string: &str, max_width: Option<u32>) -> Vec<(String, u32)> {
+    fn split_string(&self, string: &str, max_width: Option<i32>) -> Vec<(String, i32)> {
         let font = self.draw_font.as_ref().unwrap();
         let mut lines = Vec::new();
         let mut line = String::new();
@@ -398,29 +398,29 @@ impl Game {
     /// Gets width and height of a string using the current draw_font.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn get_string_size(&self, string: &str, line_height: Option<u32>, max_width: Option<u32>) -> (u32, u32) {
+    pub fn get_string_size(&self, string: &str, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
         let font = self.draw_font.as_ref().unwrap();
 
         // Figure out what the height of a line is if one wasn't specified
         let line_height = match line_height {
             Some(h) => h,
-            None => font.tallest_char_height,
+            None => font.tallest_char_height as i32,
         };
 
         let lines = self.split_string(string, max_width);
 
-        (lines.iter().max_by_key(|(_, w)| w).map(|(_, w)| *w).unwrap_or(0), lines.len() as u32 * line_height)
+        (lines.iter().max_by_key(|(_, w)| w).map(|(_, w)| *w).unwrap_or(0), lines.len() as i32 * line_height)
     }
 
     /// Draws a string to the screen at the given coordinates.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn draw_string(&mut self, x: i32, y: i32, string: &str, line_height: Option<u32>, max_width: Option<u32>) {
+    pub fn draw_string(&mut self, x: i32, y: i32, string: &str, line_height: Option<i32>, max_width: Option<i32>) {
         let font = self.draw_font.as_ref().unwrap();
 
         // Figure out what the height of a line is if one wasn't specified
         let line_height = match line_height {
-            Some(h) => h as i32,
+            Some(h) => h,
             None => font.tallest_char_height as i32,
         };
 

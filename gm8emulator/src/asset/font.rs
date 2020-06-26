@@ -18,8 +18,8 @@ pub struct Font {
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Character {
-    pub offset: u32,
-    pub distance: u32,
+    pub offset: i32,
+    pub distance: i32,
     pub atlas_ref: AtlasRef,
 }
 

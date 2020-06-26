@@ -419,8 +419,8 @@ impl Game {
                                 }
                             }
                             Ok(Character {
-                                offset: char_blob[4],
-                                distance: char_blob[5],
+                                offset: char_blob[4] as _,
+                                distance: char_blob[5] as _,
                                 atlas_ref: atlases
                                     .texture(char_blob[2] as _, char_blob[3] as _, 0, 0, data.into_boxed_slice())
                                     .ok_or(())?,
