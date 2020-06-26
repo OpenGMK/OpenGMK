@@ -1199,6 +1199,12 @@ impl Game {
         // Draw everything, including running draw events
         self.draw()?;
 
+        // Move backgrounds
+        for bg in self.backgrounds.iter_mut() {
+            bg.x_offset += bg.hspeed;
+            bg.y_offset += bg.vspeed;
+        }
+
         // Advance sprite animations
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
