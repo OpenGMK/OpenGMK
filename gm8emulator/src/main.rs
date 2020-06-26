@@ -12,7 +12,12 @@ mod math;
 mod tile;
 mod util;
 
-use std::{env, fs, path::Path, process, time};
+use std::{
+    env, fs,
+    io::{BufReader, Write},
+    path::{Path, PathBuf},
+    process, time,
+};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -43,6 +48,7 @@ fn xmain() -> i32 {
     opts.optflag("r", "realtime", "disables clock spoofing");
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
+    opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -81,6 +87,27 @@ fn xmain() -> i32 {
         p.push("projects");
         p.push(name);
         p
+    });
+    let replay = matches.opt_str("f").map(|filename| {
+        let mut filepath = PathBuf::from(&filename);
+        match filepath.extension().and_then(|x| x.to_str()) {
+            Some("bin") => {
+                let f = fs::File::open(&filepath).unwrap();
+                let replay = bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay();
+                filepath.set_extension("gmtas");
+                fs::File::create(&filepath).unwrap().write_all(&bincode::serialize(&replay).unwrap()).unwrap();
+                replay
+            },
+
+            Some("gmtas") => {
+                bincode::deserialize_from::<_, game::Replay>(BufReader::new(fs::File::open(&filepath).unwrap()))
+                    .unwrap()
+            },
+
+            _ => {
+                panic!("Unknown filetype for -f, expected '.bin' or '.gmtas'");
+            },
+        }
     });
     let input = {
         if matches.free.len() == 1 {
@@ -149,7 +176,11 @@ fn xmain() -> i32 {
         },
     };
 
-    if let Err(err) = if let Some(path) = project_path { components.record(path, port) } else { components.run() } {
+    if let Err(err) = if let Some(path) = project_path {
+        components.record(path, port)
+    } else {
+        if let Some(replay) = replay { components.replay(replay) } else { components.run() }
+    } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
     } else {

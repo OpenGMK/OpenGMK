@@ -16,7 +16,6 @@ pub trait RendererTrait {
     fn max_texture_size(&self) -> u32;
     fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
 
-    fn set_background_colour(&mut self, colour: Option<Colour>);
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
@@ -37,10 +36,10 @@ pub trait RendererTrait {
         port_h: i32,
     );
     fn flush_queue(&mut self);
-    fn finish(&mut self, width: u32, height: u32);
+    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
-    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32);
+    fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
 
     fn draw_sprite_partial(
         &mut self,
@@ -139,19 +138,18 @@ pub trait RendererTrait {
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
+    fn clear_view(&mut self, colour: Colour);
 }
 
 pub struct RendererOptions {
     pub size: (u32, u32),
     pub vsync: bool,
-
-    pub clear_colour: Colour,
 }
 
 impl Renderer {
-    pub fn new(backend: (), options: &RendererOptions, window: &Window) -> Result<Self, String> {
+    pub fn new(backend: (), options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         Ok(Self(Box::new(match backend {
-            () => opengl::RendererImpl::new(options, window)?,
+            () => opengl::RendererImpl::new(options, window, clear_colour)?,
         })))
     }
 
@@ -161,10 +159,6 @@ impl Renderer {
 
     pub fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
         self.0.push_atlases(atl)
-    }
-
-    pub fn set_background_colour(&mut self, colour: Option<Colour>) {
-        self.0.set_background_colour(colour)
     }
 
     pub fn set_swap_interval(&self, n: Option<u32>) -> bool {
@@ -263,16 +257,20 @@ impl Renderer {
         self.0.get_pixels(w, h)
     }
 
-    pub fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
-        self.0.draw_pixels(rgb, w, h)
+    pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
+        self.0.draw_raw_frame(rgb, w, h, clear_colour)
     }
 
     pub fn flush_queue(&mut self) {
         self.0.flush_queue()
     }
 
-    pub fn finish(&mut self, width: u32, height: u32) {
-        self.0.finish(width, height)
+    pub fn clear_view(&mut self, colour: Colour) {
+        self.0.clear_view(colour)
+    }
+
+    pub fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+        self.0.finish(width, height, clear_colour)
     }
 }
 

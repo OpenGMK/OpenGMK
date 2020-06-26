@@ -3,6 +3,7 @@ pub mod draw;
 pub mod events;
 pub mod external;
 pub mod movement;
+pub mod particle;
 pub mod replay;
 pub mod savestate;
 pub mod string;
@@ -76,6 +77,8 @@ pub struct Game {
     pub custom_draw_objects: HashSet<ID>,
 
     pub renderer: Renderer,
+    pub background_colour: Colour,
+    pub room_colour: Option<Colour>,
 
     pub externals: Vec<Option<external::External>>,
 
@@ -86,6 +89,8 @@ pub struct Game {
     pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
+
+    pub particles: particle::Manager,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -247,6 +252,7 @@ impl Game {
         let room1_width = room1.width;
         let room1_height = room1.height;
         let room1_speed = room1.speed;
+        let room1_colour = if room1.clear_screen { Some(room1.bg_colour.as_decimal().into()) } else { None };
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -297,7 +303,6 @@ impl Game {
         // Set up a Renderer
         let options = RendererOptions {
             size: (room1_width, room1_height),
-            clear_colour: settings.clear_colour.into(),
             vsync: settings.vsync, // TODO: Overrideable
         };
 
@@ -307,11 +312,13 @@ impl Game {
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
-        let mut renderer = Renderer::new((), &options, &window)?;
+        let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
+
+        let particle_shapes = particle::load_shapes(&mut atlases);
 
         let sprites = sprites
             .into_iter()
@@ -730,7 +737,9 @@ impl Game {
             tile_list: TileList::new(),
             rand: Random::new(),
             renderer: renderer,
+            background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
+            room_colour: room1_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -739,6 +748,7 @@ impl Game {
             view_current: 0,
             views: Vec::new(),
             backgrounds: Vec::new(),
+            particles: particle::Manager::new(particle_shapes),
             room_id: room1_id,
             room_width: room1_width as i32,
             room_height: room1_height as i32,
@@ -938,7 +948,7 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.renderer.set_background_colour(if room.clear_screen { Some(room.bg_colour) } else { None });
+        self.room_colour = if room.clear_screen { Some(room.bg_colour) } else { None };
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
@@ -955,6 +965,7 @@ impl Game {
         self.room_speed = room.speed;
         self.caption = room.caption;
         self.input_manager.clear_presses();
+        self.particles.effect_clear();
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
@@ -1184,6 +1195,8 @@ impl Game {
             return Ok(())
         }
 
+        self.particles.auto_update_systems(&mut self.rand);
+
         // Clear out any deleted instances
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
@@ -1316,12 +1329,28 @@ impl Game {
         stream.set_nonblocking(true)?;
         let mut read_buffer: Vec<u8> = Vec::new();
 
+        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+
         // Wait for a Hello, then send an update
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => (),
                 Some(Some(m)) => match m {
-                    Message::Hello { keys_requested, mouse_buttons_requested } => {
+                    Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
+                        // Create or load savefile, depending if it exists
+                        let mut path = project_path.clone();
+                        std::fs::create_dir_all(&path)?;
+                        path.push(&filename);
+                        if path.exists() {
+                            println!("{} exists, loading workspace", filename);
+                            let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
+                            replay = state.load_into(self);
+                        } else {
+                            println!("{} doesn't exist, creating workspace", filename);
+                            let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
+                            File::create(&path)?.write_all(&bytes)?;
+                        }
+
                         // Send an update
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
@@ -1333,7 +1362,7 @@ impl Game {
                                 .filter(|x| self.input_manager.mouse_check(*x))
                                 .collect(),
                             mouse_location: self.input_manager.mouse_get_location(),
-                            frame_count: 0,
+                            frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: None,
                         })?;
@@ -1347,8 +1376,6 @@ impl Game {
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
-        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
-        let mut watched_id: Option<ID> = None;
         self.play_type = PlayType::Record;
 
         loop {
@@ -1361,6 +1388,7 @@ impl Game {
                         mouse_location,
                         keys_requested,
                         mouse_buttons_requested,
+                        instance_requested,
                     } => {
                         // Create a frame...
                         let mut frame = replay.new_frame(self.room_speed);
@@ -1415,26 +1443,28 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: watched_id
-                                .and_then(|x| self.instance_list.get_by_instid(x))
-                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
+                                instance_details(&self.assets, instance)
+                            }),
                         })?
                     },
 
-                    Message::Save { index } => {
+                    Message::Save { filename } => {
                         // Save a savestate to a file
                         let mut path = project_path.clone();
                         std::fs::create_dir_all(&path)?;
-                        path.push(format!("save{}.bin", index));
+                        path.push(filename);
                         let mut f = File::create(&path)?;
                         let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
                         f.write_all(&bytes)?;
                     },
 
-                    Message::Load { index, keys_requested, mouse_buttons_requested } => {
+                    Message::Load { filename, keys_requested, mouse_buttons_requested, instance_requested } => {
                         // Load savestate from a file
                         let mut path = project_path.clone();
-                        path.push(format!("save{}.bin", index));
+                        path.push(filename);
                         let f = File::open(&path)?;
                         let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
                         replay = state.load_into(self);
@@ -1452,9 +1482,11 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: watched_id
-                                .and_then(|x| self.instance_list.get_by_instid(x))
-                                .map(|x| instance_details(&self.assets, self.instance_list.get(x))),
+                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
+                                instance_details(&self.assets, instance)
+                            }),
                         })?;
                     },
 
@@ -1477,8 +1509,7 @@ impl Game {
                         while let Some(handle) = iter.next(&self.instance_list) {
                             let instance = self.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            if instance.visible.get()
-                                && x >= instance.bbox_left.get()
+                            if x >= instance.bbox_left.get()
                                 && x <= instance.bbox_right.get()
                                 && y >= instance.bbox_top.get()
                                 && y <= instance.bbox_bottom.get()
@@ -1497,7 +1528,6 @@ impl Game {
 
                     Event::MenuOption(id) => {
                         if let Some(handle) = self.instance_list.get_by_instid(id as _) {
-                            watched_id = Some(id as ID);
                             let instance = self.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
                             stream.send_message(message::Information::InstanceClicked {
@@ -1532,6 +1562,7 @@ impl Game {
 
         let mut time_now = std::time::Instant::now();
         loop {
+            self.window.process_events();
             self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 self.stored_events.clear();

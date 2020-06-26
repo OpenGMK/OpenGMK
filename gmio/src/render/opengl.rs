@@ -35,8 +35,6 @@ macro_rules! shader_file {
 }
 
 pub struct RendererImpl {
-    background_colour: Option<Colour>,
-    clear_colour: Colour,
     imp: imp::PlatformImpl,
     //program: GLuint,
     //vao: GLuint,
@@ -78,7 +76,7 @@ unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
 }
 
 impl RendererImpl {
-    pub fn new(options: &RendererOptions, window: &Window) -> Result<Self, String> {
+    pub fn new(options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         let window_impl: &w_imp::WindowImpl = match window.as_any().downcast_ref() {
             Some(x) => x,
             None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
@@ -185,9 +183,6 @@ impl RendererImpl {
 
             // Create Renderer
             let mut renderer = Self {
-                background_colour: None,
-                clear_colour: options.clear_colour,
-
                 imp,
                 //program,
                 //vao,
@@ -204,17 +199,17 @@ impl RendererImpl {
             };
 
             // Start first frame
-            renderer.setup_frame(options.size.0, options.size.1);
+            renderer.setup_frame(options.size.0, options.size.1, clear_colour);
 
             Ok(renderer)
         }
     }
 
-    fn setup_frame(&mut self, width: u32, height: u32) {
+    fn setup_frame(&mut self, width: u32, height: u32, clear_colour: Colour) {
         unsafe {
             gl::Viewport(0, 0, width as _, height as _);
             gl::Scissor(0, 0, width as _, height as _);
-            gl::ClearColor(self.clear_colour.r as f32, self.clear_colour.g as f32, self.clear_colour.b as f32, 1.0);
+            gl::ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
@@ -311,10 +306,6 @@ impl RendererTrait for RendererImpl {
         Ok(())
     }
 
-    fn set_background_colour(&mut self, colour: Option<Colour>) {
-        self.background_colour = colour;
-    }
-
     fn set_swap_interval(&self, n: Option<u32>) -> bool {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
     }
@@ -329,7 +320,7 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn draw_pixels(&mut self, rgb: Box<[u8]>, w: i32, h: i32) {
+    fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         unsafe {
             // store previous texture, upload new texture to gpu
             let (mut prev_tex2d, mut prev_tex_multi) = (0, 0);
@@ -370,7 +361,7 @@ impl RendererTrait for RendererImpl {
             self.imp.swap_buffers();
         }
         self.draw_queue.clear();
-        self.setup_frame(w as _, h as _);
+        self.setup_frame(w as _, h as _, clear_colour);
     }
 
     fn draw_sprite(
@@ -634,16 +625,17 @@ impl RendererTrait for RendererImpl {
             gl::Scissor(port_x, port_y, port_w, port_h);
 
             gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, projection.as_ptr());
-
-            // Clear view rectangle
-            if let Some(colour) = self.background_colour {
-                gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
         }
     }
 
-    fn finish(&mut self, width: u32, height: u32) {
+    fn clear_view(&mut self, colour: Colour) {
+        unsafe {
+            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
+
+    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
         // Finish drawing frame
         self.flush_queue();
 
@@ -653,6 +645,6 @@ impl RendererTrait for RendererImpl {
         }
 
         // Start next frame
-        self.setup_frame(width, height)
+        self.setup_frame(width, height, clear_colour)
     }
 }

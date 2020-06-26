@@ -1,6 +1,6 @@
 use crate::{
     asset::font::Font,
-    game::{background, draw, string::RCStr, view::View, Assets, Game, Replay, Version},
+    game::{background, draw, particle, string::RCStr, view::View, Assets, Game, Replay, Version},
     gml::{
         ds::{self, DataStructureManager},
         rand::Random,
@@ -28,6 +28,9 @@ pub struct SaveState {
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
 
+    pub background_colour: Colour,
+    pub room_colour: Option<Colour>,
+
     pub last_instance_id: ID,
     pub last_tile_id: ID,
 
@@ -35,6 +38,8 @@ pub struct SaveState {
     pub view_current: usize,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
+
+    pub particles: particle::Manager,
 
     pub room_id: i32,
     pub room_width: i32,
@@ -106,12 +111,15 @@ impl SaveState {
             assets: game.assets.clone(),
             event_holders: game.event_holders.clone(),
             custom_draw_objects: game.custom_draw_objects.clone(),
+            background_colour: game.background_colour,
+            room_colour: game.room_colour,
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
             view_current: game.view_current.clone(),
             views: game.views.clone(),
             backgrounds: game.backgrounds.clone(),
+            particles: game.particles.clone(),
             room_id: game.room_id.clone(),
             room_width: game.room_width.clone(),
             room_height: game.room_height.clone(),
@@ -163,7 +171,12 @@ impl SaveState {
 
     pub fn load_into(self, game: &mut Game) -> Replay {
         game.window.resize(self.screenshot_width, self.screenshot_height);
-        game.renderer.draw_pixels(self.screenshot, self.screenshot_width as _, self.screenshot_height as _);
+        game.renderer.draw_raw_frame(
+            self.screenshot,
+            self.screenshot_width as _,
+            self.screenshot_height as _,
+            game.background_colour,
+        );
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
@@ -173,12 +186,15 @@ impl SaveState {
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
+        game.background_colour = self.background_colour;
+        game.room_colour = self.room_colour;
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
         game.views_enabled = self.views_enabled;
         game.view_current = self.view_current;
         game.views = self.views;
         game.backgrounds = self.backgrounds;
+        game.particles = self.particles;
         game.room_id = self.room_id;
         game.room_width = self.room_width;
         game.room_height = self.room_height;
@@ -221,6 +237,10 @@ impl SaveState {
         game.caption_stale = self.caption_stale;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
+        self.replay
+    }
+
+    pub fn into_replay(self) -> Replay {
         self.replay
     }
 }
