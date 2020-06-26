@@ -310,6 +310,50 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
     }
 
+    fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
+        unsafe {
+            // store read fbo
+            let mut prev_read_fbo: GLint = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+
+            // setup temp fbo
+            let mut fbo: GLuint = 0;
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+
+            // bind texture to fbo
+            gl::FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                self.texture_ids[atlas_ref.atlas_id as usize],
+                0,
+            );
+
+            // read data
+            let len = (atlas_ref.w * atlas_ref.h * 4) as usize;
+            let mut data: Vec<u8> = Vec::with_capacity(len);
+            data.set_len(len);
+            gl::ReadPixels(
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w,
+                atlas_ref.h,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                data.as_mut_ptr().cast(),
+            );
+
+            assert_eq!(gl::GetError(), 0);
+
+            // cleanup
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            gl::DeleteFramebuffers(1, &fbo);
+
+            data.into_boxed_slice()
+        }
+    }
+
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
             let len = (w * h * 3) as usize;
