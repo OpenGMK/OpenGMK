@@ -444,7 +444,10 @@ impl Game {
                     }
                 }
                 if let Some(start) = default {
-                    return self.execute(&body[*start..], context)
+                    return Ok(match self.execute(&body[*start..], context)? {
+                        ReturnType::Break => ReturnType::Normal,
+                        x => x,
+                    })
                 }
             },
             Instruction::With { target, body } => {
