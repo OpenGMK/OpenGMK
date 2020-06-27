@@ -6732,9 +6732,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_assign")
     }
 
-    pub fn background_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function background_save")
+    pub fn background_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_id, fname) = expect_args!(args, [int, string])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            if let Some(atlas_ref) = background.atlas_ref.as_ref() {
+                // get RGBA
+                if let Err(e) = file::save_png(
+                    fname.as_ref(),
+                    atlas_ref.w as u32,
+                    atlas_ref.h as u32,
+                    self.renderer.dump_sprite(atlas_ref),
+                ) {
+                    return Err(gml::Error::FunctionError("background_save".into(), e.into()))
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn sound_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
