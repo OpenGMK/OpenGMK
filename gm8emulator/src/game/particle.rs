@@ -1486,13 +1486,16 @@ impl Deflector {
                     && self.ymin <= particle.y
                     && particle.y <= self.ymax
                 {
-                    particle.direction = match self.kind {
-                        DeflectorKind::Horizontal => Real::from(180.0) - particle.direction,
-                        DeflectorKind::Vertical => Real::from(360.0) - particle.direction,
+                    match self.kind {
+                        DeflectorKind::Horizontal => {
+                            particle.direction = (Real::from(180) - particle.direction).rem_euclid(360.into());
+                            particle.x = particle.xprevious - (particle.x - particle.xprevious);
+                        },
+                        DeflectorKind::Vertical => {
+                            particle.direction = (Real::from(360) - particle.direction).rem_euclid(360.into());
+                            particle.y = particle.yprevious - (particle.y - particle.yprevious);
+                        }
                     }
-                    .rem_euclid(Real::from(360.0));
-                    particle.x = particle.xprevious - (particle.x - particle.xprevious);
-                    particle.y = particle.yprevious - (particle.y - particle.yprevious);
                     particle.speed = (particle.speed - self.friction).max(Real::from(0.0));
                 }
             }
