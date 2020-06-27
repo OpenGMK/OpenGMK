@@ -416,8 +416,21 @@ impl Game {
     /// Draws a string to the screen at the given coordinates.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn draw_string(&mut self, x: Real, y: Real, string: &str, line_height: Option<i32>, max_width: Option<i32>) {
+    pub fn draw_string(
+        &mut self,
+        x: Real,
+        y: Real,
+        string: &str,
+        line_height: Option<i32>,
+        max_width: Option<i32>,
+        xscale: Real,
+        yscale: Real,
+        angle: Real,
+    ) {
         let font = self.draw_font.as_ref().unwrap();
+
+        let sin = angle.to_radians().sin();
+        let cos = angle.to_radians().cos();
 
         // Figure out what the height of a line is if one wasn't specified
         let line_height = match line_height {
@@ -449,13 +462,17 @@ impl Game {
 
                 let xdiff = Real::from(character.distance as i32 + cursor_x);
                 let ydiff = Real::from(cursor_y);
+
+                let (xdiff, ydiff) =
+                    (xdiff * xscale * cos + ydiff * yscale * sin, ydiff * yscale * cos - xdiff * xscale * sin);
+
                 self.renderer.draw_sprite(
                     &character.atlas_ref,
                     (x + xdiff).into(),
                     (y + ydiff).into(),
-                    1.0,
-                    1.0,
-                    0.0,
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
                     u32::from(self.draw_colour) as i32,
                     self.draw_alpha.into(),
                 );

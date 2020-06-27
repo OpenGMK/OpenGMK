@@ -736,7 +736,7 @@ impl Game {
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, text) = expect_args!(args, [real, real, any])?;
-        self.draw_string(x, y, &text.repr(), None, None);
+        self.draw_string(x, y, &text.repr(), None, None, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
@@ -745,18 +745,24 @@ impl Game {
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(x, y, &text.repr(), line_height, max_width);
+        self.draw_string(x, y, &text.repr(), line_height, max_width, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
-    pub fn draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_text_transformed")
+    pub fn draw_text_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, xscale, yscale, angle) = expect_args!(args, [real, real, any, real, real, real])?;
+        self.draw_string(x, y, &text.repr(), None, None, xscale, yscale, angle);
+        Ok(Default::default())
     }
 
-    pub fn draw_text_ext_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_text_ext_transformed")
+    pub fn draw_text_ext_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, line_height, max_width, xscale, yscale, angle) =
+            expect_args!(args, [real, real, any, int, int, real, real, real])?;
+        let line_height = if line_height < 0 { None } else { Some(line_height as _) };
+        let max_width = if max_width < 0 { None } else { Some(max_width as _) };
+
+        self.draw_string(x, y, &text.repr(), line_height, max_width, xscale, yscale, angle);
+        Ok(Default::default())
     }
 
     pub fn draw_text_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
