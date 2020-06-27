@@ -1,6 +1,7 @@
 use crate::{
     game::{Game, GetAsset},
     gml,
+    math::Real,
 };
 use serde::{Deserialize, Serialize};
 
@@ -415,7 +416,7 @@ impl Game {
     /// Draws a string to the screen at the given coordinates.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn draw_string(&mut self, x: i32, y: i32, string: &str, line_height: Option<i32>, max_width: Option<i32>) {
+    pub fn draw_string(&mut self, x: Real, y: Real, string: &str, line_height: Option<i32>, max_width: Option<i32>) {
         let font = self.draw_font.as_ref().unwrap();
 
         // Figure out what the height of a line is if one wasn't specified
@@ -428,16 +429,16 @@ impl Game {
 
         let height = lines.len() as i32 * line_height;
         let mut cursor_y = match self.draw_valign {
-            Valign::Top => y,
-            Valign::Middle => y - (height / 2),
-            Valign::Bottom => y - height,
+            Valign::Top => 0,
+            Valign::Middle => -(height / 2),
+            Valign::Bottom => -height,
         };
 
         for (line, width) in lines {
             let mut cursor_x = match self.draw_halign {
-                Halign::Left => x,
-                Halign::Middle => x - (width as i32 / 2),
-                Halign::Right => x - width as i32,
+                Halign::Left => 0,
+                Halign::Middle => -(width as i32 / 2),
+                Halign::Right => -width as i32,
             };
 
             for c in line.chars() {
@@ -446,10 +447,12 @@ impl Game {
                     None => continue,
                 };
 
+                let xdiff = Real::from(character.distance as i32 + cursor_x);
+                let ydiff = Real::from(cursor_y);
                 self.renderer.draw_sprite(
                     &character.atlas_ref,
-                    (character.distance as i32 + cursor_x).into(),
-                    cursor_y.into(),
+                    (x + xdiff).into(),
+                    (y + ydiff).into(),
                     1.0,
                     1.0,
                     0.0,

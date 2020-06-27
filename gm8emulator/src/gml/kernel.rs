@@ -735,13 +735,13 @@ impl Game {
     }
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, text) = expect_args!(args, [int, int, any])?;
+        let (x, y, text) = expect_args!(args, [real, real, any])?;
         self.draw_string(x, y, &text.repr(), None, None);
         Ok(Default::default())
     }
 
     pub fn draw_text_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, text, line_height, max_width) = expect_args!(args, [int, int, any, int, int])?;
+        let (x, y, text, line_height, max_width) = expect_args!(args, [real, real, any, int, int])?;
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
