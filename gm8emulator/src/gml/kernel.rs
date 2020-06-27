@@ -2455,9 +2455,14 @@ impl Game {
         self.draw_text(context, &[x.into(), y.into(), text])
     }
 
-    pub fn action_draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_text_transformed")
+    pub fn action_draw_text_transformed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (text, mut x, mut y, xscale, yscale, angle) = expect_args!(args, [any, real, real, any, any, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text_transformed(context, &[x.into(), y.into(), text, xscale, yscale, angle])
     }
 
     pub fn action_draw_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
