@@ -4415,9 +4415,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function transition_exists")
     }
 
-    pub fn sleep(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sleep")
+    pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let millis = expect_args!(args, [int])?;
+        if millis > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            self.process_window_events();
+        }
+        Ok(Default::default())
     }
 
     pub fn yoyo_getplatform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5680,9 +5684,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function joystick_pov")
     }
 
-    pub fn keyboard_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_clear")
+    pub fn keyboard_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        self.process_window_events();
+        if key > 0 {
+            self.input_manager.key_clear(key as usize);
+        }
+        Ok(Default::default())
     }
 
     pub fn mouse_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5696,8 +5704,8 @@ impl Game {
     }
 
     pub fn io_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function io_handle")
+        self.process_window_events();
+        Ok(Default::default())
     }
 
     pub fn keyboard_wait(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
