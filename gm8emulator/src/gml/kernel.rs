@@ -4889,6 +4889,7 @@ impl Game {
                             format!("Cannot wait for {}: {}", prog, e),
                         ))
                     }
+                    self.process_window_events();
                 }
                 Ok(Default::default())
             },
