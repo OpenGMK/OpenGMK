@@ -1964,6 +1964,8 @@ impl Game {
                 0 | _ => count == number,
             };
             Ok(cond.into())
+        } else {
+            Ok(0.into())
         }
     }
 
@@ -3117,6 +3119,8 @@ impl Game {
                             None => break false,
                         }
                     }
+                } else {
+                    false
                 }
             },
             instance_id => {
@@ -3926,6 +3930,8 @@ impl Game {
                             None => break nearest,
                         }
                     }
+                } else {
+                    None
                 }
             },
             // Target is an instance id
@@ -3984,6 +3990,8 @@ impl Game {
                             None => break nearest,
                         }
                     }
+                } else {
+                    None
                 }
             },
             // Target is an instance ID
@@ -4038,6 +4046,8 @@ impl Game {
                             None => break None,
                         }
                     }
+                } else {
+                    None
                 }
             },
             instance_id => {
@@ -5898,7 +5908,8 @@ impl Game {
     }
 
     pub fn external_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function external_define")
+        //unimplemented!("Called unimplemented kernel function external_define")
+        Ok(_args[3].clone().into())
     }
 
     pub fn external_call(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
