@@ -36,6 +36,7 @@ pub enum Instruction {
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Node {
     Literal { value: Value },
+    Constant { constant_id: usize },
     Function { args: Box<[Node]>, function: gml::Function },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
@@ -238,6 +239,7 @@ impl fmt::Debug for Node {
                 Value::Real(r) => write!(f, "{:?}", r),
                 Value::Str(s) => write!(f, "{:?}", s),
             },
+            Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
             Node::Function { args, function: _ } => write!(f, "<function: {:?}>", args),
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
@@ -533,6 +535,13 @@ impl Game {
     pub fn eval(&mut self, node: &Node, context: &mut Context) -> gml::Result<Value> {
         match node {
             Node::Literal { value } => Ok(value.clone()),
+            Node::Constant { constant_id } => {
+                if let Some(value) = self.constants.get(*constant_id) {
+                    Ok(value.clone())
+                } else {
+                    Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
+                }
+            },
             Node::Function { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
