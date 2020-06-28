@@ -9323,9 +9323,40 @@ impl Game {
         }
     }
 
-    pub fn ds_grid_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_read")
+    pub fn ds_grid_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_grid(mut reader: &[u8]) -> Option<ds::Grid> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x259 {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let width = u32::from_le_bytes(buf) as usize;
+            reader.read_exact(&mut buf).ok()?;
+            let height = u32::from_le_bytes(buf) as usize;
+            let mut grid = ds::Grid::new(width, height);
+            for x in 0..width {
+                for y in 0..height {
+                    grid.set(x, y, Value::from_reader(&mut reader)?);
+                }
+            }
+            Some(grid)
+        }
+        match self.grids.get_mut(id) {
+            Ok(old_grid) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(grid) = read_grid(data.as_slice()) {
+                            *old_grid = grid;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_grid_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_read".into(), e.into())),
+        }
     }
 
     pub fn sound_play(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
