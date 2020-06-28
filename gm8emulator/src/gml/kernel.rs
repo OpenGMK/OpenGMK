@@ -4310,7 +4310,7 @@ impl Game {
 
     pub fn instance_activate_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, any])?;
-        let mut iter = self.instance_list.iter_by_insertion();
+        let mut iter = self.instance_list.iter_inactive();
         while let Some(handle) = iter.next(&self.instance_list) {
             let inst = self.instance_list.get(handle);
             if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
