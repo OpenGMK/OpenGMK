@@ -1237,25 +1237,34 @@ impl Game {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn process_window_events(&mut self) {
         use gmio::window::Event;
 
+        match self.play_type {
+            PlayType::Normal => {
+                self.input_manager.mouse_update_previous();
+                for event in self.window.process_events().copied() {
+                    match event {
+                        Event::KeyboardDown(key) => self.input_manager.key_press(key),
+                        Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                        Event::MenuOption(_) => (),
+                        Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
+                        Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
+                        Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
+                        Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+                        Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                        Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
+                    }
+                }
+            },
+            _ => (),
+        }
+    }
+
+    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
         loop {
-            self.input_manager.mouse_update_previous();
-            for event in self.window.process_events().copied() {
-                match event {
-                    Event::KeyboardDown(key) => self.input_manager.key_press(key),
-                    Event::KeyboardUp(key) => self.input_manager.key_release(key),
-                    Event::MenuOption(_) => (),
-                    Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
-                    Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
-                    Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
-                    Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                    Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
-                    Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
-                }
-            }
+            self.process_window_events();
 
             self.frame()?;
             match self.scene_change {
