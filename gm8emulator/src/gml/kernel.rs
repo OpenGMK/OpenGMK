@@ -1964,8 +1964,6 @@ impl Game {
                 0 | _ => count == number,
             };
             Ok(cond.into())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
         }
     }
 
@@ -3107,17 +3105,17 @@ impl Game {
             gml::ALL => self.check_collision_any(context.this).is_some(),
             obj if obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            if target != context.this && self.check_collision(context.this, target) {
-                                break true
-                            }
-                        },
-                        None => break false,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                if target != context.this && self.check_collision(context.this, target) {
+                                    break true
+                                }
+                            },
+                            None => break false,
+                        }
                     }
                 }
             },
@@ -3446,7 +3444,7 @@ impl Game {
                     }
                     closest
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    1000000.0 // GML default
                 }
             },
             instance_id => {
@@ -3624,7 +3622,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3684,7 +3682,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3756,7 +3754,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3864,7 +3862,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3909,24 +3907,24 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                let mut maxdist = Real::from(10000000000.0); // GML default
-                let mut nearest = None;
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            let ti = self.instance_list.get(target);
-                            let xdist = ti.x.get() - x;
-                            let ydist = ti.y.get() - y;
-                            let dist = (xdist * xdist) + (ydist * ydist);
-                            if dist < maxdist {
-                                maxdist = dist;
-                                nearest = Some(target);
-                            }
-                        },
-                        None => break nearest,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut maxdist = Real::from(10000000000.0); // GML default
+                    let mut nearest = None;
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                let ti = self.instance_list.get(target);
+                                let xdist = ti.x.get() - x;
+                                let ydist = ti.y.get() - y;
+                                let dist = (xdist * xdist) + (ydist * ydist);
+                                if dist < maxdist {
+                                    maxdist = dist;
+                                    nearest = Some(target);
+                                }
+                            },
+                            None => break nearest,
+                        }
                     }
                 }
             },
@@ -3967,24 +3965,24 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                let mut maxdist = Real::from(0.0);
-                let mut nearest = None;
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            let ti = self.instance_list.get(target);
-                            let xdist = ti.x.get() - x;
-                            let ydist = ti.y.get() - y;
-                            let dist = (xdist * xdist) + (ydist * ydist);
-                            if nearest.is_none() || dist > maxdist {
-                                maxdist = dist;
-                                nearest = Some(target);
-                            }
-                        },
-                        None => break nearest,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut maxdist = Real::from(0.0);
+                    let mut nearest = None;
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                let ti = self.instance_list.get(target);
+                                let xdist = ti.x.get() - x;
+                                let ydist = ti.y.get() - y;
+                                let dist = (xdist * xdist) + (ydist * ydist);
+                                if nearest.is_none() || dist > maxdist {
+                                    maxdist = dist;
+                                    nearest = Some(target);
+                                }
+                            },
+                            None => break nearest,
+                        }
                     }
                 }
             },
@@ -4028,17 +4026,17 @@ impl Game {
             _ if obj < 0 => None, // Doesn't even check for other
             obj if obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            if target != context.this && self.check_collision(context.this, target) {
-                                break Some(target)
-                            }
-                        },
-                        None => break None,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                if target != context.this && self.check_collision(context.this, target) {
+                                    break Some(target)
+                                }
+                            },
+                            None => break None,
+                        }
                     }
                 }
             },
@@ -4186,7 +4184,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    false
                 }
             },
             instance_id => {
@@ -4239,8 +4237,6 @@ impl Game {
                     while let Some(handle) = iter.next(&self.instance_list) {
                         self.instance_list.deactivate(handle);
                     }
-                } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
                 }
             },
             inst_id => {
@@ -4295,8 +4291,6 @@ impl Game {
                     while let Some(handle) = iter.next(&self.instance_list) {
                         self.instance_list.activate(handle);
                     }
-                } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
                 }
             },
             inst_id => {
