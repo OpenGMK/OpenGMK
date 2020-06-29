@@ -27,6 +27,7 @@ pub struct ControlPanel {
     pub key_buttons: Vec<KeyButton>,
     pub big_save_button: BigSaveButton,
     pub save_buttons: Vec<SaveButton>,
+    pub seed_changer: SeedChanger,
     pub stream: TcpStream,
     mouse_x: i32,
     mouse_y: i32,
@@ -84,6 +85,12 @@ pub struct BigSaveButton {
     pub y: i32,
 }
 
+#[derive(Clone, Copy)]
+pub struct SeedChanger {
+    pub x: i32,
+    pub y: i32,
+}
+
 #[derive(Clone)]
 pub struct SaveButton {
     pub x: i32,
@@ -114,6 +121,12 @@ impl AdvanceButton {
 impl BigSaveButton {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
         x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 30)
+    }
+}
+
+impl SeedChanger {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 180) && y >= (self.y - 14) && y < (self.y + 3)
     }
 }
 
@@ -236,6 +249,7 @@ impl ControlPanel {
             ],
             big_save_button: BigSaveButton { x: 125, y: 240 },
             save_buttons,
+            seed_changer: SeedChanger { x: 8 , y: 365 },
             stream,
             mouse_x: 0,
             mouse_y: 0,
@@ -318,6 +332,14 @@ impl ControlPanel {
                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                         self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
                         break
+                    }
+
+                    if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) {
+                        if let Some(seed) = self.new_seed {
+                            self.new_seed = Some(seed + 1);
+                        } else {
+                            self.new_seed = Some(self.seed + 1);
+                        }
                     }
                 },
 
@@ -624,6 +646,13 @@ impl ControlPanel {
 
         draw_text(&mut self.renderer, "Keyboard", 123.0, 82.0, &self.font, 0, 1.0);
         draw_text(&mut self.renderer, "Saves", 143.0, 230.0, &self.font, 0, 1.0);
+
+        let (seed, seed_col) = if let Some(s) = self.new_seed {
+            (s, 0xFF)
+        } else {
+            (self.seed, 0)
+        };
+        draw_text(&mut self.renderer, &format!("Seed: {}", seed), self.seed_changer.x.into(), self.seed_changer.y.into(), &self.font_small, seed_col, if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 });
 
         if let Some(id) = self.watched_id.as_ref() {
             draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);
