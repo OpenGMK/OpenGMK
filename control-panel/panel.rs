@@ -32,6 +32,8 @@ pub struct ControlPanel {
     mouse_y: i32,
     watched_id: Option<ID>,
     watched_instance: Option<InstanceDetails>,
+    pub seed: i32,
+    pub new_seed: Option<i32>,
 
     pub frame_count: usize,
     pub game_mouse_pos: (f64, f64),
@@ -239,6 +241,8 @@ impl ControlPanel {
             mouse_y: 0,
             watched_id: None,
             watched_instance: None,
+            seed: 0,
+            new_seed: None,
 
             frame_count: 0,
             game_mouse_pos: (0.0, 0.0),
@@ -491,7 +495,7 @@ impl ControlPanel {
             keys_requested,
             mouse_buttons_requested: Vec::new(),
             instance_requested: self.watched_id,
-            new_seed: None,
+            new_seed: self.new_seed,
         })?;
 
         self.await_update()
@@ -505,12 +509,14 @@ impl ControlPanel {
                     mouse_buttons_held: _,
                     mouse_location,
                     frame_count,
-                    seed: _,
+                    seed,
                     instance,
                 }))) => {
                     self.frame_count = frame_count;
                     self.game_mouse_pos = mouse_location;
                     self.watched_instance = instance;
+                    self.seed = seed;
+                    self.new_seed = None;
                     for button in self.key_buttons.iter_mut() {
                         if keys_held.contains(&button.key) {
                             button.state = KeyButtonState::Held;
