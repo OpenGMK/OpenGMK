@@ -491,6 +491,7 @@ impl ControlPanel {
             keys_requested,
             mouse_buttons_requested: Vec::new(),
             instance_requested: self.watched_id,
+            new_seed: None,
         })?;
 
         self.await_update()

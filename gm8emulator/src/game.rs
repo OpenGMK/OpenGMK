@@ -1400,11 +1400,17 @@ impl Game {
                         keys_requested,
                         mouse_buttons_requested,
                         instance_requested,
+                        new_seed,
                     } => {
                         // Create a frame...
                         let mut frame = replay.new_frame(self.room_speed);
                         frame.mouse_x = mouse_location.0;
                         frame.mouse_y = mouse_location.1;
+                        frame.new_seed = new_seed;
+
+                        if let Some(seed) = new_seed {
+                            self.rand.set_seed(seed);
+                        }
 
                         // Process inputs
                         for (key, press) in key_inputs.into_iter() {
@@ -1579,6 +1585,14 @@ impl Game {
                 self.stored_events.clear();
                 for ev in frame.events.iter() {
                     self.stored_events.push_back(ev.clone());
+                }
+
+                if let Some(seed) = frame.new_seed {
+                    self.rand.set_seed(seed);
+                }
+
+                if let Some(time) = frame.new_time {
+                    self.spoofed_time_nanos = Some(time);
                 }
 
                 self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
