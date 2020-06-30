@@ -10,7 +10,7 @@ use crate::{
     math::Real,
 };
 use gmio::{
-    render::{Renderer, RendererOptions},
+    render::{BlendType, Renderer, RendererOptions},
     window,
 };
 use shared::{input::MouseButton, types::Colour};
@@ -446,14 +446,37 @@ impl Game {
         Ok(Value::from((r.round() & 255) + ((g.round() & 255) << 8) + ((b.round() & 255) << 16)))
     }
 
-    pub fn draw_set_blend_mode(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_blend_mode")
+    pub fn draw_set_blend_mode(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let mode = expect_args!(args, [int])?;
+        let (src, dest) = match mode {
+            1 => (BlendType::SrcAlpha, BlendType::One),          // bm_add
+            2 => (BlendType::SrcAlpha, BlendType::InvSrcColour), // bm_subtract
+            3 => (BlendType::Zero, BlendType::InvSrcColour),     // bm_max
+            _ => (BlendType::SrcAlpha, BlendType::InvSrcAlpha),  // bm_normal
+        };
+        self.renderer.set_blend_mode(src, dest);
+        Ok(Default::default())
     }
 
-    pub fn draw_set_blend_mode_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_set_blend_mode_ext")
+    pub fn draw_set_blend_mode_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (src, dest) = expect_args!(args, [int, int])?;
+        let int_to_blend_type = |i| match i {
+            2 => BlendType::One,
+            3 => BlendType::SrcColour,
+            4 => BlendType::InvSrcColour,
+            5 => BlendType::SrcAlpha,
+            6 => BlendType::InvSrcAlpha,
+            7 => BlendType::DestAlpha,
+            8 => BlendType::InvDestAlpha,
+            9 => BlendType::DestColour,
+            10 => BlendType::InvDestColour,
+            11 => BlendType::SrcAlphaSaturate,
+            _ => BlendType::Zero,
+        };
+        let src = int_to_blend_type(src);
+        let dest = int_to_blend_type(dest);
+        self.renderer.set_blend_mode(src, dest);
+        Ok(Default::default())
     }
 
     pub fn draw_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
