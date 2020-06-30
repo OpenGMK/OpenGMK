@@ -453,6 +453,10 @@ impl RendererTrait for RendererImpl {
 
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
+        if self.draw_queue.is_empty() {
+            return
+        }
+
         unsafe {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
