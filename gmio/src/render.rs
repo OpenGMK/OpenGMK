@@ -54,12 +54,9 @@ pub trait RendererTrait {
     fn flush_queue(&mut self);
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
-<<<<<<< HEAD
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
-=======
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
->>>>>>> master
 
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
