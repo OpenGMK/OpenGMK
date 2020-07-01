@@ -3,11 +3,27 @@
 mod opengl;
 
 use crate::{atlas::AtlasBuilder, window::Window};
+use serde::{Deserialize, Serialize};
 use shared::types::Colour;
 use std::any::Any;
 
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum BlendType {
+    Zero,
+    One,
+    SrcColour,
+    InvSrcColour,
+    SrcAlpha,
+    InvSrcAlpha,
+    DestAlpha,
+    InvDestAlpha,
+    DestColour,
+    InvDestColour,
+    SrcAlphaSaturate,
+}
 
 pub struct Renderer(Box<dyn RendererTrait>);
 
@@ -38,7 +54,12 @@ pub trait RendererTrait {
     fn flush_queue(&mut self);
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
+<<<<<<< HEAD
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
+=======
+    fn get_blend_mode(&self) -> (BlendType, BlendType);
+    fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
+>>>>>>> master
 
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
@@ -265,6 +286,14 @@ impl Renderer {
 
     pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         self.0.draw_raw_frame(rgb, w, h, clear_colour)
+    }
+
+    pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
+        self.0.get_blend_mode()
+    }
+
+    pub fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
+        self.0.set_blend_mode(src, dst)
     }
 
     pub fn flush_queue(&mut self) {

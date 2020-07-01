@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, RendererOptions, RendererTrait},
+    render::{mat4mult, BlendType, RendererOptions, RendererTrait},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -16,7 +16,7 @@ pub mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
@@ -73,6 +73,43 @@ unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
         name,
         std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
     )
+}
+
+impl From<BlendType> for GLenum {
+    fn from(bt: BlendType) -> Self {
+        match bt {
+            BlendType::Zero => gl::ZERO,
+            BlendType::One => gl::ONE,
+            BlendType::SrcColour => gl::SRC_COLOR,
+            BlendType::InvSrcColour => gl::ONE_MINUS_SRC_COLOR,
+            BlendType::SrcAlpha => gl::SRC_ALPHA,
+            BlendType::InvSrcAlpha => gl::ONE_MINUS_SRC_ALPHA,
+            BlendType::DestAlpha => gl::DST_ALPHA,
+            BlendType::InvDestAlpha => gl::ONE_MINUS_DST_ALPHA,
+            BlendType::DestColour => gl::DST_COLOR,
+            BlendType::InvDestColour => gl::ONE_MINUS_DST_COLOR,
+            BlendType::SrcAlphaSaturate => gl::SRC_ALPHA_SATURATE,
+        }
+    }
+}
+
+impl From<GLenum> for BlendType {
+    fn from(bt: GLenum) -> Self {
+        match bt {
+            gl::ZERO => BlendType::Zero,
+            gl::ONE => BlendType::One,
+            gl::SRC_COLOR => BlendType::SrcColour,
+            gl::ONE_MINUS_SRC_COLOR => BlendType::InvSrcColour,
+            gl::SRC_ALPHA => BlendType::SrcAlpha,
+            gl::ONE_MINUS_SRC_ALPHA => BlendType::InvSrcAlpha,
+            gl::DST_ALPHA => BlendType::DestAlpha,
+            gl::ONE_MINUS_DST_ALPHA => BlendType::InvDestAlpha,
+            gl::DST_COLOR => BlendType::DestColour,
+            gl::ONE_MINUS_DST_COLOR => BlendType::InvDestColour,
+            gl::SRC_ALPHA_SATURATE => BlendType::SrcAlphaSaturate,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl RendererImpl {
@@ -495,8 +532,29 @@ impl RendererTrait for RendererImpl {
         self.draw_sprite(&copied_pixel, x2, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // right line
     }
 
+    fn get_blend_mode(&self) -> (BlendType, BlendType) {
+        let mut src: GLint = 0;
+        let mut dst: GLint = 0;
+        unsafe {
+            gl::GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
+            gl::GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
+        }
+        ((src as GLenum).into(), (dst as GLenum).into())
+    }
+
+    fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
+        self.flush_queue();
+        unsafe {
+            gl::BlendFunc(src.into(), dst.into());
+        }
+    }
+
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
+        if self.draw_queue.is_empty() {
+            return
+        }
+
         unsafe {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);

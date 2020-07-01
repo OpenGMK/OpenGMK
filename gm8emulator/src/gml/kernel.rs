@@ -10,7 +10,7 @@ use crate::{
     math::Real,
 };
 use gmio::{
-    render::{Renderer, RendererOptions},
+    render::{BlendType, Renderer, RendererOptions},
     window,
 };
 use shared::{input::MouseButton, types::Colour};
@@ -446,14 +446,37 @@ impl Game {
         Ok(Value::from((r.round() & 255) + ((g.round() & 255) << 8) + ((b.round() & 255) << 16)))
     }
 
-    pub fn draw_set_blend_mode(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_blend_mode")
+    pub fn draw_set_blend_mode(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let mode = expect_args!(args, [int])?;
+        let (src, dest) = match mode {
+            1 => (BlendType::SrcAlpha, BlendType::One),          // bm_add
+            2 => (BlendType::SrcAlpha, BlendType::InvSrcColour), // bm_subtract
+            3 => (BlendType::Zero, BlendType::InvSrcColour),     // bm_max
+            _ => (BlendType::SrcAlpha, BlendType::InvSrcAlpha),  // bm_normal
+        };
+        self.renderer.set_blend_mode(src, dest);
+        Ok(Default::default())
     }
 
-    pub fn draw_set_blend_mode_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_set_blend_mode_ext")
+    pub fn draw_set_blend_mode_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (src, dest) = expect_args!(args, [int, int])?;
+        let int_to_blend_type = |i| match i {
+            2 => BlendType::One,
+            3 => BlendType::SrcColour,
+            4 => BlendType::InvSrcColour,
+            5 => BlendType::SrcAlpha,
+            6 => BlendType::InvSrcAlpha,
+            7 => BlendType::DestAlpha,
+            8 => BlendType::InvDestAlpha,
+            9 => BlendType::DestColour,
+            10 => BlendType::InvDestColour,
+            11 => BlendType::SrcAlphaSaturate,
+            _ => BlendType::Zero,
+        };
+        let src = int_to_blend_type(src);
+        let dest = int_to_blend_type(dest);
+        self.renderer.set_blend_mode(src, dest);
+        Ok(Default::default())
     }
 
     pub fn draw_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -466,9 +489,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_clear_alpha")
     }
 
-    pub fn draw_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_point")
+    pub fn draw_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+        self.renderer.draw_rectangle(
+            x.into(),
+            y.into(),
+            x.into(),
+            y.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -545,9 +576,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_path")
     }
 
-    pub fn draw_point_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_point_color")
+    pub fn draw_point_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, col) = expect_args!(args, [real, real, int])?;
+        self.renderer.draw_rectangle(x.into(), y.into(), x.into(), y.into(), col, self.draw_alpha.into());
+        Ok(Default::default())
     }
 
     pub fn draw_line_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1962,7 +1994,7 @@ impl Game {
             };
             Ok(cond.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+            Ok(0.into())
         }
     }
 
@@ -2541,8 +2573,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_snapshot")
     }
 
-    pub fn action_effect(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, col, below) = expect_args!(args, [int, real, real, int, int, any])?;
+    pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, mut x, mut y, size, col, below) = expect_args!(args, [int, real, real, int, int, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
         let kind = match kind {
             0 => particle::EffectType::Explosion,
             1 => particle::EffectType::Ring,
@@ -3104,18 +3141,20 @@ impl Game {
             gml::ALL => self.check_collision_any(context.this).is_some(),
             obj if obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            if target != context.this && self.check_collision(context.this, target) {
-                                break true
-                            }
-                        },
-                        None => break false,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                if target != context.this && self.check_collision(context.this, target) {
+                                    break true
+                                }
+                            },
+                            None => break false,
+                        }
                     }
+                } else {
+                    false
                 }
             },
             instance_id => {
@@ -3443,7 +3482,7 @@ impl Game {
                     }
                     closest
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    1000000.0 // GML default
                 }
             },
             instance_id => {
@@ -3621,7 +3660,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3681,7 +3720,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3753,7 +3792,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3861,7 +3900,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    None
                 }
             },
             instance_id => {
@@ -3906,25 +3945,27 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                let mut maxdist = Real::from(10000000000.0); // GML default
-                let mut nearest = None;
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            let ti = self.instance_list.get(target);
-                            let xdist = ti.x.get() - x;
-                            let ydist = ti.y.get() - y;
-                            let dist = (xdist * xdist) + (ydist * ydist);
-                            if dist < maxdist {
-                                maxdist = dist;
-                                nearest = Some(target);
-                            }
-                        },
-                        None => break nearest,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut maxdist = Real::from(10000000000.0); // GML default
+                    let mut nearest = None;
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                let ti = self.instance_list.get(target);
+                                let xdist = ti.x.get() - x;
+                                let ydist = ti.y.get() - y;
+                                let dist = (xdist * xdist) + (ydist * ydist);
+                                if dist < maxdist {
+                                    maxdist = dist;
+                                    nearest = Some(target);
+                                }
+                            },
+                            None => break nearest,
+                        }
                     }
+                } else {
+                    None
                 }
             },
             // Target is an instance id
@@ -3964,25 +4005,27 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                let mut maxdist = Real::from(0.0);
-                let mut nearest = None;
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            let ti = self.instance_list.get(target);
-                            let xdist = ti.x.get() - x;
-                            let ydist = ti.y.get() - y;
-                            let dist = (xdist * xdist) + (ydist * ydist);
-                            if nearest.is_none() || dist > maxdist {
-                                maxdist = dist;
-                                nearest = Some(target);
-                            }
-                        },
-                        None => break nearest,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut maxdist = Real::from(0.0);
+                    let mut nearest = None;
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                let ti = self.instance_list.get(target);
+                                let xdist = ti.x.get() - x;
+                                let ydist = ti.y.get() - y;
+                                let dist = (xdist * xdist) + (ydist * ydist);
+                                if nearest.is_none() || dist > maxdist {
+                                    maxdist = dist;
+                                    nearest = Some(target);
+                                }
+                            },
+                            None => break nearest,
+                        }
                     }
+                } else {
+                    None
                 }
             },
             // Target is an instance ID
@@ -4025,18 +4068,20 @@ impl Game {
             _ if obj < 0 => None, // Doesn't even check for other
             obj if obj < 100000 => {
                 // Target is an object ID
-                let object =
-                    self.assets.objects.get_asset(obj).ok_or(gml::Error::NonexistentAsset(asset::Type::Object, obj))?;
-                let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            if target != context.this && self.check_collision(context.this, target) {
-                                break Some(target)
-                            }
-                        },
-                        None => break None,
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(target) => {
+                                if target != context.this && self.check_collision(context.this, target) {
+                                    break Some(target)
+                                }
+                            },
+                            None => break None,
+                        }
                     }
+                } else {
+                    None
                 }
             },
             instance_id => {
@@ -4183,7 +4228,7 @@ impl Game {
                         }
                     }
                 } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, object_id))
+                    false
                 }
             },
             instance_id => {
@@ -4236,8 +4281,6 @@ impl Game {
                     while let Some(handle) = iter.next(&self.instance_list) {
                         self.instance_list.deactivate(handle);
                     }
-                } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
                 }
             },
             inst_id => {
@@ -4292,8 +4335,6 @@ impl Game {
                     while let Some(handle) = iter.next(&self.instance_list) {
                         self.instance_list.activate(handle);
                     }
-                } else {
-                    return Err(gml::Error::NonexistentAsset(asset::Type::Object, obj))
                 }
             },
             inst_id => {
@@ -4307,7 +4348,7 @@ impl Game {
 
     pub fn instance_activate_region(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, any])?;
-        let mut iter = self.instance_list.iter_by_insertion();
+        let mut iter = self.instance_list.iter_inactive();
         while let Some(handle) = iter.next(&self.instance_list) {
             let inst = self.instance_list.get(handle);
             if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
@@ -4412,9 +4453,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function transition_exists")
     }
 
-    pub fn sleep(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sleep")
+    pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let millis = expect_args!(args, [int])?;
+        if millis > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            self.process_window_events();
+        }
+        Ok(Default::default())
     }
 
     pub fn yoyo_getplatform(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4886,6 +4931,7 @@ impl Game {
                             format!("Cannot wait for {}: {}", prog, e),
                         ))
                     }
+                    self.process_window_events();
                 }
                 Ok(Default::default())
             },
@@ -5676,9 +5722,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function joystick_pov")
     }
 
-    pub fn keyboard_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_clear")
+    pub fn keyboard_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        self.process_window_events();
+        if key > 0 {
+            self.input_manager.key_clear(key as usize);
+        }
+        Ok(Default::default())
     }
 
     pub fn mouse_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5692,8 +5742,8 @@ impl Game {
     }
 
     pub fn io_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function io_handle")
+        self.process_window_events();
+        Ok(Default::default())
     }
 
     pub fn keyboard_wait(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5892,7 +5942,8 @@ impl Game {
     }
 
     pub fn external_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function external_define")
+        //unimplemented!("Called unimplemented kernel function external_define")
+        Ok(_args[3].clone().into())
     }
 
     pub fn external_call(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6126,11 +6177,12 @@ impl Game {
 
     pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let identifier = expect_args!(args, [string])?;
-        if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            Ok(context.locals.vars.contains_key(var).into())
+        if mappings::get_instance_variable_by_name(identifier.as_ref()).is_some() {
+            Ok(gml::TRUE.into())
         } else {
+            let instance = self.instance_list.get(context.this);
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(context.locals.fields.contains_key(&field_id).into())
+            Ok(instance.fields.borrow().contains_key(&field_id).into())
         }
     }
 
@@ -6143,10 +6195,11 @@ impl Game {
         let (identifier, index) = expect_args!(args, [string, int])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            Ok(context.locals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
+            self.get_instance_var(context.this, var, index, context)
         } else {
+            let instance = self.instance_list.get(context.this);
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(context.locals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+            Ok(instance.fields.borrow().get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
         }
     }
 
@@ -6164,17 +6217,14 @@ impl Game {
         let (identifier, index, value) = expect_args!(args, [string, int, any])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
-            if let Some(field) = context.locals.vars.get_mut(var) {
-                field.set(index, value);
-            } else {
-                context.locals.vars.insert(*var, Field::new(index, value));
-            }
+            self.set_instance_var(context.this, var, index, value, context)?;
         } else {
+            let mut fields = self.instance_list.get(context.this).fields.borrow_mut();
             let field_id = self.compiler.get_field_id(identifier.as_ref());
-            if let Some(field) = context.locals.fields.get_mut(&field_id) {
+            if let Some(field) = fields.get_mut(&field_id) {
                 field.set(index, value);
             } else {
-                context.locals.fields.insert(field_id, Field::new(index, value));
+                fields.insert(field_id, Field::new(index, value));
             }
         }
         Ok(Default::default())
@@ -9351,9 +9401,40 @@ impl Game {
         }
     }
 
-    pub fn ds_grid_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_grid_read")
+    pub fn ds_grid_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_grid(mut reader: &[u8]) -> Option<ds::Grid> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x259 {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let width = u32::from_le_bytes(buf) as usize;
+            reader.read_exact(&mut buf).ok()?;
+            let height = u32::from_le_bytes(buf) as usize;
+            let mut grid = ds::Grid::new(width, height);
+            for x in 0..width {
+                for y in 0..height {
+                    grid.set(x, y, Value::from_reader(&mut reader)?);
+                }
+            }
+            Some(grid)
+        }
+        match self.grids.get_mut(id) {
+            Ok(old_grid) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(grid) = read_grid(data.as_slice()) {
+                            *old_grid = grid;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_grid_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_grid_read".into(), e.into())),
+        }
     }
 
     pub fn sound_play(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

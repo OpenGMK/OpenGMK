@@ -27,11 +27,14 @@ pub struct ControlPanel {
     pub key_buttons: Vec<KeyButton>,
     pub big_save_button: BigSaveButton,
     pub save_buttons: Vec<SaveButton>,
+    pub seed_changer: SeedChanger,
     pub stream: TcpStream,
     mouse_x: i32,
     mouse_y: i32,
     watched_id: Option<ID>,
     watched_instance: Option<InstanceDetails>,
+    pub seed: i32,
+    pub new_seed: Option<i32>,
 
     pub frame_count: usize,
     pub game_mouse_pos: (f64, f64),
@@ -82,6 +85,12 @@ pub struct BigSaveButton {
     pub y: i32,
 }
 
+#[derive(Clone, Copy)]
+pub struct SeedChanger {
+    pub x: i32,
+    pub y: i32,
+}
+
 #[derive(Clone)]
 pub struct SaveButton {
     pub x: i32,
@@ -115,6 +124,12 @@ impl BigSaveButton {
     }
 }
 
+impl SeedChanger {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 180) && y >= (self.y - 14) && y < (self.y + 3)
+    }
+}
+
 impl KeyButton {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
         x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
@@ -137,7 +152,7 @@ impl ControlPanel {
         let clear_colour = Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0);
         let mut renderer = Renderer::new(
             (),
-            &RendererOptions { size: (WINDOW_WIDTH, WINDOW_HEIGHT), vsync: false },
+            &RendererOptions { size: (WINDOW_WIDTH, WINDOW_HEIGHT), vsync: true },
             &window,
             clear_colour,
         )?;
@@ -234,11 +249,14 @@ impl ControlPanel {
             ],
             big_save_button: BigSaveButton { x: 125, y: 240 },
             save_buttons,
+            seed_changer: SeedChanger { x: 8 , y: 365 },
             stream,
             mouse_x: 0,
             mouse_y: 0,
             watched_id: None,
             watched_instance: None,
+            seed: 0,
+            new_seed: None,
 
             frame_count: 0,
             game_mouse_pos: (0.0, 0.0),
@@ -314,6 +332,14 @@ impl ControlPanel {
                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                         self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
                         break
+                    }
+
+                    if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) {
+                        if let Some(seed) = self.new_seed {
+                            self.new_seed = Some(seed + 1);
+                        } else {
+                            self.new_seed = Some(self.seed + 1);
+                        }
                     }
                 },
 
@@ -491,6 +517,7 @@ impl ControlPanel {
             keys_requested,
             mouse_buttons_requested: Vec::new(),
             instance_requested: self.watched_id,
+            new_seed: self.new_seed,
         })?;
 
         self.await_update()
@@ -504,12 +531,14 @@ impl ControlPanel {
                     mouse_buttons_held: _,
                     mouse_location,
                     frame_count,
-                    seed: _,
+                    seed,
                     instance,
                 }))) => {
                     self.frame_count = frame_count;
                     self.game_mouse_pos = mouse_location;
                     self.watched_instance = instance;
+                    self.seed = seed;
+                    self.new_seed = None;
                     for button in self.key_buttons.iter_mut() {
                         if keys_held.contains(&button.key) {
                             button.state = KeyButtonState::Held;
@@ -617,6 +646,13 @@ impl ControlPanel {
 
         draw_text(&mut self.renderer, "Keyboard", 123.0, 82.0, &self.font, 0, 1.0);
         draw_text(&mut self.renderer, "Saves", 143.0, 230.0, &self.font, 0, 1.0);
+
+        let (seed, seed_col) = if let Some(s) = self.new_seed {
+            (s, 0xFF)
+        } else {
+            (self.seed, 0)
+        };
+        draw_text(&mut self.renderer, &format!("Seed: {}", seed), self.seed_changer.x.into(), self.seed_changer.y.into(), &self.font_small, seed_col, if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 });
 
         if let Some(id) = self.watched_id.as_ref() {
             draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);

@@ -16,6 +16,7 @@ pub enum Message {
         keys_requested: Vec<input::Key>,
         mouse_buttons_requested: Vec<input::MouseButton>,
         instance_requested: Option<ID>,
+        new_seed: Option<i32>,
     },
 
     /// Tells the game to create a savestate in the given index

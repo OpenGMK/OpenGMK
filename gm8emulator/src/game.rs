@@ -96,6 +96,7 @@ pub struct Game {
     pub room_speed: u32,
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
 
+    pub constants: Vec<gml::Value>,
     pub globals: DummyFieldHolder,
     pub globalvars: HashSet<usize>,
     pub game_start: bool,
@@ -264,9 +265,9 @@ impl Game {
                 + sounds.iter().flatten().count()
                 + sprites.iter().flatten().count()
                 + timelines.iter().flatten().count()
-                + triggers.iter().flatten().count()
-                + constants.len(),
+                + triggers.iter().flatten().count(),
         );
+        compiler.reserve_user_constants(constants.len());
 
         // Helper fn for registering asset names as constants
         fn register_all<T>(compiler: &mut Compiler, assets: &[Option<T>], get_name: fn(&T) -> String) {
@@ -296,6 +297,9 @@ impl Game {
             .enumerate()
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
+        
+        // Register user constants
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.clone(), i));
 
         // Set up a Renderer
         let options = RendererOptions {
@@ -751,6 +755,7 @@ impl Game {
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
             scene_change: None,
+            constants: Vec::with_capacity(constants.len()),
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
             game_start: true,
@@ -797,6 +802,32 @@ impl Game {
             unscaled_width: 0,
             unscaled_height: 0,
         };
+
+        // Evaluate constants
+        for c in &constants {
+            let expr = game.compiler.compile_expression(&c.expression)?;
+            let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let value = game.eval(&expr, &mut Context {
+                this: dummy_instance,
+                other: dummy_instance,
+                event_action: 0,
+                relative: false,
+                event_type: 0,
+                event_number: 0,
+                event_object: 0,
+                arguments: Default::default(),
+                argument_count: 0,
+                locals: Default::default(),
+                return_value: Default::default(),
+            })?;
+            game.constants.push(value);
+            game.instance_list.remove_dummy(dummy_instance);
+        }
+
+        // Re-initialization after constants are done
+        game.globals.fields.clear();
+        game.globals.vars.clear();
+        game.globalvars.clear();
 
         game.load_room(room1_id)?;
         game.window.set_visible(true);
@@ -1199,6 +1230,12 @@ impl Game {
         // Draw everything, including running draw events
         self.draw()?;
 
+        // Move backgrounds
+        for bg in self.backgrounds.iter_mut() {
+            bg.x_offset += bg.hspeed;
+            bg.y_offset += bg.vspeed;
+        }
+
         // Advance sprite animations
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
@@ -1231,25 +1268,34 @@ impl Game {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn process_window_events(&mut self) {
         use gmio::window::Event;
 
+        match self.play_type {
+            PlayType::Normal => {
+                self.input_manager.mouse_update_previous();
+                for event in self.window.process_events().copied() {
+                    match event {
+                        Event::KeyboardDown(key) => self.input_manager.key_press(key),
+                        Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                        Event::MenuOption(_) => (),
+                        Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
+                        Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
+                        Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
+                        Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+                        Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                        Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
+                    }
+                }
+            },
+            _ => (),
+        }
+    }
+
+    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
         loop {
-            self.input_manager.mouse_update_previous();
-            for event in self.window.process_events().copied() {
-                match event {
-                    Event::KeyboardDown(key) => self.input_manager.key_press(key),
-                    Event::KeyboardUp(key) => self.input_manager.key_release(key),
-                    Event::MenuOption(_) => (),
-                    Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
-                    Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
-                    Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
-                    Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                    Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
-                    Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
-                }
-            }
+            self.process_window_events();
 
             self.frame()?;
             match self.scene_change {
@@ -1385,11 +1431,17 @@ impl Game {
                         keys_requested,
                         mouse_buttons_requested,
                         instance_requested,
+                        new_seed,
                     } => {
                         // Create a frame...
                         let mut frame = replay.new_frame(self.room_speed);
                         frame.mouse_x = mouse_location.0;
                         frame.mouse_y = mouse_location.1;
+                        frame.new_seed = new_seed;
+
+                        if let Some(seed) = new_seed {
+                            self.rand.set_seed(seed);
+                        }
 
                         // Process inputs
                         for (key, press) in key_inputs.into_iter() {
@@ -1564,6 +1616,14 @@ impl Game {
                 self.stored_events.clear();
                 for ev in frame.events.iter() {
                     self.stored_events.push_back(ev.clone());
+                }
+
+                if let Some(seed) = frame.new_seed {
+                    self.rand.set_seed(seed);
+                }
+
+                if let Some(time) = frame.new_time {
+                    self.spoofed_time_nanos = Some(time);
                 }
 
                 self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);

@@ -115,6 +115,15 @@ impl InputManager {
         }
     }
 
+    /// Clears a keypress from the input manager's internal state
+    pub fn key_clear(&mut self, code: usize) {
+        if code < KEY_COUNT {
+            self.kb_pressed.set(code, false);
+            self.kb_held.set(code, false);
+            self.kb_released.set(code, false);
+        }
+    }
+
     /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
     pub fn key_check(&self, code: usize) -> bool {
         self.kb_held.get(code)

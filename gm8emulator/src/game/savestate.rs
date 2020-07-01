@@ -11,6 +11,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
+use gmio::render::BlendType;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -30,6 +31,7 @@ pub struct SaveState {
 
     pub background_colour: Colour,
     pub room_colour: Option<Colour>,
+    pub blend_mode: (BlendType, BlendType),
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -113,6 +115,7 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             room_colour: game.room_colour,
+            blend_mode: game.renderer.get_blend_mode(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -177,6 +180,7 @@ impl SaveState {
             self.screenshot_height as _,
             game.background_colour,
         );
+        game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
