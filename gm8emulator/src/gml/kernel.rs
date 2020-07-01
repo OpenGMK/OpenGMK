@@ -767,28 +767,34 @@ impl Game {
     }
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, text) = expect_args!(args, [int, int, any])?;
-        self.draw_string(x, y, &text.repr(), None, None);
+        let (x, y, text) = expect_args!(args, [real, real, any])?;
+        self.draw_string(x, y, &text.repr(), None, None, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
     pub fn draw_text_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, text, line_height, max_width) = expect_args!(args, [int, int, any, int, int])?;
+        let (x, y, text, line_height, max_width) = expect_args!(args, [real, real, any, int, int])?;
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(x, y, &text.repr(), line_height, max_width);
+        self.draw_string(x, y, &text.repr(), line_height, max_width, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
-    pub fn draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_text_transformed")
+    pub fn draw_text_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, xscale, yscale, angle) = expect_args!(args, [real, real, any, real, real, real])?;
+        self.draw_string(x, y, &text.repr(), None, None, xscale, yscale, angle);
+        Ok(Default::default())
     }
 
-    pub fn draw_text_ext_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_text_ext_transformed")
+    pub fn draw_text_ext_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, line_height, max_width, xscale, yscale, angle) =
+            expect_args!(args, [real, real, any, int, int, real, real, real])?;
+        let line_height = if line_height < 0 { None } else { Some(line_height as _) };
+        let max_width = if max_width < 0 { None } else { Some(max_width as _) };
+
+        self.draw_string(x, y, &text.repr(), line_height, max_width, xscale, yscale, angle);
+        Ok(Default::default())
     }
 
     pub fn draw_text_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2481,9 +2487,14 @@ impl Game {
         self.draw_text(context, &[x.into(), y.into(), text])
     }
 
-    pub fn action_draw_text_transformed(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_text_transformed")
+    pub fn action_draw_text_transformed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (text, mut x, mut y, xscale, yscale, angle) = expect_args!(args, [any, real, real, any, any, any])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text_transformed(context, &[x.into(), y.into(), text, xscale, yscale, angle])
     }
 
     pub fn action_draw_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6643,9 +6654,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_merge")
     }
 
-    pub fn sprite_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sprite_save")
+    pub fn sprite_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            let image_index = subimg % sprite.frames.len() as i32;
+            if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
+                // get RGBA
+                if let Err(e) = file::save_png(
+                    fname.as_ref(),
+                    atlas_ref.w as u32,
+                    atlas_ref.h as u32,
+                    self.renderer.dump_sprite(atlas_ref),
+                ) {
+                    return Err(gml::Error::FunctionError("sprite_save".into(), e.into()))
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn sprite_save_strip(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6757,9 +6782,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_assign")
     }
 
-    pub fn background_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function background_save")
+    pub fn background_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_id, fname) = expect_args!(args, [int, string])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            if let Some(atlas_ref) = background.atlas_ref.as_ref() {
+                // get RGBA
+                if let Err(e) = file::save_png(
+                    fname.as_ref(),
+                    atlas_ref.w as u32,
+                    atlas_ref.h as u32,
+                    self.renderer.dump_sprite(atlas_ref),
+                ) {
+                    return Err(gml::Error::FunctionError("background_save".into(), e.into()))
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn sound_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6867,9 +6905,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function font_replace")
     }
 
-    pub fn font_add_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function font_add_sprite")
+    pub fn font_add_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, first, prop, sep) = expect_args!(args, [int, int, any, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            let chars = asset::font::create_chars_from_sprite(sprite, prop.is_truthy(), sep, &self.renderer);
+            let font_id = self.assets.fonts.len();
+            self.assets.fonts.push(Some(Box::new(asset::Font {
+                name: format!("__newfont{}", font_id).into(),
+                sys_name: "".into(),
+                size: 12,
+                bold: false,
+                italic: false,
+                first: first.max(0).min(255) as _,
+                last: (first as u32 + chars.len() as u32 - 1).min(255),
+                tallest_char_height: sprite.height,
+                chars,
+                own_graphics: false,
+            })));
+            Ok(font_id.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
     pub fn font_replace_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

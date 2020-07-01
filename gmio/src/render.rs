@@ -54,6 +54,7 @@ pub trait RendererTrait {
     fn flush_queue(&mut self);
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
+    fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
 
@@ -270,6 +271,10 @@ impl Renderer {
 
     pub fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         self.0.draw_rectangle_outline(x1, y1, x2, y2, colour, alpha)
+    }
+
+    pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
+        self.0.dump_sprite(atlas_ref)
     }
 
     pub fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
