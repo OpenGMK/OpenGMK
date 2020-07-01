@@ -96,6 +96,7 @@ pub struct Game {
     pub room_speed: u32,
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
 
+    pub constants: Vec<gml::Value>,
     pub globals: DummyFieldHolder,
     pub globalvars: HashSet<usize>,
     pub game_start: bool,
@@ -264,9 +265,9 @@ impl Game {
                 + sounds.iter().flatten().count()
                 + sprites.iter().flatten().count()
                 + timelines.iter().flatten().count()
-                + triggers.iter().flatten().count()
-                + constants.len(),
+                + triggers.iter().flatten().count(),
         );
+        compiler.reserve_user_constants(constants.len());
 
         // Helper fn for registering asset names as constants
         fn register_all<T>(compiler: &mut Compiler, assets: &[Option<T>], get_name: fn(&T) -> String) {
@@ -296,6 +297,9 @@ impl Game {
             .enumerate()
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
+        
+        // Register user constants
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.clone(), i));
 
         // Set up a Renderer
         let options = RendererOptions {
@@ -751,6 +755,7 @@ impl Game {
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
             scene_change: None,
+            constants: Vec::with_capacity(constants.len()),
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
             game_start: true,
@@ -797,6 +802,32 @@ impl Game {
             unscaled_width: 0,
             unscaled_height: 0,
         };
+
+        // Evaluate constants
+        for c in &constants {
+            let expr = game.compiler.compile_expression(&c.expression)?;
+            let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let value = game.eval(&expr, &mut Context {
+                this: dummy_instance,
+                other: dummy_instance,
+                event_action: 0,
+                relative: false,
+                event_type: 0,
+                event_number: 0,
+                event_object: 0,
+                arguments: Default::default(),
+                argument_count: 0,
+                locals: Default::default(),
+                return_value: Default::default(),
+            })?;
+            game.constants.push(value);
+            game.instance_list.remove_dummy(dummy_instance);
+        }
+
+        // Re-initialization after constants are done
+        game.globals.fields.clear();
+        game.globals.vars.clear();
+        game.globalvars.clear();
 
         game.load_room(room1_id)?;
         game.window.set_visible(true);

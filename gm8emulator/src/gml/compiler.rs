@@ -20,6 +20,9 @@ pub struct Compiler {
     /// List of identifiers which represent const values
     constants: HashMap<String, Value>,
 
+    /// Table of user-defined constants to IDs
+    user_constant_names: HashMap<String, usize>,
+
     /// Table of script names to IDs
     script_names: HashMap<String, usize>,
 
@@ -30,7 +33,7 @@ pub struct Compiler {
 impl Compiler {
     /// Create a compiler.
     pub fn new() -> Self {
-        Self { constants: HashMap::new(), script_names: HashMap::new(), fields: Vec::new() }
+        Self { constants: HashMap::new(), user_constant_names: HashMap::new(), script_names: HashMap::new(), fields: Vec::new() }
     }
 
     /// Reserve space to register at least the given number of constants.
@@ -41,6 +44,11 @@ impl Compiler {
     /// Reserve space to register at least the given number of script names.
     pub fn reserve_scripts(&mut self, size: usize) {
         self.script_names.reserve(size)
+    }
+
+    /// Reserve space to register at least the given number of user-defined constants.
+    pub fn reserve_user_constants(&mut self, size: usize) {
+        self.user_constant_names.reserve(size)
     }
 
     /// Add a constant and its associated f64 value, such as an asset name.
@@ -54,6 +62,10 @@ impl Compiler {
     /// Panics if two identical script names are registered - GM8 does not allow this.
     pub fn register_script(&mut self, name: String, index: usize) {
         self.script_names.entry(name).or_insert(index);
+    }
+
+    pub fn register_user_constant(&mut self, name: String, index: usize) {
+        self.user_constant_names.insert(name, index);
     }
 
     /// Compile a GML string into instructions.
@@ -244,6 +256,8 @@ impl Compiler {
             ast::Expr::LiteralIdentifier(string) => {
                 if let Some(entry) = self.constants.get(*string) {
                     Node::Literal { value: entry.clone() }
+                } else if let Some(constant_id) = self.user_constant_names.get(*string) {
+                    Node::Constant { constant_id: *constant_id }
                 } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| s == string).map(|(_, v)| v) {
                     Node::Literal { value: Value::Real(Real::from(*f)) }
                 } else {

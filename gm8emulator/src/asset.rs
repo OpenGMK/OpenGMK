@@ -33,6 +33,7 @@ pub enum Type {
     Sprite,
     Timeline,
     Trigger,
+    Constant,
 }
 
 impl Display for Type {
@@ -48,6 +49,7 @@ impl Display for Type {
             Self::Sprite => write!(f, "sprite"),
             Self::Timeline => write!(f, "timeline"),
             Self::Trigger => write!(f, "trigger"),
+            Self::Constant => write!(f, "constant"),
         }
     }
 }
