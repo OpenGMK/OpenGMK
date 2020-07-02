@@ -40,6 +40,7 @@ pub struct ControlPanel {
 
     pub frame_count: usize,
     pub game_mouse_pos: (f64, f64),
+    pub client_mouse_pos: (i32, i32),
 
     advance_button_normal: AtlasRef,
     big_save_button_normal: AtlasRef,
@@ -284,7 +285,7 @@ impl ControlPanel {
                 MouseButton { x: 56, y: 248, button: input::MouseButton::Middle, state: ButtonState::Neutral },
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
-            mouse_position_button: MousePositionButton { x: 320, y: 250, active: false },
+            mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
             big_save_button: BigSaveButton { x: 125, y: 400 },
             save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
@@ -298,6 +299,7 @@ impl ControlPanel {
 
             frame_count: 0,
             game_mouse_pos: (0.0, 0.0),
+            client_mouse_pos: (0, 0),
 
             advance_button_normal,
             big_save_button_normal,
@@ -324,6 +326,11 @@ impl ControlPanel {
             match self.stream.receive_message::<Information>(&mut self.read_buffer)? {
                 None => return Ok(false),
                 Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
+                Some(Some(Information::LeftClick { x, y })) => {
+                    self.game_mouse_pos = (f64::from(x), f64::from(y));
+                    self.mouse_position_button.active = false;
+                },
+                Some(Some(Information::MousePosition { x, y })) => self.client_mouse_pos = (x, y),
                 Some(Some(Information::InstanceClicked { details })) => {
                     self.watched_id = Some(details.id);
                     self.watched_instance = Some(details);
@@ -820,6 +827,15 @@ impl ControlPanel {
             0xFFFFFF,
             if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
         );
+
+        let (x, y) = self.game_mouse_pos;
+        draw_text(&mut self.renderer, &format!("x: {}", x), 180.0, 266.0, &self.font_small, 0, 1.0);
+        draw_text(&mut self.renderer, &format!("y: {}", y), 180.0, 286.0, &self.font_small, 0, 1.0);
+        if self.mouse_position_button.active {
+            let (x, y) = self.client_mouse_pos;
+            draw_text(&mut self.renderer, &x.to_string(), 250.0, 266.0, &self.font_small, 0xA0A0A0, 1.0);
+            draw_text(&mut self.renderer, &y.to_string(), 250.0, 286.0, &self.font_small, 0xA0A0A0, 1.0);
+        }
 
         for button in self.save_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
