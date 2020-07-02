@@ -6499,7 +6499,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.name.to_string().into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok("<undefined>".into())
         }
     }
 
