@@ -177,6 +177,11 @@ impl Game {
             }
             i += 1;
         }
+        if self.input_manager.key_check_any() {
+            self.run_object_event(gml::ev::KEYBOARD, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYBOARD, 0, None)?;
+        }
         Ok(())
     }
 
@@ -198,6 +203,11 @@ impl Game {
             }
             i += 1;
         }
+        if self.input_manager.key_check_any_pressed() {
+            self.run_object_event(gml::ev::KEYPRESS, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYPRESS, 0, None)?;
+        }
         Ok(())
     }
 
@@ -218,6 +228,11 @@ impl Game {
                 }
             }
             i += 1;
+        }
+        if self.input_manager.key_check_any_released() {
+            self.run_object_event(gml::ev::KEYRELEASE, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYRELEASE, 0, None)?;
         }
         Ok(())
     }
@@ -412,7 +427,7 @@ impl Game {
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle);
                     let mask = self.get_instance_mask_sprite(handle);
-    
+
                     let outside = if mask.is_some() {
                         instance.update_bbox(mask);
                         instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
@@ -443,7 +458,7 @@ impl Game {
                 while let Some(handle) = iter.next(&self.instance_list) {
                     let instance = self.instance_list.get(handle);
                     let mask = self.get_instance_mask_sprite(handle);
-    
+
                     let intersect = if mask.is_some() {
                         instance.update_bbox(mask);
                         instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
@@ -479,7 +494,7 @@ impl Game {
                         let instance = self.instance_list.get(handle);
                         let mask = self.get_instance_mask_sprite(handle);
                         let view = &self.views[i];
-    
+
                         let outside = if mask.is_some() {
                             instance.update_bbox(mask);
                             instance_outside_rect(
@@ -520,7 +535,7 @@ impl Game {
                         let instance = self.instance_list.get(handle);
                         let mask = self.get_instance_mask_sprite(handle);
                         let view = &self.views[i];
-    
+
                         let intersect = if mask.is_some() {
                             instance.update_bbox(mask);
                             instance_intersect_rect(
