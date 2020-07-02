@@ -1418,6 +1418,7 @@ impl Game {
 
         let mut game_mousex = 0;
         let mut game_mousey = 0;
+        let mut do_update_mouse = false;
         self.play_type = PlayType::Record;
 
         loop {
@@ -1499,6 +1500,8 @@ impl Game {
                         })?
                     },
 
+                    Message::SetUpdateMouse { update } => do_update_mouse = update,
+
                     Message::Save { filename } => {
                         // Save a savestate to a file
                         let mut path = project_path.clone();
@@ -1546,9 +1549,16 @@ impl Game {
             for event in self.window.process_events().copied() {
                 match event {
                     Event::MouseMove(x, y) => {
+                        if do_update_mouse {
+                            stream.send_message(&message::Information::MousePosition { x, y })?;
+                        }
                         game_mousex = x;
                         game_mousey = y;
                     },
+
+                    Event::MouseButtonDown(MouseButton::Left) => {
+                        stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
+                    }
 
                     Event::MouseButtonUp(MouseButton::Right) => {
                         let mut options: Vec<(String, usize)> = Vec::new();
