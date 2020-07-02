@@ -302,15 +302,17 @@ impl ControlPanel {
     }
 
     pub fn update(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
-        match self.stream.receive_message::<Information>(&mut self.read_buffer)? {
-            None => return Ok(false),
-            Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
-            Some(Some(Information::InstanceClicked { details })) => {
-                self.watched_id = Some(details.id);
-                self.watched_instance = Some(details);
-            },
-            Some(Some(s)) => println!("Got TCP message: '{:?}'", s),
-            Some(None) => (),
+        loop {
+            match self.stream.receive_message::<Information>(&mut self.read_buffer)? {
+                None => return Ok(false),
+                Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
+                Some(Some(Information::InstanceClicked { details })) => {
+                    self.watched_id = Some(details.id);
+                    self.watched_instance = Some(details);
+                },
+                Some(Some(s)) => println!("Got TCP message: '{:?}'", s),
+                Some(None) => break,
+            }
         }
 
         'evloop: for event in self.window.process_events() {
