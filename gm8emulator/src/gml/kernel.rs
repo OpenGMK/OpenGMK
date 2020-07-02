@@ -3382,32 +3382,29 @@ impl Game {
     }
 
     pub fn distance_to_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y) = expect_args!(args, [int, int])?;
+        let (x, y) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
 
-        let distance_x = if instance.bbox_left.get() > x {
-            instance.bbox_left.get() - x
-        } else if instance.bbox_right.get() < x {
-            x - instance.bbox_right.get()
+        let sprite = self.get_instance_mask_sprite(context.this);
+        instance.update_bbox(sprite);
+
+        let distance_x = if x < instance.bbox_left.get().into() {
+            x - instance.bbox_left.get().into()
+        } else if x > instance.bbox_right.get().into() {
+            x - instance.bbox_right.get().into()
         } else {
-            0
+            0.into()
         };
 
-        let distance_y = if instance.bbox_top.get() > y {
-            instance.bbox_top.get() - y
-        } else if instance.bbox_bottom.get() < y {
-            y - instance.bbox_bottom.get()
+        let distance_y = if y < instance.bbox_top.get().into() {
+            y - instance.bbox_top.get().into()
+        } else if y > instance.bbox_bottom.get().into() {
+            y - instance.bbox_bottom.get().into()
         } else {
-            0
+            0.into()
         };
 
-        Ok(match (distance_x, distance_y) {
-            (0, 0) => 0.0,
-            (x, 0) => x.into(),
-            (0, y) => y.into(),
-            (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
-        }
-        .into())
+        Ok(distance_x.into_inner().hypot(distance_y.into_inner()).into())
     }
 
     pub fn distance_to_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
