@@ -4105,9 +4105,10 @@ impl Game {
         let (x, y, object_id) = expect_args!(args, [real, real, int])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             self.last_instance_id += 1;
-            let instance = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
+            let id = self.last_instance_id;
+            let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
-            Ok(self.last_instance_id.into())
+            Ok(id.into())
         } else {
             Err(gml::Error::FunctionError("instance_create".into(), format!("Invalid object ID: {}", object_id)))
         }
