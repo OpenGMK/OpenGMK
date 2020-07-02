@@ -6693,29 +6693,40 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_set_cache_size_ext")
     }
 
-    pub fn background_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_name")
+    pub fn background_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.background_get_name(context, args)
     }
 
-    pub fn background_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_exists")
+    pub fn background_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        Ok(self.assets.backgrounds.get_asset(background_id).is_some().into())
     }
 
-    pub fn background_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_get_name")
+    pub fn background_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            Ok(background.name.clone().into())
+        } else {
+            Ok("<undefined>".into())
+        }
     }
 
-    pub fn background_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_get_width")
+    pub fn background_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            Ok(background.width.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
-    pub fn background_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_get_height")
+    pub fn background_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            Ok(background.height.into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
     pub fn background_set_alpha_from_background(
