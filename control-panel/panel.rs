@@ -26,6 +26,7 @@ pub struct ControlPanel {
     pub advance_button: AdvanceButton,
     pub key_buttons: Vec<KeyButton>,
     pub mouse_buttons: Vec<MouseButton>,
+    pub mouse_position_button: MousePositionButton,
     pub big_save_button: BigSaveButton,
     pub save_buttons: Vec<SaveButton>,
     pub seed_changer: SeedChanger,
@@ -50,6 +51,7 @@ pub struct ControlPanel {
     key_button_r_held: AtlasRef,
     key_button_r_held2: AtlasRef,
     key_button_r_held3: AtlasRef,
+    mouse_pos_normal: AtlasRef,
     save_button_active: AtlasRef,
     save_button_inactive: AtlasRef,
 
@@ -87,6 +89,13 @@ pub struct MouseButton {
     pub y: i32,
     pub button: input::MouseButton,
     pub state: ButtonState,
+}
+
+#[derive(Clone, Copy)]
+pub struct MousePositionButton {
+    pub x: i32,
+    pub y: i32,
+    pub active: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -152,6 +161,12 @@ impl MouseButton {
     }
 }
 
+impl MousePositionButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 25 as i32) && y >= self.y && y < (self.y + 25 as i32)
+    }
+}
+
 impl SaveButton {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
         x >= self.x && x < (self.x + SAVE_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + SAVE_BUTTON_SIZE as i32)
@@ -184,6 +199,7 @@ impl ControlPanel {
         let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld.bmp"));
         let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld2.bmp"));
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
+        let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pointer.bmp"));
         let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
         let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
 
@@ -268,6 +284,7 @@ impl ControlPanel {
                 MouseButton { x: 56, y: 248, button: input::MouseButton::Middle, state: ButtonState::Neutral },
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
+            mouse_position_button: MousePositionButton { x: 320, y: 250, active: false },
             big_save_button: BigSaveButton { x: 125, y: 400 },
             save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
@@ -292,6 +309,7 @@ impl ControlPanel {
             key_button_r_held,
             key_button_r_held2,
             key_button_r_held3,
+            mouse_pos_normal,
             save_button_active,
             save_button_inactive,
 
@@ -364,6 +382,13 @@ impl ControlPanel {
                             println!("Probably saved to {}", &button.filename);
                             button.exists = true;
                         }
+                    }
+
+                    if self.mouse_position_button.contains_point(self.mouse_x, self.mouse_y) {
+                        self.mouse_position_button.active = !self.mouse_position_button.active;
+                        self.stream.send_message(&message::Message::SetUpdateMouse {
+                            update: self.mouse_position_button.active,
+                        })?;
                     }
 
                     if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
@@ -773,6 +798,17 @@ impl ControlPanel {
                 alpha,
             );
         }
+
+        self.renderer.draw_sprite(
+            &self.mouse_pos_normal,
+            self.mouse_position_button.x as _,
+            self.mouse_position_button.y as _,
+            1.0,
+            1.0,
+            0.0,
+            if self.mouse_position_button.active { 0x4CB122 } else { 0xFFFFFF },
+            if self.mouse_position_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 },
+        );
 
         self.renderer.draw_sprite(
             &self.big_save_button_normal,
