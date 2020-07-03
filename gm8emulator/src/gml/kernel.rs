@@ -229,13 +229,11 @@ impl Game {
     }
 
     pub fn window_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_x")
+        Ok(self.window.get_pos().0.into())
     }
 
     pub fn window_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_y")
+        Ok(self.window.get_pos().1.into())
     }
 
     pub fn window_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
