@@ -6947,24 +6947,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function font_delete")
     }
 
-    pub fn script_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function script_name")
+    pub fn script_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.script_get_name(context, args)
     }
 
-    pub fn script_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function script_exists")
+    pub fn script_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let script_id = expect_args!(args, [int])?;
+        Ok(self.assets.scripts.get_asset(script_id).is_some().into())
     }
 
-    pub fn script_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function script_get_name")
+    pub fn script_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let script_id = expect_args!(args, [int])?;
+        Ok(self.assets.scripts.get_asset(script_id).map(|s| s.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn script_get_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function script_get_text")
+    pub fn script_get_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let script_id = expect_args!(args, [int])?;
+        Ok(self.assets.scripts.get_asset(script_id).map(|s| s.source.clone().into()).unwrap_or("".into()))
     }
 
     pub fn script_execute(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
