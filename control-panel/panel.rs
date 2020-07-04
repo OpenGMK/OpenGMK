@@ -327,8 +327,10 @@ impl ControlPanel {
                 None => return Ok(false),
                 Some(Some(Information::KeyPressed { key })) => self.handle_key(key)?,
                 Some(Some(Information::LeftClick { x, y })) => {
-                    self.game_mouse_pos = (f64::from(x), f64::from(y));
-                    self.mouse_position_button.active = false;
+                    if self.mouse_position_button.active {
+                        self.game_mouse_pos = (f64::from(x), f64::from(y));
+                        self.mouse_position_button.active = false;
+                    }
                 },
                 Some(Some(Information::MousePosition { x, y })) => self.client_mouse_pos = (x, y),
                 Some(Some(Information::InstanceClicked { details })) => {
