@@ -13,11 +13,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // that one giant macro in kernel.rs
     let aa_macro_path = &Path::new(&out).join("_apply_args.macro.rs");
-    if !aa_macro_path.is_file() {
+    if !aa_macro_path.is_file() || aa_macro_path.metadata()?.len() != 6999 {
         let i_char = |i| char::from(b'a' + i);
         let mut aa_macro = String::with_capacity(16384);
         aa_macro += &"macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n".to_string();
-        for i in 1..16 {
+        for i in 1..17 {
             aa_macro += "    ($args: expr, ";
             for j in 0..i {
                 aa_macro += &format!("${}: ident ", i_char(j));
