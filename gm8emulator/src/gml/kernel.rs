@@ -6754,9 +6754,39 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_create_gradient")
     }
 
-    pub fn background_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function background_add")
+    pub fn background_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
+        if removeback.is_truthy() {
+            unimplemented!("background_add: removeback argument isn't supported yet")
+        }
+        if smooth.is_truthy() {
+            unimplemented!("background_add: smooth argument isn't supported yet")
+        }
+        let decoder = png::Decoder::new(std::fs::File::open(fname.as_ref()).unwrap());
+        let (info, mut reader) = decoder.read_info().unwrap();
+        if info.color_type != png::ColorType::RGBA {
+            return Err(gml::Error::FunctionError(
+                "background_add".into(),
+                format!("Colour format {:?} is not supported yet", info.color_type),
+            ))
+        }
+        if info.bit_depth != png::BitDepth::Eight {
+            return Err(gml::Error::FunctionError(
+                "background_add".into(),
+                format!("Bit depth {:?} is not supported yet", info.bit_depth),
+            ))
+        }
+        let mut buf = vec![255; info.buffer_size()];
+        reader.next_frame(&mut buf).unwrap();
+        let atlas_ref = self.renderer.upload_sprite(buf.into_boxed_slice(), info.width as _, info.height as _).unwrap();
+        let background_id = self.assets.backgrounds.len();
+        self.assets.backgrounds.push(Some(Box::new(asset::Background {
+            name: format!("__newbackground{}", background_id).into(),
+            width: info.width,
+            height: info.height,
+            atlas_ref: Some(atlas_ref),
+        })));
+        Ok(background_id.into())
     }
 
     pub fn background_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6774,9 +6804,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_replace_background")
     }
 
-    pub fn background_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_delete")
+    pub fn background_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            if let Some(atlas_id) = background.atlas_ref.map(|a| a.atlas_id) {
+                drop(background);
+                self.renderer.delete_atlas(atlas_id);
+            }
+        } else {
+            return Err(gml::Error::FunctionError(
+                "background_delete".into(),
+                "Trying to delete non-existing background".into(),
+            ))
+        }
+        self.assets.backgrounds[background_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn background_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
