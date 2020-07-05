@@ -31,6 +31,8 @@ pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
     fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
+    fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String>;
+    fn delete_atlas(&mut self, atlas_id: u32);
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
 
@@ -179,6 +181,14 @@ impl Renderer {
 
     pub fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
         self.0.push_atlases(atl)
+    }
+
+    pub fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
+        self.0.upload_sprite(data, width, height)
+    }
+
+    pub fn delete_atlas(&mut self, atlas_id: u32) {
+        self.0.delete_atlas(atlas_id)
     }
 
     pub fn set_swap_interval(&self, n: Option<u32>) -> bool {

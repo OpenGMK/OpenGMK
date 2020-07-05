@@ -42,6 +42,7 @@ pub struct RendererImpl {
 
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
+    stock_atlas_count: u32,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
@@ -227,6 +228,7 @@ impl RendererImpl {
 
                 atlas_packers: vec![],
                 texture_ids: vec![],
+                stock_atlas_count: 0,
                 current_atlas: 0,
                 white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
@@ -335,12 +337,62 @@ impl RendererTrait for RendererImpl {
 
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
+            self.stock_atlas_count = textures.len() as u32;
         }
 
         // store packers, discard pixeldata
         self.atlas_packers = packers;
 
         Ok(())
+    }
+
+    fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
+        let atlas_id = self.texture_ids.len() as u32;
+        self.current_atlas = atlas_id;
+        unsafe {
+            let mut tex_id: GLuint = 0;
+            gl::GenTextures(1, &mut tex_id);
+            gl::ActiveTexture(gl::TEXTURE0 + atlas_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,     // target
+                0,                  // level
+                gl::RGBA as _,      // internalformat
+                width as _,         // width
+                height as _,        // height
+                0,                  // border ("must be 0")
+                gl::RGBA,           // format
+                gl::UNSIGNED_BYTE,  // type
+                data.as_ptr() as _, // data
+            );
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+            }
+
+            // store opengl texture handles
+            self.texture_ids.push(Some(tex_id));
+            self.fbo_ids.push(None);
+        }
+        Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
+    }
+
+    fn delete_atlas(&mut self, atlas_id: u32) {
+        if atlas_id >= self.stock_atlas_count {
+            let tex_id = self.texture_ids[atlas_id as usize].unwrap();
+            unsafe {
+                gl::DeleteTextures(1, &tex_id);
+            }
+            self.texture_ids[atlas_id as usize] = None;
+        }
     }
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool {
