@@ -41,7 +41,7 @@ pub struct RendererImpl {
     vbo: GLuint,
 
     atlas_packers: Vec<DensePacker>,
-    texture_ids: Vec<GLuint>,
+    texture_ids: Vec<Option<GLuint>>,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
@@ -334,7 +334,7 @@ impl RendererTrait for RendererImpl {
             }
 
             // store opengl texture handles
-            self.texture_ids = textures;
+            self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
         }
 
         // store packers, discard pixeldata
@@ -363,7 +363,7 @@ impl RendererTrait for RendererImpl {
                 gl::READ_FRAMEBUFFER,
                 gl::COLOR_ATTACHMENT0,
                 gl::TEXTURE_2D,
-                self.texture_ids[atlas_ref.atlas_id as usize],
+                self.texture_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
                 0,
             );
 
@@ -462,7 +462,10 @@ impl RendererTrait for RendererImpl {
             self.flush_queue();
             unsafe {
                 gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
-                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize]);
+                gl::BindTexture(
+                    gl::TEXTURE_2D,
+                    self.texture_ids[atlas_ref.atlas_id as usize].expect("Trying to draw nonexistent sprite"),
+                );
             }
             self.current_atlas = atlas_ref.atlas_id;
         }
