@@ -184,37 +184,43 @@ impl Game {
         let instance = self.instance_list.get(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
+        let mut bounce = false;
+
         if collider(self, handle).is_some() {
             instance.x.set(instance.xprevious.get());
             instance.y.set(instance.yprevious.get());
+            bounce = true;
         }
 
         let old_x = instance.x.get();
         let old_y = instance.y.get();
 
-        let mut cw = (instance.direction.get() / Real::from(10.0)).round() * 10;
-        for _ in 0..36 {
-            cw -= 10;
-            instance.x.set(old_x + instance.speed.get() * Real::from(cw).to_radians().cos());
-            instance.y.set(old_y - instance.speed.get() * Real::from(cw).to_radians().sin());
-            instance.bbox_is_stale.set(true);
-            if collider(self, handle).is_some() {
-                break
+        let start_angle = Real::from((instance.direction.get() / Real::from(10.0)).round() * 10);
+
+        let mut get_side_collision_angle = |angle_step: i32| {
+            let angle_step = Real::from(angle_step);
+
+            let mut side_angle = start_angle;
+
+            for _ in 0..36 {
+                side_angle += angle_step;
+                instance.x.set(old_x + instance.speed.get() * side_angle.to_radians().cos());
+                instance.y.set(old_y - instance.speed.get() * side_angle.to_radians().sin());
+                instance.bbox_is_stale.set(true);
+                if collider(self, handle).is_none() {
+                    break;
+                }
+                bounce = true;
             }
+            side_angle
+        };
+
+        let cw = get_side_collision_angle(-10);
+        let ccw = get_side_collision_angle(10);
+        if bounce {
+            instance.set_direction(cw + ccw + Real::from(180.0) - start_angle);
         }
 
-        let mut ccw = (instance.direction.get() / Real::from(10.0)).round() * 10;
-        for _ in 0..36 {
-            ccw += 10;
-            instance.x.set(old_x + instance.speed.get() * Real::from(ccw).to_radians().cos());
-            instance.y.set(old_y - instance.speed.get() * Real::from(ccw).to_radians().sin());
-            instance.bbox_is_stale.set(true);
-            if collider(self, handle).is_some() {
-                break
-            }
-        }
-
-        instance.set_direction(Real::from(cw) + Real::from(ccw) + Real::from(180.0) - instance.direction.get());
         instance.x.set(old_x);
         instance.y.set(old_y);
         instance.bbox_is_stale.set(true);
