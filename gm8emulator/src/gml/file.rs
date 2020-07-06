@@ -28,6 +28,7 @@ pub enum Error {
     IOError(io::Error),
     OutOfFiles,
     WrongContent,
+    Other(String),
 }
 
 impl From<io::Error> for Error {
@@ -43,6 +44,7 @@ impl From<Error> for String {
             Error::IOError(err) => format!("io error: {}", err),
             Error::OutOfFiles => "out of files".into(),
             Error::WrongContent => "invalid operation".into(),
+            Error::Other(s) => s,
         }
     }
 }
@@ -337,6 +339,89 @@ pub fn delete(path: &str) -> Result<()> {
         std::fs::remove_file(path)?;
     }
     Ok(())
+}
+
+pub struct LoadedImage {
+    pub width: u32,
+    pub height: u32,
+    pub data: Box<[u8]>,
+}
+
+pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<LoadedImage> {
+    // looks a little silly rn but i did it like this because more formats will be added
+    let mut image = {
+        if !path.ends_with(".png") {
+            return Err(Error::Other("Attempted to load an unsupported image file type".into()))
+        }
+        let decoder = png::Decoder::new(std::fs::File::open(path)?);
+        let (info, mut reader) =
+            decoder.read_info().map_err(|e| Error::Other(format!("PNG info decoding error: {}", e)))?;
+        if info.color_type != png::ColorType::RGBA {
+            return Err(Error::Other(format!("Colour format {:?} is not supported yet", info.color_type)))
+        }
+        if info.bit_depth != png::BitDepth::Eight {
+            return Err(Error::Other(format!("Bit depth {:?} is not supported yet", info.bit_depth)))
+        }
+        let mut buf = vec![0; info.buffer_size()];
+        reader.next_frame(&mut buf).map_err(|e| Error::Other(format!("PNG decoding error: {}", e)))?;
+        LoadedImage { width: info.width, height: info.height, data: buf.into_boxed_slice() }
+    };
+    // processing
+    let w = image.width;
+    let px_to_off = |x, y| (y * w + x) as usize * 4;
+    if removeback {
+        // remove background colour
+        let bottom_left = (image.width * (image.height - 1) * 4) as usize;
+        for px in (0..image.data.len()).step_by(4) {
+            if image.data[px..px + 3] == image.data[bottom_left..bottom_left + 3] {
+                image.data[px + 3] = 0;
+            }
+        }
+    }
+    if smooth {
+        // smooth
+        for y in 0..image.height {
+            for x in 0..image.width {
+                // if pixel is transparent
+                if image.data[px_to_off(x, y) + 3] == 0 {
+                    // for all surrounding pixels
+                    for y in y.saturating_sub(1)..(y + 2).min(image.height) {
+                        for x in x.saturating_sub(1)..(x + 2).min(image.width) {
+                            // subtract 32 if possible
+                            let b = px_to_off(x, y) + 3;
+                            if image.data[b] >= 32 {
+                                image.data[b] -= 32;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if removeback {
+        // make lerping less ugly
+        for y in 0..image.height {
+            for x in 0..image.width {
+                if image.data[px_to_off(x, y) + 3] == 0 {
+                    let (sx, sy) = if x > 0 && image.data[px_to_off(x - 1, y) + 3] != 0 {
+                        (x - 1, y)
+                    } else if x < image.width - 1 && image.data[px_to_off(x + 1, y) + 3] != 0 {
+                        (x + 1, y)
+                    } else if y > 0 && image.data[px_to_off(x, y - 1) + 3] != 0 {
+                        (x, y - 1)
+                    } else if y < image.height - 1 && image.data[px_to_off(x, y + 1) + 3] != 0 {
+                        (x, y + 1)
+                    } else {
+                        continue
+                    };
+                    image.data[px_to_off(x, y)] = image.data[px_to_off(sx, sy)];
+                    image.data[px_to_off(x, y) + 1] = image.data[px_to_off(sx, sy) + 1];
+                    image.data[px_to_off(x, y) + 2] = image.data[px_to_off(sx, sy) + 2];
+                }
+            }
+        }
+    }
+    Ok(image)
 }
 
 pub fn save_png(path: &str, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
