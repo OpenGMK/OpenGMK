@@ -511,12 +511,12 @@ impl RendererTrait for RendererImpl {
         let atlas_ref = texture.clone();
 
         if atlas_ref.atlas_id != self.current_atlas {
+            if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
+                return
+            } // fail silently when drawing deleted sprite fonts
             self.flush_queue();
             unsafe {
-                gl::BindTexture(
-                    gl::TEXTURE_2D,
-                    self.texture_ids[atlas_ref.atlas_id as usize].expect("Trying to draw nonexistent sprite"),
-                );
+                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
             }
             self.current_atlas = atlas_ref.atlas_id;
         }
