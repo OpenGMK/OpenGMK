@@ -6807,9 +6807,8 @@ impl Game {
     pub fn background_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let background_id = expect_args!(args, [int])?;
         if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
-            if let Some(atlas_id) = background.atlas_ref.map(|a| a.atlas_id) {
-                drop(background);
-                self.renderer.delete_atlas(atlas_id);
+            if let Some(atlas_ref) = background.atlas_ref {
+                self.renderer.delete_sprite(atlas_ref);
             }
         } else {
             return Err(gml::Error::FunctionError(

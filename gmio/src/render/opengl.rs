@@ -383,13 +383,14 @@ impl RendererTrait for RendererImpl {
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
 
-    fn delete_atlas(&mut self, atlas_id: u32) {
-        if atlas_id >= self.stock_atlas_count {
-            let tex_id = self.texture_ids[atlas_id as usize].unwrap();
+    fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
+        // this only deletes sprites created with upload_sprite
+        if atlas_ref.atlas_id >= self.stock_atlas_count {
+            let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
                 gl::DeleteTextures(1, &tex_id);
             }
-            self.texture_ids[atlas_id as usize] = None;
+            self.texture_ids[atlas_ref.atlas_id as usize] = None;
         }
     }
 
