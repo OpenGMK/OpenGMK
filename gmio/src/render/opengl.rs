@@ -280,7 +280,6 @@ impl RendererTrait for RendererImpl {
                 for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
                     let (width, height) = packer.size();
 
-                    gl::ActiveTexture(gl::TEXTURE0 + i as u32);
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
                     self.current_atlas = i as u32;
 
@@ -352,7 +351,6 @@ impl RendererTrait for RendererImpl {
         unsafe {
             let mut tex_id: GLuint = 0;
             gl::GenTextures(1, &mut tex_id);
-            gl::ActiveTexture(gl::TEXTURE0 + atlas_id);
             gl::BindTexture(gl::TEXTURE_2D, tex_id);
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
@@ -456,13 +454,11 @@ impl RendererTrait for RendererImpl {
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         unsafe {
             // store previous texture, upload new texture to gpu
-            let (mut prev_tex2d, mut prev_tex_multi) = (0, 0);
+            let mut prev_tex2d = 0;
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
-            gl::GetIntegerv(gl::ACTIVE_TEXTURE, &mut prev_tex_multi);
             let mut tex: GLuint = 0;
             gl::GenTextures(1, &mut tex);
             gl::BindTexture(gl::TEXTURE_2D, tex);
-            gl::ActiveTexture(gl::TEXTURE0);
             gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
 
             assert_eq!(gl::GetError(), 0);
@@ -487,7 +483,6 @@ impl RendererTrait for RendererImpl {
             // cleanup
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
             gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
-            gl::ActiveTexture(prev_tex_multi as GLuint);
             gl::DeleteFramebuffers(1, &fbo);
             gl::DeleteTextures(1, &tex);
 
@@ -513,7 +508,6 @@ impl RendererTrait for RendererImpl {
         if atlas_ref.atlas_id != self.current_atlas {
             self.flush_queue();
             unsafe {
-                gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
                 gl::BindTexture(
                     gl::TEXTURE_2D,
                     self.texture_ids[atlas_ref.atlas_id as usize].expect("Trying to draw nonexistent sprite"),
@@ -621,7 +615,7 @@ impl RendererTrait for RendererImpl {
                 gl::STATIC_DRAW,
             );
 
-            gl::Uniform1i(self.loc_tex, self.current_atlas as _);
+            gl::Uniform1i(self.loc_tex, 0 as _);
 
             // layout (location = 1) in mat4 model_view;
             // layout (location = 6) in vec4 atlas_xywh;
