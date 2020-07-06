@@ -340,10 +340,11 @@ impl Game {
                     iter.next();
                     '#'
                 },
-                _ => c, // Normal character
+                _ if font.get_char(u32::from(c)).is_some() => c, // Normal character
+                _ => ' ',                                        // Character is not in the font, replace with space
             };
-            // Next, get the required character from the font
-            let character = match c {
+            // Next, insert the character into the word buffer
+            match c {
                 '\n' => {
                     // Newline
                     line.push_str(&word);
@@ -357,16 +358,18 @@ impl Game {
                 },
                 _ => {
                     // Normal character
-                    match font.get_char(u32::from(c)) {
-                        Some(character) => character,
-                        None => continue,
+                    if let Some(character) = font.get_char(u32::from(c)) {
+                        word.push(c);
+                        word_width += character.offset;
+                    } else {
+                        // Space when it isn't in the font
+                        word.push(' ');
+                        if let Some(character) = font.get_char(font.first) {
+                            word_width += character.offset;
+                        }
                     }
                 },
             };
-
-            // Apply current character to word width
-            word.push(c);
-            word_width += character.offset;
 
             // Check if we're going over the max width
             if let Some(max_width) = max_width {
@@ -457,7 +460,13 @@ impl Game {
             for c in line.chars() {
                 let character = match font.get_char(u32::from(c)) {
                     Some(character) => character,
-                    None => continue,
+                    None => {
+                        // Space if it isn't in the font
+                        if let Some(character) = font.get_char(font.first) {
+                            cursor_x += character.offset as i32;
+                        }
+                        continue
+                    },
                 };
 
                 let xdiff = Real::from(character.distance as i32 + cursor_x);
