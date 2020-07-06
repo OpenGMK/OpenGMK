@@ -6956,9 +6956,32 @@ impl Game {
         }
     }
 
-    pub fn font_replace_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function font_replace_sprite")
+    pub fn font_replace_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (font_id, sprite_id, first, prop, sep) = expect_args!(args, [int, int, int, any, int])?;
+        if let Some(font) = self.assets.fonts.get_asset_mut(font_id) {
+            if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+                if font.own_graphics {
+                    // font_add isn't in yet but atm for ttfs all characters are on the same texture
+                    if let Some(c) = font.get_char(font.first) {
+                        self.renderer.delete_sprite(c.atlas_ref);
+                    }
+                }
+                let chars = asset::font::create_chars_from_sprite(sprite, prop.is_truthy(), sep, &self.renderer);
+                font.sys_name = "".into();
+                font.size = 12;
+                font.bold = false;
+                font.italic = false;
+                font.first = first.max(0).min(255) as _;
+                font.last = (first as u32 + chars.len() as u32 - 1).min(255);
+                font.chars = chars;
+                font.own_graphics = false;
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Font, font_id))
+        }
     }
 
     pub fn font_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
