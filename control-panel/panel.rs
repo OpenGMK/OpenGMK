@@ -55,6 +55,7 @@ pub struct ControlPanel {
     mouse_pos_normal: AtlasRef,
     save_button_active: AtlasRef,
     save_button_inactive: AtlasRef,
+    button_outline: AtlasRef,
 
     menu_context: Option<MenuContext>,
 
@@ -82,6 +83,7 @@ pub struct KeyButton {
     pub y: i32,
     pub key: input::Key,
     pub state: ButtonState,
+    pub label: AtlasRef,
 }
 
 #[derive(Clone, Copy)]
@@ -203,6 +205,16 @@ impl ControlPanel {
         let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pointer.bmp"));
         let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
         let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
+        let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/outline.bmp"));
+
+        let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelUp.bmp"));
+        let label_down = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelDown.bmp"));
+        let label_left = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelLeft.bmp"));
+        let label_right = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelRight.bmp"));
+        let label_r = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelR.bmp"));
+        let label_z = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelZ.bmp"));
+        let label_f2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelF2.bmp"));
+        let label_shift = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelShift.bmp"));
 
         // Helper fn: create a Font
         fn make_font(
@@ -271,14 +283,14 @@ impl ControlPanel {
             font_small,
             advance_button: AdvanceButton { x: 240, y: 8 },
             key_buttons: vec![
-                KeyButton { x: 103, y: 150, key: input::Key::Left, state: ButtonState::Neutral },
-                KeyButton { x: 151, y: 150, key: input::Key::Down, state: ButtonState::Neutral },
-                KeyButton { x: 199, y: 150, key: input::Key::Right, state: ButtonState::Neutral },
-                KeyButton { x: 151, y: 102, key: input::Key::Up, state: ButtonState::Neutral },
-                KeyButton { x: 32, y: 90, key: input::Key::R, state: ButtonState::Neutral },
-                KeyButton { x: 32, y: 150, key: input::Key::Shift, state: ButtonState::Neutral },
-                KeyButton { x: 270, y: 90, key: input::Key::F2, state: ButtonState::Neutral },
-                KeyButton { x: 270, y: 150, key: input::Key::Z, state: ButtonState::Neutral },
+                KeyButton { x: 103, y: 150, key: input::Key::Left, state: ButtonState::Neutral, label: label_left },
+                KeyButton { x: 151, y: 150, key: input::Key::Down, state: ButtonState::Neutral, label: label_down },
+                KeyButton { x: 199, y: 150, key: input::Key::Right, state: ButtonState::Neutral, label: label_right },
+                KeyButton { x: 151, y: 102, key: input::Key::Up, state: ButtonState::Neutral, label: label_up },
+                KeyButton { x: 32, y: 90, key: input::Key::R, state: ButtonState::Neutral, label: label_r },
+                KeyButton { x: 32, y: 150, key: input::Key::Shift, state: ButtonState::Neutral, label: label_shift },
+                KeyButton { x: 270, y: 90, key: input::Key::F2, state: ButtonState::Neutral, label: label_f2 },
+                KeyButton { x: 270, y: 150, key: input::Key::Z, state: ButtonState::Neutral, label: label_z },
             ],
             mouse_buttons: vec![
                 MouseButton { x: 4, y: 248, button: input::MouseButton::Left, state: ButtonState::Neutral },
@@ -314,6 +326,7 @@ impl ControlPanel {
             mouse_pos_normal,
             save_button_active,
             save_button_inactive,
+            button_outline,
 
             menu_context: None,
             read_buffer: Vec::new(),
@@ -765,8 +778,28 @@ impl ControlPanel {
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
             self.renderer.draw_sprite(
                 atlas_ref_r,
-                (button.x + atlas_ref_l.w) as _,
-                button.y as _,
+                f64::from(button.x + atlas_ref_l.w),
+                f64::from(button.y),
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
+            self.renderer.draw_sprite(
+                &button.label,
+                f64::from(button.x),
+                f64::from(button.y),
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
+            self.renderer.draw_sprite(
+                &self.button_outline,
+                f64::from(button.x),
+                f64::from(button.y),
                 1.0,
                 1.0,
                 0.0,
@@ -800,6 +833,16 @@ impl ControlPanel {
                 atlas_ref_r,
                 (button.x + atlas_ref_l.w) as _,
                 button.y as _,
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
+            self.renderer.draw_sprite(
+                &self.button_outline,
+                f64::from(button.x),
+                f64::from(button.y),
                 1.0,
                 1.0,
                 0.0,
