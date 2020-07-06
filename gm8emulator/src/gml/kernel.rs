@@ -6756,34 +6756,14 @@ impl Game {
 
     pub fn background_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
-        if removeback.is_truthy() {
-            unimplemented!("background_add: removeback argument isn't supported yet")
-        }
-        if smooth.is_truthy() {
-            unimplemented!("background_add: smooth argument isn't supported yet")
-        }
-        let decoder = png::Decoder::new(std::fs::File::open(fname.as_ref()).unwrap());
-        let (info, mut reader) = decoder.read_info().unwrap();
-        if info.color_type != png::ColorType::RGBA {
-            return Err(gml::Error::FunctionError(
-                "background_add".into(),
-                format!("Colour format {:?} is not supported yet", info.color_type),
-            ))
-        }
-        if info.bit_depth != png::BitDepth::Eight {
-            return Err(gml::Error::FunctionError(
-                "background_add".into(),
-                format!("Bit depth {:?} is not supported yet", info.bit_depth),
-            ))
-        }
-        let mut buf = vec![255; info.buffer_size()];
-        reader.next_frame(&mut buf).unwrap();
-        let atlas_ref = self.renderer.upload_sprite(buf.into_boxed_slice(), info.width as _, info.height as _).unwrap();
+        let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
+            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        let atlas_ref = self.renderer.upload_sprite(image.data, image.width as _, image.height as _).unwrap();
         let background_id = self.assets.backgrounds.len();
         self.assets.backgrounds.push(Some(Box::new(asset::Background {
             name: format!("__newbackground{}", background_id).into(),
-            width: info.width,
-            height: info.height,
+            width: image.width,
+            height: image.height,
             atlas_ref: Some(atlas_ref),
         })));
         Ok(background_id.into())
