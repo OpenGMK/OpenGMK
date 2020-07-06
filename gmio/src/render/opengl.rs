@@ -346,7 +346,12 @@ impl RendererTrait for RendererImpl {
     }
 
     fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
-        let atlas_id = self.texture_ids.len() as u32;
+        let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
+            id as u32
+        } else {
+            self.texture_ids.push(None);
+            self.texture_ids.len() as u32 - 1
+        };
         self.current_atlas = atlas_id;
         unsafe {
             let mut tex_id: GLuint = 0;
@@ -377,8 +382,7 @@ impl RendererTrait for RendererImpl {
             }
 
             // store opengl texture handles
-            self.texture_ids.push(Some(tex_id));
-            self.fbo_ids.push(None);
+            self.texture_ids[atlas_id as usize] = Some(tex_id);
         }
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
