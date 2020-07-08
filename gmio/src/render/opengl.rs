@@ -42,6 +42,7 @@ pub struct RendererImpl {
 
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
+    fbo_ids: Vec<Option<GLuint>>,
     stock_atlas_count: u32,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
@@ -228,6 +229,7 @@ impl RendererImpl {
 
                 atlas_packers: vec![],
                 texture_ids: vec![],
+                fbo_ids: vec![],
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 white_pixel: Default::default(),
@@ -334,8 +336,20 @@ impl RendererTrait for RendererImpl {
                 err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
             }
 
+            // generate framebuffers
+            let mut fbo_ids = Vec::with_capacity(textures.len());
+            for tex_id in &textures {
+                let mut fbo = 0;
+                gl::GenFramebuffers(1, &mut fbo);
+                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+                gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
+                fbo_ids.push(Some(fbo));
+            }
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
+            self.fbo_ids = fbo_ids;
             self.stock_atlas_count = textures.len() as u32;
         }
 
@@ -350,12 +364,17 @@ impl RendererTrait for RendererImpl {
             id as u32
         } else {
             self.texture_ids.push(None);
+            self.fbo_ids.push(None);
             self.texture_ids.len() as u32 - 1
         };
         unsafe {
             // store previous
             let mut prev_tex2d = 0;
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            let mut prev_fbo = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
+
+            // generate new
             let mut tex_id: GLuint = 0;
             gl::GenTextures(1, &mut tex_id);
             gl::BindTexture(gl::TEXTURE_2D, tex_id);
@@ -383,10 +402,19 @@ impl RendererTrait for RendererImpl {
                 err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
             }
 
+            // generate fbo
+            let mut fbo = 0;
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+
             // store opengl texture handles
             self.texture_ids[atlas_id as usize] = Some(tex_id);
+            self.fbo_ids[atlas_id as usize] = Some(fbo);
+
             // cleanup
             gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
         }
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
@@ -399,6 +427,12 @@ impl RendererTrait for RendererImpl {
                 gl::DeleteTextures(1, &tex_id);
             }
             self.texture_ids[atlas_ref.atlas_id as usize] = None;
+            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+                unsafe {
+                    gl::DeleteFramebuffers(1, fbo);
+                }
+                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+            }
         }
     }
 
@@ -412,18 +446,10 @@ impl RendererTrait for RendererImpl {
             let mut prev_read_fbo: GLint = 0;
             gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
 
-            // setup temp fbo
-            let mut fbo: GLuint = 0;
-            gl::GenFramebuffers(1, &mut fbo);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-
-            // bind texture to fbo
-            gl::FramebufferTexture2D(
+            // bind texture fbo
+            gl::BindFramebuffer(
                 gl::READ_FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                self.texture_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
-                0,
+                self.fbo_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
             );
 
             // read data
@@ -444,7 +470,6 @@ impl RendererTrait for RendererImpl {
 
             // cleanup
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
-            gl::DeleteFramebuffers(1, &fbo);
 
             data.into_boxed_slice()
         }
