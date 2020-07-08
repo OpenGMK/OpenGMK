@@ -6610,9 +6610,57 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_add_from_surface")
     }
 
-    pub fn sprite_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function sprite_add")
+    pub fn sprite_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (fname, imgnumb, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [string, int, any, any, int, int])?;
+        let imgnumb = imgnumb.max(1) as usize;
+        // will need a different case for loading animated gifs but those aren't supported yet
+        let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
+            .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
+        let sprite_width = image.width as usize / imgnumb;
+        let sprite_height = image.height as usize;
+        // get pixel data for each frame
+        let mut frames = Vec::with_capacity(imgnumb);
+        if imgnumb > 1 {
+            for i in 0..imgnumb {
+                let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
+                for y in 0..sprite_height {
+                    let row_start = (y * image.width as usize + i * sprite_width) * 4;
+                    pixels.extend_from_slice(&image.data[row_start..row_start + sprite_width * 4]);
+                }
+                frames.push(pixels.into_boxed_slice());
+            }
+        } else {
+            frames.push(image.data);
+        }
+        // make colliders
+        let colliders = asset::sprite::make_colliders(&frames, sprite_width as _, sprite_height as _);
+        // collect atlas refs
+        // yes i know it's a new texture for every frame like in gm8 but it's fine
+        let atlas_refs = frames
+            .drain(..)
+            .map(|f| asset::sprite::Frame {
+                width: sprite_width as _,
+                height: sprite_height as _,
+                atlas_ref: self.renderer.upload_sprite(f, sprite_width as _, sprite_height as _).unwrap(),
+            })
+            .collect();
+        let sprite_id = self.assets.sprites.len();
+        self.assets.sprites.push(Some(Box::new(asset::Sprite {
+            name: format!("__newsprite{}", sprite_id).into(),
+            frames: atlas_refs,
+            bbox_left: colliders[0].bbox_left,
+            bbox_right: colliders[0].bbox_right,
+            bbox_top: colliders[0].bbox_top,
+            bbox_bottom: colliders[0].bbox_bottom,
+            colliders: colliders,
+            width: sprite_width as _,
+            height: sprite_height as _,
+            origin_x,
+            origin_y,
+            per_frame_colliders: false,
+        })));
+        Ok(sprite_id.into())
     }
 
     pub fn sprite_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
