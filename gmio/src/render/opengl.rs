@@ -360,6 +360,60 @@ impl RendererTrait for RendererImpl {
     }
 
     fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
+        let atlas_ref = self.create_surface(width, height)?;
+        unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+
+            // upload texture
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,     // target
+                0,                  // level
+                atlas_ref.x as _,   // xoffset
+                atlas_ref.y as _,   // yoffset
+                atlas_ref.w as _,   // width
+                atlas_ref.h as _,   // height
+                gl::RGBA,           // format
+                gl::UNSIGNED_BYTE,  // type
+                data.as_ptr() as _, // pixels
+            );
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+            }
+
+            // cleanup
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+        }
+        Ok(atlas_ref)
+    }
+
+    fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
+        // this only deletes sprites created with upload_sprite
+        if atlas_ref.atlas_id >= self.stock_atlas_count {
+            let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
+            unsafe {
+                gl::DeleteTextures(1, &tex_id);
+            }
+            self.texture_ids[atlas_ref.atlas_id as usize] = None;
+            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+                unsafe {
+                    gl::DeleteFramebuffers(1, fbo);
+                }
+                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+            }
+        }
+    }
+
+    fn set_swap_interval(&self, n: Option<u32>) -> bool {
+        unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
+    }
+
+    fn create_surface(&mut self, width: i32, height: i32) -> Result<AtlasRef, String> {
         let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
             id as u32
         } else {
@@ -385,21 +439,21 @@ impl RendererTrait for RendererImpl {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
 
             gl::TexImage2D(
-                gl::TEXTURE_2D,     // target
-                0,                  // level
-                gl::RGBA as _,      // internalformat
-                width as _,         // width
-                height as _,        // height
-                0,                  // border ("must be 0")
-                gl::RGBA,           // format
-                gl::UNSIGNED_BYTE,  // type
-                data.as_ptr() as _, // data
+                gl::TEXTURE_2D,    // target
+                0,                 // level
+                gl::RGBA as _,     // internalformat
+                width as _,        // width
+                height as _,       // height
+                0,                 // border ("must be 0")
+                gl::RGBA,          // format
+                gl::UNSIGNED_BYTE, // type
+                ptr::null(),       // data
             );
 
             // verify it actually worked
             match gl::GetError() {
                 0 => (),
-                err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+                err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
             }
 
             // generate fbo
@@ -419,25 +473,36 @@ impl RendererTrait for RendererImpl {
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
 
-    fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
-        // this only deletes sprites created with upload_sprite
-        if atlas_ref.atlas_id >= self.stock_atlas_count {
-            let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
+    fn set_target(&mut self, atlas_ref: &AtlasRef) {
+        self.flush_queue();
+        if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
             unsafe {
-                gl::DeleteTextures(1, &tex_id);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
             }
-            self.texture_ids[atlas_ref.atlas_id as usize] = None;
-            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
-                unsafe {
-                    gl::DeleteFramebuffers(1, fbo);
-                }
-                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
-            }
+            self.set_view(
+                atlas_ref.w as _,
+                atlas_ref.h as _,
+                atlas_ref.w as _,
+                atlas_ref.h as _,
+                atlas_ref.x,
+                atlas_ref.y, // set_view flips upside down, so unflip for surfaces
+                atlas_ref.w,
+                atlas_ref.h,
+                0.0,
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w,
+                atlas_ref.h,
+            );
         }
     }
 
-    fn set_swap_interval(&self, n: Option<u32>) -> bool {
-        unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
+    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+        unsafe {
+            self.flush_queue();
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+        }
+        self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
     }
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {

@@ -63,6 +63,10 @@ pub trait RendererTrait {
     fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
 
+    fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
+    fn set_target(&mut self, atlas_ref: &AtlasRef);
+    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32);
+
     fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
@@ -293,6 +297,18 @@ impl Renderer {
 
     pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         self.0.draw_raw_frame(rgb, w, h, clear_colour)
+    }
+
+    pub fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String> {
+        self.0.create_surface(w, h)
+    }
+
+    pub fn set_target(&mut self, atlas_ref: &AtlasRef) {
+        self.0.set_target(atlas_ref)
+    }
+
+    pub fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+        self.0.reset_target(w, h, unscaled_w, unscaled_h)
     }
 
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
