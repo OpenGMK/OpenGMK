@@ -120,8 +120,6 @@ impl Game {
         let (width, height) = self.window.get_inner_size();
         self.renderer.finish(width, height, self.background_colour);
 
-        // Clear inputs for this frame
-        self.input_manager.clear_presses();
 
         Ok(())
     }

@@ -297,7 +297,7 @@ impl Game {
             .enumerate()
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
-        
+
         // Register user constants
         constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.clone(), i));
 
@@ -806,7 +806,9 @@ impl Game {
         // Evaluate constants
         for c in &constants {
             let expr = game.compiler.compile_expression(&c.expression)?;
-            let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = game
+                .instance_list
+                .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let value = game.eval(&expr, &mut Context {
                 this: dummy_instance,
                 other: dummy_instance,
@@ -1265,6 +1267,9 @@ impl Game {
             self.window.set_title(self.caption.as_ref());
         }
 
+        // Clear inputs for this frame
+        self.input_manager.clear_presses();
+
         Ok(())
     }
 
@@ -1558,7 +1563,7 @@ impl Game {
 
                     Event::MouseButtonDown(MouseButton::Left) => {
                         stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
-                    }
+                    },
 
                     Event::MouseButtonUp(MouseButton::Right) => {
                         let mut options: Vec<(String, usize)> = Vec::new();
