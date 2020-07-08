@@ -339,19 +339,50 @@ impl Game {
         unimplemented!("Called unimplemented kernel function screen_wait_vsync")
     }
 
-    pub fn screen_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function screen_save")
+    pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let fname = expect_args!(args, [string])?;
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.flush_queue();
+        let rgb = self.renderer.get_pixels(0, 0, width as _, height as _);
+        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+        // get_pixels returns an upside down image for some reason?
+        for row in rgb.chunks((width * 3) as usize).rev() {
+            for col in row.chunks(3) {
+                rgba.extend_from_slice(col);
+                rgba.push(255);
+            }
+        }
+        match file::save_image(fname.as_ref(), width, height, rgba.into_boxed_slice()) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.into())),
+        }
     }
 
-    pub fn screen_save_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function screen_save_part")
+    pub fn screen_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
+        let y = self.window.get_inner_size().1 as i32 - y - h; // upside down
+        self.renderer.flush_queue();
+        let rgb = self.renderer.get_pixels(x, y, w, h);
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        // still upside down
+        for row in rgb.chunks((w * 3) as usize).rev() {
+            for col in row.chunks(3) {
+                rgba.extend_from_slice(col);
+                rgba.push(255);
+            }
+        }
+        match file::save_image(fname.as_ref(), w as _, h as _, rgba.into_boxed_slice()) {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.into())),
+        }
     }
 
-    pub fn draw_getpixel(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_getpixel")
+    pub fn draw_getpixel(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [int, int])?;
+        let y = self.window.get_inner_size().1 as i32 - y - 1; // upside down
+        self.renderer.flush_queue();
+        let data = self.renderer.get_pixels(x, y, 1, 1);
+        Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
     }
 
     pub fn draw_set_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
