@@ -215,9 +215,8 @@ impl RendererImpl {
             // Use program
             gl::UseProgram(program);
 
-            // Configure gl::ReadPixels() to read from the front buffer
-            // TODO: read from back buffer and don't clear it immediately
-            gl::ReadBuffer(gl::FRONT);
+            // Configure gl::ReadPixels() to read from the back buffer
+            gl::ReadBuffer(gl::BACK);
 
             // Create Renderer
             let mut renderer = Self {
