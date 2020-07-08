@@ -25,6 +25,7 @@ impl Game {
     pub fn draw(&mut self) -> gml::Result<()> {
         // Update views that should be following objects
         if self.views_enabled {
+            self.renderer.clear_view(self.background_colour, 1.0);
             for view in self.views.iter_mut().filter(|x| x.visible) {
                 if let Some(obj) = self.assets.objects.get_asset(view.follow_target) {
                     if let Some(handle) =
@@ -116,10 +117,26 @@ impl Game {
             self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
 
-        // Tell renderer to finish the frame and start the next one
-        let (width, height) = self.window.get_inner_size();
-        self.renderer.finish(width, height, self.background_colour);
+        // Tell renderer to finish the frame
+        self.renderer.present();
 
+        // Reset viewport
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.set_view(
+            width,
+            height,
+            self.unscaled_width,
+            self.unscaled_height,
+            0,
+            0,
+            width as _,
+            height as _,
+            0.0,
+            0,
+            0,
+            width as _,
+            height as _,
+        );
 
         Ok(())
     }
