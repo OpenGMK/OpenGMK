@@ -325,13 +325,13 @@ impl Game {
     }
 
     pub fn screen_redraw(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function screen_redraw")
+        self.draw()?;
+        Ok(Default::default())
     }
 
     pub fn screen_refresh(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function screen_refresh")
+        self.renderer.present();
+        Ok(Default::default())
     }
 
     pub fn screen_wait_vsync(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -508,14 +508,16 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_clear")
+    pub fn draw_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let col = expect_args!(args, [int])?;
+        self.renderer.clear_view((col as u32).into(), 1.0);
+        Ok(Default::default())
     }
 
-    pub fn draw_clear_alpha(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_clear_alpha")
+    pub fn draw_clear_alpha(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (col, alpha) = expect_args!(args, [int, real])?;
+        self.renderer.clear_view((col as u32).into(), alpha.into());
+        Ok(Default::default())
     }
 
     pub fn draw_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
