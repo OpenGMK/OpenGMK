@@ -35,3 +35,39 @@ pub struct Collider {
     pub bbox_bottom: u32,
     pub data: Box<[bool]>,
 }
+
+pub fn make_colliders(frames: &[Box<[u8]>], width: u32, height: u32) -> Vec<Collider> {
+    // only supports non-separated precise colliders with 0 tolerance rn
+    let tolerance = 0;
+    let mut data = vec![false; (width * height) as usize];
+    for f in frames {
+        for px in 0..data.len() {
+            if f[px * 4 + 3] > tolerance {
+                data[px] = true;
+            }
+        }
+    }
+    let mut bbox_left = width - 1;
+    let mut bbox_right = 0;
+    let mut bbox_top = height - 1;
+    let mut bbox_bottom = 0;
+    for x in 0..width {
+        for y in 0..height {
+            if data[(y * width + x) as usize] {
+                if x < bbox_left {
+                    bbox_left = x;
+                }
+                if x > bbox_right {
+                    bbox_right = x;
+                }
+                if y < bbox_top {
+                    bbox_top = y;
+                }
+                if y > bbox_bottom {
+                    bbox_bottom = y;
+                }
+            }
+        }
+    }
+    vec![Collider { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data: data.into_boxed_slice() }]
+}
