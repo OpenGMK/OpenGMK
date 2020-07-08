@@ -6,6 +6,7 @@ pub mod particle;
 pub mod replay;
 pub mod savestate;
 pub mod string;
+pub mod surface;
 pub mod view;
 
 pub use background::Background;
@@ -115,6 +116,7 @@ pub struct Game {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
+    pub surfaces: Vec<Option<surface::Surface>>,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -772,6 +774,7 @@ impl Game {
             draw_alpha: Real::from(1.0),
             draw_halign: draw::Halign::Left,
             draw_valign: draw::Valign::Top,
+            surfaces: Vec::new(),
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
