@@ -218,6 +218,9 @@ impl RendererImpl {
             // Configure gl::ReadPixels() to read from the back buffer
             gl::ReadBuffer(gl::BACK);
 
+            // Configure gl::ReadPixels() to align to 1 byte
+            gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
+
             // Create Renderer
             let mut renderer = Self {
                 imp,
