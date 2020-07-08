@@ -54,13 +54,14 @@ pub trait RendererTrait {
         port_h: i32,
     );
     fn flush_queue(&mut self);
+    fn present(&mut self);
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
 
-    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
+    fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
 
     fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
@@ -164,7 +165,7 @@ pub trait RendererTrait {
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
-    fn clear_view(&mut self, colour: Colour);
+    fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
 pub struct RendererOptions {
@@ -291,8 +292,8 @@ impl Renderer {
         self.0.dump_sprite(atlas_ref)
     }
 
-    pub fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
-        self.0.get_pixels(w, h)
+    pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
+        self.0.get_pixels(x, y, w, h)
     }
 
     pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
@@ -323,8 +324,12 @@ impl Renderer {
         self.0.flush_queue()
     }
 
-    pub fn clear_view(&mut self, colour: Colour) {
-        self.0.clear_view(colour)
+    pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
+        self.0.clear_view(colour, alpha)
+    }
+
+    pub fn present(&mut self) {
+        self.0.present()
     }
 
     pub fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {

@@ -217,8 +217,11 @@ impl RendererImpl {
             // Use program
             gl::UseProgram(program);
 
-            // Configure gl::ReadPixels() to read from the front buffer
-            gl::ReadBuffer(gl::FRONT);
+            // Configure gl::ReadPixels() to read from the back buffer
+            gl::ReadBuffer(gl::BACK);
+
+            // Configure gl::ReadPixels() to align to 1 byte
+            gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
 
             // Create Renderer
             let mut renderer = Self {
@@ -540,12 +543,12 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+    fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
             let len = (w * h * 3) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(0, 0, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            gl::ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
@@ -878,14 +881,14 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn clear_view(&mut self, colour: Colour) {
+    fn clear_view(&mut self, colour: Colour, alpha: f64) {
         unsafe {
-            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
+            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+    fn present(&mut self) {
         // Finish drawing frame
         self.flush_queue();
 
@@ -893,6 +896,11 @@ impl RendererTrait for RendererImpl {
         unsafe {
             self.imp.swap_buffers();
         }
+    }
+
+    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+        // Present screen
+        self.present();
 
         // Start next frame
         self.setup_frame(width, height, clear_colour)
