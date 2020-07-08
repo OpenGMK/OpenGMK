@@ -731,9 +731,9 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn clear_view(&mut self, colour: Colour) {
+    fn clear_view(&mut self, colour: Colour, alpha: f64) {
         unsafe {
-            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
+            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }

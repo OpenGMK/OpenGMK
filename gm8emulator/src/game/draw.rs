@@ -157,7 +157,7 @@ impl Game {
         );
 
         if let Some(colour) = self.room_colour {
-            self.renderer.clear_view(colour);
+            self.renderer.clear_view(colour, 1.0);
         }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {

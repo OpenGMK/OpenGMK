@@ -159,7 +159,7 @@ pub trait RendererTrait {
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
-    fn clear_view(&mut self, colour: Colour);
+    fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
 pub struct RendererOptions {
@@ -298,8 +298,8 @@ impl Renderer {
         self.0.flush_queue()
     }
 
-    pub fn clear_view(&mut self, colour: Colour) {
-        self.0.clear_view(colour)
+    pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
+        self.0.clear_view(colour, alpha)
     }
 
     pub fn present(&mut self) {
