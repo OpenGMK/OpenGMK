@@ -149,9 +149,9 @@ pub struct Game {
     // winit windowing
     pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_width: u32,
+    pub unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_height: u32,
+    pub unscaled_height: u32,
 }
 
 /// Enum indicating which GameMaker version a game was built with
