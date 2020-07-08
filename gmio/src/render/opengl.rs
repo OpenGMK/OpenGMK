@@ -738,7 +738,7 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+    fn present(&mut self) {
         // Finish drawing frame
         self.flush_queue();
 
@@ -746,8 +746,13 @@ impl RendererTrait for RendererImpl {
         unsafe {
             self.imp.swap_buffers();
         }
+    }
 
-        // Start next frame (TODO: do this when draw starts, not after draw ends)
+    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+        // Present screen
+        self.present();
+
+        // Start next frame
         self.setup_frame(width, height, clear_colour)
     }
 }

@@ -52,6 +52,7 @@ pub trait RendererTrait {
         port_h: i32,
     );
     fn flush_queue(&mut self);
+    fn present(&mut self);
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
@@ -299,6 +300,10 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour) {
         self.0.clear_view(colour)
+    }
+
+    pub fn present(&mut self) {
+        self.0.present()
     }
 
     pub fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
