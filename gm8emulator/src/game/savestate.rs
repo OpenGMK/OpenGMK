@@ -102,7 +102,7 @@ pub struct SaveState {
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
         let (width, height) = game.window.get_inner_size();
-        let screenshot = game.renderer.get_pixels(width as _, height as _);
+        let screenshot = game.renderer.get_pixels(0, 0, width as _, height as _);
 
         Self {
             compiler: game.compiler.clone(),

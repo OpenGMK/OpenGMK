@@ -216,6 +216,7 @@ impl RendererImpl {
             gl::UseProgram(program);
 
             // Configure gl::ReadPixels() to read from the front buffer
+            // TODO: read from back buffer and don't clear it immediately
             gl::ReadBuffer(gl::FRONT);
 
             // Create Renderer
@@ -391,12 +392,12 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+    fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
             let len = (w * h * 3) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(0, 0, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            gl::ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
@@ -746,7 +747,7 @@ impl RendererTrait for RendererImpl {
             self.imp.swap_buffers();
         }
 
-        // Start next frame
+        // Start next frame (TODO: do this when draw starts, not after draw ends)
         self.setup_frame(width, height, clear_colour)
     }
 }

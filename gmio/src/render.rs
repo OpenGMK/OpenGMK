@@ -58,7 +58,7 @@ pub trait RendererTrait {
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
 
-    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]>;
+    fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
 
     fn draw_sprite_partial(
@@ -277,8 +277,8 @@ impl Renderer {
         self.0.dump_sprite(atlas_ref)
     }
 
-    pub fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
-        self.0.get_pixels(w, h)
+    pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
+        self.0.get_pixels(x, y, w, h)
     }
 
     pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
