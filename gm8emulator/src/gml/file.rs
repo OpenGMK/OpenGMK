@@ -339,7 +339,7 @@ pub fn delete(path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn save_png(path: &str, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
+pub fn save_image(path: &str, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
     let w = std::io::BufWriter::new(std::fs::File::create(path)?);
     let mut encoder = png::Encoder::new(w, width, height);
     encoder.set_color(png::ColorType::RGBA);

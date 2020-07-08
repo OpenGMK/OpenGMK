@@ -6656,7 +6656,7 @@ impl Game {
             let image_index = subimg % sprite.frames.len() as i32;
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 // get RGBA
-                if let Err(e) = file::save_png(
+                if let Err(e) = file::save_image(
                     fname.as_ref(),
                     atlas_ref.w as u32,
                     atlas_ref.h as u32,
@@ -6794,7 +6794,7 @@ impl Game {
         if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
             if let Some(atlas_ref) = background.atlas_ref.as_ref() {
                 // get RGBA
-                if let Err(e) = file::save_png(
+                if let Err(e) = file::save_image(
                     fname.as_ref(),
                     atlas_ref.w as u32,
                     atlas_ref.h as u32,
