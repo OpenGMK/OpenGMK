@@ -4,7 +4,7 @@
 
 use crate::{
     action, asset,
-    game::{draw, particle, replay, string::RCStr, Game, GetAsset, PlayType, SceneChange},
+    game::{draw, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
     gml::{self, compiler::mappings, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
@@ -1220,9 +1220,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_layer_depth")
     }
 
-    pub fn surface_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function surface_create")
+    pub fn surface_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (w, h) = expect_args!(args, [int, int])?;
+        let surf = Surface {
+            width: w as _,
+            height: h as _,
+            atlas_ref: match self.renderer.create_surface(w, h) {
+                Ok(atl_ref) => atl_ref,
+                Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
+            },
+        };
+        if let Some(id) = self.surfaces.iter().position(|x| x.is_none()) {
+            self.surfaces[id] = Some(surf);
+            Ok(id.into())
+        } else {
+            self.surfaces.push(Some(surf));
+            Ok((self.surfaces.len() - 1).into())
+        }
     }
 
     pub fn surface_create_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1230,24 +1244,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_create_ext")
     }
 
-    pub fn surface_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_free")
+    pub fn surface_free(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.delete_sprite(surf.atlas_ref);
+            self.surfaces[surf_id as usize] = None;
+        }
+        Ok(Default::default())
     }
 
-    pub fn surface_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_exists")
+    pub fn surface_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        Ok(self.surfaces.get_asset(surf_id).is_some().into())
     }
 
-    pub fn surface_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_width")
+    pub fn surface_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.width.into()) } else { Ok((-1).into()) }
     }
 
-    pub fn surface_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_height")
+    pub fn surface_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
     }
 
     pub fn surface_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1255,24 +1273,42 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_get_texture")
     }
 
-    pub fn surface_set_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_set_target")
+    pub fn surface_set_target(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.set_target(&surf.atlas_ref);
+        }
+        Ok(Default::default())
     }
 
     pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function surface_reset_target")
+        let (width, height) = self.window.get_inner_size();
+        // reset viewport to top left of room because lol
+        self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        Ok(Default::default())
     }
 
-    pub fn draw_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_surface")
+    pub fn draw_surface(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [any, any, any])?;
+        self.draw_surface_ext(context, &[surf_id, x, y, 1.into(), 1.into(), 0.into(), 0xffffff.into(), 1.into()])
     }
 
-    pub fn draw_surface_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_surface_ext")
+    pub fn draw_surface_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, xscale, yscale, rot, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite(
+                &surf.atlas_ref,
+                x.into(),
+                (y + surf.height.into()).into(), // surfaces are upside down vs other textures
+                xscale.into(),
+                (-yscale).into(),
+                rot.into(),
+                colour,
+                alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_surface_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
