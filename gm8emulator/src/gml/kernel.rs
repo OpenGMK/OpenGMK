@@ -270,13 +270,11 @@ impl Game {
     }
 
     pub fn window_mouse_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_mouse_get_x")
+        Ok(self.input_manager.mouse_get_location().0.into())
     }
 
     pub fn window_mouse_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_mouse_get_y")
+        Ok(self.input_manager.mouse_get_location().1.into())
     }
 
     pub fn window_mouse_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
