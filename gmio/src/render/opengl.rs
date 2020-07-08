@@ -352,8 +352,10 @@ impl RendererTrait for RendererImpl {
             self.texture_ids.push(None);
             self.texture_ids.len() as u32 - 1
         };
-        self.current_atlas = atlas_id;
         unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
             let mut tex_id: GLuint = 0;
             gl::GenTextures(1, &mut tex_id);
             gl::BindTexture(gl::TEXTURE_2D, tex_id);
@@ -383,6 +385,8 @@ impl RendererTrait for RendererImpl {
 
             // store opengl texture handles
             self.texture_ids[atlas_id as usize] = Some(tex_id);
+            // cleanup
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
         }
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
