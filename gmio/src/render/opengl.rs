@@ -362,8 +362,19 @@ impl RendererTrait for RendererImpl {
         Ok(())
     }
 
-    fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
-        let atlas_ref = self.create_surface(width, height)?;
+    fn upload_sprite(
+        &mut self,
+        data: Box<[u8]>,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+    ) -> Result<AtlasRef, String> {
+        let atlas_ref = AtlasRef {
+            origin_x: origin_x as f32 / width as f32,
+            origin_y: origin_y as f32 / height as f32,
+            ..self.create_surface(width, height)?
+        };
         unsafe {
             // store previous
             let mut prev_tex2d = 0;

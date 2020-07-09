@@ -6706,12 +6706,17 @@ impl Game {
         // yes i know it's a new texture for every frame like in gm8 but it's fine
         let atlas_refs = frames
             .drain(..)
-            .map(|f| asset::sprite::Frame {
-                width: sprite_width as _,
-                height: sprite_height as _,
-                atlas_ref: self.renderer.upload_sprite(f, sprite_width as _, sprite_height as _).unwrap(),
+            .map(|f| {
+                Ok(asset::sprite::Frame {
+                    width: sprite_width as _,
+                    height: sprite_height as _,
+                    atlas_ref: self
+                        .renderer
+                        .upload_sprite(f, sprite_width as _, sprite_height as _, origin_x, origin_y)
+                        .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
+                })
             })
-            .collect();
+            .collect::<gml::Result<_>>()?;
         let sprite_id = self.assets.sprites.len();
         self.assets.sprites.push(Some(Box::new(asset::Sprite {
             name: format!("__newsprite{}", sprite_id).into(),
@@ -6873,7 +6878,10 @@ impl Game {
         let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
         let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
             .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
-        let atlas_ref = self.renderer.upload_sprite(image.data, image.width as _, image.height as _).unwrap();
+        let atlas_ref = self
+            .renderer
+            .upload_sprite(image.data, image.width as _, image.height as _, 0, 0)
+            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
         let background_id = self.assets.backgrounds.len();
         self.assets.backgrounds.push(Some(Box::new(asset::Background {
             name: format!("__newbackground{}", background_id).into(),
