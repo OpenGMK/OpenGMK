@@ -6920,9 +6920,39 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_duplicate")
     }
 
-    pub fn background_assign(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function background_assign")
+    pub fn background_assign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if let Some(src) = self.assets.backgrounds.get_asset(src_id) {
+            if let Some(background) = self.assets.backgrounds.get_asset(dst_id) {
+                if let Some(atlas_ref) = background.atlas_ref {
+                    self.renderer.delete_sprite(atlas_ref);
+                }
+            }
+            if dst_id >= 0 && self.assets.backgrounds.len() > dst_id as usize {
+                let dst_atlref = match src.atlas_ref {
+                    Some(ar) => Some(
+                        self.renderer
+                            .duplicate_sprite(ar)
+                            .map_err(|e| gml::Error::FunctionError("background_assign".into(), e.into()))?,
+                    ),
+                    None => None,
+                };
+                self.assets.backgrounds[dst_id as usize] = Some(Box::new(asset::Background {
+                    atlas_ref: dst_atlref,
+                    width: src.width,
+                    height: src.height,
+                    name: src.name.clone(),
+                }));
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError(
+                    "background_assign".into(),
+                    "Destination background has an invalid index".into(),
+                ))
+            }
+        } else {
+            Err(gml::Error::FunctionError("background_assign".into(), "Source background does not exist".into()))
+        }
     }
 
     pub fn background_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
