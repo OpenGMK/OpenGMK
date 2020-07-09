@@ -10,6 +10,13 @@ use std::any::Any;
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SavedTexture {
+    width: i32,
+    height: i32,
+    pixels: Box<[u8]>,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum BlendType {
     Zero,
@@ -71,6 +78,9 @@ pub trait RendererTrait {
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
+
+    fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
+    fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
 
     fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
@@ -317,6 +327,14 @@ impl Renderer {
 
     pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         self.0.draw_raw_frame(rgb, w, h, clear_colour)
+    }
+
+    pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
+        self.0.dump_dynamic_textures()
+    }
+
+    pub fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]) {
+        self.0.upload_dynamic_textures(textures)
     }
 
     pub fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String> {

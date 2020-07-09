@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, BlendType, RendererOptions, RendererTrait},
+    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -634,6 +634,79 @@ impl RendererTrait for RendererImpl {
         }
         self.draw_queue.clear();
         self.setup_frame(w as _, h as _, clear_colour);
+    }
+
+    fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
+        unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+
+            let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
+            for tex_id in self.texture_ids.iter().copied() {
+                textures.push(match tex_id {
+                    Some(tex_id) => {
+                        gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                        let mut width = 0;
+                        let mut height = 0;
+                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                        let mut pixels = vec![0; width as usize * height as usize * 4];
+                        gl::GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
+                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice() })
+                    },
+                    None => None,
+                });
+            }
+
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+
+            textures
+        }
+    }
+
+    fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]) {
+        unsafe {
+            for tex_id in self.texture_ids.iter_mut().skip(self.stock_atlas_count as usize) {
+                if let Some(tex_id) = tex_id.as_ref() {
+                    gl::DeleteTextures(1, tex_id);
+                }
+                *tex_id = None;
+            }
+            for fbo_id in self.fbo_ids.iter_mut().skip(self.stock_atlas_count as usize) {
+                if let Some(fbo_id) = fbo_id.as_ref() {
+                    gl::DeleteFramebuffers(1, fbo_id);
+                }
+                *fbo_id = None;
+            }
+            for (i, tex) in textures.iter().enumerate() {
+                if let Some(tex) = tex.as_ref() {
+                    let mut tex_id = 0;
+                    gl::GenTextures(1, &mut tex_id);
+                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.current_atlas = tex_id;
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,
+                        0,
+                        gl::RGBA as _,
+                        tex.width,
+                        tex.height,
+                        0,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        tex.pixels.as_ptr().cast(),
+                    );
+                    self.texture_ids[i] = Some(tex_id);
+
+                    let mut fbo_id = 0;
+                    gl::GenFramebuffers(1, &mut fbo_id);
+                    gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo_id);
+                    gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+                    self.fbo_ids[i] = Some(fbo_id);
+                }
+            }
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+        }
     }
 
     fn draw_sprite(
