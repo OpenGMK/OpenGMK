@@ -117,6 +117,7 @@ pub struct Game {
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<surface::Surface>>,
+    pub surface_target: Option<i32>,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -775,6 +776,7 @@ impl Game {
             draw_halign: draw::Halign::Left,
             draw_valign: draw::Valign::Top,
             surfaces: Vec::new(),
+            surface_target: None,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,

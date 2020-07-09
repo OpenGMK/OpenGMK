@@ -1308,6 +1308,7 @@ impl Game {
         let surf_id = expect_args!(args, [int])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.set_target(&surf.atlas_ref);
+            self.surface_target = Some(surf_id);
         }
         Ok(Default::default())
     }
@@ -1316,6 +1317,7 @@ impl Game {
         let (width, height) = self.window.get_inner_size();
         // reset viewport to top left of room because lol
         self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        self.surface_target = None;
         Ok(Default::default())
     }
 
