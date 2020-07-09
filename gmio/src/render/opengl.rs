@@ -395,6 +395,37 @@ impl RendererTrait for RendererImpl {
         Ok(atlas_ref)
     }
 
+    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
+        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h)?;
+        unsafe {
+            // store previous
+            let mut prev_read_fbo = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            let mut prev_draw_fbo = 0;
+            gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut prev_draw_fbo);
+
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.fbo_ids[new_sprite.atlas_id as usize].unwrap());
+
+            gl::BlitFramebuffer(
+                0,
+                0,
+                atlas_ref.w,
+                atlas_ref.h,
+                0,
+                0,
+                atlas_ref.w,
+                atlas_ref.h,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, prev_draw_fbo as _);
+        }
+        Ok(new_sprite)
+    }
+
     fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         // this only deletes sprites created with upload_sprite
         if atlas_ref.atlas_id >= self.stock_atlas_count {

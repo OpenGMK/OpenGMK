@@ -32,6 +32,7 @@ pub trait RendererTrait {
     fn max_texture_size(&self) -> u32;
     fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
     fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String>;
+    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
@@ -190,6 +191,10 @@ impl Renderer {
 
     pub fn upload_sprite(&mut self, data: Box<[u8]>, width: i32, height: i32) -> Result<AtlasRef, String> {
         self.0.upload_sprite(data, width, height)
+    }
+
+    pub fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
+        self.0.duplicate_sprite(atlas_ref)
     }
 
     pub fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
