@@ -643,7 +643,7 @@ impl RendererTrait for RendererImpl {
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
-            for tex_id in self.texture_ids.iter().copied() {
+            for tex_id in self.texture_ids.iter().skip(self.stock_atlas_count as usize).copied() {
                 textures.push(match tex_id {
                     Some(tex_id) => {
                         gl::BindTexture(gl::TEXTURE_2D, tex_id);
@@ -660,6 +660,7 @@ impl RendererTrait for RendererImpl {
             }
 
             gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            assert_eq!(gl::GetError(), 0);
 
             textures
         }
@@ -673,18 +674,27 @@ impl RendererTrait for RendererImpl {
                 }
                 *tex_id = None;
             }
+            self.texture_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
             for fbo_id in self.fbo_ids.iter_mut().skip(self.stock_atlas_count as usize) {
                 if let Some(fbo_id) = fbo_id.as_ref() {
                     gl::DeleteFramebuffers(1, fbo_id);
                 }
                 *fbo_id = None;
             }
+            self.fbo_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
             for (i, tex) in textures.iter().enumerate() {
+                let i = i + self.stock_atlas_count as usize;
                 if let Some(tex) = tex.as_ref() {
                     let mut tex_id = 0;
                     gl::GenTextures(1, &mut tex_id);
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
-                    self.current_atlas = tex_id;
+                    self.current_atlas = i as _;
+
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+
                     gl::TexImage2D(
                         gl::TEXTURE_2D,
                         0,
@@ -706,6 +716,7 @@ impl RendererTrait for RendererImpl {
                 }
             }
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            assert_eq!(gl::GetError(), 0);
         }
     }
 
