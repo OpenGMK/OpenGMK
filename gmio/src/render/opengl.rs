@@ -282,11 +282,10 @@ impl RendererTrait for RendererImpl {
             let textures: Vec<GLuint> = {
                 let mut buf = vec![0 as GLuint; packers.len()];
                 gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
-                for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
+                for (tex_id, packer) in buf.iter().copied().zip(&packers) {
                     let (width, height) = packer.size();
 
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
-                    self.current_atlas = i as u32;
 
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
@@ -688,7 +687,6 @@ impl RendererTrait for RendererImpl {
                     let mut tex_id = 0;
                     gl::GenTextures(1, &mut tex_id);
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
-                    self.current_atlas = i as _;
 
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
@@ -738,9 +736,6 @@ impl RendererTrait for RendererImpl {
                 return
             } // fail silently when drawing deleted sprite fonts
             self.flush_queue();
-            unsafe {
-                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
-            }
             self.current_atlas = atlas_ref.atlas_id;
         }
 
@@ -833,6 +828,8 @@ impl RendererTrait for RendererImpl {
         }
 
         unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
+
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
