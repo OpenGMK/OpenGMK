@@ -130,6 +130,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dll-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "dlv-list"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,6 +202,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "cfg-if",
+ "dll-macros",
  "getopts",
  "gl_generator",
  "gm8exe",

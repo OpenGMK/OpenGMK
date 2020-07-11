@@ -1,0 +1,18 @@
+[package]
+name = "dll-macros"
+version = "0.1.0"
+authors = ["Floogle"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[dependencies.syn]
+version = "1.0"
+features = ["full", "extra-traits"]
+
+[lib]
+proc-macro = true
