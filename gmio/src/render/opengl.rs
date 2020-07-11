@@ -282,10 +282,11 @@ impl RendererTrait for RendererImpl {
             let textures: Vec<GLuint> = {
                 let mut buf = vec![0 as GLuint; packers.len()];
                 gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
-                for (tex_id, packer) in buf.iter().copied().zip(&packers) {
+                for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
                     let (width, height) = packer.size();
 
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.current_atlas = i as u32;
 
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
