@@ -36,6 +36,7 @@ pub enum Instruction {
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Node {
     Literal { value: Value },
+    Constant { constant_id: usize },
     Function { args: Box<[Node]>, function: gml::Function },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
@@ -238,6 +239,7 @@ impl fmt::Debug for Node {
                 Value::Real(r) => write!(f, "{:?}", r),
                 Value::Str(s) => write!(f, "{:?}", s),
             },
+            Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
             Node::Function { args, function: _ } => write!(f, "<function: {:?}>", args),
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
@@ -444,7 +446,10 @@ impl Game {
                     }
                 }
                 if let Some(start) = default {
-                    return self.execute(&body[*start..], context)
+                    return Ok(match self.execute(&body[*start..], context)? {
+                        ReturnType::Break => ReturnType::Normal,
+                        x => x,
+                    })
                 }
             },
             Instruction::With { target, body } => {
@@ -530,6 +535,13 @@ impl Game {
     pub fn eval(&mut self, node: &Node, context: &mut Context) -> gml::Result<Value> {
         match node {
             Node::Literal { value } => Ok(value.clone()),
+            Node::Constant { constant_id } => {
+                if let Some(value) = self.constants.get(*constant_id) {
+                    Ok(value.clone())
+                } else {
+                    Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
+                }
+            },
             Node::Function { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
@@ -791,7 +803,7 @@ impl Game {
     }
 
     // Get an instance variable from an instance, converted into a Value
-    fn get_instance_var(
+    pub fn get_instance_var(
         &self,
         instance_handle: usize,
         var: &InstanceVariable,
@@ -1110,7 +1122,7 @@ impl Game {
     }
 
     // Set an instance variable on an instance
-    fn set_instance_var(
+    pub fn set_instance_var(
         &mut self,
         instance_handle: usize,
         var: &InstanceVariable,
@@ -1236,8 +1248,20 @@ impl Game {
             InstanceVariable::TransitionKind => self.transition_kind = value.into(),
             InstanceVariable::TransitionSteps => self.transition_steps = value.into(),
             InstanceVariable::Score => self.score = value.into(),
-            InstanceVariable::Lives => self.lives = value.into(),
-            InstanceVariable::Health => self.health = value.into(),
+            InstanceVariable::Lives => {
+                let old_lives = self.lives;
+                self.lives = value.into();
+                if old_lives > 0 && self.lives <= 0 {
+                    self.run_object_event(7, 6, None)?;
+                }
+            },
+            InstanceVariable::Health => {
+                let old_health = self.health;
+                self.health = value.into();
+                if old_health > 0.into() && self.health <= 0.into() {
+                    self.run_object_event(7, 9, None)?;
+                }
+            },
             InstanceVariable::RoomCaption => {
                 self.caption = value.into();
                 self.caption_stale = true;

@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, RendererOptions, RendererTrait},
+    render::{mat4mult, BlendType, RendererOptions, RendererTrait},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -16,7 +16,7 @@ pub mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
@@ -73,6 +73,43 @@ unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
         name,
         std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
     )
+}
+
+impl From<BlendType> for GLenum {
+    fn from(bt: BlendType) -> Self {
+        match bt {
+            BlendType::Zero => gl::ZERO,
+            BlendType::One => gl::ONE,
+            BlendType::SrcColour => gl::SRC_COLOR,
+            BlendType::InvSrcColour => gl::ONE_MINUS_SRC_COLOR,
+            BlendType::SrcAlpha => gl::SRC_ALPHA,
+            BlendType::InvSrcAlpha => gl::ONE_MINUS_SRC_ALPHA,
+            BlendType::DestAlpha => gl::DST_ALPHA,
+            BlendType::InvDestAlpha => gl::ONE_MINUS_DST_ALPHA,
+            BlendType::DestColour => gl::DST_COLOR,
+            BlendType::InvDestColour => gl::ONE_MINUS_DST_COLOR,
+            BlendType::SrcAlphaSaturate => gl::SRC_ALPHA_SATURATE,
+        }
+    }
+}
+
+impl From<GLenum> for BlendType {
+    fn from(bt: GLenum) -> Self {
+        match bt {
+            gl::ZERO => BlendType::Zero,
+            gl::ONE => BlendType::One,
+            gl::SRC_COLOR => BlendType::SrcColour,
+            gl::ONE_MINUS_SRC_COLOR => BlendType::InvSrcColour,
+            gl::SRC_ALPHA => BlendType::SrcAlpha,
+            gl::ONE_MINUS_SRC_ALPHA => BlendType::InvSrcAlpha,
+            gl::DST_ALPHA => BlendType::DestAlpha,
+            gl::ONE_MINUS_DST_ALPHA => BlendType::InvDestAlpha,
+            gl::DST_COLOR => BlendType::DestColour,
+            gl::ONE_MINUS_DST_COLOR => BlendType::InvDestColour,
+            gl::SRC_ALPHA_SATURATE => BlendType::SrcAlphaSaturate,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl RendererImpl {
@@ -178,8 +215,11 @@ impl RendererImpl {
             // Use program
             gl::UseProgram(program);
 
-            // Configure gl::ReadPixels() to read from the front buffer
-            gl::ReadBuffer(gl::FRONT);
+            // Configure gl::ReadPixels() to read from the back buffer
+            gl::ReadBuffer(gl::BACK);
+
+            // Configure gl::ReadPixels() to align to 1 byte
+            gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
 
             // Create Renderer
             let mut renderer = Self {
@@ -310,12 +350,56 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
     }
 
-    fn get_pixels(&self, w: i32, h: i32) -> Box<[u8]> {
+    fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
+        unsafe {
+            // store read fbo
+            let mut prev_read_fbo: GLint = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+
+            // setup temp fbo
+            let mut fbo: GLuint = 0;
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+
+            // bind texture to fbo
+            gl::FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                self.texture_ids[atlas_ref.atlas_id as usize],
+                0,
+            );
+
+            // read data
+            let len = (atlas_ref.w * atlas_ref.h * 4) as usize;
+            let mut data: Vec<u8> = Vec::with_capacity(len);
+            data.set_len(len);
+            gl::ReadPixels(
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w,
+                atlas_ref.h,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                data.as_mut_ptr().cast(),
+            );
+
+            assert_eq!(gl::GetError(), 0);
+
+            // cleanup
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            gl::DeleteFramebuffers(1, &fbo);
+
+            data.into_boxed_slice()
+        }
+    }
+
+    fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
             let len = (w * h * 3) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(0, 0, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            gl::ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
@@ -451,8 +535,29 @@ impl RendererTrait for RendererImpl {
         self.draw_sprite(&copied_pixel, x2, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // right line
     }
 
+    fn get_blend_mode(&self) -> (BlendType, BlendType) {
+        let mut src: GLint = 0;
+        let mut dst: GLint = 0;
+        unsafe {
+            gl::GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
+            gl::GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
+        }
+        ((src as GLenum).into(), (dst as GLenum).into())
+    }
+
+    fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
+        self.flush_queue();
+        unsafe {
+            gl::BlendFunc(src.into(), dst.into());
+        }
+    }
+
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
+        if self.draw_queue.is_empty() {
+            return
+        }
+
         unsafe {
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
@@ -628,14 +733,14 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn clear_view(&mut self, colour: Colour) {
+    fn clear_view(&mut self, colour: Colour, alpha: f64) {
         unsafe {
-            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, 1.0);
+            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+    fn present(&mut self) {
         // Finish drawing frame
         self.flush_queue();
 
@@ -643,6 +748,11 @@ impl RendererTrait for RendererImpl {
         unsafe {
             self.imp.swap_buffers();
         }
+    }
+
+    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+        // Present screen
+        self.present();
 
         // Start next frame
         self.setup_frame(width, height, clear_colour)

@@ -16,7 +16,11 @@ pub enum Message {
         keys_requested: Vec<input::Key>,
         mouse_buttons_requested: Vec<input::MouseButton>,
         instance_requested: Option<ID>,
+        new_seed: Option<i32>,
     },
+
+    /// Tells the game whether to send MousePosition info (it doesn't by default)
+    SetUpdateMouse { update: bool },
 
     /// Tells the game to create a savestate in the given index
     Save { filename: String },
@@ -45,6 +49,12 @@ pub enum Information {
 
     /// Tells the controller that a key was pressed while the game window was focused
     KeyPressed { key: input::Key },
+
+    /// Tells the controller the mouse was moved to the given position in the game window (window coordinates)
+    MousePosition { x: i32, y: i32 },
+
+    /// Tells the controller the game was left-clicked at the given position (window coordinates)
+    LeftClick { x: i32, y: i32 },
 
     /// Tells the controller that the user clicked on an instance and provides its details
     InstanceClicked { details: InstanceDetails },

@@ -177,6 +177,11 @@ impl Game {
             }
             i += 1;
         }
+        if self.input_manager.key_check_any() {
+            self.run_object_event(gml::ev::KEYBOARD, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYBOARD, 0, None)?;
+        }
         Ok(())
     }
 
@@ -198,6 +203,11 @@ impl Game {
             }
             i += 1;
         }
+        if self.input_manager.key_check_any_pressed() {
+            self.run_object_event(gml::ev::KEYPRESS, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYPRESS, 0, None)?;
+        }
         Ok(())
     }
 
@@ -218,6 +228,11 @@ impl Game {
                 }
             }
             i += 1;
+        }
+        if self.input_manager.key_check_any_released() {
+            self.run_object_event(gml::ev::KEYRELEASE, 1, None)?;
+        } else {
+            self.run_object_event(gml::ev::KEYRELEASE, 0, None)?;
         }
         Ok(())
     }
@@ -404,67 +419,65 @@ impl Game {
         }
 
         // Outside room events
-        let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&0)) {
-            Some(e) => e.clone(),
-            None => return Ok(()),
-        };
-        let mut position = 0;
-        while let Some(&object_id) = holders.borrow().get(position) {
-            let mut iter = self.instance_list.iter_by_object(object_id);
-            while let Some(handle) = iter.next(&self.instance_list) {
-                let instance = self.instance_list.get(handle);
-                let mask = self.get_instance_mask_sprite(handle);
+        if let Some(holders) = self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&0)) {
+            let holders = holders.clone();
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    let instance = self.instance_list.get(handle);
+                    let mask = self.get_instance_mask_sprite(handle);
 
-                let outside = if mask.is_some() {
-                    instance.update_bbox(mask);
-                    instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
-                } else {
-                    point_outside_rect(
-                        instance.x.get().into(),
-                        instance.y.get().into(),
-                        0,
-                        0,
-                        self.room_width,
-                        self.room_height,
-                    )
-                };
-                if outside {
-                    self.run_instance_event(gml::ev::OTHER, 0, handle, handle, None)?;
+                    let outside = if mask.is_some() {
+                        instance.update_bbox(mask);
+                        instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
+                    } else {
+                        point_outside_rect(
+                            instance.x.get().into(),
+                            instance.y.get().into(),
+                            0,
+                            0,
+                            self.room_width,
+                            self.room_height,
+                        )
+                    };
+                    if outside {
+                        self.run_instance_event(gml::ev::OTHER, 0, handle, handle, None)?;
+                    }
                 }
+                position += 1;
             }
-            position += 1;
         }
 
         // Intersect room boundary events
-        let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&1)) {
-            Some(e) => e.clone(),
-            None => return Ok(()),
-        };
-        let mut position = 0;
-        while let Some(&object_id) = holders.borrow().get(position) {
-            let mut iter = self.instance_list.iter_by_object(object_id);
-            while let Some(handle) = iter.next(&self.instance_list) {
-                let instance = self.instance_list.get(handle);
-                let mask = self.get_instance_mask_sprite(handle);
+        if let Some(holders) = self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&1)) {
+            let holders = holders.clone();
+            let mut position = 0;
+            while let Some(&object_id) = holders.borrow().get(position) {
+                let mut iter = self.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.instance_list) {
+                    let instance = self.instance_list.get(handle);
+                    let mask = self.get_instance_mask_sprite(handle);
 
-                let intersect = if mask.is_some() {
-                    instance.update_bbox(mask);
-                    instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
-                } else {
-                    point_outside_rect(
-                        instance.x.get().into(),
-                        instance.y.get().into(),
-                        0,
-                        0,
-                        self.room_width,
-                        self.room_height,
-                    )
-                };
-                if intersect {
-                    self.run_instance_event(gml::ev::OTHER, 1, handle, handle, None)?;
+                    let intersect = if mask.is_some() {
+                        instance.update_bbox(mask);
+                        instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
+                    } else {
+                        point_outside_rect(
+                            instance.x.get().into(),
+                            instance.y.get().into(),
+                            0,
+                            0,
+                            self.room_width,
+                            self.room_height,
+                        )
+                    };
+                    if intersect {
+                        self.run_instance_event(gml::ev::OTHER, 1, handle, handle, None)?;
+                    }
                 }
+                position += 1;
             }
-            position += 1;
         }
 
         let view_count = self.views.len().min(8);
@@ -472,84 +485,82 @@ impl Game {
         // Outside view events
         for i in 0..view_count {
             let event_number = (40 + i) as u32;
-            let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
-                Some(e) => e.clone(),
-                None => return Ok(()),
-            };
-            let mut position = 0;
-            while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle);
-                    let mask = self.get_instance_mask_sprite(handle);
-                    let view = &self.views[i];
+            if let Some(holders) = self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
+                let holders = holders.clone();
+                let mut position = 0;
+                while let Some(&object_id) = holders.borrow().get(position) {
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        let instance = self.instance_list.get(handle);
+                        let mask = self.get_instance_mask_sprite(handle);
+                        let view = &self.views[i];
 
-                    let outside = if mask.is_some() {
-                        instance.update_bbox(mask);
-                        instance_outside_rect(
-                            instance,
-                            view.source_x,
-                            view.source_y,
-                            view.source_x + view.source_w as i32,
-                            view.source_y + view.source_h as i32,
-                        )
-                    } else {
-                        point_outside_rect(
-                            instance.x.get().into(),
-                            instance.y.get().into(),
-                            view.source_x,
-                            view.source_y,
-                            view.source_x + view.source_w as i32,
-                            view.source_y + view.source_h as i32,
-                        )
-                    };
-                    if outside {
-                        self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                        let outside = if mask.is_some() {
+                            instance.update_bbox(mask);
+                            instance_outside_rect(
+                                instance,
+                                view.source_x,
+                                view.source_y,
+                                view.source_x + view.source_w as i32,
+                                view.source_y + view.source_h as i32,
+                            )
+                        } else {
+                            point_outside_rect(
+                                instance.x.get().into(),
+                                instance.y.get().into(),
+                                view.source_x,
+                                view.source_y,
+                                view.source_x + view.source_w as i32,
+                                view.source_y + view.source_h as i32,
+                            )
+                        };
+                        if outside {
+                            self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                        }
                     }
+                    position += 1;
                 }
-                position += 1;
             }
         }
 
         // Intersect view events
         for i in 0..view_count {
             let event_number = (50 + i) as u32;
-            let holders = match self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
-                Some(e) => e.clone(),
-                None => return Ok(()),
-            };
-            let mut position = 0;
-            while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle);
-                    let mask = self.get_instance_mask_sprite(handle);
-                    let view = &self.views[i];
+            if let Some(holders) = self.event_holders.get(gml::ev::OTHER).and_then(|x| x.get(&event_number)) {
+                let holders = holders.clone();
+                let mut position = 0;
+                while let Some(&object_id) = holders.borrow().get(position) {
+                    let mut iter = self.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.instance_list) {
+                        let instance = self.instance_list.get(handle);
+                        let mask = self.get_instance_mask_sprite(handle);
+                        let view = &self.views[i];
 
-                    let intersect = if mask.is_some() {
-                        instance.update_bbox(mask);
-                        instance_intersect_rect(
-                            instance,
-                            view.source_x,
-                            view.source_y,
-                            view.source_x + view.source_w as i32,
-                            view.source_y + view.source_h as i32,
-                        )
-                    } else {
-                        point_outside_rect(
-                            instance.x.get().into(),
-                            instance.y.get().into(),
-                            view.source_x,
-                            view.source_y,
-                            view.source_x + view.source_w as i32,
-                            view.source_y + view.source_h as i32,
-                        )
-                    };
-                    if intersect {
-                        self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                        let intersect = if mask.is_some() {
+                            instance.update_bbox(mask);
+                            instance_intersect_rect(
+                                instance,
+                                view.source_x,
+                                view.source_y,
+                                view.source_x + view.source_w as i32,
+                                view.source_y + view.source_h as i32,
+                            )
+                        } else {
+                            point_outside_rect(
+                                instance.x.get().into(),
+                                instance.y.get().into(),
+                                view.source_x,
+                                view.source_y,
+                                view.source_x + view.source_w as i32,
+                                view.source_y + view.source_h as i32,
+                            )
+                        };
+                        if intersect {
+                            self.run_instance_event(gml::ev::OTHER, event_number, handle, handle, None)?;
+                        }
                     }
+                    position += 1;
                 }
-                position += 1;
             }
         }
 

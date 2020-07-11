@@ -5,7 +5,7 @@ use crate::{
 };
 use gmio::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::Renderer,
+    render::{BlendType, Renderer},
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -1148,15 +1148,28 @@ impl System {
         shapes: &Vec<AtlasRef>,
     ) {
         // TODO set texture lerp on just for this function
+        let mut last_was_additive = false;
+        let mut fix_blend = |new, renderer: &mut Renderer| {
+            if new != last_was_additive {
+                last_was_additive = new;
+                match new {
+                    false => renderer.set_blend_mode(BlendType::SrcAlpha, BlendType::InvSrcAlpha), // bm_normal
+                    true => renderer.set_blend_mode(BlendType::SrcAlpha, BlendType::One),          // bm_add
+                }
+            }
+        };
         if self.draw_old_to_new {
             for particle in &self.particles {
+                types.get_asset(particle.ptype).map(|pt| fix_blend(pt.additive_blending, renderer));
                 particle.draw(self.x, self.y, renderer, assets, types, shapes);
             }
         } else {
             for particle in self.particles.iter().rev() {
+                types.get_asset(particle.ptype).map(|pt| fix_blend(pt.additive_blending, renderer));
                 particle.draw(self.x, self.y, renderer, assets, types, shapes);
             }
         }
+        fix_blend(false, renderer);
     }
 
     pub fn create_particles(
@@ -1437,7 +1450,6 @@ impl Particle {
         }
         size_wiggle_factor -= 1.0;
         let size = self.size + ptype.size_wiggle * size_wiggle_factor.into();
-        // TODO set blend mode to bm_add if additive
         if let Some(atlas_ref) = atlas_ref {
             renderer.draw_sprite(
                 atlas_ref,
@@ -1486,13 +1498,16 @@ impl Deflector {
                     && self.ymin <= particle.y
                     && particle.y <= self.ymax
                 {
-                    particle.direction = match self.kind {
-                        DeflectorKind::Horizontal => Real::from(180.0) - particle.direction,
-                        DeflectorKind::Vertical => Real::from(360.0) - particle.direction,
+                    match self.kind {
+                        DeflectorKind::Horizontal => {
+                            particle.direction = (Real::from(180) - particle.direction).rem_euclid(360.into());
+                            particle.x = particle.xprevious - (particle.x - particle.xprevious);
+                        },
+                        DeflectorKind::Vertical => {
+                            particle.direction = (Real::from(360) - particle.direction).rem_euclid(360.into());
+                            particle.y = particle.yprevious - (particle.y - particle.yprevious);
+                        },
                     }
-                    .rem_euclid(Real::from(360.0));
-                    particle.x = particle.xprevious - (particle.x - particle.xprevious);
-                    particle.y = particle.yprevious - (particle.y - particle.yprevious);
                     particle.speed = (particle.speed - self.friction).max(Real::from(0.0));
                 }
             }
