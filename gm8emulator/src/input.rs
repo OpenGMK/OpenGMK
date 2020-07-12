@@ -358,6 +358,22 @@ impl InputManager {
         self.mouse_scroll_down = false;
     }
 
+    pub fn clear(&mut self) {
+        self.kb_lastkey = 0;
+        self.kb_key = 0;
+        self.kb_held.clear();
+        self.kb_pressed.clear();
+        self.kb_released.clear();
+
+        self.mouse_button = 0;
+        self.mouse_lastbutton = 0;
+        self.mouse_held.clear();
+        self.mouse_pressed.clear();
+        self.mouse_released.clear();
+        self.mouse_scroll_up = false;
+        self.mouse_scroll_down = false;
+    }
+
     // fn kb_handle_direct(&mut self, key: VirtualKeyCode, held: bool) {
     //     match key {
     //         VirtualKeyCode::LShift => self.kb_lshift = held,
