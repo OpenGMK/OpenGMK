@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{draw, particle, replay, string::RCStr, Game, GetAsset, PlayType, SceneChange},
-    gml::{self, compiler::mappings, ds, file, Context, Value},
+    gml::{self, compiler::mappings, datetime::DateTime, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
@@ -6307,38 +6307,38 @@ impl Game {
     }
 
     pub fn date_current_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_datetime")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).into())
     }
 
     pub fn date_current_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_date")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).date().into())
     }
 
     pub fn date_current_time(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_time")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).time().into())
     }
 
-    pub fn date_create_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function date_create_datetime")
+    pub fn date_create_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day, hour, minute, second) = expect_args!(args, [int, int, int, int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day)
+            .and_then(|d| DateTime::from_hms(hour, minute, second).map(|t| Real::from(d) + t.into()))
+            .unwrap_or(0.into())
+            .into())
     }
 
-    pub fn date_create_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_create_date")
+    pub fn date_create_date(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day) = expect_args!(args, [int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day).map(Real::from).unwrap_or(0.into()).into())
     }
 
-    pub fn date_create_time(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_create_time")
+    pub fn date_create_time(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hour, minute, second) = expect_args!(args, [int, int, int])?;
+        Ok(DateTime::from_hms(hour, minute, second).map(Real::from).unwrap_or(0.into()).into())
     }
 
-    pub fn date_valid_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function date_valid_datetime")
+    pub fn date_valid_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day, hour, minute, second) = expect_args!(args, [int, int, int, int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day).and_then(|_| DateTime::from_hms(hour, minute, second)).is_some().into())
     }
 
     pub fn date_valid_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6386,44 +6386,44 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_inc_second")
     }
 
-    pub fn date_get_year(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_year")
+    pub fn date_get_year(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).year().into())
     }
 
-    pub fn date_get_month(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_month")
+    pub fn date_get_month(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).month().into())
     }
 
-    pub fn date_get_week(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_week")
+    pub fn date_get_week(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).week().into())
     }
 
-    pub fn date_get_day(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_day")
+    pub fn date_get_day(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).day().into())
     }
 
-    pub fn date_get_hour(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_hour")
+    pub fn date_get_hour(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).hour().into())
     }
 
-    pub fn date_get_minute(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_minute")
+    pub fn date_get_minute(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).minute().into())
     }
 
-    pub fn date_get_second(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_second")
+    pub fn date_get_second(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).second().into())
     }
 
-    pub fn date_get_weekday(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_weekday")
+    pub fn date_get_weekday(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).weekday().into())
     }
 
     pub fn date_get_day_of_year(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
