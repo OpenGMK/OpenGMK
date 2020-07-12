@@ -1466,14 +1466,24 @@ impl Game {
 
     pub fn action_set_hspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).set_hspeed(x);
+            let instance = self.instance_list.get(context.this);
+            if context.relative {
+                instance.set_hspeed(x + instance.hspeed.get());
+            } else {
+                instance.set_hspeed(x);
+            }
             Ok(Default::default())
         })?
     }
 
     pub fn action_set_vspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).set_vspeed(x);
+            let instance = self.instance_list.get(context.this);
+            if context.relative {
+                instance.set_vspeed(x + instance.vspeed.get());
+            } else {
+                instance.set_vspeed(x);
+            }
             Ok(Default::default())
         })?
     }
