@@ -3402,9 +3402,39 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_wrap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function move_wrap")
+    pub fn move_wrap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (horizontal_wrap, vertical_wrap, margin) = expect_args!(args, [any, any, real])?;
+        let instance = self.instance_list.get(context.this);
+
+        let mut update_bbox = false;
+
+        if horizontal_wrap.is_truthy() {
+            let instance_x = instance.x.get();
+
+            if instance_x < -margin {
+                instance.x.set(Real::from(self.room_width) + instance_x + Real::from(2) * margin);
+                update_bbox = true;
+            }
+            if instance_x > Real::from(self.room_width) + margin {
+                instance.x.set(instance_x - Real::from(self.room_width) - Real::from(2) * margin);
+                update_bbox = true;
+            }
+        }
+        if vertical_wrap.is_truthy() {
+            let instance_y = instance.y.get();
+            if instance_y < -margin {
+                instance.y.set(Real::from(self.room_height) + instance_y + Real::from(2) * margin);
+                update_bbox = true;
+            }
+            if instance_y > Real::from(self.room_height) + margin {
+                instance.y.set(instance_y - Real::from(self.room_height) - Real::from(2) * margin);
+                update_bbox = true;
+            }
+        }
+        if update_bbox {
+            instance.bbox_is_stale.set(true);
+        }
+        Ok(Default::default())
     }
 
     pub fn motion_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
