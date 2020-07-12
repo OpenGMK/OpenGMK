@@ -5774,8 +5774,9 @@ impl Game {
     }
 
     pub fn io_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function io_clear")
+        self.process_window_events();
+        self.input_manager.clear();
+        Ok(Default::default())
     }
 
     pub fn io_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
