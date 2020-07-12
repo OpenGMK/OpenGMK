@@ -6148,8 +6148,13 @@ impl Game {
     }
 
     pub fn set_application_title(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_application_title")
+        // In GM8, the game is made out of two windows. One is the one you see, and its caption is
+        // managed by room_caption and (somewhat) window_set_caption. The other's caption is set by
+        // set_application_title, and its caption only shows up in the taskbar and task manager.
+        // The emulator only uses one window, and emulating this behaviour isn't possible with just
+        // one window, so emulating set_application_title isn't possible.
+        // It's a write-only attribute, so simply making it a NOP doesn't hurt anything.
+        Ok(Default::default())
     }
 
     pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
