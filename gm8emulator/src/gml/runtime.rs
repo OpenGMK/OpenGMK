@@ -1070,10 +1070,10 @@ impl Game {
             },
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
-            InstanceVariable::MouseButton => todo!(),
-            InstanceVariable::MouseLastbutton => todo!(),
-            InstanceVariable::KeyboardKey => todo!(),
-            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::MouseButton => Ok(self.input_manager.mouse_get_button().into()),
+            InstanceVariable::MouseLastbutton => Ok(self.input_manager.mouse_get_lastbutton().into()),
+            InstanceVariable::KeyboardKey => Ok(self.input_manager.key_get_key().into()),
+            InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
@@ -1389,10 +1389,30 @@ impl Game {
                 Some(view) => view.follow_target = value.into(),
                 None => self.views[0].follow_target = value.into(),
             },
-            InstanceVariable::MouseButton => todo!(),
-            InstanceVariable::MouseLastbutton => todo!(),
-            InstanceVariable::KeyboardKey => todo!(),
-            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::MouseButton => {
+                let button = value.round();
+                if button > 0 {
+                    self.input_manager.mouse_set_button(button as _);
+                }
+            },
+            InstanceVariable::MouseLastbutton => {
+                let button = value.round();
+                if button > 0 {
+                    self.input_manager.mouse_set_lastbutton(button as _);
+                }
+            },
+            InstanceVariable::KeyboardKey => {
+                let code = value.round();
+                if code > 0 {
+                    self.input_manager.key_set_key(code as _);
+                }
+            },
+            InstanceVariable::KeyboardLastkey => {
+                let code = value.round();
+                if code > 0 {
+                    self.input_manager.key_set_lastkey(code as _);
+                }
+            },
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
