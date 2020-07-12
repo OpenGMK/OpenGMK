@@ -4,13 +4,17 @@ use crate::{
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
+        datetime::DateTime,
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
     math::Real,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    time,
+};
 
 const DEFAULT_ALARM: i32 = -1;
 
@@ -1084,14 +1088,24 @@ impl Game {
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
             InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
-            InstanceVariable::CurrentTime => todo!(),
-            InstanceVariable::CurrentYear => todo!(),
-            InstanceVariable::CurrentMonth => todo!(),
-            InstanceVariable::CurrentDay => todo!(),
-            InstanceVariable::CurrentWeekday => todo!(),
-            InstanceVariable::CurrentHour => todo!(),
-            InstanceVariable::CurrentMinute => todo!(),
-            InstanceVariable::CurrentSecond => todo!(),
+            InstanceVariable::CurrentTime => {
+                if let Some(nanos) = self.spoofed_time_nanos {
+                    Ok(((nanos / 1_000_000) as u32).into())
+                } else {
+                    Ok(time::SystemTime::now()
+                        .duration_since(time::UNIX_EPOCH)
+                        .map(|x| x.as_millis() as u32)
+                        .unwrap_or(0)
+                        .into())
+                }
+            },
+            InstanceVariable::CurrentYear => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).year().into()),
+            InstanceVariable::CurrentMonth => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).month().into()),
+            InstanceVariable::CurrentDay => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).day().into()),
+            InstanceVariable::CurrentWeekday => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).weekday().into()),
+            InstanceVariable::CurrentHour => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).hour().into()),
+            InstanceVariable::CurrentMinute => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).minute().into()),
+            InstanceVariable::CurrentSecond => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).second().into()),
             InstanceVariable::EventType => Ok(context.event_type.into()),
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
