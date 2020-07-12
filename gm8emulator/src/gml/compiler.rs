@@ -33,7 +33,12 @@ pub struct Compiler {
 impl Compiler {
     /// Create a compiler.
     pub fn new() -> Self {
-        Self { constants: HashMap::new(), user_constant_names: HashMap::new(), script_names: HashMap::new(), fields: Vec::new() }
+        Self {
+            constants: HashMap::new(),
+            user_constant_names: HashMap::new(),
+            script_names: HashMap::new(),
+            fields: Vec::new(),
+        }
     }
 
     /// Reserve space to register at least the given number of constants.
