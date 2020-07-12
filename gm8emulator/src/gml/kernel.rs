@@ -5691,72 +5691,85 @@ impl Game {
 
     pub fn joystick_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_exists")
+        //unimplemented!("Called unimplemented kernel function joystick_exists")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_direction")
+        //unimplemented!("Called unimplemented kernel function joystick_direction")
+        Ok(101.into())
     }
 
     pub fn joystick_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_name")
+        //unimplemented!("Called unimplemented kernel function joystick_name")
+        Ok("".into())
     }
 
     pub fn joystick_axes(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_axes")
+        //unimplemented!("Called unimplemented kernel function joystick_axes")
+        Ok(0.into())
     }
 
     pub fn joystick_buttons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_buttons")
+        //unimplemented!("Called unimplemented kernel function joystick_buttons")
+        Ok(0.into())
     }
 
     pub fn joystick_has_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_has_pov")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_check_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function joystick_check_button")
+        //unimplemented!("Called unimplemented kernel function joystick_check_button")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_xpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_xpos")
+        //unimplemented!("Called unimplemented kernel function joystick_xpos")
+        Ok(0.into())
     }
 
     pub fn joystick_ypos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_ypos")
+        //unimplemented!("Called unimplemented kernel function joystick_ypos")
+        Ok(0.into())
     }
 
     pub fn joystick_zpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_zpos")
+        //unimplemented!("Called unimplemented kernel function joystick_zpos")
+        Ok(0.into())
     }
 
     pub fn joystick_rpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_rpos")
+        //unimplemented!("Called unimplemented kernel function joystick_rpos")
+        Ok(0.into())
     }
 
     pub fn joystick_upos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_upos")
+        //unimplemented!("Called unimplemented kernel function joystick_upos")
+        Ok(0.into())
     }
 
     pub fn joystick_vpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_vpos")
+        //unimplemented!("Called unimplemented kernel function joystick_vpos")
+        Ok(0.into())
     }
 
     pub fn joystick_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_pov")
+        //unimplemented!("Called unimplemented kernel function joystick_pov")
+        Ok((-1).into())
     }
 
     pub fn keyboard_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
