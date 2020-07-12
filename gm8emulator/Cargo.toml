@@ -12,6 +12,7 @@ gl_generator = "0.14.0"
 [dependencies]
 bincode = "1.2"
 cfg-if = "0.1"
+chrono = "0.4"
 getopts = "0.2.21"
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
 gmio = { path = "../gmio" }
