@@ -1,3 +1,4 @@
+use image::{ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
     fs::File,
     io::{self, Read, Seek, SeekFrom, Write},
@@ -28,12 +29,18 @@ pub enum Error {
     IOError(io::Error),
     OutOfFiles,
     WrongContent,
-    Other(String),
+    ImageError(ImageError),
 }
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Self::IOError(e)
+    }
+}
+
+impl From<ImageError> for Error {
+    fn from(e: ImageError) -> Self {
+        Self::ImageError(e)
     }
 }
 
@@ -44,7 +51,7 @@ impl From<Error> for String {
             Error::IOError(err) => format!("io error: {}", err),
             Error::OutOfFiles => "out of files".into(),
             Error::WrongContent => "invalid operation".into(),
-            Error::Other(s) => s,
+            Error::ImageError(err) => format!("image error: {}", err),
         }
     }
 }
@@ -341,6 +348,7 @@ pub fn delete(path: &str) -> Result<()> {
     Ok(())
 }
 
+// TODO: maybe use image::RgbaImage instead?
 pub struct LoadedImage {
     pub width: u32,
     pub height: u32,
@@ -348,49 +356,29 @@ pub struct LoadedImage {
 }
 
 pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<LoadedImage> {
-    // looks a little silly rn but i did it like this because more formats will be added
-    let mut image = {
-        if !path.ends_with(".png") {
-            return Err(Error::Other("Attempted to load an unsupported image file type".into()))
-        }
-        let decoder = png::Decoder::new(std::fs::File::open(path)?);
-        let (info, mut reader) =
-            decoder.read_info().map_err(|e| Error::Other(format!("PNG info decoding error: {}", e)))?;
-        if info.color_type != png::ColorType::RGBA {
-            return Err(Error::Other(format!("Colour format {:?} is not supported yet", info.color_type)))
-        }
-        if info.bit_depth != png::BitDepth::Eight {
-            return Err(Error::Other(format!("Bit depth {:?} is not supported yet", info.bit_depth)))
-        }
-        let mut buf = vec![0; info.buffer_size()];
-        reader.next_frame(&mut buf).map_err(|e| Error::Other(format!("PNG decoding error: {}", e)))?;
-        LoadedImage { width: info.width, height: info.height, data: buf.into_boxed_slice() }
-    };
-    // processing
-    let w = image.width;
-    let px_to_off = |x, y| (y * w + x) as usize * 4;
+    let mut image = image::open(path)?.into_rgba();
+
     if removeback {
         // remove background colour
-        let bottom_left = (image.width * (image.height - 1) * 4) as usize;
-        for px in (0..image.data.len()).step_by(4) {
-            if image.data[px..px + 3] == image.data[bottom_left..bottom_left + 3] {
-                image.data[px + 3] = 0;
+        let bottom_left = image.get_pixel(0, image.height() - 1).to_rgb();
+        for px in image.pixels_mut() {
+            if px.to_rgb() == bottom_left {
+                px[3] = 0;
             }
         }
     }
     if smooth {
         // smooth
-        for y in 0..image.height {
-            for x in 0..image.width {
+        for y in 0..image.height() {
+            for x in 0..image.width() {
                 // if pixel is transparent
-                if image.data[px_to_off(x, y) + 3] == 0 {
+                if image.get_pixel(x, y)[3] == 0 {
                     // for all surrounding pixels
-                    for y in y.saturating_sub(1)..(y + 2).min(image.height) {
-                        for x in x.saturating_sub(1)..(x + 2).min(image.width) {
+                    for y in y.saturating_sub(1)..(y + 2).min(image.height()) {
+                        for x in x.saturating_sub(1)..(x + 2).min(image.width()) {
                             // subtract 32 if possible
-                            let b = px_to_off(x, y) + 3;
-                            if image.data[b] >= 32 {
-                                image.data[b] -= 32;
+                            if image.get_pixel(x, y)[3] >= 32 {
+                                image.get_pixel_mut(x, y)[3] -= 32;
                             }
                         }
                     }
@@ -400,36 +388,40 @@ pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<LoadedIm
     }
     if removeback {
         // make lerping less ugly
-        for y in 0..image.height {
-            for x in 0..image.width {
-                if image.data[px_to_off(x, y) + 3] == 0 {
-                    let (sx, sy) = if x > 0 && image.data[px_to_off(x - 1, y) + 3] != 0 {
+        for y in 0..image.height() {
+            for x in 0..image.width() {
+                if image.get_pixel(x, y)[3] == 0 {
+                    let (sx, sy) = if x > 0 && image.get_pixel(x - 1, y)[3] != 0 {
                         (x - 1, y)
-                    } else if x < image.width - 1 && image.data[px_to_off(x + 1, y) + 3] != 0 {
+                    } else if x < image.width() - 1 && image.get_pixel(x + 1, y)[3] != 0 {
                         (x + 1, y)
-                    } else if y > 0 && image.data[px_to_off(x, y - 1) + 3] != 0 {
+                    } else if y > 0 && image.get_pixel(x, y - 1)[3] != 0 {
                         (x, y - 1)
-                    } else if y < image.height - 1 && image.data[px_to_off(x, y + 1) + 3] != 0 {
+                    } else if y < image.height() - 1 && image.get_pixel(x, y + 1)[3] != 0 {
                         (x, y + 1)
                     } else {
                         continue
                     };
-                    image.data[px_to_off(x, y)] = image.data[px_to_off(sx, sy)];
-                    image.data[px_to_off(x, y) + 1] = image.data[px_to_off(sx, sy) + 1];
-                    image.data[px_to_off(x, y) + 2] = image.data[px_to_off(sx, sy) + 2];
+                    let src = *image.get_pixel(sx, sy);
+                    let dst = image.get_pixel_mut(x, y);
+                    dst[0] = src[0];
+                    dst[1] = src[1];
+                    dst[2] = src[2];
                 }
             }
         }
     }
-    Ok(image)
+
+    Ok(LoadedImage { width: image.width(), height: image.height(), data: image.into_raw().into_boxed_slice() })
 }
 
-pub fn save_image(path: &str, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
-    let w = std::io::BufWriter::new(std::fs::File::create(path)?);
-    let mut encoder = png::Encoder::new(w, width, height);
-    encoder.set_color(png::ColorType::RGBA);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header().unwrap();
-    writer.write_image_data(&data).unwrap();
-    Ok(Default::default())
+pub fn save_image<P: AsRef<Path>>(path: P, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
+    let image = RgbaImage::from_vec(width, height, data.into_vec()).unwrap();
+    // save to png if the filename is .png otherwise bmp regardless of filename
+    if path.as_ref().extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("png")).unwrap_or(false) {
+        image.save_with_format(path, ImageFormat::Png)?;
+    } else {
+        image.save_with_format(path, ImageFormat::Bmp)?;
+    }
+    Ok(())
 }
