@@ -1344,14 +1344,44 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_surface_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_surface_stretched")
+    pub fn draw_surface_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, w, h) = expect_args!(args, [int, any, any, real, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let xscale = w / surf.width.into();
+            let yscale = h / surf.height.into();
+            self.draw_surface_ext(context, &[
+                surf_id.into(),
+                x,
+                y,
+                xscale.into(),
+                yscale.into(),
+                0.into(),
+                0xffffff.into(),
+                1.into(),
+            ])
+        } else {
+            Ok(Default::default())
+        }
     }
 
-    pub fn draw_surface_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_surface_stretched_ext")
+    pub fn draw_surface_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, w, h, colour, alpha) = expect_args!(args, [int, any, any, real, real, any, any])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let xscale = w / surf.width.into();
+            let yscale = h / surf.height.into();
+            self.draw_surface_ext(context, &[
+                surf_id.into(),
+                x,
+                y,
+                xscale.into(),
+                yscale.into(),
+                0.into(),
+                colour,
+                alpha,
+            ])
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn draw_surface_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
