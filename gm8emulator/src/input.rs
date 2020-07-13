@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use shared::input::{Key, MouseButton};
 use std::convert::identity;
 
-const KEY_COUNT: usize = 124;
+const KEY_COUNT: usize = 256;
 const MOUSE_BUTTON_COUNT: usize = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
