@@ -1860,9 +1860,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sleep(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_sleep")
+    pub fn action_sleep(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (millis, redraw) = expect_args!(args, [any, any])?;
+        if redraw.is_truthy() {
+            self.screen_redraw(context, &[])?;
+        }
+        self.sleep(context, &[millis])
     }
 
     pub fn action_set_timeline(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
