@@ -4524,6 +4524,9 @@ impl Game {
         let millis = expect_args!(args, [int])?;
         if millis > 0 {
             std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            if let Some(ns) = self.spoofed_time_nanos.as_mut() {
+                *ns += (millis as u128) * 1_000_000;
+            }
             self.process_window_events();
         }
         Ok(Default::default())
