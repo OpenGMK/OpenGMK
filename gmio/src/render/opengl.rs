@@ -439,6 +439,7 @@ impl RendererTrait for RendererImpl {
 
     fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         // this only deletes sprites created with upload_sprite
+        self.flush_queue();
         if atlas_ref.atlas_id >= self.stock_atlas_count {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
