@@ -348,16 +348,8 @@ pub fn delete(path: &str) -> Result<()> {
     Ok(())
 }
 
-// TODO: maybe use image::RgbaImage instead?
-pub struct LoadedImage {
-    pub width: u32,
-    pub height: u32,
-    pub data: Box<[u8]>,
-}
-
-pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<LoadedImage> {
-    let mut image = image::open(path)?.into_rgba();
-
+// TODO: this probably belongs somewhere else?
+pub fn process_sprite(image: &mut RgbaImage, removeback: bool, smooth: bool) {
     if removeback {
         // remove background colour
         let bottom_left = image.get_pixel(0, image.height() - 1).to_rgb();
@@ -411,8 +403,12 @@ pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<LoadedIm
             }
         }
     }
+}
 
-    Ok(LoadedImage { width: image.width(), height: image.height(), data: image.into_raw().into_boxed_slice() })
+pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<RgbaImage> {
+    let mut image = image::open(path)?.into_rgba();
+    process_sprite(&mut image, removeback, smooth);
+    Ok(image)
 }
 
 pub fn save_image<P: AsRef<Path>>(path: P, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {

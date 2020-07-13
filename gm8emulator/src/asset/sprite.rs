@@ -36,17 +36,21 @@ pub struct Collider {
     pub data: Box<[bool]>,
 }
 
-pub fn make_colliders(frames: &[Box<[u8]>], width: u32, height: u32) -> Vec<Collider> {
+pub fn make_colliders(frames: &[image::RgbaImage]) -> Vec<Collider> {
     // only supports non-separated precise colliders with 0 tolerance rn
     let tolerance = 0;
+    let width = frames[0].width();
+    let height = frames[0].height();
     let mut data = vec![false; (width * height) as usize];
+    // extract pixels
     for f in frames {
-        for px in 0..data.len() {
-            if f[px * 4 + 3] > tolerance {
-                data[px] = true;
+        for (i, px) in f.pixels().enumerate() {
+            if px[3] > tolerance {
+                data[i] = true;
             }
         }
     }
+    // calculate bbox values
     let mut bbox_left = width - 1;
     let mut bbox_right = 0;
     let mut bbox_top = height - 1;

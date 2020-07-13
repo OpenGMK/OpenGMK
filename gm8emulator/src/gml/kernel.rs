@@ -13,6 +13,7 @@ use gmio::{
     render::{BlendType, Renderer, RendererOptions},
     window,
 };
+use image::{Pixel, RgbaImage};
 use shared::{input::MouseButton, types::Colour};
 use std::{convert::TryFrom, io::Read, process::Command};
 
@@ -6716,35 +6717,42 @@ impl Game {
         // will need a different case for loading animated gifs but those aren't supported yet
         let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
             .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
-        let sprite_width = image.width as usize / imgnumb;
-        let sprite_height = image.height as usize;
+        let sprite_width = image.width() as usize / imgnumb;
+        let sprite_height = image.height() as usize;
         // get pixel data for each frame
-        let mut frames = Vec::with_capacity(imgnumb);
+        let mut images = Vec::with_capacity(imgnumb);
         if imgnumb > 1 {
             for i in 0..imgnumb {
                 let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
-                for y in 0..sprite_height {
-                    let row_start = (y * image.width as usize + i * sprite_width) * 4;
-                    pixels.extend_from_slice(&image.data[row_start..row_start + sprite_width * 4]);
+                for row in image.rows() {
+                    for p in row.skip(i * sprite_width).take(sprite_width) {
+                        pixels.extend_from_slice(p.channels());
+                    }
                 }
-                frames.push(pixels.into_boxed_slice());
+                images.push(RgbaImage::from_vec(sprite_width as _, sprite_height as _, pixels).unwrap());
             }
         } else {
-            frames.push(image.data);
+            images.push(image);
         }
         // make colliders
-        let colliders = asset::sprite::make_colliders(&frames, sprite_width as _, sprite_height as _);
+        let colliders = asset::sprite::make_colliders(&images);
         // collect atlas refs
         // yes i know it's a new texture for every frame like in gm8 but it's fine
-        let atlas_refs = frames
+        let frames = images
             .drain(..)
-            .map(|f| {
+            .map(|i| {
                 Ok(asset::sprite::Frame {
                     width: sprite_width as _,
                     height: sprite_height as _,
                     atlas_ref: self
                         .renderer
-                        .upload_sprite(f, sprite_width as _, sprite_height as _, origin_x, origin_y)
+                        .upload_sprite(
+                            i.into_raw().into_boxed_slice(),
+                            sprite_width as _,
+                            sprite_height as _,
+                            origin_x,
+                            origin_y,
+                        )
                         .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
                 })
             })
@@ -6752,7 +6760,7 @@ impl Game {
         let sprite_id = self.assets.sprites.len();
         self.assets.sprites.push(Some(Box::new(asset::Sprite {
             name: format!("__newsprite{}", sprite_id).into(),
-            frames: atlas_refs,
+            frames,
             bbox_left: colliders[0].bbox_left,
             bbox_right: colliders[0].bbox_right,
             bbox_top: colliders[0].bbox_top,
@@ -6910,15 +6918,17 @@ impl Game {
         let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
         let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
             .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        let width = image.width();
+        let height = image.height();
         let atlas_ref = self
             .renderer
-            .upload_sprite(image.data, image.width as _, image.height as _, 0, 0)
+            .upload_sprite(image.into_raw().into_boxed_slice(), width as _, height as _, 0, 0)
             .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
         let background_id = self.assets.backgrounds.len();
         self.assets.backgrounds.push(Some(Box::new(asset::Background {
             name: format!("__newbackground{}", background_id).into(),
-            width: image.width,
-            height: image.height,
+            width,
+            height,
             atlas_ref: Some(atlas_ref),
         })));
         Ok(background_id.into())
