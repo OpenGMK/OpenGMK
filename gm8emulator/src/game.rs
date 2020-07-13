@@ -1135,16 +1135,55 @@ impl Game {
             let object_index = instance.object_index.get();
             if instance.timeline_running.get() {
                 if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
+                    let moments = timeline.moments.clone();
                     let old_position = instance.timeline_position.get();
                     let new_position = old_position + instance.timeline_speed.get();
-                    instance.timeline_position.set(new_position);
+                    let last_step = Real::from(*moments.borrow().keys().max().unwrap_or(&0));
 
-                    let moments = timeline.moments.clone();
-                    for (moment, tree) in moments.borrow().iter() {
-                        let f_moment = Real::from(*moment);
-                        if f_moment >= old_position && f_moment < new_position {
-                            self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
-                        }
+                    if last_step > Real::from(0) {
+                        match instance.timeline_speed.get() {
+                            x if x > Real::from(0) => {
+                                if new_position > last_step && instance.timeline_loop.get() {
+                                        instance.timeline_position.set(Real::from(0));
+                                } else {
+                                    instance.timeline_position.set(new_position)
+                                }
+
+                                let mut moments_vec: Vec<(u32, Rc<RefCell<Tree>>)> = moments.borrow().iter().
+                                    filter(|(&step, _)| {
+                                        Real::from(step) >= old_position && Real::from(step) < new_position
+                                    }).
+                                    map(|(&step, tree)| {
+                                        (step, tree.clone())
+                                    }).collect();
+                                moments_vec.sort_by_key(|(step, _)| { *step });
+
+                                for (_, tree) in moments_vec.iter() {
+                                    self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
+                                }
+                            },
+                            x if x < Real::from(0) => {
+                                if new_position < Real::from(0) && instance.timeline_loop.get() {
+                                    instance.timeline_position.set(last_step);
+                                } else {
+                                    instance.timeline_position.set(new_position)
+                                }
+
+                                let mut moments_vec: Vec<(u32, Rc<RefCell<Tree>>)> = moments.borrow().iter().
+                                    filter(|(&step, _)| {
+                                        Real::from(step) <= old_position && Real::from(step) > new_position
+                                    }).
+                                    map(|(&step, tree)| {
+                                        (step, tree.clone())
+                                    }).collect();
+                                moments_vec.sort_by_key(|(step, _)| { *step });
+
+                                for (_, tree) in moments_vec.iter().rev() {
+                                    self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
+                                }
+                            },
+                            _ => {}
+                        };
                     }
                 }
             }
