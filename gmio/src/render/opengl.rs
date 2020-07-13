@@ -821,6 +821,17 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_pixel_interpolation(&self) -> bool {
+        self.interpolate_pixels
+    }
+
+    fn set_pixel_interpolation(&mut self, lerping: bool) {
+        // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
+        // therefore, we need to apply the setting before every draw call
+        self.flush_queue();
+        self.interpolate_pixels = lerping;
+    }
+
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
         if self.draw_queue.is_empty() {
@@ -829,6 +840,9 @@ impl RendererTrait for RendererImpl {
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
+            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
 
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);

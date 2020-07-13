@@ -75,6 +75,8 @@ pub trait RendererTrait {
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
+    fn get_pixel_interpolation(&self) -> bool;
+    fn set_pixel_interpolation(&mut self, lerping: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
@@ -355,6 +357,14 @@ impl Renderer {
 
     pub fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
         self.0.set_blend_mode(src, dst)
+    }
+
+    pub fn get_pixel_interpolation(&self) -> bool {
+        self.0.get_pixel_interpolation()
+    }
+
+    pub fn set_pixel_interpolation(&mut self, lerping: bool) {
+        self.0.set_pixel_interpolation(lerping)
     }
 
     pub fn flush_queue(&mut self) {
