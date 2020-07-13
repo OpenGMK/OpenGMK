@@ -1089,12 +1089,15 @@ impl Game {
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
             InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
             InstanceVariable::CurrentTime => {
+                // GM uses GetTickCount, which has a resolution of *roughly* 16ms.
                 if let Some(nanos) = self.spoofed_time_nanos {
+                    // When we spoof, it only goes up once per frame anyway, so we can keep it as is.
                     Ok(((nanos / 1_000_000) as u32).into())
                 } else {
+                    // In realtime, it's probably more accurate to force it to increase in 16ms increments.
                     Ok(time::SystemTime::now()
                         .duration_since(time::UNIX_EPOCH)
-                        .map(|x| x.as_millis() as u32)
+                        .map(|x| x.as_millis() as u32 & 0xFFFFFFF0)
                         .unwrap_or(0)
                         .into())
                 }
