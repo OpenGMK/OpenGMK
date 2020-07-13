@@ -412,27 +412,25 @@ impl RendererTrait for RendererImpl {
             // store previous
             let mut prev_read_fbo = 0;
             gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
-            let mut prev_draw_fbo = 0;
-            gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut prev_draw_fbo);
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
-            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.fbo_ids[new_sprite.atlas_id as usize].unwrap());
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[new_sprite.atlas_id as usize].unwrap());
 
-            gl::BlitFramebuffer(
+            gl::CopyTexImage2D(
+                gl::TEXTURE_2D,
                 0,
+                gl::RGBA,
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w as _,
+                atlas_ref.h as _,
                 0,
-                atlas_ref.w,
-                atlas_ref.h,
-                0,
-                0,
-                atlas_ref.w,
-                atlas_ref.h,
-                gl::COLOR_BUFFER_BIT,
-                gl::NEAREST,
             );
 
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
-            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, prev_draw_fbo as _);
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
         }
         Ok(new_sprite)
     }
