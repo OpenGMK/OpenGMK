@@ -5379,7 +5379,7 @@ impl Game {
         let height = 200;
 
         let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
-        let options = RendererOptions { size: (width, height), vsync: false };
+        let options = RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false };
 
         // TODO: this should block as a dialog, not block the entire fucking thread
         // otherwise windows thinks it's not responding or whatever

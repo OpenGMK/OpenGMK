@@ -191,6 +191,7 @@ pub trait RendererTrait {
 pub struct RendererOptions {
     pub size: (u32, u32),
     pub vsync: bool,
+    pub interpolate_pixels: bool,
 }
 
 impl Renderer {

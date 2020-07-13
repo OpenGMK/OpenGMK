@@ -308,6 +308,7 @@ impl Game {
         let options = RendererOptions {
             size: (room1_width, room1_height),
             vsync: settings.vsync, // TODO: Overrideable
+            interpolate_pixels: settings.interpolate_pixels,
         };
 
         let (width, height) = options.size;

@@ -47,6 +47,7 @@ pub struct RendererImpl {
     current_atlas: GLuint,
     white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
+    interpolate_pixels: bool,
 
     loc_tex: GLint,  // uniform sampler2D tex
     loc_proj: GLint, // uniform mat4 projection
@@ -237,6 +238,7 @@ impl RendererImpl {
                 current_atlas: 0,
                 white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
+                interpolate_pixels: options.interpolate_pixels,
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
