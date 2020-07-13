@@ -702,9 +702,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function texture_exists")
     }
 
-    pub fn texture_set_interpolation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_interpolation")
+    pub fn texture_set_interpolation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let lerping = expect_args!(args, [any])?;
+        self.renderer.set_pixel_interpolation(lerping.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn texture_set_blending(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
