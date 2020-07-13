@@ -33,6 +33,7 @@ pub struct SaveState {
     pub room_colour: Option<Colour>,
     pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
+    pub interpolate_pixels: bool,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -120,6 +121,7 @@ impl SaveState {
             room_colour: game.room_colour,
             textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
+            interpolate_pixels: game.renderer.get_pixel_interpolation(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -201,6 +203,7 @@ impl SaveState {
             game.background_colour,
         );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
+        game.renderer.set_pixel_interpolation(self.interpolate_pixels);
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
