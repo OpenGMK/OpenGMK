@@ -6690,9 +6690,54 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_set_alpha_from_sprite")
     }
 
-    pub fn sprite_create_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function sprite_create_from_screen")
+    pub fn sprite_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, width, height, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [int, int, int, int, any, any, int, int])?;
+        // i know we're downloading the thing and reuploading it instead of doing it all in one go
+        // but we need the pixel data to make the colliders
+        self.renderer.flush_queue();
+        let rgb = self.renderer.get_pixels(x, y, width, height);
+        // it comes out as upside-down rgb so flip it and convert it to rgba
+        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+        for row in rgb.chunks((width * 3) as usize).rev() {
+            for col in row.chunks(3) {
+                rgba.extend_from_slice(col);
+                rgba.push(255);
+            }
+        }
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+        file::process_sprite(&mut image, removeback.is_truthy(), smooth.is_truthy());
+        let mut images = vec![image];
+        let colliders = asset::sprite::make_colliders(&images);
+        let frames = images
+            .drain(..)
+            .map(|i| {
+                Ok(asset::sprite::Frame {
+                    width: width as _,
+                    height: height as _,
+                    atlas_ref: self
+                        .renderer
+                        .upload_sprite(i.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
+                        .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+                })
+            })
+            .collect::<gml::Result<_>>()?;
+        let sprite_id = self.assets.sprites.len();
+        self.assets.sprites.push(Some(Box::new(asset::Sprite {
+            name: format!("__newsprite{}", sprite_id).into(),
+            frames,
+            bbox_left: colliders[0].bbox_left,
+            bbox_right: colliders[0].bbox_right,
+            bbox_top: colliders[0].bbox_top,
+            bbox_bottom: colliders[0].bbox_bottom,
+            colliders: colliders,
+            width: width as _,
+            height: height as _,
+            origin_x,
+            origin_y,
+            per_frame_colliders: false,
+        })));
+        Ok(sprite_id.into())
     }
 
     pub fn sprite_add_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6790,9 +6835,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_replace_sprite")
     }
 
-    pub fn sprite_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_delete")
+    pub fn sprite_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite_id = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            for frame in &sprite.frames {
+                self.renderer.delete_sprite(frame.atlas_ref);
+            }
+        } else {
+            return Err(gml::Error::FunctionError(
+                "sprite_delete".into(),
+                "Trying to delete non-existing background".into(),
+            ))
+        }
+        self.assets.sprites[sprite_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn sprite_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
