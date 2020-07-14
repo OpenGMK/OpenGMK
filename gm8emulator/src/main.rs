@@ -16,7 +16,7 @@ use std::{
     env, fs,
     io::{BufReader, Write},
     path::{Path, PathBuf},
-    process, time,
+    process,
 };
 
 const EXIT_SUCCESS: i32 = 0;
@@ -163,7 +163,10 @@ fn xmain() -> i32 {
     };
 
     let time_nanos = if spoof_time {
-        Some(time::SystemTime::now().duration_since(time::UNIX_EPOCH).map(|x| x.as_nanos()).unwrap_or(0))
+        let datetime = chrono::Local::now().naive_local();
+        let secs = datetime.timestamp() as u128;
+        let nanos = datetime.timestamp_subsec_nanos() as u128;
+        Some(secs * 1_000_000_000 + nanos)
     } else {
         None
     };
