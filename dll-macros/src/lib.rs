@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::Literal;
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use syn::{
     self,
     parse::{Parse, ParseStream},
@@ -44,44 +44,10 @@ impl Parse for Args {
 }
 
 #[proc_macro]
-/// Call with setup_cvalue!(CValue) to create an enum CValue { Real(f64), Str(Rc<Vec<u8>>)}.
-/// It comes with From<CValue> implementations for f64 and *const c_char.
-pub fn setup_cvalue(tokens: TokenStream) -> TokenStream {
-    let c_value = parse_macro_input!(tokens as syn::Ident);
-    TokenStream::from(quote! {
-        #[derive(Clone, Debug)]
-        enum #c_value {
-            Real(f64),
-            Str(std::rc::Rc<std::vec::Vec<u8>>),
-        }
-
-        impl From<#c_value> for f64 {
-            fn from(v: #c_value) -> Self {
-                match v {
-                    #c_value::Real(x) => x,
-                    #c_value::Str(_) => 0.0,
-                }
-            }
-        }
-
-        impl From<#c_value> for *const std::os::raw::c_char {
-            fn from(v: #c_value) -> Self {
-                unsafe {
-                    match v {
-                        #c_value::Real(_) => b"\0\0\0\0\0".as_ptr().offset(4).cast(),
-                        #c_value::Str(s) => s.as_ref().as_ptr().offset(4).cast(),
-                    }
-                }
-            }
-        }
-    })
-}
-
-#[proc_macro]
 /// This calls an external function with any possible combination of arguments.
 /// Arguments are:
 /// * The function pointer
-/// * The arguments, as a vector of CValues
+/// * The arguments, as a slice of variables that can be converted to f64 and *const c_char
 /// * The calling convention
 /// * The result type
 /// * The argument types
@@ -89,6 +55,7 @@ pub fn setup_cvalue(tokens: TokenStream) -> TokenStream {
 /// * The calling convention value corresponding to stdcall
 /// * The type value corresponding to reals
 /// * The type value corresponding to strings
+/// It returns a f64 or a *const c_char, converted into the desired type using type inference.
 pub fn external_call(tokens: TokenStream) -> TokenStream {
     // unpack arguments
     let Args { function, args, call_conv, res_type, arg_types, cdecl, stdcall, ty_real, ty_str } =
