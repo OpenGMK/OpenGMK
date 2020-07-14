@@ -6,6 +6,9 @@ use crate::{
     gml::{self, Value},
 };
 use cfg_if::cfg_if;
+use shared::dll;
+
+pub use shared::dll::{CallConv, ValueType as DLLValueType};
 
 cfg_if! {
     if
@@ -14,18 +17,6 @@ cfg_if! {
     } else {
         use dummy as platform;
     }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ArgType {
-    Real,
-    Str,
-}
-
-#[derive(Clone, Copy)]
-pub enum CallConv {
-    Cdecl,
-    Stdcall,
 }
 
 pub struct External {
@@ -43,11 +34,11 @@ impl External {
     pub fn new(
         dll_name: &str,
         fn_name: &str,
-        call_conv: CallConv,
-        res_type: ArgType,
-        arg_types: &[ArgType],
+        call_conv: dll::CallConv,
+        res_type: dll::ValueType,
+        arg_types: &[dll::ValueType],
     ) -> Result<Self, String> {
-        if arg_types.len() > 4 && arg_types.contains(&ArgType::Str) {
+        if arg_types.len() > 4 && arg_types.contains(&dll::ValueType::Str) {
             return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
         }
         if arg_types.len() >= 16 {

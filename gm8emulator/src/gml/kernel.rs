@@ -6073,8 +6073,8 @@ impl Game {
                 _ => external::CallConv::Stdcall,
             };
             let restype = match restype.round() {
-                0 => external::ArgType::Real,
-                _ => external::ArgType::Str,
+                0 => external::DLLValueType::Real,
+                _ => external::DLLValueType::Str,
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
@@ -6083,8 +6083,8 @@ impl Game {
             let argtypes = args[5..]
                 .iter()
                 .map(|v| match v.round() {
-                    0 => external::ArgType::Real,
-                    _ => external::ArgType::Str,
+                    0 => external::DLLValueType::Real,
+                    _ => external::DLLValueType::Str,
                 })
                 .collect::<Vec<_>>();
             self.externals.push(Some(

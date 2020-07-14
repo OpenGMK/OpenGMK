@@ -1,15 +1,15 @@
 #![cfg(all(target_os = "windows", target_arch = "x86"))]
 
-use super::{ArgType, CallConv, ExternalCall};
-use crate::gml::Value;
-use dll_macros::{external_call, setup_cvalue};
+use super::{CallConv, ExternalCall};
+use crate::gml;
+use dll_macros::external_call;
+use shared::dll;
 use std::{
     ffi::{CStr, OsStr},
     os::{
         raw::{c_char, c_void},
         windows::ffi::OsStrExt,
     },
-    rc::Rc,
 };
 use winapi::{
     shared::minwindef::HMODULE,
@@ -19,26 +19,18 @@ use winapi::{
     },
 };
 
-impl From<*const c_char> for Value {
+// shortcut to prevent extra reallocation
+impl From<*const c_char> for gml::Value {
     fn from(s: *const c_char) -> Self {
         unsafe { CStr::from_ptr(s).to_string_lossy().to_string().into() }
     }
 }
 
-setup_cvalue!(CValue);
-
-impl From<Value> for CValue {
-    fn from(v: Value) -> Self {
+impl From<gml::Value> for dll::Value {
+    fn from(v: gml::Value) -> Self {
         match v {
-            Value::Real(x) => CValue::Real(x.into()),
-            Value::Str(s) => {
-                let s = s.as_ref();
-                let mut buf = Vec::with_capacity(5 + s.len());
-                buf.extend_from_slice(&(s.len() as u32).to_le_bytes());
-                buf.extend_from_slice(s.as_bytes());
-                buf.push(0);
-                CValue::Str(Rc::new(buf))
-            },
+            gml::Value::Real(x) => dll::Value::Real(x.into()),
+            gml::Value::Str(s) => s.as_ref().into(),
         }
     }
 }
@@ -47,8 +39,8 @@ pub struct ExternalImpl {
     dll_handle: HMODULE,
     call: *const c_void,
     call_conv: CallConv,
-    res_type: ArgType,
-    arg_types: Vec<ArgType>,
+    res_type: dll::ValueType,
+    arg_types: Vec<dll::ValueType>,
 }
 
 impl ExternalImpl {
@@ -56,8 +48,8 @@ impl ExternalImpl {
         dll_name: &str,
         fn_name: &str,
         call_conv: CallConv,
-        res_type: ArgType,
-        arg_types: &[ArgType],
+        res_type: dll::ValueType,
+        arg_types: &[dll::ValueType],
     ) -> Result<Self, String> {
         let mut os_dll_name = OsStr::new(dll_name).encode_wide().collect::<Vec<_>>();
         os_dll_name.push(0);
@@ -84,8 +76,8 @@ impl ExternalImpl {
 }
 
 impl ExternalCall for ExternalImpl {
-    fn call(&self, args: &[Value]) -> Value {
-        let args = args.iter().map(|v| CValue::from(v.clone())).collect::<Vec<_>>();
+    fn call(&self, args: &[gml::Value]) -> gml::Value {
+        let args = args.iter().map(|v| dll::Value::from(v.clone())).collect::<Vec<_>>();
         unsafe {
             external_call!(
                 self.call,
@@ -95,8 +87,8 @@ impl ExternalCall for ExternalImpl {
                 self.arg_types.as_slice(),
                 CallConv::Cdecl,
                 CallConv::Stdcall,
-                ArgType::Real,
-                ArgType::Str
+                dll::ValueType::Real,
+                dll::ValueType::Str
             )
         }
     }

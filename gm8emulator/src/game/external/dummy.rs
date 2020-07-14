@@ -1,4 +1,4 @@
-use super::{ArgType, CallConv, ExternalCall};
+use super::{CallConv, DLLValueType, ExternalCall};
 use crate::gml::Value;
 
 pub struct ExternalImpl {}
@@ -8,8 +8,8 @@ impl ExternalImpl {
         _dll_name: &str,
         _fn_name: &str,
         _call_conv: CallConv,
-        _res_type: ArgType,
-        _arg_types: &[ArgType],
+        _res_type: DLLValueType,
+        _arg_types: &[DLLValueType],
     ) -> Result<Self, String> {
         Err("DLL loading has not been implemented for this platform".into())
     }
