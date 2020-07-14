@@ -1411,14 +1411,43 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_surface_tiled_ext")
     }
 
-    pub fn surface_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function surface_save")
+    pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, fname) = expect_args!(args, [int, string])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let raw = self.renderer.dump_sprite(&surf.atlas_ref);
+            let mut pixels = Vec::with_capacity(raw.len());
+            for row in raw.chunks_exact(surf.width as usize * 4).rev() {
+                pixels.extend_from_slice(row);
+            }
+            match file::save_image(fname.as_ref(), surf.width, surf.height, pixels.into_boxed_slice()) {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+            }
+        } else {
+            Ok(Default::default())
+        }
     }
 
-    pub fn surface_save_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function surface_save_part")
+    pub fn surface_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, fname, x, y, w, h) = expect_args!(args, [int, string, int, int, int, int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let x = x.max(0);
+            let y = y.max(0);
+            let w = w.min(surf.width as i32 - x);
+            let h = h.min(surf.height as i32 - y);
+            let y = surf.height as i32 - y - h; // upside down
+            let raw = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h);
+            let mut pixels = Vec::with_capacity(raw.len());
+            for row in raw.chunks_exact(w as usize * 4).rev() {
+                pixels.extend_from_slice(row);
+            }
+            match file::save_image(fname.as_ref(), w as _, h as _, pixels.into_boxed_slice()) {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+            }
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn surface_getpixel(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
