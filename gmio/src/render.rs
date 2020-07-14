@@ -73,6 +73,17 @@ pub trait RendererTrait {
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
+    fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
+        self.dump_sprite(&AtlasRef {
+            atlas_id: texture.atlas_id,
+            w: part_w,
+            h: part_h,
+            x: texture.x + part_x,
+            y: texture.y + part_y,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        })
+    }
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
     fn get_pixel_interpolation(&self) -> bool;
@@ -322,6 +333,17 @@ impl Renderer {
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
         self.0.dump_sprite(atlas_ref)
+    }
+
+    pub fn dump_sprite_part(
+        &self,
+        texture: &AtlasRef,
+        part_x: i32,
+        part_y: i32,
+        part_w: i32,
+        part_h: i32,
+    ) -> Box<[u8]> {
+        self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
     }
 
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
