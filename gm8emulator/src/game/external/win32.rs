@@ -76,10 +76,10 @@ impl ExternalImpl {
 }
 
 impl ExternalCall for ExternalImpl {
-    fn call(&self, args: &[gml::Value]) -> gml::Value {
+    fn call(&self, args: &[gml::Value]) -> Result<gml::Value> {
         let args = args.iter().map(|v| dll::Value::from(v.clone())).collect::<Vec<_>>();
         unsafe {
-            external_call!(
+            Ok(external_call!(
                 self.call,
                 args,
                 self.call_conv,
@@ -89,7 +89,7 @@ impl ExternalCall for ExternalImpl {
                 CallConv::Stdcall,
                 dll::ValueType::Real,
                 dll::ValueType::Str
-            )
+            ))
         }
     }
 }

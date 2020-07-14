@@ -16,7 +16,7 @@ impl ExternalImpl {
 }
 
 impl ExternalCall for ExternalImpl {
-    fn call(&self, _args: &[Value]) -> Value {
-        0.into()
+    fn call(&self, _args: &[Value]) -> Result<Value, String> {
+        Err("DLL loading has not been implemented for this platform".into())
     }
 }

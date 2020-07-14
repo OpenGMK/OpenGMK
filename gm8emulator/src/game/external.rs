@@ -27,7 +27,7 @@ pub struct External {
 
 pub trait ExternalCall {
     /// Do any validity checking before calling this function.
-    fn call(&self, args: &[Value]) -> Value;
+    fn call(&self, args: &[Value]) -> Result<Value, String>;
 }
 
 impl External {
@@ -55,7 +55,7 @@ impl External {
         if args.len() != self.arg_count {
             Err(gml::Error::WrongArgumentCount(self.arg_count, args.len()))
         } else {
-            Ok(self.call.call(args))
+            self.call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
         }
     }
 }
