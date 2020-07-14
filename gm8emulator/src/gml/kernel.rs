@@ -1335,7 +1335,7 @@ impl Game {
             self.renderer.draw_sprite(
                 &surf.atlas_ref,
                 x.into(),
-                (y + surf.height.into()).into(), // surfaces are upside down vs other textures
+                (y + yscale * surf.height.into()).into(), // surfaces are upside down vs other textures
                 xscale.into(),
                 (-yscale).into(),
                 rot.into(),
