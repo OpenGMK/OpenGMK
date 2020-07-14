@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use shared::input::{Key, MouseButton};
 use std::convert::identity;
 
-const KEY_COUNT: usize = 124;
+const KEY_COUNT: usize = 256;
 const MOUSE_BUTTON_COUNT: usize = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -11,6 +11,8 @@ pub struct InputManager {
     kb_held: BoolMap,
     kb_pressed: BoolMap,
     kb_released: BoolMap,
+    kb_key: u32,
+    kb_lastkey: u32,
     kb_lshift: bool,
     kb_rshift: bool,
     kb_lctrl: bool,
@@ -29,6 +31,8 @@ pub struct InputManager {
     mouse_released: BoolMap,
     mouse_scroll_up: bool,
     mouse_scroll_down: bool,
+    mouse_button: u32,
+    mouse_lastbutton: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,6 +78,8 @@ impl InputManager {
             kb_held: BoolMap::with_capacity(KEY_COUNT),
             kb_pressed: BoolMap::with_capacity(KEY_COUNT),
             kb_released: BoolMap::with_capacity(KEY_COUNT),
+            kb_key: 0,
+            kb_lastkey: 0,
             kb_lshift: false,
             kb_rshift: false,
             kb_lctrl: false,
@@ -90,6 +96,8 @@ impl InputManager {
             mouse_released: BoolMap::with_capacity(MOUSE_BUTTON_COUNT),
             mouse_scroll_up: false,
             mouse_scroll_down: false,
+            mouse_button: 0,
+            mouse_lastbutton: 0,
         }
     }
 
@@ -101,6 +109,8 @@ impl InputManager {
             self.kb_held.set(code, true);
             self.kb_pressed.set(code, true);
         }
+        self.kb_key = code as u32;
+        self.kb_lastkey = code as u32;
     }
 
     /// Informs the input manager that a key has been released
@@ -112,6 +122,9 @@ impl InputManager {
                 self.kb_held.set(code, false);
                 self.kb_released.set(code, true);
             }
+        }
+        if self.kb_key == code as u32 {
+            self.kb_key = 0;
         }
     }
 
@@ -184,6 +197,30 @@ impl InputManager {
         self.kb_released.any()
     }
 
+    /// Get the currently held key
+    pub fn key_get_key(&self) -> u32 {
+        self.kb_key
+    }
+
+    /// Get the last pressed key
+    pub fn key_get_lastkey(&self) -> u32 {
+        self.kb_lastkey
+    }
+
+    /// Sets the variable meant for the currently held key
+    pub fn key_set_key(&mut self, key: u32) {
+        if key < 0x100 {
+            self.kb_key = key;
+        }
+    }
+
+    /// Sets the variable meant for the last pressed key
+    pub fn key_set_lastkey(&mut self, key: u32) {
+        if key < 0x100 {
+            self.kb_lastkey = key;
+        }
+    }
+
     /// Checks if the spoofed numlock is pressed
     pub fn key_get_numlock(&self) -> bool {
         self.numlock
@@ -208,6 +245,8 @@ impl InputManager {
             self.mouse_pressed.set(code, true);
             self.mouse_held.set(code, true);
         }
+        self.mouse_button = code as u32;
+        self.mouse_lastbutton = code as u32;
     }
 
     /// Informs the input manager that a mouse button has been released
@@ -217,6 +256,7 @@ impl InputManager {
             self.mouse_released.set(code, true);
             self.mouse_held.set(code, false);
         }
+        self.mouse_button = 0;
     }
 
     /// Informs the input manager that the mouse wheel was scrolled up
@@ -281,6 +321,28 @@ impl InputManager {
         self.mouse_released.any()
     }
 
+    /// Gets the currently held mouse button
+    pub fn mouse_get_button(&self) -> u32 {
+        self.mouse_button
+    }
+
+    /// Gets the last pressed mouse button
+    pub fn mouse_get_lastbutton(&self) -> u32 {
+        self.mouse_lastbutton
+    }
+
+    pub fn mouse_set_button(&mut self, button: u32) {
+        if button < 4 {
+            self.mouse_button = button;
+        }
+    }
+
+    pub fn mouse_set_lastbutton(&mut self, button: u32) {
+        if button < 4 {
+            self.mouse_lastbutton = button;
+        }
+    }
+
     /// Clears the stored buffers of pressed and released keys and mouse buttons, but not the "currently held" ones.
     /// Should be called in between each frame.
     pub fn clear_presses(&mut self) {
@@ -292,6 +354,22 @@ impl InputManager {
 
     /// Updates previous mouse position to be the current one
     pub fn mouse_update_previous(&mut self) {
+        self.mouse_scroll_up = false;
+        self.mouse_scroll_down = false;
+    }
+
+    pub fn clear(&mut self) {
+        self.kb_lastkey = 0;
+        self.kb_key = 0;
+        self.kb_held.clear();
+        self.kb_pressed.clear();
+        self.kb_released.clear();
+
+        self.mouse_button = 0;
+        self.mouse_lastbutton = 0;
+        self.mouse_held.clear();
+        self.mouse_pressed.clear();
+        self.mouse_released.clear();
         self.mouse_scroll_up = false;
         self.mouse_scroll_down = false;
     }

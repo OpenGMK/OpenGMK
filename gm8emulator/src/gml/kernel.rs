@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{draw, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
-    gml::{self, compiler::mappings, ds, file, Context, Value},
+    gml::{self, compiler::mappings, datetime::DateTime, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
@@ -998,14 +998,48 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_sprite_general")
     }
 
-    pub fn draw_sprite_tiled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_sprite_tiled")
+    pub fn draw_sprite_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y) = expect_args!(args, [any, any, any, any])?;
+        self.draw_sprite_tiled_ext(context, &[
+            sprite_index,
+            image_index,
+            x,
+            y,
+            1.into(),
+            1.into(),
+            0xffffff.into(),
+            1.into(),
+        ])
     }
 
-    pub fn draw_sprite_tiled_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_tiled_ext")
+    pub fn draw_sprite_tiled_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_tiled(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    colour,
+                    alpha.into(),
+                    Some(self.room_width.into()),
+                    Some(self.room_height.into()),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_background(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1565,14 +1599,24 @@ impl Game {
 
     pub fn action_set_hspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).set_hspeed(x);
+            let instance = self.instance_list.get(context.this);
+            if context.relative {
+                instance.set_hspeed(x + instance.hspeed.get());
+            } else {
+                instance.set_hspeed(x);
+            }
             Ok(Default::default())
         })?
     }
 
     pub fn action_set_vspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).set_vspeed(x);
+            let instance = self.instance_list.get(context.this);
+            if context.relative {
+                instance.set_vspeed(x + instance.vspeed.get());
+            } else {
+                instance.set_vspeed(x);
+            }
             Ok(Default::default())
         })?
     }
@@ -1949,9 +1993,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sleep(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_sleep")
+    pub fn action_sleep(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (millis, redraw) = expect_args!(args, [any, any])?;
+        if redraw.is_truthy() {
+            self.screen_redraw(context, &[])?;
+        }
+        self.sleep(context, &[millis])
     }
 
     pub fn action_set_timeline(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3491,9 +3538,39 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_wrap(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function move_wrap")
+    pub fn move_wrap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (horizontal_wrap, vertical_wrap, margin) = expect_args!(args, [any, any, real])?;
+        let instance = self.instance_list.get(context.this);
+
+        let mut update_bbox = false;
+
+        if horizontal_wrap.is_truthy() {
+            let instance_x = instance.x.get();
+
+            if instance_x < -margin {
+                instance.x.set(Real::from(self.room_width) + instance_x + Real::from(2) * margin);
+                update_bbox = true;
+            }
+            if instance_x > Real::from(self.room_width) + margin {
+                instance.x.set(instance_x - Real::from(self.room_width) - Real::from(2) * margin);
+                update_bbox = true;
+            }
+        }
+        if vertical_wrap.is_truthy() {
+            let instance_y = instance.y.get();
+            if instance_y < -margin {
+                instance.y.set(Real::from(self.room_height) + instance_y + Real::from(2) * margin);
+                update_bbox = true;
+            }
+            if instance_y > Real::from(self.room_height) + margin {
+                instance.y.set(instance_y - Real::from(self.room_height) - Real::from(2) * margin);
+                update_bbox = true;
+            }
+        }
+        if update_bbox {
+            instance.bbox_is_stale.set(true);
+        }
+        Ok(Default::default())
     }
 
     pub fn motion_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4583,6 +4660,9 @@ impl Game {
         let millis = expect_args!(args, [int])?;
         if millis > 0 {
             std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            if let Some(ns) = self.spoofed_time_nanos.as_mut() {
+                *ns += (millis as u128) * 1_000_000;
+            }
             self.process_window_events();
         }
         Ok(Default::default())
@@ -5780,72 +5860,85 @@ impl Game {
 
     pub fn joystick_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_exists")
+        //unimplemented!("Called unimplemented kernel function joystick_exists")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_direction")
+        //unimplemented!("Called unimplemented kernel function joystick_direction")
+        Ok(101.into())
     }
 
     pub fn joystick_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_name")
+        //unimplemented!("Called unimplemented kernel function joystick_name")
+        Ok("".into())
     }
 
     pub fn joystick_axes(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_axes")
+        //unimplemented!("Called unimplemented kernel function joystick_axes")
+        Ok(0.into())
     }
 
     pub fn joystick_buttons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_buttons")
+        //unimplemented!("Called unimplemented kernel function joystick_buttons")
+        Ok(0.into())
     }
 
     pub fn joystick_has_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_has_pov")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_check_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function joystick_check_button")
+        //unimplemented!("Called unimplemented kernel function joystick_check_button")
+        Ok(gml::FALSE.into())
     }
 
     pub fn joystick_xpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_xpos")
+        //unimplemented!("Called unimplemented kernel function joystick_xpos")
+        Ok(0.into())
     }
 
     pub fn joystick_ypos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_ypos")
+        //unimplemented!("Called unimplemented kernel function joystick_ypos")
+        Ok(0.into())
     }
 
     pub fn joystick_zpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_zpos")
+        //unimplemented!("Called unimplemented kernel function joystick_zpos")
+        Ok(0.into())
     }
 
     pub fn joystick_rpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_rpos")
+        //unimplemented!("Called unimplemented kernel function joystick_rpos")
+        Ok(0.into())
     }
 
     pub fn joystick_upos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_upos")
+        //unimplemented!("Called unimplemented kernel function joystick_upos")
+        Ok(0.into())
     }
 
     pub fn joystick_vpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_vpos")
+        //unimplemented!("Called unimplemented kernel function joystick_vpos")
+        Ok(0.into())
     }
 
     pub fn joystick_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function joystick_pov")
+        //unimplemented!("Called unimplemented kernel function joystick_pov")
+        Ok((-1).into())
     }
 
     pub fn keyboard_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5863,8 +5956,9 @@ impl Game {
     }
 
     pub fn io_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function io_clear")
+        self.process_window_events();
+        self.input_manager.clear();
+        Ok(Default::default())
     }
 
     pub fn io_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6236,8 +6330,13 @@ impl Game {
     }
 
     pub fn set_application_title(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_application_title")
+        // In GM8, the game is made out of two windows. One is the one you see, and its caption is
+        // managed by room_caption and (somewhat) window_set_caption. The other's caption is set by
+        // set_application_title, and its caption only shows up in the taskbar and task manager.
+        // The emulator only uses one window, and emulating this behaviour isn't possible with just
+        // one window, so emulating set_application_title isn't possible.
+        // It's a write-only attribute, so simply making it a NOP doesn't hurt anything.
+        Ok(Default::default())
     }
 
     pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6377,38 +6476,38 @@ impl Game {
     }
 
     pub fn date_current_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_datetime")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).into())
     }
 
     pub fn date_current_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_date")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).date().into())
     }
 
     pub fn date_current_time(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function date_current_time")
+        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).time().into())
     }
 
-    pub fn date_create_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function date_create_datetime")
+    pub fn date_create_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day, hour, minute, second) = expect_args!(args, [int, int, int, int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day)
+            .and_then(|d| DateTime::from_hms(hour, minute, second).map(|t| Real::from(d) + t.into()))
+            .unwrap_or(0.into())
+            .into())
     }
 
-    pub fn date_create_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_create_date")
+    pub fn date_create_date(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day) = expect_args!(args, [int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day).map(Real::from).unwrap_or(0.into()).into())
     }
 
-    pub fn date_create_time(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_create_time")
+    pub fn date_create_time(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hour, minute, second) = expect_args!(args, [int, int, int])?;
+        Ok(DateTime::from_hms(hour, minute, second).map(Real::from).unwrap_or(0.into()).into())
     }
 
-    pub fn date_valid_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function date_valid_datetime")
+    pub fn date_valid_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (year, month, day, hour, minute, second) = expect_args!(args, [int, int, int, int, int, int])?;
+        Ok(DateTime::from_ymd(year, month, day).and_then(|_| DateTime::from_hms(hour, minute, second)).is_some().into())
     }
 
     pub fn date_valid_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6456,44 +6555,44 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_inc_second")
     }
 
-    pub fn date_get_year(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_year")
+    pub fn date_get_year(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).year().into())
     }
 
-    pub fn date_get_month(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_month")
+    pub fn date_get_month(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).month().into())
     }
 
-    pub fn date_get_week(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_week")
+    pub fn date_get_week(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).week().into())
     }
 
-    pub fn date_get_day(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_day")
+    pub fn date_get_day(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).day().into())
     }
 
-    pub fn date_get_hour(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_hour")
+    pub fn date_get_hour(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).hour().into())
     }
 
-    pub fn date_get_minute(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_minute")
+    pub fn date_get_minute(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).minute().into())
     }
 
-    pub fn date_get_second(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_second")
+    pub fn date_get_second(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).second().into())
     }
 
-    pub fn date_get_weekday(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function date_get_weekday")
+    pub fn date_get_weekday(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let datetime = expect_args!(args, [real])?;
+        Ok(DateTime::from(datetime).weekday().into())
     }
 
     pub fn date_get_day_of_year(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7473,8 +7572,19 @@ impl Game {
     }
 
     pub fn path_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function path_add")
+        let path_id = self.assets.paths.len();
+        self.assets.paths.push(Some(Box::new(asset::Path {
+            name: format!("__newpath{}", path_id).into(),
+            points: Vec::new(),
+            control_nodes: Default::default(),
+            length: Default::default(),
+            curve: false,
+            closed: false,
+            precision: 4,
+            start: Default::default(),
+            end: Default::default(),
+        })));
+        Ok(path_id.into())
     }
 
     pub fn path_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7497,9 +7607,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_delete")
     }
 
-    pub fn path_add_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function path_add_point")
+    pub fn path_add_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, x, y, speed) = expect_args!(args, [int, real, real, real])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(path_id) {
+            path.points.push(asset::path::Point { x, y, speed });
+            path.update();
+        }
+        Ok(Default::default())
     }
 
     pub fn path_insert_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7507,9 +7621,19 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_insert_point")
     }
 
-    pub fn path_change_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function path_change_point")
+    pub fn path_change_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, n, x, y, speed) = expect_args!(args, [int, int, real, real, real])?;
+        if n >= 0 {
+            if let Some(path) = self.assets.paths.get_asset_mut(path_id) {
+                if let Some(point) = path.points.get_mut(n as usize) {
+                    point.x = x;
+                    point.y = y;
+                    point.speed = speed;
+                    path.update();
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn path_delete_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

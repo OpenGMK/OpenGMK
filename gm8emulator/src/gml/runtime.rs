@@ -4,13 +4,17 @@ use crate::{
     gml::{
         self,
         compiler::{mappings, mappings::constants as gml_constants, token::Operator},
+        datetime::DateTime,
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
     math::Real,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    time,
+};
 
 const DEFAULT_ALARM: i32 = -1;
 
@@ -1070,10 +1074,10 @@ impl Game {
             },
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
-            InstanceVariable::MouseButton => todo!(),
-            InstanceVariable::MouseLastbutton => todo!(),
-            InstanceVariable::KeyboardKey => todo!(),
-            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::MouseButton => Ok(self.input_manager.mouse_get_button().into()),
+            InstanceVariable::MouseLastbutton => Ok(self.input_manager.mouse_get_lastbutton().into()),
+            InstanceVariable::KeyboardKey => Ok(self.input_manager.key_get_key().into()),
+            InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
@@ -1084,14 +1088,27 @@ impl Game {
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
             InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
-            InstanceVariable::CurrentTime => todo!(),
-            InstanceVariable::CurrentYear => todo!(),
-            InstanceVariable::CurrentMonth => todo!(),
-            InstanceVariable::CurrentDay => todo!(),
-            InstanceVariable::CurrentWeekday => todo!(),
-            InstanceVariable::CurrentHour => todo!(),
-            InstanceVariable::CurrentMinute => todo!(),
-            InstanceVariable::CurrentSecond => todo!(),
+            InstanceVariable::CurrentTime => {
+                // GM uses GetTickCount, which has a resolution of *roughly* 16ms.
+                if let Some(nanos) = self.spoofed_time_nanos {
+                    // When we spoof, it only goes up once per frame anyway, so we can keep it as is.
+                    Ok(((nanos / 1_000_000) as u32).into())
+                } else {
+                    // In realtime, it's probably more accurate to force it to increase in 16ms increments.
+                    Ok(time::SystemTime::now()
+                        .duration_since(time::UNIX_EPOCH)
+                        .map(|x| x.as_millis() as u32 & 0xFFFFFFF0)
+                        .unwrap_or(0)
+                        .into())
+                }
+            },
+            InstanceVariable::CurrentYear => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).year().into()),
+            InstanceVariable::CurrentMonth => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).month().into()),
+            InstanceVariable::CurrentDay => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).day().into()),
+            InstanceVariable::CurrentWeekday => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).weekday().into()),
+            InstanceVariable::CurrentHour => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).hour().into()),
+            InstanceVariable::CurrentMinute => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).minute().into()),
+            InstanceVariable::CurrentSecond => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).second().into()),
             InstanceVariable::EventType => Ok(context.event_type.into()),
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
@@ -1389,10 +1406,30 @@ impl Game {
                 Some(view) => view.follow_target = value.into(),
                 None => self.views[0].follow_target = value.into(),
             },
-            InstanceVariable::MouseButton => todo!(),
-            InstanceVariable::MouseLastbutton => todo!(),
-            InstanceVariable::KeyboardKey => todo!(),
-            InstanceVariable::KeyboardLastkey => todo!(),
+            InstanceVariable::MouseButton => {
+                let button = value.round();
+                if button > 0 {
+                    self.input_manager.mouse_set_button(button as _);
+                }
+            },
+            InstanceVariable::MouseLastbutton => {
+                let button = value.round();
+                if button > 0 {
+                    self.input_manager.mouse_set_lastbutton(button as _);
+                }
+            },
+            InstanceVariable::KeyboardKey => {
+                let code = value.round();
+                if code > 0 {
+                    self.input_manager.key_set_key(code as _);
+                }
+            },
+            InstanceVariable::KeyboardLastkey => {
+                let code = value.round();
+                if code > 0 {
+                    self.input_manager.key_set_lastkey(code as _);
+                }
+            },
             InstanceVariable::KeyboardLastchar => todo!(),
             InstanceVariable::KeyboardString => todo!(),
             InstanceVariable::CursorSprite => todo!(),
