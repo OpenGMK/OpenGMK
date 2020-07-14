@@ -996,14 +996,48 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_sprite_general")
     }
 
-    pub fn draw_sprite_tiled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_sprite_tiled")
+    pub fn draw_sprite_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y) = expect_args!(args, [any, any, any, any])?;
+        self.draw_sprite_tiled_ext(context, &[
+            sprite_index,
+            image_index,
+            x,
+            y,
+            1.into(),
+            1.into(),
+            0xffffff.into(),
+            1.into(),
+        ])
     }
 
-    pub fn draw_sprite_tiled_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_tiled_ext")
+    pub fn draw_sprite_tiled_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_tiled(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    colour,
+                    alpha.into(),
+                    Some(self.room_width.into()),
+                    Some(self.room_height.into()),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_background(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
