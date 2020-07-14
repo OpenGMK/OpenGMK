@@ -60,6 +60,7 @@ impl From<*const c_char> for Value {
     fn from(s: *const c_char) -> Self {
         let bytes = unsafe { CStr::from_ptr(s).to_bytes_with_nul() };
         let mut buf = Vec::with_capacity(4 + bytes.len());
+        buf.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
         buf.extend_from_slice(bytes);
         Value::Str(buf)
     }
@@ -67,7 +68,9 @@ impl From<*const c_char> for Value {
 
 #[derive(Serialize, Deserialize)]
 pub enum Message {
-    Define { dll: String, name: String, callconv: CallConv, restype: ValueType, argtypes: Vec<ValueType> },
+    Define { dll_name: String, fn_name: String, call_conv: CallConv, res_type: ValueType, arg_types: Vec<ValueType> },
     Call { func_id: u32, args: Vec<Value> },
-    Free { dll: String },
+    Free { func_id: u32 },
 }
+
+pub type DefineResult = Result<u32, String>;
