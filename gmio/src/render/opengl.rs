@@ -531,7 +531,7 @@ impl RendererTrait for RendererImpl {
                 atlas_ref.w as _,
                 atlas_ref.h as _,
                 atlas_ref.x,
-                atlas_ref.y, // set_view flips upside down, so unflip for surfaces
+                atlas_ref.y,
                 atlas_ref.w,
                 atlas_ref.h,
                 0.0,
@@ -544,8 +544,8 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+        self.flush_queue();
         unsafe {
-            self.flush_queue();
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
         }
         self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
