@@ -7278,8 +7278,19 @@ impl Game {
     }
 
     pub fn path_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function path_add")
+        let path_id = self.assets.paths.len();
+        self.assets.paths.push(Some(Box::new(asset::Path {
+            name: format!("__newpath{}", path_id).into(),
+            points: Vec::new(),
+            control_nodes: Default::default(),
+            length: Default::default(),
+            curve: false,
+            closed: false,
+            precision: 4,
+            start: Default::default(),
+            end: Default::default(),
+        })));
+        Ok(path_id.into())
     }
 
     pub fn path_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7302,9 +7313,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_delete")
     }
 
-    pub fn path_add_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function path_add_point")
+    pub fn path_add_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, x, y, speed) = expect_args!(args, [int, real, real, real])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(path_id) {
+            path.points.push(asset::path::Point { x, y, speed });
+            path.update();
+        }
+        Ok(Default::default())
     }
 
     pub fn path_insert_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7312,9 +7327,19 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_insert_point")
     }
 
-    pub fn path_change_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function path_change_point")
+    pub fn path_change_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, n, x, y, speed) = expect_args!(args, [int, int, real, real, real])?;
+        if n >= 0 {
+            if let Some(path) = self.assets.paths.get_asset_mut(path_id) {
+                if let Some(point) = path.points.get_mut(n as usize) {
+                    point.x = x;
+                    point.y = y;
+                    point.speed = speed;
+                    path.update();
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn path_delete_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
