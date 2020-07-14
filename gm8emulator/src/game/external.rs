@@ -1,5 +1,6 @@
 pub mod dummy;
 pub mod win32;
+pub mod win64;
 
 use crate::{
     game::string::RCStr,
@@ -14,6 +15,8 @@ cfg_if! {
     if
     #[cfg(all(target_os = "windows", target_arch = "x86"))] {
         use win32 as platform;
+    } else if #[cfg(all(target_os = "windows", target_arch = "x86_64"))] {
+        use win64 as platform;
     } else {
         use dummy as platform;
     }
