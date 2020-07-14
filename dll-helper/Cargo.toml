@@ -1,0 +1,13 @@
+[package]
+name = "dll-helper"
+version = "0.1.0"
+authors = ["Floogle"]
+edition = "2018"
+
+[dependencies]
+dll-macros = { path = "../dll-macros" }
+shared = { path = "../shared" }
+
+[target.'cfg(target_os = "windows")'.dependencies.winapi]
+version = "0.3"
+features = ["errhandlingapi", "libloaderapi"]
