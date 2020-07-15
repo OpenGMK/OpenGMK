@@ -81,7 +81,7 @@ impl Random {
     pub fn next_int(&mut self, bound: u32) -> i32 {
         self.cycle(); // cycle seed
         let ls = (self.0 as u64) & 0xFFFF_FFFF;
-        let lb = u64::from(bound).wrapping_add(1);
+        let lb = u64::from(bound.wrapping_add(1));
         ((ls.wrapping_mul(lb)) >> 32) as _
     }
 }
