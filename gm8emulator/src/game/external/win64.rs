@@ -47,19 +47,20 @@ impl Write for Pipe<'_> {
     }
 }
 
-fn make_pipe() -> Pipe<'static> {
+fn make_pipe() -> Result<Pipe<'static>, String> {
     unsafe {
         if HELPER
             .as_mut()
             .and_then(|c| c.try_wait().ok())
             .and_then(|c| if c.is_some() { None } else { Some(()) })
-            .is_none()
+            .is_some()
         {
-            HELPER = Some(Command::new("dll-helper.exe").stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap());
-        }
-        Pipe {
-            writer: HELPER.as_mut().unwrap().stdin.as_mut().unwrap(),
-            reader: HELPER.as_mut().unwrap().stdout.as_mut().unwrap(),
+            Ok(Pipe {
+                writer: HELPER.as_mut().unwrap().stdin.as_mut().unwrap(),
+                reader: HELPER.as_mut().unwrap().stdout.as_mut().unwrap(),
+            })
+        } else {
+            Err("The helper process was terminated before it could be invoked.".into())
         }
     }
 }
@@ -74,7 +75,21 @@ impl ExternalImpl {
         res_type: dll::ValueType,
         arg_types: &[dll::ValueType],
     ) -> Result<Self, String> {
-        let mut pipe = make_pipe();
+        unsafe {
+            if HELPER.is_none() {
+                let mut helper_path = std::env::current_exe().unwrap();
+                helper_path.set_file_name("dll-helper.exe");
+                assert!(helper_path.is_file(), "dll-helper.exe could not be found.");
+                HELPER = Some(
+                    Command::new(helper_path)
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::piped())
+                        .spawn()
+                        .map_err(|e| format!("Could not start helper exe: {}", e))?,
+                );
+            }
+        }
+        let mut pipe = make_pipe()?;
         pipe.send_message(dll::Message::Define {
             dll_name: dll_name.to_string(),
             fn_name: fn_name.to_string(),
@@ -90,7 +105,7 @@ impl ExternalImpl {
             match pipe.receive_message::<dll::DefineResult>(&mut read_buffer).map_err(|e| e.to_string())? {
                 Some(None) => (),
                 Some(Some(message)) => return message.map(ExternalImpl),
-                None => return Err("The DLL helper process has been terminated.".into()),
+                None => return Err("The DLL helper process was terminated mid-call.".into()),
             }
         }
     }
@@ -98,7 +113,7 @@ impl ExternalImpl {
 
 impl ExternalCall for ExternalImpl {
     fn call(&self, args: &[gml::Value]) -> Result<gml::Value, String> {
-        let mut pipe = make_pipe();
+        let mut pipe = make_pipe()?;
         pipe.send_message(dll::Message::Call { func_id: self.0, args: args.iter().map(|x| x.into()).collect() })
             .map_err(|e| e.to_string())?;
         pipe.flush().map_err(|e| e.to_string())?;
@@ -108,7 +123,7 @@ impl ExternalCall for ExternalImpl {
             match pipe.receive_message::<dll::Value>(&mut read_buffer).map_err(|e| e.to_string())? {
                 Some(None) => (),
                 Some(Some(message)) => return Ok(message.into()),
-                None => return Err("The DLL helper process has been terminated.".into()),
+                None => return Err("The DLL helper process was terminated mid-call.".into()),
             }
         }
     }
@@ -116,7 +131,8 @@ impl ExternalCall for ExternalImpl {
 
 impl Drop for ExternalImpl {
     fn drop(&mut self) {
-        let mut pipe = make_pipe();
-        pipe.send_message(dll::Message::Free { func_id: self.0 }).ok();
+        if let Ok(mut pipe) = make_pipe() {
+            pipe.send_message(dll::Message::Free { func_id: self.0 }).ok();
+        }
     }
 }
