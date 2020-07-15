@@ -47,6 +47,12 @@ impl External {
         if arg_types.len() >= 16 {
             return Err("DLL functions can have at most 16 arguments".into())
         }
+        if fn_name == "FMODinit" {
+            println!("WARNING: GMFMODSimple detected. This library tries to hook into GM8.");
+            println!("As we are not running GM8, this is likely to cause an access violation.");
+            println!("Until we add DLL emulation, the only way around this issue is to");
+            println!("replace GMFMODSimple.dll with a fixed build.");
+        }
         Ok(Self {
             call: Box::new(platform::ExternalImpl::new(dll_name, fn_name, call_conv, res_type, arg_types)?),
             dll_name: dll_name.into(),
