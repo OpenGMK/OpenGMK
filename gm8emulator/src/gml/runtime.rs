@@ -27,6 +27,7 @@ pub enum Instruction {
     IfElse { cond: Node, if_body: Box<[Instruction]>, else_body: Box<[Instruction]> },
     LoopUntil { cond: Node, body: Box<[Instruction]> },
     LoopWhile { cond: Node, body: Box<[Instruction]> },
+    LoopFor { cond: Node, body: Box<[Instruction]>, step: Box<[Instruction]> },
     Return { return_type: ReturnType },
     Repeat { count: Node, body: Box<[Instruction]> },
     SetReturnValue { value: Node },
@@ -223,6 +224,7 @@ impl fmt::Debug for Instruction {
             },
             Instruction::LoopUntil { cond, body } => write!(f, "LoopUntil({:?}, {:?})", cond, body),
             Instruction::LoopWhile { cond, body } => write!(f, "LoopWhile({:?}, {:?})", cond, body),
+            Instruction::LoopFor { cond, body, step } => write!(f, "LoopFor({:?}, {:?}, {:?})", cond, body, step),
             Instruction::Return { return_type } => write!(f, "Return({:?})", return_type),
             Instruction::Repeat { count, body } => write!(f, "Repeat({:?}, {:?})", count, body),
             Instruction::SetReturnValue { value } => write!(f, "SetReturnValue({:?})", value),
@@ -418,6 +420,16 @@ impl Game {
                     match self.execute(body, context)? {
                         ReturnType::Normal => (),
                         ReturnType::Continue => continue,
+                        ReturnType::Break => break,
+                        ReturnType::Exit => return Ok(ReturnType::Exit),
+                    }
+                }
+            },
+            Instruction::LoopFor { cond, body, step } => {
+                while self.eval(cond, context)?.is_truthy() {
+                    match self.execute(body, context)? {
+                        ReturnType::Normal => {self.execute(step, context)?;},
+                        ReturnType::Continue => {self.execute(step, context)?;continue},
                         ReturnType::Break => break,
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
