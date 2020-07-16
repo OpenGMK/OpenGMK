@@ -1,6 +1,6 @@
 #![cfg(all(target_os = "windows", target_arch = "x86"))]
 
-use super::{CallConv, ExternalCall};
+use super::{CallConv, DefineInfo, ExternalCall};
 use crate::gml;
 use dll_macros::external_call;
 use shared::dll;
@@ -44,36 +44,36 @@ pub struct ExternalImpl {
 }
 
 impl ExternalImpl {
-    pub fn new(
-        dll_name: &str,
-        fn_name: &str,
-        call_conv: CallConv,
-        res_type: dll::ValueType,
-        arg_types: &[dll::ValueType],
-    ) -> Result<Self, String> {
-        let mut os_dll_name = OsStr::new(dll_name).encode_wide().collect::<Vec<_>>();
+    pub fn new(info: &DefineInfo) -> Result<Self, String> {
+        let mut os_dll_name = OsStr::new(info.dll_name.as_ref()).encode_wide().collect::<Vec<_>>();
         os_dll_name.push(0);
-        let mut fn_name = fn_name.to_string();
-        fn_name.push('\0');
+        let mut os_fn_name = info.fn_name.to_string();
+        os_fn_name.push('\0');
         unsafe {
             let dll_handle = LoadLibraryW(os_dll_name.as_ptr());
             if dll_handle.is_null() {
-                return Err(format!("Failed to load DLL {}! (Code: {:#X})", dll_name, GetLastError()))
+                return Err(format!("Failed to load DLL {}! (Code: {:#X})", info.dll_name, GetLastError()))
             }
-            let fun = GetProcAddress(dll_handle, fn_name.as_ptr() as *const c_char);
+            let fun = GetProcAddress(dll_handle, os_fn_name.as_ptr() as *const c_char);
             if fun.is_null() {
                 FreeLibrary(dll_handle);
                 return Err(format!(
                     "Failed to load function {} in DLL {}! (Code: {:#X})",
-                    fn_name,
-                    dll_name,
+                    info.fn_name,
+                    info.dll_name,
                     GetLastError()
                 ))
             }
-            if fn_name == "FMODinit\0" {
-                dll::apply_fmod_hack(dll_name, dll_handle.cast())?;
+            if info.fn_name.as_ref() == "FMODinit" {
+                dll::apply_fmod_hack(info.dll_name.as_ref(), dll_handle.cast())?;
             }
-            Ok(Self { dll_handle, call: fun.cast(), call_conv, res_type, arg_types: arg_types.to_vec() })
+            Ok(Self {
+                dll_handle,
+                call: fun.cast(),
+                call_conv: info.call_conv,
+                res_type: info.res_type,
+                arg_types: info.arg_types.clone(),
+            })
         }
     }
 }

@@ -6063,16 +6063,16 @@ impl Game {
     }
 
     pub fn external_define(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        if let (Some(dll), Some(name), Some(calltype), Some(restype), Some(argnumb)) =
+        if let (Some(dll_name), Some(fn_name), Some(call_conv), Some(res_type), Some(argnumb)) =
             (args.get(0), args.get(1), args.get(2), args.get(3), args.get(4))
         {
-            let dll = RCStr::from(dll.clone());
-            let name = RCStr::from(name.clone());
-            let calltype = match calltype.round() {
+            let dll_name = RCStr::from(dll_name.clone());
+            let fn_name = RCStr::from(fn_name.clone());
+            let call_conv = match call_conv.round() {
                 0 => external::CallConv::Cdecl,
                 _ => external::CallConv::Stdcall,
             };
-            let restype = match restype.round() {
+            let res_type = match res_type.round() {
                 0 => external::DLLValueType::Real,
                 _ => external::DLLValueType::Str,
             };
@@ -6080,7 +6080,7 @@ impl Game {
             if args.len() as i32 != 5 + argnumb {
                 return Err(gml::Error::WrongArgumentCount(5 + argnumb.max(5) as usize, args.len()))
             }
-            let argtypes = args[5..]
+            let arg_types = args[5..]
                 .iter()
                 .map(|v| match v.round() {
                     0 => external::DLLValueType::Real,
@@ -6088,7 +6088,7 @@ impl Game {
                 })
                 .collect::<Vec<_>>();
             self.externals.push(Some(
-                external::External::new(dll.as_ref(), name.as_ref(), calltype, restype, &argtypes)
+                external::External::new(external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types })
                     .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
             ));
             Ok((self.externals.len() - 1).into())
@@ -6111,7 +6111,7 @@ impl Game {
         let dll_name = expect_args!(args, [string])?;
         for e_opt in self.externals.iter_mut() {
             if let Some(e) = e_opt {
-                if e.dll_name == dll_name {
+                if e.info.dll_name == dll_name {
                     drop(e);
                     *e_opt = None;
                 }

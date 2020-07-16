@@ -1,4 +1,4 @@
-use super::{CallConv, ExternalCall};
+use super::{DefineInfo, ExternalCall};
 use crate::gml;
 use shared::{dll, message::MessageStream};
 use std::{
@@ -68,13 +68,7 @@ fn make_pipe() -> Result<Pipe<'static>, String> {
 pub struct ExternalImpl(u32);
 
 impl ExternalImpl {
-    pub fn new(
-        dll_name: &str,
-        fn_name: &str,
-        call_conv: CallConv,
-        res_type: dll::ValueType,
-        arg_types: &[dll::ValueType],
-    ) -> Result<Self, String> {
+    pub fn new(info: &DefineInfo) -> Result<Self, String> {
         unsafe {
             if HELPER.is_none() {
                 let mut helper_path = std::env::current_exe().unwrap();
@@ -91,11 +85,11 @@ impl ExternalImpl {
         }
         let mut pipe = make_pipe()?;
         pipe.send_message(dll::Message::Define {
-            dll_name: dll_name.to_string(),
-            fn_name: fn_name.to_string(),
-            call_conv,
-            res_type,
-            arg_types: arg_types.to_vec(),
+            dll_name: info.dll_name.to_string(),
+            fn_name: info.fn_name.to_string(),
+            call_conv: info.call_conv,
+            res_type: info.res_type,
+            arg_types: info.arg_types.clone(),
         })
         .map_err(|e| e.to_string())?;
         pipe.flush().map_err(|e| e.to_string())?;
