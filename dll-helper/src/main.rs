@@ -82,6 +82,9 @@ impl ExternalList {
                     GetLastError()
                 ))
             }
+            if fn_name == "FMODinit\0" {
+                dll::apply_fmod_hack(&dll_name, dll_handle.cast())?;
+            }
             let external_id = self.0.len();
             self.0.push(Some(External { dll_handle, call: fun.cast(), call_conv, res_type, arg_types }));
             return Ok(external_id as u32)

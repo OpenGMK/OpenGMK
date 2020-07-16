@@ -70,6 +70,9 @@ impl ExternalImpl {
                     GetLastError()
                 ))
             }
+            if fn_name == "FMODinit\0" {
+                dll::apply_fmod_hack(dll_name, dll_handle.cast())?;
+            }
             Ok(Self { dll_handle, call: fun.cast(), call_conv, res_type, arg_types: arg_types.to_vec() })
         }
     }
