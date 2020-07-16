@@ -58,14 +58,13 @@ impl ExternalList {
     fn add_external(
         &mut self,
         dll_name: String,
-        fn_name: String,
+        mut fn_name: String,
         call_conv: CallConv,
         res_type: dll::ValueType,
         arg_types: Vec<dll::ValueType>,
     ) -> DefineResult {
         let mut os_dll_name = OsStr::new(&dll_name).encode_wide().collect::<Vec<_>>();
         os_dll_name.push(0);
-        let mut fn_name = fn_name.to_string();
         fn_name.push('\0');
         unsafe {
             let dll_handle = LoadLibraryW(os_dll_name.as_ptr());
