@@ -7,3 +7,6 @@ edition = "2018"
 [dependencies]
 bincode = "1.2"
 serde = { version = "1.0", features = ["derive"] }
+
+[target.'cfg(all(target_os = "windows", target_arch = "x86"))'.dependencies.crc]
+version = "1.8"
