@@ -1,6 +1,13 @@
 use crate::{
     asset::font::Font,
-    game::{background, draw, particle, string::RCStr, view::View, Assets, Game, Replay, Version},
+    game::{
+        background, draw,
+        external::{DefineInfo, External},
+        particle,
+        string::RCStr,
+        view::View,
+        Assets, Game, Replay, Version,
+    },
     gml::{
         ds::{self, DataStructureManager},
         rand::Random,
@@ -32,6 +39,8 @@ pub struct SaveState {
     pub background_colour: Colour,
     pub room_colour: Option<Colour>,
     pub blend_mode: (BlendType, BlendType),
+
+    pub externals: Vec<Option<DefineInfo>>,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -116,6 +125,7 @@ impl SaveState {
             background_colour: game.background_colour,
             room_colour: game.room_colour,
             blend_mode: game.renderer.get_blend_mode(),
+            externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -181,6 +191,9 @@ impl SaveState {
             game.background_colour,
         );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
+
+        let mut externals = self.externals;
+        game.externals = externals.drain(..).map(|i| i.map(|i| External::new(i).unwrap())).collect();
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
