@@ -100,7 +100,9 @@ impl ExternalCall for ExternalImpl {
 impl Drop for ExternalImpl {
     fn drop(&mut self) {
         unsafe {
-            FreeLibrary(self.dll_handle);
+            if FreeLibrary(self.dll_handle) == 0 {
+                eprintln!("Error freeing DLL (code: {:#X})", GetLastError());
+            }
         }
     }
 }

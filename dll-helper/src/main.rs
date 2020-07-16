@@ -110,7 +110,9 @@ impl ExternalList {
     fn free_external(&mut self, id: u32) {
         if let Some(Some(external)) = self.0.get(id as usize) {
             unsafe {
-                FreeLibrary(external.dll_handle);
+                if FreeLibrary(external.dll_handle) == 0 {
+                    eprintln!("Error freeing DLL (code: {:#X})", GetLastError());
+                }
             }
         }
         self.0[id as usize] = None;
