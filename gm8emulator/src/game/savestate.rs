@@ -193,7 +193,8 @@ impl SaveState {
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
 
         let mut externals = self.externals;
-        game.externals = externals.drain(..).map(|i| i.map(|i| External::new(i).unwrap())).collect();
+        // we're always gonna be recording if we're loading savestates so disable sound
+        game.externals = externals.drain(..).map(|i| i.map(|i| External::new(i, true).unwrap())).collect();
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;

@@ -23,6 +23,11 @@ cfg_if! {
     }
 }
 
+pub enum Call {
+    Dummy(dll::ValueType),
+    DllCall(Box<dyn ExternalCall>),
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DefineInfo {
     pub dll_name: RCStr,
@@ -33,7 +38,7 @@ pub struct DefineInfo {
 }
 
 pub struct External {
-    call: Box<dyn ExternalCall>,
+    call: Call,
     pub info: DefineInfo,
 }
 
@@ -43,21 +48,43 @@ pub trait ExternalCall {
 }
 
 impl External {
-    pub fn new(info: DefineInfo) -> Result<Self, String> {
+    pub fn new(info: DefineInfo, disable_sound: bool) -> Result<Self, String> {
         if info.arg_types.len() > 4 && info.arg_types.contains(&dll::ValueType::Str) {
             return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
         }
         if info.arg_types.len() >= 16 {
             return Err("DLL functions can have at most 16 arguments".into())
         }
-        Ok(Self { call: Box::new(platform::ExternalImpl::new(&info)?), info })
+        let mut dll_name_lower = std::path::Path::new(info.dll_name.as_ref()).file_name().unwrap().to_string_lossy().to_string();
+        dll_name_lower.make_ascii_lowercase();
+        let call = match dll_name_lower.as_str() {
+            "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
+                Call::Dummy(info.res_type)
+            },
+            _ => Call::DllCall(Box::new(platform::ExternalImpl::new(&info)?)),
+        };
+        Ok(Self { call, info })
     }
 
     pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
         if args.len() != self.info.arg_types.len() {
             Err(gml::Error::WrongArgumentCount(self.info.arg_types.len(), args.len()))
         } else {
-            self.call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
+            self.call.call(args)
+        }
+    }
+}
+
+impl Call {
+    fn call(&self, args: &[Value]) -> gml::Result<Value> {
+        match self {
+            Call::Dummy(res_type) => match res_type {
+                dll::ValueType::Real => Ok(0.into()),
+                dll::ValueType::Str => Ok("".into()),
+            },
+            Call::DllCall(call) => {
+                call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
+            },
         }
     }
 }

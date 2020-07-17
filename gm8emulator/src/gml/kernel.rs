@@ -6088,8 +6088,11 @@ impl Game {
                 })
                 .collect::<Vec<_>>();
             self.externals.push(Some(
-                external::External::new(external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types })
-                    .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
+                external::External::new(
+                    external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types },
+                    self.play_type == PlayType::Record,
+                )
+                .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
             ));
             Ok((self.externals.len() - 1).into())
         } else {
