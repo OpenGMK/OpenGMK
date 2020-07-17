@@ -13,7 +13,7 @@ use gmio::{
     render::{BlendType, Renderer, RendererOptions},
     window,
 };
-use image::{Pixel, RgbaImage};
+use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
 use std::{convert::TryFrom, io::Read, process::Command};
 
@@ -6884,28 +6884,12 @@ impl Game {
             expect_args!(args, [string, int, any, any, int, int])?;
         let imgnumb = imgnumb.max(1) as usize;
         // will need a different case for loading animated gifs but those aren't supported yet
-        let image = file::load_image(fname.as_ref())
+        let mut images = file::load_image_strip(fname.as_ref(), imgnumb)
             .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
-        let sprite_width = image.width() as usize / imgnumb;
-        let sprite_height = image.height() as usize;
-        // get pixel data for each frame
-        let mut images = Vec::with_capacity(imgnumb);
-        if imgnumb > 1 {
-            for i in 0..imgnumb {
-                let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
-                for row in image.rows() {
-                    for p in row.skip(i * sprite_width).take(sprite_width) {
-                        pixels.extend_from_slice(p.channels());
-                    }
-                }
-                images.push(RgbaImage::from_vec(sprite_width as _, sprite_height as _, pixels).unwrap());
-            }
-        } else {
-            images.push(image);
-        }
         for image in images.iter_mut() {
             asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
         }
+        let (width, height) = images[0].dimensions();
         // make colliders
         let colliders = asset::sprite::make_colliders(&images, false);
         // collect atlas refs
@@ -6914,17 +6898,11 @@ impl Game {
             .drain(..)
             .map(|i| {
                 Ok(asset::sprite::Frame {
-                    width: sprite_width as _,
-                    height: sprite_height as _,
+                    width,
+                    height,
                     atlas_ref: self
                         .renderer
-                        .upload_sprite(
-                            i.into_raw().into_boxed_slice(),
-                            sprite_width as _,
-                            sprite_height as _,
-                            origin_x,
-                            origin_y,
-                        )
+                        .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
                         .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
                 })
             })
@@ -6937,9 +6915,9 @@ impl Game {
             bbox_right: colliders[0].bbox_right,
             bbox_top: colliders[0].bbox_top,
             bbox_bottom: colliders[0].bbox_bottom,
-            colliders: colliders,
-            width: sprite_width as _,
-            height: sprite_height as _,
+            colliders,
+            width,
+            height,
             origin_x,
             origin_y,
             per_frame_colliders: false,
