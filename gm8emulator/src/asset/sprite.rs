@@ -36,21 +36,7 @@ pub struct Collider {
     pub data: Box<[bool]>,
 }
 
-pub fn make_colliders(frames: &[image::RgbaImage]) -> Vec<Collider> {
-    // only supports non-separated precise colliders with 0 tolerance rn
-    let tolerance = 0;
-    let width = frames[0].width();
-    let height = frames[0].height();
-    let mut data = vec![false; (width * height) as usize];
-    // extract pixels
-    for f in frames {
-        for (i, px) in f.pixels().enumerate() {
-            if px[3] > tolerance {
-                data[i] = true;
-            }
-        }
-    }
-    // calculate bbox values
+fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
     let mut bbox_left = width - 1;
     let mut bbox_right = 0;
     let mut bbox_top = height - 1;
@@ -73,5 +59,37 @@ pub fn make_colliders(frames: &[image::RgbaImage]) -> Vec<Collider> {
             }
         }
     }
-    vec![Collider { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data: data.into_boxed_slice() }]
+    Collider { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data }
+}
+
+pub fn make_colliders(frames: &[image::RgbaImage], sepmasks: bool) -> Vec<Collider> {
+    // only supports precise colliders with 0 tolerance rn
+    let tolerance = 0;
+    let width = frames[0].width();
+    let height = frames[0].height();
+    if sepmasks {
+        frames
+            .iter()
+            .map(|f| {
+                complete_bbox(
+                    f.pixels().map(|p| p[3] > tolerance).collect::<Vec<_>>().into_boxed_slice(),
+                    width,
+                    height,
+                )
+            })
+            .collect()
+    } else {
+        let mut data = vec![false; (width * height) as usize];
+        // merge pixels
+        for f in frames {
+            for y in 0..height.min(f.height()) {
+                for x in 0..width.min(f.width()) {
+                    if f.get_pixel(x, y)[3] > tolerance {
+                        data[(y * width + x) as usize] = true;
+                    }
+                }
+            }
+        }
+        vec![complete_bbox(data.into_boxed_slice(), width, height)]
+    }
 }

@@ -6832,7 +6832,7 @@ impl Game {
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
         file::process_sprite(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let mut images = vec![image];
-        let colliders = asset::sprite::make_colliders(&images);
+        let colliders = asset::sprite::make_colliders(&images, false);
         let frames = images
             .drain(..)
             .map(|i| {
@@ -6904,7 +6904,7 @@ impl Game {
             images.push(image);
         }
         // make colliders
-        let colliders = asset::sprite::make_colliders(&images);
+        let colliders = asset::sprite::make_colliders(&images, false);
         // collect atlas refs
         // yes i know it's a new texture for every frame like in gm8 but it's fine
         let frames = images
