@@ -1369,9 +1369,9 @@ impl Game {
             self.renderer.draw_sprite(
                 &surf.atlas_ref,
                 x.into(),
-                (y + yscale * surf.height.into()).into(), // surfaces are upside down vs other textures
+                y.into(),
                 xscale.into(),
-                (-yscale).into(),
+                yscale.into(),
                 rot.into(),
                 colour,
                 alpha.into(),
@@ -1448,12 +1448,8 @@ impl Game {
     pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, fname) = expect_args!(args, [int, string])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
-            let raw = self.renderer.dump_sprite(&surf.atlas_ref);
-            let mut pixels = Vec::with_capacity(raw.len());
-            for row in raw.chunks_exact(surf.width as usize * 4).rev() {
-                pixels.extend_from_slice(row);
-            }
-            match file::save_image(fname.as_ref(), surf.width, surf.height, pixels.into_boxed_slice()) {
+            match file::save_image(fname.as_ref(), surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref))
+            {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
             }
@@ -1469,13 +1465,12 @@ impl Game {
             let y = y.max(0);
             let w = w.min(surf.width as i32 - x);
             let h = h.min(surf.height as i32 - y);
-            let y = surf.height as i32 - y - h; // upside down
-            let raw = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h);
-            let mut pixels = Vec::with_capacity(raw.len());
-            for row in raw.chunks_exact(w as usize * 4).rev() {
-                pixels.extend_from_slice(row);
-            }
-            match file::save_image(fname.as_ref(), w as _, h as _, pixels.into_boxed_slice()) {
+            match file::save_image(
+                fname.as_ref(),
+                w as _,
+                h as _,
+                self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h),
+            ) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
             }

@@ -971,11 +971,22 @@ impl RendererTrait for RendererImpl {
         let sin_angle = -src_angle.sin() as f32;
         let cos_angle = src_angle.cos() as f32;
 
+        // don't flip if drawing to surface
+        let to_surface = {
+            let mut fb_draw = 0;
+            unsafe {
+                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw != 0
+        };
+
         #[rustfmt::skip]
         let projection: [f32; 16] = {
             // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
             let scx = -((src_x as f32) + (src_w as f32 / 2.0));
             let scy = -((src_y as f32) + (src_h as f32 / 2.0));
+            // vertical flip if drawing to screen
+            let vf: f32 = if to_surface { 1.0 } else { -1.0 };
             mat4mult(
                 mat4mult(
                     // Translate world so center of view is at [0,0]
@@ -995,10 +1006,10 @@ impl RendererTrait for RendererImpl {
                 ),
                 // Squish to screen (and flip upside down)
                 [
-                    2.0 / src_w as f32, 0.0,                 0.0, 0.0,
-                    0.0,                -2.0 / src_h as f32, 0.0, 0.0,
-                    0.0,                0.0,                 1.0, 0.0,
-                    0.0,                0.0,                 0.0, 1.0,
+                    2.0 / src_w as f32, 0.0,                     0.0, 0.0,
+                    0.0,                2.0 * vf / src_h as f32, 0.0, 0.0,
+                    0.0,                0.0,                     1.0, 0.0,
+                    0.0,                0.0,                     0.0, 1.0,
                 ]
             )
         };
@@ -1009,7 +1020,11 @@ impl RendererTrait for RendererImpl {
         let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
         let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
         let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32;
-        let port_y = height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h);
+        let port_y = if to_surface {
+            ((port_y * height) as f64 / unscaled_height as f64) as i32
+        } else {
+            height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
+        };
 
         // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
         unsafe {
