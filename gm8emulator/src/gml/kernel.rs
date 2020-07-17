@@ -6830,7 +6830,7 @@ impl Game {
             }
         }
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
-        file::process_sprite(&mut image, removeback.is_truthy(), smooth.is_truthy());
+        asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let mut images = vec![image];
         let colliders = asset::sprite::make_colliders(&images, false);
         let frames = images
@@ -6884,7 +6884,7 @@ impl Game {
             expect_args!(args, [string, int, any, any, int, int])?;
         let imgnumb = imgnumb.max(1) as usize;
         // will need a different case for loading animated gifs but those aren't supported yet
-        let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
+        let image = file::load_image(fname.as_ref())
             .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
         let sprite_width = image.width() as usize / imgnumb;
         let sprite_height = image.height() as usize;
@@ -6902,6 +6902,9 @@ impl Game {
             }
         } else {
             images.push(image);
+        }
+        for image in images.iter_mut() {
+            asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
         }
         // make colliders
         let colliders = asset::sprite::make_colliders(&images, false);
@@ -7096,8 +7099,9 @@ impl Game {
 
     pub fn background_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
-        let image = file::load_image(fname.as_ref(), removeback.is_truthy(), smooth.is_truthy())
+        let mut image = file::load_image(fname.as_ref())
             .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let width = image.width();
         let height = image.height();
         let atlas_ref = self

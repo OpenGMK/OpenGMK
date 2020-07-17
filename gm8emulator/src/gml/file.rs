@@ -348,67 +348,8 @@ pub fn delete(path: &str) -> Result<()> {
     Ok(())
 }
 
-// TODO: this probably belongs somewhere else?
-pub fn process_sprite(image: &mut RgbaImage, removeback: bool, smooth: bool) {
-    if removeback {
-        // remove background colour
-        let bottom_left = image.get_pixel(0, image.height() - 1).to_rgb();
-        for px in image.pixels_mut() {
-            if px.to_rgb() == bottom_left {
-                px[3] = 0;
-            }
-        }
-    }
-    if smooth {
-        // smooth
-        for y in 0..image.height() {
-            for x in 0..image.width() {
-                // if pixel is transparent
-                if image.get_pixel(x, y)[3] == 0 {
-                    // for all surrounding pixels
-                    for y in y.saturating_sub(1)..(y + 2).min(image.height()) {
-                        for x in x.saturating_sub(1)..(x + 2).min(image.width()) {
-                            // subtract 32 if possible
-                            if image.get_pixel(x, y)[3] >= 32 {
-                                image.get_pixel_mut(x, y)[3] -= 32;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if removeback {
-        // make lerping less ugly
-        for y in 0..image.height() {
-            for x in 0..image.width() {
-                if image.get_pixel(x, y)[3] == 0 {
-                    let (sx, sy) = if x > 0 && image.get_pixel(x - 1, y)[3] != 0 {
-                        (x - 1, y)
-                    } else if x < image.width() - 1 && image.get_pixel(x + 1, y)[3] != 0 {
-                        (x + 1, y)
-                    } else if y > 0 && image.get_pixel(x, y - 1)[3] != 0 {
-                        (x, y - 1)
-                    } else if y < image.height() - 1 && image.get_pixel(x, y + 1)[3] != 0 {
-                        (x, y + 1)
-                    } else {
-                        continue
-                    };
-                    let src = *image.get_pixel(sx, sy);
-                    let dst = image.get_pixel_mut(x, y);
-                    dst[0] = src[0];
-                    dst[1] = src[1];
-                    dst[2] = src[2];
-                }
-            }
-        }
-    }
-}
-
-pub fn load_image(path: &str, removeback: bool, smooth: bool) -> Result<RgbaImage> {
-    let mut image = image::open(path)?.into_rgba();
-    process_sprite(&mut image, removeback, smooth);
-    Ok(image)
+pub fn load_image(path: &str) -> Result<RgbaImage> {
+    Ok(image::open(path)?.into_rgba())
 }
 
 pub fn save_image<P: AsRef<Path>>(path: P, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
