@@ -6114,7 +6114,7 @@ impl Game {
         let dll_name = expect_args!(args, [string])?;
         for e_opt in self.externals.iter_mut() {
             if let Some(e) = e_opt {
-                if e.info.dll_name == dll_name {
+                if e.info.dll_name.as_ref().eq_ignore_ascii_case(dll_name.as_ref()) {
                     drop(e);
                     *e_opt = None;
                 }
