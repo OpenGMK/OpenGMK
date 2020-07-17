@@ -46,7 +46,7 @@ pub trait RendererTrait {
         origin_x: i32,
         origin_y: i32,
     ) -> Result<AtlasRef, String>;
-    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String>;
+    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
@@ -231,7 +231,7 @@ impl Renderer {
         self.0.upload_sprite(data, width, height, origin_x, origin_y)
     }
 
-    pub fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
+    pub fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
         self.0.duplicate_sprite(atlas_ref)
     }
 

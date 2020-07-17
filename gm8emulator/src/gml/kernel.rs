@@ -7159,7 +7159,7 @@ impl Game {
                 }
             }
             if dst_id >= 0 && self.assets.backgrounds.len() > dst_id as usize {
-                let dst_atlref = match src.atlas_ref {
+                let dst_atlref = match src.atlas_ref.as_ref() {
                     Some(ar) => Some(
                         self.renderer
                             .duplicate_sprite(ar)

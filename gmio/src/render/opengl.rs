@@ -408,7 +408,7 @@ impl RendererTrait for RendererImpl {
         Ok(atlas_ref)
     }
 
-    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
+    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
         let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h)?;
         unsafe {
             // store previous
