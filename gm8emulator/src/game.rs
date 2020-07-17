@@ -163,7 +163,7 @@ pub enum Version {
 }
 
 /// Enum indicating how this game is being played - normal, recording or replaying
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlayType {
     Normal,
     Record,
