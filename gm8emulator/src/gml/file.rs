@@ -352,6 +352,28 @@ pub fn load_image(path: &str) -> Result<RgbaImage> {
     Ok(image::open(path)?.into_rgba())
 }
 
+pub fn load_image_strip(path: &str, imgnumb: usize) -> Result<Vec<RgbaImage>> {
+    let image = load_image(path.as_ref())?;
+    let sprite_width = image.width() as usize / imgnumb;
+    let sprite_height = image.height() as usize;
+    // get pixel data for each frame
+    if imgnumb > 1 {
+        let mut images = Vec::with_capacity(imgnumb);
+        for i in 0..imgnumb {
+            let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
+            for row in image.rows() {
+                for p in row.skip(i * sprite_width).take(sprite_width) {
+                    pixels.extend_from_slice(p.channels());
+                }
+            }
+            images.push(RgbaImage::from_vec(sprite_width as _, sprite_height as _, pixels).unwrap());
+        }
+        Ok(images)
+    } else {
+        Ok(vec![image])
+    }
+}
+
 pub fn save_image<P: AsRef<Path>>(path: P, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
     let image = RgbaImage::from_vec(width, height, data.into_vec()).unwrap();
     // save to png if the filename is .png otherwise bmp regardless of filename
