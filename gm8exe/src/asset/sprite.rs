@@ -187,7 +187,7 @@ impl Asset for Sprite {
                 result += writer.write_u32_le(frame.data.len() as u32)?;
 
                 let pixeldata = frame.data.clone();
-                result += writer.write(&pixeldata)?;
+                result += writer.write_all(&pixeldata).map(|()| pixeldata.len())?;
             }
             result += writer.write_u32_le(self.per_frame_colliders as u32)?;
             for collider in self.colliders.iter() {

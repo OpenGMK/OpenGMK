@@ -151,7 +151,7 @@ impl Asset for Sound {
         if let Some(data) = &self.data {
             result += writer.write_u32_le(true as u32)?;
             result += writer.write_u32_le(data.len() as u32)?;
-            result += writer.write(&data)?;
+            result += writer.write_all(&data).map(|()| data.len())?;
         } else {
             result += writer.write_u32_le(0)?;
         }
