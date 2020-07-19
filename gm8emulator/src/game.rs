@@ -52,7 +52,7 @@ use shared::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque, BTreeMap},
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -548,11 +548,11 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let mut moments: HashMap<u32, Rc<RefCell<Tree>>> = HashMap::with_capacity(b.moments.len());
+                    let mut moments: BTreeMap<i32, Rc<RefCell<Tree>>> = BTreeMap::new();
                     for (moment, actions) in b.moments.iter() {
                         match Tree::from_list(actions, &mut compiler) {
                             Ok(t) => {
-                                moments.insert(*moment, Rc::new(RefCell::new(t)));
+                                moments.insert(*moment as i32, Rc::new(RefCell::new(t)));
                             },
                             Err(e) => {
                                 return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))
@@ -1136,49 +1136,37 @@ impl Game {
             if instance.timeline_running.get() {
                 if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
                     let moments = timeline.moments.clone();
-                    let old_position = instance.timeline_position.get();
-                    let new_position = old_position + instance.timeline_speed.get();
-                    let last_step = Real::from(*moments.borrow().keys().max().unwrap_or(&0));
+                    let timeline_len = Real::from(*moments.borrow().keys().max().unwrap_or(&0));
 
-                    if last_step > Real::from(0) {
+                    if timeline_len > Real::from(0) {
+                        let old_position = instance.timeline_position.get();
+                        let new_position = old_position + instance.timeline_speed.get();
+
                         match instance.timeline_speed.get() {
                             x if x > Real::from(0) => {
-                                if new_position > last_step && instance.timeline_loop.get() {
-                                        instance.timeline_position.set(Real::from(0));
+                                if new_position > timeline_len && instance.timeline_loop.get() {
+                                    instance.timeline_position.set(Real::from(0));
                                 } else {
                                     instance.timeline_position.set(new_position)
                                 }
 
-                                let mut moments_vec: Vec<(u32, Rc<RefCell<Tree>>)> = moments.borrow().iter().
-                                    filter(|(&step, _)| {
-                                        Real::from(step) >= old_position && Real::from(step) < new_position
-                                    }).
-                                    map(|(&step, tree)| {
-                                        (step, tree.clone())
-                                    }).collect();
-                                moments_vec.sort_by_key(|(step, _)| { *step });
-
-                                for (_, tree) in moments_vec.iter() {
+                                for (_, tree) in moments.borrow().iter()
+                                    .filter(|(&x, _)| {Real::from(x) >= old_position && Real::from(x) < new_position })
+                                {
                                     self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
                                 }
                             },
                             x if x < Real::from(0) => {
                                 if new_position < Real::from(0) && instance.timeline_loop.get() {
-                                    instance.timeline_position.set(last_step);
+                                    instance.timeline_position.set(timeline_len);
                                 } else {
                                     instance.timeline_position.set(new_position)
                                 }
 
-                                let mut moments_vec: Vec<(u32, Rc<RefCell<Tree>>)> = moments.borrow().iter().
-                                    filter(|(&step, _)| {
-                                        Real::from(step) <= old_position && Real::from(step) > new_position
-                                    }).
-                                    map(|(&step, tree)| {
-                                        (step, tree.clone())
-                                    }).collect();
-                                moments_vec.sort_by_key(|(step, _)| { *step });
-
-                                for (_, tree) in moments_vec.iter().rev() {
+                                for (_, tree) in moments.borrow().iter()
+                                    .filter(|(&x, _)| {Real::from(x) > new_position && Real::from(x) <= old_position })
+                                    .rev()
+                                {
                                     self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
                                 }
                             },
