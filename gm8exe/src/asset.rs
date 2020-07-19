@@ -115,7 +115,7 @@ pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadString
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
     fn write_pas_string(&mut self, s: &PascalString) -> io::Result<usize> {
-        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write(s.0.as_ref()).map(|y| y + x))
+        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write_all(s.0.as_ref()).map(|()| s.0.len() + x))
     }
 }
 
