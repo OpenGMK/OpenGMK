@@ -6863,19 +6863,169 @@ impl Game {
         Ok(sprite_id.into())
     }
 
-    pub fn sprite_add_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function sprite_add_from_screen")
+    pub fn sprite_add_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, x, y, width, height, removeback, smooth) =
+            expect_args!(args, [int, int, int, int, int, any, any])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            // get image
+            let x = x.max(0);
+            let y = y.max(0);
+            let (window_width, window_height) = self.window.get_inner_size();
+            let width = width.min(window_width as i32 - x);
+            let height = height.min(window_height as i32 - y);
+            self.renderer.flush_queue();
+            let rgb = self.renderer.get_pixels(x, y, width, height);
+            // it comes out as upside-down rgb so flip it and convert it to rgba
+            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+            for row in rgb.chunks((width * 3) as usize).rev() {
+                for col in row.chunks(3) {
+                    rgba.extend_from_slice(col);
+                    rgba.push(255);
+                }
+            }
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            asset::sprite::scale(&mut image, sprite.width, sprite.height);
+            // generate collision
+            let mut images = Vec::with_capacity(sprite.frames.len() + 1);
+            // can't use .map() because closures cause borrowing issues
+            for f in sprite.frames.iter() {
+                images.push(
+                    RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec()).unwrap(),
+                );
+            }
+            images.push(image);
+            let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
+            sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+            sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
+            sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
+            sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
+            sprite.bbox_bottom = sprite.colliders.iter().map(|c| c.bbox_bottom).max().unwrap();
+            // upload frame
+            let image = images.pop().unwrap();
+            sprite.frames.push(asset::sprite::Frame {
+                width: sprite.width as _,
+                height: sprite.height as _,
+                atlas_ref: self
+                    .renderer
+                    .upload_sprite(
+                        image.into_raw().into_boxed_slice(),
+                        sprite.width as _,
+                        sprite.height as _,
+                        sprite.origin_x,
+                        sprite.origin_y,
+                    )
+                    .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+            });
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
-    pub fn sprite_create_from_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function sprite_create_from_surface")
+    pub fn sprite_create_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, width, height, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [int, int, int, int, int, any, any, int, int])?;
+        if self.surface_target == Some(surf_id) {
+            self.renderer.flush_queue();
+        }
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let x = x.max(0);
+            let y = y.max(0);
+            let width = width.min(surf.width as i32 - x);
+            let height = height.min(surf.height as i32 - y);
+            let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+            let frames = vec![asset::sprite::Frame {
+                width: width as _,
+                height: height as _,
+                atlas_ref: self
+                    .renderer
+                    .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
+                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+            }];
+            let sprite_id = self.assets.sprites.len();
+            self.assets.sprites.push(Some(Box::new(asset::Sprite {
+                name: format!("__newsprite{}", sprite_id).into(),
+                frames,
+                bbox_left: colliders[0].bbox_left,
+                bbox_right: colliders[0].bbox_right,
+                bbox_top: colliders[0].bbox_top,
+                bbox_bottom: colliders[0].bbox_bottom,
+                colliders: colliders,
+                width: width as _,
+                height: height as _,
+                origin_x,
+                origin_y,
+                per_frame_colliders: false,
+            })));
+            Ok(sprite_id.into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "sprite_create_from_surface".into(),
+                format!("Surface {} does not exist", surf_id),
+            ))
+        }
     }
 
-    pub fn sprite_add_from_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function sprite_add_from_surface")
+    pub fn sprite_add_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, surf_id, x, y, width, height, removeback, smooth) =
+            expect_args!(args, [int, int, int, int, int, int, any, any])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            if let Some(surf) = self.surfaces.get_asset(surf_id) {
+                // get image
+                let x = x.max(0);
+                let y = y.max(0);
+                let width = width.min(surf.width as i32 - x);
+                let height = height.min(surf.height as i32 - y);
+                let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+                let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+                asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+                asset::sprite::scale(&mut image, sprite.width, sprite.height);
+                // generate collision
+                let mut images = Vec::with_capacity(sprite.frames.len() + 1);
+                // can't use .map() because closures cause borrowing issues
+                for f in sprite.frames.iter() {
+                    images.push(
+                        RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec())
+                            .unwrap(),
+                    );
+                }
+                images.push(image);
+                let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
+                sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+                sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
+                sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
+                sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
+                sprite.bbox_bottom = sprite.colliders.iter().map(|c| c.bbox_bottom).max().unwrap();
+                // upload frame
+                let image = images.pop().unwrap();
+                sprite.frames.push(asset::sprite::Frame {
+                    width: sprite.width as _,
+                    height: sprite.height as _,
+                    atlas_ref: self
+                        .renderer
+                        .upload_sprite(
+                            image.into_raw().into_boxed_slice(),
+                            sprite.width as _,
+                            sprite.height as _,
+                            sprite.origin_x,
+                            sprite.origin_y,
+                        )
+                        .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+                });
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError(
+                    "sprite_create_from_surface".into(),
+                    format!("Surface {} does not exist", surf_id),
+                ))
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
     pub fn sprite_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
