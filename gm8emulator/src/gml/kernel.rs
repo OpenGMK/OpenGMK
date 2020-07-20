@@ -6819,6 +6819,11 @@ impl Game {
             expect_args!(args, [int, int, int, int, any, any, int, int])?;
         // i know we're downloading the thing and reuploading it instead of doing it all in one go
         // but we need the pixel data to make the colliders
+        let x = x.max(0);
+        let y = y.max(0);
+        let (window_width, window_height) = self.window.get_inner_size();
+        let width = width.min(window_width as i32 - x);
+        let height = height.min(window_height as i32 - y);
         self.renderer.flush_queue();
         let rgb = self.renderer.get_pixels(x, y, width, height);
         // it comes out as upside-down rgb so flip it and convert it to rgba
@@ -6831,21 +6836,15 @@ impl Game {
         }
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
-        let mut images = vec![image];
-        let colliders = asset::sprite::make_colliders(&images, false);
-        let frames = images
-            .drain(..)
-            .map(|i| {
-                Ok(asset::sprite::Frame {
-                    width: width as _,
-                    height: height as _,
-                    atlas_ref: self
-                        .renderer
-                        .upload_sprite(i.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                        .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
-                })
-            })
-            .collect::<gml::Result<_>>()?;
+        let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+        let frames = vec![asset::sprite::Frame {
+            width: width as _,
+            height: height as _,
+            atlas_ref: self
+                .renderer
+                .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
+                .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+        }];
         let sprite_id = self.assets.sprites.len();
         self.assets.sprites.push(Some(Box::new(asset::Sprite {
             name: format!("__newsprite{}", sprite_id).into(),
