@@ -1,4 +1,4 @@
-use crate::game::string::RCStr;
+use crate::{game::string::RCStr, math::Real};
 use gmio::render::AtlasRef;
 use image::{Pixel, RgbaImage};
 use serde::{Deserialize, Serialize};
@@ -158,5 +158,29 @@ pub fn make_colliders(frames: &[RgbaImage], sepmasks: bool) -> Vec<Collider> {
             }
         }
         vec![complete_bbox(data.into_boxed_slice(), width, height)]
+    }
+}
+
+// used for adding frames to sprites
+pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
+    if input.dimensions() != (width, height) {
+        let xscale = Real::from(width) / input.width().into();
+        let yscale = Real::from(height) / input.height().into();
+        let mut output_vec = Vec::with_capacity((width * height * 4) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                let px = input.get_pixel(
+                    (Real::from(x) / xscale).floor().round() as _,
+                    (Real::from(y) / yscale).floor().round() as _,
+                );
+                // this makes lerping uglier but it's accurate to GM8
+                if px[3] > 0 {
+                    output_vec.extend_from_slice(px.channels());
+                } else {
+                    output_vec.extend_from_slice(&[0, 0, 0, 0]);
+                }
+            }
+        }
+        *input = RgbaImage::from_vec(width, height, output_vec).unwrap();
     }
 }
