@@ -359,7 +359,12 @@ impl Game {
 
     pub fn screen_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
-        let y = self.window.get_inner_size().1 as i32 - y - h; // upside down
+        let x = x.max(0);
+        let y = y.max(0);
+        let (window_width, window_height) = self.window.get_inner_size();
+        let w = w.min(window_width as i32 - x);
+        let h = h.min(window_height as i32 - y);
+        let y = window_height as i32 - y - h; // upside down
         self.renderer.flush_queue();
         let rgb = self.renderer.get_pixels(x, y, w, h);
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
