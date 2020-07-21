@@ -6883,7 +6883,7 @@ impl Game {
                     rgba.push(255);
                 }
             }
-            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
             asset::sprite::scale(&mut image, sprite.width, sprite.height);
             // generate collision
