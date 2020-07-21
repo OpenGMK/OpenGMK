@@ -278,7 +278,7 @@ dependencies = [
 [[package]]
 name = "gm8exe"
 version = "0.1.0"
-source = "git+https://github.com/OpenGM8/GM8Decompiler.git#f1988686cec1f6ef5ee7ad657829d6ddc3252847"
+source = "git+https://github.com/OpenGM8/GM8Decompiler.git?rev=43104fa#43104fa9648d3df19ab8186a3151ec497916f00a"
 dependencies = [
  "flate2",
  "minio",

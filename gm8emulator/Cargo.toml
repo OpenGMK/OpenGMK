@@ -15,7 +15,7 @@ cfg-if = "0.1"
 chrono = "0.4"
 dll-macros = { path = "../dll-macros" }
 getopts = "0.2.21"
-gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
+gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git", rev = "43104fa" }
 gmio = { path = "../gmio" }
 hex = "0.4.2"
 image = "0.23.6"
