@@ -1,3 +1,7 @@
+//! This is a bridge that allows 64-bit Windows builds of the emulator to call functions from 32-bit DLL files.
+//! The emulator passes commands to the bridge using a pipe, which the bridge executes.
+//! Obviously, this is to be built as a 32-bit exe and bundled with 64-bit Windows builds of the emulator.
+
 use dll_macros::external_call;
 use shared::{
     dll::{self, CallConv, DefineResult},
