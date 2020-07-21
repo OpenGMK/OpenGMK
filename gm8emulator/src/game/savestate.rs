@@ -5,6 +5,7 @@ use crate::{
         external::{DefineInfo, External},
         particle,
         string::RCStr,
+        surface::Surface,
         view::View,
         Assets, Game, Replay, Version,
     },
@@ -18,7 +19,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::BlendType;
+use gmio::render::{BlendType, SavedTexture};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -38,7 +39,9 @@ pub struct SaveState {
 
     pub background_colour: Colour,
     pub room_colour: Option<Colour>,
+    pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
+    pub interpolate_pixels: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
 
@@ -76,6 +79,8 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
+    pub surfaces: Vec<Option<Surface>>,
+    pub surface_target: Option<i32>,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -124,7 +129,9 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             room_colour: game.room_colour,
+            textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
+            interpolate_pixels: game.renderer.get_pixel_interpolation(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
@@ -154,6 +161,8 @@ impl SaveState {
             draw_alpha: game.draw_alpha.clone(),
             draw_halign: game.draw_halign.clone(),
             draw_valign: game.draw_valign.clone(),
+            surfaces: game.surfaces.clone(),
+            surface_target: game.surface_target,
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -184,6 +193,20 @@ impl SaveState {
 
     pub fn load_into(self, game: &mut Game) -> Replay {
         game.window.resize(self.screenshot_width, self.screenshot_height);
+
+        game.renderer.upload_dynamic_textures(&self.textures);
+
+        if let Some(Some(surf)) = self.surface_target.and_then(|id| self.surfaces.get(id as usize)) {
+            game.renderer.set_target(&surf.atlas_ref);
+        } else {
+            game.renderer.reset_target(
+                self.screenshot_width as _,
+                self.screenshot_height as _,
+                self.unscaled_width as _,
+                self.unscaled_height as _,
+            );
+        }
+
         game.renderer.draw_raw_frame(
             self.screenshot,
             self.screenshot_width as _,
@@ -191,6 +214,7 @@ impl SaveState {
             game.background_colour,
         );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
+        game.renderer.set_pixel_interpolation(self.interpolate_pixels);
 
         let mut externals = self.externals;
         // we're always gonna be recording if we're loading savestates so disable sound
@@ -234,6 +258,8 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
+        game.surfaces = self.surfaces;
+        game.surface_target = self.surface_target;
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;

@@ -5,7 +5,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DataStructureManager<T> {
-    map: collections::HashMap<i32, T>,
+    table: Vec<Option<T>>,
 }
 
 pub type Stack = Vec<Value>;
@@ -42,30 +42,36 @@ impl From<Error> for String {
 
 impl<T> DataStructureManager<T> {
     pub fn new() -> Self {
-        Self { map: collections::HashMap::new() }
+        Self { table: Vec::new() }
     }
 
     pub fn add(&mut self, to_add: T) -> i32 {
-        for id in 0..self.map.len() as i32 + 1 {
-            if !self.map.contains_key(&id) {
-                self.map.insert(id, to_add);
-                return id as i32
-            }
+        if let Some((idx, entry)) = self.table.iter_mut().enumerate().find(|(_, v)| v.is_none()) {
+            *entry = Some(to_add);
+            idx as i32
+        } else {
+            self.table.push(Some(to_add));
+            self.table.len() as i32 - 1
         }
-        unreachable!()
     }
 
     pub fn get(&self, id: i32) -> Result<&T> {
-        self.map.get(&id).ok_or(Error::NonexistentStructure(id))
+        match self.table.get(id as usize) {
+            Some(entry) => entry.as_ref().ok_or(Error::NonexistentStructure(id)),
+            None => Err(Error::NonexistentStructure(id)),
+        }
     }
 
     pub fn get_mut(&mut self, id: i32) -> Result<&mut T> {
-        self.map.get_mut(&id).ok_or(Error::NonexistentStructure(id))
+        match self.table.get_mut(id as usize) {
+            Some(entry) => entry.as_mut().ok_or(Error::NonexistentStructure(id)),
+            None => Err(Error::NonexistentStructure(id)),
+        }
     }
 
     pub fn destroy(&mut self, id: i32) -> Result<()> {
-        match self.map.remove(&id) {
-            Some(_) => Ok(()),
+        match self.table.get_mut(id as usize) {
+            Some(id) => { *id = None; Ok(()) }
             None => Err(Error::NonexistentStructure(id)),
         }
     }

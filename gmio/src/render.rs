@@ -10,6 +10,13 @@ use std::any::Any;
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SavedTexture {
+    width: i32,
+    height: i32,
+    pixels: Box<[u8]>,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum BlendType {
     Zero,
@@ -31,6 +38,16 @@ pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
     fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
+    fn upload_sprite(
+        &mut self,
+        data: Box<[u8]>,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+    ) -> Result<AtlasRef, String>;
+    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
+    fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
 
@@ -56,11 +73,31 @@ pub trait RendererTrait {
     fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
+    fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
+        self.dump_sprite(&AtlasRef {
+            atlas_id: texture.atlas_id,
+            w: part_w,
+            h: part_h,
+            x: texture.x + part_x,
+            y: texture.y + part_y,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        })
+    }
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
+    fn get_pixel_interpolation(&self) -> bool;
+    fn set_pixel_interpolation(&mut self, lerping: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
+
+    fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
+    fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
+
+    fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
+    fn set_target(&mut self, atlas_ref: &AtlasRef);
+    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32);
 
     fn draw_sprite_partial(
         &mut self,
@@ -165,6 +202,7 @@ pub trait RendererTrait {
 pub struct RendererOptions {
     pub size: (u32, u32),
     pub vsync: bool,
+    pub interpolate_pixels: bool,
 }
 
 impl Renderer {
@@ -180,6 +218,25 @@ impl Renderer {
 
     pub fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
         self.0.push_atlases(atl)
+    }
+
+    pub fn upload_sprite(
+        &mut self,
+        data: Box<[u8]>,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+    ) -> Result<AtlasRef, String> {
+        self.0.upload_sprite(data, width, height, origin_x, origin_y)
+    }
+
+    pub fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
+        self.0.duplicate_sprite(atlas_ref)
+    }
+
+    pub fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
+        self.0.delete_sprite(atlas_ref)
     }
 
     pub fn set_swap_interval(&self, n: Option<u32>) -> bool {
@@ -278,6 +335,17 @@ impl Renderer {
         self.0.dump_sprite(atlas_ref)
     }
 
+    pub fn dump_sprite_part(
+        &self,
+        texture: &AtlasRef,
+        part_x: i32,
+        part_y: i32,
+        part_w: i32,
+        part_h: i32,
+    ) -> Box<[u8]> {
+        self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
+    }
+
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         self.0.get_pixels(x, y, w, h)
     }
@@ -286,12 +354,40 @@ impl Renderer {
         self.0.draw_raw_frame(rgb, w, h, clear_colour)
     }
 
+    pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
+        self.0.dump_dynamic_textures()
+    }
+
+    pub fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]) {
+        self.0.upload_dynamic_textures(textures)
+    }
+
+    pub fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String> {
+        self.0.create_surface(w, h)
+    }
+
+    pub fn set_target(&mut self, atlas_ref: &AtlasRef) {
+        self.0.set_target(atlas_ref)
+    }
+
+    pub fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+        self.0.reset_target(w, h, unscaled_w, unscaled_h)
+    }
+
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
         self.0.get_blend_mode()
     }
 
     pub fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
         self.0.set_blend_mode(src, dst)
+    }
+
+    pub fn get_pixel_interpolation(&self) -> bool {
+        self.0.get_pixel_interpolation()
+    }
+
+    pub fn set_pixel_interpolation(&mut self, lerping: bool) {
+        self.0.set_pixel_interpolation(lerping)
     }
 
     pub fn flush_queue(&mut self) {

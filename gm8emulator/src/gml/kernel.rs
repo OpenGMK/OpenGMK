@@ -4,7 +4,7 @@
 
 use crate::{
     action, asset,
-    game::{draw, external, particle, replay, string::RCStr, Game, GetAsset, PlayType, SceneChange},
+    game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
     gml::{self, compiler::mappings, datetime::DateTime, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
@@ -13,6 +13,7 @@ use gmio::{
     render::{BlendType, Renderer, RendererOptions},
     window,
 };
+use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
 use std::{convert::TryFrom, io::Read, process::Command};
 
@@ -358,7 +359,12 @@ impl Game {
 
     pub fn screen_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
-        let y = self.window.get_inner_size().1 as i32 - y - h; // upside down
+        let x = x.max(0);
+        let y = y.max(0);
+        let (window_width, window_height) = self.window.get_inner_size();
+        let w = w.min(window_width as i32 - x);
+        let h = h.min(window_height as i32 - y);
+        let y = window_height as i32 - y - h; // upside down
         self.renderer.flush_queue();
         let rgb = self.renderer.get_pixels(x, y, w, h);
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
@@ -701,9 +707,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function texture_exists")
     }
 
-    pub fn texture_set_interpolation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_interpolation")
+    pub fn texture_set_interpolation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let lerping = expect_args!(args, [any])?;
+        self.renderer.set_pixel_interpolation(lerping.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn texture_set_blending(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1285,9 +1292,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_layer_depth")
     }
 
-    pub fn surface_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function surface_create")
+    pub fn surface_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (w, h) = expect_args!(args, [int, int])?;
+        let surf = Surface {
+            width: w as _,
+            height: h as _,
+            atlas_ref: match self.renderer.create_surface(w, h) {
+                Ok(atl_ref) => atl_ref,
+                Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
+            },
+        };
+        if let Some(id) = self.surfaces.iter().position(|x| x.is_none()) {
+            self.surfaces[id] = Some(surf);
+            Ok(id.into())
+        } else {
+            self.surfaces.push(Some(surf));
+            Ok((self.surfaces.len() - 1).into())
+        }
     }
 
     pub fn surface_create_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1295,24 +1316,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_create_ext")
     }
 
-    pub fn surface_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_free")
+    pub fn surface_free(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.delete_sprite(surf.atlas_ref);
+            self.surfaces[surf_id as usize] = None;
+        }
+        Ok(Default::default())
     }
 
-    pub fn surface_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_exists")
+    pub fn surface_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        Ok(self.surfaces.get_asset(surf_id).is_some().into())
     }
 
-    pub fn surface_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_width")
+    pub fn surface_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.width.into()) } else { Ok((-1).into()) }
     }
 
-    pub fn surface_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_height")
+    pub fn surface_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
     }
 
     pub fn surface_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1320,34 +1345,84 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_get_texture")
     }
 
-    pub fn surface_set_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_set_target")
+    pub fn surface_set_target(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.set_target(&surf.atlas_ref);
+            self.surface_target = Some(surf_id);
+        }
+        Ok(Default::default())
     }
 
     pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function surface_reset_target")
+        let (width, height) = self.window.get_inner_size();
+        // reset viewport to top left of room because lol
+        self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        self.surface_target = None;
+        Ok(Default::default())
     }
 
-    pub fn draw_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_surface")
+    pub fn draw_surface(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [any, any, any])?;
+        self.draw_surface_ext(context, &[surf_id, x, y, 1.into(), 1.into(), 0.into(), 0xffffff.into(), 1.into()])
     }
 
-    pub fn draw_surface_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_surface_ext")
+    pub fn draw_surface_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, xscale, yscale, rot, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite(
+                &surf.atlas_ref,
+                x.into(),
+                y.into(),
+                xscale.into(),
+                yscale.into(),
+                rot.into(),
+                colour,
+                alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
-    pub fn draw_surface_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_surface_stretched")
+    pub fn draw_surface_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, w, h) = expect_args!(args, [int, any, any, real, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let xscale = w / surf.width.into();
+            let yscale = h / surf.height.into();
+            self.draw_surface_ext(context, &[
+                surf_id.into(),
+                x,
+                y,
+                xscale.into(),
+                yscale.into(),
+                0.into(),
+                0xffffff.into(),
+                1.into(),
+            ])
+        } else {
+            Ok(Default::default())
+        }
     }
 
-    pub fn draw_surface_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_surface_stretched_ext")
+    pub fn draw_surface_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, w, h, colour, alpha) = expect_args!(args, [int, any, any, real, real, any, any])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let xscale = w / surf.width.into();
+            let yscale = h / surf.height.into();
+            self.draw_surface_ext(context, &[
+                surf_id.into(),
+                x,
+                y,
+                xscale.into(),
+                yscale.into(),
+                0.into(),
+                colour,
+                alpha,
+            ])
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn draw_surface_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1375,14 +1450,38 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_surface_tiled_ext")
     }
 
-    pub fn surface_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function surface_save")
+    pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, fname) = expect_args!(args, [int, string])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            match file::save_image(fname.as_ref(), surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref))
+            {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+            }
+        } else {
+            Ok(Default::default())
+        }
     }
 
-    pub fn surface_save_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function surface_save_part")
+    pub fn surface_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, fname, x, y, w, h) = expect_args!(args, [int, string, int, int, int, int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let x = x.max(0);
+            let y = y.max(0);
+            let w = w.min(surf.width as i32 - x);
+            let h = h.min(surf.height as i32 - y);
+            match file::save_image(
+                fname.as_ref(),
+                w as _,
+                h as _,
+                self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h),
+            ) {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+            }
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn surface_getpixel(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1665,9 +1764,13 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_move_contact")
+    pub fn action_move_contact(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance, kind) = expect_args!(args, [any, any, int])?;
+        if kind == 0 {
+            self.move_contact_solid(context, &[direction, max_distance])
+        } else {
+            self.move_contact_all(context, &[direction, max_distance])
+        }
     }
 
     pub fn action_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3272,9 +3375,9 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function move_contact")
+    pub fn move_contact(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let direction = expect_args!(args, [any])?;
+        self.move_contact_all(context, &[direction, (-1).into()])
     }
 
     pub fn move_contact_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5390,7 +5493,7 @@ impl Game {
         let height = 200;
 
         let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
-        let options = RendererOptions { size: (width, height), vsync: false };
+        let options = RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false };
 
         // TODO: this should block as a dialog, not block the entire fucking thread
         // otherwise windows thinks it's not responding or whatever
@@ -6767,29 +6870,264 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_set_alpha_from_sprite")
     }
 
-    pub fn sprite_create_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function sprite_create_from_screen")
+    pub fn sprite_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, width, height, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [int, int, int, int, any, any, int, int])?;
+        // i know we're downloading the thing and reuploading it instead of doing it all in one go
+        // but we need the pixel data to make the colliders
+        let x = x.max(0);
+        let y = y.max(0);
+        let (window_width, window_height) = self.window.get_inner_size();
+        let width = width.min(window_width as i32 - x);
+        let height = height.min(window_height as i32 - y);
+        self.renderer.flush_queue();
+        let rgb = self.renderer.get_pixels(x, y, width, height);
+        // it comes out as upside-down rgb so flip it and convert it to rgba
+        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+        for row in rgb.chunks((width * 3) as usize).rev() {
+            for col in row.chunks(3) {
+                rgba.extend_from_slice(col);
+                rgba.push(255);
+            }
+        }
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+        asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+        let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+        let frames = vec![asset::sprite::Frame {
+            width: width as _,
+            height: height as _,
+            atlas_ref: self
+                .renderer
+                .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
+                .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+        }];
+        let sprite_id = self.assets.sprites.len();
+        self.assets.sprites.push(Some(Box::new(asset::Sprite {
+            name: format!("__newsprite{}", sprite_id).into(),
+            frames,
+            bbox_left: colliders[0].bbox_left,
+            bbox_right: colliders[0].bbox_right,
+            bbox_top: colliders[0].bbox_top,
+            bbox_bottom: colliders[0].bbox_bottom,
+            colliders: colliders,
+            width: width as _,
+            height: height as _,
+            origin_x,
+            origin_y,
+            per_frame_colliders: false,
+        })));
+        Ok(sprite_id.into())
     }
 
-    pub fn sprite_add_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function sprite_add_from_screen")
+    pub fn sprite_add_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, x, y, width, height, removeback, smooth) =
+            expect_args!(args, [int, int, int, int, int, any, any])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            // get image
+            let x = x.max(0);
+            let y = y.max(0);
+            let (window_width, window_height) = self.window.get_inner_size();
+            let width = width.min(window_width as i32 - x);
+            let height = height.min(window_height as i32 - y);
+            self.renderer.flush_queue();
+            let rgb = self.renderer.get_pixels(x, y, width, height);
+            // it comes out as upside-down rgb so flip it and convert it to rgba
+            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+            for row in rgb.chunks((width * 3) as usize).rev() {
+                for col in row.chunks(3) {
+                    rgba.extend_from_slice(col);
+                    rgba.push(255);
+                }
+            }
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            asset::sprite::scale(&mut image, sprite.width, sprite.height);
+            // generate collision
+            let mut images = Vec::with_capacity(sprite.frames.len() + 1);
+            // can't use .map() because closures cause borrowing issues
+            for f in sprite.frames.iter() {
+                images.push(
+                    RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec()).unwrap(),
+                );
+            }
+            images.push(image);
+            let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
+            sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+            sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
+            sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
+            sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
+            sprite.bbox_bottom = sprite.colliders.iter().map(|c| c.bbox_bottom).max().unwrap();
+            // upload frame
+            let image = images.pop().unwrap();
+            sprite.frames.push(asset::sprite::Frame {
+                width: sprite.width as _,
+                height: sprite.height as _,
+                atlas_ref: self
+                    .renderer
+                    .upload_sprite(
+                        image.into_raw().into_boxed_slice(),
+                        sprite.width as _,
+                        sprite.height as _,
+                        sprite.origin_x,
+                        sprite.origin_y,
+                    )
+                    .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+            });
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
-    pub fn sprite_create_from_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function sprite_create_from_surface")
+    pub fn sprite_create_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, width, height, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [int, int, int, int, int, any, any, int, int])?;
+        if self.surface_target == Some(surf_id) {
+            self.renderer.flush_queue();
+        }
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let x = x.max(0);
+            let y = y.max(0);
+            let width = width.min(surf.width as i32 - x);
+            let height = height.min(surf.height as i32 - y);
+            let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+            let frames = vec![asset::sprite::Frame {
+                width: width as _,
+                height: height as _,
+                atlas_ref: self
+                    .renderer
+                    .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
+                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+            }];
+            let sprite_id = self.assets.sprites.len();
+            self.assets.sprites.push(Some(Box::new(asset::Sprite {
+                name: format!("__newsprite{}", sprite_id).into(),
+                frames,
+                bbox_left: colliders[0].bbox_left,
+                bbox_right: colliders[0].bbox_right,
+                bbox_top: colliders[0].bbox_top,
+                bbox_bottom: colliders[0].bbox_bottom,
+                colliders: colliders,
+                width: width as _,
+                height: height as _,
+                origin_x,
+                origin_y,
+                per_frame_colliders: false,
+            })));
+            Ok(sprite_id.into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "sprite_create_from_surface".into(),
+                format!("Surface {} does not exist", surf_id),
+            ))
+        }
     }
 
-    pub fn sprite_add_from_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function sprite_add_from_surface")
+    pub fn sprite_add_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, surf_id, x, y, width, height, removeback, smooth) =
+            expect_args!(args, [int, int, int, int, int, int, any, any])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            if let Some(surf) = self.surfaces.get_asset(surf_id) {
+                // get image
+                let x = x.max(0);
+                let y = y.max(0);
+                let width = width.min(surf.width as i32 - x);
+                let height = height.min(surf.height as i32 - y);
+                let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+                let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+                asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+                asset::sprite::scale(&mut image, sprite.width, sprite.height);
+                // generate collision
+                let mut images = Vec::with_capacity(sprite.frames.len() + 1);
+                // can't use .map() because closures cause borrowing issues
+                for f in sprite.frames.iter() {
+                    images.push(
+                        RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec())
+                            .unwrap(),
+                    );
+                }
+                images.push(image);
+                let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
+                sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+                sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
+                sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
+                sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
+                sprite.bbox_bottom = sprite.colliders.iter().map(|c| c.bbox_bottom).max().unwrap();
+                // upload frame
+                let image = images.pop().unwrap();
+                sprite.frames.push(asset::sprite::Frame {
+                    width: sprite.width as _,
+                    height: sprite.height as _,
+                    atlas_ref: self
+                        .renderer
+                        .upload_sprite(
+                            image.into_raw().into_boxed_slice(),
+                            sprite.width as _,
+                            sprite.height as _,
+                            sprite.origin_x,
+                            sprite.origin_y,
+                        )
+                        .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+                });
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError(
+                    "sprite_create_from_surface".into(),
+                    format!("Surface {} does not exist", surf_id),
+                ))
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+        }
     }
 
-    pub fn sprite_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function sprite_add")
+    pub fn sprite_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (fname, imgnumb, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [string, int, any, any, int, int])?;
+        let imgnumb = imgnumb.max(1) as usize;
+        // will need a different case for loading animated gifs but those aren't supported yet
+        let mut images = file::load_image_strip(fname.as_ref(), imgnumb)
+            .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
+        for image in images.iter_mut() {
+            asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
+        }
+        let (width, height) = images[0].dimensions();
+        // make colliders
+        let colliders = asset::sprite::make_colliders(&images, false);
+        // collect atlas refs
+        // yes i know it's a new texture for every frame like in gm8 but it's fine
+        let frames = images
+            .drain(..)
+            .map(|i| {
+                Ok(asset::sprite::Frame {
+                    width,
+                    height,
+                    atlas_ref: self
+                        .renderer
+                        .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
+                        .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
+                })
+            })
+            .collect::<gml::Result<_>>()?;
+        let sprite_id = self.assets.sprites.len();
+        self.assets.sprites.push(Some(Box::new(asset::Sprite {
+            name: format!("__newsprite{}", sprite_id).into(),
+            frames,
+            bbox_left: colliders[0].bbox_left,
+            bbox_right: colliders[0].bbox_right,
+            bbox_top: colliders[0].bbox_top,
+            bbox_bottom: colliders[0].bbox_bottom,
+            colliders,
+            width,
+            height,
+            origin_x,
+            origin_y,
+            per_frame_colliders: false,
+        })));
+        Ok(sprite_id.into())
     }
 
     pub fn sprite_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6807,9 +7145,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_replace_sprite")
     }
 
-    pub fn sprite_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sprite_delete")
+    pub fn sprite_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite_id = expect_args!(args, [int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+            for frame in &sprite.frames {
+                self.renderer.delete_sprite(frame.atlas_ref);
+            }
+        } else {
+            return Err(gml::Error::FunctionError(
+                "sprite_delete".into(),
+                "Trying to delete non-existing background".into(),
+            ))
+        }
+        self.assets.sprites[sprite_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn sprite_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6931,9 +7280,25 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_create_gradient")
     }
 
-    pub fn background_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function background_add")
+    pub fn background_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
+        let mut image = file::load_image(fname.as_ref())
+            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+        let width = image.width();
+        let height = image.height();
+        let atlas_ref = self
+            .renderer
+            .upload_sprite(image.into_raw().into_boxed_slice(), width as _, height as _, 0, 0)
+            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        let background_id = self.assets.backgrounds.len();
+        self.assets.backgrounds.push(Some(Box::new(asset::Background {
+            name: format!("__newbackground{}", background_id).into(),
+            width,
+            height,
+            atlas_ref: Some(atlas_ref),
+        })));
+        Ok(background_id.into())
     }
 
     pub fn background_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6951,9 +7316,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_replace_background")
     }
 
-    pub fn background_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_delete")
+    pub fn background_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let background_id = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
+            if let Some(atlas_ref) = background.atlas_ref {
+                self.renderer.delete_sprite(atlas_ref);
+            }
+        } else {
+            return Err(gml::Error::FunctionError(
+                "background_delete".into(),
+                "Trying to delete non-existing background".into(),
+            ))
+        }
+        self.assets.backgrounds[background_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn background_duplicate(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6961,9 +7337,39 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_duplicate")
     }
 
-    pub fn background_assign(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function background_assign")
+    pub fn background_assign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if let Some(src) = self.assets.backgrounds.get_asset(src_id) {
+            if let Some(background) = self.assets.backgrounds.get_asset(dst_id) {
+                if let Some(atlas_ref) = background.atlas_ref {
+                    self.renderer.delete_sprite(atlas_ref);
+                }
+            }
+            if dst_id >= 0 && self.assets.backgrounds.len() > dst_id as usize {
+                let dst_atlref = match src.atlas_ref.as_ref() {
+                    Some(ar) => Some(
+                        self.renderer
+                            .duplicate_sprite(ar)
+                            .map_err(|e| gml::Error::FunctionError("background_assign".into(), e.into()))?,
+                    ),
+                    None => None,
+                };
+                self.assets.backgrounds[dst_id as usize] = Some(Box::new(asset::Background {
+                    atlas_ref: dst_atlref,
+                    width: src.width,
+                    height: src.height,
+                    name: src.name.clone(),
+                }));
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError(
+                    "background_assign".into(),
+                    "Destination background has an invalid index".into(),
+                ))
+            }
+        } else {
+            Err(gml::Error::FunctionError("background_assign".into(), "Source background does not exist".into()))
+        }
     }
 
     pub fn background_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7112,9 +7518,32 @@ impl Game {
         }
     }
 
-    pub fn font_replace_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function font_replace_sprite")
+    pub fn font_replace_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (font_id, sprite_id, first, prop, sep) = expect_args!(args, [int, int, int, any, int])?;
+        if let Some(font) = self.assets.fonts.get_asset_mut(font_id) {
+            if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
+                if font.own_graphics {
+                    // font_add isn't in yet but atm for ttfs all characters are on the same texture
+                    if let Some(c) = font.get_char(font.first) {
+                        self.renderer.delete_sprite(c.atlas_ref);
+                    }
+                }
+                let chars = asset::font::create_chars_from_sprite(sprite, prop.is_truthy(), sep, &self.renderer);
+                font.sys_name = "".into();
+                font.size = 12;
+                font.bold = false;
+                font.italic = false;
+                font.first = first.max(0).min(255) as _;
+                font.last = (first as u32 + chars.len() as u32 - 1).min(255);
+                font.chars = chars;
+                font.own_graphics = false;
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Font, font_id))
+        }
     }
 
     pub fn font_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
