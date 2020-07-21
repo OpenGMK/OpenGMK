@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, BlendType, RendererOptions, RendererTrait},
+    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -41,10 +41,13 @@ pub struct RendererImpl {
     vbo: GLuint,
 
     atlas_packers: Vec<DensePacker>,
-    texture_ids: Vec<GLuint>,
+    texture_ids: Vec<Option<GLuint>>,
+    fbo_ids: Vec<Option<GLuint>>,
+    stock_atlas_count: u32,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
+    interpolate_pixels: bool,
 
     loc_tex: GLint,  // uniform sampler2D tex
     loc_proj: GLint, // uniform mat4 projection
@@ -230,9 +233,12 @@ impl RendererImpl {
 
                 atlas_packers: vec![],
                 texture_ids: vec![],
+                fbo_ids: vec![],
+                stock_atlas_count: 0,
                 current_atlas: 0,
                 white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
+                interpolate_pixels: options.interpolate_pixels,
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
@@ -281,7 +287,6 @@ impl RendererTrait for RendererImpl {
                 for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
                     let (width, height) = packer.size();
 
-                    gl::ActiveTexture(gl::TEXTURE0 + i as u32);
                     gl::BindTexture(gl::TEXTURE_2D, tex_id);
                     self.current_atlas = i as u32;
 
@@ -336,8 +341,21 @@ impl RendererTrait for RendererImpl {
                 err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
             }
 
+            // generate framebuffers
+            let mut fbo_ids = Vec::with_capacity(textures.len());
+            for tex_id in &textures {
+                let mut fbo = 0;
+                gl::GenFramebuffers(1, &mut fbo);
+                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+                gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
+                fbo_ids.push(Some(fbo));
+            }
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+
             // store opengl texture handles
-            self.texture_ids = textures;
+            self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
+            self.fbo_ids = fbo_ids;
+            self.stock_atlas_count = textures.len() as u32;
         }
 
         // store packers, discard pixeldata
@@ -346,8 +364,191 @@ impl RendererTrait for RendererImpl {
         Ok(())
     }
 
+    fn upload_sprite(
+        &mut self,
+        data: Box<[u8]>,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+    ) -> Result<AtlasRef, String> {
+        let atlas_ref = AtlasRef {
+            origin_x: origin_x as f32 / width as f32,
+            origin_y: origin_y as f32 / height as f32,
+            ..self.create_surface(width, height)?
+        };
+        unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+
+            // upload texture
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,     // target
+                0,                  // level
+                atlas_ref.x as _,   // xoffset
+                atlas_ref.y as _,   // yoffset
+                atlas_ref.w as _,   // width
+                atlas_ref.h as _,   // height
+                gl::RGBA,           // format
+                gl::UNSIGNED_BYTE,  // type
+                data.as_ptr() as _, // pixels
+            );
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+            }
+
+            // cleanup
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+        }
+        Ok(atlas_ref)
+    }
+
+    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
+        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h)?;
+        unsafe {
+            // store previous
+            let mut prev_read_fbo = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[new_sprite.atlas_id as usize].unwrap());
+
+            gl::CopyTexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA,
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w as _,
+                atlas_ref.h as _,
+                0,
+            );
+
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+        }
+        Ok(new_sprite)
+    }
+
+    fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
+        // this only deletes sprites created with upload_sprite
+        self.flush_queue();
+        if atlas_ref.atlas_id >= self.stock_atlas_count {
+            let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
+            unsafe {
+                gl::DeleteTextures(1, &tex_id);
+            }
+            self.texture_ids[atlas_ref.atlas_id as usize] = None;
+            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+                unsafe {
+                    gl::DeleteFramebuffers(1, fbo);
+                }
+                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+            }
+        }
+    }
+
     fn set_swap_interval(&self, n: Option<u32>) -> bool {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
+    }
+
+    fn create_surface(&mut self, width: i32, height: i32) -> Result<AtlasRef, String> {
+        let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
+            id as u32
+        } else {
+            self.texture_ids.push(None);
+            self.fbo_ids.push(None);
+            self.texture_ids.len() as u32 - 1
+        };
+        unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            let mut prev_fbo = 0;
+            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
+
+            // generate new
+            let mut tex_id: GLuint = 0;
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,    // target
+                0,                 // level
+                gl::RGBA as _,     // internalformat
+                width as _,        // width
+                height as _,       // height
+                0,                 // border ("must be 0")
+                gl::RGBA,          // format
+                gl::UNSIGNED_BYTE, // type
+                ptr::null(),       // data
+            );
+
+            // verify it actually worked
+            match gl::GetError() {
+                0 => (),
+                err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
+            }
+
+            // generate fbo
+            let mut fbo = 0;
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+
+            // store opengl texture handles
+            self.texture_ids[atlas_id as usize] = Some(tex_id);
+            self.fbo_ids[atlas_id as usize] = Some(fbo);
+
+            // cleanup
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
+        }
+        Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
+    }
+
+    fn set_target(&mut self, atlas_ref: &AtlasRef) {
+        self.flush_queue();
+        if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+            unsafe {
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
+            }
+            self.set_view(
+                atlas_ref.w as _,
+                atlas_ref.h as _,
+                atlas_ref.w as _,
+                atlas_ref.h as _,
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w,
+                atlas_ref.h,
+                0.0,
+                atlas_ref.x,
+                atlas_ref.y,
+                atlas_ref.w,
+                atlas_ref.h,
+            );
+        }
+    }
+
+    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+        self.flush_queue();
+        unsafe {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+        }
+        self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
     }
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
@@ -356,18 +557,10 @@ impl RendererTrait for RendererImpl {
             let mut prev_read_fbo: GLint = 0;
             gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
 
-            // setup temp fbo
-            let mut fbo: GLuint = 0;
-            gl::GenFramebuffers(1, &mut fbo);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-
-            // bind texture to fbo
-            gl::FramebufferTexture2D(
+            // bind texture fbo
+            gl::BindFramebuffer(
                 gl::READ_FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                self.texture_ids[atlas_ref.atlas_id as usize],
-                0,
+                self.fbo_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
             );
 
             // read data
@@ -388,7 +581,6 @@ impl RendererTrait for RendererImpl {
 
             // cleanup
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
-            gl::DeleteFramebuffers(1, &fbo);
 
             data.into_boxed_slice()
         }
@@ -407,13 +599,11 @@ impl RendererTrait for RendererImpl {
     fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         unsafe {
             // store previous texture, upload new texture to gpu
-            let (mut prev_tex2d, mut prev_tex_multi) = (0, 0);
+            let mut prev_tex2d = 0;
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
-            gl::GetIntegerv(gl::ACTIVE_TEXTURE, &mut prev_tex_multi);
             let mut tex: GLuint = 0;
             gl::GenTextures(1, &mut tex);
             gl::BindTexture(gl::TEXTURE_2D, tex);
-            gl::ActiveTexture(gl::TEXTURE0);
             gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
 
             assert_eq!(gl::GetError(), 0);
@@ -438,7 +628,6 @@ impl RendererTrait for RendererImpl {
             // cleanup
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
             gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
-            gl::ActiveTexture(prev_tex_multi as GLuint);
             gl::DeleteFramebuffers(1, &fbo);
             gl::DeleteTextures(1, &tex);
 
@@ -446,6 +635,89 @@ impl RendererTrait for RendererImpl {
         }
         self.draw_queue.clear();
         self.setup_frame(w as _, h as _, clear_colour);
+    }
+
+    fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
+        unsafe {
+            // store previous
+            let mut prev_tex2d = 0;
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+
+            let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
+            for tex_id in self.texture_ids.iter().skip(self.stock_atlas_count as usize).copied() {
+                textures.push(match tex_id {
+                    Some(tex_id) => {
+                        gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                        let mut width = 0;
+                        let mut height = 0;
+                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                        let mut pixels = vec![0; width as usize * height as usize * 4];
+                        gl::GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
+                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice() })
+                    },
+                    None => None,
+                });
+            }
+
+            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            assert_eq!(gl::GetError(), 0);
+
+            textures
+        }
+    }
+
+    fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]) {
+        unsafe {
+            for tex_id in self.texture_ids.iter_mut().skip(self.stock_atlas_count as usize) {
+                if let Some(tex_id) = tex_id.as_ref() {
+                    gl::DeleteTextures(1, tex_id);
+                }
+                *tex_id = None;
+            }
+            self.texture_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
+            for fbo_id in self.fbo_ids.iter_mut().skip(self.stock_atlas_count as usize) {
+                if let Some(fbo_id) = fbo_id.as_ref() {
+                    gl::DeleteFramebuffers(1, fbo_id);
+                }
+                *fbo_id = None;
+            }
+            self.fbo_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
+            for (i, tex) in textures.iter().enumerate() {
+                let i = i + self.stock_atlas_count as usize;
+                if let Some(tex) = tex.as_ref() {
+                    let mut tex_id = 0;
+                    gl::GenTextures(1, &mut tex_id);
+                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,
+                        0,
+                        gl::RGBA as _,
+                        tex.width,
+                        tex.height,
+                        0,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        tex.pixels.as_ptr().cast(),
+                    );
+                    self.texture_ids[i] = Some(tex_id);
+
+                    let mut fbo_id = 0;
+                    gl::GenFramebuffers(1, &mut fbo_id);
+                    gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo_id);
+                    gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+                    self.fbo_ids[i] = Some(fbo_id);
+                }
+            }
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            assert_eq!(gl::GetError(), 0);
+        }
     }
 
     fn draw_sprite(
@@ -462,11 +734,10 @@ impl RendererTrait for RendererImpl {
         let atlas_ref = texture.clone();
 
         if atlas_ref.atlas_id != self.current_atlas {
+            if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
+                return
+            } // fail silently when drawing deleted sprite fonts
             self.flush_queue();
-            unsafe {
-                gl::ActiveTexture(gl::TEXTURE0 + atlas_ref.atlas_id);
-                gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize]);
-            }
             self.current_atlas = atlas_ref.atlas_id;
         }
 
@@ -552,6 +823,17 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_pixel_interpolation(&self) -> bool {
+        self.interpolate_pixels
+    }
+
+    fn set_pixel_interpolation(&mut self, lerping: bool) {
+        // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
+        // therefore, we need to apply the setting before every draw call
+        self.flush_queue();
+        self.interpolate_pixels = lerping;
+    }
+
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
         if self.draw_queue.is_empty() {
@@ -559,6 +841,11 @@ impl RendererTrait for RendererImpl {
         }
 
         unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
+            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+
             let mut commands_vbo: GLuint = 0;
             gl::GenBuffers(1, &mut commands_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
@@ -569,7 +856,7 @@ impl RendererTrait for RendererImpl {
                 gl::STATIC_DRAW,
             );
 
-            gl::Uniform1i(self.loc_tex, self.current_atlas as _);
+            gl::Uniform1i(self.loc_tex, 0 as _);
 
             // layout (location = 1) in mat4 model_view;
             // layout (location = 6) in vec4 atlas_xywh;
@@ -684,11 +971,22 @@ impl RendererTrait for RendererImpl {
         let sin_angle = -src_angle.sin() as f32;
         let cos_angle = src_angle.cos() as f32;
 
+        // don't flip if drawing to surface
+        let to_surface = {
+            let mut fb_draw = 0;
+            unsafe {
+                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw != 0
+        };
+
         #[rustfmt::skip]
         let projection: [f32; 16] = {
             // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
             let scx = -((src_x as f32) + (src_w as f32 / 2.0));
             let scy = -((src_y as f32) + (src_h as f32 / 2.0));
+            // vertical flip if drawing to screen
+            let vf: f32 = if to_surface { 1.0 } else { -1.0 };
             mat4mult(
                 mat4mult(
                     // Translate world so center of view is at [0,0]
@@ -708,10 +1006,10 @@ impl RendererTrait for RendererImpl {
                 ),
                 // Squish to screen (and flip upside down)
                 [
-                    2.0 / src_w as f32, 0.0,                 0.0, 0.0,
-                    0.0,                -2.0 / src_h as f32, 0.0, 0.0,
-                    0.0,                0.0,                 1.0, 0.0,
-                    0.0,                0.0,                 0.0, 1.0,
+                    2.0 / src_w as f32, 0.0,                     0.0, 0.0,
+                    0.0,                2.0 * vf / src_h as f32, 0.0, 0.0,
+                    0.0,                0.0,                     1.0, 0.0,
+                    0.0,                0.0,                     0.0, 1.0,
                 ]
             )
         };
@@ -722,7 +1020,11 @@ impl RendererTrait for RendererImpl {
         let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
         let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
         let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32;
-        let port_y = height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h);
+        let port_y = if to_surface {
+            ((port_y * height) as f64 / unscaled_height as f64) as i32
+        } else {
+            height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
+        };
 
         // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
         unsafe {
@@ -734,6 +1036,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
+        self.flush_queue();
         unsafe {
             gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);

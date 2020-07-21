@@ -118,15 +118,21 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        self.renderer.present();
+        if self.surface_target.is_none() {
+            self.renderer.present();
+        }
 
         // Reset viewport
-        let (width, height) = self.window.get_inner_size();
+        let ((width, height), (unscaled_width, unscaled_height)) =
+            match self.surface_target.and_then(|id| self.surfaces.get_asset(id)) {
+                Some(surf) => ((surf.width, surf.height), (surf.width, surf.height)),
+                None => (self.window.get_inner_size(), (self.unscaled_width, self.unscaled_height)),
+            };
         self.renderer.set_view(
             width,
             height,
-            self.unscaled_width,
-            self.unscaled_height,
+            unscaled_width,
+            unscaled_height,
             0,
             0,
             width as _,
@@ -154,12 +160,16 @@ impl Game {
         port_h: i32,
         angle: f64,
     ) -> gml::Result<()> {
-        let (width, height) = self.window.get_inner_size();
+        let ((width, height), (unscaled_width, unscaled_height)) =
+            match self.surface_target.and_then(|id| self.surfaces.get_asset(id)) {
+                Some(surf) => ((surf.width, surf.height), (surf.width, surf.height)),
+                None => (self.window.get_inner_size(), (self.unscaled_width, self.unscaled_height)),
+            };
         self.renderer.set_view(
             width,
             height,
-            self.unscaled_width,
-            self.unscaled_height,
+            unscaled_width,
+            unscaled_height,
             src_x,
             src_y,
             src_w,

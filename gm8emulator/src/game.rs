@@ -6,6 +6,7 @@ pub mod particle;
 pub mod replay;
 pub mod savestate;
 pub mod string;
+pub mod surface;
 pub mod view;
 
 pub use background::Background;
@@ -115,6 +116,8 @@ pub struct Game {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
+    pub surfaces: Vec<Option<surface::Surface>>,
+    pub surface_target: Option<i32>,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -147,9 +150,9 @@ pub struct Game {
     // winit windowing
     pub window: Window,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_width: u32,
+    pub unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
-    unscaled_height: u32,
+    pub unscaled_height: u32,
 }
 
 /// Enum indicating which GameMaker version a game was built with
@@ -305,6 +308,7 @@ impl Game {
         let options = RendererOptions {
             size: (room1_width, room1_height),
             vsync: settings.vsync, // TODO: Overrideable
+            interpolate_pixels: settings.interpolate_pixels,
         };
 
         let (width, height) = options.size;
@@ -772,6 +776,8 @@ impl Game {
             draw_alpha: Real::from(1.0),
             draw_halign: draw::Halign::Left,
             draw_valign: draw::Valign::Top,
+            surfaces: Vec::new(),
+            surface_target: None,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
