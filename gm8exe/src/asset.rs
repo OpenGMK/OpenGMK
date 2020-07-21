@@ -88,17 +88,34 @@ fn assert_ver(got: u32, expected: u32) -> Result<(), AssetDataError> {
     if got != expected { Err(AssetDataError::VersionError { expected, got }) } else { Ok(()) }
 }
 
+#[derive(Debug, Default)]
+pub struct PascalString(pub Box<[u8]>);
+
+impl Display for PascalString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        String::from_utf8_lossy(self.0.as_ref()).fmt(f)
+    }
+}
+
+impl From<&str> for PascalString {
+    fn from(s: &str) -> Self {
+        PascalString(s.to_owned().into_boxed_str().into_boxed_bytes())
+    }
+}
+
 // pascal-string extension for easy use
 pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
-    fn read_pas_string(&mut self) -> io::Result<String> {
+    fn read_pas_string(&mut self) -> io::Result<PascalString> {
         let len = self.read_u32_le()? as usize;
-        self.read_str_utf8_lossy(len)
+        let mut buf = vec![0u8; len];
+        self.read_exact(&mut buf)?;
+        Ok(PascalString(buf.into_boxed_slice()))
     }
 }
 
 pub trait WritePascalString: io::Write + minio::WritePrimitives {
-    fn write_pas_string(&mut self, s: &str) -> io::Result<usize> {
-        self.write_u32_le(s.len() as u32).and_then(|x| self.write(s.as_bytes()).map(|y| y + x))
+    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<usize> {
+        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write_all(s.0.as_ref()).map(|()| s.0.len() + x))
     }
 }
 

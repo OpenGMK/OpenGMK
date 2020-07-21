@@ -1,4 +1,4 @@
-use crate::colour::Colour;
+use crate::{asset::PascalString, colour::Colour};
 
 /// The Settings header for a GM8 game
 pub struct Settings {
@@ -163,7 +163,7 @@ pub struct Settings {
 pub struct GameHelpDialog {
     pub bg_color: Colour,
     pub new_window: bool,
-    pub caption: String,
+    pub caption: PascalString,
     pub left: i32,
     pub top: i32,
     pub width: u32,
@@ -172,5 +172,5 @@ pub struct GameHelpDialog {
     pub resizable: bool,
     pub window_on_top: bool,
     pub freeze_game: bool,
-    pub info: String,
+    pub info: PascalString,
 }

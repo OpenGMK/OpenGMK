@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     def::ID,
 };
 
@@ -44,14 +44,14 @@ pub struct CodeAction {
     pub applies_to_something: bool,
 
     /// Name of the function if applicable. Usually only provided by extensions.
-    pub fn_name: String,
+    pub fn_name: PascalString,
 
     /// The GML code of the Drag-and-Drop if applicable. Usually only provided by extensions.
-    pub fn_code: String,
+    pub fn_code: PascalString,
 
     pub param_count: usize,
     pub param_types: [u32; PARAM_COUNT],
-    pub param_strings: [String; PARAM_COUNT],
+    pub param_strings: [PascalString; PARAM_COUNT],
 }
 
 impl CodeAction {
@@ -100,7 +100,7 @@ impl CodeAction {
             return Err(AssetDataError::MalformedData);
         }
 
-        let mut param_strings: [String; 8] = Default::default();
+        let mut param_strings: [PascalString; 8] = Default::default();
         for val in param_strings.iter_mut() {
             *val = reader.read_pas_string()?;
         }

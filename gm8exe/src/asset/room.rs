@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     colour::Colour,
     def::ID,
     GameVersion,
@@ -12,10 +12,10 @@ pub const VERSION: u32 = 541;
 
 pub struct Room {
     /// The asset name present in GML and the editor.
-    pub name: String,
+    pub name: PascalString,
 
     /// The default window title when this room is loaded.
-    pub caption: String,
+    pub caption: PascalString,
 
     /// The width of the room in pixels.
     pub width: u32,
@@ -37,7 +37,7 @@ pub struct Room {
     pub clear_screen: bool,
 
     /// The GML source executed when the room is created,
-    pub creation_code: String,
+    pub creation_code: PascalString,
 
     pub backgrounds: Vec<Background>,
 
@@ -72,7 +72,7 @@ pub struct Instance {
     pub y: i32,
     pub object: ID,
     pub id: ID,
-    pub creation_code: String,
+    pub creation_code: PascalString,
 }
 
 pub struct Tile {

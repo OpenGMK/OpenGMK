@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 
@@ -10,13 +10,13 @@ pub const VERSION: u32 = 800;
 
 pub struct Sound {
     /// The asset name present in GML and the editor.
-    pub name: String,
+    pub name: PascalString,
 
     /// The source file name, including the extension.
-    pub source: String,
+    pub source: PascalString,
 
     /// The file type (extension).
-    pub extension: String,
+    pub extension: PascalString,
 
     /// The raw filedata.
     /// This is optional because the associated data can be blank
