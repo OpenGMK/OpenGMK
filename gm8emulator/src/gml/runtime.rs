@@ -428,8 +428,13 @@ impl Game {
             Instruction::LoopFor { cond, body, step } => {
                 while self.eval(cond, context)?.is_truthy() {
                     match self.execute(body, context)? {
-                        ReturnType::Normal => {self.execute(step, context)?;},
-                        ReturnType::Continue => {self.execute(step, context)?;continue},
+                        ReturnType::Normal => {
+                            self.execute(step, context)?;
+                        },
+                        ReturnType::Continue => {
+                            self.execute(step, context)?;
+                            continue
+                        },
                         ReturnType::Break => break,
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }

@@ -71,7 +71,10 @@ impl<T> DataStructureManager<T> {
 
     pub fn destroy(&mut self, id: i32) -> Result<()> {
         match self.table.get_mut(id as usize) {
-            Some(id) => { *id = None; Ok(()) }
+            Some(id) => {
+                *id = None;
+                Ok(())
+            },
             None => Err(Error::NonexistentStructure(id)),
         }
     }

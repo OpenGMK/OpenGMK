@@ -122,7 +122,11 @@ impl Compiler {
                 self.compile_ast_line(&for_expr.body, &mut body, locals);
                 let mut step = Vec::new();
                 self.compile_ast_line(&for_expr.step, &mut step, locals);
-                output.push(Instruction::LoopFor { cond, body: body.into_boxed_slice(), step: step.into_boxed_slice() });
+                output.push(Instruction::LoopFor {
+                    cond,
+                    body: body.into_boxed_slice(),
+                    step: step.into_boxed_slice(),
+                });
             },
 
             // Function or Script

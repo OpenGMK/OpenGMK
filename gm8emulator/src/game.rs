@@ -54,7 +54,7 @@ use shared::{
 };
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet, VecDeque, BTreeMap},
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -1160,8 +1160,10 @@ impl Game {
                                     instance.timeline_position.set(new_position)
                                 }
 
-                                for (_, tree) in moments.borrow().iter()
-                                    .filter(|(&x, _)| {Real::from(x) >= old_position && Real::from(x) < new_position })
+                                for (_, tree) in moments
+                                    .borrow()
+                                    .iter()
+                                    .filter(|(&x, _)| Real::from(x) >= old_position && Real::from(x) < new_position)
                                 {
                                     self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
                                 }
@@ -1173,14 +1175,16 @@ impl Game {
                                     instance.timeline_position.set(new_position)
                                 }
 
-                                for (_, tree) in moments.borrow().iter()
-                                    .filter(|(&x, _)| {Real::from(x) > new_position && Real::from(x) <= old_position })
+                                for (_, tree) in moments
+                                    .borrow()
+                                    .iter()
+                                    .filter(|(&x, _)| Real::from(x) > new_position && Real::from(x) <= old_position)
                                     .rev()
                                 {
                                     self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
                                 }
                             },
-                            _ => {}
+                            _ => {},
                         };
                     }
                 }
