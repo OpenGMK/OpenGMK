@@ -55,7 +55,8 @@ impl External {
         if info.arg_types.len() >= 16 {
             return Err("DLL functions can have at most 16 arguments".into())
         }
-        let mut dll_name_lower = std::path::Path::new(info.dll_name.as_ref()).file_name().unwrap().to_string_lossy().to_string();
+        let mut dll_name_lower =
+            std::path::Path::new(info.dll_name.as_ref()).file_name().unwrap().to_string_lossy().to_string();
         dll_name_lower.make_ascii_lowercase();
         let call = match dll_name_lower.as_str() {
             "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {

@@ -1,5 +1,5 @@
 [package]
-name = "dll-helper"
+name = "dll-bridge"
 version = "0.1.0"
 authors = ["Floogle"]
 edition = "2018"

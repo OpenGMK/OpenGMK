@@ -24,7 +24,7 @@ impl From<dll::Value> for gml::Value {
     }
 }
 
-static mut HELPER: Option<Child> = None;
+static mut BRIDGE: Option<Child> = None;
 
 struct Pipe<'a> {
     writer: &'a mut ChildStdin,
@@ -49,18 +49,18 @@ impl Write for Pipe<'_> {
 
 fn make_pipe() -> Result<Pipe<'static>, String> {
     unsafe {
-        if HELPER
+        if BRIDGE
             .as_mut()
             .and_then(|c| c.try_wait().ok())
             .and_then(|c| if c.is_some() { None } else { Some(()) })
             .is_some()
         {
             Ok(Pipe {
-                writer: HELPER.as_mut().unwrap().stdin.as_mut().unwrap(),
-                reader: HELPER.as_mut().unwrap().stdout.as_mut().unwrap(),
+                writer: BRIDGE.as_mut().unwrap().stdin.as_mut().unwrap(),
+                reader: BRIDGE.as_mut().unwrap().stdout.as_mut().unwrap(),
             })
         } else {
-            Err("The helper process was terminated before it could be invoked.".into())
+            Err("The bridge process was terminated before it could be invoked.".into())
         }
     }
 }
@@ -70,16 +70,16 @@ pub struct ExternalImpl(u32);
 impl ExternalImpl {
     pub fn new(info: &DefineInfo) -> Result<Self, String> {
         unsafe {
-            if HELPER.is_none() {
-                let mut helper_path = std::env::current_exe().unwrap();
-                helper_path.set_file_name("dll-helper.exe");
-                assert!(helper_path.is_file(), "dll-helper.exe could not be found.");
-                HELPER = Some(
-                    Command::new(helper_path)
+            if BRIDGE.is_none() {
+                let mut bridge_path = std::env::current_exe().unwrap();
+                bridge_path.set_file_name("dll-bridge.exe");
+                assert!(bridge_path.is_file(), "dll-bridge.exe could not be found.");
+                BRIDGE = Some(
+                    Command::new(bridge_path)
                         .stdin(Stdio::piped())
                         .stdout(Stdio::piped())
                         .spawn()
-                        .map_err(|e| format!("Could not start helper exe: {}", e))?,
+                        .map_err(|e| format!("Could not start dll-bridge.exe: {}", e))?,
                 );
             }
         }
@@ -99,7 +99,7 @@ impl ExternalImpl {
             match pipe.receive_message::<dll::DefineResult>(&mut read_buffer).map_err(|e| e.to_string())? {
                 Some(None) => (),
                 Some(Some(message)) => return message.map(ExternalImpl),
-                None => return Err("The DLL helper process was terminated mid-call.".into()),
+                None => return Err("The DLL bridge process was terminated mid-call.".into()),
             }
         }
     }
@@ -117,7 +117,7 @@ impl ExternalCall for ExternalImpl {
             match pipe.receive_message::<dll::Value>(&mut read_buffer).map_err(|e| e.to_string())? {
                 Some(None) => (),
                 Some(Some(message)) => return Ok(message.into()),
-                None => return Err("The DLL helper process was terminated mid-call.".into()),
+                None => return Err("The DLL bridge process was terminated mid-call.".into()),
             }
         }
     }
