@@ -1665,9 +1665,13 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_move_contact")
+    pub fn action_move_contact(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (direction, max_distance, kind) = expect_args!(args, [any, any, int])?;
+        if kind == 0 {
+            self.move_contact_solid(context, &[direction, max_distance])
+        } else {
+            self.move_contact_all(context, &[direction, max_distance])
+        }
     }
 
     pub fn action_bounce(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3272,9 +3276,9 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn move_contact(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function move_contact")
+    pub fn move_contact(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let direction = expect_args!(args, [any])?;
+        self.move_contact_all(context, &[direction, (-1).into()])
     }
 
     pub fn move_contact_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
