@@ -1,2 +1,2 @@
 [workspace]
-members = ["gm8emulator", "control-panel", "gmio", "shared"]
+members = ["gm8emulator", "control-panel", "dll-macros", "gmio", "shared"]

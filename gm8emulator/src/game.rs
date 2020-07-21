@@ -1,6 +1,7 @@
 pub mod background;
 pub mod draw;
 pub mod events;
+pub mod external;
 pub mod movement;
 pub mod particle;
 pub mod replay;
@@ -79,6 +80,8 @@ pub struct Game {
     pub renderer: Renderer,
     pub background_colour: Colour,
     pub room_colour: Option<Colour>,
+
+    pub externals: Vec<Option<external::External>>,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -163,7 +166,7 @@ pub enum Version {
 }
 
 /// Enum indicating how this game is being played - normal, recording or replaying
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlayType {
     Normal,
     Record,
@@ -743,6 +746,7 @@ impl Game {
             rand: Random::new(),
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
+            externals: Vec::new(),
             room_colour: room1_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
