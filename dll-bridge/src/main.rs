@@ -2,6 +2,9 @@
 //! The emulator passes commands to the bridge using a pipe, which the bridge executes.
 //! Obviously, this is to be built as a 32-bit exe and bundled with 64-bit Windows builds of the emulator.
 
+#[cfg(not(all(target_os = "windows", target_arch = "x86")))]
+compile_error!("dll-bridge cannot be built for a target other than windows 32-bit");
+
 use dll_macros::external_call;
 use shared::{
     dll::{self, CallConv, DefineResult},
@@ -85,6 +88,9 @@ impl ExternalList {
                     GetLastError()
                 ))
             }
+            // the fmod hack function is win32 only and therefore produces a second error on non-win32 builds
+            // so let's add another cfg check here just to suppress that
+            #[cfg(all(target_os = "windows", target_arch = "x86"))]
             if fn_name == "FMODinit\0" {
                 dll::apply_fmod_hack(&dll_name, dll_handle.cast())?;
             }
