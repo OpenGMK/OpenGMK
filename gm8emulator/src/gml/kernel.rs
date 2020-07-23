@@ -4504,9 +4504,17 @@ impl Game {
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.instance_list) {
             let inst = self.instance_list.get(handle);
-            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
-                != inside.is_truthy()
-            {
+            let mask = self.get_instance_mask_sprite(handle);
+            let outside = if mask.is_some() {
+                inst.update_bbox(mask);
+                left > inst.bbox_right.get().into()
+                    || top > inst.bbox_bottom.get().into()
+                    || left + width < inst.bbox_left.get().into()
+                    || top + height < inst.bbox_top.get().into()
+            } else {
+                inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
+            };
+            if outside != inside.is_truthy() {
                 self.instance_list.deactivate(handle);
             }
         }
@@ -4558,9 +4566,17 @@ impl Game {
         let mut iter = self.instance_list.iter_inactive();
         while let Some(handle) = iter.next(&self.instance_list) {
             let inst = self.instance_list.get(handle);
-            if (inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height)
-                != inside.is_truthy()
-            {
+            let mask = self.get_instance_mask_sprite(handle);
+            let outside = if mask.is_some() {
+                inst.update_bbox(mask);
+                left > inst.bbox_right.get().into()
+                    || top > inst.bbox_bottom.get().into()
+                    || left + width < inst.bbox_left.get().into()
+                    || top + height < inst.bbox_top.get().into()
+            } else {
+                inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
+            };
+            if outside != inside.is_truthy() {
                 self.instance_list.activate(handle);
             }
         }
