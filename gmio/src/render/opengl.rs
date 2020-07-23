@@ -49,6 +49,7 @@ pub struct RendererImpl {
     draw_queue: Vec<DrawCommand>,
     interpolate_pixels: bool,
 
+    model_matrix: [f32; 16],
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
@@ -252,6 +253,7 @@ impl RendererImpl {
                 draw_queue: Vec::with_capacity(256),
                 interpolate_pixels: options.interpolate_pixels,
 
+                model_matrix: identity_matrix.clone(),
                 view_matrix: identity_matrix.clone(),
                 proj_matrix: identity_matrix.clone(),
 
@@ -276,7 +278,7 @@ impl RendererImpl {
     }
 
     fn update_matrix(&mut self) {
-        let viewproj = mat4mult(self.view_matrix, self.proj_matrix);
+        let viewproj = mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix));
         unsafe {
             gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
         }
@@ -1000,6 +1002,18 @@ impl RendererTrait for RendererImpl {
         self.view_matrix = view;
         self.proj_matrix = proj;
 
+        self.update_matrix();
+    }
+
+    fn set_model_matrix(&mut self, model: [f32; 16]) {
+        self.flush_queue();
+        self.model_matrix = model;
+        self.update_matrix();
+    }
+
+    fn mult_model_matrix(&mut self, model: [f32; 16]) {
+        self.flush_queue();
+        self.model_matrix = mat4mult(self.model_matrix, model);
         self.update_matrix();
     }
 
