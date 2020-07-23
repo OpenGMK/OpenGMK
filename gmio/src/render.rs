@@ -52,6 +52,8 @@ pub trait RendererTrait {
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
+    fn set_view_matrix(&mut self, view: [f32; 16]);
+    fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
     fn set_view(
         &mut self,
         width: u32,
@@ -255,6 +257,14 @@ impl Renderer {
         alpha: f64,
     ) {
         self.0.draw_sprite(texture, x, y, xscale, yscale, angle, colour, alpha)
+    }
+
+    pub fn set_view_matrix(&mut self, view: [f32; 16]) {
+        self.0.set_view_matrix(view)
+    }
+
+    pub fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
+        self.0.set_viewproj_matrix(view, proj)
     }
 
     pub fn set_view(

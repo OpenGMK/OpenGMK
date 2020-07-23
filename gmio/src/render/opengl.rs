@@ -49,6 +49,9 @@ pub struct RendererImpl {
     draw_queue: Vec<DrawCommand>,
     interpolate_pixels: bool,
 
+    view_matrix: [f32; 16],
+    proj_matrix: [f32; 16],
+
     loc_tex: GLint,  // uniform sampler2D tex
     loc_proj: GLint, // uniform mat4 projection
 }
@@ -224,6 +227,15 @@ impl RendererImpl {
             // Configure gl::ReadPixels() to align to 1 byte
             gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
 
+            // Create identity matrix to initialize MVP matrices with
+            #[rustfmt::skip]
+            let identity_matrix: [f32; 16] = [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            ];
+
             // Create Renderer
             let mut renderer = Self {
                 imp,
@@ -239,6 +251,9 @@ impl RendererImpl {
                 white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
                 interpolate_pixels: options.interpolate_pixels,
+
+                view_matrix: identity_matrix.clone(),
+                proj_matrix: identity_matrix.clone(),
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
@@ -257,6 +272,13 @@ impl RendererImpl {
             gl::Scissor(0, 0, width as _, height as _);
             gl::ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
+
+    fn update_matrix(&mut self) {
+        let viewproj = mat4mult(self.view_matrix, self.proj_matrix);
+        unsafe {
+            gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
         }
     }
 }
@@ -947,6 +969,40 @@ impl RendererTrait for RendererImpl {
         self.draw_queue.clear();
     }
 
+    fn set_view_matrix(&mut self, view: [f32; 16]) {
+        self.flush_queue();
+        self.view_matrix = view;
+        self.update_matrix();
+    }
+
+    fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
+        self.flush_queue();
+        // flip vertically if drawing to screen
+        let to_screen = {
+            let mut fb_draw = 0;
+            unsafe {
+                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw == 0
+        };
+        #[rustfmt::skip]
+        let proj = if to_screen {
+            mat4mult(proj, [
+                1.0, 0.0,  0.0, 0.0,
+                0.0, -1.0, 0.0, 0.0,
+                0.0, 0.0,  1.0, 0.0,
+                0.0, 0.0,  0.0, 1.0,
+            ])
+        } else {
+            proj
+        };
+
+        self.view_matrix = view;
+        self.proj_matrix = proj;
+
+        self.update_matrix();
+    }
+
     fn set_view(
         &mut self,
         width: u32,
@@ -981,38 +1037,40 @@ impl RendererTrait for RendererImpl {
         };
 
         #[rustfmt::skip]
-        let projection: [f32; 16] = {
+        let view_matrix: [f32; 16] = {
             // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
             let scx = -((src_x as f32) + (src_w as f32 / 2.0));
             let scy = -((src_y as f32) + (src_h as f32 / 2.0));
-            // vertical flip if drawing to screen
-            let vf: f32 = if to_surface { 1.0 } else { -1.0 };
             mat4mult(
-                mat4mult(
-                    // Translate world so center of view is at [0,0]
-                    [
-                        1.0, 0.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        scx, scy, 0.0, 1.0,
-                    ],
-                    // Rotate to view_angle
-                    [
-                        cos_angle,  sin_angle, 0.0, 0.0,
-                        -sin_angle, cos_angle, 0.0, 0.0,
-                        0.0,        0.0,       1.0, 0.0,
-                        0.0,        0.0,       0.0, 1.0,
-                    ]
-                ),
-                // Squish to screen (and flip upside down)
+                // Place camera at (scx, scy, 16000)
                 [
-                    2.0 / src_w as f32, 0.0,                     0.0, 0.0,
-                    0.0,                2.0 * vf / src_h as f32, 0.0, 0.0,
-                    0.0,                0.0,                     1.0, 0.0,
-                    0.0,                0.0,                     0.0, 1.0,
+                    1.0, 0.0, 0.0,     0.0,
+                    0.0, 1.0, 0.0,     0.0,
+                    0.0, 0.0, 1.0,     0.0,
+                    scx, scy, 16000.0, 1.0,
+                ],
+                // Rotate to view_angle
+                [
+                    cos_angle,  sin_angle, 0.0, 0.0,
+                    -sin_angle, cos_angle, 0.0, 0.0,
+                    0.0,        0.0,       1.0, 0.0,
+                    0.0,        0.0,       0.0, 1.0,
                 ]
             )
         };
+
+        #[rustfmt::skip]
+        let proj_matrix: [f32; 16] = {
+            // Squish to screen and constrain z to range 1 - 32000
+            [
+                2.0 / src_w as f32, 0.0,                0.0,            0.0,
+                0.0,                2.0 / src_h as f32, 0.0,            0.0,
+                0.0,                0.0,                1.0 / 31999.0,  0.0,
+                0.0,                0.0,                -1.0 / 31999.0, 1.0,
+            ]
+        };
+
+        self.set_viewproj_matrix(view_matrix, proj_matrix);
 
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
@@ -1026,12 +1084,10 @@ impl RendererTrait for RendererImpl {
             height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
         };
 
-        // Set viewport (gl::Viewport, gl::Scissor) and projection matrix (shader uniform)
+        // Set viewport (gl::Viewport, gl::Scissor)
         unsafe {
             gl::Viewport(port_x, port_y, port_w, port_h);
             gl::Scissor(port_x, port_y, port_w, port_h);
-
-            gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, projection.as_ptr());
         }
     }
 
