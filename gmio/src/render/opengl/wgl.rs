@@ -14,11 +14,10 @@ use std::{
     ptr,
 };
 use winapi::{
-    Interface,
     shared::{
+        dxgi::{CreateDXGIFactory, IDXGIFactory, IDXGIOutput},
         minwindef::HINSTANCE,
         windef::{HDC, HGLRC},
-        dxgi::{CreateDXGIFactory, IDXGIFactory, IDXGIOutput},
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
@@ -29,6 +28,7 @@ use winapi::{
         },
         winuser::GetDC,
     },
+    Interface,
 };
 
 pub mod wgl {
@@ -255,7 +255,12 @@ impl PlatformImpl {
         let mut ver2: GLint = 0;
         gl::GetIntegerv(gl::MINOR_VERSION, &mut ver2);
 
-        Ok(Self { context, device, version: (ver1.min(255) as u8, ver2.min(255) as u8), dxgi_output: create_dxgi_output()? })
+        Ok(Self {
+            context,
+            device,
+            version: (ver1.min(255) as u8, ver2.min(255) as u8),
+            dxgi_output: create_dxgi_output()?,
+        })
     }
 
     pub fn version(&self) -> (u8, u8) {
