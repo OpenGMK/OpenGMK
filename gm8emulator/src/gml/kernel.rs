@@ -10453,9 +10453,37 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_draw_floor")
     }
 
-    pub fn d3d_set_projection(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_set_projection")
+    pub fn d3d_set_projection(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (eye_x, eye_y, eye_z, at_x, at_y, at_z, up_x, up_y, up_z) =
+            expect_args!(args, [real, real, real, real, real, real, real, real, real])?;
+
+        // zaxis = normal(at - eye)
+        let (za_x, za_y, za_z) = (at_x - eye_x, at_y - eye_y, at_z - eye_z);
+        let za_len = (za_x * za_x + za_y * za_y + za_z * za_z).sqrt();
+        let (za_x, za_y, za_z) = (za_x / za_len, za_y / za_len, za_z / za_len);
+        // xaxis = normal(cross(up, zaxis))
+        let (xa_x, xa_y, xa_z) = (up_y * za_z - up_z * za_y, up_z * za_x - up_x * za_z, up_x * za_y - up_y * za_x);
+        let xa_len = (xa_x * xa_x + xa_y * xa_y + xa_z * xa_z).sqrt();
+        let (xa_x, xa_y, xa_z) = (xa_x / xa_len, xa_y / xa_len, xa_z / xa_len);
+        // yaxis = cross(zaxis, xaxis)
+        let (ya_x, ya_y, ya_z) = (za_y * xa_z - za_z * xa_y, za_z * xa_x - za_x * xa_z, za_x * xa_y - za_y * xa_x);
+        // bottom row
+        let (xa_w, ya_w, za_w) = (
+            -(xa_x * eye_x + xa_y * eye_y + xa_z * eye_z),
+            -(ya_x * eye_x + ya_y * eye_y + ya_z * eye_z),
+            -(za_x * eye_x + za_y * eye_y + za_z * eye_z),
+        );
+
+        #[rustfmt::skip]
+        let view_matrix: [f32; 16] = [
+            xa_x.into_inner() as f32, ya_x.into_inner() as f32, za_x.into_inner() as f32, 0.0,
+            xa_y.into_inner() as f32, ya_y.into_inner() as f32, za_y.into_inner() as f32, 0.0,
+            xa_z.into_inner() as f32, ya_z.into_inner() as f32, za_z.into_inner() as f32, 0.0,
+            xa_w.into_inner() as f32, ya_w.into_inner() as f32, za_w.into_inner() as f32, 1.0,
+        ];
+
+        self.renderer.set_view_matrix(view_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_projection_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10483,9 +10511,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_transform_set_translation")
     }
 
-    pub fn d3d_transform_set_scaling(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_scaling")
+    pub fn d3d_transform_set_scaling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xs, ys, zs) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            xs.into_inner() as f32, 0.0,                    0.0,                    0.0,
+            0.0,                    ys.into_inner() as f32, 0.0,                    0.0,
+            0.0,                    0.0,                    zs.into_inner() as f32, 0.0,
+            0.0,                    0.0,                    0.0,                    1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
