@@ -334,8 +334,8 @@ impl Game {
     }
 
     pub fn screen_wait_vsync(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function screen_wait_vsync")
+        self.renderer.wait_vsync();
+        Ok(Default::default())
     }
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
