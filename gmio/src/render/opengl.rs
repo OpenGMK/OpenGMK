@@ -1038,6 +1038,7 @@ impl RendererTrait for RendererImpl {
 
         // Make projection matrix for new view
         // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
+        let src_angle = src_angle.to_radians();
         let sin_angle = -src_angle.sin() as f32;
         let cos_angle = src_angle.cos() as f32;
 

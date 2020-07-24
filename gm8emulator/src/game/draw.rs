@@ -174,7 +174,7 @@ impl Game {
             src_y,
             src_w,
             src_h,
-            angle.to_radians(),
+            angle,
             port_x,
             port_y,
             port_w,
