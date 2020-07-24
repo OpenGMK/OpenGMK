@@ -8,6 +8,7 @@ pub mod replay;
 pub mod savestate;
 pub mod string;
 pub mod surface;
+pub mod transition;
 pub mod view;
 
 pub use background::Background;
