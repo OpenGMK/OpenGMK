@@ -141,17 +141,17 @@ unsafe fn create_dxgi_output() -> Result<*mut IDXGIOutput, String> {
     let factory_ptr: *mut *mut IDXGIFactory = &mut factory;
     match CreateDXGIFactory(&IDXGIFactory::uuidof(), factory_ptr.cast()) {
         0 => (),
-        e => return Err(format!("Could not create DXGIFactory (code {})", e)),
+        e => return Err(format!("Could not create DXGIFactory (code {:#X})", e)),
     }
     let mut adapter = ptr::null_mut();
     match (&*factory).EnumAdapters(0, &mut adapter) {
         0 => (),
-        e => return Err(format!("Could not get first DXGIAdapter (code {})", e)),
+        e => return Err(format!("Could not get first DXGIAdapter (code {:#X})", e)),
     }
     let mut output = ptr::null_mut();
     match (&*adapter).EnumOutputs(0, &mut output) {
         0 => Ok(output),
-        e => Err(format!("Could not get first DXGIOutput (code {})", e)),
+        e => Err(format!("Could not get first DXGIOutput (code {:#X})", e)),
     }
 }
 
