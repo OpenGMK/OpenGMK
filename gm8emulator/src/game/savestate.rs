@@ -81,6 +81,7 @@ pub struct SaveState {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
+    pub auto_draw: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -163,6 +164,7 @@ impl SaveState {
             draw_valign: game.draw_valign.clone(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
+            auto_draw: game.auto_draw,
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -260,6 +262,7 @@ impl SaveState {
         game.draw_valign = self.draw_valign;
         game.surfaces = self.surfaces;
         game.surface_target = self.surface_target;
+        game.auto_draw = self.auto_draw;
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;

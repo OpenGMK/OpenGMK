@@ -144,6 +144,20 @@ impl Game {
             height as _,
         );
 
+        // Apply room caption
+        if self.score_capt_d || self.lives_capt_d {
+            let mut caption = self.caption.to_string();
+            if self.score_capt_d {
+                caption = format!("{} {}{}", caption, self.score_capt, self.score);
+            }
+            if self.lives_capt_d {
+                caption = format!("{} {}{}", caption, self.lives_capt, self.lives);
+            }
+            self.window.set_title(&caption);
+        } else {
+            self.window.set_title(self.caption.as_ref());
+        }
+
         Ok(())
     }
 

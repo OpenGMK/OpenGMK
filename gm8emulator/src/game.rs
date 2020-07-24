@@ -122,6 +122,7 @@ pub struct Game {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<surface::Surface>>,
     pub surface_target: Option<i32>,
+    pub auto_draw: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -789,6 +790,7 @@ impl Game {
             draw_valign: draw::Valign::Top,
             surfaces: Vec::new(),
             surface_target: None,
+            auto_draw: true,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
@@ -1134,29 +1136,31 @@ impl Game {
             }
         } else {
             // Draw "frame 0", perform transition if applicable, and then return
-            self.draw()?;
-            if let Some(transition) = self.get_transition(transition_kind) {
-                let (width, height) = self.window.get_inner_size();
-                self.renderer.reset_target(
-                    width as _,
-                    height as _,
-                    self.unscaled_width as _,
-                    self.unscaled_height as _,
-                );
-                // TODO: vsync
-                for i in 0..self.transition_steps + 1 {
-                    let progress = Real::from(i) / self.transition_steps.into();
-                    transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
-                    self.renderer.present();
+            if self.auto_draw {
+                self.draw()?;
+                if let Some(transition) = self.get_transition(transition_kind) {
+                    let (width, height) = self.window.get_inner_size();
+                    self.renderer.reset_target(
+                        width as _,
+                        height as _,
+                        self.unscaled_width as _,
+                        self.unscaled_height as _,
+                    );
+                    // TODO: vsync
+                    for i in 0..self.transition_steps + 1 {
+                        let progress = Real::from(i) / self.transition_steps.into();
+                        transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
+                        self.renderer.present();
+                    }
                 }
-                if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
-                    self.renderer.delete_sprite(surf.atlas_ref);
-                    self.surfaces[trans_surf_old as usize] = None;
-                }
-                if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
-                    self.renderer.delete_sprite(surf.atlas_ref);
-                    self.surfaces[trans_surf_new as usize] = None;
-                }
+            }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_old as usize] = None;
+            }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_new as usize] = None;
             }
             Ok(())
         }
@@ -1330,7 +1334,9 @@ impl Game {
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
         // Draw everything, including running draw events
-        self.draw()?;
+        if self.auto_draw {
+            self.draw()?;
+        }
 
         // Move backgrounds
         for bg in self.backgrounds.iter_mut() {
@@ -1351,20 +1357,6 @@ impl Game {
                     self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
                 }
             }
-        }
-
-        // Apply room caption
-        if self.score_capt_d || self.lives_capt_d {
-            let mut caption = self.caption.to_string();
-            if self.score_capt_d {
-                caption = format!("{} {}{}", caption, self.score_capt, self.score);
-            }
-            if self.lives_capt_d {
-                caption = format!("{} {}{}", caption, self.lives_capt, self.lives);
-            }
-            self.window.set_title(&caption);
-        } else {
-            self.window.set_title(self.caption.as_ref());
         }
 
         // Clear inputs for this frame
