@@ -138,7 +138,8 @@ unsafe fn wapi_error_string() -> String {
 
 unsafe fn create_dxgi_output() -> Result<*mut IDXGIOutput, String> {
     let mut factory: *mut IDXGIFactory = ptr::null_mut();
-    match CreateDXGIFactory(&IDXGIFactory::uuidof(), (&mut factory).cast()) {
+    let factory_ptr: *mut *mut IDXGIFactory = &mut factory;
+    match CreateDXGIFactory(&IDXGIFactory::uuidof(), factory_ptr.cast()) {
         0 => (),
         e => return Err(format!("Could not create DXGIFactory (code {})", e)),
     }
