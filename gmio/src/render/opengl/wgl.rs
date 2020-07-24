@@ -14,9 +14,11 @@ use std::{
     ptr,
 };
 use winapi::{
+    Interface,
     shared::{
         minwindef::HINSTANCE,
         windef::{HDC, HGLRC},
+        dxgi::{CreateDXGIFactory, IDXGIFactory, IDXGIOutput},
     },
     um::{
         libloaderapi::{GetProcAddress, LoadLibraryA},
@@ -39,6 +41,7 @@ pub struct PlatformImpl {
     context: HGLRC,
     device: HDC,
     version: (u8, u8),
+    dxgi_output: *mut IDXGIOutput,
 }
 
 /// Global buffer to make fucking gl_generator not need one alloc per query.
@@ -131,6 +134,24 @@ unsafe fn wapi_error_string() -> String {
     let message = os_message.to_string_lossy().into_owned();
     LocalFree(buf_ptr.cast());
     message
+}
+
+unsafe fn create_dxgi_output() -> Result<*mut IDXGIOutput, String> {
+    let mut factory: *mut IDXGIFactory = ptr::null_mut();
+    match CreateDXGIFactory(&IDXGIFactory::uuidof(), (&mut factory).cast()) {
+        0 => (),
+        e => return Err(format!("Could not create DXGIFactory (code {})", e)),
+    }
+    let mut adapter = ptr::null_mut();
+    match (&*factory).EnumAdapters(0, &mut adapter) {
+        0 => (),
+        e => return Err(format!("Could not get first DXGIAdapter (code {})", e)),
+    }
+    let mut output = ptr::null_mut();
+    match (&*adapter).EnumOutputs(0, &mut output) {
+        0 => Ok(output),
+        e => Err(format!("Could not get first DXGIOutput (code {})", e)),
+    }
 }
 
 unsafe fn create_context_basic(device: HDC) -> Result<HGLRC, String> {
@@ -233,7 +254,7 @@ impl PlatformImpl {
         let mut ver2: GLint = 0;
         gl::GetIntegerv(gl::MINOR_VERSION, &mut ver2);
 
-        Ok(Self { context, device, version: (ver1.min(255) as u8, ver2.min(255) as u8) })
+        Ok(Self { context, device, version: (ver1.min(255) as u8, ver2.min(255) as u8), dxgi_output: create_dxgi_output()? })
     }
 
     pub fn version(&self) -> (u8, u8) {
