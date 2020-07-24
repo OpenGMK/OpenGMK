@@ -954,6 +954,25 @@ impl Game {
         // Update this early so the other events run
         self.scene_change = None;
 
+        // Initialize room transition surface
+        let transition_kind = self.transition_kind;
+        let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
+            let (width, height) = self.window.get_inner_size();
+            let old_surf =
+                surface::Surface { width, height, atlas_ref: self.renderer.create_surface(width as _, height as _)? };
+            let new_surf =
+                surface::Surface { width, height, atlas_ref: self.renderer.create_surface(width as _, height as _)? };
+            self.renderer.set_target(&old_surf.atlas_ref);
+            self.draw()?;
+            self.renderer.set_target(&new_surf.atlas_ref);
+            let old_surf_id = self.surfaces.len() as i32;
+            self.surfaces.push(Some(old_surf));
+            self.surfaces.push(Some(new_surf));
+            (old_surf_id, old_surf_id + 1)
+        } else {
+            (-1, -1)
+        };
+
         // Run room end event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
@@ -1096,6 +1115,16 @@ impl Game {
 
         if let Some(change) = self.scene_change {
             self.scene_change = None;
+            // GM8 would have a memory leak here. We're not doing that.
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_old as usize] = None;
+            }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_new as usize] = None;
+            }
+
             if let SceneChange::Room(target) = change {
                 // A room change has been requested during this room change, so let's recurse...
                 self.load_room(target)
@@ -1104,8 +1133,31 @@ impl Game {
                 Ok(())
             }
         } else {
-            // Draw "frame 0" and then return
+            // Draw "frame 0", perform transition if applicable, and then return
             self.draw()?;
+            if let Some(transition) = self.get_transition(transition_kind) {
+                let (width, height) = self.window.get_inner_size();
+                self.renderer.reset_target(
+                    width as _,
+                    height as _,
+                    self.unscaled_width as _,
+                    self.unscaled_height as _,
+                );
+                // TODO: vsync
+                for i in 0..self.transition_steps + 1 {
+                    let progress = Real::from(i) / self.transition_steps.into();
+                    transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
+                    self.renderer.present();
+                }
+                if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+                    self.renderer.delete_sprite(surf.atlas_ref);
+                    self.surfaces[trans_surf_old as usize] = None;
+                }
+                if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+                    self.renderer.delete_sprite(surf.atlas_ref);
+                    self.surfaces[trans_surf_new as usize] = None;
+                }
+            }
             Ok(())
         }
     }
