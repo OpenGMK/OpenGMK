@@ -1106,7 +1106,9 @@ impl Game {
             }
         } else {
             // Draw "frame 0" and then return
-            self.draw()?;
+            if self.auto_draw {
+                self.draw()?;
+            }
             Ok(())
         }
     }
