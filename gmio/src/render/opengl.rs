@@ -979,16 +979,16 @@ impl RendererTrait for RendererImpl {
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.flush_queue();
-        // flip vertically if drawing to screen
-        let to_screen = {
+        // flip vertically if drawing to surface
+        let to_surface = {
             let mut fb_draw = 0;
             unsafe {
                 gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
             }
-            fb_draw == 0
+            fb_draw != 0
         };
         #[rustfmt::skip]
-        let proj = if to_screen {
+        let proj = if to_surface {
             mat4mult(proj, [
                 1.0, 0.0,  0.0, 0.0,
                 0.0, -1.0, 0.0, 0.0,
@@ -1075,12 +1075,12 @@ impl RendererTrait for RendererImpl {
 
         #[rustfmt::skip]
         let proj_matrix: [f32; 16] = {
-            // Squish to screen and constrain z to range 1 - 32000
+            // Squish to screen, flip vertically, and constrain z to range 1 - 32000
             [
-                2.0 / src_w as f32, 0.0,                0.0,            0.0,
-                0.0,                2.0 / src_h as f32, 0.0,            0.0,
-                0.0,                0.0,                1.0 / 31999.0,  0.0,
-                0.0,                0.0,                -1.0 / 31999.0, 1.0,
+                2.0 / src_w as f32, 0.0,                 0.0,            0.0,
+                0.0,                -2.0 / src_h as f32, 0.0,            0.0,
+                0.0,                0.0,                 1.0 / 31999.0,  0.0,
+                0.0,                0.0,                 -1.0 / 31999.0, 1.0,
             ]
         };
 
