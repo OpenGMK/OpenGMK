@@ -16,7 +16,7 @@ shared = { path = "../shared" }
 
 [target.'cfg(target_os = "windows")'.dependencies.winapi]
 version = "0.3"
-features = ["commctrl", "errhandlingapi", "libloaderapi", "winbase", "windowsx", "wingdi", "winuser"]
+features = ["commctrl", "dxgi", "errhandlingapi", "libloaderapi", "winbase", "windowsx", "wingdi", "winuser"]
 
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"
