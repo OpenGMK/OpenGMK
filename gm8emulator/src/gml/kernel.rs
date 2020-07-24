@@ -10491,9 +10491,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_projection_ext")
     }
 
-    pub fn d3d_set_projection_ortho(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_set_projection_ortho")
+    pub fn d3d_set_projection_ortho(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, w, h, angle) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.set_projection_ortho(x.into(), y.into(), w.into(), h.into(), angle.into());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
