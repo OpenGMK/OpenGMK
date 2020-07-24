@@ -3005,8 +3005,26 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mean")
     }
 
-    pub fn median(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function median")
+    pub fn median(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        Ok(args
+            .iter()
+            .cloned()
+            .find(|v| {
+                let v = Real::from(v.clone());
+                let mut less = 0.0;
+                let mut less_eq = 0.0;
+                for arg in args.iter().cloned() {
+                    let arg = Real::from(arg);
+                    if arg <= v {
+                        less_eq += 1.0;
+                        if arg != v {
+                            less += 1.0;
+                        }
+                    }
+                }
+                less < args.len() as f64 / 2.0 && less_eq >= args.len() as f64 / 2.0
+            })
+            .unwrap_or_default())
     }
 
     pub fn choose(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
