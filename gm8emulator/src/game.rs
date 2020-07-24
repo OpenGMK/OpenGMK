@@ -121,6 +121,7 @@ pub struct Game {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<surface::Surface>>,
     pub surface_target: Option<i32>,
+    pub auto_draw: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -788,6 +789,7 @@ impl Game {
             draw_valign: draw::Valign::Top,
             surfaces: Vec::new(),
             surface_target: None,
+            auto_draw: true,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
@@ -1277,7 +1279,9 @@ impl Game {
         self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
         // Draw everything, including running draw events
-        self.draw()?;
+        if self.auto_draw {
+            self.draw()?;
+        }
 
         // Move backgrounds
         for bg in self.backgrounds.iter_mut() {
