@@ -217,6 +217,12 @@ impl Game {
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
+        // Improve framepacing on Windows
+        #[cfg(target_os = "windows")]
+        unsafe {
+            winapi::um::timeapi::timeBeginPeriod(1);
+        }
+
         // Destructure assets
         let gm8exe::GameAssets {
             game_id,
