@@ -274,6 +274,10 @@ impl PlatformImpl {
         }
     }
 
+    pub unsafe fn wait_vsync(&self) {
+        (&*self.dxgi_output).WaitForVBlank();
+    }
+
     // pub unsafe fn make_current(&self) -> bool {
     //     wglMakeCurrent(self.device, self.context) != 0
     // }
