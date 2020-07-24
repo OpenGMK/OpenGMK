@@ -318,9 +318,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function set_synchronization")
     }
 
-    pub fn set_automatic_draw(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_automatic_draw")
+    pub fn set_automatic_draw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let auto_draw = expect_args!(args, [any])?;
+        self.auto_draw = auto_draw.is_truthy();
+        Ok(Default::default())
     }
 
     pub fn screen_redraw(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
