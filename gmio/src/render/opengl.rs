@@ -1017,45 +1017,20 @@ impl RendererTrait for RendererImpl {
         self.update_matrix();
     }
 
-    fn set_view(
-        &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
-        src_x: i32,
-        src_y: i32,
-        src_w: i32,
-        src_h: i32,
-        src_angle: f64,
-        port_x: i32,
-        port_y: i32,
-        port_w: i32,
-        port_h: i32,
-    ) {
+    fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
         // Draw anything that was meant to be drawn with the old view first
         self.flush_queue();
 
-        // Make projection matrix for new view
         // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
-        let src_angle = src_angle.to_radians();
-        let sin_angle = -src_angle.sin() as f32;
-        let cos_angle = src_angle.cos() as f32;
-
-        // don't flip if drawing to surface
-        let to_surface = {
-            let mut fb_draw = 0;
-            unsafe {
-                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            }
-            fb_draw != 0
-        };
+        let angle = angle.to_radians();
+        let sin_angle = -angle.sin() as f32;
+        let cos_angle = angle.cos() as f32;
 
         #[rustfmt::skip]
         let view_matrix: [f32; 16] = {
             // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
-            let scx = -((src_x as f32) + (src_w as f32 / 2.0));
-            let scy = -((src_y as f32) + (src_h as f32 / 2.0));
+            let scx = -((x as f32) + (w as f32 / 2.0));
+            let scy = -((y as f32) + (h as f32 / 2.0));
             mat4mult(
                 // Place camera at (scx, scy, 16000)
                 [
@@ -1078,14 +1053,42 @@ impl RendererTrait for RendererImpl {
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
             [
-                2.0 / src_w as f32, 0.0,                 0.0,            0.0,
-                0.0,                -2.0 / src_h as f32, 0.0,            0.0,
-                0.0,                0.0,                 1.0 / 31999.0,  0.0,
-                0.0,                0.0,                 -1.0 / 31999.0, 1.0,
+                2.0 / w as f32, 0.0,             0.0,            0.0,
+                0.0,            -2.0 / h as f32, 0.0,            0.0,
+                0.0,            0.0,             1.0 / 31999.0,  0.0,
+                0.0,            0.0,             -1.0 / 31999.0, 1.0,
             ]
         };
 
         self.set_viewproj_matrix(view_matrix, proj_matrix);
+    }
+
+    fn set_view(
+        &mut self,
+        width: u32,
+        height: u32,
+        unscaled_width: u32,
+        unscaled_height: u32,
+        src_x: i32,
+        src_y: i32,
+        src_w: i32,
+        src_h: i32,
+        src_angle: f64,
+        port_x: i32,
+        port_y: i32,
+        port_w: i32,
+        port_h: i32,
+    ) {
+        self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+
+        // adjust port_y if drawing to screen
+        let to_surface = {
+            let mut fb_draw = 0;
+            unsafe {
+                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw != 0
+        };
 
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
