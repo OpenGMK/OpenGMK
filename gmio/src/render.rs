@@ -50,6 +50,7 @@ pub trait RendererTrait {
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
     fn set_swap_interval(&self, n: Option<u32>) -> bool;
+    fn wait_vsync(&self);
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
     fn set_view_matrix(&mut self, view: [f32; 16]);
@@ -246,6 +247,10 @@ impl Renderer {
 
     pub fn set_swap_interval(&self, n: Option<u32>) -> bool {
         self.0.set_swap_interval(n)
+    }
+
+    pub fn wait_vsync(&self) {
+        self.0.wait_vsync()
     }
 
     pub fn draw_sprite(
