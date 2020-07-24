@@ -3092,8 +3092,9 @@ impl Game {
     }
 
     pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, string])
-            .map(|(ss, s)| Value::Real(Real::from(s.as_ref().find(ss.as_ref()).unwrap_or_default() as f64 + 1.0)))
+        expect_args!(args, [string, string]).map(|(ss, s)| {
+            Value::Real(Real::from(s.as_ref().find(ss.as_ref()).map(|p| p + 1).unwrap_or_default() as f64))
+        })
     }
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
