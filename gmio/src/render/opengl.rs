@@ -294,6 +294,11 @@ impl RendererTrait for RendererImpl {
         let mut size: GLint = 0;
         unsafe {
             gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            if size == 16384 && std::ffi::CStr::from_ptr(gl::GetString(gl::VENDOR).cast()).to_bytes() == b"Intel" {
+                // Intel driver bug throws GL_OUT_OF_MEMORY when allocating 16384x16384 texture
+                // TODO: find proper fix or maybe allow allocating 16384x8192?
+                size = 8192;
+            }
         }
         size.max(0) as u32
     }
