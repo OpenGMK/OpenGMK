@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
-    gml::{self, compiler::mappings, datetime::DateTime, ds, file, Context, Value},
+    gml::{self, compiler::mappings, datetime::{self, DateTime}, ds, file, Context, Value},
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
@@ -335,8 +335,8 @@ impl Game {
     }
 
     pub fn screen_wait_vsync(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function screen_wait_vsync")
+        self.renderer.wait_vsync();
+        Ok(Default::default())
     }
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4699,7 +4699,7 @@ impl Game {
     pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let millis = expect_args!(args, [int])?;
         if millis > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            datetime::sleep(std::time::Duration::from_millis(millis as u64));
             if let Some(ns) = self.spoofed_time_nanos.as_mut() {
                 *ns += (millis as u128) * 1_000_000;
             }

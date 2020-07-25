@@ -488,6 +488,10 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
     }
 
+    fn wait_vsync(&self) {
+        unsafe { self.imp.wait_vsync() }
+    }
+
     fn create_surface(&mut self, width: i32, height: i32) -> Result<AtlasRef, String> {
         let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
             id as u32

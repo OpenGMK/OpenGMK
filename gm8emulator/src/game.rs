@@ -60,7 +60,6 @@ use std::{
     net::{SocketAddr, TcpStream},
     path::PathBuf,
     rc::Rc,
-    thread,
     time::{Duration, Instant},
 };
 use string::RCStr;
@@ -1361,7 +1360,7 @@ impl Game {
                 *t += duration.as_nanos();
             }
             if let Some(time) = duration.checked_sub(diff) {
-                thread::sleep(time);
+                gml::datetime::sleep(time);
                 time_now += duration;
             } else {
                 time_now = Instant::now();
@@ -1713,7 +1712,7 @@ impl Game {
                 *t += duration.as_nanos();
             }
             if let Some(time) = duration.checked_sub(diff) {
-                thread::sleep(time);
+                gml::datetime::sleep(time);
                 time_now += duration;
             } else {
                 time_now = Instant::now();
