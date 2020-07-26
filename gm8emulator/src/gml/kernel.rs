@@ -5539,7 +5539,7 @@ impl Game {
         let mut renderer = Renderer::new((), &options, &window, clear_colour)
             .map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
         window.set_visible(true);
-        renderer.set_swap_interval(None);
+        renderer.set_vsync(false);
 
         loop {
             window.process_events();
