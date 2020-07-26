@@ -360,8 +360,7 @@ impl Compiler {
             },
 
             ast::Expr::Function(function) => {
-                if let Some(script_id) = self.script_names.get(function.name) {
-                    let script_id = *script_id;
+                if let Some(script_id) = self.get_script_id(function.name) {
                     Node::Script {
                         args: function
                             .params
@@ -418,6 +417,10 @@ impl Compiler {
             self.fields.push(String::from(name));
             i
         }
+    }
+
+    pub fn get_script_id(&mut self, name: &str) -> Option<usize> {
+        self.script_names.get(name).copied()
     }
 
     /// Converts an AST BinaryExpr to an Instruction.
