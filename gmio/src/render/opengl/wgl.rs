@@ -280,6 +280,10 @@ impl PlatformImpl {
         }
     }
 
+    pub unsafe fn get_swap_interval(&self) -> u32 {
+        if wgl::GetSwapIntervalEXT::is_loaded() { wgl::GetSwapIntervalEXT() as u32 } else { 0 }
+    }
+
     pub unsafe fn wait_vsync(&self) {
         (&*self.dxgi_output).WaitForVBlank();
     }
