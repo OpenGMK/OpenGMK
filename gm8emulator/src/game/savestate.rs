@@ -6,6 +6,7 @@ use crate::{
         particle,
         string::RCStr,
         surface::Surface,
+        transition::UserTransition,
         view::View,
         Assets, Game, Replay, Version,
     },
@@ -23,7 +24,7 @@ use gmio::render::{BlendType, SavedTexture};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
 
 /// Represents a savestate. Very similar to the Game struct, but without things which aren't serialized.
 #[derive(Clone, Serialize, Deserialize)]
@@ -61,6 +62,7 @@ pub struct SaveState {
     pub room_height: i32,
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
+    pub user_transitions: HashMap<i32, UserTransition>,
 
     pub globals: DummyFieldHolder,
     pub globalvars: HashSet<usize>,
@@ -148,6 +150,7 @@ impl SaveState {
             room_height: game.room_height.clone(),
             room_order: game.room_order.clone(),
             room_speed: game.room_speed.clone(),
+            user_transitions: game.user_transitions.clone(),
             globals: game.globals.clone(),
             globalvars: game.globalvars.clone(),
             game_start: game.game_start.clone(),
@@ -247,6 +250,7 @@ impl SaveState {
         game.room_height = self.room_height;
         game.room_order = self.room_order;
         game.room_speed = self.room_speed;
+        game.user_transitions = self.user_transitions;
         game.globals = self.globals;
         game.globalvars = self.globalvars;
         game.game_start = self.game_start;
