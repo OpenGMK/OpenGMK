@@ -99,6 +99,7 @@ pub struct Game {
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
+    pub user_transitions: HashMap<i32, transition::UserTransition>,
 
     pub constants: Vec<gml::Value>,
     pub globals: DummyFieldHolder,
@@ -770,6 +771,7 @@ impl Game {
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
             scene_change: None,
+            user_transitions: HashMap::new(),
             constants: Vec::with_capacity(constants.len()),
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
