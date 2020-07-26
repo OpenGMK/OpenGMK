@@ -1165,6 +1165,7 @@ impl Game {
                 self.renderer.delete_sprite(surf.atlas_ref);
                 self.surfaces[trans_surf_new as usize] = None;
             }
+            self.transition_kind = 0;
             Ok(())
         }
     }
