@@ -5,7 +5,12 @@
 use crate::{
     action, asset,
     game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
-    gml::{self, compiler::mappings, datetime::{self, DateTime}, ds, file, Context, Value},
+    gml::{
+        self,
+        compiler::mappings,
+        datetime::{self, DateTime},
+        ds, file, Context, Value,
+    },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
