@@ -42,6 +42,7 @@ pub struct SaveState {
     pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
     pub interpolate_pixels: bool,
+    pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
 
@@ -133,6 +134,7 @@ impl SaveState {
             textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
             interpolate_pixels: game.renderer.get_pixel_interpolation(),
+            vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
@@ -217,6 +219,7 @@ impl SaveState {
         );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
+        game.renderer.set_vsync(self.vsync);
 
         let mut externals = self.externals;
         // we're always gonna be recording if we're loading savestates so disable sound

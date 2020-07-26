@@ -5,7 +5,12 @@
 use crate::{
     action, asset,
     game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
-    gml::{self, compiler::mappings, datetime::DateTime, ds, file, Context, Value},
+    gml::{
+        self,
+        compiler::mappings,
+        datetime::{self, DateTime},
+        ds, file, Context, Value,
+    },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
 };
@@ -313,9 +318,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_views_mouse_set")
     }
 
-    pub fn set_synchronization(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_synchronization")
+    pub fn set_synchronization(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let synchro = expect_args!(args, [any])?;
+        self.renderer.set_vsync(synchro.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn set_automatic_draw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -335,8 +341,8 @@ impl Game {
     }
 
     pub fn screen_wait_vsync(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function screen_wait_vsync")
+        self.renderer.wait_vsync();
+        Ok(Default::default())
     }
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4699,7 +4705,7 @@ impl Game {
     pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let millis = expect_args!(args, [int])?;
         if millis > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(millis as u64));
+            datetime::sleep(std::time::Duration::from_millis(millis as u64));
             if let Some(ns) = self.spoofed_time_nanos.as_mut() {
                 *ns += (millis as u128) * 1_000_000;
             }
@@ -5539,7 +5545,7 @@ impl Game {
         let mut renderer = Renderer::new((), &options, &window, clear_colour)
             .map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
         window.set_visible(true);
-        renderer.set_swap_interval(None);
+        renderer.set_vsync(false);
 
         loop {
             window.process_events();

@@ -49,7 +49,9 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
-    fn set_swap_interval(&self, n: Option<u32>) -> bool;
+    fn set_vsync(&self, vsync: bool);
+    fn get_vsync(&self) -> bool;
+    fn wait_vsync(&self);
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
     fn set_view_matrix(&mut self, view: [f32; 16]);
@@ -244,8 +246,16 @@ impl Renderer {
         self.0.delete_sprite(atlas_ref)
     }
 
-    pub fn set_swap_interval(&self, n: Option<u32>) -> bool {
-        self.0.set_swap_interval(n)
+    pub fn set_vsync(&self, vsync: bool) {
+        self.0.set_vsync(vsync)
+    }
+
+    pub fn get_vsync(&self) -> bool {
+        self.0.get_vsync()
+    }
+
+    pub fn wait_vsync(&self) {
+        self.0.wait_vsync()
     }
 
     pub fn draw_sprite(

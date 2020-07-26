@@ -35,55 +35,47 @@ impl Game {
 
                         let x = inst.x.get().round();
                         let y = inst.y.get().round();
-                        let border_left = x - view.follow_hborder;
-                        let border_right = x + view.follow_hborder;
-                        let border_top = y - view.follow_vborder;
-                        let border_bottom = y + view.follow_vborder;
-
-                        let will_move_left = border_left < view.source_x;
-                        let will_move_right = border_right > (view.source_x + view.source_w as i32);
-                        let will_move_up = border_top < view.source_y;
-                        let will_move_down = border_bottom > (view.source_y + view.source_h as i32);
-
-                        match (will_move_left, will_move_right) {
-                            (true, false) => {
+                        if view.follow_hborder < (view.source_w / 2) as i32 {
+                            let border_left = x - view.follow_hborder;
+                            let border_right = x + view.follow_hborder;
+                            if border_left < view.source_x {
                                 if view.follow_hspeed < 0 {
                                     view.source_x = border_left;
                                 } else {
                                     view.source_x -= (view.source_x - border_left).min(view.follow_hspeed);
                                 }
-                            },
-                            (false, true) => {
+                            } else if border_right > (view.source_x + view.source_w as i32) {
                                 if view.follow_hspeed < 0 {
                                     view.source_x = border_right - view.source_w as i32;
                                 } else {
                                     view.source_x +=
                                         (border_right - (view.source_x + view.source_w as i32)).min(view.follow_hspeed);
                                 }
-                            },
-                            (true, true) => view.source_x = x - (view.source_w / 2) as i32,
-                            (false, false) => (),
+                            }
+                        } else {
+                            view.source_x = x - (view.source_w / 2) as i32;
                         }
                         view.source_x = view.source_x.max(0).min(self.room_width - view.source_w as i32);
 
-                        match (will_move_up, will_move_down) {
-                            (true, false) => {
+                        if view.follow_vborder < (view.source_h / 2) as i32 {
+                            let border_top = y - view.follow_vborder;
+                            let border_bottom = y + view.follow_vborder;
+                            if border_top < view.source_y {
                                 if view.follow_vspeed < 0 {
                                     view.source_y = border_top;
                                 } else {
                                     view.source_y -= (view.source_y - border_top).min(view.follow_vspeed);
                                 }
-                            },
-                            (false, true) => {
+                            } else if border_bottom > (view.source_y + view.source_h as i32) {
                                 if view.follow_vspeed < 0 {
                                     view.source_y = border_bottom - view.source_h as i32;
                                 } else {
                                     view.source_y += (border_bottom - (view.source_y + view.source_h as i32))
                                         .min(view.follow_vspeed);
                                 }
-                            },
-                            (true, true) => view.source_y = y - (view.source_h / 2) as i32,
-                            (false, false) => (),
+                            }
+                        } else {
+                            view.source_y = y - (view.source_h / 2) as i32;
                         }
                         view.source_y = view.source_y.max(0).min(self.room_height - view.source_h as i32);
                     }

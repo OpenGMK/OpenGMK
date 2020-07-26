@@ -1,5 +1,16 @@
 use crate::{gml::Value, math::Real};
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
+use chrono::{self, Datelike, NaiveDate, NaiveDateTime, Timelike};
+use std::time;
+
+/// Sleep for T minus 1 millisecond, and busywait for the rest of the duration.
+pub fn sleep(dur: time::Duration) {
+    // TODO: find a more precise way to sleep?
+    let begin = time::Instant::now();
+    if let Some(sleep_time) = dur.checked_sub(time::Duration::from_millis(1)) {
+        std::thread::sleep(sleep_time);
+    }
+    while time::Instant::now() < begin + dur {}
+}
 
 fn epoch() -> NaiveDateTime {
     NaiveDate::from_ymd(1899, 12, 30).and_hms(0, 0, 0)
@@ -91,8 +102,8 @@ impl From<DateTime> for Value {
 
 impl From<Real> for DateTime {
     fn from(dt: Real) -> Self {
-        let days = Duration::days(dt.floor().round().into());
-        let ms = Duration::milliseconds((dt.fract() * Real::from(86400000)).floor().round().into());
+        let days = chrono::Duration::days(dt.floor().round().into());
+        let ms = chrono::Duration::milliseconds((dt.fract() * Real::from(86400000)).floor().round().into());
         Self(epoch() + days + ms)
     }
 }
