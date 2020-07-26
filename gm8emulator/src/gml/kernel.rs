@@ -4,7 +4,10 @@
 
 use crate::{
     action, asset,
-    game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
+    game::{
+        draw, external, particle, replay, string::RCStr, surface::Surface, transition::UserTransition, Game, GetAsset,
+        PlayType, SceneChange,
+    },
     gml::{
         self,
         compiler::mappings,
@@ -4692,14 +4695,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function game_save")
     }
 
-    pub fn transition_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function transition_define")
+    pub fn transition_define(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, script_name) = expect_args!(args, [int, string])?;
+        self.user_transitions.insert(id, UserTransition { script_name });
+        Ok(Default::default())
     }
 
-    pub fn transition_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function transition_exists")
+    pub fn transition_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let transition_id = expect_args!(args, [int])?;
+        Ok(self.get_transition(transition_id).is_some().into())
     }
 
     pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
