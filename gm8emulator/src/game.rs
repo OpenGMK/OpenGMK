@@ -1145,12 +1145,14 @@ impl Game {
                         self.unscaled_width as _,
                         self.unscaled_height as _,
                     );
-                    // TODO: vsync
+                    let old_vsync = self.renderer.get_vsync();
+                    self.renderer.set_vsync(true);
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         self.renderer.present();
                     }
+                    self.renderer.set_vsync(old_vsync);
                 }
             }
             if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
