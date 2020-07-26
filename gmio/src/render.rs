@@ -49,7 +49,6 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
-    fn set_swap_interval(&self, n: Option<u32>) -> bool;
     fn set_vsync(&self, vsync: bool);
     fn get_vsync(&self) -> bool;
     fn wait_vsync(&self);
@@ -245,10 +244,6 @@ impl Renderer {
 
     pub fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         self.0.delete_sprite(atlas_ref)
-    }
-
-    pub fn set_swap_interval(&self, n: Option<u32>) -> bool {
-        self.0.set_swap_interval(n)
     }
 
     pub fn set_vsync(&self, vsync: bool) {

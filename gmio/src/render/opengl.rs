@@ -484,10 +484,6 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn set_swap_interval(&self, n: Option<u32>) -> bool {
-        unsafe { self.imp.set_swap_interval(n.unwrap_or(0)) }
-    }
-
     fn set_vsync(&self, vsync: bool) {
         unsafe { self.imp.set_swap_interval(if vsync { 1 } else { 0 }) };
     }
