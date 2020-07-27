@@ -2926,7 +2926,8 @@ impl Game {
     }
 
     pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.into_inner().signum().into()))
+        expect_args!(args, [real])
+            .map(|x| if x != 0.into() { Value::Real(x.into_inner().signum().into()) } else { 0.into() })
     }
 
     pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
