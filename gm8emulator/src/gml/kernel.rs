@@ -2754,9 +2754,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_fullscreen")
     }
 
-    pub fn action_snapshot(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_snapshot")
+    pub fn action_snapshot(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.screen_save(context, args)
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
