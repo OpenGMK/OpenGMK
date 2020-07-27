@@ -705,7 +705,7 @@ impl Game {
                                 width: t.width,
                                 height: t.height,
                                 depth: Real::from(t.depth),
-                                id: t.id as usize,
+                                id: t.id,
                                 alpha: Real::from(1.0),
                                 blend: 0xFFFFFF,
                                 xscale: Real::from(1.0),

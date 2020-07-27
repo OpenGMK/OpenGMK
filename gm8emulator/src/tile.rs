@@ -1,5 +1,6 @@
 use crate::math::Real;
 use serde::{Deserialize, Serialize};
+use shared::types::ID;
 
 /// An instance of a background tile.
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -29,7 +30,7 @@ pub struct Tile {
     pub depth: Real,
 
     /// Unique ID of this tile - tile IDs are above 10,000,000
-    pub id: usize,
+    pub id: ID,
 
     /// Alpha value of this tile, from 0.0 (invisible) to 1.0 (opaque)
     pub alpha: Real,
