@@ -1164,14 +1164,25 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_get_height")
     }
 
-    pub fn tile_get_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function tile_get_depth")
+    pub fn tile_get_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let tile_id = expect_args!(args, [int])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            Ok(self.tile_list.get(handle).depth.get().into())
+        } else {
+            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+        }
     }
 
-    pub fn tile_get_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function tile_get_visible")
+    pub fn tile_get_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let tile_id = expect_args!(args, [int])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            Ok(self.tile_list.get(handle).visible.get().into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "tile_get_visible".into(),
+                format!("Tile with ID {} does not exist.", tile_id),
+            ))
+        }
     }
 
     pub fn tile_get_xscale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1199,9 +1210,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_get_background")
     }
 
-    pub fn tile_set_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function tile_set_visible")
+    pub fn tile_set_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (tile_id, visible) = expect_args!(args, [int, any])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            self.tile_list.get(handle).visible.set(visible.is_truthy());
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "tile_set_visible".into(),
+                format!("Tile with ID {} does not exist.", tile_id),
+            ))
+        }
     }
 
     pub fn tile_set_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1219,9 +1238,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_set_position")
     }
 
-    pub fn tile_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function tile_set_depth")
+    pub fn tile_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (tile_id, depth) = expect_args!(args, [int, real])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            self.tile_list.get(handle).depth.set(depth);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+        }
     }
 
     pub fn tile_set_scale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1284,9 +1308,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_layer_shift")
     }
 
-    pub fn tile_layer_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function tile_layer_find")
+    pub fn tile_layer_find(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (depth, x, y) = expect_args!(args, [real, real, real])?;
+        let mut iter_tile = self.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.tile_list) {
+            let tile = self.tile_list.get(handle);
+            if tile.depth.get() == depth
+                && x >= tile.x.get()
+                && x < tile.x.get() + tile.xscale.get() * tile.width.get().into()
+                && y >= tile.y.get()
+                && y < tile.y.get() + tile.yscale.get() * tile.height.get().into()
+            {
+                return Ok(tile.id.get().into())
+            }
+        }
+        Ok((-1).into())
     }
 
     pub fn tile_layer_delete_at(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
