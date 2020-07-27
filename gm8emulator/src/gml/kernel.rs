@@ -2271,7 +2271,6 @@ impl Game {
     }
 
     pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
         let (variable, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
@@ -2302,9 +2301,14 @@ impl Game {
         .into())
     }
 
-    pub fn action_draw_score(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_score")
+    pub fn action_draw_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), format!("{}{}", caption, self.score).into()])
     }
 
     pub fn action_highscore_show(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2338,9 +2342,14 @@ impl Game {
         .into())
     }
 
-    pub fn action_draw_life(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_life")
+    pub fn action_draw_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), format!("{}{}", caption, self.lives).into()])
     }
 
     pub fn action_draw_life_images(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
