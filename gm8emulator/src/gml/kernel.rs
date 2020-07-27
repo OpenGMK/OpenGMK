@@ -4,7 +4,10 @@
 
 use crate::{
     action, asset,
-    game::{draw, external, particle, replay, string::RCStr, surface::Surface, Game, GetAsset, PlayType, SceneChange},
+    game::{
+        draw, external, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
+        SceneChange,
+    },
     gml::{
         self,
         compiler::mappings,
@@ -8235,14 +8238,56 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_set_background")
     }
 
-    pub fn room_set_view(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 16
-        unimplemented!("Called unimplemented kernel function room_set_view")
+    pub fn room_set_view(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            room_id,
+            view_id,
+            visible,
+            source_x,
+            source_y,
+            source_w,
+            source_h,
+            port_x,
+            port_y,
+            port_w,
+            port_h,
+            follow_hborder,
+            follow_vborder,
+            follow_hspeed,
+            follow_vspeed,
+            follow_target,
+        ) = expect_args!(args, [int, int, any, int, int, int, int, int, int, int, int, int, int, int, int, int])?;
+        let view_id = if view_id >= 0 { view_id as usize } else { return Ok(Default::default()) };
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            if let Some(view) = room.views.get_mut(view_id) {
+                *view = View {
+                    visible: visible.is_truthy(),
+                    source_x,
+                    source_y,
+                    source_w: source_w as _,
+                    source_h: source_h as _,
+                    port_x,
+                    port_y,
+                    port_w: port_w as _,
+                    port_h: port_h as _,
+                    follow_hborder,
+                    follow_vborder,
+                    follow_hspeed,
+                    follow_vspeed,
+                    follow_target,
+                    angle: view.angle,
+                };
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn room_set_view_enabled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_view_enabled")
+    pub fn room_set_view_enabled(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, enabled) = expect_args!(args, [int, any])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.views_enabled = enabled.is_truthy();
+        }
+        Ok(Default::default())
     }
 
     pub fn room_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
