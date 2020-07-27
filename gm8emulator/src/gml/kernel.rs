@@ -945,14 +945,49 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_sprite_stretched")
+    pub fn draw_sprite_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, w, h) = expect_args!(args, [any, any, any, any, any, any])?;
+        let instance = self.instance_list.get(context.this);
+        let args = [
+            sprite_index,
+            image_index,
+            x,
+            y,
+            w,
+            h,
+            instance.image_blend.get().into(),
+            instance.image_alpha.get().into(),
+        ];
+        self.draw_sprite_stretched_ext(context, &args)
     }
 
-    pub fn draw_sprite_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_stretched_ext")
+    pub fn draw_sprite_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, w, h, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    (w / sprite.width.into()).into(),
+                    (h / sprite.height.into()).into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
