@@ -847,6 +847,121 @@ impl RendererTrait for RendererImpl {
         self.draw_sprite(&copied_pixel, x2, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // right line
     }
 
+    fn draw_rectangle_gradient(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        c4: i32,
+        alpha: f64,
+    ) {
+        let copied_pixel = self.white_pixel;
+        self.draw_sprite_general(
+            &copied_pixel,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            x1,
+            y1,
+            x2 + 1.0 - x1,
+            y2 + 1.0 - y1,
+            0.0,
+            c1,
+            c2,
+            c3,
+            c4,
+            alpha,
+        )
+    }
+
+    fn draw_rectangle_gradient_outline(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        c4: i32,
+        alpha: f64,
+    ) {
+        let copied_pixel = self.white_pixel;
+        self.draw_sprite_general(
+            &copied_pixel,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            x1,
+            y1,
+            x2 + 1.0 - x1,
+            1.0,
+            0.0,
+            c1,
+            c2,
+            c2,
+            c1,
+            alpha,
+        ); // top line
+        self.draw_sprite_general(
+            &copied_pixel,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            x1,
+            y2,
+            x2 + 1.0 - x1,
+            1.0,
+            0.0,
+            c3,
+            c4,
+            c4,
+            c3,
+            alpha,
+        ); // bottom line
+        self.draw_sprite_general(
+            &copied_pixel,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            x1,
+            y1,
+            1.0,
+            y2 + 1.0 - y1,
+            0.0,
+            c1,
+            c1,
+            c3,
+            c3,
+            alpha,
+        ); // left line
+        self.draw_sprite_general(
+            &copied_pixel,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            x2,
+            y1,
+            1.0,
+            y2 + 1.0 - y1,
+            0.0,
+            c2,
+            c2,
+            c4,
+            c4,
+            alpha,
+        ); // right line
+    }
+
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
         let mut src: GLint = 0;
         let mut dst: GLint = 0;
