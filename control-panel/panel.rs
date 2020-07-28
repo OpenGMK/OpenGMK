@@ -9,7 +9,9 @@ use shared::{
     message::{self, Information, InstanceDetails, MessageStream},
     types::{Colour, ID},
 };
-use std::{net::TcpStream, path::PathBuf};
+use std::{fs::File, io::Read, net::TcpStream, path::PathBuf};
+
+// use std::collections::HashMap;
 
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
@@ -23,11 +25,13 @@ pub struct ControlPanel {
     pub clear_colour: Colour,
     pub font: Font,
     pub font_small: Font,
-    pub advance_button: AdvanceButton,
+
+    pub buttons: Vec<ButtonInfo>,
+    pub big_save_button: ButtonInfo,
+
     pub key_buttons: Vec<KeyButton>,
     pub mouse_buttons: Vec<MouseButton>,
     pub mouse_position_button: MousePositionButton,
-    pub big_save_button: BigSaveButton,
     pub save_buttons: Vec<SaveButton>,
     pub seed_changer: SeedChanger,
     pub stream: TcpStream,
@@ -42,8 +46,6 @@ pub struct ControlPanel {
     pub game_mouse_pos: (f64, f64),
     pub client_mouse_pos: (i32, i32),
 
-    advance_button_normal: AtlasRef,
-    big_save_button_normal: AtlasRef,
     key_button_l_neutral: AtlasRef,
     key_button_l_held: AtlasRef,
     key_button_r_neutral: AtlasRef,
@@ -63,18 +65,61 @@ pub struct ControlPanel {
     pub project_dir: PathBuf,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Action {
+    Advance,
+    Update,
+    Nothing,
+}
+
+#[derive(Debug, Clone)]
+pub struct ButtonInfo {
+    name: String,
+    action: Action,
+    sprite: Option<AtlasRef>,
+    start_x: i32,
+    start_y: i32,
+    size_x: i32,
+    size_y: i32,
+}
+
+impl Default for ButtonInfo {
+    fn default() -> Self {
+        ButtonInfo {
+            name: "".to_string(),
+            action: Action::Nothing,
+            sprite: None,
+            start_x: 0,
+            start_y: 0,
+            size_x: KEY_BUTTON_SIZE as i32,
+            size_y: KEY_BUTTON_SIZE as i32,
+        }
+    }
+}
+
+impl ButtonInfo {
+    fn new(name: &str, action: Action, sprite: Option<AtlasRef>, start_x: i32, start_y: i32, size_x: i32, size_y: i32) -> ButtonInfo {
+        ButtonInfo { action: action, name: name.to_string(), sprite: sprite, start_x: start_x, start_y: start_y, size_x: size_x, size_y: size_y }
+    }
+
+    pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
+        mouse_x >= self.start_x && mouse_x < (self.start_x + self.size_x) && mouse_y >= self.start_y && mouse_y < (self.start_y + self.size_y)
+    }
+
+    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) { // todo: make most of these just part of the object
+        if let Some(sprite) = self.sprite {
+            renderer.draw_sprite(&sprite, self.start_x.into(), self.start_y.into(), 1.0, 1.0, 0.0, 0xFFFFFF,
+                if self.contains_point(mouse_x, mouse_y) { 1.0 } else { 0.8 },
+            )
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum MenuContext {
     KeyButton(input::Key),
     MouseButton(input::MouseButton),
-    SaveButton(String),
-    BigSaveButton,
-}
-
-#[derive(Clone, Copy)]
-pub struct AdvanceButton {
-    pub x: i32,
-    pub y: i32,
+    SaveButton(String)
 }
 
 #[derive(Clone, Copy)]
@@ -102,12 +147,6 @@ pub struct MousePositionButton {
 }
 
 #[derive(Clone, Copy)]
-pub struct BigSaveButton {
-    pub x: i32,
-    pub y: i32,
-}
-
-#[derive(Clone, Copy)]
 pub struct SeedChanger {
     pub x: i32,
     pub y: i32,
@@ -132,18 +171,6 @@ pub enum ButtonState {
     HeldWillRelease,
     HeldWillRP,
     HeldWillRPR,
-}
-
-impl AdvanceButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 40)
-    }
-}
-
-impl BigSaveButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 30)
-    }
 }
 
 impl SeedChanger {
@@ -176,7 +203,20 @@ impl SaveButton {
     }
 }
 
+fn set_initial_values() {
+
+}
+
 impl ControlPanel {
+    pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
+        let result = match action {
+            Action::Advance => self.send_advance(),
+            Action::Update => self.update(),
+            Action::Nothing => Ok(true),
+        };
+        return result;
+    }
+
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut project_dir = std::env::current_dir()?;
         project_dir.push("projects");
@@ -191,30 +231,44 @@ impl ControlPanel {
             clear_colour,
         )?;
 
-        let mut atlases = AtlasBuilder::new(1024);
-        let advance_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/advance.bmp"));
-        let big_save_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/save_main.bmp"));
-        let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLNeutral.bmp"));
-        let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLHeld.bmp"));
-        let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral.bmp"));
-        let key_button_r_neutral2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral2.bmp"));
-        let key_button_r_neutral3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral3.bmp"));
-        let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld.bmp"));
-        let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld2.bmp"));
-        let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
-        let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pointer.bmp"));
-        let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
-        let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
-        let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/outline.bmp"));
+        let mut buttons = vec![
+            ButtonInfo { name: "advance_button_normal".to_string(), action: Action::Advance, start_x: 280, start_y: 8, size_x: 59, size_y: 40, .. ButtonInfo::default() },
+            ButtonInfo { name: "big_save_button_normal".to_string(), start_x: 125, start_y: 400, size_x: 100, size_y: 30, .. ButtonInfo::default() },
+        ];
 
-        let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelUp.bmp"));
-        let label_down = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelDown.bmp"));
-        let label_left = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelLeft.bmp"));
-        let label_right = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelRight.bmp"));
-        let label_r = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelR.bmp"));
-        let label_z = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelZ.bmp"));
-        let label_f2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelF2.bmp"));
-        let label_shift = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelShift.bmp"));
+        let mut atlases = AtlasBuilder::new(1024);
+
+        for mut button in buttons.iter_mut() {
+            let path = format!("../../control-panel/images/{}.bmp", button.name.to_string());
+            let mut file = File::open(&path)?;
+            let mut file_content = Vec::new();
+            file.read_to_end(&mut file_content)?;
+            let sprite = Self::upload_bmp(&mut atlases, &file_content);
+            button.sprite = Some(AtlasRef::from(sprite));
+            // eprintln!("{}/{} - {:?}", button.start_x, button.start_y, button.sprite);
+        };
+
+        let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
+        let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_held.bmp"));
+        let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral.bmp"));
+        let key_button_r_neutral2 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral2.bmp"));
+        let key_button_r_neutral3 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral3.bmp"));
+        let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held.bmp"));
+        let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held2.bmp"));
+        let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held3.bmp"));
+        let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pos_normal.bmp"));
+        let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_button_active.bmp"));
+        let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_button_inactive.bmp"));
+        let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/button_outline.bmp"));
+
+        let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/label_up.bmp"));
+        let label_down = Self::upload_bmp(&mut atlases, include_bytes!("images/label_down.bmp"));
+        let label_left = Self::upload_bmp(&mut atlases, include_bytes!("images/label_left.bmp"));
+        let label_right = Self::upload_bmp(&mut atlases, include_bytes!("images/label_right.bmp"));
+        let label_r = Self::upload_bmp(&mut atlases, include_bytes!("images/label_r.bmp"));
+        let label_z = Self::upload_bmp(&mut atlases, include_bytes!("images/label_z.bmp"));
+        let label_f2 = Self::upload_bmp(&mut atlases, include_bytes!("images/label_f2.bmp"));
+        let label_shift = Self::upload_bmp(&mut atlases, include_bytes!("images/label_shift.bmp"));
 
         // Helper fn: create a Font
         fn make_font(
@@ -281,7 +335,7 @@ impl ControlPanel {
             clear_colour,
             font,
             font_small,
-            advance_button: AdvanceButton { x: 240, y: 8 },
+            buttons,
             key_buttons: vec![
                 KeyButton { x: 103, y: 150, key: input::Key::Left, state: ButtonState::Neutral, label: label_left },
                 KeyButton { x: 151, y: 150, key: input::Key::Down, state: ButtonState::Neutral, label: label_down },
@@ -298,7 +352,7 @@ impl ControlPanel {
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
             mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
-            big_save_button: BigSaveButton { x: 125, y: 400 },
+            big_save_button: ButtonInfo { name: "big_save_button_normal".to_string(), start_x: 125, start_y: 400, size_x: 100, size_y: 30, .. ButtonInfo::default() },
             save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
             stream,
@@ -313,8 +367,6 @@ impl ControlPanel {
             game_mouse_pos: (0.0, 0.0),
             client_mouse_pos: (0, 0),
 
-            advance_button_normal,
-            big_save_button_normal,
             key_button_l_neutral,
             key_button_l_held,
             key_button_r_neutral,
@@ -363,9 +415,16 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
-                    if self.advance_button.contains_point(self.mouse_x, self.mouse_y) {
-                        self.send_advance()?;
-                        break
+                    for button in self.buttons.iter() {
+                        match button.action {
+                            Action::Advance => (
+                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                    self.perform_action(Action::Advance)?;
+                                    break 'evloop;
+                                }
+                            ),
+                            _ => ()
+                        }
                     }
 
                     for button in self.key_buttons.iter_mut() {
@@ -744,16 +803,11 @@ impl ControlPanel {
         draw_text(&mut self.renderer, "Frame:", 4.0, 19.0, &self.font, 0, 1.0);
         draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
 
-        self.renderer.draw_sprite(
-            &self.advance_button_normal,
-            self.advance_button.x.into(),
-            self.advance_button.y.into(),
-            1.0,
-            1.0,
-            0.0,
-            0xFFFFFF,
-            if self.advance_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
-        );
+        for button in self.buttons.iter() {
+            // eprintln!("{:?}", button);
+            // eprintln!("w {} h {}", button.sprite.w, button.sprite.h); // todo: implement this
+            button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
+        };
 
         for button in self.key_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
@@ -860,17 +914,6 @@ impl ControlPanel {
             0.0,
             if self.mouse_position_button.active { 0x4CB122 } else { 0xFFFFFF },
             if self.mouse_position_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 },
-        );
-
-        self.renderer.draw_sprite(
-            &self.big_save_button_normal,
-            self.big_save_button.x.into(),
-            self.big_save_button.y.into(),
-            1.0,
-            1.0,
-            0.0,
-            0xFFFFFF,
-            if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
         );
 
         let (x, y) = self.game_mouse_pos;
