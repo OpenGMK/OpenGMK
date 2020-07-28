@@ -793,7 +793,9 @@ impl RendererTrait for RendererImpl {
         let normal = (0.0, 0.0, 0.0);
         let atlas_xywh = (atlas_ref.x as f32, atlas_ref.y as f32, atlas_ref.w as f32, atlas_ref.h as f32);
 
-        let rotate = |xoff, yoff| ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0);
+        let rotate = |xoff, yoff| {
+            ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0)
+        };
 
         self.vertex_queue.push(Vertex {
             pos: rotate(left, top),
@@ -899,15 +901,50 @@ impl RendererTrait for RendererImpl {
             // layout (location = 3) in vec3 normal;
             // layout (location = 4) in vec4 atlas_xywh;
             gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, pos) as *const _);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
             gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, blend) as *const _);
+            gl::VertexAttribPointer(
+                1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
+            );
             gl::EnableVertexAttribArray(2);
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, tex_coord) as *const _);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
+            );
             gl::EnableVertexAttribArray(3);
-            gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, normal) as *const _);
+            gl::VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
+            );
             gl::EnableVertexAttribArray(4);
-            gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, atlas_xywh) as *const _);
+            gl::VertexAttribPointer(
+                4,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
+            );
 
             gl::DrawArrays(gl::TRIANGLES, 0, self.vertex_queue.len() as i32);
 
