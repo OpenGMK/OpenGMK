@@ -2043,24 +2043,28 @@ impl Game {
     }
 
     pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (room_id, _transition) = expect_args!(args, [int, int])?;
+        let (room_id, transition) = expect_args!(args, [int, int])?;
         self.scene_change = Some(SceneChange::Room(room_id));
+        self.transition_kind = transition;
         Ok(Default::default())
     }
 
     pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
         self.scene_change = Some(SceneChange::Room(self.room_id));
+        self.transition_kind = transition;
         Ok(Default::default())
     }
 
     pub fn action_previous_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
+        self.transition_kind = transition;
         self.room_goto_previous(context, &[])
     }
 
     pub fn action_next_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
+        self.transition_kind = transition;
         self.room_goto_next(context, &[])
     }
 
