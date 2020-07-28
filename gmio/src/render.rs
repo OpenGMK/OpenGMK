@@ -54,7 +54,7 @@ pub trait RendererTrait {
     fn wait_vsync(&self);
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64) {
-        self.draw_sprite_partial(tex, 0, 0, tex.w, tex.h, x, y, xs, ys, ang, col, alpha);
+        self.draw_sprite_partial(tex, 0.0, 0.0, tex.w.into(), tex.h.into(), x, y, xs, ys, ang, col, alpha);
     }
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
@@ -111,10 +111,10 @@ pub trait RendererTrait {
     fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
-        part_w: i32,
-        part_h: i32,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
         x: f64,
         y: f64,
         xscale: f64,
@@ -298,10 +298,10 @@ impl Renderer {
     pub fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
-        part_w: i32,
-        part_h: i32,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
         x: f64,
         y: f64,
         xscale: f64,

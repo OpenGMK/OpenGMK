@@ -1024,10 +1024,10 @@ impl Game {
             {
                 self.renderer.draw_sprite_partial(
                     atlas_ref,
-                    left.round(),
-                    top.round(),
-                    width.round(),
-                    height.round(),
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
                     x.into(),
                     y.into(),
                     xscale.into(),

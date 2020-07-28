@@ -230,10 +230,10 @@ impl Game {
                 if let Some(atlas) = &background.atlas_ref {
                     game.renderer.draw_sprite_partial(
                         atlas,
-                        tile.tile_x.get() as _,
-                        tile.tile_y.get() as _,
-                        tile.width.get() as _,
-                        tile.height.get() as _,
+                        tile.tile_x.get().into(),
+                        tile.tile_y.get().into(),
+                        tile.width.get().into(),
+                        tile.height.get().into(),
                         tile.x.get().into(),
                         tile.y.get().into(),
                         tile.xscale.get().into(),
