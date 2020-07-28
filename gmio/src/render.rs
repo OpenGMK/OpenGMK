@@ -54,8 +54,42 @@ pub trait RendererTrait {
     fn wait_vsync(&self);
 
     fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64) {
-        self.draw_sprite_partial(tex, 0.0, 0.0, tex.w.into(), tex.h.into(), x, y, xs, ys, ang, col, alpha);
+        self.draw_sprite_general(
+            tex,
+            0.0,
+            0.0,
+            tex.w.into(),
+            tex.h.into(),
+            x,
+            y,
+            xs,
+            ys,
+            ang,
+            col,
+            col,
+            col,
+            col,
+            alpha,
+        );
     }
+    fn draw_sprite_general(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
     fn set_model_matrix(&mut self, model: [f32; 16]);
@@ -122,7 +156,11 @@ pub trait RendererTrait {
         angle: f64,
         colour: i32,
         alpha: f64,
-    );
+    ) {
+        self.draw_sprite_general(
+            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, colour, colour, colour, colour, alpha,
+        )
+    }
     fn draw_sprite_tiled(
         &mut self,
         texture: &AtlasRef,
@@ -240,6 +278,29 @@ impl Renderer {
         alpha: f64,
     ) {
         self.0.draw_sprite(texture, x, y, xscale, yscale, angle, colour, alpha)
+    }
+
+    pub fn draw_sprite_general(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    ) {
+        self.0.draw_sprite_general(
+            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha,
+        )
     }
 
     pub fn set_view_matrix(&mut self, view: [f32; 16]) {

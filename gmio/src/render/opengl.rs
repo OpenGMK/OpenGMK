@@ -740,7 +740,7 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn draw_sprite_partial(
+    fn draw_sprite_general(
         &mut self,
         texture: &AtlasRef,
         part_x: f64,
@@ -752,7 +752,10 @@ impl RendererTrait for RendererImpl {
         xscale: f64,
         yscale: f64,
         angle: f64,
-        colour: i32,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
         alpha: f64,
     ) {
         let atlas_ref = texture.clone();
@@ -784,23 +787,25 @@ impl RendererTrait for RendererImpl {
         let (tex_left, tex_top, tex_right, tex_bottom) =
             (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
 
-        let blend = (
-            ((colour & 0xFF) as f32) / 255.0,
-            (((colour >> 8) & 0xFF) as f32) / 255.0,
-            (((colour >> 16) & 0xFF) as f32) / 255.0,
-            alpha as f32,
-        );
         let normal = (0.0, 0.0, 0.0);
         let atlas_xywh = (atlas_ref.x as f32, atlas_ref.y as f32, atlas_ref.w as f32, atlas_ref.h as f32);
 
         let rotate = |xoff, yoff| {
             ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0)
         };
+        let generate_blend = |c| {
+            (
+                ((c & 0xFF) as f32) / 255.0,
+                (((c >> 8) & 0xFF) as f32) / 255.0,
+                (((c >> 16) & 0xFF) as f32) / 255.0,
+                alpha as f32,
+            )
+        };
 
         self.vertex_queue.push(Vertex {
             pos: rotate(left, top),
             tex_coord: (tex_left, tex_top),
-            blend,
+            blend: generate_blend(col1),
             atlas_xywh,
             normal,
         });
@@ -808,14 +813,14 @@ impl RendererTrait for RendererImpl {
             self.vertex_queue.push(Vertex {
                 pos: rotate(right, top),
                 tex_coord: (tex_right, tex_top),
-                blend,
+                blend: generate_blend(col2),
                 atlas_xywh,
                 normal,
             });
             self.vertex_queue.push(Vertex {
                 pos: rotate(left, bottom),
                 tex_coord: (tex_left, tex_bottom),
-                blend,
+                blend: generate_blend(col4),
                 atlas_xywh,
                 normal,
             });
@@ -823,7 +828,7 @@ impl RendererTrait for RendererImpl {
         self.vertex_queue.push(Vertex {
             pos: rotate(right, bottom),
             tex_coord: (tex_right, tex_bottom),
-            blend,
+            blend: generate_blend(col3),
             atlas_xywh,
             normal,
         });
