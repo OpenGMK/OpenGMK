@@ -1036,7 +1036,6 @@ impl Game {
     }
 
     pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: left, top, width, height should be reals (yes, really)
         let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
@@ -1069,9 +1068,58 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 16
-        unimplemented!("Called unimplemented kernel function draw_sprite_general")
+    pub fn draw_sprite_general(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            sprite_index,
+            image_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+        ) = expect_args!(args, [
+            int, real, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+        ])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_general(
+                    atlas_ref,
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
+                    col1,
+                    col2,
+                    col3,
+                    col4,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4811,7 +4859,8 @@ impl Game {
 
     pub fn transition_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function transition_define")
+        //unimplemented!("Called unimplemented kernel function transition_define")
+        Ok(Default::default())
     }
 
     pub fn transition_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
