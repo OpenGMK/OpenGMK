@@ -69,7 +69,7 @@ pub struct ControlPanel {
 pub enum Action {
     Advance,
     Update,
-    Save(String),
+    Save { filename: String, show_context_menu: bool },
     Nothing,
 }
 
@@ -78,11 +78,13 @@ pub struct ButtonInfo {
     name: String,
     action: Action,
     filename: String,
+    show_context_menu: bool,
     sprite: Option<AtlasRef>,
     start_x: i32,
     start_y: i32,
     size_x: i32,
     size_y: i32,
+    exists: bool,
 }
 
 impl Default for ButtonInfo {
@@ -91,11 +93,13 @@ impl Default for ButtonInfo {
             name: "".to_string(),
             action: Action::Nothing,
             filename: "".to_string(),
+            show_context_menu: false,
             sprite: None,
             start_x: 0,
             start_y: 0,
             size_x: KEY_BUTTON_SIZE as i32,
             size_y: KEY_BUTTON_SIZE as i32,
+            exists: true,
         }
     }
 }
@@ -105,21 +109,25 @@ impl ButtonInfo {
         name: &str,
         action: Action,
         filename: &str,
+        show_context_menu: bool,
         sprite: Option<AtlasRef>,
         start_x: i32,
         start_y: i32,
         size_x: i32,
         size_y: i32,
+        exists: bool,
     ) -> ButtonInfo {
         ButtonInfo {
             action: action,
             name: name.to_string(),
             filename: filename.to_string(),
+            show_context_menu: show_context_menu,
             sprite: sprite,
             start_x: start_x,
             start_y: start_y,
             size_x: size_x,
             size_y: size_y,
+            exists: exists,
         }
     }
 
@@ -239,10 +247,23 @@ impl ControlPanel {
     pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
         return match action {
             Action::Advance => self.send_advance(),
-            Action::Save(mut s) => self.save(&mut s),
+            Action::Save {filename: mut s, show_context_menu: show} => self.save(&mut s, show),
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
+    }
+
+    fn save(&mut self, filename: &str, show_context_menu: bool) -> Result<bool, Box<dyn std::error::Error>> {
+        if show_context_menu && filename == "save.bin".to_string() {
+            eprintln!("hit 1 - {} : {}", filename, show_context_menu);
+            self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+            self.menu_context = Some(MenuContext::SaveButton(filename.into()));
+        } else {
+            eprintln!("hit else - {} : {}", filename, show_context_menu);
+            self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
+            println!("In function: Probably saved to {}", filename);
+        }
+        Ok(true)
     }
 
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
@@ -271,7 +292,7 @@ impl ControlPanel {
             },
             ButtonInfo {
                 name: "big_save_button_normal".to_string(),
-                action: Action::Save("save.bin".to_string()),
+                action: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
                 filename: "save.bin".to_string(),
                 start_x: 125,
                 start_y: 400,
@@ -467,24 +488,41 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
-                    for button in self.buttons.iter() {
+                    let mut _iter = self.buttons.iter();
+                    for button in _iter {
                         // make iter_mut when consolidating buttons
                         match &button.action {
                             Action::Advance => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    self.perform_action(Action::Advance)?;
+                                    self.perform_action(Action::Advance)?; // todo: make button.advance
                                     break 'evloop
                                 }
                             },
-                            Action::Save(_s) => {
+                            Action::Save {filename, show_context_menu} => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    // self.perform_action(Action::Save(button.filename))?;
-                                    // break 'evloop
+                                    // eprintln!("save action: {:?}", button);
+                                    // eprintln!("filename: {}", filename.to_string());
+                                    // eprintln!("show_context_menu: {}", show_context_menu);
+                                    // let filename = button.filename;
+                                    let show_context_menu = button.show_context_menu;
+                                    self.perform_action(Action::Save { filename: "save.bin".to_string(), show_context_menu: show_context_menu })?;
+                                    break 'evloop
                                 }
                             },
                             _ => (),
                         }
                     }
+
+
+                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
+                        // eprintln!("{:?}", self.big_save_button);
+                        // self.perform_action(Action::Save("save.bin".to_string()));
+                        // break
+                        // self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+                        // self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
+                        // break
+                    } // todo: next
+
 
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
@@ -530,12 +568,6 @@ impl ControlPanel {
                             update: self.mouse_position_button.active,
                         })?;
                     }
-
-                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
-                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-                        break
-                    } // todo: next
 
                     if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) {
                         if let Some(seed) = self.new_seed {
@@ -729,17 +761,6 @@ impl ControlPanel {
         }
 
         Ok(())
-    }
-
-    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        if filename == "save.bin".to_string() {
-            self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-            self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-        } else {
-            self.stream.send_message(&message::Message::Save { filename: "save.bin".into() })?;
-            println!("Probably saved");
-        }
-        Ok(true)
     }
 
     fn send_advance(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
