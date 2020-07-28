@@ -441,6 +441,10 @@ impl TileList {
         self.chunks.get(idx).unwrap_or_else(|| panic!(format!("Invalid instance handle to TileList::get(): {}", idx)))
     }
 
+    pub fn get_by_tileid(&self, tile_id: ID) -> Option<usize> {
+        self.insert_order.iter().copied().find(|&inst| self.get(inst).id.get() == tile_id)
+    }
+
     pub const fn iter_by_drawing(&self) -> TLIterDrawOrder {
         TLIterDrawOrder(0)
     }
@@ -456,7 +460,7 @@ impl TileList {
             let left = chunks.get(idx1).unwrap();
             let right = chunks.get(idx2).unwrap();
 
-            right.depth.cmp_nan_first(&left.depth)
+            right.depth.get().cmp_nan_first(&left.depth.get())
         })
     }
 

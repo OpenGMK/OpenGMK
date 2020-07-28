@@ -5,8 +5,8 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, particle, replay, string::RCStr, surface::Surface, transition::UserTransition, Game, GetAsset,
-        PlayType, SceneChange,
+        draw, external, particle, replay, string::RCStr, surface::Surface, transition::UserTransition, view::View,
+        Game, GetAsset, PlayType, SceneChange,
     },
     gml::{
         self,
@@ -945,14 +945,49 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_sprite_stretched")
+    pub fn draw_sprite_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, w, h) = expect_args!(args, [any, any, any, any, any, any])?;
+        let instance = self.instance_list.get(context.this);
+        let args = [
+            sprite_index,
+            image_index,
+            x,
+            y,
+            w,
+            h,
+            instance.image_blend.get().into(),
+            instance.image_alpha.get().into(),
+        ];
+        self.draw_sprite_stretched_ext(context, &args)
     }
 
-    pub fn draw_sprite_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_sprite_stretched_ext")
+    pub fn draw_sprite_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index, x, y, w, h, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    (w / sprite.width.into()).into(),
+                    (h / sprite.height.into()).into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1167,14 +1202,25 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_get_height")
     }
 
-    pub fn tile_get_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function tile_get_depth")
+    pub fn tile_get_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let tile_id = expect_args!(args, [int])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            Ok(self.tile_list.get(handle).depth.get().into())
+        } else {
+            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+        }
     }
 
-    pub fn tile_get_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function tile_get_visible")
+    pub fn tile_get_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let tile_id = expect_args!(args, [int])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            Ok(self.tile_list.get(handle).visible.get().into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "tile_get_visible".into(),
+                format!("Tile with ID {} does not exist.", tile_id),
+            ))
+        }
     }
 
     pub fn tile_get_xscale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1202,9 +1248,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_get_background")
     }
 
-    pub fn tile_set_visible(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function tile_set_visible")
+    pub fn tile_set_visible(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (tile_id, visible) = expect_args!(args, [int, any])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            self.tile_list.get(handle).visible.set(visible.is_truthy());
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "tile_set_visible".into(),
+                format!("Tile with ID {} does not exist.", tile_id),
+            ))
+        }
     }
 
     pub fn tile_set_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1222,9 +1276,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_set_position")
     }
 
-    pub fn tile_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function tile_set_depth")
+    pub fn tile_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (tile_id, depth) = expect_args!(args, [int, real])?;
+        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
+            self.tile_list.get(handle).depth.set(depth);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+        }
     }
 
     pub fn tile_set_scale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1282,14 +1341,34 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_layer_delete")
     }
 
-    pub fn tile_layer_shift(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function tile_layer_shift")
+    pub fn tile_layer_shift(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (depth, x, y) = expect_args!(args, [real, real, real])?;
+        let mut iter_tile = self.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.tile_list) {
+            let tile = self.tile_list.get(handle);
+            if tile.depth.get() == depth {
+                tile.x.set(tile.x.get() + x);
+                tile.y.set(tile.y.get() + y);
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn tile_layer_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function tile_layer_find")
+    pub fn tile_layer_find(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (depth, x, y) = expect_args!(args, [real, real, real])?;
+        let mut iter_tile = self.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.tile_list) {
+            let tile = self.tile_list.get(handle);
+            if tile.depth.get() == depth
+                && x >= tile.x.get()
+                && x < tile.x.get() + tile.xscale.get() * tile.width.get().into()
+                && y >= tile.y.get()
+                && y < tile.y.get() + tile.yscale.get() * tile.height.get().into()
+            {
+                return Ok(tile.id.get().into())
+            }
+        }
+        Ok((-1).into())
     }
 
     pub fn tile_layer_delete_at(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2274,7 +2353,6 @@ impl Game {
     }
 
     pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
         let (variable, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
@@ -2305,9 +2383,14 @@ impl Game {
         .into())
     }
 
-    pub fn action_draw_score(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_score")
+    pub fn action_draw_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), format!("{}{}", caption, self.score).into()])
     }
 
     pub fn action_highscore_show(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -2341,9 +2424,14 @@ impl Game {
         .into())
     }
 
-    pub fn action_draw_life(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_draw_life")
+    pub fn action_draw_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        if context.relative {
+            let instance = self.instance_list.get(context.this);
+            x += instance.x.get();
+            y += instance.y.get();
+        }
+        self.draw_text(context, &[x.into(), y.into(), format!("{}{}", caption, self.lives).into()])
     }
 
     pub fn action_draw_life_images(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2757,9 +2845,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_fullscreen")
     }
 
-    pub fn action_snapshot(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_snapshot")
+    pub fn action_snapshot(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.screen_save(context, args)
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2885,7 +2972,8 @@ impl Game {
     }
 
     pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.into_inner().signum().into()))
+        expect_args!(args, [real])
+            .map(|x| if x != 0.into() { Value::Real(x.into_inner().signum().into()) } else { 0.into() })
     }
 
     pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -8194,14 +8282,56 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_set_background")
     }
 
-    pub fn room_set_view(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 16
-        unimplemented!("Called unimplemented kernel function room_set_view")
+    pub fn room_set_view(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            room_id,
+            view_id,
+            visible,
+            source_x,
+            source_y,
+            source_w,
+            source_h,
+            port_x,
+            port_y,
+            port_w,
+            port_h,
+            follow_hborder,
+            follow_vborder,
+            follow_hspeed,
+            follow_vspeed,
+            follow_target,
+        ) = expect_args!(args, [int, int, any, int, int, int, int, int, int, int, int, int, int, int, int, int])?;
+        let view_id = if view_id >= 0 { view_id as usize } else { return Ok(Default::default()) };
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            if let Some(view) = room.views.get_mut(view_id) {
+                *view = View {
+                    visible: visible.is_truthy(),
+                    source_x,
+                    source_y,
+                    source_w: source_w as _,
+                    source_h: source_h as _,
+                    port_x,
+                    port_y,
+                    port_w: port_w as _,
+                    port_h: port_h as _,
+                    follow_hborder,
+                    follow_vborder,
+                    follow_hspeed,
+                    follow_vspeed,
+                    follow_target,
+                    angle: view.angle,
+                };
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn room_set_view_enabled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_view_enabled")
+    pub fn room_set_view_enabled(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, enabled) = expect_args!(args, [int, any])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.views_enabled = enabled.is_truthy();
+        }
+        Ok(Default::default())
     }
 
     pub fn room_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10533,13 +10663,28 @@ impl Game {
     }
 
     pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_identity")
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_translation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_translation")
+    pub fn d3d_transform_set_translation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xt, yt, zt) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0,                    0.0,                    0.0,                    0.0,
+            0.0,                    1.0,                    0.0,                    0.0,
+            0.0,                    0.0,                    1.0,                    0.0,
+            xt.into_inner() as f32, yt.into_inner() as f32, zt.into_inner() as f32, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_scaling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10575,14 +10720,30 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_axis")
     }
 
-    pub fn d3d_transform_add_translation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_translation")
+    pub fn d3d_transform_add_translation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xt, yt, zt) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0,                    0.0,                    0.0,                    0.0,
+            0.0,                    1.0,                    0.0,                    0.0,
+            0.0,                    0.0,                    1.0,                    0.0,
+            xt.into_inner() as f32, yt.into_inner() as f32, zt.into_inner() as f32, 1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_scaling(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_scaling")
+    pub fn d3d_transform_add_scaling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xs, ys, zs) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            xs.into_inner() as f32, 0.0,                    0.0,                    0.0,
+            0.0,                    ys.into_inner() as f32, 0.0,                    0.0,
+            0.0,                    0.0,                    zs.into_inner() as f32, 0.0,
+            0.0,                    0.0,                    0.0,                    1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

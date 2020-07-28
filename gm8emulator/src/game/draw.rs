@@ -226,21 +226,21 @@ impl Game {
 
         fn draw_tile(game: &mut Game, idx: usize) {
             let tile = game.tile_list.get(idx);
-            if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index as usize) {
+            if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
                 if let Some(atlas) = &background.atlas_ref {
                     game.renderer.draw_sprite_partial(
                         atlas,
-                        tile.tile_x as _,
-                        tile.tile_y as _,
-                        tile.width as _,
-                        tile.height as _,
-                        tile.x.into(),
-                        tile.y.into(),
-                        tile.xscale.into(),
-                        tile.yscale.into(),
+                        tile.tile_x.get() as _,
+                        tile.tile_y.get() as _,
+                        tile.width.get() as _,
+                        tile.height.get() as _,
+                        tile.x.get().into(),
+                        tile.y.get().into(),
+                        tile.xscale.get().into(),
+                        tile.yscale.get().into(),
                         0.0,
-                        tile.blend,
-                        tile.alpha.into(),
+                        tile.blend.get(),
+                        tile.alpha.get().into(),
                     )
                 }
             }
@@ -304,7 +304,7 @@ impl Game {
                 },
                 (idx_opt_inst, idx_opt_tile, idx_opt_part) => {
                     let inst_depth = idx_opt_inst.map(|h| self.instance_list.get(h).depth.get());
-                    let tile_depth = idx_opt_tile.map(|h| self.tile_list.get(h).depth);
+                    let tile_depth = idx_opt_tile.map(|h| self.tile_list.get(h).depth.get());
                     let part_depth = idx_opt_part.map(|h| self.particles.get_system(h).unwrap().depth);
                     if part_depth < inst_depth && part_depth < tile_depth {
                         if inst_depth < tile_depth {

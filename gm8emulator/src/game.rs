@@ -54,7 +54,7 @@ use shared::{
     types::{Colour, ID},
 };
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::File,
     io::{BufReader, Write},
@@ -699,20 +699,20 @@ impl Game {
                             .tiles
                             .into_iter()
                             .map(|t| tile::Tile {
-                                x: Real::from(t.x),
-                                y: Real::from(t.y),
-                                background_index: t.source_bg,
-                                tile_x: t.tile_x,
-                                tile_y: t.tile_y,
-                                width: t.width,
-                                height: t.height,
-                                depth: Real::from(t.depth),
-                                id: t.id as usize,
-                                alpha: Real::from(1.0),
-                                blend: 0xFFFFFF,
-                                xscale: Real::from(1.0),
-                                yscale: Real::from(1.0),
-                                visible: true,
+                                x: Cell::new(t.x.into()),
+                                y: Cell::new(t.y.into()),
+                                background_index: Cell::new(t.source_bg),
+                                tile_x: Cell::new(t.tile_x),
+                                tile_y: Cell::new(t.tile_y),
+                                width: Cell::new(t.width),
+                                height: Cell::new(t.height),
+                                depth: Cell::new(t.depth.into()),
+                                id: Cell::new(t.id),
+                                alpha: Cell::new(1.0.into()),
+                                blend: Cell::new(0xFFFFFF),
+                                xscale: Cell::new(1.0.into()),
+                                yscale: Cell::new(1.0.into()),
+                                visible: Cell::new(true),
                             })
                             .collect::<Vec<_>>()
                             .into(),
@@ -1037,7 +1037,7 @@ impl Game {
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
-            self.tile_list.insert(*tile);
+            self.tile_list.insert(tile.clone());
         }
 
         // Load all instances in new room, unless they already exist due to persistence

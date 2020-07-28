@@ -264,7 +264,11 @@ impl RendererImpl {
             // Start first frame
             renderer.setup_frame(options.size.0, options.size.1, clear_colour);
 
-            Ok(renderer)
+            // verify it actually worked
+            match gl::GetError() {
+                0 => Ok(renderer),
+                err => Err(format!("Failed to fully initialize OpenGL! (OpenGL code {})", err)),
+            }
         }
     }
 

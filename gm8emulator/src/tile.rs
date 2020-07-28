@@ -1,48 +1,50 @@
 use crate::math::Real;
 use serde::{Deserialize, Serialize};
+use shared::types::ID;
+use std::cell::Cell;
 
 /// An instance of a background tile.
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Tile {
     /// The tile's x position in the room
-    pub x: Real,
+    pub x: Cell<Real>,
 
     /// The tile's y position in the room
-    pub y: Real,
+    pub y: Cell<Real>,
 
     /// Index of the background which this tile will draw a section of
-    pub background_index: i32,
+    pub background_index: Cell<i32>,
 
     /// The x coordinate to draw from in the background image
-    pub tile_x: u32,
+    pub tile_x: Cell<u32>,
 
     /// The y coordinate to draw from in the background image
-    pub tile_y: u32,
+    pub tile_y: Cell<u32>,
 
     /// Width of the tile, in both the background image and the room
-    pub width: u32,
+    pub width: Cell<u32>,
 
     /// Height of the tile, in both the background image and the room
-    pub height: u32,
+    pub height: Cell<u32>,
 
     /// Depth of this tile in the room
-    pub depth: Real,
+    pub depth: Cell<Real>,
 
     /// Unique ID of this tile - tile IDs are above 10,000,000
-    pub id: usize,
+    pub id: Cell<ID>,
 
     /// Alpha value of this tile, from 0.0 (invisible) to 1.0 (opaque)
-    pub alpha: Real,
+    pub alpha: Cell<Real>,
 
     /// Colour blend value of this tile
-    pub blend: i32,
+    pub blend: Cell<i32>,
 
     /// xscale with which to draw this tile
-    pub xscale: Real,
+    pub xscale: Cell<Real>,
 
     /// yscale with which to draw this tile
-    pub yscale: Real,
+    pub yscale: Cell<Real>,
 
     /// Whether this tile will be drawn
-    pub visible: bool,
+    pub visible: Cell<bool>,
 }
