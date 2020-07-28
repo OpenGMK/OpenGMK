@@ -1,4 +1,5 @@
 use crate::{
+    asset::font,
     game::{Game, GetAsset},
     gml,
     math::Real,
@@ -17,6 +18,97 @@ pub enum Valign {
     Top,
     Middle,
     Bottom,
+}
+
+struct LineIterator<'a> {
+    text: &'a str,
+    font: font::Font,
+    max_width: Option<i32>,
+    word_buf: String,
+    word_width: i32,
+}
+
+impl<'a> LineIterator<'a> {
+    fn next(&mut self, font: &font::Font) -> Option<(String, i32)> {
+        if self.text.is_empty() {
+            return None
+        }
+        let mut line = String::new();
+        let mut line_width = 0;
+
+        let mut iter = self.text.char_indices().peekable();
+        while let Some((_, c)) = iter.next() {
+            // First, process escape characters
+            let c = match c {
+                '#' | '\r' | '\n' => {
+                    // '#' is a newline character, don't process it but start a new line instead
+                    // Likewise CR, LF, and CRLF
+                    if c == '\r' && iter.peek().map(|t| t.1) == Some('\n') {
+                        // CRLF only counts as one line break so consume the LF
+                        iter.next();
+                    }
+                    '\n'
+                },
+                '\\' if iter.peek().map(|t| t.1) == Some('#') => {
+                    // '\#' is an escaped newline character, treat it as '#'
+                    iter.next();
+                    '#'
+                },
+                _ if font.get_char(u32::from(c)).is_some() => c, // Normal character
+                _ => ' ',                                        // Character is not in the font, replace with space
+            };
+            // Next, insert the character into the word buffer
+            match c {
+                '\n' => {
+                    // Newline
+                    line.push_str(&self.word_buf);
+                    line_width += self.word_width;
+                    self.word_buf.clear();
+                    self.word_width = 0;
+                    break
+                },
+                _ => {
+                    // Normal character
+                    if let Some(character) = font.get_char(u32::from(c)) {
+                        self.word_buf.push(c);
+                        self.word_width += character.offset;
+                    } else {
+                        // Space when it isn't in the font
+                        self.word_buf.push(' ');
+                        if let Some(character) = font.get_char(self.font.first) {
+                            self.word_width += character.offset;
+                        }
+                    }
+                },
+            };
+
+            // Check if we're going over the max width
+            if let Some(max_width) = self.max_width {
+                if line_width + self.word_width > max_width && line_width != 0 {
+                    break
+                }
+            }
+
+            // Push new word if applicable
+            if c == ' ' {
+                line.push_str(&self.word_buf);
+                line_width += self.word_width;
+                self.word_buf.clear();
+                self.word_width = 0;
+            }
+        }
+
+        if let Some((pos, _)) = iter.peek() {
+            self.text = &self.text[*pos..];
+        } else {
+            // Add the last word
+            line.push_str(&self.word_buf);
+            line_width += self.word_width;
+            self.text = "";
+        }
+
+        Some((line, line_width))
+    }
 }
 
 impl Game {
@@ -345,89 +437,9 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string(&self, string: &str, max_width: Option<i32>) -> Vec<(String, i32)> {
+    fn split_string<'a>(&self, string: &'a str, max_width: Option<i32>) -> LineIterator<'a> {
         let font = self.draw_font.as_ref().unwrap();
-        let mut lines = Vec::new();
-        let mut line = String::new();
-        let mut line_width = 0;
-        let mut word = String::new();
-        let mut word_width = 0;
-
-        let mut iter = string.chars().peekable();
-        while let Some(c) = iter.next() {
-            // First, process escape characters
-            let c = match c {
-                '#' | '\r' | '\n' => {
-                    // '#' is a newline character, don't process it but start a new line instead
-                    // Likewise CR, LF, and CRLF
-                    if c == '\r' && iter.peek() == Some(&'\n') {
-                        // CRLF only counts as one line break so consume the LF
-                        iter.next();
-                    }
-                    '\n'
-                },
-                '\\' if iter.peek() == Some(&'#') => {
-                    // '\#' is an escaped newline character, treat it as '#'
-                    iter.next();
-                    '#'
-                },
-                _ if font.get_char(u32::from(c)).is_some() => c, // Normal character
-                _ => ' ',                                        // Character is not in the font, replace with space
-            };
-            // Next, insert the character into the word buffer
-            match c {
-                '\n' => {
-                    // Newline
-                    line.push_str(&word);
-                    line_width += word_width;
-                    word.clear();
-                    word_width = 0;
-                    lines.push((line, line_width));
-                    line = String::new();
-                    line_width = 0;
-                    continue
-                },
-                _ => {
-                    // Normal character
-                    if let Some(character) = font.get_char(u32::from(c)) {
-                        word.push(c);
-                        word_width += character.offset;
-                    } else {
-                        // Space when it isn't in the font
-                        word.push(' ');
-                        if let Some(character) = font.get_char(font.first) {
-                            word_width += character.offset;
-                        }
-                    }
-                },
-            };
-
-            // Check if we're going over the max width
-            if let Some(max_width) = max_width {
-                if line_width + word_width > max_width && line_width != 0 {
-                    lines.push((line, line_width));
-                    line = String::new();
-                    line_width = 0;
-                }
-            }
-
-            // Push new word if applicable
-            if c == ' ' {
-                line.push_str(&word);
-                line_width += word_width;
-                word.clear();
-                word_width = 0;
-            }
-        }
-
-        // Add the last word
-        line.push_str(&word);
-        line_width += word_width;
-
-        // Add the last line
-        lines.push((line, line_width));
-
-        lines
+        LineIterator { text: string, font: font.clone(), max_width, word_buf: String::new(), word_width: 0 }
     }
 
     /// Gets width and height of a string using the current draw_font.
@@ -442,9 +454,17 @@ impl Game {
             None => font.tallest_char_height as i32,
         };
 
-        let lines = self.split_string(string, max_width);
+        let mut width = 0;
+        let mut line_count = 0;
+        let mut iter = self.split_string(string, max_width);
+        while let Some((_, current_w)) = iter.next(&font) {
+            if width < current_w {
+                width = current_w;
+            }
+            line_count += 1;
+        }
 
-        (lines.iter().max_by_key(|(_, w)| w).map(|(_, w)| *w).unwrap_or(0), lines.len() as i32 * line_height)
+        (width, line_count * line_height)
     }
 
     /// Draws a string to the screen at the given coordinates.
@@ -472,16 +492,14 @@ impl Game {
             None => font.tallest_char_height as i32,
         };
 
-        let lines = self.split_string(string, max_width);
-
-        let height = lines.len() as i32 * line_height;
         let mut cursor_y = match self.draw_valign {
             Valign::Top => 0,
-            Valign::Middle => -(height / 2),
-            Valign::Bottom => -height,
+            Valign::Middle => -(self.get_string_size(string, Some(line_height), max_width).1 / 2),
+            Valign::Bottom => -self.get_string_size(string, Some(line_height), max_width).1,
         };
 
-        for (line, width) in lines {
+        let mut iter = self.split_string(string, max_width);
+        while let Some((line, width)) = iter.next(&font) {
             let mut cursor_x = match self.draw_halign {
                 Halign::Left => 0,
                 Halign::Middle => -(width as i32 / 2),
