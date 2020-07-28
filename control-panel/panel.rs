@@ -27,7 +27,6 @@ pub struct ControlPanel {
     pub font_small: Font,
 
     pub buttons: Vec<ButtonInfo>,
-    pub big_save_button: ButtonInfo, // todo: next
 
     pub key_buttons: Vec<KeyButton>,
     pub mouse_buttons: Vec<MouseButton>,
@@ -76,7 +75,8 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub struct ButtonInfo {
     name: String,
-    action: Action,
+    action_left_click: Action,
+    action_right_click: Action,
     filename: String,
     show_context_menu: bool,
     sprite: Option<AtlasRef>,
@@ -91,7 +91,8 @@ impl Default for ButtonInfo {
     fn default() -> Self {
         ButtonInfo {
             name: "".to_string(),
-            action: Action::Nothing,
+            action_left_click: Action::Nothing,
+            action_right_click: Action::Nothing,
             filename: "".to_string(),
             show_context_menu: false,
             sprite: None,
@@ -107,7 +108,8 @@ impl Default for ButtonInfo {
 impl ButtonInfo {
     fn new(
         name: &str,
-        action: Action,
+        action_left_click: Action,
+        action_right_click: Action,
         filename: &str,
         show_context_menu: bool,
         sprite: Option<AtlasRef>,
@@ -118,8 +120,9 @@ impl ButtonInfo {
         exists: bool,
     ) -> ButtonInfo {
         ButtonInfo {
-            action: action,
             name: name.to_string(),
+            action_left_click: action_left_click,
+            action_right_click: action_right_click,
             filename: filename.to_string(),
             show_context_menu: show_context_menu,
             sprite: sprite,
@@ -247,7 +250,7 @@ impl ControlPanel {
     pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
         return match action {
             Action::Advance => self.send_advance(),
-            Action::Save {filename: mut s, show_context_menu: show} => self.save(&mut s, show),
+            Action::Save { filename: mut s, show_context_menu: show } => self.save(&mut s, show),
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
@@ -255,14 +258,13 @@ impl ControlPanel {
 
     fn save(&mut self, filename: &str, show_context_menu: bool) -> Result<bool, Box<dyn std::error::Error>> {
         if show_context_menu && filename == "save.bin".to_string() {
-            eprintln!("hit 1 - {} : {}", filename, show_context_menu);
             self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-            self.menu_context = Some(MenuContext::SaveButton(filename.into()));
+            self.menu_context = Some(MenuContext::SaveButton(filename.into())); // todo: consolidate the MenuContext action; option A: point here, option B: call MenuContext with 0 into
         } else {
-            eprintln!("hit else - {} : {}", filename, show_context_menu);
             self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-            println!("In function: Probably saved to {}", filename);
+
         }
+        println!("In function: Probably saved to {}", filename);
         Ok(true)
     }
 
@@ -283,7 +285,7 @@ impl ControlPanel {
         let mut buttons = vec![
             ButtonInfo {
                 name: "advance_button_normal".to_string(),
-                action: Action::Advance,
+                action_left_click: Action::Advance,
                 start_x: 280,
                 start_y: 8,
                 size_x: 59,
@@ -292,7 +294,8 @@ impl ControlPanel {
             },
             ButtonInfo {
                 name: "big_save_button_normal".to_string(),
-                action: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
+                action_left_click: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
+                action_right_click: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
                 filename: "save.bin".to_string(),
                 start_x: 125,
                 start_y: 400,
@@ -418,14 +421,6 @@ impl ControlPanel {
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
             mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
-            big_save_button: ButtonInfo {
-                name: "big_save_button_normal".to_string(),
-                start_x: 125,
-                start_y: 400,
-                size_x: 100,
-                size_y: 30,
-                ..ButtonInfo::default()
-            },
             save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
             stream,
@@ -488,41 +483,27 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
-                    let mut _iter = self.buttons.iter();
-                    for button in _iter {
+                    for button in self.buttons.iter().cloned() {
                         // make iter_mut when consolidating buttons
-                        match &button.action {
+                        match &button.action_left_click { // todo: combine with same match on Right
                             Action::Advance => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    self.perform_action(Action::Advance)?; // todo: make button.advance
+                                    self.perform_action(button.action_left_click)?;
                                     break 'evloop
                                 }
                             },
-                            Action::Save {filename, show_context_menu} => {
+                            Action::Save { filename, show_context_menu } => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    // eprintln!("save action: {:?}", button);
-                                    // eprintln!("filename: {}", filename.to_string());
-                                    // eprintln!("show_context_menu: {}", show_context_menu);
-                                    // let filename = button.filename;
-                                    let show_context_menu = button.show_context_menu;
-                                    self.perform_action(Action::Save { filename: "save.bin".to_string(), show_context_menu: show_context_menu })?;
+                                    self.perform_action(Action::Save {
+                                        filename: filename.to_string(),
+                                        show_context_menu: *show_context_menu,
+                                    })?;
                                     break 'evloop
                                 }
                             },
                             _ => (),
                         }
                     }
-
-
-                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
-                        // eprintln!("{:?}", self.big_save_button);
-                        // self.perform_action(Action::Save("save.bin".to_string()));
-                        // break
-                        // self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-                        // self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-                        // break
-                    } // todo: next
-
 
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
@@ -579,6 +560,28 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Right) => {
+                    for button in self.buttons.iter().cloned() {
+                        // make iter_mut when consolidating buttons
+                        match &button.action_right_click {
+                            Action::Advance => {
+                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                    self.perform_action(button.action_right_click)?;
+                                    break 'evloop
+                                }
+                            },
+                            Action::Save { filename, show_context_menu } => {
+                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                    self.perform_action(Action::Save {
+                                        filename: filename.to_string(),
+                                        show_context_menu: *show_context_menu,
+                                    })?;
+                                    break 'evloop
+                                }
+                            },
+                            _ => (),
+                        }
+                    }
+
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
@@ -641,13 +644,6 @@ impl ControlPanel {
                             self.menu_context = Some(MenuContext::SaveButton(button.filename.clone()));
                             break 'evloop
                         }
-                    }
-
-                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
-                        // todo: next
-                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-                        break
                     }
                 },
 
@@ -742,8 +738,7 @@ impl ControlPanel {
             },
 
             input::Key::Q => {
-                self.stream.send_message(&message::Message::Save { filename: "save.bin".into() })?;
-                println!("Probably saved");
+                self.perform_action(Action::Save {filename: "save.bin".to_string(), show_context_menu: false })?;
             },
 
             input::Key::W => {
