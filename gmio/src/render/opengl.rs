@@ -16,7 +16,7 @@ pub mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
@@ -38,7 +38,6 @@ pub struct RendererImpl {
     imp: imp::PlatformImpl,
     //program: GLuint,
     //vao: GLuint,
-    vbo: GLuint,
 
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
@@ -46,7 +45,7 @@ pub struct RendererImpl {
     stock_atlas_count: u32,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
-    draw_queue: Vec<DrawCommand>,
+    vertex_queue: Vec<Vertex>,
     interpolate_pixels: bool,
 
     model_matrix: [f32; 16],
@@ -60,13 +59,12 @@ pub struct RendererImpl {
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
 static FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
 
-/// A command to draw a sprite or section of a sprite.
-/// These are queued and executed (instanced if possible).
-pub struct DrawCommand {
-    pub atlas_ref: AtlasRef,
-    pub model_view_matrix: [f32; 16],
-    pub blend: (f32, f32, f32),
-    pub alpha: f32,
+pub struct Vertex {
+    pub pos: (f32, f32, f32),
+    pub tex_coord: (f32, f32),
+    pub blend: (f32, f32, f32, f32),
+    pub atlas_xywh: (f32, f32, f32, f32),
+    pub normal: (f32, f32, f32), // currently not used, will be used for 3D when the time comes
 }
 
 unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
@@ -184,28 +182,10 @@ impl RendererImpl {
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
 
-            // set up vertex data and configure vertex attributes
-            let vertices: [f32; 12] = [
-                0.0, 0.0, 0.0, // bottom left
-                1.0, 0.0, 0.0, // bottom right
-                0.0, 1.0, 0.0, // top left
-                1.0, 1.0, 0.0, // top right
-            ];
-            let (mut vbo, mut vao) = (0, 0);
+            // set up vertex array
+            let mut vao = 0;
             gl::GenVertexArrays(1, &mut vao);
-            gl::GenBuffers(1, &mut vbo);
             gl::BindVertexArray(vao);
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (vertices.len() * size_of::<GLfloat>()) as GLsizeiptr,
-                vertices.as_ptr().cast(),
-                gl::STATIC_DRAW,
-            );
-
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 3 * size_of::<GLfloat>() as GLsizei, ptr::null());
-            gl::EnableVertexAttribArray(0);
 
             // Enable and disable GL features
             gl::Enable(gl::SCISSOR_TEST);
@@ -242,7 +222,6 @@ impl RendererImpl {
                 imp,
                 //program,
                 //vao,
-                vbo,
 
                 atlas_packers: vec![],
                 texture_ids: vec![],
@@ -250,7 +229,7 @@ impl RendererImpl {
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 white_pixel: Default::default(),
-                draw_queue: Vec::with_capacity(256),
+                vertex_queue: Vec::with_capacity(1536),
                 interpolate_pixels: options.interpolate_pixels,
 
                 model_matrix: identity_matrix.clone(),
@@ -674,7 +653,7 @@ impl RendererTrait for RendererImpl {
 
             self.imp.swap_buffers();
         }
-        self.draw_queue.clear();
+        self.vertex_queue.clear();
         self.setup_frame(w as _, h as _, clear_colour);
     }
 
@@ -783,54 +762,56 @@ impl RendererTrait for RendererImpl {
         }
 
         let angle = -angle.to_radians();
-        let angle_sin = angle.sin() as f32;
-        let angle_cos = angle.cos() as f32;
+        let angle_sin = angle.sin();
+        let angle_cos = angle.cos();
 
-        #[rustfmt::skip]
-        let model_view_matrix = mat4mult(
-            mat4mult(
-                mat4mult(
-                    // Translate so sprite origin is at [0,0]
-                    [
-                        1.0, 0.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
-                    ],
-                    // Scale according to image size and xscale/yscale
-                    [
-                        xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
-                        0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        0.0, 0.0, 0.0, 1.0,
-                    ]
-                ),
-                // Rotate by image_angle
-                [
-                    angle_cos,  angle_sin, 0.0, 0.0,
-                    -angle_sin, angle_cos, 0.0, 0.0,
-                    0.0,        0.0,       1.0, 0.0,
-                    0.0,        0.0,       0.0, 1.0,
-                ]
-            ),
-            // Move the image into "world coordinates"
-            [
-                1.0,      0.0,      0.0, 0.0,
-                0.0,      1.0,      0.0, 0.0,
-                0.0,      0.0,      1.0, 0.0,
-                x as f32, y as f32, 0.0, 1.0,
-            ]
+        let width: f64 = xscale * f64::from(atlas_ref.w);
+        let height: f64 = yscale * f64::from(atlas_ref.h);
+        let left: f64 = -width * f64::from(atlas_ref.origin_x);
+        let top: f64 = -height * f64::from(atlas_ref.origin_y);
+        let right: f64 = left + width;
+        let bottom: f64 = top + height;
+
+        let blend = (
+            ((colour & 0xFF) as f32) / 255.0,
+            (((colour >> 8) & 0xFF) as f32) / 255.0,
+            (((colour >> 16) & 0xFF) as f32) / 255.0,
+            alpha as f32,
         );
+        let normal = (0.0, 0.0, 0.0);
+        let atlas_xywh = (atlas_ref.x as f32, atlas_ref.y as f32, atlas_ref.w as f32, atlas_ref.h as f32);
 
-        self.draw_queue.push(DrawCommand {
-            atlas_ref,
-            model_view_matrix,
-            blend: (
-                ((colour & 0xFF) as f32) / 255.0,
-                (((colour >> 8) & 0xFF) as f32) / 255.0,
-                (((colour >> 16) & 0xFF) as f32) / 255.0,
-            ),
-            alpha: alpha as f32,
+        let rotate = |xoff, yoff| ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0);
+
+        self.vertex_queue.push(Vertex {
+            pos: rotate(left, top),
+            tex_coord: (0.0, 0.0),
+            blend,
+            atlas_xywh,
+            normal,
+        });
+        for _ in 0..2 {
+            self.vertex_queue.push(Vertex {
+                pos: rotate(right, top),
+                tex_coord: (1.0, 0.0),
+                blend,
+                atlas_xywh,
+                normal,
+            });
+            self.vertex_queue.push(Vertex {
+                pos: rotate(left, bottom),
+                tex_coord: (0.0, 1.0),
+                blend,
+                atlas_xywh,
+                normal,
+            });
+        }
+        self.vertex_queue.push(Vertex {
+            pos: rotate(right, bottom),
+            tex_coord: (1.0, 1.0),
+            blend,
+            atlas_xywh,
+            normal,
         });
     }
 
@@ -877,7 +858,7 @@ impl RendererTrait for RendererImpl {
 
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
-        if self.draw_queue.is_empty() {
+        if self.vertex_queue.is_empty() {
             return
         }
 
@@ -892,100 +873,35 @@ impl RendererTrait for RendererImpl {
             gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<DrawCommand>() * self.draw_queue.len()) as _,
-                self.draw_queue.as_ptr().cast(),
+                (size_of::<Vertex>() * self.vertex_queue.len()) as _,
+                self.vertex_queue.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
 
             gl::Uniform1i(self.loc_tex, 0 as _);
 
-            // layout (location = 1) in mat4 model_view;
-            // layout (location = 6) in vec4 atlas_xywh;
-            // layout (location = 7) in vec3 blend;
-            // layout (location = 8) in float alpha;
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, pos) as *const _);
             gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, model_view_matrix) as *const _,
-            );
+            gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, blend) as *const _);
             gl::EnableVertexAttribArray(2);
-            gl::VertexAttribPointer(
-                2,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
-            );
+            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, tex_coord) as *const _);
             gl::EnableVertexAttribArray(3);
-            gl::VertexAttribPointer(
-                3,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
-            );
+            gl::VertexAttribPointer(3, 3, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, normal) as *const _);
             gl::EnableVertexAttribArray(4);
-            gl::VertexAttribPointer(
-                4,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
-            );
-            gl::EnableVertexAttribArray(6);
-            gl::VertexAttribPointer(
-                6,
-                4,
-                gl::INT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, atlas_ref) + offset_of!(AtlasRef, x)) as *const _,
-            );
-            gl::EnableVertexAttribArray(7);
-            gl::VertexAttribPointer(
-                7,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, blend) as *const _,
-            );
-            gl::EnableVertexAttribArray(8);
-            gl::VertexAttribPointer(
-                8,
-                1,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, alpha) as *const _,
-            );
-            gl::VertexAttribDivisor(1, 1);
-            gl::VertexAttribDivisor(2, 1);
-            gl::VertexAttribDivisor(3, 1);
-            gl::VertexAttribDivisor(4, 1);
-            gl::VertexAttribDivisor(6, 1);
-            gl::VertexAttribDivisor(7, 1);
-            gl::VertexAttribDivisor(8, 1);
+            gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, size_of::<Vertex>() as i32, offset_of!(Vertex, atlas_xywh) as *const _);
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-
-            // layout (location = 5) in vec2 tex_coord;
-            gl::EnableVertexAttribArray(5);
-            gl::VertexAttribPointer(5, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
-
-            gl::DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_queue.len() as i32);
+            gl::DrawArrays(gl::TRIANGLES, 0, self.vertex_queue.len() as i32);
 
             gl::DeleteBuffers(1, &commands_vbo);
         }
 
-        self.draw_queue.clear();
+        self.vertex_queue.clear();
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
