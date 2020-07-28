@@ -803,32 +803,32 @@ impl RendererTrait for RendererImpl {
         };
 
         self.vertex_queue.push(Vertex {
-            pos: rotate(left, top),
-            tex_coord: (tex_left, tex_top),
-            blend: generate_blend(col1),
+            pos: rotate(right, top),
+            tex_coord: (tex_right, tex_top),
+            blend: generate_blend(col2),
             atlas_xywh,
             normal,
         });
         for _ in 0..2 {
             self.vertex_queue.push(Vertex {
-                pos: rotate(right, top),
-                tex_coord: (tex_right, tex_top),
-                blend: generate_blend(col2),
+                pos: rotate(left, top),
+                tex_coord: (tex_left, tex_top),
+                blend: generate_blend(col1),
                 atlas_xywh,
                 normal,
             });
             self.vertex_queue.push(Vertex {
-                pos: rotate(left, bottom),
-                tex_coord: (tex_left, tex_bottom),
-                blend: generate_blend(col4),
+                pos: rotate(right, bottom),
+                tex_coord: (tex_right, tex_bottom),
+                blend: generate_blend(col3),
                 atlas_xywh,
                 normal,
             });
         }
         self.vertex_queue.push(Vertex {
-            pos: rotate(right, bottom),
-            tex_coord: (tex_right, tex_bottom),
-            blend: generate_blend(col3),
+            pos: rotate(left, bottom),
+            tex_coord: (tex_left, tex_bottom),
+            blend: generate_blend(col4),
             atlas_xywh,
             normal,
         });
