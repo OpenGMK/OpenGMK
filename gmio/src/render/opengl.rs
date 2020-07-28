@@ -740,9 +740,13 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn draw_sprite(
+    fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
+        part_x: i32,
+        part_y: i32,
+        part_w: i32,
+        part_h: i32,
         x: f64,
         y: f64,
         xscale: f64,
@@ -772,6 +776,14 @@ impl RendererTrait for RendererImpl {
         let right: f64 = left + width;
         let bottom: f64 = top + height;
 
+        let tex_left = f64::from(part_x) / f64::from(atlas_ref.w);
+        let tex_top = f64::from(part_y) / f64::from(atlas_ref.h);
+        let tex_right = tex_left + f64::from(part_w) / f64::from(atlas_ref.w);
+        let tex_bottom = tex_top + f64::from(part_h) / f64::from(atlas_ref.h);
+
+        let (tex_left, tex_top, tex_right, tex_bottom) =
+            (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
+
         let blend = (
             ((colour & 0xFF) as f32) / 255.0,
             (((colour >> 8) & 0xFF) as f32) / 255.0,
@@ -785,7 +797,7 @@ impl RendererTrait for RendererImpl {
 
         self.vertex_queue.push(Vertex {
             pos: rotate(left, top),
-            tex_coord: (0.0, 0.0),
+            tex_coord: (tex_left, tex_top),
             blend,
             atlas_xywh,
             normal,
@@ -793,14 +805,14 @@ impl RendererTrait for RendererImpl {
         for _ in 0..2 {
             self.vertex_queue.push(Vertex {
                 pos: rotate(right, top),
-                tex_coord: (1.0, 0.0),
+                tex_coord: (tex_right, tex_top),
                 blend,
                 atlas_xywh,
                 normal,
             });
             self.vertex_queue.push(Vertex {
                 pos: rotate(left, bottom),
-                tex_coord: (0.0, 1.0),
+                tex_coord: (tex_left, tex_bottom),
                 blend,
                 atlas_xywh,
                 normal,
@@ -808,7 +820,7 @@ impl RendererTrait for RendererImpl {
         }
         self.vertex_queue.push(Vertex {
             pos: rotate(right, bottom),
-            tex_coord: (1.0, 1.0),
+            tex_coord: (tex_right, tex_bottom),
             blend,
             atlas_xywh,
             normal,
