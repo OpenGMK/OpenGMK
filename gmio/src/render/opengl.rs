@@ -38,7 +38,6 @@ pub struct RendererImpl {
     imp: imp::PlatformImpl,
     //program: GLuint,
     //vao: GLuint,
-
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
@@ -52,8 +51,9 @@ pub struct RendererImpl {
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,  // uniform sampler2D tex
-    loc_proj: GLint, // uniform mat4 projection
+    loc_tex: GLint,    // uniform sampler2D tex
+    loc_proj: GLint,   // uniform mat4 projection
+    loc_repeat: GLint, // uniform bool repeat
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -222,7 +222,6 @@ impl RendererImpl {
                 imp,
                 //program,
                 //vao,
-
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 fbo_ids: vec![],
@@ -238,6 +237,7 @@ impl RendererImpl {
 
                 loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
+                loc_repeat: gl::GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
             };
 
             // Start first frame
@@ -879,6 +879,7 @@ impl RendererTrait for RendererImpl {
             );
 
             gl::Uniform1i(self.loc_tex, 0 as _);
+            gl::Uniform1i(self.loc_repeat, false as _);
 
             // layout (location = 0) in vec3 pos;
             // layout (location = 1) in vec4 blend;
