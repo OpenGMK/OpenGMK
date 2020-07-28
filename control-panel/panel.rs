@@ -13,11 +13,215 @@ use std::{fs::File, io::Read, net::TcpStream, path::PathBuf};
 
 // use std::collections::HashMap;
 
+// section: consts
+
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
 
 const KEY_BUTTON_SIZE: usize = 48;
 const SAVE_BUTTON_SIZE: usize = 32;
+
+const PRIMARY_SAVE_NAME: &str = "save.bin";
+
+// section: enums
+
+#[derive(Debug, Clone)]
+pub enum Action {
+    Advance,
+    Update,
+    Save { filename: String, show_context_menu: bool },
+    Nothing,
+}
+
+#[derive(Clone)]
+pub enum MenuContext {
+    KeyButton(input::Key),
+    MouseButton(input::MouseButton),
+    SaveButton(String),
+}
+
+#[derive(Clone, Copy)]
+pub enum ButtonState {
+    Neutral,
+    NeutralWillPress,
+    NeutralWillPR,
+    NeutralWillPRP,
+    Held,
+    HeldWillRelease,
+    HeldWillRP,
+    HeldWillRPR,
+}
+
+// section: ButtonInfo
+
+#[derive(Debug, Clone)]
+pub struct ButtonInfo {
+    name: String,
+    action_left_click: Action,
+    action_right_click: Action,
+    filename: String,
+    show_context_menu: bool,
+    sprite: Option<AtlasRef>,
+    start_x: i32,
+    start_y: i32,
+    size_x: i32,
+    size_y: i32,
+    alpha_normal: f32,
+    alpha_hover: f32,
+    exists: bool,
+}
+
+impl Default for ButtonInfo {
+    fn default() -> Self {
+        ButtonInfo {
+            name: "".to_string(),
+            action_left_click: Action::Nothing,
+            action_right_click: Action::Nothing,
+            filename: "".to_string(),
+            show_context_menu: false,
+            sprite: None,
+            start_x: 0,
+            start_y: 0,
+            size_x: KEY_BUTTON_SIZE as i32,
+            size_y: KEY_BUTTON_SIZE as i32,
+            alpha_normal: 1.0,
+            alpha_hover: 0.8,
+            exists: true,
+        }
+    }
+}
+
+impl ButtonInfo {
+    fn new(
+        name: &str,
+        action_left_click: Action,
+        action_right_click: Action,
+        filename: &str,
+        show_context_menu: bool,
+        sprite: Option<AtlasRef>,
+        start_x: i32,
+        start_y: i32,
+        size_x: i32,
+        size_y: i32,
+        alpha_normal: f32,
+        alpha_hover: f32,
+        exists: bool,
+    ) -> ButtonInfo {
+        ButtonInfo {
+            name: name.to_string(),
+            action_left_click: action_left_click,
+            action_right_click: action_right_click,
+            filename: filename.to_string(),
+            show_context_menu: show_context_menu,
+            sprite: sprite,
+            start_x: start_x,
+            start_y: start_y,
+            size_x: size_x,
+            size_y: size_y,
+            alpha_normal: alpha_normal,
+            alpha_hover: alpha_hover,
+            exists: exists,
+        }
+    }
+
+    pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
+        mouse_x >= self.start_x
+            && mouse_x < (self.start_x + self.size_x)
+            && mouse_y >= self.start_y
+            && mouse_y < (self.start_y + self.size_y)
+    }
+
+    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
+        // todo: make most of these just part of the object
+        if let Some(sprite) = self.sprite {
+            renderer.draw_sprite(
+                &sprite,
+                self.start_x.into(),
+                self.start_y.into(),
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                if self.contains_point(mouse_x, mouse_y) { self.alpha_hover.into() } else { self.alpha_normal.into() },
+            )
+        }
+    }
+}
+
+// section: structs (to be consolidated into ButtonInfo)
+
+#[derive(Clone, Copy)]
+pub struct KeyButton {
+    pub x: i32,
+    pub y: i32,
+    pub key: input::Key,
+    pub state: ButtonState,
+    pub label: AtlasRef,
+}
+
+#[derive(Clone, Copy)]
+pub struct MouseButton {
+    pub x: i32,
+    pub y: i32,
+    pub button: input::MouseButton,
+    pub state: ButtonState,
+}
+
+#[derive(Clone, Copy)]
+pub struct MousePositionButton {
+    pub x: i32,
+    pub y: i32,
+    pub active: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct SeedChanger {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Clone)]
+pub struct SaveButton {
+    pub x: i32,
+    pub y: i32,
+    pub name: String,
+    pub filename: String,
+    pub exists: bool,
+}
+
+// section: impls (to be consolidated into ButtonInfo)
+
+impl SeedChanger {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 180) && y >= (self.y - 14) && y < (self.y + 3)
+    }
+}
+
+impl KeyButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
+    }
+}
+
+impl MouseButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
+    }
+}
+
+impl MousePositionButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + 25 as i32) && y >= self.y && y < (self.y + 25 as i32)
+    }
+}
+
+impl SaveButton {
+    pub fn contains_point(&self, x: i32, y: i32) -> bool {
+        x >= self.x && x < (self.x + SAVE_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + SAVE_BUTTON_SIZE as i32)
+    }
+}
+
+// section: ControlPanel
 
 pub struct ControlPanel {
     pub window: Window,
@@ -64,207 +268,31 @@ pub struct ControlPanel {
     pub project_dir: PathBuf,
 }
 
-#[derive(Debug, Clone)]
-pub enum Action {
-    Advance,
-    Update,
-    Save { filename: String, show_context_menu: bool },
-    Nothing,
-}
-
-#[derive(Debug, Clone)]
-pub struct ButtonInfo {
-    name: String,
-    action_left_click: Action,
-    action_right_click: Action,
-    filename: String,
-    show_context_menu: bool,
-    sprite: Option<AtlasRef>,
-    start_x: i32,
-    start_y: i32,
-    size_x: i32,
-    size_y: i32,
-    exists: bool,
-}
-
-impl Default for ButtonInfo {
-    fn default() -> Self {
-        ButtonInfo {
-            name: "".to_string(),
-            action_left_click: Action::Nothing,
-            action_right_click: Action::Nothing,
-            filename: "".to_string(),
-            show_context_menu: false,
-            sprite: None,
-            start_x: 0,
-            start_y: 0,
-            size_x: KEY_BUTTON_SIZE as i32,
-            size_y: KEY_BUTTON_SIZE as i32,
-            exists: true,
-        }
-    }
-}
-
-impl ButtonInfo {
-    fn new(
-        name: &str,
-        action_left_click: Action,
-        action_right_click: Action,
-        filename: &str,
-        show_context_menu: bool,
-        sprite: Option<AtlasRef>,
-        start_x: i32,
-        start_y: i32,
-        size_x: i32,
-        size_y: i32,
-        exists: bool,
-    ) -> ButtonInfo {
-        ButtonInfo {
-            name: name.to_string(),
-            action_left_click: action_left_click,
-            action_right_click: action_right_click,
-            filename: filename.to_string(),
-            show_context_menu: show_context_menu,
-            sprite: sprite,
-            start_x: start_x,
-            start_y: start_y,
-            size_x: size_x,
-            size_y: size_y,
-            exists: exists,
-        }
-    }
-
-    pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
-        mouse_x >= self.start_x
-            && mouse_x < (self.start_x + self.size_x)
-            && mouse_y >= self.start_y
-            && mouse_y < (self.start_y + self.size_y)
-    }
-
-    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
-        // todo: make most of these just part of the object
-        if let Some(sprite) = self.sprite {
-            renderer.draw_sprite(
-                &sprite,
-                self.start_x.into(),
-                self.start_y.into(),
-                1.0,
-                1.0,
-                0.0,
-                0xFFFFFF,
-                if self.contains_point(mouse_x, mouse_y) { 1.0 } else { 0.8 },
-            )
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum MenuContext {
-    KeyButton(input::Key),
-    MouseButton(input::MouseButton),
-    SaveButton(String),
-}
-
-#[derive(Clone, Copy)]
-pub struct KeyButton {
-    pub x: i32,
-    pub y: i32,
-    pub key: input::Key,
-    pub state: ButtonState,
-    pub label: AtlasRef,
-}
-
-#[derive(Clone, Copy)]
-pub struct MouseButton {
-    pub x: i32,
-    pub y: i32,
-    pub button: input::MouseButton,
-    pub state: ButtonState,
-}
-
-#[derive(Clone, Copy)]
-pub struct MousePositionButton {
-    pub x: i32,
-    pub y: i32,
-    pub active: bool,
-}
-
-#[derive(Clone, Copy)]
-pub struct SeedChanger {
-    pub x: i32,
-    pub y: i32,
-}
-
-#[derive(Clone)]
-pub struct SaveButton {
-    pub x: i32,
-    pub y: i32,
-    pub name: String,
-    pub filename: String,
-    pub exists: bool,
-}
-
-#[derive(Clone, Copy)]
-pub enum ButtonState {
-    Neutral,
-    NeutralWillPress,
-    NeutralWillPR,
-    NeutralWillPRP,
-    Held,
-    HeldWillRelease,
-    HeldWillRP,
-    HeldWillRPR,
-}
-
-impl SeedChanger {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 180) && y >= (self.y - 14) && y < (self.y + 3)
-    }
-}
-
-impl KeyButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
-    }
-}
-
-impl MouseButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + KEY_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + KEY_BUTTON_SIZE as i32)
-    }
-}
-
-impl MousePositionButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 25 as i32) && y >= self.y && y < (self.y + 25 as i32)
-    }
-}
-
-impl SaveButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + SAVE_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + SAVE_BUTTON_SIZE as i32)
-    }
-}
-
 impl ControlPanel {
     pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
         return match action {
             Action::Advance => self.send_advance(),
             Action::Save { filename: mut s, show_context_menu: show } => self.save(&mut s, show),
+            // todo: maybe rethink name since save buttons can either save or load; possibly Action::Memory
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
     }
 
     fn save(&mut self, filename: &str, show_context_menu: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        if show_context_menu && filename == "save.bin".to_string() {
-            self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-            self.menu_context = Some(MenuContext::SaveButton(filename.into())); // todo: consolidate the MenuContext action; option A: point here, option B: call MenuContext with 0 into
+        // todo: consolidate MenuContext; A: point here, B: call MenuContext w/option 0. B seems best as it's an Event
+        if show_context_menu {
+            if filename == PRIMARY_SAVE_NAME.to_string() {
+                self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+            } else {
+                // todo: make hotkeys F#/ShiftF# for save/load, then display here
+                self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+            }
+            self.menu_context = Some(MenuContext::SaveButton(filename.into()));
         } else {
             self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-
+            println!("In function: Probably saved to {}", filename);
         }
-        println!("In function: Probably saved to {}", filename);
         Ok(true)
     }
 
@@ -294,9 +322,9 @@ impl ControlPanel {
             },
             ButtonInfo {
                 name: "big_save_button_normal".to_string(),
-                action_left_click: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
-                action_right_click: Action::Save { filename: "save.bin".to_string(), show_context_menu: true },
-                filename: "save.bin".to_string(),
+                action_left_click: Action::Save { filename: PRIMARY_SAVE_NAME.to_string(), show_context_menu: true },
+                action_right_click: Action::Save { filename: PRIMARY_SAVE_NAME.to_string(), show_context_menu: true },
+                filename: PRIMARY_SAVE_NAME.to_string(),
                 start_x: 125,
                 start_y: 400,
                 size_x: 100,
@@ -485,7 +513,8 @@ impl ControlPanel {
                 Event::MouseButtonUp(input::MouseButton::Left) => {
                     for button in self.buttons.iter().cloned() {
                         // make iter_mut when consolidating buttons
-                        match &button.action_left_click { // todo: combine with same match on Right
+                        match &button.action_left_click {
+                            // todo: combine with same match on Right
                             Action::Advance => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
                                     self.perform_action(button.action_left_click)?;
@@ -738,14 +767,17 @@ impl ControlPanel {
             },
 
             input::Key::Q => {
-                self.perform_action(Action::Save {filename: "save.bin".to_string(), show_context_menu: false })?;
+                self.perform_action(Action::Save {
+                    filename: PRIMARY_SAVE_NAME.to_string(),
+                    show_context_menu: false,
+                })?;
             },
 
             input::Key::W => {
                 self.stream.send_message(&message::Message::Load {
                     keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
                     mouse_buttons_requested: Vec::new(),
-                    filename: "save.bin".into(),
+                    filename: PRIMARY_SAVE_NAME.into(),
                     instance_requested: self.watched_id,
                 })?;
                 self.await_update()?;
@@ -1172,6 +1204,8 @@ impl ControlPanel {
             .expect("Failed to pack a texture for control panel")
     }
 }
+
+// section: helpers (to be consolidated into scope)
 
 fn draw_text(renderer: &mut Renderer, text: &str, mut x: f64, y: f64, font: &Font, colour: i32, alpha: f64) {
     for c in text.chars() {
