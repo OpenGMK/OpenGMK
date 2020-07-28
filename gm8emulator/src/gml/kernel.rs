@@ -1341,9 +1341,17 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_layer_delete")
     }
 
-    pub fn tile_layer_shift(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function tile_layer_shift")
+    pub fn tile_layer_shift(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (depth, x, y) = expect_args!(args, [real, real, real])?;
+        let mut iter_tile = self.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.tile_list) {
+            let tile = self.tile_list.get(handle);
+            if tile.depth.get() == depth {
+                tile.x.set(tile.x.get() + x);
+                tile.y.set(tile.y.get() + y);
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn tile_layer_find(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
