@@ -10654,13 +10654,28 @@ impl Game {
     }
 
     pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_identity")
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_translation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_translation")
+    pub fn d3d_transform_set_translation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xt, yt, zt) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0,                    0.0,                    0.0,                    0.0,
+            0.0,                    1.0,                    0.0,                    0.0,
+            0.0,                    0.0,                    1.0,                    0.0,
+            xt.into_inner() as f32, yt.into_inner() as f32, zt.into_inner() as f32, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_scaling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10696,14 +10711,30 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_axis")
     }
 
-    pub fn d3d_transform_add_translation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_translation")
+    pub fn d3d_transform_add_translation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xt, yt, zt) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0,                    0.0,                    0.0,                    0.0,
+            0.0,                    1.0,                    0.0,                    0.0,
+            0.0,                    0.0,                    1.0,                    0.0,
+            xt.into_inner() as f32, yt.into_inner() as f32, zt.into_inner() as f32, 1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_scaling(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_scaling")
+    pub fn d3d_transform_add_scaling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xs, ys, zs) = expect_args!(args, [real, real, real])?;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            xs.into_inner() as f32, 0.0,                    0.0,                    0.0,
+            0.0,                    ys.into_inner() as f32, 0.0,                    0.0,
+            0.0,                    0.0,                    zs.into_inner() as f32, 0.0,
+            0.0,                    0.0,                    0.0,                    1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
