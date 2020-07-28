@@ -27,7 +27,7 @@ pub struct ControlPanel {
     pub font_small: Font,
 
     pub buttons: Vec<ButtonInfo>,
-    pub big_save_button: ButtonInfo,
+    pub big_save_button: ButtonInfo, // todo: next
 
     pub key_buttons: Vec<KeyButton>,
     pub mouse_buttons: Vec<MouseButton>,
@@ -65,10 +65,11 @@ pub struct ControlPanel {
     pub project_dir: PathBuf,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Action {
     Advance,
     Update,
+    Save(String),
     Nothing,
 }
 
@@ -76,6 +77,7 @@ pub enum Action {
 pub struct ButtonInfo {
     name: String,
     action: Action,
+    filename: String,
     sprite: Option<AtlasRef>,
     start_x: i32,
     start_y: i32,
@@ -88,6 +90,7 @@ impl Default for ButtonInfo {
         ButtonInfo {
             name: "".to_string(),
             action: Action::Nothing,
+            filename: "".to_string(),
             sprite: None,
             start_x: 0,
             start_y: 0,
@@ -98,17 +101,46 @@ impl Default for ButtonInfo {
 }
 
 impl ButtonInfo {
-    fn new(name: &str, action: Action, sprite: Option<AtlasRef>, start_x: i32, start_y: i32, size_x: i32, size_y: i32) -> ButtonInfo {
-        ButtonInfo { action: action, name: name.to_string(), sprite: sprite, start_x: start_x, start_y: start_y, size_x: size_x, size_y: size_y }
+    fn new(
+        name: &str,
+        action: Action,
+        filename: &str,
+        sprite: Option<AtlasRef>,
+        start_x: i32,
+        start_y: i32,
+        size_x: i32,
+        size_y: i32,
+    ) -> ButtonInfo {
+        ButtonInfo {
+            action: action,
+            name: name.to_string(),
+            filename: filename.to_string(),
+            sprite: sprite,
+            start_x: start_x,
+            start_y: start_y,
+            size_x: size_x,
+            size_y: size_y,
+        }
     }
 
     pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
-        mouse_x >= self.start_x && mouse_x < (self.start_x + self.size_x) && mouse_y >= self.start_y && mouse_y < (self.start_y + self.size_y)
+        mouse_x >= self.start_x
+            && mouse_x < (self.start_x + self.size_x)
+            && mouse_y >= self.start_y
+            && mouse_y < (self.start_y + self.size_y)
     }
 
-    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) { // todo: make most of these just part of the object
+    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
+        // todo: make most of these just part of the object
         if let Some(sprite) = self.sprite {
-            renderer.draw_sprite(&sprite, self.start_x.into(), self.start_y.into(), 1.0, 1.0, 0.0, 0xFFFFFF,
+            renderer.draw_sprite(
+                &sprite,
+                self.start_x.into(),
+                self.start_y.into(),
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
                 if self.contains_point(mouse_x, mouse_y) { 1.0 } else { 0.8 },
             )
         }
@@ -119,7 +151,7 @@ impl ButtonInfo {
 pub enum MenuContext {
     KeyButton(input::Key),
     MouseButton(input::MouseButton),
-    SaveButton(String)
+    SaveButton(String),
 }
 
 #[derive(Clone, Copy)]
@@ -203,18 +235,14 @@ impl SaveButton {
     }
 }
 
-fn set_initial_values() {
-
-}
-
 impl ControlPanel {
     pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
-        let result = match action {
+        return match action {
             Action::Advance => self.send_advance(),
+            Action::Save(mut s) => self.save(&mut s),
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
-        };
-        return result;
+        }
     }
 
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
@@ -232,8 +260,25 @@ impl ControlPanel {
         )?;
 
         let mut buttons = vec![
-            ButtonInfo { name: "advance_button_normal".to_string(), action: Action::Advance, start_x: 280, start_y: 8, size_x: 59, size_y: 40, .. ButtonInfo::default() },
-            ButtonInfo { name: "big_save_button_normal".to_string(), start_x: 125, start_y: 400, size_x: 100, size_y: 30, .. ButtonInfo::default() },
+            ButtonInfo {
+                name: "advance_button_normal".to_string(),
+                action: Action::Advance,
+                start_x: 280,
+                start_y: 8,
+                size_x: 59,
+                size_y: 40,
+                ..ButtonInfo::default()
+            },
+            ButtonInfo {
+                name: "big_save_button_normal".to_string(),
+                action: Action::Save("save.bin".to_string()),
+                filename: "save.bin".to_string(),
+                start_x: 125,
+                start_y: 400,
+                size_x: 100,
+                size_y: 30,
+                ..ButtonInfo::default()
+            },
         ];
 
         let mut atlases = AtlasBuilder::new(1024);
@@ -246,7 +291,7 @@ impl ControlPanel {
             let sprite = Self::upload_bmp(&mut atlases, &file_content);
             button.sprite = Some(AtlasRef::from(sprite));
             // eprintln!("{}/{} - {:?}", button.start_x, button.start_y, button.sprite);
-        };
+        }
 
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
         let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_held.bmp"));
@@ -352,7 +397,14 @@ impl ControlPanel {
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
             mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
-            big_save_button: ButtonInfo { name: "big_save_button_normal".to_string(), start_x: 125, start_y: 400, size_x: 100, size_y: 30, .. ButtonInfo::default() },
+            big_save_button: ButtonInfo {
+                name: "big_save_button_normal".to_string(),
+                start_x: 125,
+                start_y: 400,
+                size_x: 100,
+                size_y: 30,
+                ..ButtonInfo::default()
+            },
             save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
             stream,
@@ -416,14 +468,21 @@ impl ControlPanel {
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
                     for button in self.buttons.iter() {
-                        match button.action {
-                            Action::Advance => (
+                        // make iter_mut when consolidating buttons
+                        match &button.action {
+                            Action::Advance => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
                                     self.perform_action(Action::Advance)?;
-                                    break 'evloop;
+                                    break 'evloop
                                 }
-                            ),
-                            _ => ()
+                            },
+                            Action::Save(_s) => {
+                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                    // self.perform_action(Action::Save(button.filename))?;
+                                    // break 'evloop
+                                }
+                            },
+                            _ => (),
                         }
                     }
 
@@ -476,7 +535,7 @@ impl ControlPanel {
                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                         self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
                         break
-                    }
+                    } // todo: next
 
                     if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) {
                         if let Some(seed) = self.new_seed {
@@ -553,6 +612,7 @@ impl ControlPanel {
                     }
 
                     if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
+                        // todo: next
                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                         self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
                         break
@@ -646,7 +706,7 @@ impl ControlPanel {
     pub fn handle_key(&mut self, key: input::Key) -> Result<(), Box<dyn std::error::Error>> {
         match key {
             input::Key::Space => {
-                self.send_advance()?;
+                self.perform_action(Action::Advance)?;
             },
 
             input::Key::Q => {
@@ -669,6 +729,17 @@ impl ControlPanel {
         }
 
         Ok(())
+    }
+
+    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        if filename == "save.bin".to_string() {
+            self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+            self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
+        } else {
+            self.stream.send_message(&message::Message::Save { filename: "save.bin".into() })?;
+            println!("Probably saved");
+        }
+        Ok(true)
     }
 
     fn send_advance(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
@@ -807,7 +878,7 @@ impl ControlPanel {
             // eprintln!("{:?}", button);
             // eprintln!("w {} h {}", button.sprite.w, button.sprite.h); // todo: implement this
             button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
-        };
+        }
 
         for button in self.key_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
