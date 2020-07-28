@@ -769,8 +769,8 @@ impl RendererTrait for RendererImpl {
         let angle_sin = angle.sin();
         let angle_cos = angle.cos();
 
-        let width: f64 = xscale * f64::from(atlas_ref.w);
-        let height: f64 = yscale * f64::from(atlas_ref.h);
+        let width: f64 = xscale * f64::from(part_w);
+        let height: f64 = yscale * f64::from(part_h);
         let left: f64 = -width * f64::from(atlas_ref.origin_x);
         let top: f64 = -height * f64::from(atlas_ref.origin_y);
         let right: f64 = left + width;
