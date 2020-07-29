@@ -16,6 +16,7 @@ use crate::{
     },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
+    tile::Tile,
 };
 use gmio::{
     render::{BlendType, Renderer, RendererOptions},
@@ -1301,9 +1302,26 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_set_alpha")
     }
 
-    pub fn tile_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function tile_add")
+    pub fn tile_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_index,tile_x,tile_y,width,height,x,y,depth) = expect_args!(args, [int, int, int, int, int, real, real, real])?;
+        self.last_tile_id += 1;
+        self.tile_list.insert(Tile {
+            x: x.into(),
+            y: y.into(),
+            background_index: background_index.into(),
+            tile_x: tile_x.into(),
+            tile_y: tile_y.into(),
+            width: width.into(),
+            height: height.into(),
+            depth: depth.into(),
+            id: self.last_tile_id.into(),
+            alpha: Real::from(1.0).into(),
+            blend: 0xffffff.into(),
+            xscale: Real::from(1.0).into(),
+            yscale: Real::from(1.0).into(),
+            visible: true.into(),
+        });
+        Ok(Default::default())
     }
 
     pub fn tile_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
