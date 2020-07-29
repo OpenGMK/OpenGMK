@@ -64,8 +64,8 @@ pub struct ButtonInfo {
     sprite: Option<AtlasRef>,
     start_x: i32,
     start_y: i32,
-    size_x: i32,
-    size_y: i32,
+    width: i32,
+    height: i32,
     alpha_normal: f32,
     alpha_hover: f32,
     exists: bool,
@@ -82,8 +82,8 @@ impl Default for ButtonInfo {
             sprite: None,
             start_x: 0,
             start_y: 0,
-            size_x: KEY_BUTTON_SIZE as i32,
-            size_y: KEY_BUTTON_SIZE as i32,
+            width: KEY_BUTTON_SIZE as i32,
+            height: KEY_BUTTON_SIZE as i32,
             alpha_normal: 1.0,
             alpha_hover: 0.8,
             exists: true,
@@ -101,8 +101,8 @@ impl ButtonInfo {
         sprite: Option<AtlasRef>,
         start_x: i32,
         start_y: i32,
-        size_x: i32,
-        size_y: i32,
+        width: i32,
+        height: i32,
         alpha_normal: f32,
         alpha_hover: f32,
         exists: bool,
@@ -116,8 +116,8 @@ impl ButtonInfo {
             sprite: sprite,
             start_x: start_x,
             start_y: start_y,
-            size_x: size_x,
-            size_y: size_y,
+            width: width,
+            height: height,
             alpha_normal: alpha_normal,
             alpha_hover: alpha_hover,
             exists: exists,
@@ -126,9 +126,9 @@ impl ButtonInfo {
 
     pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
         mouse_x >= self.start_x
-            && mouse_x < (self.start_x + self.size_x)
+            && mouse_x < (self.start_x + self.width)
             && mouse_y >= self.start_y
-            && mouse_y < (self.start_y + self.size_y)
+            && mouse_y < (self.start_y + self.height)
     }
 
     pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
@@ -320,8 +320,6 @@ impl ControlPanel {
                 action_left_click: Action::Advance,
                 start_x: 280,
                 start_y: 8,
-                size_x: 59,
-                size_y: 40,
                 ..ButtonInfo::default()
             },
             ButtonInfo {
@@ -331,8 +329,6 @@ impl ControlPanel {
                 filename: PRIMARY_SAVE_NAME.to_string(),
                 start_x: 125,
                 start_y: 400,
-                size_x: 100,
-                size_y: 30,
                 ..ButtonInfo::default()
             },
         ];
@@ -346,7 +342,10 @@ impl ControlPanel {
             file.read_to_end(&mut file_content)?;
             let sprite = Self::upload_bmp(&mut atlases, &file_content);
             button.sprite = Some(AtlasRef::from(sprite));
-            // eprintln!("{}/{} - {:?}", button.start_x, button.start_y, button.sprite);
+             // future: if width/height are not 0, aka have a pre-set bound box, ignore this
+            button.width = AtlasRef::from(sprite).w;
+            button.height = AtlasRef::from(sprite).h;
+            // eprintln!("{:?}", button.sprite);
         }
 
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
@@ -929,8 +928,6 @@ impl ControlPanel {
         draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
 
         for button in self.buttons.iter() {
-            // eprintln!("{:?}", button);
-            // eprintln!("w {} h {}", button.sprite.w, button.sprite.h); // todo: implement this
             button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
         }
 
