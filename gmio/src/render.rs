@@ -49,6 +49,8 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
+    fn resize_framebuffer(&mut self, width: u32, height: u32);
+
     fn set_vsync(&self, vsync: bool);
     fn get_vsync(&self) -> bool;
     fn wait_vsync(&self);
@@ -379,6 +381,10 @@ impl Renderer {
         part_h: i32,
     ) -> Box<[u8]> {
         self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
+    }
+
+    pub fn resize_framebuffer(&mut self, width: u32, height: u32) {
+        self.0.resize_framebuffer(width, height)
     }
 
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {

@@ -45,6 +45,8 @@ pub struct RendererImpl {
     fbo_ids: Vec<Option<GLuint>>,
     stock_atlas_count: u32,
     current_atlas: GLuint,
+    framebuffer_texture: GLuint,
+    framebuffer_fbo: GLuint,
     white_pixel: AtlasRef,
     draw_queue: Vec<DrawCommand>,
     interpolate_pixels: bool,
@@ -228,6 +230,33 @@ impl RendererImpl {
             // Configure gl::ReadPixels() to align to 1 byte
             gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
 
+            // Create framebuffer
+            let (mut framebuffer_texture, mut framebuffer_fbo) = (0, 0);
+            gl::GenTextures(1, &mut framebuffer_texture);
+            gl::BindTexture(gl::TEXTURE_2D, framebuffer_texture);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
+            let (width, height) = window.get_inner_size();
+            gl::TexImage2D(
+                gl::TEXTURE_2D,    // target
+                0,                 // level
+                gl::RGBA as _,     // internalformat
+                width as _,        // width
+                height as _,       // height
+                0,                 // border ("must be 0")
+                gl::RGBA,          // format
+                gl::UNSIGNED_BYTE, // type
+                ptr::null(),       // data
+            );
+            gl::GenFramebuffers(1, &mut framebuffer_fbo);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
+            gl::FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                framebuffer_texture,
+                0,
+            );
+
             // Create identity matrix to initialize MVP matrices with
             #[rustfmt::skip]
             let identity_matrix: [f32; 16] = [
@@ -249,6 +278,8 @@ impl RendererImpl {
                 fbo_ids: vec![],
                 stock_atlas_count: 0,
                 current_atlas: 0,
+                framebuffer_texture,
+                framebuffer_fbo,
                 white_pixel: Default::default(),
                 draw_queue: Vec::with_capacity(256),
                 interpolate_pixels: options.interpolate_pixels,
@@ -383,7 +414,7 @@ impl RendererTrait for RendererImpl {
                 gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
                 fbo_ids.push(Some(fbo));
             }
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
 
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
@@ -587,9 +618,66 @@ impl RendererTrait for RendererImpl {
     fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
         self.flush_queue();
         unsafe {
-            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
         }
         self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
+    }
+
+    fn resize_framebuffer(&mut self, width: u32, height: u32) {
+        self.flush_queue();
+        unsafe {
+            // get old size
+            let old_tex = self.framebuffer_texture;
+            gl::BindTexture(gl::TEXTURE_2D, old_tex);
+            let (mut old_width, mut old_height) = (0, 0);
+            gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut old_width);
+            gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut old_height);
+            // set up new texture
+            gl::GenTextures(1, &mut self.framebuffer_texture);
+            gl::BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,    // target
+                0,                 // level
+                gl::RGBA as _,     // internalformat
+                width as _,        // width
+                height as _,       // height
+                0,                 // border ("must be 0")
+                gl::RGBA,          // format
+                gl::UNSIGNED_BYTE, // type
+                ptr::null(),       // data
+            );
+            // set up new fbo
+            let old_fbo = self.framebuffer_fbo;
+            gl::GenFramebuffers(1, &mut self.framebuffer_fbo);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer_fbo);
+            gl::FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                self.framebuffer_texture,
+                0,
+            );
+            // draw old fb onto new
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, old_fbo);
+            let copy_width = width.min(old_width as _);
+            let copy_height = height.min(old_height as _);
+            gl::BlitFramebuffer(
+                0,
+                0,
+                copy_width as _,
+                copy_height as _,
+                0,
+                0,
+                copy_width as _,
+                copy_height as _,
+                gl::COLOR_BUFFER_BIT,
+                gl::LINEAR,
+            );
+            // delete old texture and fbo
+            gl::DeleteTextures(1, &old_tex);
+            gl::DeleteFramebuffers(1, &old_fbo);
+        }
     }
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
@@ -629,10 +717,10 @@ impl RendererTrait for RendererImpl {
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         unsafe {
-            let len = (w * h * 3) as usize;
+            let len = (w * h * 4) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            gl::ReadPixels(x, y, w, h, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
@@ -642,39 +730,16 @@ impl RendererTrait for RendererImpl {
             // store previous texture, upload new texture to gpu
             let mut prev_tex2d = 0;
             gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
-            let mut tex: GLuint = 0;
-            gl::GenTextures(1, &mut tex);
-            gl::BindTexture(gl::TEXTURE_2D, tex);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
-
-            assert_eq!(gl::GetError(), 0);
-
-            // store read fbo
-            let mut prev_read_fbo: GLint = 0;
-            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
-
-            // setup temp fbo
-            let mut fbo: GLuint = 0;
-            gl::GenFramebuffers(1, &mut fbo);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-
-            // bind texture to fbo
-            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
-
-            // draw the damn thing
-            gl::BlitFramebuffer(0, 0, w, h, 0, 0, w, h, gl::COLOR_BUFFER_BIT, gl::NEAREST); // <- TODO applies here
+            gl::BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
 
             assert_eq!(gl::GetError(), 0);
 
             // cleanup
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
             gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
-            gl::DeleteFramebuffers(1, &fbo);
-            gl::DeleteTextures(1, &tex);
-
-            self.imp.swap_buffers();
         }
         self.draw_queue.clear();
+        self.present();
         self.setup_frame(w as _, h as _, clear_colour);
     }
 
@@ -756,7 +821,7 @@ impl RendererTrait for RendererImpl {
                     self.fbo_ids[i] = Some(fbo_id);
                 }
             }
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
             assert_eq!(gl::GetError(), 0);
         }
     }
@@ -996,25 +1061,14 @@ impl RendererTrait for RendererImpl {
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.flush_queue();
-        // flip vertically if drawing to surface
-        let to_surface = {
-            let mut fb_draw = 0;
-            unsafe {
-                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            }
-            fb_draw != 0
-        };
+        // flip vertically because GL textures are flipped vertically vs DX
         #[rustfmt::skip]
-        let proj = if to_surface {
-            mat4mult(proj, [
+        let proj = mat4mult(proj, [
                 1.0, 0.0,  0.0, 0.0,
                 0.0, -1.0, 0.0, 0.0,
                 0.0, 0.0,  1.0, 0.0,
                 0.0, 0.0,  0.0, 1.0,
-            ])
-        } else {
-            proj
-        };
+        ]);
 
         self.view_matrix = view;
         self.proj_matrix = proj;
@@ -1098,26 +1152,13 @@ impl RendererTrait for RendererImpl {
     ) {
         self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
 
-        // adjust port_y if drawing to screen
-        let to_surface = {
-            let mut fb_draw = 0;
-            unsafe {
-                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            }
-            fb_draw != 0
-        };
-
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
         let (width, height) = (width as i32, height as i32);
         let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
         let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
         let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32;
-        let port_y = if to_surface {
-            ((port_y * height) as f64 / unscaled_height as f64) as i32
-        } else {
-            height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
-        };
+        let port_y = ((port_y * height) as f64 / unscaled_height as f64) as i32;
 
         // Set viewport (gl::Viewport, gl::Scissor)
         unsafe {
@@ -1135,12 +1176,28 @@ impl RendererTrait for RendererImpl {
     }
 
     fn present(&mut self) {
-        // Finish drawing frame
-        self.flush_queue();
-
-        // Swap buffers
         unsafe {
-            self.imp.swap_buffers();
+            let mut fb_draw = 0;
+            gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            if fb_draw == self.framebuffer_fbo as _ {
+                // Finish drawing frame
+                self.flush_queue();
+
+                // Get framebuffer size (TODO: scaling)
+                let (mut width, mut height) = (0, 0);
+                gl::BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+                gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+
+                // Draw framebuffer to screen
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+                gl::BlitFramebuffer(0, height - 1, width, -1, 0, 0, width, height, gl::COLOR_BUFFER_BIT, gl::LINEAR);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
+
+                // Present buffer
+                self.imp.swap_buffers();
+            }
         }
     }
 

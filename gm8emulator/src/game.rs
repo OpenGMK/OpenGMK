@@ -947,6 +947,7 @@ impl Game {
             self.unscaled_width = width;
             self.unscaled_height = height;
             self.window.resize(width, height);
+            self.renderer.resize_framebuffer(width, height);
         }
     }
 
