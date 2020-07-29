@@ -235,17 +235,16 @@ impl RendererImpl {
             gl::GenTextures(1, &mut framebuffer_texture);
             gl::BindTexture(gl::TEXTURE_2D, framebuffer_texture);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
-            let (width, height) = window.get_inner_size();
             gl::TexImage2D(
-                gl::TEXTURE_2D,    // target
-                0,                 // level
-                gl::RGBA as _,     // internalformat
-                width as _,        // width
-                height as _,       // height
-                0,                 // border ("must be 0")
-                gl::RGBA,          // format
-                gl::UNSIGNED_BYTE, // type
-                ptr::null(),       // data
+                gl::TEXTURE_2D,      // target
+                0,                   // level
+                gl::RGBA as _,       // internalformat
+                options.size.0 as _, // width
+                options.size.1 as _, // height
+                0,                   // border ("must be 0")
+                gl::RGBA,            // format
+                gl::UNSIGNED_BYTE,   // type
+                ptr::null(),         // data
             );
             gl::GenFramebuffers(1, &mut framebuffer_fbo);
             gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
