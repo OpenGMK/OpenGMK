@@ -9,8 +9,8 @@ use shared::{
     message::{self, Information, InstanceDetails, MessageStream},
     types::{Colour, ID},
 };
-use std::{fs::File, io::Read, net::TcpStream, path::PathBuf};
-
+use chrono::{DateTime, offset::Utc};
+use std::{fs::File, fs, time::SystemTime, io::Read, net::TcpStream, path::PathBuf};
 // use std::collections::HashMap;
 
 // section: consts
@@ -281,8 +281,22 @@ impl ControlPanel {
     }
 
     fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let path = &mut self.project_dir.clone();
+        path.push(filename);
+        let metadata = fs::metadata(path)?;
+
+        let current_time: DateTime<Utc> = SystemTime::now().into();
+
         self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-        println!("Saved to {} - please check the file's timestamp to verify.", filename);
+        if let Ok(systemtime) = metadata.modified() {
+            let datetime: DateTime<Utc> = systemtime.into();
+            eprintln!("{} UTC - {} prior updated time", datetime.format("%b %d, %Y @ %T"), filename);
+            // todo: instead simply get back this timestamp after the message stream
+        }
+
+        eprintln!("{} UTC - {} saved - please check the saved file to verify", current_time.format("%b %d, %Y @ %T"), filename);
+        eprintln!("-----");
+
         Ok(true)
     }
 
