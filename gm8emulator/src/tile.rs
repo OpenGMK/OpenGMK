@@ -16,16 +16,16 @@ pub struct Tile {
     pub background_index: Cell<i32>,
 
     /// The x coordinate to draw from in the background image
-    pub tile_x: Cell<u32>,
+    pub tile_x: Cell<i32>,
 
     /// The y coordinate to draw from in the background image
-    pub tile_y: Cell<u32>,
+    pub tile_y: Cell<i32>,
 
     /// Width of the tile, in both the background image and the room
-    pub width: Cell<u32>,
+    pub width: Cell<i32>,
 
     /// Height of the tile, in both the background image and the room
-    pub height: Cell<u32>,
+    pub height: Cell<i32>,
 
     /// Depth of this tile in the room
     pub depth: Cell<Real>,
