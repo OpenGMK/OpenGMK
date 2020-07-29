@@ -29,7 +29,7 @@ const PRIMARY_SAVE_NAME: &str = "save.bin";
 pub enum Action {
     Advance,
     Update,
-    Save { filename: String, show_context_menu: bool },
+    Save(String),
     Nothing,
 }
 
@@ -272,27 +272,17 @@ impl ControlPanel {
     pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
         return match action {
             Action::Advance => self.send_advance(),
-            Action::Save { filename: mut s, show_context_menu: show } => self.save(&mut s, show),
+            Action::Save(mut s) => self.save(&mut s),
             // todo: maybe rethink name since save buttons can either save or load; possibly Action::Memory
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
+        // &[(String, usize)]
     }
 
-    fn save(&mut self, filename: &str, show_context_menu: bool) -> Result<bool, Box<dyn std::error::Error>> {
-        // todo: consolidate MenuContext; A: point here, B: call MenuContext w/option 0. B seems best as it's an Event
-        if show_context_menu {
-            if filename == PRIMARY_SAVE_NAME.to_string() {
-                self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-            } else {
-                // todo: make hotkeys F#/ShiftF# for save/load, then display here
-                self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
-            }
-            self.menu_context = Some(MenuContext::SaveButton(filename.into()));
-        } else {
-            self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-            println!("In function: Probably saved to {}", filename);
-        }
+    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
+        println!("Saved to {} - please check the file's timestamp to verify.", filename);
         Ok(true)
     }
 
@@ -322,8 +312,8 @@ impl ControlPanel {
             },
             ButtonInfo {
                 name: "big_save_button_normal".to_string(),
-                action_left_click: Action::Save { filename: PRIMARY_SAVE_NAME.to_string(), show_context_menu: true },
-                action_right_click: Action::Save { filename: PRIMARY_SAVE_NAME.to_string(), show_context_menu: true },
+                action_left_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
+                action_right_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
                 filename: PRIMARY_SAVE_NAME.to_string(),
                 start_x: 125,
                 start_y: 400,
@@ -513,20 +503,22 @@ impl ControlPanel {
                 Event::MouseButtonUp(input::MouseButton::Left) => {
                     for button in self.buttons.iter().cloned() {
                         // make iter_mut when consolidating buttons
+                        // todo: extract this match as MouseButton::Right does it as well
                         match &button.action_left_click {
-                            // todo: combine with same match on Right
                             Action::Advance => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
                                     self.perform_action(button.action_left_click)?;
                                     break 'evloop
                                 }
                             },
-                            Action::Save { filename, show_context_menu } => {
+                            Action::Save(filename) => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    self.perform_action(Action::Save {
-                                        filename: filename.to_string(),
-                                        show_context_menu: *show_context_menu,
-                                    })?;
+                                    if button.filename == PRIMARY_SAVE_NAME {
+                                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+                                    } else {
+                                        self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+                                    }
+                                    self.menu_context = Some(MenuContext::SaveButton(filename.into()));
                                     break 'evloop
                                 }
                             },
@@ -598,12 +590,14 @@ impl ControlPanel {
                                     break 'evloop
                                 }
                             },
-                            Action::Save { filename, show_context_menu } => {
+                            Action::Save(filename) => {
                                 if button.contains_point(self.mouse_x, self.mouse_y) {
-                                    self.perform_action(Action::Save {
-                                        filename: filename.to_string(),
-                                        show_context_menu: *show_context_menu,
-                                    })?;
+                                    if button.filename == PRIMARY_SAVE_NAME {
+                                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+                                    } else {
+                                        self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+                                    }
+                                    self.menu_context = Some(MenuContext::SaveButton(filename.into()));
                                     break 'evloop
                                 }
                             },
@@ -722,8 +716,9 @@ impl ControlPanel {
                             match option {
                                 0 => {
                                     // Save
-                                    self.stream.send_message(&message::Message::Save { filename: filename.clone() })?;
-                                    println!("Probably saved to {}", filename);
+                                    let file = filename.to_string();
+                                    self.perform_action(Action::Save(file))?;
+                                    break
                                 },
 
                                 1 => {
@@ -767,10 +762,7 @@ impl ControlPanel {
             },
 
             input::Key::Q => {
-                self.perform_action(Action::Save {
-                    filename: PRIMARY_SAVE_NAME.to_string(),
-                    show_context_menu: false,
-                })?;
+                self.perform_action(Action::Save(PRIMARY_SAVE_NAME.to_string()))?;
             },
 
             input::Key::W => {
