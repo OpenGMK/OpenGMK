@@ -81,6 +81,21 @@ unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
     )
 }
 
+fn split_colour(rgb: i32, alpha: f64) -> (f32, f32, f32, f32) {
+    (
+        ((rgb & 0xFF) as f32) / 255.0,
+        (((rgb >> 8) & 0xFF) as f32) / 255.0,
+        (((rgb >> 16) & 0xFF) as f32) / 255.0,
+        alpha as f32,
+    )
+}
+
+impl From<AtlasRef> for (f32, f32, f32, f32) {
+    fn from(ar: AtlasRef) -> Self {
+        (ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32)
+    }
+}
+
 impl From<BlendType> for GLenum {
     fn from(bt: BlendType) -> Self {
         match bt {
@@ -822,24 +837,16 @@ impl RendererTrait for RendererImpl {
             (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
 
         let normal = (0.0, 0.0, 0.0);
-        let atlas_xywh = (atlas_ref.x as f32, atlas_ref.y as f32, atlas_ref.w as f32, atlas_ref.h as f32);
+        let atlas_xywh = atlas_ref.into();
 
         let rotate = |xoff, yoff| {
             ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0)
-        };
-        let generate_blend = |c| {
-            (
-                ((c & 0xFF) as f32) / 255.0,
-                (((c >> 8) & 0xFF) as f32) / 255.0,
-                (((c >> 16) & 0xFF) as f32) / 255.0,
-                alpha as f32,
-            )
         };
 
         self.vertex_queue.push(Vertex {
             pos: rotate(right, top),
             tex_coord: (tex_right, tex_top),
-            blend: generate_blend(col2),
+            blend: split_colour(col2, alpha),
             atlas_xywh,
             normal,
         });
@@ -847,14 +854,14 @@ impl RendererTrait for RendererImpl {
             self.vertex_queue.push(Vertex {
                 pos: rotate(left, top),
                 tex_coord: (tex_left, tex_top),
-                blend: generate_blend(col1),
+                blend: split_colour(col1, alpha),
                 atlas_xywh,
                 normal,
             });
             self.vertex_queue.push(Vertex {
                 pos: rotate(right, bottom),
                 tex_coord: (tex_right, tex_bottom),
-                blend: generate_blend(col3),
+                blend: split_colour(col3, alpha),
                 atlas_xywh,
                 normal,
             });
@@ -862,7 +869,7 @@ impl RendererTrait for RendererImpl {
         self.vertex_queue.push(Vertex {
             pos: rotate(left, bottom),
             tex_coord: (tex_left, tex_bottom),
-            blend: generate_blend(col4),
+            blend: split_colour(col4, alpha),
             atlas_xywh,
             normal,
         });
