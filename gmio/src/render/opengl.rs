@@ -720,23 +720,21 @@ impl RendererTrait for RendererImpl {
             let len = (w * h * 4) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
             gl::ReadPixels(x, y, w, h, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
 
-    fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
+    fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
         unsafe {
-            // store previous texture, upload new texture to gpu
-            let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            // resize framebuffer
+            self.resize_framebuffer(w as _, h as _);
+            // upload new frame
             gl::BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
+            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, w, h, gl::RGBA, gl::UNSIGNED_BYTE, rgba.as_ptr().cast());
 
             assert_eq!(gl::GetError(), 0);
-
-            // cleanup
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
         }
         self.draw_queue.clear();
         self.present();

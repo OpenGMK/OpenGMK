@@ -99,7 +99,7 @@ pub trait RendererTrait {
     fn set_pixel_interpolation(&mut self, lerping: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
-    fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
+    fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
@@ -391,8 +391,8 @@ impl Renderer {
         self.0.get_pixels(x, y, w, h)
     }
 
-    pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
-        self.0.draw_raw_frame(rgb, w, h, clear_colour)
+    pub fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
+        self.0.draw_raw_frame(rgba, w, h, clear_colour)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
