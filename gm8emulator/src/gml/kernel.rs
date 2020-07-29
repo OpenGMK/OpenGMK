@@ -4147,19 +4147,19 @@ impl Game {
         let handle = match obj {
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
-                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                (0..n+1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                    (0..n+1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
                 } else {
                     None
                 }
             },
             inst_id => {
-                if n == 0 {
+                if n != 0 {
                     None
                 } else {
                     self.instance_list
