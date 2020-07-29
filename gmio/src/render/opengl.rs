@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture},
+    render::{mat4mult, BlendType, PrimitiveType, RendererOptions, RendererTrait, SavedTexture},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -45,6 +45,7 @@ pub struct RendererImpl {
     current_atlas: GLuint,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
+    queue_type: PrimitiveType,
     interpolate_pixels: bool,
 
     model_matrix: [f32; 16],
@@ -112,6 +113,33 @@ impl From<GLenum> for BlendType {
             gl::DST_COLOR => BlendType::DestColour,
             gl::ONE_MINUS_DST_COLOR => BlendType::InvDestColour,
             gl::SRC_ALPHA_SATURATE => BlendType::SrcAlphaSaturate,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<PrimitiveType> for GLenum {
+    fn from(pt: PrimitiveType) -> Self {
+        match pt {
+            PrimitiveType::PointList => gl::POINTS,
+            PrimitiveType::LineList => gl::LINES,
+            PrimitiveType::LineStrip => gl::LINE_STRIP,
+            PrimitiveType::TriList => gl::TRIANGLES,
+            PrimitiveType::TriStrip => gl::TRIANGLE_STRIP,
+            PrimitiveType::TriFan => gl::TRIANGLE_FAN,
+        }
+    }
+}
+
+impl From<GLenum> for PrimitiveType {
+    fn from(pt: GLenum) -> Self {
+        match pt {
+            gl::POINTS => PrimitiveType::PointList,
+            gl::LINES => PrimitiveType::LineList,
+            gl::LINE_STRIP => PrimitiveType::LineStrip,
+            gl::TRIANGLES => PrimitiveType::TriList,
+            gl::TRIANGLE_STRIP => PrimitiveType::TriStrip,
+            gl::TRIANGLE_FAN => PrimitiveType::TriFan,
             _ => unreachable!(),
         }
     }
@@ -229,6 +257,7 @@ impl RendererImpl {
                 current_atlas: 0,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
+                queue_type: PrimitiveType::TriList,
                 interpolate_pixels: options.interpolate_pixels,
 
                 model_matrix: identity_matrix.clone(),
@@ -257,6 +286,14 @@ impl RendererImpl {
             gl::Scissor(0, 0, width as _, height as _);
             gl::ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
+
+    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveType) {
+        if atlas_id != self.current_atlas || self.queue_type != queue_type {
+            self.flush_queue();
+            self.current_atlas = atlas_id;
+            self.queue_type = queue_type;
         }
     }
 
@@ -760,13 +797,10 @@ impl RendererTrait for RendererImpl {
     ) {
         let atlas_ref = texture.clone();
 
-        if atlas_ref.atlas_id != self.current_atlas {
-            if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
-                return
-            } // fail silently when drawing deleted sprite fonts
-            self.flush_queue();
-            self.current_atlas = atlas_ref.atlas_id;
+        if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
+            return // fail silently when drawing deleted sprite fonts
         }
+        self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
 
         let angle = -angle.to_radians();
         let angle_sin = angle.sin();
@@ -1066,7 +1100,7 @@ impl RendererTrait for RendererImpl {
                 offset_of!(Vertex, atlas_xywh) as *const _,
             );
 
-            gl::DrawArrays(gl::TRIANGLES, 0, self.vertex_queue.len() as i32);
+            gl::DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
 
             gl::DeleteBuffers(1, &commands_vbo);
         }

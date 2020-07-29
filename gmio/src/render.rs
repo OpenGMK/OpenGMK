@@ -32,6 +32,16 @@ pub enum BlendType {
     SrcAlphaSaturate,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrimitiveType {
+    PointList,
+    LineList,
+    LineStrip,
+    TriList,
+    TriStrip,
+    TriFan,
+}
+
 pub struct Renderer(Box<dyn RendererTrait>);
 
 pub trait RendererTrait {
