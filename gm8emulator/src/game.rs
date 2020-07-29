@@ -78,7 +78,8 @@ pub struct Game {
 
     pub renderer: Renderer,
     pub background_colour: Colour,
-    pub room_colour: Option<Colour>,
+    pub room_colour: Colour,
+    pub show_room_colour: bool,
 
     pub externals: Vec<Option<external::External>>,
 
@@ -264,7 +265,8 @@ impl Game {
         let room1_width = room1.width;
         let room1_height = room1.height;
         let room1_speed = room1.speed;
-        let room1_colour = if room1.clear_screen { Some(room1.bg_colour.as_decimal().into()) } else { None };
+        let room1_colour = room1.bg_colour.as_decimal().into();
+        let room1_show_colour = room1.clear_screen;
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -756,6 +758,7 @@ impl Game {
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
             room_colour: room1_colour,
+            show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -997,7 +1000,8 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.room_colour = if room.clear_screen { Some(room.bg_colour) } else { None };
+        self.room_colour = room.bg_colour;
+        self.show_room_colour = room.clear_screen;
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
