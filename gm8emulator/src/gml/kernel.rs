@@ -5290,13 +5290,16 @@ impl Game {
     }
 
     pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function parameter_count")
+        return Ok(std::env::args().len().into());
     }
 
-    pub fn parameter_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function parameter_string")
+    pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let arg_index = expect_args!(args, [int])?;
+        let argument = match std::env::args().nth(arg_index as usize) {
+            Some(a) => a,
+            None => "".to_string(),
+        };
+        return Ok(argument.into());
     }
 
     pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
