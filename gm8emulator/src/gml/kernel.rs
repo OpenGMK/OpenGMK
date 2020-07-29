@@ -5296,11 +5296,14 @@ impl Game {
 
     pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let param_index = expect_args!(args, [int])?;
-        let parameter = match self.parameters.get(param_index as usize) {
-            Some(a) => a.to_string(),
-            None => "".to_string(),
-        };
-        return Ok(parameter.into());
+        if param_index >= 0 {
+            Ok(match self.parameters.get(param_index as usize) {
+                Some(a) => a.clone(),
+                None => "".to_string(),
+            }.into())
+        } else {
+            Ok("".into())
+        }
     }
 
     pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
