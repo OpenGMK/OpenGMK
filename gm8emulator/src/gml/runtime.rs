@@ -1151,7 +1151,7 @@ impl Game {
             InstanceVariable::BrowserHeight => Ok((-1f64).into()),
 
             InstanceVariable::DisplayAa => Ok(14f64.into()), // bitfield - 2x/4x/8x AA is 14
-            InstanceVariable::AsyncLoad => todo!(),
+            InstanceVariable::AsyncLoad => Ok((-1f64).into()),
         }
     }
 
