@@ -66,6 +66,10 @@ pub struct ButtonInfo {
     start_y: i32,
     width: i32,
     height: i32,
+    xscale: f32,
+    yscale: f32,
+    angle: f32,
+    colour: i32,
     alpha_normal: f32,
     alpha_hover: f32,
     exists: bool,
@@ -84,6 +88,10 @@ impl Default for ButtonInfo {
             start_y: 0,
             width: KEY_BUTTON_SIZE as i32,
             height: KEY_BUTTON_SIZE as i32,
+            xscale: 1.0,
+            yscale: 1.0,
+            angle: 0.0,
+            colour: 0xFFFFFF,
             alpha_normal: 1.0,
             alpha_hover: 0.8,
             exists: true,
@@ -103,6 +111,10 @@ impl ButtonInfo {
         start_y: i32,
         width: i32,
         height: i32,
+        xscale: f32,
+        yscale: f32,
+        angle: f32,
+        colour: i32,
         alpha_normal: f32,
         alpha_hover: f32,
         exists: bool,
@@ -118,6 +130,10 @@ impl ButtonInfo {
             start_y: start_y,
             width: width,
             height: height,
+            xscale: xscale,
+            yscale: yscale,
+            angle: angle,
+            colour: colour,
             alpha_normal: alpha_normal,
             alpha_hover: alpha_hover,
             exists: exists,
@@ -132,16 +148,15 @@ impl ButtonInfo {
     }
 
     pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
-        // todo: make most of these just part of the object
         if let Some(sprite) = self.sprite {
             renderer.draw_sprite(
                 &sprite,
                 self.start_x.into(),
                 self.start_y.into(),
-                1.0,
-                1.0,
-                0.0,
-                0xFFFFFF,
+                self.xscale.into(),
+                self.yscale.into(),
+                self.angle.into(),
+                self.colour.into(),
                 if self.contains_point(mouse_x, mouse_y) { self.alpha_hover.into() } else { self.alpha_normal.into() },
             )
         }
