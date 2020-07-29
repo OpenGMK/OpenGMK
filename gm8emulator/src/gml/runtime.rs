@@ -250,7 +250,7 @@ impl fmt::Debug for Node {
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::Binary { left, right, operator } => write!(f, "<binary {:?}: {:?}, {:?}>", operator left, right),
+            Node::Binary { left, right, operator } => write!(f, "<binary {:?}: {:?}, {:?}>", operator, left, right),
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
