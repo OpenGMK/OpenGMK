@@ -295,26 +295,6 @@ impl ControlPanel {
         // &[(String, usize)]
     }
 
-    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        let path = &mut self.project_dir.clone();
-        path.push(filename);
-        let metadata = fs::metadata(path)?;
-
-        let current_time: DateTime<Utc> = SystemTime::now().into();
-
-        self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-        if let Ok(systemtime) = metadata.modified() {
-            let datetime: DateTime<Utc> = systemtime.into();
-            eprintln!("{} UTC - {} prior updated time", datetime.format("%b %d, %Y @ %T"), filename);
-            // todo: instead simply get back this timestamp after the message stream
-        }
-
-        eprintln!("{} UTC - {} saved - please check the saved file to verify", current_time.format("%b %d, %Y @ %T"), filename);
-        eprintln!("-----");
-
-        Ok(true)
-    }
-
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut project_dir = std::env::current_dir()?;
         project_dir.push("projects");
@@ -532,15 +512,13 @@ impl ControlPanel {
                     for button in self.buttons.iter().cloned() {
                         // make iter_mut when consolidating buttons
                         // todo: extract this match as MouseButton::Right does it as well
-                        match &button.action_left_click {
-                            Action::Advance => {
-                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                        if button.contains_point(self.mouse_x, self.mouse_y) {
+                            match &button.action_left_click {
+                                Action::Advance => {
                                     self.perform_action(button.action_left_click)?;
                                     break 'evloop
-                                }
-                            },
-                            Action::Save(filename) => {
-                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                },
+                                Action::Save(filename) => {
                                     if button.filename == PRIMARY_SAVE_NAME {
                                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                                     } else {
@@ -548,9 +526,9 @@ impl ControlPanel {
                                     }
                                     self.menu_context = Some(MenuContext::SaveButton(filename.into()));
                                     break 'evloop
-                                }
-                            },
-                            _ => (),
+                                },
+                                _ => (),
+                            }
                         }
                     }
 
@@ -611,15 +589,13 @@ impl ControlPanel {
                 Event::MouseButtonUp(input::MouseButton::Right) => {
                     for button in self.buttons.iter().cloned() {
                         // make iter_mut when consolidating buttons
-                        match &button.action_right_click {
-                            Action::Advance => {
-                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                        if button.contains_point(self.mouse_x, self.mouse_y) {
+                            match &button.action_right_click {
+                                Action::Advance => {
                                     self.perform_action(button.action_right_click)?;
                                     break 'evloop
-                                }
-                            },
-                            Action::Save(filename) => {
-                                if button.contains_point(self.mouse_x, self.mouse_y) {
+                                },
+                                Action::Save(filename) => {
                                     if button.filename == PRIMARY_SAVE_NAME {
                                         self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
                                     } else {
@@ -627,9 +603,9 @@ impl ControlPanel {
                                     }
                                     self.menu_context = Some(MenuContext::SaveButton(filename.into()));
                                     break 'evloop
-                                }
-                            },
-                            _ => (),
+                                },
+                                _ => (),
+                            }
                         }
                     }
 
@@ -882,6 +858,26 @@ impl ControlPanel {
         })?;
 
         self.await_update()
+    }
+
+    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let path = &mut self.project_dir.clone();
+        path.push(filename);
+        let metadata = fs::metadata(path)?;
+
+        let current_time: DateTime<Utc> = SystemTime::now().into();
+
+        self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
+        if let Ok(systemtime) = metadata.modified() {
+            let datetime: DateTime<Utc> = systemtime.into();
+            eprintln!("{} UTC - {} prior updated time", datetime.format("%b %d, %Y @ %T"), filename);
+            // todo: instead simply get back this timestamp after the message stream
+        }
+
+        eprintln!("{} UTC - {} saved - please check the saved file to verify", current_time.format("%b %d, %Y @ %T"), filename);
+        eprintln!("-----");
+
+        Ok(true)
     }
 
     pub fn await_update(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
