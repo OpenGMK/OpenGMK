@@ -1308,7 +1308,7 @@ impl Game {
                 self.room_speed = speed as _
             },
             InstanceVariable::RoomPersistent => todo!(),
-            InstanceVariable::BackgroundColor => self.background_colour = (value.round() as u32).into(),
+            InstanceVariable::BackgroundColor => self.room_colour = (value.round() as u32).into(),
             InstanceVariable::BackgroundShowcolor => self.show_room_colour = value.is_truthy(),
             InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.visible = value.is_truthy(),
