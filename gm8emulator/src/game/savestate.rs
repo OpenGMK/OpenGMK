@@ -202,7 +202,15 @@ impl SaveState {
 
         game.renderer.upload_dynamic_textures(&self.textures);
 
-        if let Some(Some(surf)) = self.surface_target.and_then(|id| self.surfaces.get(id as usize)) {
+        game.renderer.draw_raw_frame(
+            self.screenshot,
+            self.screenshot_width as _,
+            self.screenshot_height as _,
+            game.background_colour,
+        );
+
+        let surfaces = self.surfaces;
+        if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
             game.renderer.set_target(&surf.atlas_ref);
         } else {
             game.renderer.reset_target(
@@ -212,13 +220,6 @@ impl SaveState {
                 self.unscaled_height as _,
             );
         }
-
-        game.renderer.draw_raw_frame(
-            self.screenshot,
-            self.screenshot_width as _,
-            self.screenshot_height as _,
-            game.background_colour,
-        );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
         game.renderer.set_vsync(self.vsync);
@@ -266,7 +267,7 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.surfaces = self.surfaces;
+        game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
