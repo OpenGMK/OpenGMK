@@ -980,7 +980,7 @@ impl Game {
                 }
                 Ok(cwd.into())
             },
-            InstanceVariable::TempDirectory => todo!(),
+            InstanceVariable::TempDirectory => todo!("temp_directory getter"),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
             InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
             InstanceVariable::InstanceId => Ok(self.instance_list.instance_at(array_index as _).into()),
@@ -988,7 +988,7 @@ impl Game {
             InstanceVariable::RoomHeight => Ok(self.room_height.into()),
             InstanceVariable::RoomCaption => Ok(self.caption.clone().into()),
             InstanceVariable::RoomSpeed => Ok(self.room_speed.into()),
-            InstanceVariable::RoomPersistent => todo!(),
+            InstanceVariable::RoomPersistent => todo!("room_persistent getter"),
             InstanceVariable::BackgroundColor => Ok(self.room_colour.as_decimal().into()),
             InstanceVariable::BackgroundShowcolor => Ok(self.show_room_colour.into()),
             InstanceVariable::BackgroundVisible => {
@@ -1095,9 +1095,9 @@ impl Game {
             InstanceVariable::MouseLastbutton => Ok(self.input_manager.mouse_get_lastbutton().into()),
             InstanceVariable::KeyboardKey => Ok(self.input_manager.key_get_key().into()),
             InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
-            InstanceVariable::KeyboardLastchar => todo!(),
-            InstanceVariable::KeyboardString => todo!(),
-            InstanceVariable::CursorSprite => todo!(),
+            InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar getter"),
+            InstanceVariable::KeyboardString => todo!("keyboard_string getter"),
+            InstanceVariable::CursorSprite => todo!("cursor_sprite getter"),
             InstanceVariable::ShowScore => Ok(self.score_capt_d.into()),
             InstanceVariable::ShowLives => Ok(self.lives_capt_d.into()),
             InstanceVariable::ShowHealth => Ok(self.health_capt_d.into()),
@@ -1132,8 +1132,8 @@ impl Game {
             InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
             InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
-            InstanceVariable::ErrorOccurred => todo!(),
-            InstanceVariable::ErrorLast => todo!(),
+            InstanceVariable::ErrorOccurred => todo!("error_occurred getter"),
+            InstanceVariable::ErrorLast => todo!("error_last getter"),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
             InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
             InstanceVariable::GamemakerVersion => Ok(match self.gm_version {
@@ -1307,7 +1307,7 @@ impl Game {
                 }
                 self.room_speed = speed as _
             },
-            InstanceVariable::RoomPersistent => todo!(),
+            InstanceVariable::RoomPersistent => todo!("room_persistent setter"),
             InstanceVariable::BackgroundColor => self.room_colour = (value.round() as u32).into(),
             InstanceVariable::BackgroundShowcolor => self.show_room_colour = value.is_truthy(),
             InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
@@ -1447,17 +1447,17 @@ impl Game {
                     self.input_manager.key_set_lastkey(code as _);
                 }
             },
-            InstanceVariable::KeyboardLastchar => todo!(),
-            InstanceVariable::KeyboardString => todo!(),
-            InstanceVariable::CursorSprite => todo!(),
+            InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),
+            InstanceVariable::KeyboardString => todo!("keyboard_string setter"),
+            InstanceVariable::CursorSprite => todo!("cursor_sprite setter"),
             InstanceVariable::ShowScore => self.score_capt_d = value.is_truthy(),
             InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
             InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
-            InstanceVariable::ErrorOccurred => todo!(),
-            InstanceVariable::ErrorLast => todo!(),
+            InstanceVariable::ErrorOccurred => todo!("error_occurred setter"),
+            InstanceVariable::ErrorLast => todo!("error_last setter"),
             _ => return Err(Error::ReadOnlyVariable(*var)),
         }
         Ok(())
