@@ -989,8 +989,8 @@ impl Game {
             InstanceVariable::RoomCaption => Ok(self.caption.clone().into()),
             InstanceVariable::RoomSpeed => Ok(self.room_speed.into()),
             InstanceVariable::RoomPersistent => todo!(),
-            InstanceVariable::BackgroundColor => todo!(),
-            InstanceVariable::BackgroundShowcolor => todo!(),
+            InstanceVariable::BackgroundColor => Ok(self.room_colour.as_decimal().into()),
+            InstanceVariable::BackgroundShowcolor => Ok(self.show_room_colour.into()),
             InstanceVariable::BackgroundVisible => {
                 Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).visible.into())
             },
@@ -1308,8 +1308,8 @@ impl Game {
                 self.room_speed = speed as _
             },
             InstanceVariable::RoomPersistent => todo!(),
-            InstanceVariable::BackgroundColor => todo!(),
-            InstanceVariable::BackgroundShowcolor => todo!(),
+            InstanceVariable::BackgroundColor => self.background_colour = (value.round() as u32).into(),
+            InstanceVariable::BackgroundShowcolor => self.show_room_colour = value.is_truthy(),
             InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.visible = value.is_truthy(),
                 None => self.backgrounds[0].visible = value.is_truthy(),
