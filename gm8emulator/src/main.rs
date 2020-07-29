@@ -49,6 +49,7 @@ fn xmain() -> i32 {
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
+    opts.optmulti("g", "game-arg", "argument to pass to the game", "ARG");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -121,6 +122,10 @@ fn xmain() -> i32 {
         }
     };
 
+    let mut game_args = matches.opt_strs("game-arg");
+    game_args.insert(0, input.to_string());
+    let game_args = game_args;
+
     let file_path = Path::new(&input);
 
     let mut file = match fs::read(file_path) {
@@ -171,7 +176,7 @@ fn xmain() -> i32 {
         None
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path, time_nanos) {
+    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

@@ -5290,16 +5290,17 @@ impl Game {
     }
 
     pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        return Ok(std::env::args().len().into());
+        // Gamemaker doesn't count parameter 0 (the game exe) as a "parameter"
+        return Ok((self.parameters.len() - 1).into());
     }
 
     pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let arg_index = expect_args!(args, [int])?;
-        let argument = match std::env::args().nth(arg_index as usize) {
-            Some(a) => a,
+        let param_index = expect_args!(args, [int])?;
+        let parameter = match self.parameters.get(param_index as usize) {
+            Some(a) => a.to_string(),
             None => "".to_string(),
         };
-        return Ok(argument.into());
+        return Ok(parameter.into());
     }
 
     pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

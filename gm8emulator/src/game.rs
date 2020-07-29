@@ -142,6 +142,7 @@ pub struct Game {
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
+    pub parameters: Vec<String>,
 
     // window caption
     pub caption: RCStr,
@@ -200,6 +201,7 @@ impl Game {
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
+        game_arguments: Vec<String>
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -806,6 +808,7 @@ impl Game {
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
+            parameters: game_arguments,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
