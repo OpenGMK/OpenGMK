@@ -49,7 +49,7 @@ fn xmain() -> i32 {
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
-    opts.optmulti("g", "game-arg", "argument to pass to the game", "ARG");
+    opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
