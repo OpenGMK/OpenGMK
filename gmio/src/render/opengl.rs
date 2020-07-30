@@ -1086,14 +1086,25 @@ impl RendererTrait for RendererImpl {
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.flush_queue();
-        // flip vertically because GL textures are flipped vertically vs DX
+        // flip vertically if drawing to surface because GL textures are flipped vertically vs DX 
+        let to_surface = {
+            let mut fb_draw = 0;
+            unsafe {
+                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw != self.framebuffer_fbo as _
+        };
         #[rustfmt::skip]
-        let proj = mat4mult(proj, [
+        let proj = if to_surface {
+            mat4mult(proj, [
                 1.0, 0.0,  0.0, 0.0,
                 0.0, -1.0, 0.0, 0.0,
                 0.0, 0.0,  1.0, 0.0,
                 0.0, 0.0,  0.0, 1.0,
-        ]);
+            ])
+        } else {
+            proj
+        };
 
         self.view_matrix = view;
         self.proj_matrix = proj;
@@ -1176,14 +1187,27 @@ impl RendererTrait for RendererImpl {
         port_h: i32,
     ) {
         self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+         
+        // adjust port_y if drawing to screen
+        let to_surface = {
+            let mut fb_draw = 0;
+            unsafe {
+                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            }
+            fb_draw != self.framebuffer_fbo as _
+        };
 
         // Do scaling by comparing unscaled window size to actual size
         // TODO: use the scaling setting correctly
         let (width, height) = (width as i32, height as i32);
         let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
         let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
-        let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32;
-        let port_y = ((port_y * height) as f64 / unscaled_height as f64) as i32;
+        let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32; 
+        let port_y = if to_surface {
+            ((port_y * height) as f64 / unscaled_height as f64) as i32
+        } else {
+            height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
+        };
 
         // Set viewport (gl::Viewport, gl::Scissor)
         unsafe {
@@ -1223,9 +1247,9 @@ impl RendererTrait for RendererImpl {
                 self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
                 self.gl.BlitFramebuffer(
                     0,
-                    height - 1,
+                    0,
                     width,
-                    -1,
+                    height,
                     0,
                     0,
                     width,
