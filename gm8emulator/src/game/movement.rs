@@ -208,7 +208,7 @@ impl Game {
                 instance.y.set(old_y - instance.speed.get() * side_angle.to_radians().sin());
                 instance.bbox_is_stale.set(true);
                 if collider(self, handle).is_none() {
-                    break;
+                    break
                 }
                 bounce = true;
             }
