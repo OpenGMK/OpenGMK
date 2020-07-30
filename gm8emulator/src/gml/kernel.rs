@@ -353,14 +353,11 @@ impl Game {
         let fname = expect_args!(args, [string])?;
         let (width, height) = self.window.get_inner_size();
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(0, 0, width as _, height as _);
+        let rgba_flipped = self.renderer.get_pixels(0, 0, width as _, height as _);
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         // get_pixels returns an upside down image for some reason?
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
+        for row in rgba_flipped.chunks((width * 4) as usize).rev() {
+            rgba.extend_from_slice(row);
         }
         match file::save_image(fname.as_ref(), width, height, rgba.into_boxed_slice()) {
             Ok(()) => Ok(Default::default()),
@@ -377,14 +374,11 @@ impl Game {
         let h = h.min(window_height as i32 - y);
         let y = window_height as i32 - y - h; // upside down
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, w, h);
+        let rgba_flipped = self.renderer.get_pixels(x, y, w, h);
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
         // still upside down
-        for row in rgb.chunks((w * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
+        for row in rgba_flipped.chunks((w * 4) as usize).rev() {
+            rgba.extend_from_slice(row);
         }
         match file::save_image(fname.as_ref(), w as _, h as _, rgba.into_boxed_slice()) {
             Ok(()) => Ok(Default::default()),
@@ -7041,14 +7035,11 @@ impl Game {
         let width = width.min(window_width as i32 - x);
         let height = height.min(window_height as i32 - y);
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, width, height);
+        let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
         // it comes out as upside-down rgb so flip it and convert it to rgba
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
+        for row in rgba_flipped.chunks((width * 4) as usize).rev() {
+            rgba.extend_from_slice(row);
         }
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
@@ -7090,14 +7081,11 @@ impl Game {
             let width = width.min(window_width as i32 - x);
             let height = height.min(window_height as i32 - y);
             self.renderer.flush_queue();
-            let rgb = self.renderer.get_pixels(x, y, width, height);
+            let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
             // it comes out as upside-down rgb so flip it and convert it to rgba
             let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for row in rgb.chunks((width * 3) as usize).rev() {
-                for col in row.chunks(3) {
-                    rgba.extend_from_slice(col);
-                    rgba.push(255);
-                }
+            for row in rgba_flipped.chunks((width * 4) as usize).rev() {
+                rgba.extend_from_slice(row);
             }
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
@@ -7160,7 +7148,7 @@ impl Game {
                 atlas_ref: self
                     .renderer
                     .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_surface".into(), e.into()))?,
             }];
             let sprite_id = self.assets.sprites.len();
             self.assets.sprites.push(Some(Box::new(asset::Sprite {
