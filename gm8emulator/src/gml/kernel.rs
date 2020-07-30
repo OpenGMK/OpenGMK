@@ -1283,7 +1283,8 @@ impl Game {
     }
 
     pub fn tile_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (background_index,tile_x,tile_y,width,height,x,y,depth) = expect_args!(args, [int, int, int, int, int, real, real, real])?;
+        let (background_index, tile_x, tile_y, width, height, x, y, depth) =
+            expect_args!(args, [int, int, int, int, int, real, real, real])?;
         self.last_tile_id += 1;
         self.tile_list.insert(Tile {
             x: x.into(),
@@ -4145,13 +4146,13 @@ impl Game {
         let handle = match obj {
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
-                (0..n+1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    (0..n+1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                    (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
                 } else {
                     None
                 }
@@ -5289,7 +5290,7 @@ impl Game {
 
     pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Gamemaker doesn't count parameter 0 (the game exe) as a "parameter"
-        return Ok((self.parameters.len() - 1).into());
+        return Ok((self.parameters.len() - 1).into())
     }
 
     pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5298,7 +5299,8 @@ impl Game {
             Ok(match self.parameters.get(param_index as usize) {
                 Some(a) => a.clone(),
                 None => "".to_string(),
-            }.into())
+            }
+            .into())
         } else {
             Ok("".into())
         }

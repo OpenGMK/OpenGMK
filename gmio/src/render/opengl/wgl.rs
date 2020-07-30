@@ -2,12 +2,8 @@
 
 #![cfg(target_os = "windows")]
 
-use crate::{
-    render::opengl::gl::{self, types::GLint},
-    window::win32::WindowImpl,
-};
+use crate::window::win32::WindowImpl;
 use std::{
-    ffi::CStr,
     mem::{self, size_of},
     ops::Drop,
     os::raw::{c_char, c_int, c_void},
@@ -40,8 +36,8 @@ pub mod wgl {
 pub struct PlatformImpl {
     context: HGLRC,
     device: HDC,
-    version: (u8, u8),
     dxgi_output: *mut IDXGIOutput,
+    wgl: wgl::Wgl,
 }
 
 /// Global buffer to make fucking gl_generator not need one alloc per query.
@@ -170,10 +166,10 @@ unsafe fn create_context_basic(device: HDC) -> Result<HGLRC, String> {
     }
 }
 
-unsafe fn create_context_attribs(device: HDC) -> Result<HGLRC, String> {
+unsafe fn create_context_attribs(wgl: &wgl::Wgl, device: HDC) -> Result<HGLRC, String> {
     let saved_context = wglGetCurrentContext();
     let saved_device = wglGetCurrentDC();
-    let context = wapi_call!(wgl::CreateContextAttribsARB(
+    let context = wapi_call!(wgl.CreateContextAttribsARB(
         device as *const _ as *const c_void,
         ptr::null_mut(),
         WGL_CCTX_ATTR_ARB as *const _ as *const c_int,
@@ -202,16 +198,30 @@ unsafe fn load_function(name: *const c_char, gl32_dll: HINSTANCE) -> *const c_vo
 
 impl PlatformImpl {
     pub unsafe fn new(window: &WindowImpl) -> Result<Self, String> {
-        static mut GL_LOADED: bool = false;
-        static mut WGL_LOADED: bool = false;
-        static mut OPENGL32_DLL: HINSTANCE = ptr::null_mut();
-
         // our device context
         let device = wapi_call!(GetDC(window.get_hwnd()))?;
 
         // set up pixel format
         let pixel_format = wapi_call!(ChoosePixelFormat(device, &PIXEL_FORMAT))?;
         wapi_call!(SetPixelFormat(device, pixel_format, &PIXEL_FORMAT))?;
+
+        // basic context we can work with
+        let mut context = create_context_basic(device)?;
+
+        // load wgl function pointers
+        let wgl = wgl::Wgl::load_with(Self::get_function_loader()?);
+
+        if wgl.CreateContextAttribsARB.is_loaded() {
+            let ex_context = create_context_attribs(&wgl, device)?;
+            wglDeleteContext(context);
+            context = ex_context;
+        }
+
+        Ok(Self { context, device, dxgi_output: create_dxgi_output()?, wgl })
+    }
+
+    pub unsafe fn get_function_loader() -> Result<Box<dyn FnMut(&'static str) -> *const std::os::raw::c_void>, String> {
+        static mut OPENGL32_DLL: HINSTANCE = ptr::null_mut();
 
         // gl 1.1 functions are located in here then they decided to not do it that way
         let gl32 = match OPENGL32_DLL {
@@ -220,51 +230,12 @@ impl PlatformImpl {
         };
         OPENGL32_DLL = gl32;
 
-        // basic context we can work with
-        let mut context = create_context_basic(device)?;
-
-        // load wgl function pointers
-        if !WGL_LOADED {
-            wgl::load_with(|s: &'static str| glgen_loader(s, gl32));
-            WGL_LOADED = true;
-        }
-
-        if wgl::CreateContextAttribsARB::is_loaded() {
-            let ex_context = create_context_attribs(device)?;
-            wglDeleteContext(context);
-            context = ex_context;
-        }
-
-        // opengl function pointers
-        if !GL_LOADED {
-            gl::load_with(|s: &'static str| glgen_loader(s, gl32));
-            GL_LOADED = true;
-        }
-
-        // debug print
-        let ver_str = CStr::from_ptr(gl::GetString(gl::VERSION).cast()).to_str().unwrap();
-        println!("OpenGL Version: {}", ver_str);
-        let vendor_str = CStr::from_ptr(gl::GetString(gl::VENDOR).cast()).to_str().unwrap();
-        println!("OpenGL Vendor: {}", vendor_str);
-
-        // don't leak memory
-        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
-
-        let mut ver1: GLint = 0;
-        gl::GetIntegerv(gl::MAJOR_VERSION, &mut ver1);
-        let mut ver2: GLint = 0;
-        gl::GetIntegerv(gl::MINOR_VERSION, &mut ver2);
-
-        Ok(Self {
-            context,
-            device,
-            version: (ver1.min(255) as u8, ver2.min(255) as u8),
-            dxgi_output: create_dxgi_output()?,
-        })
+        Ok(Box::new(move |s: &'static str| glgen_loader(s, gl32)))
     }
 
-    pub fn version(&self) -> (u8, u8) {
-        self.version
+    pub unsafe fn clean_function_loader() {
+        // don't leak memory
+        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
     }
 
     pub unsafe fn swap_buffers(&self) {
@@ -272,8 +243,8 @@ impl PlatformImpl {
     }
 
     pub unsafe fn set_swap_interval(&self, n: u32) -> bool {
-        if wgl::SwapIntervalEXT::is_loaded() {
-            wgl::SwapIntervalEXT(n as i32);
+        if self.wgl.SwapIntervalEXT.is_loaded() {
+            self.wgl.SwapIntervalEXT(n as i32);
             true
         } else {
             false
@@ -281,7 +252,7 @@ impl PlatformImpl {
     }
 
     pub unsafe fn get_swap_interval(&self) -> u32 {
-        if wgl::GetSwapIntervalEXT::is_loaded() { wgl::GetSwapIntervalEXT() as u32 } else { 0 }
+        if self.wgl.GetSwapIntervalEXT.is_loaded() { self.wgl.GetSwapIntervalEXT() as u32 } else { 0 }
     }
 
     pub unsafe fn wait_vsync(&self) {

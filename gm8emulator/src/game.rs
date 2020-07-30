@@ -202,7 +202,7 @@ impl Game {
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
-        game_arguments: Vec<String>
+        game_arguments: Vec<String>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
