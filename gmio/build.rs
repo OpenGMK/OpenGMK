@@ -1,4 +1,4 @@
-use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
+use gl_generator::{Api, Fallbacks, Profile, Registry, StructGenerator};
 use std::{
     env,
     error::Error,
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // opengl bindings
     let mut bindings = File::create(&Path::new(&out).join("gl_bindings.rs"))?;
     Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, &OPENGL_EXTENSIONS)
-        .write_bindings(GlobalGenerator, &mut bindings)?;
+        .write_bindings(StructGenerator, &mut bindings)?;
 
     // WGL (Windows OpenGL) Bindings
     if cfg!(target_os = "windows") {
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "WGL_ARB_extensions_string",
             "WGL_EXT_swap_control",
         ])
-        .write_bindings(GlobalGenerator, &mut file)?;
+        .write_bindings(StructGenerator, &mut file)?;
     }
 
     // GLX (OpenGL Extension for X) Bindings
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "GLX_ARB_create_context_profile",
             "GLX_EXT_swap_control",
         ])
-        .write_bindings(GlobalGenerator, &mut file)?;
+        .write_bindings(StructGenerator, &mut file)?;
     }
 
     Ok(())
