@@ -1213,6 +1213,10 @@ impl RendererTrait for RendererImpl {
                 self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
                 self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
                 self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                
+                // Temporarily disable scissor test because apparently it disables drawing to the screen if the
+                // scissor region is too big
+                self.gl.Disable(gl::SCISSOR_TEST);
 
                 // Draw framebuffer to screen
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
@@ -1230,6 +1234,8 @@ impl RendererTrait for RendererImpl {
                     gl::LINEAR,
                 );
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
+                
+                self.gl.Enable(gl::SCISSOR_TEST);
 
                 // Present buffer
                 self.imp.swap_buffers();
