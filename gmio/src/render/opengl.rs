@@ -9,7 +9,7 @@ use cfg_if::cfg_if;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
-use std::{any::Any, mem::size_of, ptr};
+use std::{any::Any, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -129,16 +129,34 @@ impl RendererImpl {
 
         unsafe {
             let imp = imp::PlatformImpl::new(window_impl)?;
+
+            // gl function pointers
             let gl = gl::Gl::load_with(imp::PlatformImpl::get_function_loader()?);
+            imp::PlatformImpl::clean_function_loader();
+
+            // debug print
+            let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
+            println!("OpenGL Version: {}", ver_str);
+            let vendor_str = CStr::from_ptr(gl.GetString(gl::VENDOR).cast()).to_str().unwrap();
+            println!("OpenGL Vendor: {}", vendor_str);
+
+            // requires at least GL 3.3
+            let mut v_maj: GLint = 0;
+            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
+            let mut v_min: GLint = 0;
+            gl.GetIntegerv(gl::MINOR_VERSION, &mut v_min);
+            assert!(
+                (v_maj == 3 && v_min >= 3) || v_maj > 3,
+                "OpenGL version 3.3 or later is required, but found version {}.{}",
+                v_maj,
+                v_min
+            );
 
             if options.vsync {
                 imp.set_swap_interval(1);
             } else {
                 imp.set_swap_interval(0);
             }
-
-            let (v_maj, v_min) = imp.version();
-            assert!((v_maj == 3 && v_min >= 3) || v_maj > 3);
 
             // Compile vertex shader
             let vertex_shader = gl.CreateShader(gl::VERTEX_SHADER);
@@ -302,7 +320,7 @@ impl RendererTrait for RendererImpl {
         let mut size: GLint = 0;
         unsafe {
             self.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            if size == 16384 && std::ffi::CStr::from_ptr(self.gl.GetString(gl::VENDOR).cast()).to_bytes() == b"Intel" {
+            if size == 16384 && CStr::from_ptr(self.gl.GetString(gl::VENDOR).cast()).to_bytes() == b"Intel" {
                 // Intel driver bug throws GL_OUT_OF_MEMORY when allocating 16384x16384 texture
                 // TODO: find proper fix or maybe allow allocating 16384x8192?
                 size = 8192;

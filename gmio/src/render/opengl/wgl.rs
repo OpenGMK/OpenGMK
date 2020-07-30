@@ -2,12 +2,8 @@
 
 #![cfg(target_os = "windows")]
 
-use crate::{
-    render::opengl::gl::{self, types::GLint},
-    window::win32::WindowImpl,
-};
+use crate::window::win32::WindowImpl;
 use std::{
-    ffi::CStr,
     mem::{self, size_of},
     ops::Drop,
     os::raw::{c_char, c_int, c_void},
@@ -40,7 +36,6 @@ pub mod wgl {
 pub struct PlatformImpl {
     context: HGLRC,
     device: HDC,
-    version: (u8, u8),
     dxgi_output: *mut IDXGIOutput,
     wgl: wgl::Wgl,
 }
@@ -222,30 +217,7 @@ impl PlatformImpl {
             context = ex_context;
         }
 
-        // opengl function pointers
-        let gl = gl::Gl::load_with(Self::get_function_loader()?);
-
-        // debug print
-        let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
-        println!("OpenGL Version: {}", ver_str);
-        let vendor_str = CStr::from_ptr(gl.GetString(gl::VENDOR).cast()).to_str().unwrap();
-        println!("OpenGL Vendor: {}", vendor_str);
-
-        // don't leak memory
-        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
-
-        let mut ver1: GLint = 0;
-        gl.GetIntegerv(gl::MAJOR_VERSION, &mut ver1);
-        let mut ver2: GLint = 0;
-        gl.GetIntegerv(gl::MINOR_VERSION, &mut ver2);
-
-        Ok(Self {
-            context,
-            device,
-            version: (ver1.min(255) as u8, ver2.min(255) as u8),
-            dxgi_output: create_dxgi_output()?,
-            wgl,
-        })
+        Ok(Self { context, device, dxgi_output: create_dxgi_output()?, wgl })
     }
 
     pub unsafe fn get_function_loader() -> Result<Box<dyn FnMut(&'static str) -> *const std::os::raw::c_void>, String> {
@@ -261,8 +233,9 @@ impl PlatformImpl {
         Ok(Box::new(move |s: &'static str| glgen_loader(s, gl32)))
     }
 
-    pub fn version(&self) -> (u8, u8) {
-        self.version
+    pub unsafe fn clean_function_loader() {
+        // don't leak memory
+        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
     }
 
     pub unsafe fn swap_buffers(&self) {
