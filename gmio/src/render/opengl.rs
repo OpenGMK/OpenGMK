@@ -9,7 +9,7 @@ use cfg_if::cfg_if;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
-use std::{any::Any, mem::size_of, ptr};
+use std::{any::Any, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -36,6 +36,7 @@ macro_rules! shader_file {
 
 pub struct RendererImpl {
     imp: imp::PlatformImpl,
+    gl: gl::Gl,
     //program: GLuint,
     //vao: GLuint,
     atlas_packers: Vec<DensePacker>,
@@ -68,11 +69,11 @@ pub struct Vertex {
     pub normal: (f32, f32, f32), // currently not used, will be used for 3D when the time comes
 }
 
-unsafe fn shader_info_log(name: &str, id: GLuint) -> String {
+unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
     let mut info_len: GLint = 0;
-    gl::GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut info_len);
+    gl.GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut info_len);
     let mut info = vec![0u8; info_len as usize];
-    gl::GetShaderInfoLog(id, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
+    gl.GetShaderInfoLog(id, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
     info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
     format!(
         "Failed to compile {} shader, compiler output:\n{}",
@@ -170,86 +171,105 @@ impl RendererImpl {
         unsafe {
             let imp = imp::PlatformImpl::new(window_impl)?;
 
+            // gl function pointers
+            let gl = gl::Gl::load_with(imp::PlatformImpl::get_function_loader()?);
+            imp::PlatformImpl::clean_function_loader();
+
+            // debug print
+            let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
+            println!("OpenGL Version: {}", ver_str);
+            let vendor_str = CStr::from_ptr(gl.GetString(gl::VENDOR).cast()).to_str().unwrap();
+            println!("OpenGL Vendor: {}", vendor_str);
+
+            // requires at least GL 3.3
+            let mut v_maj: GLint = 0;
+            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
+            let mut v_min: GLint = 0;
+            gl.GetIntegerv(gl::MINOR_VERSION, &mut v_min);
+            assert!(
+                (v_maj == 3 && v_min >= 3) || v_maj > 3,
+                "OpenGL version 3.3 or later is required, but found version {}.{}",
+                v_maj,
+                v_min
+            );
+
             if options.vsync {
                 imp.set_swap_interval(1);
             } else {
                 imp.set_swap_interval(0);
             }
 
-            let (v_maj, v_min) = imp.version();
-            assert!((v_maj == 3 && v_min >= 3) || v_maj > 3);
-
             // Compile vertex shader
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            gl::ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr().cast()), ptr::null());
-            gl::CompileShader(vertex_shader);
+            let vertex_shader = gl.CreateShader(gl::VERTEX_SHADER);
+            gl.ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr().cast()), ptr::null());
+            gl.CompileShader(vertex_shader);
 
             // Check for vertex shader compile errors
             let mut success = gl::FALSE as GLint;
-            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+            gl.GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                return Err(shader_info_log("vertex", vertex_shader))
+                return Err(shader_info_log(&gl, "vertex", vertex_shader))
             }
 
             // Compile fragment shader
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            gl::ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr().cast()), ptr::null());
-            gl::CompileShader(fragment_shader);
+            let fragment_shader = gl.CreateShader(gl::FRAGMENT_SHADER);
+            gl.ShaderSource(fragment_shader, 1, &(FRAGMENT_SHADER_SOURCE.as_ptr().cast()), ptr::null());
+            gl.CompileShader(fragment_shader);
 
             // Check for fragment shader compile errors
-            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+            gl.GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                return Err(shader_info_log("fragment", fragment_shader))
+                return Err(shader_info_log(&gl, "fragment", fragment_shader))
             }
 
             // Link shaders
-            let program = gl::CreateProgram();
-            gl::AttachShader(program, vertex_shader);
-            gl::AttachShader(program, fragment_shader);
-            gl::LinkProgram(program);
+            let program = gl.CreateProgram();
+            gl.AttachShader(program, vertex_shader);
+            gl.AttachShader(program, fragment_shader);
+            gl.LinkProgram(program);
 
             // Check for linking errors
             // TODO: generalize this like with shader info logs!! please!!!
-            gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+            gl.GetProgramiv(program, gl::LINK_STATUS, &mut success);
             if success != gl::TRUE as GLint {
                 let mut info_len: GLint = 0;
-                gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut info_len);
+                gl.GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut info_len);
                 let mut info = vec![0u8; info_len as usize];
-                gl::GetProgramInfoLog(program, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
+                gl.GetProgramInfoLog(program, info_len as GLsizei, ptr::null_mut(), info.as_mut_ptr() as *mut GLchar);
                 info.set_len((info_len - 1) as usize); // ignore null for str::from_utf8
                 return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
                 ))
             }
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
+            gl.DeleteShader(vertex_shader);
+            gl.DeleteShader(fragment_shader);
 
             // set up vertex array
             let mut vao = 0;
-            gl::GenVertexArrays(1, &mut vao);
-            gl::BindVertexArray(vao);
+            gl.GenVertexArrays(1, &mut vao);
+            gl.BindVertexArray(vao);
 
             // Enable and disable GL features
-            gl::Enable(gl::SCISSOR_TEST);
+            gl.Enable(gl::SCISSOR_TEST);
             // gl::Enable(gl::TEXTURE_2D);
-            gl::Disable(gl::CULL_FACE);
-            gl::Enable(gl::BLEND);
-            gl::Disable(gl::DEPTH_TEST);
+            gl.Disable(gl::CULL_FACE);
+            gl.Enable(gl::BLEND);
+            gl.Disable(gl::DEPTH_TEST);
 
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
             // Unbind VBO
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl.BindBuffer(gl::ARRAY_BUFFER, 0);
 
             // Use program
-            gl::UseProgram(program);
+            gl.UseProgram(program);
 
             // Configure gl::ReadPixels() to read from the back buffer
-            gl::ReadBuffer(gl::BACK);
+            gl.ReadBuffer(gl::BACK);
 
             // Configure gl::ReadPixels() to align to 1 byte
-            gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
+            gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
 
             // Create identity matrix to initialize MVP matrices with
             #[rustfmt::skip]
@@ -279,16 +299,17 @@ impl RendererImpl {
                 view_matrix: identity_matrix.clone(),
                 proj_matrix: identity_matrix.clone(),
 
-                loc_tex: gl::GetUniformLocation(program, b"tex\0".as_ptr().cast()),
-                loc_proj: gl::GetUniformLocation(program, b"projection\0".as_ptr().cast()),
-                loc_repeat: gl::GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
+                loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
+                loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
+                loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
+                gl,
             };
 
             // Start first frame
             renderer.setup_frame(options.size.0, options.size.1, clear_colour);
 
             // verify it actually worked
-            match gl::GetError() {
+            match renderer.gl.GetError() {
                 0 => Ok(renderer),
                 err => Err(format!("Failed to fully initialize OpenGL! (OpenGL code {})", err)),
             }
@@ -297,10 +318,10 @@ impl RendererImpl {
 
     fn setup_frame(&mut self, width: u32, height: u32, clear_colour: Colour) {
         unsafe {
-            gl::Viewport(0, 0, width as _, height as _);
-            gl::Scissor(0, 0, width as _, height as _);
-            gl::ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Viewport(0, 0, width as _, height as _);
+            self.gl.Scissor(0, 0, width as _, height as _);
+            self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 
@@ -315,7 +336,7 @@ impl RendererImpl {
     fn update_matrix(&mut self) {
         let viewproj = mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix));
         unsafe {
-            gl::UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
+            self.gl.UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
         }
     }
 }
@@ -328,8 +349,8 @@ impl RendererTrait for RendererImpl {
     fn max_texture_size(&self) -> u32 {
         let mut size: GLint = 0;
         unsafe {
-            gl::GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            if size == 16384 && std::ffi::CStr::from_ptr(gl::GetString(gl::VENDOR).cast()).to_bytes() == b"Intel" {
+            self.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            if size == 16384 && CStr::from_ptr(self.gl.GetString(gl::VENDOR).cast()).to_bytes() == b"Intel" {
                 // Intel driver bug throws GL_OUT_OF_MEMORY when allocating 16384x16384 texture
                 // TODO: find proper fix or maybe allow allocating 16384x8192?
                 size = 8192;
@@ -347,18 +368,18 @@ impl RendererTrait for RendererImpl {
         unsafe {
             let textures: Vec<GLuint> = {
                 let mut buf = vec![0 as GLuint; packers.len()];
-                gl::GenTextures(buf.len() as _, buf.as_mut_ptr());
+                self.gl.GenTextures(buf.len() as _, buf.as_mut_ptr());
                 for (i, (tex_id, packer)) in buf.iter().copied().zip(&packers).enumerate() {
                     let (width, height) = packer.size();
 
-                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
                     self.current_atlas = i as u32;
 
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
-                    gl::TexImage2D(
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+                    self.gl.TexImage2D(
                         gl::TEXTURE_2D,    // target
                         0,                 // level
                         gl::RGBA as _,     // internalformat
@@ -374,7 +395,7 @@ impl RendererTrait for RendererImpl {
             };
 
             // verify it actually worked
-            match gl::GetError() {
+            match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
             }
@@ -382,11 +403,11 @@ impl RendererTrait for RendererImpl {
             // upload textures
             for (atl_ref, pixels) in &sprites {
                 if self.current_atlas != atl_ref.atlas_id {
-                    gl::BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
+                    self.gl.BindTexture(gl::TEXTURE_2D, textures[atl_ref.atlas_id as usize]);
                     self.current_atlas = atl_ref.atlas_id;
                 }
 
-                gl::TexSubImage2D(
+                self.gl.TexSubImage2D(
                     gl::TEXTURE_2D,       // target
                     0,                    // level
                     atl_ref.x as _,       // xoffset
@@ -400,7 +421,7 @@ impl RendererTrait for RendererImpl {
             }
 
             // verify it actually worked
-            match gl::GetError() {
+            match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to upload textures to GPU! (OpenGL code {})", err)),
             }
@@ -409,12 +430,12 @@ impl RendererTrait for RendererImpl {
             let mut fbo_ids = Vec::with_capacity(textures.len());
             for tex_id in &textures {
                 let mut fbo = 0;
-                gl::GenFramebuffers(1, &mut fbo);
-                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-                gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
+                self.gl.GenFramebuffers(1, &mut fbo);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+                self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
                 fbo_ids.push(Some(fbo));
             }
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
 
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
@@ -444,11 +465,11 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store previous
             let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             // upload texture
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
-            gl::TexSubImage2D(
+            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
+            self.gl.TexSubImage2D(
                 gl::TEXTURE_2D,     // target
                 0,                  // level
                 atlas_ref.x as _,   // xoffset
@@ -461,13 +482,13 @@ impl RendererTrait for RendererImpl {
             );
 
             // verify it actually worked
-            match gl::GetError() {
+            match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
             }
 
             // cleanup
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
         }
         Ok(atlas_ref)
     }
@@ -477,14 +498,14 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store previous
             let mut prev_read_fbo = 0;
-            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
             let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[new_sprite.atlas_id as usize].unwrap());
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
+            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[new_sprite.atlas_id as usize].unwrap());
 
-            gl::CopyTexImage2D(
+            self.gl.CopyTexImage2D(
                 gl::TEXTURE_2D,
                 0,
                 gl::RGBA,
@@ -495,8 +516,8 @@ impl RendererTrait for RendererImpl {
                 0,
             );
 
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
         }
         Ok(new_sprite)
     }
@@ -507,12 +528,12 @@ impl RendererTrait for RendererImpl {
         if atlas_ref.atlas_id >= self.stock_atlas_count {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
-                gl::DeleteTextures(1, &tex_id);
+                self.gl.DeleteTextures(1, &tex_id);
             }
             self.texture_ids[atlas_ref.atlas_id as usize] = None;
             if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
                 unsafe {
-                    gl::DeleteFramebuffers(1, fbo);
+                    self.gl.DeleteFramebuffers(1, fbo);
                 }
                 self.fbo_ids[atlas_ref.atlas_id as usize] = None;
             }
@@ -542,21 +563,21 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store previous
             let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
             let mut prev_fbo = 0;
-            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
 
             // generate new
             let mut tex_id: GLuint = 0;
-            gl::GenTextures(1, &mut tex_id);
-            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            self.gl.GenTextures(1, &mut tex_id);
+            self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
 
-            gl::TexImage2D(
+            self.gl.TexImage2D(
                 gl::TEXTURE_2D,    // target
                 0,                 // level
                 gl::RGBA as _,     // internalformat
@@ -569,24 +590,24 @@ impl RendererTrait for RendererImpl {
             );
 
             // verify it actually worked
-            match gl::GetError() {
+            match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to allocate texture on GPU! (OpenGL code {})", err)),
             }
 
             // generate fbo
             let mut fbo = 0;
-            gl::GenFramebuffers(1, &mut fbo);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+            self.gl.GenFramebuffers(1, &mut fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+            self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
 
             // store opengl texture handles
             self.texture_ids[atlas_id as usize] = Some(tex_id);
             self.fbo_ids[atlas_id as usize] = Some(fbo);
 
             // cleanup
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
+            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
         }
         Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
@@ -595,7 +616,7 @@ impl RendererTrait for RendererImpl {
         self.flush_queue();
         if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
             unsafe {
-                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
+                self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
             }
             self.set_view(
                 atlas_ref.w as _,
@@ -618,7 +639,7 @@ impl RendererTrait for RendererImpl {
     fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
         self.flush_queue();
         unsafe {
-            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
         }
         self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
     }
@@ -627,10 +648,10 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store read fbo
             let mut prev_read_fbo: GLint = 0;
-            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
 
             // bind texture fbo
-            gl::BindFramebuffer(
+            self.gl.BindFramebuffer(
                 gl::READ_FRAMEBUFFER,
                 self.fbo_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
             );
@@ -639,7 +660,7 @@ impl RendererTrait for RendererImpl {
             let len = (atlas_ref.w * atlas_ref.h * 4) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(
+            self.gl.ReadPixels(
                 atlas_ref.x,
                 atlas_ref.y,
                 atlas_ref.w,
@@ -649,10 +670,10 @@ impl RendererTrait for RendererImpl {
                 data.as_mut_ptr().cast(),
             );
 
-            assert_eq!(gl::GetError(), 0);
+            assert_eq!(self.gl.GetError(), 0);
 
             // cleanup
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
 
             data.into_boxed_slice()
         }
@@ -663,7 +684,7 @@ impl RendererTrait for RendererImpl {
             let len = (w * h * 3) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            gl::ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            self.gl.ReadPixels(x, y, w, h, gl::RGB, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             data.into_boxed_slice()
         }
     }
@@ -672,36 +693,46 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store previous texture, upload new texture to gpu
             let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
             let mut tex: GLuint = 0;
-            gl::GenTextures(1, &mut tex);
-            gl::BindTexture(gl::TEXTURE_2D, tex);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, w, h, 0, gl::RGB, gl::UNSIGNED_BYTE, rgb.as_ptr().cast());
+            self.gl.GenTextures(1, &mut tex);
+            self.gl.BindTexture(gl::TEXTURE_2D, tex);
+            self.gl.TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as _,
+                w,
+                h,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                rgb.as_ptr().cast(),
+            );
 
-            assert_eq!(gl::GetError(), 0);
+            assert_eq!(self.gl.GetError(), 0);
 
             // store read fbo
             let mut prev_read_fbo: GLint = 0;
-            gl::GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
 
             // setup temp fbo
             let mut fbo: GLuint = 0;
-            gl::GenFramebuffers(1, &mut fbo);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+            self.gl.GenFramebuffers(1, &mut fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
 
             // bind texture to fbo
-            gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
+            self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex, 0);
 
             // draw the damn thing
-            gl::BlitFramebuffer(0, 0, w, h, 0, 0, w, h, gl::COLOR_BUFFER_BIT, gl::NEAREST); // <- TODO applies here
+            self.gl.BlitFramebuffer(0, 0, w, h, 0, 0, w, h, gl::COLOR_BUFFER_BIT, gl::NEAREST); // <- TODO applies here
 
-            assert_eq!(gl::GetError(), 0);
+            assert_eq!(self.gl.GetError(), 0);
 
             // cleanup
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
-            gl::DeleteFramebuffers(1, &fbo);
-            gl::DeleteTextures(1, &tex);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as GLuint);
+            self.gl.DeleteFramebuffers(1, &fbo);
+            self.gl.DeleteTextures(1, &tex);
 
             self.imp.swap_buffers();
         }
@@ -713,27 +744,27 @@ impl RendererTrait for RendererImpl {
         unsafe {
             // store previous
             let mut prev_tex2d = 0;
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
             for tex_id in self.texture_ids.iter().skip(self.stock_atlas_count as usize).copied() {
                 textures.push(match tex_id {
                     Some(tex_id) => {
-                        gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                        self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
                         let mut width = 0;
                         let mut height = 0;
-                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                        gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                        self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                        self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
                         let mut pixels = vec![0; width as usize * height as usize * 4];
-                        gl::GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
+                        self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
                         Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice() })
                     },
                     None => None,
                 });
             }
 
-            gl::BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
-            assert_eq!(gl::GetError(), 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            assert_eq!(self.gl.GetError(), 0);
 
             textures
         }
@@ -743,14 +774,14 @@ impl RendererTrait for RendererImpl {
         unsafe {
             for tex_id in self.texture_ids.iter_mut().skip(self.stock_atlas_count as usize) {
                 if let Some(tex_id) = tex_id.as_ref() {
-                    gl::DeleteTextures(1, tex_id);
+                    self.gl.DeleteTextures(1, tex_id);
                 }
                 *tex_id = None;
             }
             self.texture_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
             for fbo_id in self.fbo_ids.iter_mut().skip(self.stock_atlas_count as usize) {
                 if let Some(fbo_id) = fbo_id.as_ref() {
-                    gl::DeleteFramebuffers(1, fbo_id);
+                    self.gl.DeleteFramebuffers(1, fbo_id);
                 }
                 *fbo_id = None;
             }
@@ -759,15 +790,15 @@ impl RendererTrait for RendererImpl {
                 let i = i + self.stock_atlas_count as usize;
                 if let Some(tex) = tex.as_ref() {
                     let mut tex_id = 0;
-                    gl::GenTextures(1, &mut tex_id);
-                    gl::BindTexture(gl::TEXTURE_2D, tex_id);
+                    self.gl.GenTextures(1, &mut tex_id);
+                    self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
 
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
-                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as _);
 
-                    gl::TexImage2D(
+                    self.gl.TexImage2D(
                         gl::TEXTURE_2D,
                         0,
                         gl::RGBA as _,
@@ -781,14 +812,20 @@ impl RendererTrait for RendererImpl {
                     self.texture_ids[i] = Some(tex_id);
 
                     let mut fbo_id = 0;
-                    gl::GenFramebuffers(1, &mut fbo_id);
-                    gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo_id);
-                    gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+                    self.gl.GenFramebuffers(1, &mut fbo_id);
+                    self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo_id);
+                    self.gl.FramebufferTexture2D(
+                        gl::READ_FRAMEBUFFER,
+                        gl::COLOR_ATTACHMENT0,
+                        gl::TEXTURE_2D,
+                        tex_id,
+                        0,
+                    );
                     self.fbo_ids[i] = Some(fbo_id);
                 }
             }
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
-            assert_eq!(gl::GetError(), 0);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
@@ -1007,8 +1044,8 @@ impl RendererTrait for RendererImpl {
         let mut src: GLint = 0;
         let mut dst: GLint = 0;
         unsafe {
-            gl::GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
-            gl::GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
+            self.gl.GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
+            self.gl.GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
         }
         ((src as GLenum).into(), (dst as GLenum).into())
     }
@@ -1016,7 +1053,7 @@ impl RendererTrait for RendererImpl {
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
         self.flush_queue();
         unsafe {
-            gl::BlendFunc(src.into(), dst.into());
+            self.gl.BlendFunc(src.into(), dst.into());
         }
     }
 
@@ -1038,31 +1075,31 @@ impl RendererTrait for RendererImpl {
         }
 
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
+            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
             let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
 
             let mut commands_vbo: GLuint = 0;
-            gl::GenBuffers(1, &mut commands_vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            gl::BufferData(
+            self.gl.GenBuffers(1, &mut commands_vbo);
+            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+            self.gl.BufferData(
                 gl::ARRAY_BUFFER,
                 (size_of::<Vertex>() * self.vertex_queue.len()) as _,
                 self.vertex_queue.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
 
-            gl::Uniform1i(self.loc_tex, 0 as _);
-            gl::Uniform1i(self.loc_repeat, false as _);
+            self.gl.Uniform1i(self.loc_tex, 0 as _);
+            self.gl.Uniform1i(self.loc_repeat, false as _);
 
             // layout (location = 0) in vec3 pos;
             // layout (location = 1) in vec4 blend;
             // layout (location = 2) in vec2 tex_coord;
             // layout (location = 3) in vec3 normal;
             // layout (location = 4) in vec4 atlas_xywh;
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
+            self.gl.EnableVertexAttribArray(0);
+            self.gl.VertexAttribPointer(
                 0,
                 3,
                 gl::FLOAT,
@@ -1070,8 +1107,8 @@ impl RendererTrait for RendererImpl {
                 size_of::<Vertex>() as i32,
                 offset_of!(Vertex, pos) as *const _,
             );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
+            self.gl.EnableVertexAttribArray(1);
+            self.gl.VertexAttribPointer(
                 1,
                 4,
                 gl::FLOAT,
@@ -1079,8 +1116,8 @@ impl RendererTrait for RendererImpl {
                 size_of::<Vertex>() as i32,
                 offset_of!(Vertex, blend) as *const _,
             );
-            gl::EnableVertexAttribArray(2);
-            gl::VertexAttribPointer(
+            self.gl.EnableVertexAttribArray(2);
+            self.gl.VertexAttribPointer(
                 2,
                 2,
                 gl::FLOAT,
@@ -1088,8 +1125,8 @@ impl RendererTrait for RendererImpl {
                 size_of::<Vertex>() as i32,
                 offset_of!(Vertex, tex_coord) as *const _,
             );
-            gl::EnableVertexAttribArray(3);
-            gl::VertexAttribPointer(
+            self.gl.EnableVertexAttribArray(3);
+            self.gl.VertexAttribPointer(
                 3,
                 3,
                 gl::FLOAT,
@@ -1097,8 +1134,8 @@ impl RendererTrait for RendererImpl {
                 size_of::<Vertex>() as i32,
                 offset_of!(Vertex, normal) as *const _,
             );
-            gl::EnableVertexAttribArray(4);
-            gl::VertexAttribPointer(
+            self.gl.EnableVertexAttribArray(4);
+            self.gl.VertexAttribPointer(
                 4,
                 4,
                 gl::FLOAT,
@@ -1107,9 +1144,9 @@ impl RendererTrait for RendererImpl {
                 offset_of!(Vertex, atlas_xywh) as *const _,
             );
 
-            gl::DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
+            self.gl.DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
 
-            gl::DeleteBuffers(1, &commands_vbo);
+            self.gl.DeleteBuffers(1, &commands_vbo);
         }
 
         self.vertex_queue.clear();
@@ -1127,7 +1164,7 @@ impl RendererTrait for RendererImpl {
         let to_surface = {
             let mut fb_draw = 0;
             unsafe {
-                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
             }
             fb_draw != 0
         };
@@ -1229,7 +1266,7 @@ impl RendererTrait for RendererImpl {
         let to_surface = {
             let mut fb_draw = 0;
             unsafe {
-                gl::GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
             }
             fb_draw != 0
         };
@@ -1248,16 +1285,16 @@ impl RendererTrait for RendererImpl {
 
         // Set viewport (gl::Viewport, gl::Scissor)
         unsafe {
-            gl::Viewport(port_x, port_y, port_w, port_h);
-            gl::Scissor(port_x, port_y, port_w, port_h);
+            self.gl.Viewport(port_x, port_y, port_w, port_h);
+            self.gl.Scissor(port_x, port_y, port_w, port_h);
         }
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.flush_queue();
         unsafe {
-            gl::ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT);
         }
     }
 

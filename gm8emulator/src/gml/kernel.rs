@@ -16,6 +16,7 @@ use crate::{
     },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
+    tile::Tile,
 };
 use gmio::{
     render::{BlendType, Renderer, RendererOptions},
@@ -1375,9 +1376,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_set_alpha")
     }
 
-    pub fn tile_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function tile_add")
+    pub fn tile_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_index, tile_x, tile_y, width, height, x, y, depth) =
+            expect_args!(args, [int, int, int, int, int, real, real, real])?;
+        self.last_tile_id += 1;
+        self.tile_list.insert(Tile {
+            x: x.into(),
+            y: y.into(),
+            background_index: background_index.into(),
+            tile_x: tile_x.into(),
+            tile_y: tile_y.into(),
+            width: width.into(),
+            height: height.into(),
+            depth: depth.into(),
+            id: self.last_tile_id.into(),
+            alpha: Real::from(1.0).into(),
+            blend: 0xffffff.into(),
+            xscale: Real::from(1.0).into(),
+            yscale: Real::from(1.0).into(),
+            visible: true.into(),
+        });
+        Ok(Default::default())
     }
 
     pub fn tile_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4221,19 +4240,19 @@ impl Game {
         let handle = match obj {
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
-                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                    (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
                 } else {
                     None
                 }
             },
             inst_id => {
-                if n == 0 {
+                if n != 0 {
                     None
                 } else {
                     self.instance_list
@@ -5365,13 +5384,21 @@ impl Game {
     }
 
     pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function parameter_count")
+        // Gamemaker doesn't count parameter 0 (the game exe) as a "parameter"
+        return Ok((self.parameters.len() - 1).into())
     }
 
-    pub fn parameter_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function parameter_string")
+    pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let param_index = expect_args!(args, [int])?;
+        if param_index >= 0 {
+            Ok(match self.parameters.get(param_index as usize) {
+                Some(a) => a.clone(),
+                None => "".to_string(),
+            }
+            .into())
+        } else {
+            Ok("".into())
+        }
     }
 
     pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

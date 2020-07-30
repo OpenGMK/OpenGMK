@@ -78,7 +78,8 @@ pub struct Game {
 
     pub renderer: Renderer,
     pub background_colour: Colour,
-    pub room_colour: Option<Colour>,
+    pub room_colour: Colour,
+    pub show_room_colour: bool,
 
     pub externals: Vec<Option<external::External>>,
 
@@ -142,6 +143,7 @@ pub struct Game {
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
+    pub parameters: Vec<String>,
 
     // window caption
     pub caption: RCStr,
@@ -200,6 +202,7 @@ impl Game {
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
+        game_arguments: Vec<String>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -262,7 +265,8 @@ impl Game {
         let room1_width = room1.width;
         let room1_height = room1.height;
         let room1_speed = room1.speed;
-        let room1_colour = if room1.clear_screen { Some(room1.bg_colour.as_decimal().into()) } else { None };
+        let room1_colour = room1.bg_colour.as_decimal().into();
+        let room1_show_colour = room1.clear_screen;
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -700,10 +704,10 @@ impl Game {
                                 x: Cell::new(t.x.into()),
                                 y: Cell::new(t.y.into()),
                                 background_index: Cell::new(t.source_bg),
-                                tile_x: Cell::new(t.tile_x),
-                                tile_y: Cell::new(t.tile_y),
-                                width: Cell::new(t.width),
-                                height: Cell::new(t.height),
+                                tile_x: Cell::new(t.tile_x as _),
+                                tile_y: Cell::new(t.tile_y as _),
+                                width: Cell::new(t.width as _),
+                                height: Cell::new(t.height as _),
                                 depth: Cell::new(t.depth.into()),
                                 id: Cell::new(t.id),
                                 alpha: Cell::new(1.0.into()),
@@ -754,6 +758,7 @@ impl Game {
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
             room_colour: room1_colour,
+            show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -806,6 +811,7 @@ impl Game {
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
+            parameters: game_arguments,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -994,7 +1000,8 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.room_colour = if room.clear_screen { Some(room.bg_colour) } else { None };
+        self.room_colour = room.bg_colour;
+        self.show_room_colour = room.clear_screen;
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
