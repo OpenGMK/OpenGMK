@@ -213,12 +213,7 @@ impl SaveState {
         if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
             game.renderer.set_target(&surf.atlas_ref);
         } else {
-            game.renderer.reset_target(
-                self.screenshot_width as _,
-                self.screenshot_height as _,
-                self.unscaled_width as _,
-                self.unscaled_height as _,
-            );
+            game.renderer.reset_target();
         }
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);

@@ -201,31 +201,23 @@ impl Game {
             self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
 
-        let ((width, height), (unscaled_width, unscaled_height)) =
-            match self.surface_target.and_then(|id| self.surfaces.get_asset(id)) {
-                Some(surf) => ((surf.width, surf.height), (surf.width, surf.height)),
-                None => (self.window.get_inner_size(), (self.unscaled_width, self.unscaled_height)),
-            };
         // Tell renderer to finish the frame
         if self.surface_target.is_none() {
+            let (width, height) = self.window.get_inner_size();
             self.renderer.present(width, height);
         }
 
         // Reset viewport
         self.renderer.set_view(
-            width,
-            height,
-            unscaled_width,
-            unscaled_height,
             0,
             0,
-            width as _,
-            height as _,
+            self.unscaled_width as _,
+            self.unscaled_height as _,
             0.0,
             0,
             0,
-            width as _,
-            height as _,
+            self.unscaled_width as _,
+            self.unscaled_height as _,
         );
 
         // Apply room caption
@@ -258,16 +250,7 @@ impl Game {
         port_h: i32,
         angle: f64,
     ) -> gml::Result<()> {
-        let ((width, height), (unscaled_width, unscaled_height)) =
-            match self.surface_target.and_then(|id| self.surfaces.get_asset(id)) {
-                Some(surf) => ((surf.width, surf.height), (surf.width, surf.height)),
-                None => (self.window.get_inner_size(), (self.unscaled_width, self.unscaled_height)),
-            };
         self.renderer.set_view(
-            width,
-            height,
-            unscaled_width,
-            unscaled_height,
             src_x,
             src_y,
             src_w,

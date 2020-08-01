@@ -1458,9 +1458,8 @@ impl Game {
     }
 
     pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        let (width, height) = self.window.get_inner_size();
         // reset viewport to top left of room because lol
-        self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        self.renderer.reset_target();
         self.surface_target = None;
         Ok(Default::default())
     }

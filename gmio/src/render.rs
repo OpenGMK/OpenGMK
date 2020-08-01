@@ -69,10 +69,6 @@ pub trait RendererTrait {
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64);
     fn set_view(
         &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -112,7 +108,7 @@ pub trait RendererTrait {
 
     fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
-    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32);
+    fn reset_target(&mut self);
 
     fn draw_sprite_partial(
         &mut self,
@@ -302,10 +298,6 @@ impl Renderer {
 
     pub fn set_view(
         &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -317,10 +309,6 @@ impl Renderer {
         port_h: i32,
     ) {
         self.0.set_view(
-            width,
-            height,
-            unscaled_width,
-            unscaled_height,
             src_x,
             src_y,
             src_w,
@@ -417,8 +405,8 @@ impl Renderer {
         self.0.set_target(atlas_ref)
     }
 
-    pub fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
-        self.0.reset_target(w, h, unscaled_w, unscaled_h)
+    pub fn reset_target(&mut self) {
+        self.0.reset_target()
     }
 
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {

@@ -726,10 +726,6 @@ impl ControlPanel {
 
     pub fn draw(&mut self) {
         self.renderer.set_view(
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
             0,
             0,
             WINDOW_WIDTH as _,

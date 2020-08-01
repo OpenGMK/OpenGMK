@@ -627,10 +627,6 @@ impl RendererTrait for RendererImpl {
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
             }
             self.set_view(
-                atlas_ref.w as _,
-                atlas_ref.h as _,
-                atlas_ref.w as _,
-                atlas_ref.h as _,
                 atlas_ref.x,
                 atlas_ref.y,
                 atlas_ref.w,
@@ -644,12 +640,18 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
+    fn reset_target(&mut self) {
         self.flush_queue();
         unsafe {
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
+
+            // reset view
+            let (mut fb_width, mut fb_height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
+            self.set_view(0, 0, fb_width, fb_height, 0.0, 0, 0, fb_width, fb_height);
         }
-        self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
     }
 
     fn resize_framebuffer(&mut self, width: u32, height: u32) {
@@ -1180,10 +1182,6 @@ impl RendererTrait for RendererImpl {
 
     fn set_view(
         &mut self,
-        _width: u32,
-        _height: u32,
-        _unscaled_width: u32,
-        _unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -1210,7 +1208,7 @@ impl RendererTrait for RendererImpl {
             let mut fb_height = 0;
             unsafe {
                 self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_fbo);
-                self.gl.GetIntegerv(gl::TEXTURE_HEIGHT, &mut fb_height);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
             }
             fb_height - (port_y + port_h)
         };
