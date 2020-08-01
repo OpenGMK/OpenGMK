@@ -768,7 +768,7 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
         }
         self.draw_queue.clear();
-        self.present(w as _, h as _);
+        self.present(w as _, h as _, Scaling::Fixed(1.0));
         self.setup_frame(clear_colour);
     }
 
@@ -1228,7 +1228,7 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn present(&mut self, window_width: u32, window_height: u32) {
+    fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
         if window_width == 0 || window_height == 0 {
             // if we continue, intel will dereference a null pointer
             return
@@ -1250,7 +1250,7 @@ impl RendererTrait for RendererImpl {
                 let (window_width, window_height) = (window_width as i32, window_height as i32);
 
                 // Scaling
-                let (w_x, w_y, w_w, w_h) = match Scaling::Aspect { // TODO
+                let (w_x, w_y, w_w, w_h) = match scaling {
                     Scaling::Fixed(scale) => {
                         // TODO: check if intel access violates when draw region is bigger than window in general
                         let w = (f64::from(fb_width) * scale) as i32;
@@ -1307,7 +1307,7 @@ impl RendererTrait for RendererImpl {
 
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
         // Present screen
-        self.present(window_width, window_height);
+        self.present(window_width, window_height, Scaling::Fixed(1.0));
 
         // Start next frame
         self.setup_frame(clear_colour)
