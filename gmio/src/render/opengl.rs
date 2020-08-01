@@ -906,8 +906,6 @@ impl RendererTrait for RendererImpl {
         colour: i32,
         alpha: f64,
     ) {
-        let x = x - 0.5;
-        let y = y - 0.5;
         let atlas_ref = texture.clone();
 
         if atlas_ref.atlas_id != self.current_atlas {
@@ -926,19 +924,28 @@ impl RendererTrait for RendererImpl {
         let model_view_matrix = mat4mult(
             mat4mult(
                 mat4mult(
-                    // Translate so sprite origin is at [0,0]
+                mat4mult(
+                        // Translate so sprite origin is at [0,0]
+                        [
+                            1.0, 0.0, 0.0, 0.0,
+                            0.0, 1.0, 0.0, 0.0,
+                            0.0, 0.0, 1.0, 0.0,
+                            -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
+                        ],
+                        // Scale according to image size and xscale/yscale
+                        [
+                            xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
+                            0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
+                            0.0, 0.0, 1.0, 0.0,
+                            0.0, 0.0, 0.0, 1.0,
+                        ]
+                    ),
+                    // Translate by half a pixel, as GM does
                     [
                         1.0, 0.0, 0.0, 0.0,
                         0.0, 1.0, 0.0, 0.0,
                         0.0, 0.0, 1.0, 0.0,
-                        -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
-                    ],
-                    // Scale according to image size and xscale/yscale
-                    [
-                        xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
-                        0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        0.0, 0.0, 0.0, 1.0,
+                        -0.5, -0.5, 0.0, 1.0,
                     ]
                 ),
                 // Rotate by image_angle
