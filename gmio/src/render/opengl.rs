@@ -331,10 +331,8 @@ impl RendererImpl {
             self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-            // setup proj and viewport
-            self.set_projection_ortho(0.0, 0.0, width.into(), height.into(), 0.0);
-            self.gl.Viewport(0, 0, width as _, height as _);
-            self.gl.Scissor(0, 0, width as _, height as _);
+            // set view
+            self.set_view(0, 0, width, height, 0.0, 0, 0, width, height);
             // clear screen
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
