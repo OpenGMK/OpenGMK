@@ -352,8 +352,8 @@ impl Game {
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
-        let (width, height) = self.window.get_inner_size();
         self.renderer.flush_queue();
+        let (width, height) = (self.unscaled_width, self.unscaled_height);
         let rgba_flipped = self.renderer.get_pixels(0, 0, width as _, height as _);
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         // get_pixels returns an upside down image for some reason?
@@ -370,10 +370,9 @@ impl Game {
         let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let w = w.min(window_width as i32 - x);
-        let h = h.min(window_height as i32 - y);
-        let y = window_height as i32 - y - h; // upside down
+        let w = w.min(self.unscaled_width as i32 - x);
+        let h = h.min(self.unscaled_height as i32 - y);
+        let y = self.unscaled_height as i32 - y - h; // upside down
         self.renderer.flush_queue();
         let rgba_flipped = self.renderer.get_pixels(x, y, w, h);
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
@@ -389,7 +388,7 @@ impl Game {
 
     pub fn draw_getpixel(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let y = self.window.get_inner_size().1 as i32 - y - 1; // upside down
+        let y = self.unscaled_height as i32 - y - 1; // upside down
         self.renderer.flush_queue();
         let data = self.renderer.get_pixels(x, y, 1, 1);
         Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
@@ -7033,9 +7032,8 @@ impl Game {
         // but we need the pixel data to make the colliders
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let width = width.min(window_width as i32 - x);
-        let height = height.min(window_height as i32 - y);
+        let width = width.min(self.unscaled_width as i32 - x);
+        let height = height.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
         let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
         // it comes out as upside-down rgb so flip it and convert it to rgba
@@ -7079,9 +7077,8 @@ impl Game {
             // get image
             let x = x.max(0);
             let y = y.max(0);
-            let (window_width, window_height) = self.window.get_inner_size();
-            let width = width.min(window_width as i32 - x);
-            let height = height.min(window_height as i32 - y);
+            let width = width.min(self.unscaled_width as i32 - x);
+            let height = height.min(self.unscaled_height as i32 - y);
             self.renderer.flush_queue();
             let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
             // it comes out as upside-down rgb so flip it and convert it to rgba
