@@ -1126,8 +1126,7 @@ impl Game {
     }
 
     pub fn draw_background_stretched_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (bg_index, x, y, w, h, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, int, real])?;
+        let (bg_index, x, y, w, h, colour, alpha) = expect_args!(args, [int, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite(
