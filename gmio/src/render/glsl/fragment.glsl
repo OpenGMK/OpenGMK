@@ -20,8 +20,8 @@ void main() {
         );
     } else {
         sprite_coord = vec2(
-            clamp(frag_tex_coord.x * frag_atlas_xywh.z, 0.0, frag_atlas_xywh.z - 1),
-            clamp(frag_tex_coord.y * frag_atlas_xywh.w, 0.0, frag_atlas_xywh.w - 1)
+            clamp(frag_tex_coord.x * frag_atlas_xywh.z, 0.5, frag_atlas_xywh.z - 0.5),
+            clamp(frag_tex_coord.y * frag_atlas_xywh.w, 0.5, frag_atlas_xywh.w - 0.5)
         );
     }
     vec4 tex_col = texture(tex, vec2(
