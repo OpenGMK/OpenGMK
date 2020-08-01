@@ -1253,8 +1253,8 @@ impl RendererTrait for RendererImpl {
                 let (w_x, w_y, w_w, w_h) = match Scaling::Aspect { // TODO
                     Scaling::Fixed(scale) => {
                         // TODO: check if intel access violates when draw region is bigger than window in general
-                        let w = fb_width * scale as i32 / 100;
-                        let h = fb_height * scale as i32 / 100;
+                        let w = (f64::from(fb_width) * scale) as i32;
+                        let h = (f64::from(fb_height) * scale) as i32;
                         ((window_width - w) / 2, (window_height - h) / 2, w, h)
                     },
                     Scaling::Aspect => {

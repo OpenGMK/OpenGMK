@@ -11,8 +11,11 @@ use std::any::Any;
 pub use crate::atlas::AtlasRef;
 
 pub enum Scaling {
-    Fixed(u32),
+    /// Fixed scale, with a multiplier. The multiplier always be strictly positive.
+    Fixed(f64),
+    /// Scale with window, but preserve aspect ratio.
     Aspect,
+    /// Scale to fill window.
     Full,
 }
 
