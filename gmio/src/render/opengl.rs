@@ -900,6 +900,8 @@ impl RendererTrait for RendererImpl {
         colour: i32,
         alpha: f64,
     ) {
+        let x = x - 0.5;
+        let y = y - 0.5;
         let atlas_ref = texture.clone();
 
         if atlas_ref.atlas_id != self.current_atlas {
