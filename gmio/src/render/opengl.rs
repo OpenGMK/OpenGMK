@@ -1276,7 +1276,7 @@ impl RendererTrait for RendererImpl {
                         let h = (f64::from(fb_height) * scale) as i32;
                         ((window_width - w) / 2, (window_height - h) / 2, w, h)
                     },
-                    Scaling::Aspect => {
+                    Scaling::Aspect(_) => {
                         if fb_width > 0 && fb_height > 0 {
                             let fixed_width = window_height * fb_width / fb_height;
                             if fixed_width < window_width {

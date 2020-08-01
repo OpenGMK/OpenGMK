@@ -338,7 +338,7 @@ impl Game {
 
         let scaling = match settings.scaling {
             0 => Scaling::Full,
-            n if n < 0 => Scaling::Aspect,
+            n if n < 0 => Scaling::Aspect(f64::from(n) / 100.0),
             n => Scaling::Fixed(f64::from(n) / 100.0),
         };
 
