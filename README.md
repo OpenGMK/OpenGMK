@@ -89,7 +89,7 @@ GameMaker is an IDE for creating Windows games, developed by YoYo Games. *GameMa
 The goal of this project is to create a program which will be able to parse GM8 .exe files and play the game contained within. It should mimic the behaviour of GameMaker 8's engine as closely as possible, down to the sub-frame. Strictly speaking, *emulator* is not a correct term. In computing, an emulator is a piece of software on a computer system which emulates the behaviour of a different computer system. We aren't emulating any computer system, just the GM8 engine. A more accurate term would be *sourceport* but emulator sounds cooler.
 
 ## Contributing
-This project has only been worked on by a people so far in their little free time, contributions are very welcome - however we'd encourage getting in touch beforehand.
+This project has only been worked on by a few people so far in their little free time, contributions are very welcome - however we'd encourage getting in touch beforehand.
 
 ## Credits
 - [Adamcake](https://github.com/Adamcake)'s absurd amount of runtime research.
