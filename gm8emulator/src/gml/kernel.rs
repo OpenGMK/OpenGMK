@@ -1120,14 +1120,31 @@ impl Game {
         }
     }
 
-    pub fn draw_background_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_background_stretched")
+    pub fn draw_background_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (bg_index, x, y, w, h) = expect_args!(args, [any, any, any, any, any])?;
+        self.draw_background_stretched_ext(context, &[bg_index, x, y, w, h, 0xffffff.into(), 1.0.into()])
     }
 
-    pub fn draw_background_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_background_stretched_ext")
+    pub fn draw_background_stretched_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (bg_index, x, y, w, h, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, int, real])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    (w / background.width.into()).into(),
+                    (h / background.height.into()).into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn draw_background_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
