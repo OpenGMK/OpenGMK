@@ -1252,6 +1252,7 @@ impl RendererTrait for RendererImpl {
                 // Scaling
                 let (w_x, w_y, w_w, w_h) = match Scaling::Aspect { // TODO
                     Scaling::Fixed(scale) => {
+                        // TODO: check if intel access violates when draw region is bigger than window in general
                         let w = fb_width * scale as i32 / 100;
                         let h = fb_height * scale as i32 / 100;
                         ((window_width - w) / 2, (window_height - h) / 2, w, h)
@@ -1292,7 +1293,7 @@ impl RendererTrait for RendererImpl {
                     w_x+w_w,
                     w_y+w_h,
                     gl::COLOR_BUFFER_BIT,
-                    gl::LINEAR,
+                    if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
                 );
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
 
