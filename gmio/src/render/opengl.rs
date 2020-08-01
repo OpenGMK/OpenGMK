@@ -326,6 +326,7 @@ impl RendererImpl {
 
     fn setup_frame(&mut self, width: u32, height: u32, clear_colour: Colour) {
         unsafe {
+            self.set_projection_ortho(0.0, 0.0, width.into(), height.into(), 0.0);
             self.gl.Viewport(0, 0, width as _, height as _);
             self.gl.Scissor(0, 0, width as _, height as _);
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
