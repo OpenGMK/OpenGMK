@@ -2,7 +2,7 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture},
+    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture, Scaling},
     window::Window,
 };
 use cfg_if::cfg_if;
@@ -314,7 +314,7 @@ impl RendererImpl {
             };
 
             // Start first frame
-            renderer.setup_frame(options.size.0, options.size.1, clear_colour);
+            renderer.setup_frame(clear_colour);
 
             // verify it actually worked
             match renderer.gl.GetError() {
@@ -324,11 +324,18 @@ impl RendererImpl {
         }
     }
 
-    fn setup_frame(&mut self, width: u32, height: u32, clear_colour: Colour) {
+    fn setup_frame(&mut self, clear_colour: Colour) {
         unsafe {
+            // get framebuffer size
+            let (mut width, mut height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            // setup proj and viewport
             self.set_projection_ortho(0.0, 0.0, width.into(), height.into(), 0.0);
             self.gl.Viewport(0, 0, width as _, height as _);
             self.gl.Scissor(0, 0, width as _, height as _);
+            // clear screen
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
         }
@@ -759,8 +766,8 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
         }
         self.draw_queue.clear();
-        self.present();
-        self.setup_frame(w as _, h as _, clear_colour);
+        self.present(w as _, h as _);
+        self.setup_frame(clear_colour);
     }
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -1173,10 +1180,10 @@ impl RendererTrait for RendererImpl {
 
     fn set_view(
         &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
+        _width: u32,
+        _height: u32,
+        _unscaled_width: u32,
+        _unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -1197,17 +1204,15 @@ impl RendererTrait for RendererImpl {
             }
             fb_draw != self.framebuffer_fbo as _
         };
-
-        // Do scaling by comparing unscaled window size to actual size
-        // TODO: use the scaling setting correctly
-        let (width, height) = (width as i32, height as i32);
-        let port_w = ((port_w * width) as f64 / unscaled_width as f64) as i32;
-        let port_h = ((port_h * height) as f64 / unscaled_height as f64) as i32;
-        let port_x = ((port_x * width) as f64 / unscaled_width as f64) as i32; 
         let port_y = if to_surface {
-            ((port_y * height) as f64 / unscaled_height as f64) as i32
+            port_y
         } else {
-            height - (((port_y * height) as f64 / unscaled_height as f64) as i32 + port_h)
+            let mut fb_height = 0;
+            unsafe {
+                self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_fbo);
+                self.gl.GetIntegerv(gl::TEXTURE_HEIGHT, &mut fb_height);
+            }
+            fb_height - (port_y + port_h)
         };
 
         // Set viewport (gl::Viewport, gl::Scissor)
@@ -1225,7 +1230,11 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn present(&mut self) {
+    fn present(&mut self, window_width: u32, window_height: u32) {
+        if window_width == 0 || window_height == 0 {
+            // if we continue, intel will dereference a null pointer
+            return
+        }
         unsafe {
             let mut fb_draw = 0;
             self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
@@ -1233,28 +1242,57 @@ impl RendererTrait for RendererImpl {
                 // Finish drawing frame
                 self.flush_queue();
 
-                // Get framebuffer size (TODO: scaling)
-                let (mut width, mut height) = (0, 0);
+                // Get framebuffer size
+                let (mut fb_width, mut fb_height) = (0, 0);
                 self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
+
+                // yeah i know but they need to be converted anyway
+                let (window_width, window_height) = (window_width as i32, window_height as i32);
+
+                // Scaling
+                let (w_x, w_y, w_w, w_h) = match Scaling::Aspect { // TODO
+                    Scaling::Fixed(scale) => {
+                        let w = fb_width * scale as i32 / 100;
+                        let h = fb_height * scale as i32 / 100;
+                        ((window_width - w) / 2, (window_height - h) / 2, w, h)
+                    },
+                    Scaling::Aspect => {
+                        if fb_width > 0 && fb_height > 0 { // can never be too careful
+                            let fixed_width = window_height * fb_width / fb_height;
+                            if fixed_width < window_width {
+                                // window is too wide
+                                ((window_width - fixed_width) / 2, 0, fixed_width, window_height)
+                            } else {
+                                // window is too tall
+                                let fixed_height = window_width * fb_height / fb_width;
+                                (0, (window_height - fixed_height) / 2, window_width, fixed_height)
+                            }
+                        } else {
+                            (0, 0, fb_width, fb_height)
+                        }
+                    },
+                    Scaling::Full => (0, 0, window_width, window_height),
+                };
 
                 // Temporarily disable scissor test because apparently it disables drawing to the screen if the
-                // scissor region is too big
+                // scissor region is too big on intel
                 self.gl.Disable(gl::SCISSOR_TEST);
 
                 // Draw framebuffer to screen
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+                self.clear_view((0.0, 0.0, 0.0).into(), 1.0);
                 self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
                 self.gl.BlitFramebuffer(
                     0,
                     0,
-                    width,
-                    height,
-                    0,
-                    0,
-                    width,
-                    height,
+                    fb_width,
+                    fb_height,
+                    w_x,
+                    w_y,
+                    w_x+w_w,
+                    w_y+w_h,
                     gl::COLOR_BUFFER_BIT,
                     gl::LINEAR,
                 );
@@ -1268,11 +1306,11 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
+    fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
         // Present screen
-        self.present();
+        self.present(window_width, window_height);
 
         // Start next frame
-        self.setup_frame(width, height, clear_colour)
+        self.setup_frame(clear_colour)
     }
 }

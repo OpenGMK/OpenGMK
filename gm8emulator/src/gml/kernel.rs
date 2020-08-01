@@ -340,7 +340,8 @@ impl Game {
     }
 
     pub fn screen_refresh(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.renderer.present();
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.present(width, height);
         Ok(Default::default())
     }
 
@@ -5665,7 +5666,9 @@ impl Game {
                 break
             }
 
-            renderer.finish(width, height, clear_colour);
+            if window.get_inner_size() != (0, 0) {
+                renderer.finish(width, height, clear_colour);
+            }
         }
 
         // restore renderer

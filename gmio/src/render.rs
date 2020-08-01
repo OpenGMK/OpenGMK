@@ -10,6 +10,12 @@ use std::any::Any;
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
 
+pub enum Scaling {
+    Fixed(u32),
+    Aspect,
+    Full,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedTexture {
     width: i32,
@@ -78,8 +84,8 @@ pub trait RendererTrait {
         port_h: i32,
     );
     fn flush_queue(&mut self);
-    fn present(&mut self);
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
+    fn present(&mut self, window_width: u32, window_height: u32);
+    fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
     fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
@@ -439,12 +445,12 @@ impl Renderer {
         self.0.clear_view(colour, alpha)
     }
 
-    pub fn present(&mut self) {
-        self.0.present()
+    pub fn present(&mut self, window_width: u32, window_height: u32) {
+        self.0.present(window_width, window_height)
     }
 
-    pub fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
-        self.0.finish(width, height, clear_colour)
+    pub fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
+        self.0.finish(window_width, window_height, clear_colour)
     }
 }
 

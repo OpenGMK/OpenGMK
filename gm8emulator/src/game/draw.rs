@@ -201,17 +201,17 @@ impl Game {
             self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
         }
 
-        // Tell renderer to finish the frame
-        if self.surface_target.is_none() {
-            self.renderer.present();
-        }
-
-        // Reset viewport
         let ((width, height), (unscaled_width, unscaled_height)) =
             match self.surface_target.and_then(|id| self.surfaces.get_asset(id)) {
                 Some(surf) => ((surf.width, surf.height), (surf.width, surf.height)),
                 None => (self.window.get_inner_size(), (self.unscaled_width, self.unscaled_height)),
             };
+        // Tell renderer to finish the frame
+        if self.surface_target.is_none() {
+            self.renderer.present(width, height);
+        }
+
+        // Reset viewport
         self.renderer.set_view(
             width,
             height,
