@@ -854,17 +854,22 @@ impl RendererTrait for RendererImpl {
         }
         self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
 
+        // get angle
         let angle = -angle.to_radians();
         let angle_sin = angle.sin();
         let angle_cos = angle.cos();
 
+        // get real width of drawn sprite
         let width: f64 = xscale * f64::from(part_w);
         let height: f64 = yscale * f64::from(part_h);
-        let left: f64 = -width * f64::from(atlas_ref.origin_x);
-        let top: f64 = -height * f64::from(atlas_ref.origin_y);
+        // calculate pre-rotation corner offsets from sprite origin
+        // incl. subtraction 0.5 from left and top (GM does this in an attempt to combat the DX half-pixel offset)
+        let left: f64 = -width * f64::from(atlas_ref.origin_x) - 0.5;
+        let top: f64 = -height * f64::from(atlas_ref.origin_y) - 0.5;
         let right: f64 = left + width;
         let bottom: f64 = top + height;
 
+        // get texture corners
         let tex_left = f64::from(part_x) / f64::from(atlas_ref.w);
         let tex_top = f64::from(part_y) / f64::from(atlas_ref.h);
         let tex_right = tex_left + f64::from(part_w) / f64::from(atlas_ref.w);
@@ -876,10 +881,12 @@ impl RendererTrait for RendererImpl {
         let normal = (0.0, 0.0, 0.0);
         let atlas_xywh = atlas_ref.into();
 
+        // rotate around draw origin
         let rotate = |xoff, yoff| {
             ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0)
         };
 
+        // push the vertices
         self.vertex_queue.push(Vertex {
             pos: rotate(right, top),
             tex_coord: (tex_right, tex_top),
