@@ -10,6 +10,7 @@ use std::any::Any;
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Scaling {
     /// Fixed scale, with a multiplier. The multiplier always be strictly positive.
     Fixed(f64),
@@ -104,7 +105,16 @@ pub trait RendererTrait {
     fn set_pixel_interpolation(&mut self, lerping: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
-    fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
+    fn draw_raw_frame(
+        &mut self,
+        rgba: Box<[u8]>,
+        fb_w: i32,
+        fb_h: i32,
+        window_w: u32,
+        window_h: u32,
+        scaling: Scaling,
+        clear_colour: Colour,
+    );
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
@@ -388,8 +398,17 @@ impl Renderer {
         self.0.get_pixels(x, y, w, h)
     }
 
-    pub fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
-        self.0.draw_raw_frame(rgba, w, h, clear_colour)
+    pub fn draw_raw_frame(
+        &mut self,
+        rgba: Box<[u8]>,
+        fb_w: i32,
+        fb_h: i32,
+        window_w: u32,
+        window_h: u32,
+        scaling: Scaling,
+        clear_colour: Colour,
+    ) {
+        self.0.draw_raw_frame(rgba, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {

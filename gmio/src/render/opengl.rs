@@ -757,18 +757,37 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn draw_raw_frame(&mut self, rgba: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
+    fn draw_raw_frame(
+        &mut self,
+        rgba: Box<[u8]>,
+        fb_w: i32,
+        fb_h: i32,
+        window_w: u32,
+        window_h: u32,
+        scaling: Scaling,
+        clear_colour: Colour,
+    ) {
         unsafe {
             // resize framebuffer
-            self.resize_framebuffer(w as _, h as _);
+            self.resize_framebuffer(fb_w as _, fb_h as _);
             // upload new frame
             self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
-            self.gl.TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, w, h, gl::RGBA, gl::UNSIGNED_BYTE, rgba.as_ptr().cast());
+            self.gl.TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0,
+                0,
+                fb_w,
+                fb_h,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                rgba.as_ptr().cast(),
+            );
 
             assert_eq!(self.gl.GetError(), 0);
         }
         self.draw_queue.clear();
-        self.present(w as _, h as _, Scaling::Fixed(1.0));
+        self.present(window_w as _, window_h as _, scaling);
         self.setup_frame(clear_colour);
     }
 
