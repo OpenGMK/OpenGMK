@@ -341,16 +341,22 @@ impl RendererImpl {
 
     fn update_matrix(&mut self) {
         unsafe {
+            // get half-pixel length in clip space
+            let mut viewport = [0; 4];
+            self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+            let offset_x = 1.0 / f64::from(viewport[2]);
+            let offset_y = 1.0 / f64::from(viewport[3]);
             // build matrix
             #[rustfmt::skip]
             let viewproj = mat4mult(
                 mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix)),
                 // flip vertically because GL textures are flipped vertically vs DX
+                // also GL's screen space is offset half a pixel vs DX so shift it
                 [
-                    1.0, 0.0,  0.0, 0.0,
-                    0.0, -1.0, 0.0, 0.0,
-                    0.0, 0.0,  1.0, 0.0,
-                    0.0, 0.0,  0.0, 1.0,
+                    1.0,             0.0,             0.0, 0.0,
+                    0.0,             -1.0,            0.0, 0.0,
+                    0.0,             0.0,             1.0, 0.0,
+                    offset_x as f32, offset_y as f32, 0.0, 1.0,
                 ],
             );
             self.gl.UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
