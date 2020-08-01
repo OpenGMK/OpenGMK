@@ -25,10 +25,10 @@ After installing, if you cannot access Rust commands like "rustup" or "rustc", m
 
 After cloning the GM8Emulator repository, set up Rust in your CLI by typing the following:
 
-> `rustup self update`
-> `rustup update`
-> `rustup install nightly`
-> `rustup default nightly`
+- `rustup self update`
+- `rustup update`
+- `rustup install nightly`
+- `rustup default nightly`
 
 Once that is set up, build the program in your CLI by typing `cargo build --release`, then navigate to the `/target/release` folder to start making and running your TAS! Note that you can run the build commmand again from this folder if you need to.
 
@@ -36,10 +36,10 @@ Once that is set up, build the program in your CLI by typing `cargo build --rele
 
 Run the following commands in your CLI in `target/release`, replacing anything in the `<angle brackets>` as needed:
 
-> Run a game in the emulator: `gm8emulator.exe <game.exe_location>`
-> Start a TAS: `control-panel.exe <game.exe_location> -n <project_name>`
-> Run a TAS: `gm8emulator.exe <game.exe_location> -f <save#.bin_location>`
-> -- Note: running a TAS will generate a <save#.gmtas> file
+- Run a game in the emulator: `gm8emulator.exe <game.exe_location>`
+- Start a TAS: `control-panel.exe <game.exe_location> -n <project_name>`
+- Run a TAS: `gm8emulator.exe <game.exe_location> -f <save#.bin_location>`
+  - Note: running a TAS will generate a <save#.gmtas> file
 
 # Load / Runtime Errors
 
