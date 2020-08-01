@@ -342,8 +342,19 @@ impl RendererImpl {
     }
 
     fn update_matrix(&mut self) {
-        let viewproj = mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix));
         unsafe {
+            // build matrix
+            #[rustfmt::skip]
+            let viewproj = mat4mult(
+                mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix)),
+                // flip vertically because GL textures are flipped vertically vs DX
+                [
+                    1.0, 0.0,  0.0, 0.0,
+                    0.0, -1.0, 0.0, 0.0,
+                    0.0, 0.0,  1.0, 0.0,
+                    0.0, 0.0,  0.0, 1.0,
+                ],
+            );
             self.gl.UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
         }
     }
@@ -1115,29 +1126,8 @@ impl RendererTrait for RendererImpl {
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.flush_queue();
-        // flip vertically if drawing to surface because GL textures are flipped vertically vs DX
-        let to_surface = {
-            let mut fb_draw = 0;
-            unsafe {
-                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            }
-            fb_draw != self.framebuffer_fbo as _
-        };
-        #[rustfmt::skip]
-        let proj = if to_surface {
-            mat4mult(proj, [
-                1.0, 0.0,  0.0, 0.0,
-                0.0, -1.0, 0.0, 0.0,
-                0.0, 0.0,  1.0, 0.0,
-                0.0, 0.0,  0.0, 1.0,
-            ])
-        } else {
-            proj
-        };
-
         self.view_matrix = view;
         self.proj_matrix = proj;
-
         self.update_matrix();
     }
 
@@ -1213,25 +1203,6 @@ impl RendererTrait for RendererImpl {
     ) {
         self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
 
-        // adjust port_y if drawing to screen
-        let to_surface = {
-            let mut fb_draw = 0;
-            unsafe {
-                self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            }
-            fb_draw != self.framebuffer_fbo as _
-        };
-        let port_y = if to_surface {
-            port_y
-        } else {
-            let mut fb_height = 0;
-            unsafe {
-                self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_fbo);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
-            }
-            fb_height - (port_y + port_h)
-        };
-
         // Set viewport (gl::Viewport, gl::Scissor)
         unsafe {
             self.gl.Viewport(port_x, port_y, port_w, port_h);
@@ -1305,9 +1276,9 @@ impl RendererTrait for RendererImpl {
                 self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
                 self.gl.BlitFramebuffer(
                     0,
-                    0,
-                    fb_width,
                     fb_height,
+                    fb_width,
+                    0,
                     w_x,
                     w_y,
                     w_x + w_w,

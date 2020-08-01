@@ -354,13 +354,8 @@ impl Game {
         let fname = expect_args!(args, [string])?;
         self.renderer.flush_queue();
         let (width, height) = (self.unscaled_width, self.unscaled_height);
-        let rgba_flipped = self.renderer.get_pixels(0, 0, width as _, height as _);
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        // get_pixels returns an upside down image for some reason?
-        for row in rgba_flipped.chunks((width * 4) as usize).rev() {
-            rgba.extend_from_slice(row);
-        }
-        match file::save_image(fname.as_ref(), width, height, rgba.into_boxed_slice()) {
+        let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
+        match file::save_image(fname.as_ref(), width, height, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.into())),
         }
@@ -372,15 +367,9 @@ impl Game {
         let y = y.max(0);
         let w = w.min(self.unscaled_width as i32 - x);
         let h = h.min(self.unscaled_height as i32 - y);
-        let y = self.unscaled_height as i32 - y - h; // upside down
         self.renderer.flush_queue();
-        let rgba_flipped = self.renderer.get_pixels(x, y, w, h);
-        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-        // still upside down
-        for row in rgba_flipped.chunks((w * 4) as usize).rev() {
-            rgba.extend_from_slice(row);
-        }
-        match file::save_image(fname.as_ref(), w as _, h as _, rgba.into_boxed_slice()) {
+        let rgba = self.renderer.get_pixels(x, y, w, h);
+        match file::save_image(fname.as_ref(), w as _, h as _, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.into())),
         }
@@ -388,7 +377,6 @@ impl Game {
 
     pub fn draw_getpixel(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let y = self.unscaled_height as i32 - y - 1; // upside down
         self.renderer.flush_queue();
         let data = self.renderer.get_pixels(x, y, 1, 1);
         Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
@@ -7035,13 +7023,8 @@ impl Game {
         let width = width.min(self.unscaled_width as i32 - x);
         let height = height.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
-        let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
-        // it comes out as upside-down rgb so flip it and convert it to rgba
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        for row in rgba_flipped.chunks((width * 4) as usize).rev() {
-            rgba.extend_from_slice(row);
-        }
-        let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+        let rgba = self.renderer.get_pixels(x, y, width, height);
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
         let frames = vec![asset::sprite::Frame {
@@ -7080,13 +7063,8 @@ impl Game {
             let width = width.min(self.unscaled_width as i32 - x);
             let height = height.min(self.unscaled_height as i32 - y);
             self.renderer.flush_queue();
-            let rgba_flipped = self.renderer.get_pixels(x, y, width, height);
-            // it comes out as upside-down rgb so flip it and convert it to rgba
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for row in rgba_flipped.chunks((width * 4) as usize).rev() {
-                rgba.extend_from_slice(row);
-            }
-            let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+            let rgba = self.renderer.get_pixels(x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
             asset::sprite::scale(&mut image, sprite.width, sprite.height);
             // generate collision
