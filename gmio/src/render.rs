@@ -321,17 +321,7 @@ impl Renderer {
         port_w: i32,
         port_h: i32,
     ) {
-        self.0.set_view(
-            src_x,
-            src_y,
-            src_w,
-            src_h,
-            src_angle,
-            port_x,
-            port_y,
-            port_w,
-            port_h,
-        )
+        self.0.set_view(src_x, src_y, src_w, src_h, src_angle, port_x, port_y, port_w, port_h)
     }
 
     pub fn draw_sprite_partial(

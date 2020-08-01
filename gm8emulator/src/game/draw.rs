@@ -250,17 +250,7 @@ impl Game {
         port_h: i32,
         angle: f64,
     ) -> gml::Result<()> {
-        self.renderer.set_view(
-            src_x,
-            src_y,
-            src_w,
-            src_h,
-            angle,
-            port_x,
-            port_y,
-            port_w,
-            port_h,
-        );
+        self.renderer.set_view(src_x, src_y, src_w, src_h, angle, port_x, port_y, port_w, port_h);
 
         if self.show_room_colour {
             self.renderer.clear_view(self.room_colour, 1.0);

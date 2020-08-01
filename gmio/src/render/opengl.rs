@@ -1115,7 +1115,7 @@ impl RendererTrait for RendererImpl {
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.flush_queue();
-        // flip vertically if drawing to surface because GL textures are flipped vertically vs DX 
+        // flip vertically if drawing to surface because GL textures are flipped vertically vs DX
         let to_surface = {
             let mut fb_draw = 0;
             unsafe {
@@ -1212,7 +1212,7 @@ impl RendererTrait for RendererImpl {
         port_h: i32,
     ) {
         self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
-         
+
         // adjust port_y if drawing to screen
         let to_surface = {
             let mut fb_draw = 0;
@@ -1277,7 +1277,7 @@ impl RendererTrait for RendererImpl {
                         ((window_width - w) / 2, (window_height - h) / 2, w, h)
                     },
                     Scaling::Aspect => {
-                        if fb_width > 0 && fb_height > 0 { // can never be too careful
+                        if fb_width > 0 && fb_height > 0 {
                             let fixed_width = window_height * fb_width / fb_height;
                             if fixed_width < window_width {
                                 // window is too wide
@@ -1288,6 +1288,7 @@ impl RendererTrait for RendererImpl {
                                 (0, (window_height - fixed_height) / 2, window_width, fixed_height)
                             }
                         } else {
+                            // can never be too careful
                             (0, 0, fb_width, fb_height)
                         }
                     },
@@ -1309,8 +1310,8 @@ impl RendererTrait for RendererImpl {
                     fb_height,
                     w_x,
                     w_y,
-                    w_x+w_w,
-                    w_y+w_h,
+                    w_x + w_w,
+                    w_y + w_h,
                     gl::COLOR_BUFFER_BIT,
                     if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
                 );
