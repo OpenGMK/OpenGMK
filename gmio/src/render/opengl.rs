@@ -1255,7 +1255,6 @@ impl RendererTrait for RendererImpl {
                 // Scaling
                 let (w_x, w_y, w_w, w_h) = match scaling {
                     Scaling::Fixed(scale) => {
-                        // TODO: check if intel access violates when draw region is bigger than window in general
                         let w = (f64::from(fb_width) * scale) as i32;
                         let h = (f64::from(fb_height) * scale) as i32;
                         ((window_width - w) / 2, (window_height - h) / 2, w, h)
@@ -1279,13 +1278,13 @@ impl RendererTrait for RendererImpl {
                     Scaling::Full => (0, 0, window_width, window_height),
                 };
 
-                // Temporarily disable scissor test because apparently it disables drawing to the screen if the
-                // scissor region is too big on intel
+                // On Intel, glBlitFrameBuffer just does nothing if the scissor box is too big, which it
+                // very well could be. So just disable the scissor test for now.
                 self.gl.Disable(gl::SCISSOR_TEST);
 
                 // Draw framebuffer to screen
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-                self.clear_view((0.0, 0.0, 0.0).into(), 1.0);
+                self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
                 self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
                 self.gl.BlitFramebuffer(
                     0,
