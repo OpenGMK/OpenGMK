@@ -61,6 +61,7 @@ pub struct RendererImpl {
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
 static FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
 
+#[derive(Clone, Copy)]
 pub struct Vertex {
     pub pos: (f32, f32, f32),
     pub tex_coord: (f32, f32),
@@ -158,6 +159,52 @@ impl From<GLenum> for PrimitiveType {
             gl::TRIANGLE_FAN => PrimitiveType::TriFan,
             _ => unreachable!(),
         }
+    }
+}
+
+/// A builder to be used for simple untextured shapes.
+struct ShapeBuilder {
+    vertices: Vec<Vertex>,
+    depth: f32,
+    outline: bool,
+    atlas_xywh: (f32, f32, f32, f32),
+    alpha: f64,
+}
+
+impl ShapeBuilder {
+    fn new(outline: bool, atlas_xywh: (f32, f32, f32, f32), alpha: f64, depth: f32) -> Self {
+        Self { vertices: Vec::new(), depth, outline, atlas_xywh, alpha }
+    }
+
+    fn push_point(mut self, x: f64, y: f64, colour: i32) -> Self {
+        if self.outline {
+            if self.vertices.len() >= 2 {
+                self.vertices.push(*self.vertices.last().unwrap());
+            }
+        } else {
+            if self.vertices.len() >= 3 {
+                self.vertices.push(*self.vertices.last().unwrap());
+                self.vertices.push(self.vertices[0]);
+            }
+        }
+        self.vertices.push(Vertex {
+            pos: (x as f32, y as f32, self.depth),
+            tex_coord: (0.0, 0.0),
+            blend: split_colour(colour, self.alpha),
+            atlas_xywh: self.atlas_xywh,
+            normal: (0.0, 0.0, 0.0),
+        });
+        self
+    }
+
+    fn build(mut self) -> Vec<Vertex> {
+        if self.outline {
+            if self.vertices.len() > 2 {
+                self.vertices.push(*self.vertices.last().unwrap());
+                self.vertices.push(self.vertices[0]);
+            }
+        }
+        self.vertices
     }
 }
 
@@ -331,6 +378,13 @@ impl RendererImpl {
             self.current_atlas = atlas_id;
             self.queue_type = queue_type;
         }
+    }
+
+    fn setup_shape(&mut self, outline: bool) {
+        self.setup_queue(
+            self.white_pixel.atlas_id,
+            if outline { PrimitiveType::LineList } else { PrimitiveType::TriList },
+        )
     }
 
     fn update_matrix(&mut self) {
