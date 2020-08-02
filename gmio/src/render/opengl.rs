@@ -1020,6 +1020,79 @@ impl RendererTrait for RendererImpl {
         );
     }
 
+    fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
+        self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
+        self.vertex_queue.push(Vertex {
+            pos: (x as f32, y as f32, 0.0),
+            tex_coord: (0.0, 0.0),
+            blend: split_colour(colour, alpha),
+            atlas_xywh: self.white_pixel.into(),
+            normal: (0.0, 0.0, 0.0),
+        });
+    }
+
+    fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64) {
+        if let Some(width) = width {
+            let length = (x2 - x1).hypot(y2 - y1);
+            // on the off chance that they're in different points but the length is still somehow 0, check length
+            if length != 0.0 {
+                // calculate corners
+                let width_x = (y2 - y1) * (width / 2.0) / length;
+                let width_y = (x2 - x1) * (width / 2.0) / length;
+                // actually push the rectangle
+                self.setup_shape(false);
+                self.vertex_queue.extend_from_slice(
+                    &ShapeBuilder::new(false, self.white_pixel.into(), alpha, 0.0)
+                        .push_point(x1 - width_x, y1 + width_y, c1)
+                        .push_point(x1 + width_x, y1 - width_y, c1)
+                        .push_point(x2 + width_x, y2 - width_y, c2)
+                        .push_point(x2 - width_x, y2 + width_y, c2)
+                        .build(),
+                );
+            }
+        } else {
+            self.setup_shape(true);
+            self.vertex_queue.push(Vertex {
+                pos: (x1 as f32, y1 as f32, 0.0),
+                tex_coord: (0.0, 0.0),
+                blend: split_colour(c1, alpha),
+                atlas_xywh: self.white_pixel.into(),
+                normal: (0.0, 0.0, 0.0),
+            });
+            self.vertex_queue.push(Vertex {
+                pos: (x2 as f32, y2 as f32, 0.0),
+                tex_coord: (0.0, 0.0),
+                blend: split_colour(c2, alpha),
+                atlas_xywh: self.white_pixel.into(),
+                normal: (0.0, 0.0, 0.0),
+            });
+        }
+    }
+
+    fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.setup_shape(outline);
+        self.vertex_queue.extend_from_slice(
+            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0)
+                .push_point(x1, y1, c1)
+                .push_point(x2, y2, c2)
+                .push_point(x3, y3, c3)
+                .build(),
+        );
+    }
+
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
         let mut src: GLint = 0;
         let mut dst: GLint = 0;

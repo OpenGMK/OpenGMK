@@ -234,6 +234,22 @@ pub trait RendererTrait {
         alpha: f64,
         outline: bool,
     );
+    fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64);
+    fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64);
+    fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    );
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
@@ -434,6 +450,31 @@ impl Renderer {
         outline: bool,
     ) {
         self.0.draw_rectangle_gradient(x1, y1, x2, y2, c1, c2, c3, c4, alpha, outline)
+    }
+
+    pub fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
+        self.0.draw_point(x, y, colour, alpha)
+    }
+
+    pub fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64) {
+        self.0.draw_line(x1, y1, x2, y2, width, c1, c2, alpha)
+    }
+
+    pub fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.0.draw_triangle(x1, y1, x2, y2, x3, y3, c1, c2, c3, alpha, outline)
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
