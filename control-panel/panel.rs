@@ -299,6 +299,16 @@ impl ControlPanel {
         // &[(String, usize)]
     }
 
+    // pub fn upload_ref(button_name) {
+    //     let path = format!("../../control-panel/images/{}.bmp", button_name);
+    //     let mut file = File::open(&path)?;
+    //     let mut file_content = Vec::new();
+    //     file.read_to_end(&mut file_content)?;
+    //
+    //     let sprite = Self::upload_bmp(&mut atlases, &file_content);
+    //     self.atlas_refs.insert(button_name, Some(AtlasRef::from(sprite)));
+    // }
+
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut project_dir = std::env::current_dir()?;
         project_dir.push("projects");
@@ -358,17 +368,27 @@ impl ControlPanel {
         let mut atlas_refs = HashMap::new();
 
         for mut button in buttons.iter_mut() {
-            let path = format!("../../control-panel/images/{}.bmp", button.name.to_string());
-            let mut file = File::open(&path)?;
-            let mut file_content = Vec::new();
-            file.read_to_end(&mut file_content)?;
-            let sprite = Self::upload_bmp(&mut atlases, &file_content);
-            button.sprite = Some(AtlasRef::from(sprite));
+            let mut button_name = button.name.to_string();
+
+            if !atlas_refs.contains_key(&button_name) {
+                let path = format!("../../control-panel/images/{}.bmp", button_name);
+                let mut file = File::open(&path)?;
+                let mut file_content = Vec::new();
+                file.read_to_end(&mut file_content)?;
+
+                let sprite = Self::upload_bmp(&mut atlases, &file_content);
+                atlas_refs.insert(button_name, AtlasRef::from(sprite));
+            }
+
+            let sprite = AtlasRef::from( *atlas_refs.get(&button.name.to_string()).unwrap() ); // todo: next, extract into function
+            button.sprite = Some(sprite);
              // future: if width/height are not 0, aka have a pre-set bound box, ignore this
             button.width = AtlasRef::from(sprite).w;
             button.height = AtlasRef::from(sprite).h;
             // eprintln!("{:?}", button.sprite);
         }
+
+        eprintln!("{:?}", atlas_refs);
 
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
         let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_held.bmp"));
@@ -939,16 +959,10 @@ impl ControlPanel {
             if button.name.starts_with("save_button_") {
                 // eprintln!("{:?}", button);
                 let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
-                // let atlas_ref = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
-
-                // let filename = format!("save{}.bin", id);
-                // project_dir.push(&filename);
-                // let exists = project_dir.exists();
-                // let name = format!("save_button_{}", if project_dir.exists() { "active" } else { "inactive"});
-                // project_dir.pop();
-
-
-                button.name = format!("save_button_{}", if button.exists { "active" } else { "inactive"});
+                let atlas_ref_name = if button.exists { "save_button_active" } else { "save_button_inactive" };
+                let sprite = AtlasRef::from( *self.atlas_refs.get(atlas_ref_name).unwrap() );
+                button.sprite = Some(sprite);
+                button.name = format!("save_button_{}", if button.exists { "active" } else { "inactive"}); // todo: next
 
                 button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
                 // self.renderer.draw_sprite(atlas_ref, button.xstart as _, button.ystart as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
