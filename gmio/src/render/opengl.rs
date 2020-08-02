@@ -63,11 +63,11 @@ static FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
 
 #[derive(Clone, Copy)]
 pub struct Vertex {
-    pub pos: (f32, f32, f32),
-    pub tex_coord: (f32, f32),
-    pub blend: (f32, f32, f32, f32),
-    pub atlas_xywh: (f32, f32, f32, f32),
-    pub normal: (f32, f32, f32), // currently not used, will be used for 3D when the time comes
+    pub pos: [f32; 3],
+    pub tex_coord: [f32; 2],
+    pub blend: [f32; 4],
+    pub atlas_xywh: [f32; 4],
+    pub normal: [f32; 3], // currently not used, will be used for 3D when the time comes
 }
 
 unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
@@ -83,18 +83,18 @@ unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
     )
 }
 
-fn split_colour(rgb: i32, alpha: f64) -> (f32, f32, f32, f32) {
-    (
+fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
+    [
         ((rgb & 0xFF) as f32) / 255.0,
         (((rgb >> 8) & 0xFF) as f32) / 255.0,
         (((rgb >> 16) & 0xFF) as f32) / 255.0,
         alpha as f32,
-    )
+    ]
 }
 
-impl From<AtlasRef> for (f32, f32, f32, f32) {
+impl From<AtlasRef> for [f32; 4] {
     fn from(ar: AtlasRef) -> Self {
-        (ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32)
+        [ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32]
     }
 }
 
@@ -167,12 +167,12 @@ struct ShapeBuilder {
     vertices: Vec<Vertex>,
     depth: f32,
     outline: bool,
-    atlas_xywh: (f32, f32, f32, f32),
+    atlas_xywh: [f32; 4],
     alpha: f64,
 }
 
 impl ShapeBuilder {
-    fn new(outline: bool, atlas_xywh: (f32, f32, f32, f32), alpha: f64, depth: f32) -> Self {
+    fn new(outline: bool, atlas_xywh: [f32; 4], alpha: f64, depth: f32) -> Self {
         Self { vertices: Vec::new(), depth, outline, atlas_xywh, alpha }
     }
 
@@ -188,11 +188,11 @@ impl ShapeBuilder {
             }
         }
         self.vertices.push(Vertex {
-            pos: (x as f32, y as f32, self.depth),
-            tex_coord: (0.0, 0.0),
+            pos: [x as f32, y as f32, self.depth],
+            tex_coord: [0.0, 0.0],
             blend: split_colour(colour, self.alpha),
             atlas_xywh: self.atlas_xywh,
-            normal: (0.0, 0.0, 0.0),
+            normal: [0.0, 0.0, 0.0],
         });
         self
     }
@@ -932,18 +932,18 @@ impl RendererTrait for RendererImpl {
         let (tex_left, tex_top, tex_right, tex_bottom) =
             (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
 
-        let normal = (0.0, 0.0, 0.0);
+        let normal = [0.0, 0.0, 0.0];
         let atlas_xywh = atlas_ref.into();
 
         // rotate around draw origin
         let rotate = |xoff, yoff| {
-            ((x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0)
+            [(x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0]
         };
 
         // push the vertices
         self.vertex_queue.push(Vertex {
             pos: rotate(right, top),
-            tex_coord: (tex_right, tex_top),
+            tex_coord: [tex_right, tex_top],
             blend: split_colour(col2, alpha),
             atlas_xywh,
             normal,
@@ -951,14 +951,14 @@ impl RendererTrait for RendererImpl {
         for _ in 0..2 {
             self.vertex_queue.push(Vertex {
                 pos: rotate(left, top),
-                tex_coord: (tex_left, tex_top),
+                tex_coord: [tex_left, tex_top],
                 blend: split_colour(col1, alpha),
                 atlas_xywh,
                 normal,
             });
             self.vertex_queue.push(Vertex {
                 pos: rotate(right, bottom),
-                tex_coord: (tex_right, tex_bottom),
+                tex_coord: [tex_right, tex_bottom],
                 blend: split_colour(col3, alpha),
                 atlas_xywh,
                 normal,
@@ -966,7 +966,7 @@ impl RendererTrait for RendererImpl {
         }
         self.vertex_queue.push(Vertex {
             pos: rotate(left, bottom),
-            tex_coord: (tex_left, tex_bottom),
+            tex_coord: [tex_left, tex_bottom],
             blend: split_colour(col4, alpha),
             atlas_xywh,
             normal,
@@ -1023,11 +1023,11 @@ impl RendererTrait for RendererImpl {
     fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
         self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
         self.vertex_queue.push(Vertex {
-            pos: (x as f32, y as f32, 0.0),
-            tex_coord: (0.0, 0.0),
+            pos: [x as f32, y as f32, 0.0],
+            tex_coord: [0.0, 0.0],
             blend: split_colour(colour, alpha),
             atlas_xywh: self.white_pixel.into(),
-            normal: (0.0, 0.0, 0.0),
+            normal: [0.0, 0.0, 0.0],
         });
     }
 
@@ -1053,18 +1053,18 @@ impl RendererTrait for RendererImpl {
         } else {
             self.setup_shape(true);
             self.vertex_queue.push(Vertex {
-                pos: (x1 as f32, y1 as f32, 0.0),
-                tex_coord: (0.0, 0.0),
+                pos: [x1 as f32, y1 as f32, 0.0],
+                tex_coord: [0.0, 0.0],
                 blend: split_colour(c1, alpha),
                 atlas_xywh: self.white_pixel.into(),
-                normal: (0.0, 0.0, 0.0),
+                normal: [0.0, 0.0, 0.0],
             });
             self.vertex_queue.push(Vertex {
-                pos: (x2 as f32, y2 as f32, 0.0),
-                tex_coord: (0.0, 0.0),
+                pos: [x2 as f32, y2 as f32, 0.0],
+                tex_coord: [0.0, 0.0],
                 blend: split_colour(c2, alpha),
                 atlas_xywh: self.white_pixel.into(),
-                normal: (0.0, 0.0, 0.0),
+                normal: [0.0, 0.0, 0.0],
             });
         }
     }
