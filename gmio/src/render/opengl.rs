@@ -1005,108 +1005,19 @@ impl RendererTrait for RendererImpl {
         c3: i32,
         c4: i32,
         alpha: f64,
+        outline: bool,
     ) {
-        let copied_pixel = self.white_pixel;
-        self.draw_sprite_general(
-            &copied_pixel,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            x1,
-            y1,
-            x2 + 1.0 - x1,
-            y2 + 1.0 - y1,
-            0.0,
-            c1,
-            c2,
-            c3,
-            c4,
-            alpha,
-        )
-    }
-
-    fn draw_rectangle_gradient_outline(
-        &mut self,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-        c1: i32,
-        c2: i32,
-        c3: i32,
-        c4: i32,
-        alpha: f64,
-    ) {
-        let copied_pixel = self.white_pixel;
-        self.draw_sprite_general(
-            &copied_pixel,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            x1,
-            y1,
-            x2 + 1.0 - x1,
-            1.0,
-            0.0,
-            c1,
-            c2,
-            c2,
-            c1,
-            alpha,
-        ); // top line
-        self.draw_sprite_general(
-            &copied_pixel,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            x1,
-            y2,
-            x2 + 1.0 - x1,
-            1.0,
-            0.0,
-            c3,
-            c4,
-            c4,
-            c3,
-            alpha,
-        ); // bottom line
-        self.draw_sprite_general(
-            &copied_pixel,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            x1,
-            y1,
-            1.0,
-            y2 + 1.0 - y1,
-            0.0,
-            c1,
-            c1,
-            c3,
-            c3,
-            alpha,
-        ); // left line
-        self.draw_sprite_general(
-            &copied_pixel,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            x2,
-            y1,
-            1.0,
-            y2 + 1.0 - y1,
-            0.0,
-            c2,
-            c2,
-            c4,
-            c4,
-            alpha,
-        ); // right line
+        self.setup_shape(outline);
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        self.vertex_queue.extend_from_slice(
+            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0)
+                .push_point(x1, y1, c1)
+                .push_point(x2, y1, c2)
+                .push_point(x2, y2, c3)
+                .push_point(x1, y2, c4)
+                .build(),
+        );
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {

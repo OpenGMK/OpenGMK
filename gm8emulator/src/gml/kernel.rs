@@ -641,31 +641,18 @@ impl Game {
     pub fn draw_rectangle_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, c1, c2, c3, c4, outline) =
             expect_args!(args, [real, real, real, real, int, int, int, int, any])?;
-        if outline.is_truthy() {
-            self.renderer.draw_rectangle_gradient_outline(
-                x1.into(),
-                y1.into(),
-                x2.into(),
-                y2.into(),
-                c1,
-                c2,
-                c3,
-                c4,
-                self.draw_alpha.into(),
-            );
-        } else {
-            self.renderer.draw_rectangle_gradient(
-                x1.into(),
-                y1.into(),
-                x2.into(),
-                y2.into(),
-                c1,
-                c2,
-                c3,
-                c4,
-                self.draw_alpha.into(),
-            );
-        }
+        self.renderer.draw_rectangle_gradient(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            c1,
+            c2,
+            c3,
+            c4,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
         Ok(Default::default())
     }
 

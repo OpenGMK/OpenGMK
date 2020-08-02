@@ -232,18 +232,7 @@ pub trait RendererTrait {
         c3: i32,
         c4: i32,
         alpha: f64,
-    );
-    fn draw_rectangle_gradient_outline(
-        &mut self,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-        c1: i32,
-        c2: i32,
-        c3: i32,
-        c4: i32,
-        alpha: f64,
+        outline: bool,
     );
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
@@ -442,23 +431,9 @@ impl Renderer {
         c3: i32,
         c4: i32,
         alpha: f64,
+        outline: bool,
     ) {
-        self.0.draw_rectangle_gradient(x1, y1, x2, y2, c1, c2, c3, c4, alpha)
-    }
-
-    pub fn draw_rectangle_gradient_outline(
-        &mut self,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-        c1: i32,
-        c2: i32,
-        c3: i32,
-        c4: i32,
-        alpha: f64,
-    ) {
-        self.0.draw_rectangle_gradient_outline(x1, y1, x2, y2, c1, c2, c3, c4, alpha)
+        self.0.draw_rectangle_gradient(x1, y1, x2, y2, c1, c2, c3, c4, alpha, outline)
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
