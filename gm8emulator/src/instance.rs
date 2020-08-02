@@ -347,6 +347,11 @@ impl Instance {
             self.bbox_is_stale.set(false);
         }
     }
+
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        self.state.get() == InstanceState::Active
+    }
 }
 
 impl Field {
