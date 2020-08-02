@@ -975,7 +975,9 @@ impl RendererTrait for RendererImpl {
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         let copied_pixel = self.white_pixel;
-        self.draw_sprite(&copied_pixel, x1, y1, x2 + 1.0 - x1, y2 + 1.0 - y1, 0.0, colour, alpha)
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        self.draw_sprite(&copied_pixel, x1 + 0.5, y1 + 0.5, x2 - x1, y2 - y1, 0.0, colour, alpha)
     }
 
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
