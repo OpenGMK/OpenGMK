@@ -537,14 +537,7 @@ impl Game {
 
     pub fn draw_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        self.renderer.draw_rectangle(
-            x.into(),
-            y.into(),
-            x.into(),
-            y.into(),
-            u32::from(self.draw_colour) as _,
-            self.draw_alpha.into(),
-        );
+        self.renderer.draw_point(x.into(), y.into(), u32::from(self.draw_colour) as _, self.draw_alpha.into());
         Ok(Default::default())
     }
 
@@ -624,7 +617,7 @@ impl Game {
 
     pub fn draw_point_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, col) = expect_args!(args, [real, real, int])?;
-        self.renderer.draw_rectangle(x.into(), y.into(), x.into(), y.into(), col, self.draw_alpha.into());
+        self.renderer.draw_point(x.into(), y.into(), col, self.draw_alpha.into());
         Ok(Default::default())
     }
 
