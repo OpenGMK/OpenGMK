@@ -49,6 +49,7 @@ pub struct RendererImpl {
     queue_type: PrimitiveType,
     interpolate_pixels: bool,
     circle_precision: i32,
+    depth: f32,
 
     model_matrix: [f32; 16],
     view_matrix: [f32; 16],
@@ -343,6 +344,7 @@ impl RendererImpl {
                 queue_type: PrimitiveType::TriList,
                 interpolate_pixels: options.interpolate_pixels,
                 circle_precision: 24,
+                depth: 0.0,
 
                 model_matrix: identity_matrix.clone(),
                 view_matrix: identity_matrix.clone(),
@@ -936,10 +938,11 @@ impl RendererTrait for RendererImpl {
 
         let normal = [0.0, 0.0, 0.0];
         let atlas_xywh = atlas_ref.into();
+        let depth = self.depth;
 
         // rotate around draw origin
         let rotate = |xoff, yoff| {
-            [(x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, 0.0]
+            [(x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, depth]
         };
 
         // push the vertices
@@ -987,7 +990,7 @@ impl RendererTrait for RendererImpl {
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         self.setup_shape(true);
         self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(true, self.white_pixel.into(), alpha, 0.0)
+            &ShapeBuilder::new(true, self.white_pixel.into(), alpha, self.depth)
                 .push_point(x1, y1, colour)
                 .push_point(x2, y1, colour)
                 .push_point(x2, y2, colour)
@@ -1013,7 +1016,7 @@ impl RendererTrait for RendererImpl {
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0)
+            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth)
                 .push_point(x1, y1, c1)
                 .push_point(x2, y1, c2)
                 .push_point(x2, y2, c3)
@@ -1025,7 +1028,7 @@ impl RendererTrait for RendererImpl {
     fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
         self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
         self.vertex_queue.push(Vertex {
-            pos: [x as f32, y as f32, 0.0],
+            pos: [x as f32, y as f32, self.depth],
             tex_coord: [0.0, 0.0],
             blend: split_colour(colour, alpha),
             atlas_xywh: self.white_pixel.into(),
@@ -1044,7 +1047,7 @@ impl RendererTrait for RendererImpl {
                 // actually push the rectangle
                 self.setup_shape(false);
                 self.vertex_queue.extend_from_slice(
-                    &ShapeBuilder::new(false, self.white_pixel.into(), alpha, 0.0)
+                    &ShapeBuilder::new(false, self.white_pixel.into(), alpha, self.depth)
                         .push_point(x1 - width_x, y1 + width_y, c1)
                         .push_point(x1 + width_x, y1 - width_y, c1)
                         .push_point(x2 + width_x, y2 - width_y, c2)
@@ -1055,14 +1058,14 @@ impl RendererTrait for RendererImpl {
         } else {
             self.setup_shape(true);
             self.vertex_queue.push(Vertex {
-                pos: [x1 as f32, y1 as f32, 0.0],
+                pos: [x1 as f32, y1 as f32, self.depth],
                 tex_coord: [0.0, 0.0],
                 blend: split_colour(c1, alpha),
                 atlas_xywh: self.white_pixel.into(),
                 normal: [0.0, 0.0, 0.0],
             });
             self.vertex_queue.push(Vertex {
-                pos: [x2 as f32, y2 as f32, 0.0],
+                pos: [x2 as f32, y2 as f32, self.depth],
                 tex_coord: [0.0, 0.0],
                 blend: split_colour(c2, alpha),
                 atlas_xywh: self.white_pixel.into(),
@@ -1087,7 +1090,7 @@ impl RendererTrait for RendererImpl {
     ) {
         self.setup_shape(outline);
         self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0)
+            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth)
                 .push_point(x1, y1, c1)
                 .push_point(x2, y2, c2)
                 .push_point(x3, y3, c3)
@@ -1097,7 +1100,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
         self.setup_shape(outline);
-        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0);
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth);
         if !outline {
             builder = builder.push_point(x, y, c1);
         }
@@ -1120,7 +1123,7 @@ impl RendererTrait for RendererImpl {
         let rad_y = height.min(10.0) / 2.0;
         let rect_half_w = (width / 2.0 - rad_x).max(0.0);
         let rect_half_h = (height / 2.0 - rad_y).max(0.0);
-        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0);
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth);
         if !outline {
             builder = builder.push_point(xcenter, ycenter, c1);
         }
