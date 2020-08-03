@@ -1108,6 +1108,33 @@ impl RendererTrait for RendererImpl {
         self.vertex_queue.extend_from_slice(&builder.build());
     }
 
+    fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
+        self.setup_shape(outline);
+        let xcenter = (x1 + x2) / 2.0;
+        let ycenter = (y1 + y2) / 2.0;
+        let width = (x2 - x1).abs();
+        let height = (y2 - y1).abs();
+        let rad_x = width.min(10.0) / 2.0;
+        let rad_y = height.min(10.0) / 2.0;
+        let rect_half_w = (width / 2.0 - rad_x).max(0.0);
+        let rect_half_h = (height / 2.0 - rad_y).max(0.0);
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0);
+        if !outline {
+            builder = builder.push_point(xcenter, ycenter, c1);
+        }
+        let quarter_circle = self.circle_precision / 4;
+        for quad in 0..4 {
+            let circle_x = xcenter + if quad == 0 || quad == 3 { rect_half_w } else { -rect_half_w };
+            let circle_y = ycenter + if quad < 2 { rect_half_h } else { -rect_half_h };
+            for i in quarter_circle * quad..=quarter_circle * (quad + 1) {
+                let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
+                builder = builder.push_point(circle_x + rad_x * angle.cos(), circle_y + rad_y * angle.sin(), c2);
+            }
+        }
+        self.vertex_queue
+            .extend_from_slice(&builder.push_point(xcenter + rect_half_w + rad_x, ycenter + rect_half_h, c2).build());
+    }
+
     fn set_circle_precision(&mut self, prec: i32) {
         self.circle_precision = (prec.max(4).min(64) >> 2) << 2;
     }
