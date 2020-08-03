@@ -84,6 +84,7 @@ pub struct SaveState {
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
+    pub circle_precision: i32,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -169,6 +170,7 @@ impl SaveState {
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
+            circle_precision: game.renderer.get_circle_precision(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -269,6 +271,7 @@ impl SaveState {
         game.surfaces = self.surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
+        game.renderer.set_circle_precision(self.circle_precision);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;
