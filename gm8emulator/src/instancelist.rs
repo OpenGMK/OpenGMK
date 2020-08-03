@@ -220,19 +220,13 @@ pub struct ObjectIter {
 }
 impl ObjectIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        if self.count > 0 {
-            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance);
-                if inst.state.get() == InstanceState::Active {
-                    if inst.object_index.get() == self.object_index {
-                        self.count -= 1;
-                        self.position += idx + 1;
-                        return Some(instance)
-                    }
-                }
-            }
+        if self.position < self.count {
+            list.object_id_map
+                .get(&self.object_index)
+                .and_then(|v| nb_il_iter(v, &mut self.position, list, InstanceState::Active))
+        } else {
+            None
         }
-        None
     }
 }
 
