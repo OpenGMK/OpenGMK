@@ -1110,6 +1110,8 @@ impl RendererTrait for RendererImpl {
 
     fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
         self.setup_shape(outline);
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         let xcenter = (x1 + x2) / 2.0;
         let ycenter = (y1 + y2) / 2.0;
         let width = (x2 - x1).abs();
