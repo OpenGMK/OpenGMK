@@ -618,14 +618,38 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_circle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_circle")
+    pub fn draw_circle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, radius, outline) = expect_args!(args, [real, real, real, any])?;
+        self.renderer.draw_ellipse(
+            x.into(),
+            y.into(),
+            radius.into(),
+            radius.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_ellipse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_ellipse")
+    pub fn draw_ellipse(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [real, real, real, real, any])?;
+        let xcenter = (x1 + x2) / 2.into();
+        let ycenter = (y1 + y2) / 2.into();
+        let rad_x = (xcenter - x1).abs();
+        let rad_y = (ycenter - y1).abs();
+        self.renderer.draw_ellipse(
+            xcenter.into(),
+            ycenter.into(),
+            rad_x.into(),
+            rad_y.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_arrow(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -717,19 +741,44 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_circle_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_circle_color")
+    pub fn draw_circle_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, radius, col1, col2, outline) = expect_args!(args, [real, real, real, int, int, any])?;
+        self.renderer.draw_ellipse(
+            x.into(),
+            y.into(),
+            radius.into(),
+            radius.into(),
+            col1,
+            col2,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_ellipse_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_ellipse_color")
+    pub fn draw_ellipse_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2, outline) = expect_args!(args, [real, real, real, real, int, int, any])?;
+        let xcenter = (x1 + x2) / 2.into();
+        let ycenter = (y1 + y2) / 2.into();
+        let rad_x = (xcenter - x1).abs();
+        let rad_y = (ycenter - y1).abs();
+        self.renderer.draw_ellipse(
+            xcenter.into(),
+            ycenter.into(),
+            rad_x.into(),
+            rad_y.into(),
+            col1,
+            col2,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_set_circle_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_circle_precision")
+    pub fn draw_set_circle_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let prec = expect_args!(args, [int])?;
+        self.renderer.set_circle_precision(prec);
+        Ok(Default::default())
     }
 
     pub fn draw_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
