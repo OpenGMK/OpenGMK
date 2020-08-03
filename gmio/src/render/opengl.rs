@@ -9,7 +9,7 @@ use cfg_if::cfg_if;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
-use std::{any::Any, ffi::CStr, mem::size_of, ptr};
+use std::{any::Any, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -48,6 +48,7 @@ pub struct RendererImpl {
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveType,
     interpolate_pixels: bool,
+    circle_precision: i32,
 
     model_matrix: [f32; 16],
     view_matrix: [f32; 16],
@@ -341,6 +342,7 @@ impl RendererImpl {
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveType::TriList,
                 interpolate_pixels: options.interpolate_pixels,
+                circle_precision: 24,
 
                 model_matrix: identity_matrix.clone(),
                 view_matrix: identity_matrix.clone(),
@@ -1091,6 +1093,27 @@ impl RendererTrait for RendererImpl {
                 .push_point(x3, y3, c3)
                 .build(),
         );
+    }
+
+    fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
+        self.setup_shape(outline);
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, 0.0);
+        if !outline {
+            builder = builder.push_point(x, y, c1);
+        }
+        for i in 0..=self.circle_precision {
+            let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
+            builder = builder.push_point(x + rad_x * angle.cos(), y + rad_y * angle.sin(), c2);
+        }
+        self.vertex_queue.extend_from_slice(&builder.build());
+    }
+
+    fn set_circle_precision(&mut self, prec: i32) {
+        self.circle_precision = (prec.max(4).min(64) >> 2) << 2;
+    }
+
+    fn get_circle_precision(&self) -> i32 {
+        self.circle_precision
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {

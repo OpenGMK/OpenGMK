@@ -250,6 +250,9 @@ pub trait RendererTrait {
         alpha: f64,
         outline: bool,
     );
+    fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool);
+    fn set_circle_precision(&mut self, prec: i32);
+    fn get_circle_precision(&self) -> i32;
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
@@ -475,6 +478,28 @@ impl Renderer {
         outline: bool,
     ) {
         self.0.draw_triangle(x1, y1, x2, y2, x3, y3, c1, c2, c3, alpha, outline)
+    }
+
+    pub fn draw_ellipse(
+        &mut self,
+        x: f64,
+        y: f64,
+        rad_x: f64,
+        rad_y: f64,
+        c1: i32,
+        c2: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.0.draw_ellipse(x, y, rad_x, rad_y, c1, c2, alpha, outline)
+    }
+
+    pub fn set_circle_precision(&mut self, prec: i32) {
+        self.0.set_circle_precision(prec)
+    }
+
+    pub fn get_circle_precision(&self) -> i32 {
+        self.0.get_circle_precision()
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
