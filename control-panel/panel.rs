@@ -248,7 +248,6 @@ pub struct ControlPanel {
     pub font_small: Font,
 
     pub buttons: Vec<ButtonInfo>,
-    // pub save_buttons: Vec<ButtonInfo>,
 
     pub key_buttons: Vec<KeyButton>,
     pub mouse_buttons: Vec<MouseButton>,
@@ -277,8 +276,6 @@ pub struct ControlPanel {
     key_button_r_held2: AtlasRef,
     key_button_r_held3: AtlasRef,
     mouse_pos_normal: AtlasRef,
-    save_button_active: AtlasRef,
-    save_button_inactive: AtlasRef,
     button_outline: AtlasRef,
 
     menu_context: Option<MenuContext>,
@@ -348,10 +345,9 @@ impl ControlPanel {
                 let filename = format!("save{}.bin", id);
                 project_dir.push(&filename);
                 let exists = project_dir.exists();
-                let name = format!("save_button_{}", if project_dir.exists() { "active" } else { "inactive"});
                 project_dir.pop();
                 buttons.push(ButtonInfo {
-                    name: name.to_string(),
+                    name: "save_button".to_string(),
                     id: id as i32,
                     filename: filename.to_string(),
                     action_left_click: Action::Save(filename.to_string()),
@@ -399,8 +395,6 @@ impl ControlPanel {
         let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held2.bmp"));
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held3.bmp"));
         let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pos_normal.bmp"));
-        let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_button_active.bmp"));
-        let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_button_inactive.bmp"));
         let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/button_outline.bmp"));
 
         let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/label_up.bmp"));
@@ -476,7 +470,6 @@ impl ControlPanel {
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
             mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
-            // save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
             stream,
             mouse_x: 0,
@@ -501,8 +494,6 @@ impl ControlPanel {
             key_button_r_held2,
             key_button_r_held3,
             mouse_pos_normal,
-            save_button_active,
-            save_button_inactive,
             button_outline,
 
             menu_context: None,
@@ -956,16 +947,16 @@ impl ControlPanel {
         draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
 
         for button in self.buttons.iter_mut() {
-            if button.name.starts_with("save_button_") {
-                // eprintln!("{:?}", button);
-                let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
-                let atlas_ref_name = if button.exists { "save_button_active" } else { "save_button_inactive" };
-                let sprite = AtlasRef::from( *self.atlas_refs.get(atlas_ref_name).unwrap() );
+            if button.name == ("save_button") {
+                let modifier = if button.exists { 1.0 } else { 0.35 };
+                button.alpha_normal = (1.0 * modifier) as f32;
+                button.alpha_hover = 0.7 as f32;
+
+                let sprite = AtlasRef::from( *self.atlas_refs.get( &button.name.to_string() ).unwrap() );
                 button.sprite = Some(sprite);
-                button.name = format!("save_button_{}", if button.exists { "active" } else { "inactive"}); // todo: next
 
                 button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
-                // self.renderer.draw_sprite(atlas_ref, button.xstart as _, button.ystart as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
+
                 draw_text(
                     &mut self.renderer,
                     &button.id.to_string(),
@@ -973,7 +964,7 @@ impl ControlPanel {
                     f64::from(button.ystart) + 20.0,
                     &self.font,
                     0,
-                    alpha,
+                    1.0,
                 );
             } else {
                 button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
