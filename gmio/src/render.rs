@@ -56,6 +56,80 @@ impl From<i32> for PrimitiveType {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct Vertex {
+    pub pos: [f32; 3],
+    pub tex_coord: [f32; 2],
+    pub blend: [f32; 4],
+    pub atlas_xywh: [f32; 4],
+    pub normal: [f32; 3],
+}
+
+/// A builder to be used for building primitives.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PrimitiveBuilder {
+    vertices: Vec<Vertex>,
+    ptype: PrimitiveType,
+    atlas_ref: AtlasRef,
+}
+
+impl PrimitiveBuilder {
+    fn new(atlas_ref: AtlasRef, ptype: PrimitiveType) -> Self {
+        Self { vertices: Vec::new(), ptype, atlas_ref }
+    }
+
+    fn fill_shape(&mut self) {
+        match self.ptype {
+            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (),
+            PrimitiveType::LineStrip => {
+                if self.vertices.len() >= 2 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                }
+            },
+            PrimitiveType::TriFan => {
+                if self.vertices.len() >= 3 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                    self.vertices.push(self.vertices[0]);
+                }
+            },
+            PrimitiveType::TriStrip => {
+                let len = self.vertices.len();
+                if len >= 3 {
+                    self.vertices.push(self.vertices[len - 2]);
+                    self.vertices.push(self.vertices[len - 1]);
+                }
+            },
+        }
+    }
+
+    fn push_vertex_raw(&mut self, v: Vertex) -> &mut Self {
+        self.fill_shape();
+        self.vertices.push(v);
+        self
+    }
+
+    fn push_vertex(&mut self, pos: [f32; 3], tex_coord: [f32; 2], blend: [f32; 4], normal: [f32; 3]) -> &mut Self {
+        self.push_vertex_raw(Vertex { pos, tex_coord, blend, normal, atlas_xywh: self.atlas_ref.into() });
+        self
+    }
+
+    fn get_atlas_id(&self) -> u32 {
+        self.atlas_ref.atlas_id
+    }
+
+    fn get_type(&self) -> PrimitiveType {
+        match self.ptype {
+            PrimitiveType::LineStrip => PrimitiveType::LineList,
+            PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveType::TriList,
+            pt => pt,
+        }
+    }
+
+    fn get_vertices(&self) -> &[Vertex] {
+        &self.vertices
+    }
+}
+
 pub struct Renderer(Box<dyn RendererTrait>);
 
 pub trait RendererTrait {
