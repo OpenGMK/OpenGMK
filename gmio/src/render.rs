@@ -37,7 +37,6 @@ pub enum PrimitiveType {
     PointList,
     LineList,
     LineStrip,
-    LineLoop, // not used in GM8 but useful for drawing shapes
     TriList,
     TriStrip,
     TriFan,
