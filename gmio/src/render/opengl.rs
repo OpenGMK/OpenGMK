@@ -1236,7 +1236,7 @@ impl RendererTrait for RendererImpl {
         alpha: f64,
     ) {
         self.primitive_2d.push_vertex(
-            [x as f32, y as f32, self.depth],
+            [x as f32, y as f32, z as f32],
             [xtex as f32, ytex as f32],
             split_colour(col, alpha),
             [nx as f32, ny as f32, nz as f32],
