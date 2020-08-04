@@ -1277,8 +1277,10 @@ impl RendererTrait for RendererImpl {
     fn set_pixel_interpolation(&mut self, lerping: bool) {
         // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
         // therefore, we need to apply the setting before every draw call
-        self.flush_queue();
-        self.interpolate_pixels = lerping;
+        if self.interpolate_pixels != lerping {
+            self.flush_queue();
+            self.interpolate_pixels = lerping;
+        }
     }
 
     /// Does anything that's queued to be done.
