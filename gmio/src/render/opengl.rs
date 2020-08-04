@@ -52,6 +52,7 @@ pub struct RendererImpl {
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveType,
     interpolate_pixels: bool,
+    texture_repeat: bool,
     circle_precision: i32,
     depth: f32,
     primitive_2d: PrimitiveBuilder,
@@ -372,6 +373,7 @@ impl RendererImpl {
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveType::TriList,
                 interpolate_pixels: options.interpolate_pixels,
+                texture_repeat: false,
                 circle_precision: 24,
                 depth: 0.0,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
@@ -966,6 +968,7 @@ impl RendererTrait for RendererImpl {
             return // fail silently when drawing deleted sprite fonts
         }
         self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
+        self.set_texture_repeat(false);
 
         // get angle
         let angle = -angle.to_radians();
@@ -1283,6 +1286,20 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_texture_repeat(&self) -> bool {
+        self.texture_repeat
+    }
+
+    fn set_texture_repeat(&mut self, repeat: bool) {
+        if self.texture_repeat != repeat {
+            self.flush_queue();
+            self.texture_repeat = repeat;
+            unsafe {
+                self.gl.Uniform1i(self.loc_repeat, repeat as _);
+            }
+        }
+    }
+
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
         if self.vertex_queue.is_empty() {
@@ -1306,7 +1323,6 @@ impl RendererTrait for RendererImpl {
             );
 
             self.gl.Uniform1i(self.loc_tex, 0 as _);
-            self.gl.Uniform1i(self.loc_repeat, false as _);
 
             // layout (location = 0) in vec3 pos;
             // layout (location = 1) in vec4 blend;
