@@ -874,9 +874,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function texture_set_blending")
     }
 
-    pub fn texture_set_repeat(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_repeat")
+    pub fn texture_set_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let repeat = expect_args!(args, [any])?;
+        self.renderer.set_texture_repeat(repeat.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn texture_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
