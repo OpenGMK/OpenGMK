@@ -10,8 +10,7 @@ use shared::{
     types::{Colour, ID},
 };
 use chrono::{DateTime, offset::Utc};
-use std::{fs::File, fs, time::SystemTime, io::Read, net::TcpStream, path::PathBuf};
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File, fs, time::SystemTime, io::Read, net::TcpStream, path::PathBuf};
 
 // section: consts
 
@@ -30,6 +29,7 @@ pub enum Action {
     Advance,
     Update,
     Save(String),
+    Load(String),
     Nothing,
 }
 
@@ -289,7 +289,7 @@ impl ControlPanel {
         return match action {
             Action::Advance => self.send_advance(),
             Action::Save(mut s) => self.save(&mut s),
-            // todo: maybe rethink name since save buttons can either save or load; possibly Action::Memory
+            Action::Load(mut s) => self.load(&mut s),
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
@@ -322,14 +322,14 @@ impl ControlPanel {
 
         let mut buttons = vec![
             ButtonInfo {
-                name: "advance_button_normal".to_string(),
+                name: "advance_button".to_string(),
                 action_left_click: Action::Advance,
                 xstart: 280,
                 ystart: 8,
                 ..ButtonInfo::default()
             },
             ButtonInfo {
-                name: "big_save_button_normal".to_string(),
+                name: "big_save_button".to_string(),
                 filename: PRIMARY_SAVE_NAME.to_string(),
                 action_left_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
                 action_right_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
@@ -732,14 +732,8 @@ impl ControlPanel {
 
                                 1 => {
                                     // Load
-                                    self.stream.send_message(&message::Message::Load {
-                                        keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                                        mouse_buttons_requested: Vec::new(),
-                                        filename: filename.clone(),
-                                        instance_requested: self.watched_id,
-                                    })?;
-                                    self.await_update()?;
-                                    println!("Loaded");
+                                    let file = filename.to_string();
+                                    self.perform_action(Action::Load(file))?;
                                     break
                                 },
 
@@ -775,14 +769,7 @@ impl ControlPanel {
             },
 
             input::Key::W => {
-                self.stream.send_message(&message::Message::Load {
-                    keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                    mouse_buttons_requested: Vec::new(),
-                    filename: PRIMARY_SAVE_NAME.into(),
-                    instance_requested: self.watched_id,
-                })?;
-                self.await_update()?;
-                println!("Loaded");
+                self.perform_action(Action::Load(PRIMARY_SAVE_NAME.to_string()))?;
             },
 
             _ => (),
@@ -882,8 +869,21 @@ impl ControlPanel {
 
         let current_time: DateTime<Utc> = SystemTime::now().into();
         self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
-        eprintln!("{} UTC - {} {} - please check the file to verify", current_time.format("%b %d, %Y @ %T"), filename, msg);
         eprintln!("-----");
+        eprintln!("{} UTC - {} {} - please check the file to verify", current_time.format("%b %d, %Y @ %T"), filename, msg);
+
+        Ok(true)
+    }
+
+    fn load(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        self.stream.send_message(&message::Message::Load {
+            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
+            mouse_buttons_requested: Vec::new(),
+            filename: filename.into(),
+            instance_requested: self.watched_id,
+        })?;
+        self.await_update()?;
+        println!("Loaded");
 
         Ok(true)
     }
