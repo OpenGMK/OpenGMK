@@ -203,15 +203,6 @@ pub struct SeedChanger {
     pub y: i32,
 }
 
-// #[derive(Debug, Clone)]
-// pub struct SaveButton {
-//     pub x: i32,
-//     pub y: i32,
-//     pub name: String,
-//     pub filename: String,
-//     pub exists: bool,
-// }
-
 // section: impls (to be consolidated into ButtonInfo)
 
 impl SeedChanger {
@@ -364,7 +355,7 @@ impl ControlPanel {
         let mut atlas_refs = HashMap::new();
 
         for mut button in buttons.iter_mut() {
-            let mut button_name = button.name.to_string();
+            let button_name = button.name.to_string();
 
             if !atlas_refs.contains_key(&button_name) {
                 let path = format!("../../control-panel/images/{}.bmp", button_name);
@@ -384,7 +375,7 @@ impl ControlPanel {
             // eprintln!("{:?}", button.sprite);
         }
 
-        eprintln!("{:?}", atlas_refs);
+        eprintln!("atlas_refs: {:?}", atlas_refs);
 
         let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
         let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_held.bmp"));
@@ -622,8 +613,6 @@ impl ControlPanel {
 
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
-                            // button.x = 123;
-                            // self.perform_action(Action::Advance)?;
                             let options = match button.state {
                                 ButtonState::Neutral
                                 | ButtonState::NeutralWillPress
@@ -771,7 +760,6 @@ impl ControlPanel {
             input::Key::W => {
                 self.perform_action(Action::Load(PRIMARY_SAVE_NAME.to_string()))?;
             },
-
             _ => (),
         }
 
@@ -905,18 +893,10 @@ impl ControlPanel {
                     self.seed = seed;
                     self.new_seed = None;
                     for button in self.key_buttons.iter_mut() {
-                        if keys_held.contains(&button.key) {
-                            button.state = ButtonState::Held;
-                        } else {
-                            button.state = ButtonState::Neutral;
-                        }
+                        button.state = if keys_held.contains(&button.key) { ButtonState::Held } else { ButtonState::Neutral };
                     }
                     for button in self.mouse_buttons.iter_mut() {
-                        if mouse_buttons_held.contains(&button.button) {
-                            button.state = ButtonState::Held;
-                        } else {
-                            button.state = ButtonState::Neutral;
-                        }
+                        button.state = if mouse_buttons_held.contains(&button.button) { ButtonState::Held } else { ButtonState::Neutral };
                     }
                     break Ok(true)
                 },
@@ -956,7 +936,6 @@ impl ControlPanel {
                 button.sprite = Some(sprite);
 
                 button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
-
                 draw_text(
                     &mut self.renderer,
                     &button.id.to_string(),
@@ -1105,87 +1084,41 @@ impl ControlPanel {
         if let Some(id) = self.watched_id.as_ref() {
             draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);
             if let Some(details) = self.watched_instance.as_ref() {
+
+                let start_y = 618.0;
+                let texts: HashMap<String, f64> = [
+                    (format!("x: {}", details.x).to_string(), 20.0),
+                    (format!("y: {}", details.y).to_string(), 33.0),
+                    (format!("speed: {}", details.speed).to_string(), 46.0),
+                    (format!("direction: {}", details.direction), 59.0),
+                    (format!("bbox_left: {}", details.bbox_left), 72.0),
+                    (format!("bbox_right: {}", details.bbox_right), 85.0),
+                    (format!("bbox_top: {}", details.bbox_top), 98.0),
+                    (format!("bbox_bottom: {}", details.bbox_bottom), 111.0),
+                ].iter().cloned().collect();
+
+                for (text, y) in &texts {
+                    draw_text(
+                        &mut self.renderer,
+                        text,
+                        8.0,
+                        *y + start_y,
+                        &self.font_small,
+                        0x303030,
+                        1.0,
+                    )
+                }
+
                 draw_text(
                     &mut self.renderer,
                     &format!("{} ({})", details.object_name, details.id),
                     8.0,
-                    618.0,
+                    start_y,
                     &self.font_small,
                     0,
                     1.0,
                 );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("x: {}", details.x),
-                    8.0,
-                    638.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("y: {}", details.y),
-                    8.0,
-                    651.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("speed: {}", details.speed),
-                    8.0,
-                    664.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("direction: {}", details.direction),
-                    8.0,
-                    677.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_left: {}", details.bbox_left),
-                    8.0,
-                    690.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_right: {}", details.bbox_right),
-                    8.0,
-                    703.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_top: {}", details.bbox_top),
-                    8.0,
-                    716.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_bottom: {}", details.bbox_bottom),
-                    8.0,
-                    729.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
+
                 let mut alarms = details
                     .alarms
                     .iter()
@@ -1252,15 +1185,3 @@ fn draw_text(renderer: &mut Renderer, text: &str, mut x: f64, y: f64, font: &Fon
         }
     }
 }
-
-// pub fn draw_string(
-//     &mut self,
-//     x: Real,
-//     y: Real,
-//     string: &str,
-//     line_height: Option<i32>,
-//     max_width: Option<i32>,
-//     xscale: Real,
-//     yscale: Real,
-//     angle: Real,
-// ) {
