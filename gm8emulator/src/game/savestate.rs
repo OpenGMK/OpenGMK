@@ -19,7 +19,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, SavedTexture};
+use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -85,6 +85,8 @@ pub struct SaveState {
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
     pub circle_precision: i32,
+    pub primitive_2d: PrimitiveBuilder,
+    pub primitive_3d: PrimitiveBuilder,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -171,6 +173,8 @@ impl SaveState {
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
             circle_precision: game.renderer.get_circle_precision(),
+            primitive_2d: game.renderer.get_primitive_2d(),
+            primitive_3d: game.renderer.get_primitive_3d(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -272,6 +276,8 @@ impl SaveState {
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
         game.renderer.set_circle_precision(self.circle_precision);
+        game.renderer.set_primitive_2d(self.primitive_2d);
+        game.renderer.set_primitive_3d(self.primitive_3d);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;
