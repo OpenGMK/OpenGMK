@@ -10953,9 +10953,51 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_projection_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 13
-        unimplemented!("Called unimplemented kernel function d3d_set_projection_ext")
+    pub fn d3d_set_projection_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (eye_x, eye_y, eye_z, at_x, at_y, at_z, up_x, up_y, up_z, angle, aspect, znear, zfar) =
+            expect_args!(args, [real, real, real, real, real, real, real, real, real, real, real, real, real])?;
+
+        // zaxis = normal(at - eye)
+        let (za_x, za_y, za_z) = (at_x - eye_x, at_y - eye_y, at_z - eye_z);
+        let za_len = (za_x * za_x + za_y * za_y + za_z * za_z).sqrt();
+        let (za_x, za_y, za_z) = (za_x / za_len, za_y / za_len, za_z / za_len);
+        // xaxis = normal(cross(up, zaxis))
+        let (xa_x, xa_y, xa_z) = (up_y * za_z - up_z * za_y, up_z * za_x - up_x * za_z, up_x * za_y - up_y * za_x);
+        let xa_len = (xa_x * xa_x + xa_y * xa_y + xa_z * xa_z).sqrt();
+        let (xa_x, xa_y, xa_z) = (xa_x / xa_len, xa_y / xa_len, xa_z / xa_len);
+        // yaxis = cross(zaxis, xaxis)
+        let (ya_x, ya_y, ya_z) = (za_y * xa_z - za_z * xa_y, za_z * xa_x - za_x * xa_z, za_x * xa_y - za_y * xa_x);
+        // bottom row
+        let (xa_w, ya_w, za_w) = (
+            -(xa_x * eye_x + xa_y * eye_y + xa_z * eye_z),
+            -(ya_x * eye_x + ya_y * eye_y + ya_z * eye_z),
+            -(za_x * eye_x + za_y * eye_y + za_z * eye_z),
+        );
+
+        #[rustfmt::skip]
+        let view_matrix: [f32; 16] = [
+            xa_x.into_inner() as f32, ya_x.into_inner() as f32, za_x.into_inner() as f32, 0.0,
+            xa_y.into_inner() as f32, ya_y.into_inner() as f32, za_y.into_inner() as f32, 0.0,
+            xa_z.into_inner() as f32, ya_z.into_inner() as f32, za_z.into_inner() as f32, 0.0,
+            xa_w.into_inner() as f32, ya_w.into_inner() as f32, za_w.into_inner() as f32, 1.0,
+        ];
+
+        let half_angle = angle / 2.into();
+        let yscale = half_angle.cos() / half_angle.sin();
+        let xscale = (yscale / aspect).into_inner() as f32;
+        let yscale = yscale.into_inner() as f32;
+        let upper_z = (zfar / (zfar - znear)).into_inner() as f32;
+        let lower_z = (-znear * zfar / (zfar - znear)).into_inner() as f32;
+        #[rustfmt::skip]
+        let proj_matrix: [f32; 16] = [
+            xscale, 0.0,    0.0,     0.0,
+            0.0,    yscale, 0.0,     0.0,
+            0.0,    0.0,    upper_z, lower_z,
+            0.0,    0.0,    1.0,     0.0,
+        ];
+
+        self.renderer.set_viewproj_matrix(view_matrix, proj_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_projection_ortho(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10965,8 +11007,9 @@ impl Game {
     }
 
     pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_set_projection_perspective")
+        let (x, y, w, h, angle) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.set_projection_perspective(x.into(), y.into(), w.into(), h.into(), angle.into());
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -11007,19 +11050,49 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_x")
+    pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0,  0.0, 0.0,
+            0.0, cos,  sin, 0.0,
+            0.0, -sin, cos, 0.0,
+            0.0, 0.0,  0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_y")
+    pub fn d3d_transform_set_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos, 0.0, -sin, 0.0,
+            0.0, 1.0, 0.0,  0.0,
+            sin, 0.0, cos,  0.0,
+            0.0, 0.0, 0.0,  1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_z(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_z")
+    pub fn d3d_transform_set_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos,  sin, 0.0, 0.0,
+            -sin, cos, 0.0, 0.0,
+            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_rotation_axis(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -11053,19 +11126,49 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_x")
+    pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0,  0.0, 0.0,
+            0.0, cos,  sin, 0.0,
+            0.0, -sin, cos, 0.0,
+            0.0, 0.0,  0.0, 1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_y")
+    pub fn d3d_transform_add_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos, 0.0, -sin, 0.0,
+            0.0, 1.0, 0.0,  0.0,
+            sin, 0.0, cos,  0.0,
+            0.0, 0.0, 0.0,  1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_z(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_z")
+    pub fn d3d_transform_add_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?;
+        let sin = angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos,  sin, 0.0, 0.0,
+            -sin, cos, 0.0, 0.0,
+            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_add_rotation_axis(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
