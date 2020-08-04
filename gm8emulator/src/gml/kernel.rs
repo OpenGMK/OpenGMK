@@ -11006,7 +11006,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, w, h, angle) = expect_args!(args, [real, real, real, real, real])?;
         self.renderer.set_projection_perspective(x.into(), y.into(), w.into(), h.into(), angle.into());
         Ok(Default::default())
