@@ -80,6 +80,38 @@ unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
     )
 }
 
+fn make_view_matrix(x: f64, y: f64, w: f64, h: f64, angle: f64) -> [f32; 16] {
+    // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
+    let angle = angle.to_radians();
+    let sin_angle = -angle.sin() as f32;
+    let cos_angle = angle.cos() as f32;
+
+    #[rustfmt::skip]
+    let view_matrix: [f32; 16] = {
+        // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
+        let scx = -((x as f32) + (w as f32 / 2.0));
+        let scy = -((y as f32) + (h as f32 / 2.0));
+        mat4mult(
+            // Place camera at (scx, scy, 16000)
+            [
+                1.0, 0.0, 0.0,     0.0,
+                0.0, 1.0, 0.0,     0.0,
+                0.0, 0.0, 1.0,     0.0,
+                scx, scy, 16000.0, 1.0,
+            ],
+            // Rotate to view_angle
+            [
+                cos_angle,  sin_angle, 0.0, 0.0,
+                -sin_angle, cos_angle, 0.0, 0.0,
+                0.0,        0.0,       1.0, 0.0,
+                0.0,        0.0,       0.0, 1.0,
+            ]
+        )
+    };
+
+    view_matrix
+}
+
 fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
     [
         ((rgb & 0xFF) as f32) / 255.0,
@@ -1356,34 +1388,6 @@ impl RendererTrait for RendererImpl {
         // Draw anything that was meant to be drawn with the old view first
         self.flush_queue();
 
-        // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
-        let angle = angle.to_radians();
-        let sin_angle = -angle.sin() as f32;
-        let cos_angle = angle.cos() as f32;
-
-        #[rustfmt::skip]
-        let view_matrix: [f32; 16] = {
-            // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
-            let scx = -((x as f32) + (w as f32 / 2.0));
-            let scy = -((y as f32) + (h as f32 / 2.0));
-            mat4mult(
-                // Place camera at (scx, scy, 16000)
-                [
-                    1.0, 0.0, 0.0,     0.0,
-                    0.0, 1.0, 0.0,     0.0,
-                    0.0, 0.0, 1.0,     0.0,
-                    scx, scy, 16000.0, 1.0,
-                ],
-                // Rotate to view_angle
-                [
-                    cos_angle,  sin_angle, 0.0, 0.0,
-                    -sin_angle, cos_angle, 0.0, 0.0,
-                    0.0,        0.0,       1.0, 0.0,
-                    0.0,        0.0,       0.0, 1.0,
-                ]
-            )
-        };
-
         #[rustfmt::skip]
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
@@ -1395,7 +1399,24 @@ impl RendererTrait for RendererImpl {
             ]
         };
 
-        self.set_viewproj_matrix(view_matrix, proj_matrix);
+        self.set_viewproj_matrix(make_view_matrix(x, y, w, h, angle), proj_matrix);
+    }
+
+    fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
+        self.flush_queue();
+
+        #[rustfmt::skip]
+        let proj_matrix: [f32; 16] = {
+            // Squish to screen, flip vertically, and constrain z to range 1 - 32000
+            [
+                2.0 / w as f32, 0.0,            0.0,                0.0,
+                0.0,            2.0 / h as f32, 0.0,                0.0,
+                0.0,            0.0,            32000.0 / 31999.0,  0.0,
+                0.0,            0.0,            -32000.0 / 31999.0, 1.0,
+            ]
+        };
+
+        self.set_viewproj_matrix(make_view_matrix(x, y, w, h, angle), proj_matrix);
     }
 
     fn set_view(
