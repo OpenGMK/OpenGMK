@@ -50,6 +50,8 @@ pub struct RendererImpl {
     interpolate_pixels: bool,
     circle_precision: i32,
     depth: f32,
+    primitive_2d: PrimitiveBuilder,
+    primitive_3d: PrimitiveBuilder,
 
     model_matrix: [f32; 16],
     view_matrix: [f32; 16],
@@ -406,6 +408,8 @@ impl RendererImpl {
                 interpolate_pixels: options.interpolate_pixels,
                 circle_precision: 24,
                 depth: 0.0,
+                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
+                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
                 model_matrix: identity_matrix.clone(),
                 view_matrix: identity_matrix.clone(),
@@ -480,6 +484,10 @@ impl RendererTrait for RendererImpl {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
         self.white_pixel =
             atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
+        // update primitive buffers with white pixel
+        self.reset_primitive_2d(PrimitiveType::PointList, None);
+        self.reset_primitive_3d(PrimitiveType::PointList, None);
+
         let (packers, sprites) = atl.into_inner();
 
         unsafe {
@@ -1189,6 +1197,56 @@ impl RendererTrait for RendererImpl {
 
     fn get_circle_precision(&self) -> i32 {
         self.circle_precision
+    }
+
+    fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.primitive_2d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+    }
+
+    fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
+        self.primitive_2d.push_vertex(
+            [x as f32, y as f32, self.depth],
+            [xtex as f32, ytex as f32],
+            split_colour(col, alpha),
+            [0.0, 0.0, 0.0],
+        );
+    }
+
+    fn draw_primitive_2d(&mut self) {
+        // I would use push_primitive but that causes borrowing issues.
+        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_type());
+        self.vertex_queue.extend_from_slice(self.primitive_2d.get_vertices());
+    }
+
+    fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.primitive_3d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+    }
+
+    fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    ) {
+        self.primitive_2d.push_vertex(
+            [x as f32, y as f32, self.depth],
+            [xtex as f32, ytex as f32],
+            split_colour(col, alpha),
+            [nx as f32, ny as f32, nz as f32],
+        );
+    }
+
+    fn draw_primitive_3d(&mut self) {
+        // See draw_primitive_2d.
+        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_type());
+        self.vertex_queue.extend_from_slice(self.primitive_3d.get_vertices());
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {

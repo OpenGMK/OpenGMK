@@ -254,6 +254,24 @@ pub trait RendererTrait {
     fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool);
     fn set_circle_precision(&mut self, prec: i32);
     fn get_circle_precision(&self) -> i32;
+    fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
+    fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64);
+    fn draw_primitive_2d(&mut self);
+    fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
+    fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    );
+    fn draw_primitive_3d(&mut self);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
@@ -505,6 +523,42 @@ impl Renderer {
 
     pub fn get_circle_precision(&self) -> i32 {
         self.0.get_circle_precision()
+    }
+
+    pub fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.0.reset_primitive_2d(ptype, atlas_ref)
+    }
+
+    pub fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
+        self.0.vertex_2d(x, y, xtex, ytex, col, alpha)
+    }
+
+    pub fn draw_primitive_2d(&mut self) {
+        self.0.draw_primitive_2d()
+    }
+
+    pub fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.0.reset_primitive_3d(ptype, atlas_ref)
+    }
+
+    pub fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    ) {
+        self.0.vertex_3d(x, y, z, nx, ny, nz, xtex, ytex, col, alpha)
+    }
+
+    pub fn draw_primitive_3d(&mut self) {
+        self.0.draw_primitive_3d()
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
