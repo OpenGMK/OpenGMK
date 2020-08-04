@@ -11,7 +11,7 @@ use cfg_if::cfg_if;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
-use std::{any::Any, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
+use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -44,6 +44,8 @@ pub struct RendererImpl {
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
+    sprites: HashMap<i32, AtlasRef>,
+    sprite_count: i32,
     stock_atlas_count: u32,
     current_atlas: GLuint,
     white_pixel: AtlasRef,
@@ -362,6 +364,8 @@ impl RendererImpl {
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 fbo_ids: vec![],
+                sprites: HashMap::new(),
+                sprite_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 white_pixel: Default::default(),
@@ -505,6 +509,8 @@ impl RendererTrait for RendererImpl {
                     gl::UNSIGNED_BYTE,    // type
                     pixels.as_ptr() as _, // pixels
                 );
+
+                self.sprite_count += 1;
             }
 
             // verify it actually worked
@@ -612,6 +618,7 @@ impl RendererTrait for RendererImpl {
     fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         // this only deletes sprites created with upload_sprite
         self.flush_queue();
+        self.sprites.remove(&atlas_ref.sprite_id);
         if atlas_ref.atlas_id >= self.stock_atlas_count {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
@@ -696,7 +703,9 @@ impl RendererTrait for RendererImpl {
             self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
         }
-        Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
+        let sprite_id = self.sprite_count;
+        self.sprite_count += 1;
+        Ok(AtlasRef { atlas_id, sprite_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
 
     fn set_target(&mut self, atlas_ref: &AtlasRef) {
@@ -729,6 +738,23 @@ impl RendererTrait for RendererImpl {
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
         }
         self.set_view(w as _, h as _, unscaled_w as _, unscaled_h as _, 0, 0, w, h, 0.0, 0, 0, w, h);
+    }
+
+    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
+        self.sprites.entry(atl_ref.sprite_id).or_insert(*atl_ref);
+        atl_ref.sprite_id
+    }
+
+    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
+        if id >= 0 { self.sprites.get(&id) } else { None }
+    }
+
+    fn get_sprite_count(&self) -> i32 {
+        self.sprite_count
+    }
+
+    fn set_sprite_count(&mut self, sprite_count: i32) {
+        self.sprite_count = sprite_count;
     }
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {

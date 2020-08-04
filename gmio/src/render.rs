@@ -218,6 +218,7 @@ pub trait RendererTrait {
     fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         self.dump_sprite(&AtlasRef {
             atlas_id: texture.atlas_id,
+            sprite_id: texture.sprite_id,
             w: part_w,
             h: part_h,
             x: texture.x + part_x,
@@ -240,6 +241,12 @@ pub trait RendererTrait {
     fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32);
+
+    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32;
+    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef>;
+
+    fn get_sprite_count(&self) -> i32;
+    fn set_sprite_count(&mut self, sprite_count: i32);
 
     fn draw_sprite_partial(
         &mut self,
@@ -715,6 +722,22 @@ impl Renderer {
 
     pub fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
         self.0.reset_target(w, h, unscaled_w, unscaled_h)
+    }
+
+    pub fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
+        self.0.get_texture_id(atl_ref)
+    }
+
+    pub fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
+        self.0.get_texture_from_id(id)
+    }
+
+    pub fn get_sprite_count(&self) -> i32 {
+        self.0.get_sprite_count()
+    }
+
+    pub fn set_sprite_count(&mut self, sprite_count: i32) {
+        self.0.set_sprite_count(sprite_count)
     }
 
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
