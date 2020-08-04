@@ -42,6 +42,20 @@ pub enum PrimitiveType {
     TriFan,
 }
 
+impl From<i32> for PrimitiveType {
+    fn from(pt: i32) -> Self {
+        match pt {
+            0 | 1 => PrimitiveType::PointList,
+            2 => PrimitiveType::LineList,
+            3 => PrimitiveType::LineStrip,
+            4 => PrimitiveType::TriList,
+            5 => PrimitiveType::TriStrip,
+            6 => PrimitiveType::TriFan,
+            _ => PrimitiveType::PointList, // GM8 just draws nothing in this case
+        }
+    }
+}
+
 pub struct Renderer(Box<dyn RendererTrait>);
 
 pub trait RendererTrait {
