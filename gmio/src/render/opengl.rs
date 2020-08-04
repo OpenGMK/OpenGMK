@@ -80,7 +80,7 @@ unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
     )
 }
 
-fn make_view_matrix(x: f64, y: f64, w: f64, h: f64, angle: f64) -> [f32; 16] {
+fn make_view_matrix(x: f64, y: f64, z: f64, w: f64, h: f64, angle: f64) -> [f32; 16] {
     // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
     let angle = angle.to_radians();
     let sin_angle = -angle.sin() as f32;
@@ -91,13 +91,14 @@ fn make_view_matrix(x: f64, y: f64, w: f64, h: f64, angle: f64) -> [f32; 16] {
         // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
         let scx = -((x as f32) + (w as f32 / 2.0));
         let scy = -((y as f32) + (h as f32 / 2.0));
+        let scz = -z as f32;
         mat4mult(
-            // Place camera at (scx, scy, 16000)
+            // Place camera at (scx, scy, scz)
             [
-                1.0, 0.0, 0.0,     0.0,
-                0.0, 1.0, 0.0,     0.0,
-                0.0, 0.0, 1.0,     0.0,
-                scx, scy, 16000.0, 1.0,
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                scx, scy, scz, 1.0,
             ],
             // Rotate to view_angle
             [
@@ -1399,7 +1400,7 @@ impl RendererTrait for RendererImpl {
             ]
         };
 
-        self.set_viewproj_matrix(make_view_matrix(x, y, w, h, angle), proj_matrix);
+        self.set_viewproj_matrix(make_view_matrix(x, y, -16000.0, w, h, angle), proj_matrix);
     }
 
     fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
@@ -1409,14 +1410,14 @@ impl RendererTrait for RendererImpl {
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
             [
-                2.0 / w as f32, 0.0,            0.0,                0.0,
-                0.0,            2.0 / h as f32, 0.0,                0.0,
-                0.0,            0.0,            32000.0 / 31999.0,  0.0,
-                0.0,            0.0,            -32000.0 / 31999.0, 1.0,
+                2.0, 0.0,                  0.0,                0.0,
+                0.0, 2.0 * (w / h) as f32, 0.0,                0.0,
+                0.0, 0.0,                  32000.0 / 31999.0,  1.0,
+                0.0, 0.0,                  -32000.0 / 31999.0, 0.0,
             ]
         };
 
-        self.set_viewproj_matrix(make_view_matrix(x, y, w, h, angle), proj_matrix);
+        self.set_viewproj_matrix(make_view_matrix(x, y, -w, w, h, angle), proj_matrix);
     }
 
     fn set_view(
