@@ -807,9 +807,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_primitive_begin_texture")
+    pub fn draw_primitive_begin_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, texture) = expect_args!(args, [int, int])?;
+        self.renderer.reset_primitive_2d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        Ok(Default::default())
     }
 
     pub fn draw_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -848,14 +849,31 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sprite_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_get_texture")
+    pub fn sprite_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index) = expect_args!(args, [int, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            if let Some(atlas_ref) = sprite.frames.get(image_index as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                Ok(self.renderer.get_texture_id(atlas_ref).into())
+            } else {
+                Ok((-1).into())
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
-    pub fn background_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_get_texture")
+    pub fn background_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bg_index = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                Ok(self.renderer.get_texture_id(atlas_ref).into())
+            } else {
+                Ok((-1).into())
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn texture_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -881,13 +899,13 @@ impl Game {
     }
 
     pub fn texture_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_get_width")
+        // we don't pad textures to po2
+        Ok(1.into())
     }
 
     pub fn texture_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_get_height")
+        // see texture_get_width
+        Ok(1.into())
     }
 
     pub fn texture_preload(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1642,9 +1660,13 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
     }
 
-    pub fn surface_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_texture")
+    pub fn surface_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            Ok(self.renderer.get_texture_id(&surf.atlas_ref).into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
     pub fn surface_set_target(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10755,9 +10777,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_primitive_begin_texture")
+    pub fn d3d_primitive_begin_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, texture) = expect_args!(args, [int, int])?;
+        self.renderer.reset_primitive_3d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        Ok(Default::default())
     }
 
     pub fn d3d_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
