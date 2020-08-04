@@ -11051,8 +11051,8 @@ impl Game {
     }
 
     pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
@@ -11066,8 +11066,8 @@ impl Game {
     }
 
     pub fn d3d_transform_set_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
@@ -11081,8 +11081,8 @@ impl Game {
     }
 
     pub fn d3d_transform_set_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
@@ -11127,8 +11127,8 @@ impl Game {
     }
 
     pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
@@ -11142,8 +11142,8 @@ impl Game {
     }
 
     pub fn d3d_transform_add_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
@@ -11157,8 +11157,8 @@ impl Game {
     }
 
     pub fn d3d_transform_add_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let angle = expect_args!(args, [real])?;
-        let sin = angle.sin().into_inner() as f32;
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
         let cos = angle.cos().into_inner() as f32;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
