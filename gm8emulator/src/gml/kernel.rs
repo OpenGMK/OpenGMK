@@ -10982,7 +10982,7 @@ impl Game {
             xa_w.into_inner() as f32, ya_w.into_inner() as f32, za_w.into_inner() as f32, 1.0,
         ];
 
-        let half_angle = angle / 2.into();
+        let half_angle = angle.to_radians() / 2.into();
         let yscale = half_angle.cos() / half_angle.sin();
         let xscale = (yscale / aspect).into_inner() as f32;
         let yscale = yscale.into_inner() as f32;
@@ -10992,8 +10992,8 @@ impl Game {
         let proj_matrix: [f32; 16] = [
             xscale, 0.0,    0.0,     0.0,
             0.0,    yscale, 0.0,     0.0,
-            0.0,    0.0,    upper_z, lower_z,
-            0.0,    0.0,    1.0,     0.0,
+            0.0,    0.0,    upper_z, 1.0,
+            0.0,    0.0,    lower_z, 0.0,
         ];
 
         self.renderer.set_viewproj_matrix(view_matrix, proj_matrix);
