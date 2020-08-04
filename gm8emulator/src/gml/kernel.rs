@@ -801,9 +801,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_primitive_begin")
+    pub fn draw_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let kind = expect_args!(args, [int])?;
+        self.renderer.reset_primitive_2d(kind.into(), None);
+        Ok(Default::default())
     }
 
     pub fn draw_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -812,28 +813,39 @@ impl Game {
     }
 
     pub fn draw_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function draw_primitive_end")
+        self.renderer.draw_primitive_2d();
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_vertex")
+    pub fn draw_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), 0.0, 0.0, u32::from(self.draw_colour) as _, self.draw_alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_vertex_color")
+    pub fn draw_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, col, alpha) = expect_args!(args, [real, real, int, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), 0.0, 0.0, col, alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_vertex_texture")
+    pub fn draw_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, xtex, ytex) = expect_args!(args, [real, real, real, real])?;
+        self.renderer.vertex_2d(
+            x.into(),
+            y.into(),
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_vertex_texture_color")
+    pub fn draw_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, int, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), xtex.into(), ytex.into(), col, alpha.into());
+        Ok(Default::default())
     }
 
     pub fn sprite_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10736,9 +10748,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_culling")
     }
 
-    pub fn d3d_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_primitive_begin")
+    pub fn d3d_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let kind = expect_args!(args, [int])?;
+        self.renderer.reset_primitive_3d(kind.into(), None);
+        Ok(Default::default())
     }
 
     pub fn d3d_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10747,48 +10760,134 @@ impl Game {
     }
 
     pub fn d3d_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_primitive_end")
+        self.renderer.draw_primitive_3d();
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_vertex")
+    pub fn d3d_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z) = expect_args!(args, [real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_vertex_color")
+    pub fn d3d_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, col, alpha) = expect_args!(args, [real, real, real, int, real])?;
+        self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_vertex_texture")
+    pub fn d3d_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, xtex, ytex) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function d3d_vertex_texture_color")
+    pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            xtex.into(),
+            ytex.into(),
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal")
+    pub fn d3d_vertex_normal(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz) = expect_args!(args, [real, real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            0.0,
+            0.0,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_color")
+    pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, col, alpha) = expect_args!(args, [real, real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            0.0,
+            0.0,
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_texture")
+    pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, xtex, ytex) = expect_args!(args, [real, real, real, real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_texture_color")
+    pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
+            expect_args!(args, [real, real, real, real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            xtex.into(),
+            ytex.into(),
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn d3d_draw_block(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
