@@ -43,6 +43,7 @@ pub struct SaveState {
     pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
     pub interpolate_pixels: bool,
+    pub sprite_count: i32,
     pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
@@ -139,6 +140,7 @@ impl SaveState {
             textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
             interpolate_pixels: game.renderer.get_pixel_interpolation(),
+            sprite_count: game.renderer.get_sprite_count(),
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
@@ -227,6 +229,7 @@ impl SaveState {
         );
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
+        game.renderer.set_sprite_count(self.sprite_count);
         game.renderer.set_vsync(self.vsync);
 
         let mut externals = self.externals;
