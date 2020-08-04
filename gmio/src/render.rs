@@ -345,6 +345,8 @@ pub trait RendererTrait {
     fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
     fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64);
     fn draw_primitive_2d(&mut self);
+    fn get_primitive_2d(&self) -> PrimitiveBuilder;
+    fn set_primitive_2d(&mut self, prim: PrimitiveBuilder);
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
     fn vertex_3d(
         &mut self,
@@ -360,6 +362,8 @@ pub trait RendererTrait {
         alpha: f64,
     );
     fn draw_primitive_3d(&mut self);
+    fn get_primitive_3d(&self) -> PrimitiveBuilder;
+    fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
@@ -625,6 +629,14 @@ impl Renderer {
         self.0.draw_primitive_2d()
     }
 
+    pub fn get_primitive_2d(&self) -> PrimitiveBuilder {
+        self.0.get_primitive_2d()
+    }
+
+    pub fn set_primitive_2d(&mut self, prim: PrimitiveBuilder) {
+        self.0.set_primitive_2d(prim)
+    }
+
     pub fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
         self.0.reset_primitive_3d(ptype, atlas_ref)
     }
@@ -647,6 +659,14 @@ impl Renderer {
 
     pub fn draw_primitive_3d(&mut self) {
         self.0.draw_primitive_3d()
+    }
+
+    pub fn get_primitive_3d(&self) -> PrimitiveBuilder {
+        self.0.get_primitive_3d()
+    }
+
+    pub fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
+        self.0.set_primitive_3d(prim)
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {

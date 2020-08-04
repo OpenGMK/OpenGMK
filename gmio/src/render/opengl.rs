@@ -1147,6 +1147,14 @@ impl RendererTrait for RendererImpl {
         self.vertex_queue.extend_from_slice(self.primitive_2d.get_vertices());
     }
 
+    fn get_primitive_2d(&self) -> PrimitiveBuilder {
+        self.primitive_2d.clone()
+    }
+
+    fn set_primitive_2d(&mut self, prim: PrimitiveBuilder) {
+        self.primitive_2d = prim;
+    }
+
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
         self.primitive_3d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
     }
@@ -1176,6 +1184,14 @@ impl RendererTrait for RendererImpl {
         // See draw_primitive_2d.
         self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_type());
         self.vertex_queue.extend_from_slice(self.primitive_3d.get_vertices());
+    }
+
+    fn get_primitive_3d(&self) -> PrimitiveBuilder {
+        self.primitive_3d.clone()
+    }
+
+    fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
+        self.primitive_3d = prim;
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
