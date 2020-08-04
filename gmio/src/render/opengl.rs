@@ -143,6 +143,7 @@ impl From<PrimitiveType> for GLenum {
             PrimitiveType::PointList => gl::POINTS,
             PrimitiveType::LineList => gl::LINES,
             PrimitiveType::LineStrip => gl::LINE_STRIP,
+            PrimitiveType::LineLoop => gl::LINE_LOOP,
             PrimitiveType::TriList => gl::TRIANGLES,
             PrimitiveType::TriStrip => gl::TRIANGLE_STRIP,
             PrimitiveType::TriFan => gl::TRIANGLE_FAN,
@@ -164,49 +165,93 @@ impl From<GLenum> for PrimitiveType {
     }
 }
 
-/// A builder to be used for simple untextured shapes.
+/// A builder to be used for building primitives.
 struct ShapeBuilder {
     vertices: Vec<Vertex>,
     depth: f32,
-    outline: bool,
+    ptype: PrimitiveType,
+    atlas_id: u32,
     atlas_xywh: [f32; 4],
     alpha: f64,
 }
 
 impl ShapeBuilder {
-    fn new(outline: bool, atlas_xywh: [f32; 4], alpha: f64, depth: f32) -> Self {
-        Self { vertices: Vec::new(), depth, outline, atlas_xywh, alpha }
+    fn new_shape(outline: bool, atlas_ref: AtlasRef, alpha: f64, depth: f32) -> Self {
+        Self {
+            vertices: Vec::new(),
+            depth,
+            ptype: if outline { PrimitiveType::LineLoop } else { PrimitiveType::TriFan },
+            atlas_id: atlas_ref.atlas_id,
+            atlas_xywh: atlas_ref.into(),
+            alpha,
+        }
     }
 
-    fn push_point(mut self, x: f64, y: f64, colour: i32) -> Self {
-        if self.outline {
-            if self.vertices.len() >= 2 {
-                self.vertices.push(*self.vertices.last().unwrap());
-            }
-        } else {
-            if self.vertices.len() >= 3 {
-                self.vertices.push(*self.vertices.last().unwrap());
-                self.vertices.push(self.vertices[0]);
-            }
+    fn fill_shape(&mut self) {
+        match self.ptype {
+            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (),
+            PrimitiveType::LineStrip | PrimitiveType::LineLoop => {
+                if self.vertices.len() >= 2 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                }
+            },
+            PrimitiveType::TriFan => {
+                if self.vertices.len() >= 3 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                    self.vertices.push(self.vertices[0]);
+                }
+            },
+            PrimitiveType::TriStrip => {
+                let len = self.vertices.len();
+                if len >= 3 {
+                    self.vertices.push(self.vertices[len - 2]);
+                    self.vertices.push(self.vertices[len - 1]);
+                }
+            },
         }
-        self.vertices.push(Vertex {
+    }
+
+    fn push_vertex(&mut self, v: Vertex) -> &mut Self {
+        self.fill_shape();
+        self.vertices.push(v);
+        self
+    }
+
+    /// Shortcut for basic shapes.
+    fn push_point(&mut self, x: f64, y: f64, colour: i32) -> &mut Self {
+        self.push_vertex(Vertex {
             pos: [x as f32, y as f32, self.depth],
             tex_coord: [0.0, 0.0],
             blend: split_colour(colour, self.alpha),
             atlas_xywh: self.atlas_xywh,
             normal: [0.0, 0.0, 0.0],
-        });
+        })
+    }
+
+    fn get_atlas_id(&self) -> u32 {
+        self.atlas_id
+    }
+
+    fn get_type(&self) -> PrimitiveType {
+        match self.ptype {
+            PrimitiveType::LineStrip | PrimitiveType::LineLoop => PrimitiveType::LineList,
+            PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveType::TriList,
+            pt => pt,
+        }
+    }
+
+    /// Should only be called once. This is only used for basic shapes, so it's fine for it to be *possible* to
+    /// call it multiple times, as that makes things easier elsewhere.
+    fn close_loop(&mut self) -> &mut Self {
+        if self.ptype == PrimitiveType::LineLoop && self.vertices.len() > 2 {
+            self.vertices.push(*self.vertices.last().unwrap());
+            self.vertices.push(self.vertices[0]);
+        }
         self
     }
 
-    fn build(mut self) -> Vec<Vertex> {
-        if self.outline {
-            if self.vertices.len() > 2 {
-                self.vertices.push(*self.vertices.last().unwrap());
-                self.vertices.push(self.vertices[0]);
-            }
-        }
-        self.vertices
+    fn get_vertices(&self) -> &[Vertex] {
+        &self.vertices
     }
 }
 
@@ -382,6 +427,11 @@ impl RendererImpl {
             self.current_atlas = atlas_id;
             self.queue_type = queue_type;
         }
+    }
+
+    fn push_shape_builder(&mut self, builder: &ShapeBuilder) {
+        self.setup_queue(builder.get_atlas_id(), builder.get_type());
+        self.vertex_queue.extend_from_slice(builder.get_vertices());
     }
 
     fn setup_shape(&mut self, outline: bool) {
@@ -988,14 +1038,13 @@ impl RendererTrait for RendererImpl {
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
-        self.setup_shape(true);
-        self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(true, self.white_pixel.into(), alpha, self.depth)
+        self.push_shape_builder(
+            ShapeBuilder::new_shape(true, self.white_pixel, alpha, self.depth)
                 .push_point(x1, y1, colour)
                 .push_point(x2, y1, colour)
                 .push_point(x2, y2, colour)
                 .push_point(x1, y2, colour)
-                .build(),
+                .close_loop(),
         );
     }
 
@@ -1012,16 +1061,15 @@ impl RendererTrait for RendererImpl {
         alpha: f64,
         outline: bool,
     ) {
-        self.setup_shape(outline);
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
-        self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth)
+        self.push_shape_builder(
+            ShapeBuilder::new_shape(outline, self.white_pixel, alpha, self.depth)
                 .push_point(x1, y1, c1)
                 .push_point(x2, y1, c2)
                 .push_point(x2, y2, c3)
                 .push_point(x1, y2, c4)
-                .build(),
+                .close_loop(),
         );
     }
 
@@ -1045,14 +1093,13 @@ impl RendererTrait for RendererImpl {
                 let width_x = (y2 - y1) * (width / 2.0) / length;
                 let width_y = (x2 - x1) * (width / 2.0) / length;
                 // actually push the rectangle
-                self.setup_shape(false);
-                self.vertex_queue.extend_from_slice(
-                    &ShapeBuilder::new(false, self.white_pixel.into(), alpha, self.depth)
+                self.push_shape_builder(
+                    ShapeBuilder::new_shape(false, self.white_pixel, alpha, self.depth)
                         .push_point(x1 - width_x, y1 + width_y, c1)
                         .push_point(x1 + width_x, y1 - width_y, c1)
                         .push_point(x2 + width_x, y2 - width_y, c2)
                         .push_point(x2 - width_x, y2 + width_y, c2)
-                        .build(),
+                        .close_loop(),
                 );
             }
         } else {
@@ -1088,31 +1135,28 @@ impl RendererTrait for RendererImpl {
         alpha: f64,
         outline: bool,
     ) {
-        self.setup_shape(outline);
-        self.vertex_queue.extend_from_slice(
-            &ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth)
+        self.push_shape_builder(
+            ShapeBuilder::new_shape(outline, self.white_pixel, alpha, self.depth)
                 .push_point(x1, y1, c1)
                 .push_point(x2, y2, c2)
                 .push_point(x3, y3, c3)
-                .build(),
+                .close_loop(),
         );
     }
 
     fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
-        self.setup_shape(outline);
-        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth);
+        let mut builder = ShapeBuilder::new_shape(outline, self.white_pixel, alpha, self.depth);
         if !outline {
-            builder = builder.push_point(x, y, c1);
+            builder.push_point(x, y, c1);
         }
         for i in 0..=self.circle_precision {
             let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
-            builder = builder.push_point(x + rad_x * angle.cos(), y + rad_y * angle.sin(), c2);
+            builder.push_point(x + rad_x * angle.cos(), y + rad_y * angle.sin(), c2);
         }
-        self.vertex_queue.extend_from_slice(&builder.build());
+        self.push_shape_builder(builder.close_loop());
     }
 
     fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
-        self.setup_shape(outline);
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         let xcenter = (x1 + x2) / 2.0;
@@ -1123,9 +1167,9 @@ impl RendererTrait for RendererImpl {
         let rad_y = height.min(10.0) / 2.0;
         let rect_half_w = (width / 2.0 - rad_x).max(0.0);
         let rect_half_h = (height / 2.0 - rad_y).max(0.0);
-        let mut builder = ShapeBuilder::new(outline, self.white_pixel.into(), alpha, self.depth);
+        let mut builder = ShapeBuilder::new_shape(outline, self.white_pixel, alpha, self.depth);
         if !outline {
-            builder = builder.push_point(xcenter, ycenter, c1);
+            builder.push_point(xcenter, ycenter, c1);
         }
         let quarter_circle = self.circle_precision / 4;
         for quad in 0..4 {
@@ -1133,11 +1177,12 @@ impl RendererTrait for RendererImpl {
             let circle_y = ycenter + if quad < 2 { rect_half_h } else { -rect_half_h };
             for i in quarter_circle * quad..=quarter_circle * (quad + 1) {
                 let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
-                builder = builder.push_point(circle_x + rad_x * angle.cos(), circle_y + rad_y * angle.sin(), c2);
+                builder.push_point(circle_x + rad_x * angle.cos(), circle_y + rad_y * angle.sin(), c2);
             }
         }
-        self.vertex_queue
-            .extend_from_slice(&builder.push_point(xcenter + rect_half_w + rad_x, ycenter + rect_half_h, c2).build());
+        self.push_shape_builder(
+            builder.push_point(xcenter + rect_half_w + rad_x, ycenter + rect_half_h, c2).close_loop(),
+        );
     }
 
     fn set_circle_precision(&mut self, prec: i32) {
