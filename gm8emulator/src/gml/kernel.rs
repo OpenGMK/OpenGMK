@@ -1776,7 +1776,7 @@ impl Game {
         let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
         instance.x.set(x);
         instance.y.set(y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(self.get_instance_mask_sprite(context.this));
         Ok(Default::default())
     }
 
@@ -1785,7 +1785,7 @@ impl Game {
         let instance = self.instance_list.get(context.this);
         instance.x.set(instance.xstart.get());
         instance.y.set(instance.ystart.get());
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(self.get_instance_mask_sprite(context.this));
         Ok(Default::default())
     }
 
@@ -1793,13 +1793,13 @@ impl Game {
         let (hsnap, vsnap) = expect_args!(args, [int, int])?;
         let inst = self.instance_list.get(context.this);
         let (mut left, mut right, mut top, mut bottom) = (0, self.room_width, 0, self.room_height);
-        if let Some(sprite) = self
+        if self
             .assets
             .sprites
             .get_asset(inst.sprite_index.get())
             .or(self.assets.sprites.get_asset(inst.mask_index.get()))
+            .is_some()
         {
-            inst.update_bbox(Some(sprite));
             left = (inst.x.get() - inst.bbox_left.get().into()).round();
             right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round();
             top = (inst.y.get() - inst.bbox_top.get().into()).round();
@@ -1823,7 +1823,7 @@ impl Game {
         let inst = self.instance_list.get(context.this);
         inst.x.set(x);
         inst.y.set(y);
-        inst.bbox_is_stale.set(true);
+        inst.update_bbox(self.get_instance_mask_sprite(context.this));
         Ok(Default::default())
     }
 
@@ -1970,6 +1970,7 @@ impl Game {
                 object_id,
                 object,
             ));
+            self.instance_list.get(instance).update_bbox(self.get_instance_mask_sprite(instance));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
@@ -1995,6 +1996,7 @@ impl Game {
                 object,
             ));
             self.instance_list.get(instance).set_speed_direction(speed, direction);
+            self.instance_list.get(instance).update_bbox(self.get_instance_mask_sprite(instance));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
@@ -2022,10 +2024,10 @@ impl Game {
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
         let instance = self.instance_list.get(context.this);
-        instance.bbox_is_stale.set(true);
         instance.sprite_index.set(sprite_id);
         instance.image_index.set(image_index);
         instance.image_speed.set(image_speed);
+        instance.update_bbox(self.get_instance_mask_sprite(context.this));
         Ok(Default::default())
     }
 
@@ -3415,11 +3417,12 @@ impl Game {
 
         // Set self's position to the new coordinates
         let instance = self.instance_list.get(context.this);
+        let sprite = self.get_instance_mask_sprite(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
         instance.y.set(y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         // Check collision with any solids
         let free = self.check_collision_solid(context.this).is_none();
@@ -3427,7 +3430,7 @@ impl Game {
         // Move self back to where it was
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         Ok(free.into())
     }
@@ -3437,11 +3440,12 @@ impl Game {
 
         // Set self's position to the new coordinates
         let instance = self.instance_list.get(context.this);
+        let sprite = self.get_instance_mask_sprite(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
         instance.y.set(y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         // Check collision with any instance
         let empty = self.check_collision_any(context.this).is_none();
@@ -3449,7 +3453,7 @@ impl Game {
         // Move self back to where it was
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         Ok(empty.into())
     }
@@ -3459,11 +3463,12 @@ impl Game {
 
         // Set self's position to the new coordinates
         let instance = self.instance_list.get(context.this);
+        let sprite = self.get_instance_mask_sprite(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
         instance.y.set(y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         // Check collision with target
         let collision = match obj {
@@ -3500,7 +3505,7 @@ impl Game {
         // Move self back to where it was
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         Ok(collision.into())
     }
@@ -3515,7 +3520,7 @@ impl Game {
         let instance = self.instance_list.get(context.this);
         instance.x.set(Real::from((instance.x.get() / hsnap).round()) * hsnap);
         instance.y.set(Real::from((instance.y.get() / vsnap).round()) * vsnap);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(self.get_instance_mask_sprite(context.this));
         Ok(Default::default())
     }
 
@@ -3547,20 +3552,21 @@ impl Game {
         // Check if we're already colliding with a solid, do nothing if so
         if self.check_collision_solid(context.this).is_none() {
             let instance = self.instance_list.get(context.this);
+            let sprite = self.get_instance_mask_sprite(context.this);
             for _ in 0..max_distance {
                 // Step forward, but back up old coordinates
                 let old_x = instance.x.get();
                 let old_y = instance.y.get();
                 instance.x.set(instance.x.get() + step_x);
                 instance.y.set(instance.y.get() + step_y);
-                instance.bbox_is_stale.set(true);
+                instance.update_bbox(sprite);
 
                 // Check if we're colliding with a solid now
                 if self.check_collision_solid(context.this).is_some() {
                     // Move self back to where it was, then exit
                     instance.x.set(old_x);
                     instance.y.set(old_y);
-                    instance.bbox_is_stale.set(true);
+                    instance.update_bbox(sprite);
                     break
                 }
             }
@@ -3584,20 +3590,21 @@ impl Game {
         // Check if we're already colliding with another instance, do nothing if so
         if self.check_collision_any(context.this).is_none() {
             let instance = self.instance_list.get(context.this);
+            let sprite = self.get_instance_mask_sprite(context.this);
             for _ in 0..max_distance {
                 // Step forward, but back up old coordinates
                 let old_x = instance.x.get();
                 let old_y = instance.y.get();
                 instance.x.set(instance.x.get() + step_x);
                 instance.y.set(instance.y.get() + step_y);
-                instance.bbox_is_stale.set(true);
+                instance.update_bbox(sprite);
 
                 // Check if we're colliding with another instance now
                 if self.check_collision_any(context.this).is_some() {
                     // Move self back to where it was, then exit
                     instance.x.set(old_x);
                     instance.y.set(old_y);
-                    instance.bbox_is_stale.set(true);
+                    instance.update_bbox(sprite);
                     break
                 }
             }
@@ -3621,11 +3628,12 @@ impl Game {
         // Check if we're already outside all solids, do nothing if so
         if self.check_collision_solid(context.this).is_some() {
             let instance = self.instance_list.get(context.this);
+            let sprite = self.get_instance_mask_sprite(context.this);
             for _ in 0..max_distance {
                 // Step forward
                 instance.x.set(instance.x.get() + step_x);
                 instance.y.set(instance.y.get() + step_y);
-                instance.bbox_is_stale.set(true);
+                instance.update_bbox(sprite);
 
                 // Check if we're outside all solids now
                 if self.check_collision_solid(context.this).is_none() {
@@ -3653,11 +3661,12 @@ impl Game {
         // Check if we're already not colliding with anything, do nothing if so
         if self.check_collision_any(context.this).is_some() {
             let instance = self.instance_list.get(context.this);
+            let sprite = self.get_instance_mask_sprite(context.this);
             for _ in 0..max_distance {
                 // Step forward
                 instance.x.set(instance.x.get() + step_x);
                 instance.y.set(instance.y.get() + step_y);
-                instance.bbox_is_stale.set(true);
+                instance.update_bbox(sprite);
 
                 // Check if we're not colliding with anything now
                 if self.check_collision_any(context.this).is_none() {
@@ -3724,7 +3733,7 @@ impl Game {
             }
         }
         if update_bbox {
-            instance.bbox_is_stale.set(true);
+            instance.update_bbox(self.get_instance_mask_sprite(context.this));
         }
         Ok(Default::default())
     }
@@ -3745,9 +3754,6 @@ impl Game {
     pub fn distance_to_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
-
-        let sprite = self.get_instance_mask_sprite(context.this);
-        instance.update_bbox(sprite);
 
         let distance_x = if x < instance.bbox_left.get().into() {
             x - instance.bbox_left.get().into()
@@ -3797,16 +3803,12 @@ impl Game {
             }
         }
 
-        let sprite = self.get_instance_mask_sprite(context.this);
         let this = self.instance_list.get(context.this);
-        this.update_bbox(sprite);
 
         Ok(match object_id {
             gml::SELF => 0.0,
             gml::OTHER => {
-                let sprite = self.get_instance_mask_sprite(context.other);
                 let other = self.instance_list.get(context.other);
-                other.update_bbox(sprite);
                 instance_distance(this, other)
             },
             gml::ALL => {
@@ -3814,9 +3816,7 @@ impl Game {
                 let this = this;
                 let mut iter = self.instance_list.iter_by_insertion();
                 while let Some(other) = iter.next(&self.instance_list) {
-                    let sprite = self.get_instance_mask_sprite(other);
                     let other = self.instance_list.get(other);
-                    other.update_bbox(sprite);
                     let dist = instance_distance(this, other);
                     if dist < closest {
                         closest = dist;
@@ -3830,9 +3830,7 @@ impl Game {
                     let this = this;
                     let mut iter = self.instance_list.iter_by_identity(ids);
                     while let Some(other) = iter.next(&self.instance_list) {
-                        let sprite = self.get_instance_mask_sprite(other);
                         let other = self.instance_list.get(other);
-                        other.update_bbox(sprite);
                         let dist = instance_distance(this, other);
                         if dist < closest {
                             closest = dist;
@@ -3846,9 +3844,7 @@ impl Game {
             instance_id => {
                 match self.instance_list.get_by_instid(instance_id) {
                     Some(handle) => {
-                        let sprite = self.get_instance_mask_sprite(handle);
                         let other = self.instance_list.get(handle);
-                        other.update_bbox(sprite);
                         instance_distance(this, other)
                     },
                     None => 1000000.0, // Again, GML default
@@ -4401,11 +4397,12 @@ impl Game {
 
         // Set self's position to the new coordinates
         let instance = self.instance_list.get(context.this);
+        let sprite = self.get_instance_mask_sprite(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
         instance.y.set(y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         // Check collision with target
         let other: Option<usize> = match obj {
@@ -4454,7 +4451,7 @@ impl Game {
         // Move self back to where it was
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.bbox_is_stale.set(true);
+        instance.update_bbox(sprite);
 
         match other {
             Some(t) => Ok(self.instance_list.get(t).id.get().into()),
@@ -4468,6 +4465,7 @@ impl Game {
             self.last_instance_id += 1;
             let id = self.last_instance_id;
             let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
+            self.instance_list.get(instance).update_bbox(self.get_instance_mask_sprite(instance));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(id.into())
         } else {
@@ -4530,6 +4528,7 @@ impl Game {
         instance.image_speed.set(image_speed);
         instance.image_angle.set(image_angle);
         instance.image_blend.set(image_blend);
+        instance.update_bbox(self.get_instance_mask_sprite(handle));
 
         if run_events {
             self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
@@ -4658,7 +4657,6 @@ impl Game {
             let inst = self.instance_list.get(handle);
             let mask = self.get_instance_mask_sprite(handle);
             let outside = if mask.is_some() {
-                inst.update_bbox(mask);
                 left > inst.bbox_right.get().into()
                     || top > inst.bbox_bottom.get().into()
                     || left + width < inst.bbox_left.get().into()
@@ -4720,7 +4718,6 @@ impl Game {
             let inst = self.instance_list.get(handle);
             let mask = self.get_instance_mask_sprite(handle);
             let outside = if mask.is_some() {
-                inst.update_bbox(mask);
                 left > inst.bbox_right.get().into()
                     || top > inst.bbox_bottom.get().into()
                     || left + width < inst.bbox_left.get().into()
