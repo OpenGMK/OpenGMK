@@ -65,6 +65,7 @@ pub struct RendererImpl {
     loc_tex: GLint,    // uniform sampler2D tex
     loc_proj: GLint,   // uniform mat4 projection
     loc_repeat: GLint, // uniform bool repeat
+    loc_lerp: GLint,   // uniform bool lerp
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -386,6 +387,7 @@ impl RendererImpl {
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
                 loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
+                loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
                 gl,
             };
 
@@ -1311,6 +1313,7 @@ impl RendererTrait for RendererImpl {
             let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
 
             let mut commands_vbo: GLuint = 0;
             self.gl.GenBuffers(1, &mut commands_vbo);
