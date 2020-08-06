@@ -40,6 +40,7 @@ use crate::{
     math::Real,
     tile, util,
 };
+use encoding_rs::Encoding;
 use gmio::{
     atlas::AtlasBuilder,
     render::{Renderer, RendererOptions},
@@ -53,6 +54,7 @@ use shared::{
     types::{Colour, ID},
 };
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::File,
@@ -144,6 +146,7 @@ pub struct Game {
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
     pub parameters: Vec<String>,
+    pub encoding: &'static Encoding,
 
     // window caption
     pub caption: RCStr,
@@ -203,6 +206,7 @@ impl Game {
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
         game_arguments: Vec<String>,
+        encoding: &'static Encoding,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -817,6 +821,7 @@ impl Game {
             open_ini: None,
             spoofed_time_nanos,
             parameters: game_arguments,
+            encoding,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -952,6 +957,13 @@ impl Game {
             self.unscaled_width = width;
             self.unscaled_height = height;
             self.window.resize(width, height);
+        }
+    }
+
+    pub fn decode_str<'a>(&self, string: &'a [u8]) -> Cow<'a, str> {
+        match self.gm_version {
+            Version::GameMaker8_0 => self.encoding.decode_without_bom_handling(string).0,
+            Version::GameMaker8_1 => String::from_utf8_lossy(string),
         }
     }
 
