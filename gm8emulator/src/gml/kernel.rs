@@ -6544,7 +6544,7 @@ impl Game {
             for (src, dest) in args.iter().zip(new_args.iter_mut()) {
                 *dest = src.clone();
             }
-            match std::fs::read_to_string(path.to_string()) {
+            match std::fs::read(path.to_string()) {
                 Ok(code) => {
                     new_args[0] = code.into();
                     self.execute_string(context, &new_args)
