@@ -3,14 +3,14 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
-    Identifier(&'a str),
+    Identifier(&'a [u8]),
     Keyword(Keyword),
 
     Operator(Operator),
     Separator(Separator),
 
     Real(f64),
-    String(&'a str),
+    String(&'a [u8]),
 
     InvalidChar(usize, u8),
 }
@@ -175,9 +175,9 @@ pub enum Separator {
 impl<'a> fmt::Display for Token<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::Identifier(i) => write!(f, "{}", i),
+            Token::Identifier(i) => write!(f, "{}", String::from_utf8_lossy(i)),
             Token::Real(r) => write!(f, "{}", r),
-            Token::String(s) => write!(f, "\"{}\"", s),
+            Token::String(s) => write!(f, "\"{}\"", String::from_utf8_lossy(s)),
             Token::Keyword(k) => write!(f, "{}", k),
             Token::Operator(o) => write!(f, "{}", o),
             Token::Separator(s) => write!(f, "{}", s),

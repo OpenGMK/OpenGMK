@@ -6,7 +6,7 @@ use crate::{
     action, asset,
     game::{
         draw, external, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
-        SceneChange,
+        SceneChange, Version,
     },
     gml::{
         self,
@@ -24,13 +24,14 @@ use gmio::{
 };
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
-use std::{convert::TryFrom, io::Read, process::Command};
+use std::{io::Read, process::Command};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
-    (string, $v: expr) => {{ Ok(<Value as Into<RCStr>>::into($v.clone())) }};
+    (string, $v: expr) => {{ Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
+    (bytes, $v: expr) => {{ Ok(<Value as Into<RCStr>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {
@@ -1663,10 +1664,10 @@ impl Game {
     }
 
     pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (dir_string, speed) = expect_args!(args, [string, real])?;
+        let (dir_string, speed) = expect_args!(args, [bytes, real])?;
         let instance = self.instance_list.get(context.this);
         // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
-        let bytes = dir_string.as_ref().as_bytes();
+        let bytes = dir_string.as_ref();
         if bytes.len() != 9 {
             return Err(gml::Error::FunctionError(
                 "action_move".into(),
@@ -2419,7 +2420,7 @@ impl Game {
     }
 
     pub fn action_draw_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, bytes])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
             x += instance.x.get();
@@ -2460,7 +2461,7 @@ impl Game {
     }
 
     pub fn action_draw_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (mut x, mut y, caption) = expect_args!(args, [real, real, string])?;
+        let (mut x, mut y, caption) = expect_args!(args, [real, real, bytes])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
             x += instance.x.get();
@@ -2587,7 +2588,7 @@ impl Game {
 
     pub fn action_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sc_show, sc_cap, lv_show, lv_cap, hl_show, hl_cap) =
-            expect_args!(args, [any, string, any, string, any, string])?;
+            expect_args!(args, [any, bytes, any, bytes, any, bytes])?;
 
         self.score_capt_d = sc_show.is_truthy();
         self.lives_capt_d = lv_show.is_truthy();
@@ -3179,7 +3180,7 @@ impl Game {
     pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
-            Value::Str(s) => match s.as_ref().trim() {
+            Value::Str(s) => match self.decode_str(s.as_ref()).trim() {
                 x if x.len() == 0 => Ok(Value::Real(Real::from(0.0))),
                 x => match x.parse::<f64>() {
                     Ok(r) => Ok(Value::Real(r.into())),
@@ -3211,44 +3212,48 @@ impl Game {
         }
     }
 
-    pub fn chr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|x| char::try_from(x as u32).unwrap_or_default().to_string().into())
+    pub fn chr(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: use font to decode if not sprite font
+        self.ansi_char(context, args)
     }
 
     pub fn ansi_char(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|x| char::try_from(x as u8).unwrap_or_default().to_string().into())
+        expect_args!(args, [int]).map(|x| vec![x as u8].into())
     }
 
     pub fn ord(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| s.as_ref().chars().nth(0).map(|x| x as u32).unwrap_or_default().into())
+        expect_args!(args, [bytes]).map(|s| s.as_ref().get(0).copied().map(f64::from).unwrap_or_default().into())
     }
 
     pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real((s.as_ref().chars().count() as f64).into()))
+        let string = expect_args!(args, [bytes])?;
+        match self.gm_version {
+            Version::GameMaker8_0 => Ok(Value::Real((string.as_ref().len() as f64).into())),
+            Version::GameMaker8_1 => Ok(Value::Real((self.decode_str(string.as_ref()).chars().count() as f64).into())),
+        }
     }
 
     pub fn string_byte_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string]).map(|s| Value::Real((s.as_ref().len() as f64).into()))
+        expect_args!(args, [bytes]).map(|s| Value::Real((s.as_ref().len() as f64).into()))
     }
 
     pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
-        expect_args!(args, [string, int]).map(|(s, ix)| {
-            Value::Real(
-                (s.as_ref().as_bytes().get((ix as isize - 1).max(0) as usize).copied().unwrap_or_default() as f64)
-                    .into(),
-            )
+        expect_args!(args, [bytes, int]).map(|(s, ix)| {
+            Value::Real((s.as_ref().get((ix as isize - 1).max(0) as usize).copied().unwrap_or_default() as f64).into())
         })
     }
 
     pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string, string]).map(|(ss, s)| {
             Value::Real(Real::from(s.as_ref().find(ss.as_ref()).map(|p| p + 1).unwrap_or_default() as f64))
         })
     }
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         // This is the worst thing that anyone's ever written. Please try to ignore it.
         // I can get invalid indices as in mid-char or OOB and pretend nothing went wrong.
         expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
@@ -3266,17 +3271,22 @@ impl Game {
     }
 
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, int]).map(|(s, ix)| {
-            Value::Str(
-                s.as_ref()
+        let (string, pos) = expect_args!(args, [bytes, int])?;
+        match self.gm_version {
+            Version::GameMaker8_0 => {
+                Ok(string.as_ref().get((pos as isize - 1).max(0) as usize).map_or("".into(), |ch| vec![*ch].into()))
+            },
+            Version::GameMaker8_1 => Ok(Value::Str(
+                self.decode_str(string.as_ref())
                     .chars()
-                    .nth((ix as isize - 1).max(0) as usize)
+                    .nth((pos as isize - 1).max(0) as usize)
                     .map_or("".to_string().into(), |ch| ch.to_string().into()),
-            )
-        })
+            )),
+        }
     }
 
     pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         // See the comment on string_copy.
         expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
             let sub = s.as_ref().get(..s.as_ref().char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
@@ -3294,6 +3304,7 @@ impl Game {
     }
 
     pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string, string, int]).map(|(ss, s, ix)| {
             // TODO: This edge case could be less disgusting.
             let ix = (ix as isize - 1).max(0) as usize;
@@ -3324,7 +3335,7 @@ impl Game {
     }
 
     pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [string, real]).map(|(s, n)| Value::Str(s.as_ref().repeat(n.into_inner() as usize).into()))
+        expect_args!(args, [bytes, real]).map(|(s, n)| Value::Str(s.as_ref().repeat(n.into_inner() as usize).into()))
     }
 
     pub fn string_letters(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5046,7 +5057,7 @@ impl Game {
     }
 
     pub fn file_text_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (handle, text) = expect_args!(args, [int, string])?;
+        let (handle, text) = expect_args!(args, [int, bytes])?;
         match self.file_manager.write_string(handle, text.as_ref()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.into())),
@@ -5056,7 +5067,7 @@ impl Game {
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
         let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
-        match self.file_manager.write_string(handle, &text) {
+        match self.file_manager.write_string(handle, text.as_bytes()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.into())),
         }
@@ -5064,7 +5075,7 @@ impl Game {
 
     pub fn file_text_writeln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.write_string(handle, "\r\n") {
+        match self.file_manager.write_string(handle, b"\r\n") {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.into())),
         }
@@ -5132,7 +5143,7 @@ impl Game {
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::file_exists(s.as_ref()).into(),
+            Value::Str(s) => file::file_exists(&self.decode_str(s.as_ref())).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
@@ -5165,7 +5176,7 @@ impl Game {
 
     pub fn directory_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::dir_exists(s.as_ref()).into(),
+            Value::Str(s) => file::dir_exists(&self.decode_str(s.as_ref())).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
@@ -5203,7 +5214,7 @@ impl Game {
         if let Some(name) = full_path.as_ref().rsplitn(2, '\\').next() {
             Ok(name.to_string().into())
         } else {
-            Ok(full_path.into())
+            Ok(full_path.as_ref().into())
         }
     }
 
@@ -5403,9 +5414,10 @@ impl Game {
     }
 
     pub fn ini_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let name = expect_args!(args, [string])?;
-        if file::file_exists(name.as_ref()) {
-            match ini::Ini::load_from_file(name.as_ref()) {
+        let name = expect_args!(args, [bytes])?;
+        let name_str = self.decode_str(name.as_ref());
+        if file::file_exists(&name_str) {
+            match ini::Ini::load_from_file(name_str.as_ref()) {
                 Ok(ini) => {
                     self.open_ini = Some((ini, name));
                     Ok(Default::default())
@@ -5421,7 +5433,7 @@ impl Game {
     pub fn ini_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         match self.open_ini.as_ref() {
-            Some((ini, path)) => match ini.write_to_file(path.as_ref()) {
+            Some((ini, path)) => match ini.write_to_file(self.decode_str(path.as_ref()).as_ref()) {
                 Ok(()) => {
                     self.open_ini = None;
                     Ok(Default::default())
@@ -6370,6 +6382,10 @@ impl Game {
                 external::External::new(
                     external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types },
                     self.play_type == PlayType::Record,
+                    match self.gm_version {
+                        Version::GameMaker8_0 => self.encoding,
+                        Version::GameMaker8_1 => encoding_rs::UTF_8,
+                    },
                 )
                 .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
             ));
@@ -6390,10 +6406,10 @@ impl Game {
     }
 
     pub fn external_free(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let dll_name = expect_args!(args, [string])?;
+        let dll_name = expect_args!(args, [bytes])?;
         for e_opt in self.externals.iter_mut() {
             if let Some(e) = e_opt {
-                if e.info.dll_name.as_ref().eq_ignore_ascii_case(dll_name.as_ref()) {
+                if e.info.dll_name.eq_ignore_ascii_case(dll_name.as_ref()) {
                     drop(e);
                     *e_opt = None;
                 }
@@ -6567,7 +6583,7 @@ impl Game {
     }
 
     pub fn variable_global_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let identifier = expect_args!(args, [string])?;
+        let identifier = expect_args!(args, [bytes])?;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.contains_key(var).into())
         } else {
@@ -6582,7 +6598,7 @@ impl Game {
     }
 
     pub fn variable_global_array_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (identifier, index) = expect_args!(args, [string, int])?;
+        let (identifier, index) = expect_args!(args, [bytes, int])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
@@ -6603,7 +6619,7 @@ impl Game {
     }
 
     pub fn variable_global_array_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let (identifier, index, value) = expect_args!(args, [bytes, int, any])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             if let Some(field) = self.globals.vars.get_mut(var) {
@@ -6628,7 +6644,7 @@ impl Game {
     }
 
     pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let identifier = expect_args!(args, [string])?;
+        let identifier = expect_args!(args, [bytes])?;
         if mappings::get_instance_variable_by_name(identifier.as_ref()).is_some() {
             Ok(gml::TRUE.into())
         } else {
@@ -6644,7 +6660,7 @@ impl Game {
     }
 
     pub fn variable_local_array_get(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (identifier, index) = expect_args!(args, [string, int])?;
+        let (identifier, index) = expect_args!(args, [bytes, int])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             self.get_instance_var(context.this, var, index, context)
@@ -6666,7 +6682,7 @@ impl Game {
     }
 
     pub fn variable_local_array_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (identifier, index, value) = expect_args!(args, [string, int, any])?;
+        let (identifier, index, value) = expect_args!(args, [bytes, int, any])?;
         let index = index as u32;
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             self.set_instance_var(context.this, var, index, value, context)?;
@@ -7685,6 +7701,7 @@ impl Game {
             self.assets.fonts.push(Some(Box::new(asset::Font {
                 name: format!("__newfont{}", font_id).into(),
                 sys_name: "".into(),
+                charset: 1,
                 size: 12,
                 bold: false,
                 italic: false,
@@ -8250,7 +8267,7 @@ impl Game {
     }
 
     pub fn object_event_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (object_index, ev_type, ev_number, code) = expect_args!(args, [int, int, int, string])?;
+        let (object_index, ev_type, ev_number, code) = expect_args!(args, [int, int, int, bytes])?;
         if let Some(object) = self.assets.objects.get_asset_mut(object_index) {
             let instrs = match self.compiler.compile(code.as_ref()) {
                 Ok(instrs) => instrs,

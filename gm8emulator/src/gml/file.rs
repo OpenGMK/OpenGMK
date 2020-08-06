@@ -180,6 +180,7 @@ impl FileManager {
                         bytes.pop();
                     }
                 }
+                // These bytes are guaranteed to be UTF-8 so no worries here
                 let mut text = String::from_utf8_lossy(bytes.as_slice()).replace(",", ".");
                 // Remove spaces and all dashes but one
                 let mut minus_seen = false;
@@ -198,7 +199,7 @@ impl FileManager {
         }
     }
 
-    pub fn read_string(&mut self, handle: i32) -> Result<String> {
+    pub fn read_string(&mut self, handle: i32) -> Result<Vec<u8>> {
         match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
                 let mut bytes = read_until(&mut f.file, |c| c == 0x0a)?;
@@ -212,16 +213,16 @@ impl FileManager {
                         f.file.seek(SeekFrom::Current(-1))?;
                     }
                 }
-                Ok(String::from_utf8_lossy(bytes.as_slice()).into())
+                Ok(bytes)
             },
             _ => Err(Error::InvalidFile(handle)),
         }
     }
 
-    pub fn write_string(&mut self, handle: i32, text: &str) -> Result<()> {
+    pub fn write_string(&mut self, handle: i32, text: &[u8]) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
             Some(Some(f)) => {
-                f.file.write_all(text.as_bytes())?;
+                f.file.write_all(text)?;
                 Ok(())
             },
             _ => Err(Error::InvalidFile(handle)),

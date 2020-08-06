@@ -1,25 +1,26 @@
 use super::token::{Keyword, Operator, Separator, Token};
 
 use std::{
-    iter::{Enumerate, Peekable},
+    iter::{Copied, Enumerate, Peekable},
+    slice,
     slice::SliceIndex,
     str, u64,
 };
 
 pub struct Lexer<'a> {
     /// GML source code to return references to.
-    src: &'a str,
+    src: &'a [u8],
 
     line_hint: usize,
 
     /// Iterator over the source code as raw bytes.
-    iter: Peekable<Enumerate<str::Bytes<'a>>>,
+    iter: Peekable<Enumerate<Copied<slice::Iter<'a, u8>>>>,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new Lexer over GML source code.
-    pub fn new(src: &'a str) -> Self {
-        Lexer { src, line_hint: 1, iter: src.bytes().enumerate().peekable() }
+    pub fn new(src: &'a [u8]) -> Self {
+        Lexer { src, line_hint: 1, iter: src.iter().copied().enumerate().peekable() }
     }
 
     /// Returns the current line number in the source code.
@@ -56,8 +57,8 @@ impl<'a> Iterator for Lexer<'a> {
         /// This is fine since we operate on something that is a &str in a first place,
         /// and we never (should) use a value not pulled from our iterators as range indices.
         #[inline(always)]
-        fn sl<R: SliceIndex<[u8], Output = [u8]>>(src: &str, range: R) -> &str {
-            unsafe { str::from_utf8_unchecked(src.as_bytes().get_unchecked(range)) }
+        fn sl<R: SliceIndex<[u8], Output = [u8]>>(src: &[u8], range: R) -> &[u8] {
+            unsafe { src.get_unchecked(range) }
         }
 
         let head = *self.iter.peek()?;
@@ -82,34 +83,34 @@ impl<'a> Iterator for Lexer<'a> {
 
                 match identifier {
                     // Keywords
-                    "var" => Token::Keyword(Keyword::Var),
-                    "globalvar" => Token::Keyword(Keyword::GlobalVar),
-                    "if" => Token::Keyword(Keyword::If),
-                    "else" => Token::Keyword(Keyword::Else),
-                    "with" => Token::Keyword(Keyword::With),
-                    "repeat" => Token::Keyword(Keyword::Repeat),
-                    "do" => Token::Keyword(Keyword::Do),
-                    "until" => Token::Keyword(Keyword::Until),
-                    "while" => Token::Keyword(Keyword::While),
-                    "for" => Token::Keyword(Keyword::For),
-                    "switch" => Token::Keyword(Keyword::Switch),
-                    "case" => Token::Keyword(Keyword::Case),
-                    "default" => Token::Keyword(Keyword::Default),
-                    "break" => Token::Keyword(Keyword::Break),
-                    "continue" => Token::Keyword(Keyword::Continue),
-                    "return" => Token::Keyword(Keyword::Return),
-                    "exit" => Token::Keyword(Keyword::Exit),
+                    b"var" => Token::Keyword(Keyword::Var),
+                    b"globalvar" => Token::Keyword(Keyword::GlobalVar),
+                    b"if" => Token::Keyword(Keyword::If),
+                    b"else" => Token::Keyword(Keyword::Else),
+                    b"with" => Token::Keyword(Keyword::With),
+                    b"repeat" => Token::Keyword(Keyword::Repeat),
+                    b"do" => Token::Keyword(Keyword::Do),
+                    b"until" => Token::Keyword(Keyword::Until),
+                    b"while" => Token::Keyword(Keyword::While),
+                    b"for" => Token::Keyword(Keyword::For),
+                    b"switch" => Token::Keyword(Keyword::Switch),
+                    b"case" => Token::Keyword(Keyword::Case),
+                    b"default" => Token::Keyword(Keyword::Default),
+                    b"break" => Token::Keyword(Keyword::Break),
+                    b"continue" => Token::Keyword(Keyword::Continue),
+                    b"return" => Token::Keyword(Keyword::Return),
+                    b"exit" => Token::Keyword(Keyword::Exit),
 
                     // Operators
-                    "mod" => Token::Operator(Operator::Modulo),
-                    "div" => Token::Operator(Operator::IntDivide),
-                    "and" => Token::Operator(Operator::And),
-                    "or" => Token::Operator(Operator::Or),
-                    "xor" => Token::Operator(Operator::Xor),
-                    "not" => Token::Operator(Operator::Not),
-                    "then" => Token::Separator(Separator::Then),
-                    "begin" => Token::Separator(Separator::BraceLeft),
-                    "end" => Token::Separator(Separator::BraceRight),
+                    b"mod" => Token::Operator(Operator::Modulo),
+                    b"div" => Token::Operator(Operator::IntDivide),
+                    b"and" => Token::Operator(Operator::And),
+                    b"or" => Token::Operator(Operator::Or),
+                    b"xor" => Token::Operator(Operator::Xor),
+                    b"not" => Token::Operator(Operator::Not),
+                    b"then" => Token::Separator(Separator::Then),
+                    b"begin" => Token::Separator(Separator::BraceLeft),
+                    b"end" => Token::Separator(Separator::BraceRight),
 
                     _ => Token::Identifier(identifier),
                 }
@@ -172,7 +173,7 @@ impl<'a> Iterator for Lexer<'a> {
                 // new head after opening quote
                 let head = match self.iter.peek() {
                     Some(&(head, _)) => head,
-                    None => return Some(Token::String("")),
+                    None => return Some(Token::String(b"")),
                 };
 
                 let string = loop {
@@ -217,9 +218,12 @@ impl<'a> Iterator for Lexer<'a> {
                 if hex.is_empty() {
                     Token::Real(0.0)
                 } else {
+                    // the only time we actually need strings in the entire lexer
+                    // this is guaranteed to be ASCII so this is fine
+                    let s = unsafe { str::from_utf8_unchecked(hex) };
                     Token::Real(
                         // if it failed to parse it must be too large, so we return the max value
-                        u64::from_str_radix(hex, 16).unwrap_or(u64::MAX) as f64,
+                        u64::from_str_radix(s, 16).unwrap_or(u64::MAX) as f64,
                     )
                 }
             },
