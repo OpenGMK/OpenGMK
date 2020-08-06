@@ -1,4 +1,5 @@
 use crate::{asset::Sprite, game::string::RCStr};
+use encoding_rs::Encoding;
 use gmio::render::{AtlasRef, Renderer};
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Font {
     pub name: RCStr,
     pub sys_name: String,
+    pub charset: u32,
     pub size: u32,
     pub bold: bool,
     pub italic: bool,
@@ -26,6 +28,27 @@ pub struct Character {
 impl Font {
     pub fn get_char(&self, index: u32) -> Option<Character> {
         if let Some(index) = index.checked_sub(self.first) { self.chars.get(index as usize).copied() } else { None }
+    }
+
+    pub fn get_encoding(&self, default: &'static Encoding) -> &'static Encoding {
+        match self.charset {
+            0x00 => encoding_rs::WINDOWS_1252, // ANSI_CHARSET
+            0x80 => encoding_rs::SHIFT_JIS,    // SHIFTJIS_CHARSET
+            0x81 => encoding_rs::EUC_KR,       // HANGUL_CHARSET
+            0x82 => default,                   // JOHAB_CHARSET
+            0x86 => encoding_rs::GBK,          // GB2312_CHARSET
+            0x88 => encoding_rs::BIG5,         // CHINESEBIG5_CHARSET
+            0xA1 => encoding_rs::WINDOWS_1253, // GREEK_CHARSET
+            0xA2 => encoding_rs::WINDOWS_1254, // TURKISH_CHARSET
+            0xA3 => encoding_rs::WINDOWS_1258, // VIETNAMESE_CHARSET
+            0xB1 => encoding_rs::WINDOWS_1255, // HEBREW_CHARSET
+            0xB2 => encoding_rs::WINDOWS_1256, // ARABIC_CHARSET
+            0xBA => encoding_rs::WINDOWS_1257, // BALTIC_CHARSET
+            0xCC => encoding_rs::WINDOWS_1251, // RUSSIAN_CHARSET
+            0xDE => encoding_rs::WINDOWS_874,  // THAI_CHARSET
+            0xEE => encoding_rs::WINDOWS_1250, // EASTEUROPE_CHARSET
+            _ => default,
+        }
     }
 }
 

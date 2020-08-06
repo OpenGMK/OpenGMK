@@ -419,6 +419,10 @@ impl Game {
             .map(|o| {
                 o.map(|b| {
                     let mut tallest_char_height = 0;
+                    let charset = match gm_version {
+                        Version::GameMaker8_0 => 1, // DEFAULT_CHARSET
+                        Version::GameMaker8_1 => b.charset,
+                    };
                     let chars = b
                         .dmap
                         .chunks_exact(6)
@@ -451,6 +455,7 @@ impl Game {
                     Ok(Box::new(Font {
                         name: b.name.into(),
                         sys_name: b.sys_name,
+                        charset,
                         size: b.size,
                         bold: b.bold,
                         italic: b.italic,
