@@ -147,8 +147,9 @@ impl Tree {
                         // For the FUNCTION execution type, a kernel function name is provided in the action's fn_name.
                         // This is compiled to a function pointer.
                         execution_type::FUNCTION => {
-                            if let Some((_, f_ptr, _)) =
-                                str::from_utf8(&action.fn_name.0).ok().and_then(|fn_name| mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &fn_name))
+                            if let Some((_, f_ptr, _)) = str::from_utf8(&action.fn_name.0)
+                                .ok()
+                                .and_then(|fn_name| mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &fn_name))
                             {
                                 output.push(Action {
                                     index: i,
@@ -186,9 +187,7 @@ impl Tree {
                                         &action.param_types,
                                         action.param_count,
                                     )?,
-                                    body: GmlBody::Code(
-                                        compiler.compile(&action.fn_code.0).map_err(|e| e.message)?,
-                                    ),
+                                    body: GmlBody::Code(compiler.compile(&action.fn_code.0).map_err(|e| e.message)?),
                                     if_else,
                                 },
                             });
@@ -219,9 +218,7 @@ impl Tree {
                         relative: action.is_relative,
                         invert_condition: action.invert_condition,
                         body: Body::Repeat {
-                            count: compiler
-                                .compile_expression(&action.param_strings[0].0)
-                                .map_err(|e| e.message)?,
+                            count: compiler.compile_expression(&action.param_strings[0].0).map_err(|e| e.message)?,
                             body: body.into_boxed_slice(),
                         },
                     });
@@ -252,9 +249,7 @@ impl Tree {
                         invert_condition: action.invert_condition,
                         body: Body::Normal {
                             args: Box::new([]),
-                            body: GmlBody::Code(
-                                compiler.compile(&action.param_strings[0].0).map_err(|e| e.message)?,
-                            ),
+                            body: GmlBody::Code(compiler.compile(&action.param_strings[0].0).map_err(|e| e.message)?),
                             if_else: None,
                         },
                     });

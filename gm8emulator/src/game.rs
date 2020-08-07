@@ -41,12 +41,12 @@ use crate::{
     tile, util,
 };
 use encoding_rs::Encoding;
+use gm8exe::asset::PascalString;
 use gmio::{
     atlas::AtlasBuilder,
     render::{Renderer, RendererOptions},
     window::{Window, WindowBuilder},
 };
-use gm8exe::asset::PascalString;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::{
