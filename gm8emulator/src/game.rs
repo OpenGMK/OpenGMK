@@ -974,6 +974,16 @@ impl Game {
         }
     }
 
+    pub fn encode_str_maybe<'a>(&self, utf8: &'a str) -> Option<Cow<'a, [u8]>> {
+        match self.gm_version {
+            Version::GameMaker8_0 => {
+                let (encoded, _, is_bad) = self.encoding.encode(utf8);
+                if is_bad { None } else { Some(encoded) }
+            },
+            Version::GameMaker8_1 => Some(Cow::from(utf8.as_bytes())),
+        }
+    }
+
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
         let room = if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
             room.clone()
