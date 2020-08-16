@@ -9,7 +9,10 @@ use shared::{
     message::{self, Information, InstanceDetails, MessageStream},
     types::{Colour, ID},
 };
-use std::{net::TcpStream, path::PathBuf};
+use chrono::{DateTime, offset::Utc};
+use std::{collections::HashMap, fs::File, fs, time::SystemTime, io::Read, net::TcpStream, path::PathBuf};
+
+// section: consts
 
 const WINDOW_WIDTH: u32 = 350;
 const WINDOW_HEIGHT: u32 = 750;
@@ -17,71 +20,164 @@ const WINDOW_HEIGHT: u32 = 750;
 const KEY_BUTTON_SIZE: usize = 48;
 const SAVE_BUTTON_SIZE: usize = 32;
 
-pub struct ControlPanel {
-    pub window: Window,
-    pub renderer: Renderer,
-    pub clear_colour: Colour,
-    pub font: Font,
-    pub font_small: Font,
-    pub advance_button: AdvanceButton,
-    pub key_buttons: Vec<KeyButton>,
-    pub mouse_buttons: Vec<MouseButton>,
-    pub mouse_position_button: MousePositionButton,
-    pub big_save_button: BigSaveButton,
-    pub save_buttons: Vec<SaveButton>,
-    pub seed_changer: SeedChanger,
-    pub stream: TcpStream,
-    mouse_x: i32,
-    mouse_y: i32,
-    watched_id: Option<ID>,
-    watched_instance: Option<InstanceDetails>,
-    pub seed: i32,
-    pub new_seed: Option<i32>,
+const PRIMARY_SAVE_NAME: &str = "save.bin";
 
-    pub frame_count: usize,
-    pub game_mouse_pos: (f64, f64),
-    pub client_mouse_pos: (i32, i32),
+// section: enums
 
-    advance_button_normal: AtlasRef,
-    big_save_button_normal: AtlasRef,
-    key_button_l_neutral: AtlasRef,
-    key_button_l_held: AtlasRef,
-    key_button_r_neutral: AtlasRef,
-    key_button_r_neutral2: AtlasRef,
-    key_button_r_neutral3: AtlasRef,
-    key_button_r_held: AtlasRef,
-    key_button_r_held2: AtlasRef,
-    key_button_r_held3: AtlasRef,
-    mouse_pos_normal: AtlasRef,
-    save_button_active: AtlasRef,
-    save_button_inactive: AtlasRef,
-    button_outline: AtlasRef,
-
-    menu_context: Option<MenuContext>,
-
-    pub read_buffer: Vec<u8>,
-    pub project_dir: PathBuf,
+#[derive(Debug, Clone)]
+pub enum Action {
+    Advance,
+    Update,
+    Save(String),
+    Load(String),
+    Nothing,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum MenuContext {
-    KeyButton(input::Key),
-    MouseButton(input::MouseButton),
-    SaveButton(String),
-    BigSaveButton,
+    KeyButton(input::Key), // todoaa
+    MouseButton(input::MouseButton), // todobb
+    ButtonInfo(String),
 }
 
 #[derive(Clone, Copy)]
-pub struct AdvanceButton {
-    pub x: i32,
-    pub y: i32,
+pub enum ButtonState {
+    Neutral,
+    NeutralWillPress,
+    NeutralWillPR,
+    NeutralWillPRP,
+    Held,
+    HeldWillRelease,
+    HeldWillRP,
+    HeldWillRPR,
 }
+
+// section: ButtonInfo
+
+#[derive(Debug, Clone)]
+pub struct ButtonInfo {
+    name: String,
+    id: i32,
+    filename: String,
+    description: String,
+    action_left_click: Action,
+    action_right_click: Action,
+    show_context_menu: bool,
+    sprite: Option<AtlasRef>,
+    xstart: i32,
+    ystart: i32,
+    width: i32,
+    height: i32,
+    xscale: f32,
+    yscale: f32,
+    angle: f32,
+    colour: i32,
+    alpha_normal: f32,
+    alpha_hover: f32,
+    exists: bool,
+}
+
+impl Default for ButtonInfo {
+    fn default() -> Self {
+        ButtonInfo {
+            name: "".to_string(),
+            id: 0,
+            filename: "".to_string(),
+            description: "".to_string(),
+            action_left_click: Action::Nothing,
+            action_right_click: Action::Nothing,
+            show_context_menu: false,
+            sprite: None,
+            xstart: 0,
+            ystart: 0,
+            width: KEY_BUTTON_SIZE as i32,
+            height: KEY_BUTTON_SIZE as i32,
+            xscale: 1.0,
+            yscale: 1.0,
+            angle: 0.0,
+            colour: 0xFFFFFF,
+            alpha_normal: 1.0,
+            alpha_hover: 0.8,
+            exists: true,
+        }
+    }
+}
+
+impl ButtonInfo {
+    fn new(
+        name: &str,
+        id: i32,
+        filename: &str,
+        description: &str,
+        action_left_click: Action,
+        action_right_click: Action,
+        show_context_menu: bool,
+        sprite: Option<AtlasRef>,
+        xstart: i32,
+        ystart: i32,
+        width: i32,
+        height: i32,
+        xscale: f32,
+        yscale: f32,
+        angle: f32,
+        colour: i32,
+        alpha_normal: f32,
+        alpha_hover: f32,
+        exists: bool,
+    ) -> ButtonInfo {
+        ButtonInfo {
+            name: name.to_string(),
+            id: id,
+            filename: filename.to_string(),
+            description: description.to_string(),
+            action_left_click: action_left_click,
+            action_right_click: action_right_click,
+            show_context_menu: show_context_menu,
+            sprite: sprite,
+            xstart: xstart,
+            ystart: ystart,
+            width: width,
+            height: height,
+            xscale: xscale,
+            yscale: yscale,
+            angle: angle,
+            colour: colour,
+            alpha_normal: alpha_normal,
+            alpha_hover: alpha_hover,
+            exists: exists,
+        }
+    }
+
+    pub fn contains_point(&self, mouse_x: i32, mouse_y: i32) -> bool {
+        mouse_x >= self.xstart
+            && mouse_x < (self.xstart + self.width)
+            && mouse_y >= self.ystart
+            && mouse_y < (self.ystart + self.height)
+    }
+
+    pub fn draw_this(&self, renderer: &mut Renderer, mouse_x: i32, mouse_y: i32) {
+        if let Some(sprite) = self.sprite {
+            renderer.draw_sprite(
+                &sprite,
+                self.xstart.into(),
+                self.ystart.into(),
+                self.xscale.into(),
+                self.yscale.into(),
+                self.angle.into(),
+                self.colour.into(),
+                if self.contains_point(mouse_x, mouse_y) { self.alpha_hover.into() } else { self.alpha_normal.into() },
+            )
+        }
+    }
+}
+
+// section: structs (to be consolidated into ButtonInfo)
 
 #[derive(Clone, Copy)]
 pub struct KeyButton {
     pub x: i32,
     pub y: i32,
-    pub key: input::Key,
+    pub key: input::Key, // todoaa todobb
     pub state: ButtonState,
     pub label: AtlasRef,
 }
@@ -102,49 +198,12 @@ pub struct MousePositionButton {
 }
 
 #[derive(Clone, Copy)]
-pub struct BigSaveButton {
-    pub x: i32,
-    pub y: i32,
-}
-
-#[derive(Clone, Copy)]
 pub struct SeedChanger {
     pub x: i32,
     pub y: i32,
 }
 
-#[derive(Clone)]
-pub struct SaveButton {
-    pub x: i32,
-    pub y: i32,
-    pub name: String,
-    pub filename: String,
-    pub exists: bool,
-}
-
-#[derive(Clone, Copy)]
-pub enum ButtonState {
-    Neutral,
-    NeutralWillPress,
-    NeutralWillPR,
-    NeutralWillPRP,
-    Held,
-    HeldWillRelease,
-    HeldWillRP,
-    HeldWillRPR,
-}
-
-impl AdvanceButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 40)
-    }
-}
-
-impl BigSaveButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + 100) && y >= self.y && y < (self.y + 30)
-    }
-}
+// section: impls (to be consolidated into ButtonInfo)
 
 impl SeedChanger {
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
@@ -170,13 +229,73 @@ impl MousePositionButton {
     }
 }
 
-impl SaveButton {
-    pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < (self.x + SAVE_BUTTON_SIZE as i32) && y >= self.y && y < (self.y + SAVE_BUTTON_SIZE as i32)
-    }
+// section: ControlPanel
+
+pub struct ControlPanel {
+    pub window: Window,
+    pub renderer: Renderer,
+    pub clear_colour: Colour,
+    pub font: Font,
+    pub font_small: Font,
+
+    pub buttons: Vec<ButtonInfo>,
+
+    pub key_buttons: Vec<KeyButton>, // todoa
+    pub mouse_buttons: Vec<MouseButton>, // todob
+    pub mouse_position_button: MousePositionButton,
+    pub seed_changer: SeedChanger,
+    pub stream: TcpStream,
+    mouse_x: i32,
+    mouse_y: i32,
+    watched_id: Option<ID>,
+    watched_instance: Option<InstanceDetails>,
+    pub seed: i32,
+    pub new_seed: Option<i32>,
+
+    pub frame_count: usize,
+    pub game_mouse_pos: (f64, f64),
+    pub client_mouse_pos: (i32, i32),
+
+    pub atlas_refs: HashMap<String, AtlasRef>,
+
+    key_button_l_neutral: AtlasRef,
+    key_button_l_held: AtlasRef,
+    key_button_r_neutral: AtlasRef,
+    key_button_r_neutral2: AtlasRef,
+    key_button_r_neutral3: AtlasRef,
+    key_button_r_held: AtlasRef,
+    key_button_r_held2: AtlasRef,
+    key_button_r_held3: AtlasRef,
+    mouse_pos_normal: AtlasRef,
+    button_outline: AtlasRef,
+
+    menu_context: Option<MenuContext>,
+
+    pub read_buffer: Vec<u8>,
+    pub project_dir: PathBuf,
 }
 
 impl ControlPanel {
+    pub fn perform_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
+        return match action {
+            Action::Advance => self.send_advance(),
+            Action::Save(mut s) => self.save(&mut s),
+            Action::Load(mut s) => self.load(&mut s),
+            Action::Update => self.update(),
+            Action::Nothing => Ok(true),
+        }
+    }
+
+    // pub fn upload_ref(button_name) {
+    //     let path = format!("../../control-panel/images/{}.bmp", button_name);
+    //     let mut file = File::open(&path)?;
+    //     let mut file_content = Vec::new();
+    //     file.read_to_end(&mut file_content)?;
+    //
+    //     let sprite = Self::upload_bmp(&mut atlases, &file_content);
+    //     self.atlas_refs.insert(button_name, Some(AtlasRef::from(sprite)));
+    // }
+
     pub fn new(stream: TcpStream, project_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut project_dir = std::env::current_dir()?;
         project_dir.push("projects");
@@ -191,30 +310,91 @@ impl ControlPanel {
             clear_colour,
         )?;
 
-        let mut atlases = AtlasBuilder::new(1024);
-        let advance_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/advance.bmp"));
-        let big_save_button_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/save_main.bmp"));
-        let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLNeutral.bmp"));
-        let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnLHeld.bmp"));
-        let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral.bmp"));
-        let key_button_r_neutral2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral2.bmp"));
-        let key_button_r_neutral3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRNeutral3.bmp"));
-        let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld.bmp"));
-        let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld2.bmp"));
-        let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
-        let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pointer.bmp"));
-        let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
-        let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
-        let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/outline.bmp"));
+        let mut buttons = vec![
+            ButtonInfo {
+                name: "advance_button".to_string(),
+                action_left_click: Action::Advance,
+                xstart: 280,
+                ystart: 8,
+                ..ButtonInfo::default()
+            },
+            ButtonInfo {
+                name: "big_save_button".to_string(),
+                filename: PRIMARY_SAVE_NAME.to_string(),
+                action_left_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
+                action_right_click: Action::Save(PRIMARY_SAVE_NAME.to_string()),
+                xstart: 125,
+                ystart: 400,
+                ..ButtonInfo::default()
+            },
+        ];
 
-        let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelUp.bmp"));
-        let label_down = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelDown.bmp"));
-        let label_left = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelLeft.bmp"));
-        let label_right = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelRight.bmp"));
-        let label_r = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelR.bmp"));
-        let label_z = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelZ.bmp"));
-        let label_f2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelF2.bmp"));
-        let label_shift = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyLabelShift.bmp"));
+        for y in 0..2 {
+            for x in 0..8 {
+                let id = (y * 8) + x + 1;
+                let filename = format!("save{}.bin", id);
+                project_dir.push(&filename);
+                let exists = project_dir.exists();
+                project_dir.pop();
+                buttons.push(ButtonInfo {
+                    name: "save_button".to_string(),
+                    id: id as i32,
+                    filename: filename.to_string(),
+                    action_left_click: Action::Save(filename.to_string()),
+                    action_right_click: Action::Save(filename.to_string()),
+                    xstart: 47 + (SAVE_BUTTON_SIZE * x) as i32,
+                    ystart: 438 + (SAVE_BUTTON_SIZE * y) as i32,
+                    exists: exists,
+                    ..ButtonInfo::default()
+                });
+            }
+        }
+
+        let mut atlases = AtlasBuilder::new(1024);
+        let mut atlas_refs = HashMap::new();
+
+        for mut button in buttons.iter_mut() {
+            let button_name = button.name.to_string();
+
+            if !atlas_refs.contains_key(&button_name) {
+                let path = format!("../../control-panel/images/{}.bmp", button_name);
+                let mut file = File::open(&path)?;
+                let mut file_content = Vec::new();
+                file.read_to_end(&mut file_content)?;
+
+                let sprite = Self::upload_bmp(&mut atlases, &file_content);
+                atlas_refs.insert(button_name, AtlasRef::from(sprite));
+            }
+
+            let sprite = AtlasRef::from( *atlas_refs.get(&button.name.to_string()).unwrap() ); // todo: next, extract into function
+            button.sprite = Some(sprite);
+             // future: if width/height are not 0, aka have a pre-set bound box, ignore this
+            button.width = AtlasRef::from(sprite).w;
+            button.height = AtlasRef::from(sprite).h;
+            // eprintln!("{:?}", button.sprite);
+        }
+
+        eprintln!("atlas_refs: {:?}", atlas_refs);
+
+        let key_button_l_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_neutral.bmp"));
+        let key_button_l_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_l_held.bmp"));
+        let key_button_r_neutral = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral.bmp"));
+        let key_button_r_neutral2 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral2.bmp"));
+        let key_button_r_neutral3 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_neutral3.bmp"));
+        let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held.bmp"));
+        let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held2.bmp"));
+        let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/key_button_r_held3.bmp"));
+        let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pos_normal.bmp"));
+        let button_outline = Self::upload_bmp(&mut atlases, include_bytes!("images/button_outline.bmp"));
+
+        let label_up = Self::upload_bmp(&mut atlases, include_bytes!("images/label_up.bmp"));
+        let label_down = Self::upload_bmp(&mut atlases, include_bytes!("images/label_down.bmp"));
+        let label_left = Self::upload_bmp(&mut atlases, include_bytes!("images/label_left.bmp"));
+        let label_right = Self::upload_bmp(&mut atlases, include_bytes!("images/label_right.bmp"));
+        let label_r = Self::upload_bmp(&mut atlases, include_bytes!("images/label_r.bmp"));
+        let label_z = Self::upload_bmp(&mut atlases, include_bytes!("images/label_z.bmp"));
+        let label_f2 = Self::upload_bmp(&mut atlases, include_bytes!("images/label_f2.bmp"));
+        let label_shift = Self::upload_bmp(&mut atlases, include_bytes!("images/label_shift.bmp"));
 
         // Helper fn: create a Font
         fn make_font(
@@ -255,24 +435,6 @@ impl ControlPanel {
 
         renderer.push_atlases(atlases)?;
 
-        let mut save_buttons = Vec::with_capacity(2 * 8);
-        for y in 0..2 {
-            for x in 0..8 {
-                let id = (y * 8) + x + 1;
-                let filename = format!("save{}.bin", id);
-                project_dir.push(&filename);
-                let exists = project_dir.exists();
-                project_dir.pop();
-                save_buttons.push(SaveButton {
-                    x: 47 + (SAVE_BUTTON_SIZE * x) as i32,
-                    y: 438 + (SAVE_BUTTON_SIZE * y) as i32,
-                    name: id.to_string(),
-                    filename,
-                    exists,
-                });
-            }
-        }
-
         window.set_visible(true);
         renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, clear_colour);
         Ok(Self {
@@ -281,8 +443,8 @@ impl ControlPanel {
             clear_colour,
             font,
             font_small,
-            advance_button: AdvanceButton { x: 240, y: 8 },
-            key_buttons: vec![
+            buttons,
+            key_buttons: vec![ // todoa: first
                 KeyButton { x: 103, y: 150, key: input::Key::Left, state: ButtonState::Neutral, label: label_left },
                 KeyButton { x: 151, y: 150, key: input::Key::Down, state: ButtonState::Neutral, label: label_down },
                 KeyButton { x: 199, y: 150, key: input::Key::Right, state: ButtonState::Neutral, label: label_right },
@@ -292,14 +454,12 @@ impl ControlPanel {
                 KeyButton { x: 270, y: 90, key: input::Key::F2, state: ButtonState::Neutral, label: label_f2 },
                 KeyButton { x: 270, y: 150, key: input::Key::Z, state: ButtonState::Neutral, label: label_z },
             ],
-            mouse_buttons: vec![
+            mouse_buttons: vec![ // todob: first
                 MouseButton { x: 4, y: 248, button: input::MouseButton::Left, state: ButtonState::Neutral },
                 MouseButton { x: 56, y: 248, button: input::MouseButton::Middle, state: ButtonState::Neutral },
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
             ],
             mouse_position_button: MousePositionButton { x: 310, y: 250, active: false },
-            big_save_button: BigSaveButton { x: 125, y: 400 },
-            save_buttons,
             seed_changer: SeedChanger { x: 8, y: 540 },
             stream,
             mouse_x: 0,
@@ -313,8 +473,8 @@ impl ControlPanel {
             game_mouse_pos: (0.0, 0.0),
             client_mouse_pos: (0, 0),
 
-            advance_button_normal,
-            big_save_button_normal,
+            atlas_refs,
+
             key_button_l_neutral,
             key_button_l_held,
             key_button_r_neutral,
@@ -324,8 +484,6 @@ impl ControlPanel {
             key_button_r_held2,
             key_button_r_held3,
             mouse_pos_normal,
-            save_button_active,
-            save_button_inactive,
             button_outline,
 
             menu_context: None,
@@ -346,7 +504,7 @@ impl ControlPanel {
                     }
                 },
                 Some(Some(Information::MousePosition { x, y })) => self.client_mouse_pos = (x, y),
-                Some(Some(Information::InstanceClicked { details })) => {
+                Some(Some(Information::InstanceClicked { details })) => { // todo: issue #58
                     self.watched_id = Some(details.id);
                     self.watched_instance = Some(details);
                 },
@@ -363,12 +521,26 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Left) => {
-                    if self.advance_button.contains_point(self.mouse_x, self.mouse_y) {
-                        self.send_advance()?;
-                        break
-                    }
+                    let x = self.mouse_x;
+                    let y = self.mouse_y;
 
-                    for button in self.key_buttons.iter_mut() {
+                    // todo: extract this match as MouseButton::Right does it as well
+                    if let Some(index) = self.buttons.iter().position(|b| b.contains_point(x, y)) {
+                        match &self.buttons[index].action_left_click {
+                            Action::Advance => {
+                                self.perform_action(Action::Advance)?;
+                            },
+                            Action::Save(filename) => {
+                                let file = filename.to_string();
+                                self.perform_action(Action::Save(file))?;
+                                self.buttons[index].exists = true;
+                            },
+                            _ => (),
+                        };
+                        break 'evloop
+                    };
+
+                    for button in self.key_buttons.iter_mut() { // todoa
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
@@ -383,7 +555,7 @@ impl ControlPanel {
                         }
                     }
 
-                    for button in self.mouse_buttons.iter_mut() {
+                    for button in self.mouse_buttons.iter_mut() { // todob
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
@@ -395,14 +567,6 @@ impl ControlPanel {
                                     ButtonState::Held
                                 },
                             };
-                        }
-                    }
-
-                    for button in self.save_buttons.iter_mut() {
-                        if button.contains_point(self.mouse_x, self.mouse_y) {
-                            self.stream.send_message(&message::Message::Save { filename: button.filename.clone() })?;
-                            println!("Probably saved to {}", &button.filename);
-                            button.exists = true;
                         }
                     }
 
@@ -411,12 +575,6 @@ impl ControlPanel {
                         self.stream.send_message(&message::Message::SetUpdateMouse {
                             update: self.mouse_position_button.active,
                         })?;
-                    }
-
-                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
-                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-                        break
                     }
 
                     if self.seed_changer.contains_point(self.mouse_x, self.mouse_y) {
@@ -429,7 +587,30 @@ impl ControlPanel {
                 },
 
                 Event::MouseButtonUp(input::MouseButton::Right) => {
-                    for button in self.key_buttons.iter_mut() {
+                    let x = self.mouse_x;
+                    let y = self.mouse_y;
+
+                    if let Some(index) = self.buttons.iter().position(|b| b.contains_point(x, y)) {
+                        match &self.buttons[index].action_right_click {
+                            Action::Advance => {
+                                self.perform_action(Action::Advance)?;
+                            },
+                            Action::Save(filename) => {
+                                if self.buttons[index].exists {
+                                    if self.buttons[index].filename == PRIMARY_SAVE_NAME {
+                                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
+                                    } else {
+                                        self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
+                                    }
+                                    self.menu_context = Some(MenuContext::ButtonInfo(filename.into()));
+                                }
+                            },
+                            _ => (),
+                        };
+                        break 'evloop
+                    };
+
+                    for button in self.key_buttons.iter_mut() { // todoa
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
                                 ButtonState::Neutral
@@ -457,7 +638,7 @@ impl ControlPanel {
                         }
                     }
 
-                    for button in self.mouse_buttons.iter_mut() {
+                    for button in self.mouse_buttons.iter_mut() { // todob
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
                                 ButtonState::Neutral
@@ -484,25 +665,11 @@ impl ControlPanel {
                             break 'evloop
                         }
                     }
-
-                    for button in self.save_buttons.iter() {
-                        if button.contains_point(self.mouse_x, self.mouse_y) && button.exists {
-                            self.window.show_context_menu(&[("Load\0".into(), 1), ("Save\0".into(), 0)]);
-                            self.menu_context = Some(MenuContext::SaveButton(button.filename.clone()));
-                            break 'evloop
-                        }
-                    }
-
-                    if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) {
-                        self.window.show_context_menu(&[("Load [W]\0".into(), 1), ("Save [Q]\0".into(), 0)]);
-                        self.menu_context = Some(MenuContext::SaveButton("save.bin".into()));
-                        break
-                    }
                 },
 
                 Event::MenuOption(option) => {
                     match &self.menu_context {
-                        Some(MenuContext::KeyButton(target_key)) => {
+                        Some(MenuContext::KeyButton(target_key)) => { // todoa
                             let new_state = match option {
                                 0 => ButtonState::Neutral,
                                 1 => ButtonState::NeutralWillPress,
@@ -514,15 +681,13 @@ impl ControlPanel {
                                 7 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
-
                             for button in self.key_buttons.iter_mut() {
                                 if button.key == *target_key {
                                     button.state = new_state;
                                 }
                             }
                         },
-
-                        Some(MenuContext::MouseButton(target_button)) => {
+                        Some(MenuContext::MouseButton(target_button)) => { // todob
                             let new_state = match option {
                                 0 => ButtonState::Neutral,
                                 1 => ButtonState::NeutralWillPress,
@@ -534,49 +699,37 @@ impl ControlPanel {
                                 7 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
-
                             for button in self.mouse_buttons.iter_mut() {
                                 if button.button == *target_button {
                                     button.state = new_state;
                                 }
                             }
                         },
-
-                        Some(MenuContext::SaveButton(filename)) => {
+                        Some(MenuContext::ButtonInfo(filename)) => {
                             match option {
                                 0 => {
                                     // Save
-                                    self.stream.send_message(&message::Message::Save { filename: filename.clone() })?;
-                                    println!("Probably saved to {}", filename);
-                                },
-
-                                1 => {
-                                    // Load
-                                    self.stream.send_message(&message::Message::Load {
-                                        keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                                        mouse_buttons_requested: Vec::new(),
-                                        filename: filename.clone(),
-                                        instance_requested: self.watched_id,
-                                    })?;
-                                    self.await_update()?;
-                                    println!("Loaded");
+                                    let file = filename.to_string();
+                                    self.perform_action(Action::Save(file))?;
                                     break
                                 },
-
+                                1 => {
+                                    // Load
+                                    let file = filename.to_string();
+                                    self.perform_action(Action::Load(file))?;
+                                    break
+                                },
                                 _ => continue,
                             }
                         },
-
                         _ => (),
                     }
                 },
-
                 Event::KeyboardDown(key) => {
                     let key = *key;
                     self.handle_key(key)?;
                     break
                 },
-
                 _ => (),
             }
         }
@@ -586,34 +739,16 @@ impl ControlPanel {
 
     pub fn handle_key(&mut self, key: input::Key) -> Result<(), Box<dyn std::error::Error>> {
         match key {
-            input::Key::Space => {
-                self.send_advance()?;
-            },
-
-            input::Key::Q => {
-                self.stream.send_message(&message::Message::Save { filename: "save.bin".into() })?;
-                println!("Probably saved");
-            },
-
-            input::Key::W => {
-                self.stream.send_message(&message::Message::Load {
-                    keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-                    mouse_buttons_requested: Vec::new(),
-                    filename: "save.bin".into(),
-                    instance_requested: self.watched_id,
-                })?;
-                self.await_update()?;
-                println!("Loaded");
-            },
-
+            input::Key::Space => { self.perform_action(Action::Advance)?; }
+            input::Key::Q => { self.perform_action(Action::Save(PRIMARY_SAVE_NAME.to_string()))?; }
+            input::Key::W => { self.perform_action(Action::Load(PRIMARY_SAVE_NAME.to_string()))?; }
             _ => (),
         }
-
         Ok(())
     }
 
     fn send_advance(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
-        let mut key_inputs = Vec::new();
+        let mut key_inputs = Vec::new(); // todoa
         let mut keys_requested = Vec::new();
 
         for key in self.key_buttons.iter() {
@@ -643,7 +778,7 @@ impl ControlPanel {
             }
         }
 
-        let mut mouse_inputs = Vec::new();
+        let mut mouse_inputs = Vec::new(); // todob
         let mut mouse_buttons_requested = Vec::new();
 
         for button in self.mouse_buttons.iter() {
@@ -674,11 +809,11 @@ impl ControlPanel {
         }
 
         self.stream.send_message(message::Message::Advance {
-            key_inputs,
-            mouse_inputs,
+            key_inputs, // todoa
+            mouse_inputs, // todob
             mouse_location: self.game_mouse_pos,
-            keys_requested,
-            mouse_buttons_requested,
+            keys_requested, // todoa
+            mouse_buttons_requested, // todob
             instance_requested: self.watched_id,
             new_seed: self.new_seed,
         })?;
@@ -686,12 +821,48 @@ impl ControlPanel {
         self.await_update()
     }
 
+    fn save(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let path = &mut self.project_dir.clone();
+        path.push(filename);
+        let mut msg = "created";
+
+        if path.exists() {
+            msg = "saved";
+            let metadata = fs::metadata(path)?;
+            if let Ok(systemtime) = metadata.modified() {
+                let datetime: DateTime<Utc> = systemtime.into();
+                eprintln!("{} UTC - prior updated time", datetime.format("%b %d, %Y @ %T"));
+                // todo: instead simply get back this timestamp after the message stream
+            }
+        }
+
+        let current_time: DateTime<Utc> = SystemTime::now().into();
+        self.stream.send_message(&message::Message::Save { filename: filename.into() })?;
+        eprintln!("-----");
+        eprintln!("{} UTC - {} {} - please check the file to verify", current_time.format("%b %d, %Y @ %T"), filename, msg);
+
+        Ok(true)
+    }
+
+    fn load(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        self.stream.send_message(&message::Message::Load {
+            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(), // todoa
+            mouse_buttons_requested: Vec::new(), // todob: bug?
+            filename: filename.into(),
+            instance_requested: self.watched_id,
+        })?;
+        self.await_update()?;
+        println!("Loaded");
+
+        Ok(true)
+    }
+
     pub fn await_update(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
         loop {
             match self.stream.receive_message::<message::Information>(&mut self.read_buffer) {
                 Ok(Some(Some(message::Information::Update {
-                    keys_held,
-                    mouse_buttons_held,
+                    keys_held, // todoa
+                    mouse_buttons_held, // todob
                     mouse_location,
                     frame_count,
                     seed,
@@ -702,19 +873,11 @@ impl ControlPanel {
                     self.watched_instance = instance;
                     self.seed = seed;
                     self.new_seed = None;
-                    for button in self.key_buttons.iter_mut() {
-                        if keys_held.contains(&button.key) {
-                            button.state = ButtonState::Held;
-                        } else {
-                            button.state = ButtonState::Neutral;
-                        }
+                    for button in self.key_buttons.iter_mut() { // todoa
+                        button.state = if keys_held.contains(&button.key) { ButtonState::Held } else { ButtonState::Neutral };
                     }
-                    for button in self.mouse_buttons.iter_mut() {
-                        if mouse_buttons_held.contains(&button.button) {
-                            button.state = ButtonState::Held;
-                        } else {
-                            button.state = ButtonState::Neutral;
-                        }
+                    for button in self.mouse_buttons.iter_mut() { // todob
+                        button.state = if mouse_buttons_held.contains(&button.button) { ButtonState::Held } else { ButtonState::Neutral };
                     }
                     break Ok(true)
                 },
@@ -744,18 +907,31 @@ impl ControlPanel {
         draw_text(&mut self.renderer, "Frame:", 4.0, 19.0, &self.font, 0, 1.0);
         draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
 
-        self.renderer.draw_sprite(
-            &self.advance_button_normal,
-            self.advance_button.x.into(),
-            self.advance_button.y.into(),
-            1.0,
-            1.0,
-            0.0,
-            0xFFFFFF,
-            if self.advance_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
-        );
+        for button in self.buttons.iter_mut() {
+            if button.name == ("save_button") {
+                let modifier = if button.exists { 1.0 } else { 0.35 };
+                button.alpha_normal = (1.0 * modifier) as f32;
+                button.alpha_hover = 0.7 as f32;
 
-        for button in self.key_buttons.iter() {
+                let sprite = AtlasRef::from( *self.atlas_refs.get( &button.name.to_string() ).unwrap() );
+                button.sprite = Some(sprite);
+
+                button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
+                draw_text(
+                    &mut self.renderer,
+                    &button.id.to_string(),
+                    f64::from(button.xstart) + 8.0,
+                    f64::from(button.ystart) + 20.0,
+                    &self.font,
+                    0,
+                    1.0,
+                );
+            } else {
+                button.draw_this(&mut self.renderer, self.mouse_x, self.mouse_y);
+            }
+        }
+
+        for button in self.key_buttons.iter() { // todoa
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
                 ButtonState::Neutral
@@ -776,7 +952,7 @@ impl ControlPanel {
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todoa: different
                 atlas_ref_r,
                 f64::from(button.x + atlas_ref_l.w),
                 f64::from(button.y),
@@ -786,7 +962,7 @@ impl ControlPanel {
                 0xFFFFFF,
                 alpha,
             );
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todoa: different
                 &button.label,
                 f64::from(button.x),
                 f64::from(button.y),
@@ -808,7 +984,7 @@ impl ControlPanel {
             );
         }
 
-        for button in self.mouse_buttons.iter() {
+        for button in self.mouse_buttons.iter() { // todob
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
                 ButtonState::Neutral
@@ -829,7 +1005,7 @@ impl ControlPanel {
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todob: different
                 atlas_ref_r,
                 (button.x + atlas_ref_l.w) as _,
                 button.y as _,
@@ -862,17 +1038,6 @@ impl ControlPanel {
             if self.mouse_position_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 },
         );
 
-        self.renderer.draw_sprite(
-            &self.big_save_button_normal,
-            self.big_save_button.x.into(),
-            self.big_save_button.y.into(),
-            1.0,
-            1.0,
-            0.0,
-            0xFFFFFF,
-            if self.big_save_button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.8 },
-        );
-
         let (x, y) = self.game_mouse_pos;
         draw_text(&mut self.renderer, &format!("x: {}", x), 180.0, 266.0, &self.font_small, 0, 1.0);
         draw_text(&mut self.renderer, &format!("y: {}", y), 180.0, 286.0, &self.font_small, 0, 1.0);
@@ -880,21 +1045,6 @@ impl ControlPanel {
             let (x, y) = self.client_mouse_pos;
             draw_text(&mut self.renderer, &x.to_string(), 250.0, 266.0, &self.font_small, 0xA0A0A0, 1.0);
             draw_text(&mut self.renderer, &y.to_string(), 250.0, 286.0, &self.font_small, 0xA0A0A0, 1.0);
-        }
-
-        for button in self.save_buttons.iter() {
-            let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
-            let atlas_ref = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
-            self.renderer.draw_sprite(atlas_ref, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            draw_text(
-                &mut self.renderer,
-                &button.name,
-                f64::from(button.x) + 8.0,
-                f64::from(button.y) + 20.0,
-                &self.font,
-                0,
-                alpha,
-            );
         }
 
         draw_text(&mut self.renderer, "Keyboard", 123.0, 82.0, &self.font, 0, 1.0);
@@ -913,112 +1063,52 @@ impl ControlPanel {
         );
 
         if let Some(id) = self.watched_id.as_ref() {
-            draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);
+            let start_x = 8.0;
+            let start_y = 605.0;
+            let title_offset = 20.0;
+            let line_offset = 13.0;
+
+            let mut texts = vec![ "Watching:".to_owned() ];
+            let mut text_details;
+
             if let Some(details) = self.watched_instance.as_ref() {
-                draw_text(
-                    &mut self.renderer,
-                    &format!("{} ({})", details.object_name, details.id),
-                    8.0,
-                    618.0,
-                    &self.font_small,
-                    0,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("x: {}", details.x),
-                    8.0,
-                    638.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("y: {}", details.y),
-                    8.0,
-                    651.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("speed: {}", details.speed),
-                    8.0,
-                    664.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("direction: {}", details.direction),
-                    8.0,
-                    677.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_left: {}", details.bbox_left),
-                    8.0,
-                    690.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_right: {}", details.bbox_right),
-                    8.0,
-                    703.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_top: {}", details.bbox_top),
-                    8.0,
-                    716.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                draw_text(
-                    &mut self.renderer,
-                    &format!("bbox_bottom: {}", details.bbox_bottom),
-                    8.0,
-                    729.0,
-                    &self.font_small,
-                    0x303030,
-                    1.0,
-                );
-                let mut alarms = details
-                    .alarms
-                    .iter()
-                    .filter(|(_, x)| **x > 0)
+                text_details = vec![
+                    format!("{} ({})", details.object_name, details.id),
+                    format!("x: {}", details.x),
+                    format!("y: {}", details.y),
+                    format!("speed: {}", details.speed),
+                    format!("direction: {}", details.direction),
+                    format!("bbox_left: {}", details.bbox_left),
+                    format!("bbox_right: {}", details.bbox_right),
+                    format!("bbox_top: {}", details.bbox_top),
+                    format!("bbox_bottom: {}", details.bbox_bottom),
+                ];
+                texts.append(&mut text_details);
+
+                let mut alarms = details.alarms.iter()
+                    .filter(|(_, x)| **x > 0) // todo: test this out
                     .map(|(index, timer)| format!("[{}]={}", index, timer))
                     .collect::<Vec<_>>();
                 if alarms.len() > 0 {
                     alarms.sort();
-                    draw_text(
-                        &mut self.renderer,
-                        &format!("alarms: {}", alarms.join(", ")),
-                        8.0,
-                        742.0,
-                        &self.font_small,
-                        0x303030,
-                        1.0,
-                    );
+                    texts.push( format!("alarms: {}", alarms.join(", ")));
                 }
             } else {
-                draw_text(&mut self.renderer, &format!("<deleted> ({})", id), 8.0, 618.0, &self.font_small, 0, 1.0);
+                texts.push( format!("<deleted> ({})", id) );
+            }
+
+            for (i, text) in texts.iter().enumerate() {
+                draw_text(
+                    &mut self.renderer,
+                    text,
+                    start_x,
+                    y + start_y + title_offset + i as f64 * line_offset,
+                    &self.font_small,
+                    if i < 2 { 0 } else { 0x303030 },
+                    1.0,
+                )
             }
         }
-
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }
 
@@ -1042,6 +1132,8 @@ impl ControlPanel {
             .expect("Failed to pack a texture for control panel")
     }
 }
+
+// section: helpers (to be consolidated into scope)
 
 fn draw_text(renderer: &mut Renderer, text: &str, mut x: f64, y: f64, font: &Font, colour: i32, alpha: f64) {
     for c in text.chars() {
