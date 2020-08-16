@@ -1069,19 +1069,21 @@ impl ControlPanel {
             let line_offset = 13.0;
 
             let mut texts = vec![ "Watching:".to_owned() ];
+            let mut text_details;
 
             if let Some(details) = self.watched_instance.as_ref() {
-                texts.splice(1..1, [
-                    &format!("{} ({})", details.object_name, details.id),
-                    &format!("x: {}", details.x),
-                    &format!("y: {}", details.y),
-                    &format!("speed: {}", details.speed),
-                    &format!("direction: {}", details.direction),
-                    &format!("bbox_left: {}", details.bbox_left),
-                    &format!("bbox_right: {}", details.bbox_right),
-                    &format!("bbox_top: {}", details.bbox_top),
-                    &format!("bbox_bottom: {}", details.bbox_bottom),
-                ].iter()); // note: timeline_info and path_info not used
+                text_details = vec![
+                    format!("{} ({})", details.object_name, details.id),
+                    format!("x: {}", details.x),
+                    format!("y: {}", details.y),
+                    format!("speed: {}", details.speed),
+                    format!("direction: {}", details.direction),
+                    format!("bbox_left: {}", details.bbox_left),
+                    format!("bbox_right: {}", details.bbox_right),
+                    format!("bbox_top: {}", details.bbox_top),
+                    format!("bbox_bottom: {}", details.bbox_bottom),
+                ];
+                texts.append(&mut text_details);
 
                 let mut alarms = details.alarms.iter()
                     .filter(|(_, x)| **x > 0) // todo: test this out
@@ -1089,18 +1091,18 @@ impl ControlPanel {
                     .collect::<Vec<_>>();
                 if alarms.len() > 0 {
                     alarms.sort();
-                    texts.push(&format!("alarms: {}", alarms.join(", ")));
+                    texts.push( format!("alarms: {}", alarms.join(", ")));
                 }
             } else {
-                texts.push( &format!("<deleted> ({})", id) );
+                texts.push( format!("<deleted> ({})", id) );
             }
 
-            for (i, text) in &texts.iter().enumerate() {
+            for (i, text) in texts.iter().enumerate() {
                 draw_text(
                     &mut self.renderer,
                     text,
                     start_x,
-                    *y + start_y + title_offset + i as f64 * line_offset,
+                    y + start_y + title_offset + i as f64 * line_offset,
                     &self.font_small,
                     if i < 2 { 0 } else { 0x303030 },
                     1.0,
