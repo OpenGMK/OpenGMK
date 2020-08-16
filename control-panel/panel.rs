@@ -35,8 +35,8 @@ pub enum Action {
 
 #[derive(Debug, Clone)]
 pub enum MenuContext {
-    KeyButton(input::Key),
-    MouseButton(input::MouseButton),
+    KeyButton(input::Key), // todoaa
+    MouseButton(input::MouseButton), // todobb
     ButtonInfo(String),
 }
 
@@ -173,11 +173,11 @@ impl ButtonInfo {
 
 // section: structs (to be consolidated into ButtonInfo)
 
-// #[derive(Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct KeyButton {
     pub x: i32,
     pub y: i32,
-    pub key: input::Key,
+    pub key: input::Key, // todoaa todobb
     pub state: ButtonState,
     pub label: AtlasRef,
 }
@@ -240,8 +240,8 @@ pub struct ControlPanel {
 
     pub buttons: Vec<ButtonInfo>,
 
-    pub key_buttons: Vec<KeyButton>,
-    pub mouse_buttons: Vec<MouseButton>,
+    pub key_buttons: Vec<KeyButton>, // todoa
+    pub mouse_buttons: Vec<MouseButton>, // todob
     pub mouse_position_button: MousePositionButton,
     pub seed_changer: SeedChanger,
     pub stream: TcpStream,
@@ -284,7 +284,6 @@ impl ControlPanel {
             Action::Update => self.update(),
             Action::Nothing => Ok(true),
         }
-        // &[(String, usize)]
     }
 
     // pub fn upload_ref(button_name) {
@@ -445,7 +444,7 @@ impl ControlPanel {
             font,
             font_small,
             buttons,
-            key_buttons: vec![
+            key_buttons: vec![ // todoa: first
                 KeyButton { x: 103, y: 150, key: input::Key::Left, state: ButtonState::Neutral, label: label_left },
                 KeyButton { x: 151, y: 150, key: input::Key::Down, state: ButtonState::Neutral, label: label_down },
                 KeyButton { x: 199, y: 150, key: input::Key::Right, state: ButtonState::Neutral, label: label_right },
@@ -455,7 +454,7 @@ impl ControlPanel {
                 KeyButton { x: 270, y: 90, key: input::Key::F2, state: ButtonState::Neutral, label: label_f2 },
                 KeyButton { x: 270, y: 150, key: input::Key::Z, state: ButtonState::Neutral, label: label_z },
             ],
-            mouse_buttons: vec![
+            mouse_buttons: vec![ // todob: first
                 MouseButton { x: 4, y: 248, button: input::MouseButton::Left, state: ButtonState::Neutral },
                 MouseButton { x: 56, y: 248, button: input::MouseButton::Middle, state: ButtonState::Neutral },
                 MouseButton { x: 108, y: 248, button: input::MouseButton::Right, state: ButtonState::Neutral },
@@ -505,7 +504,7 @@ impl ControlPanel {
                     }
                 },
                 Some(Some(Information::MousePosition { x, y })) => self.client_mouse_pos = (x, y),
-                Some(Some(Information::InstanceClicked { details })) => {
+                Some(Some(Information::InstanceClicked { details })) => { // todo: issue #58
                     self.watched_id = Some(details.id);
                     self.watched_instance = Some(details);
                 },
@@ -541,7 +540,7 @@ impl ControlPanel {
                         break 'evloop
                     };
 
-                    for button in self.key_buttons.iter_mut() {
+                    for button in self.key_buttons.iter_mut() { // todoa
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
@@ -556,7 +555,7 @@ impl ControlPanel {
                         }
                     }
 
-                    for button in self.mouse_buttons.iter_mut() {
+                    for button in self.mouse_buttons.iter_mut() { // todob
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             button.state = match button.state {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
@@ -611,7 +610,7 @@ impl ControlPanel {
                         break 'evloop
                     };
 
-                    for button in self.key_buttons.iter_mut() {
+                    for button in self.key_buttons.iter_mut() { // todoa
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
                                 ButtonState::Neutral
@@ -639,7 +638,7 @@ impl ControlPanel {
                         }
                     }
 
-                    for button in self.mouse_buttons.iter_mut() {
+                    for button in self.mouse_buttons.iter_mut() { // todob
                         if button.contains_point(self.mouse_x, self.mouse_y) {
                             let options = match button.state {
                                 ButtonState::Neutral
@@ -670,7 +669,7 @@ impl ControlPanel {
 
                 Event::MenuOption(option) => {
                     match &self.menu_context {
-                        Some(MenuContext::KeyButton(target_key)) => {
+                        Some(MenuContext::KeyButton(target_key)) => { // todoa
                             let new_state = match option {
                                 0 => ButtonState::Neutral,
                                 1 => ButtonState::NeutralWillPress,
@@ -682,15 +681,13 @@ impl ControlPanel {
                                 7 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
-
                             for button in self.key_buttons.iter_mut() {
                                 if button.key == *target_key {
                                     button.state = new_state;
                                 }
                             }
                         },
-
-                        Some(MenuContext::MouseButton(target_button)) => {
+                        Some(MenuContext::MouseButton(target_button)) => { // todob
                             let new_state = match option {
                                 0 => ButtonState::Neutral,
                                 1 => ButtonState::NeutralWillPress,
@@ -702,14 +699,12 @@ impl ControlPanel {
                                 7 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
-
                             for button in self.mouse_buttons.iter_mut() {
                                 if button.button == *target_button {
                                     button.state = new_state;
                                 }
                             }
                         },
-
                         Some(MenuContext::ButtonInfo(filename)) => {
                             match option {
                                 0 => {
@@ -718,28 +713,23 @@ impl ControlPanel {
                                     self.perform_action(Action::Save(file))?;
                                     break
                                 },
-
                                 1 => {
                                     // Load
                                     let file = filename.to_string();
                                     self.perform_action(Action::Load(file))?;
                                     break
                                 },
-
                                 _ => continue,
                             }
                         },
-
                         _ => (),
                     }
                 },
-
                 Event::KeyboardDown(key) => {
                     let key = *key;
                     self.handle_key(key)?;
                     break
                 },
-
                 _ => (),
             }
         }
@@ -749,25 +739,16 @@ impl ControlPanel {
 
     pub fn handle_key(&mut self, key: input::Key) -> Result<(), Box<dyn std::error::Error>> {
         match key {
-            input::Key::Space => {
-                self.perform_action(Action::Advance)?;
-            },
-
-            input::Key::Q => {
-                self.perform_action(Action::Save(PRIMARY_SAVE_NAME.to_string()))?;
-            },
-
-            input::Key::W => {
-                self.perform_action(Action::Load(PRIMARY_SAVE_NAME.to_string()))?;
-            },
+            input::Key::Space => { self.perform_action(Action::Advance)?; }
+            input::Key::Q => { self.perform_action(Action::Save(PRIMARY_SAVE_NAME.to_string()))?; }
+            input::Key::W => { self.perform_action(Action::Load(PRIMARY_SAVE_NAME.to_string()))?; }
             _ => (),
         }
-
         Ok(())
     }
 
     fn send_advance(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
-        let mut key_inputs = Vec::new();
+        let mut key_inputs = Vec::new(); // todoa
         let mut keys_requested = Vec::new();
 
         for key in self.key_buttons.iter() {
@@ -797,7 +778,7 @@ impl ControlPanel {
             }
         }
 
-        let mut mouse_inputs = Vec::new();
+        let mut mouse_inputs = Vec::new(); // todob
         let mut mouse_buttons_requested = Vec::new();
 
         for button in self.mouse_buttons.iter() {
@@ -828,11 +809,11 @@ impl ControlPanel {
         }
 
         self.stream.send_message(message::Message::Advance {
-            key_inputs,
-            mouse_inputs,
+            key_inputs, // todoa
+            mouse_inputs, // todob
             mouse_location: self.game_mouse_pos,
-            keys_requested,
-            mouse_buttons_requested,
+            keys_requested, // todoa
+            mouse_buttons_requested, // todob
             instance_requested: self.watched_id,
             new_seed: self.new_seed,
         })?;
@@ -865,8 +846,8 @@ impl ControlPanel {
 
     fn load(&mut self, filename: &str) -> Result<bool, Box<dyn std::error::Error>> {
         self.stream.send_message(&message::Message::Load {
-            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(),
-            mouse_buttons_requested: Vec::new(),
+            keys_requested: self.key_buttons.iter().map(|x| x.key).collect(), // todoa
+            mouse_buttons_requested: Vec::new(), // todob: bug?
             filename: filename.into(),
             instance_requested: self.watched_id,
         })?;
@@ -880,8 +861,8 @@ impl ControlPanel {
         loop {
             match self.stream.receive_message::<message::Information>(&mut self.read_buffer) {
                 Ok(Some(Some(message::Information::Update {
-                    keys_held,
-                    mouse_buttons_held,
+                    keys_held, // todoa
+                    mouse_buttons_held, // todob
                     mouse_location,
                     frame_count,
                     seed,
@@ -892,10 +873,10 @@ impl ControlPanel {
                     self.watched_instance = instance;
                     self.seed = seed;
                     self.new_seed = None;
-                    for button in self.key_buttons.iter_mut() {
+                    for button in self.key_buttons.iter_mut() { // todoa
                         button.state = if keys_held.contains(&button.key) { ButtonState::Held } else { ButtonState::Neutral };
                     }
-                    for button in self.mouse_buttons.iter_mut() {
+                    for button in self.mouse_buttons.iter_mut() { // todob
                         button.state = if mouse_buttons_held.contains(&button.button) { ButtonState::Held } else { ButtonState::Neutral };
                     }
                     break Ok(true)
@@ -950,7 +931,7 @@ impl ControlPanel {
             }
         }
 
-        for button in self.key_buttons.iter() {
+        for button in self.key_buttons.iter() { // todoa
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
                 ButtonState::Neutral
@@ -971,7 +952,7 @@ impl ControlPanel {
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todoa: different
                 atlas_ref_r,
                 f64::from(button.x + atlas_ref_l.w),
                 f64::from(button.y),
@@ -981,7 +962,7 @@ impl ControlPanel {
                 0xFFFFFF,
                 alpha,
             );
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todoa: different
                 &button.label,
                 f64::from(button.x),
                 f64::from(button.y),
@@ -1003,7 +984,7 @@ impl ControlPanel {
             );
         }
 
-        for button in self.mouse_buttons.iter() {
+        for button in self.mouse_buttons.iter() { // todob
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
             let atlas_ref_l = match button.state {
                 ButtonState::Neutral
@@ -1024,7 +1005,7 @@ impl ControlPanel {
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
             self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
-            self.renderer.draw_sprite(
+            self.renderer.draw_sprite( // todob: different
                 atlas_ref_r,
                 (button.x + atlas_ref_l.w) as _,
                 button.y as _,
@@ -1082,66 +1063,50 @@ impl ControlPanel {
         );
 
         if let Some(id) = self.watched_id.as_ref() {
-            draw_text(&mut self.renderer, "Watching:", 8.0, 605.0, &self.font, 0, 1.0);
+            let start_x = 8.0;
+            let start_y = 605.0;
+            let title_offset = 20.0;
+            let line_offset = 13.0;
+
+            let mut texts = vec![ "Watching:".to_owned() ];
+
             if let Some(details) = self.watched_instance.as_ref() {
-
-                let start_y = 618.0;
-                let texts: HashMap<String, f64> = [
-                    (format!("x: {}", details.x).to_string(), 20.0),
-                    (format!("y: {}", details.y).to_string(), 33.0),
-                    (format!("speed: {}", details.speed).to_string(), 46.0),
-                    (format!("direction: {}", details.direction), 59.0),
-                    (format!("bbox_left: {}", details.bbox_left), 72.0),
-                    (format!("bbox_right: {}", details.bbox_right), 85.0),
-                    (format!("bbox_top: {}", details.bbox_top), 98.0),
-                    (format!("bbox_bottom: {}", details.bbox_bottom), 111.0),
-                ].iter().cloned().collect();
-
-                for (text, y) in &texts {
-                    draw_text(
-                        &mut self.renderer,
-                        text,
-                        8.0,
-                        *y + start_y,
-                        &self.font_small,
-                        0x303030,
-                        1.0,
-                    )
-                }
-
-                draw_text(
-                    &mut self.renderer,
+                texts.splice(1..1, [
                     &format!("{} ({})", details.object_name, details.id),
-                    8.0,
-                    start_y,
-                    &self.font_small,
-                    0,
-                    1.0,
-                );
+                    &format!("x: {}", details.x),
+                    &format!("y: {}", details.y),
+                    &format!("speed: {}", details.speed),
+                    &format!("direction: {}", details.direction),
+                    &format!("bbox_left: {}", details.bbox_left),
+                    &format!("bbox_right: {}", details.bbox_right),
+                    &format!("bbox_top: {}", details.bbox_top),
+                    &format!("bbox_bottom: {}", details.bbox_bottom),
+                ].iter()); // note: timeline_info and path_info not used
 
-                let mut alarms = details
-                    .alarms
-                    .iter()
-                    .filter(|(_, x)| **x > 0)
+                let mut alarms = details.alarms.iter()
+                    .filter(|(_, x)| **x > 0) // todo: test this out
                     .map(|(index, timer)| format!("[{}]={}", index, timer))
                     .collect::<Vec<_>>();
                 if alarms.len() > 0 {
                     alarms.sort();
-                    draw_text(
-                        &mut self.renderer,
-                        &format!("alarms: {}", alarms.join(", ")),
-                        8.0,
-                        742.0,
-                        &self.font_small,
-                        0x303030,
-                        1.0,
-                    );
+                    texts.push(&format!("alarms: {}", alarms.join(", ")));
                 }
             } else {
-                draw_text(&mut self.renderer, &format!("<deleted> ({})", id), 8.0, 618.0, &self.font_small, 0, 1.0);
+                texts.push( &format!("<deleted> ({})", id) );
+            }
+
+            for (i, text) in &texts.iter().enumerate() {
+                draw_text(
+                    &mut self.renderer,
+                    text,
+                    start_x,
+                    *y + start_y + title_offset + i as f64 * line_offset,
+                    &self.font_small,
+                    if i < 2 { 0 } else { 0x303030 },
+                    1.0,
+                )
             }
         }
-
         self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
     }
 
