@@ -43,14 +43,13 @@ impl Game {
     // Returns true if path end event should be called
     pub fn apply_speeds(&self, handle: usize) -> bool {
         let instance = self.instance_list.get(handle);
-        let last_x = instance.x.get();
-        let last_y = instance.y.get();
         // Apply hspeed and vspeed to x and y
         let hspeed = instance.hspeed.get();
         let vspeed = instance.vspeed.get();
         if hspeed != Real::from(0.0) || vspeed != Real::from(0.0) {
             instance.x.set(instance.x.get() + hspeed);
             instance.y.set(instance.y.get() + vspeed);
+            instance.bbox_is_stale.set(true);
         }
 
         // Advance paths
@@ -125,10 +124,7 @@ impl Game {
             instance.x.set(new_x);
             instance.y.set(new_y);
             instance.path_pointspeed.set(point.speed);
-        }
-
-        if instance.x.get() != last_x || instance.y.get() != last_y {
-            instance.update_bbox(self.get_instance_mask_sprite(handle));
+            instance.bbox_is_stale.set(true);
         }
 
         // Run path end event
@@ -138,7 +134,6 @@ impl Game {
     /// "bounces" the instance against any instances or only solid ones, depending on solid_only
     pub fn bounce(&self, handle: usize, solids_only: bool) {
         let instance = self.instance_list.get(handle);
-        let sprite = self.get_instance_mask_sprite(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
         if collider(self, handle).is_some() {
@@ -151,13 +146,13 @@ impl Game {
 
         // Check collision in x axis
         instance.x.set(old_x + instance.hspeed.get());
-        instance.update_bbox(sprite);
+        instance.bbox_is_stale.set(true);
         let x_bounce = collider(self, handle).is_some();
 
         // Check collision in y axis
         instance.x.set(old_x);
         instance.y.set(old_y + instance.vspeed.get());
-        instance.update_bbox(sprite);
+        instance.bbox_is_stale.set(true);
         let y_bounce = collider(self, handle).is_some();
 
         // Update direction
@@ -171,7 +166,7 @@ impl Game {
         // If neither check passed, check collision after applying both offsets
         if !x_bounce && !y_bounce {
             instance.x.set(old_x + instance.hspeed.get());
-            instance.update_bbox(sprite);
+            instance.bbox_is_stale.set(true);
             if collider(self, handle).is_some() {
                 instance.set_hvspeed(-instance.hspeed.get(), -instance.vspeed.get());
             }
@@ -180,14 +175,13 @@ impl Game {
         // Finally, set x and y back to normal
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.update_bbox(sprite);
+        instance.bbox_is_stale.set(true);
     }
 
     /// "bounces" the instance against any instances or only solid ones, depending on solid_only
     /// Uses GM8's "advanced bouncing" algorithm which is very broken
     pub fn bounce_advanced(&self, handle: usize, solids_only: bool) {
         let instance = self.instance_list.get(handle);
-        let sprite = self.get_instance_mask_sprite(handle);
         let collider = if solids_only { Game::check_collision_solid } else { Game::check_collision_any };
 
         let mut bounce = false;
@@ -212,7 +206,7 @@ impl Game {
                 side_angle += angle_step;
                 instance.x.set(old_x + instance.speed.get() * side_angle.to_radians().cos());
                 instance.y.set(old_y - instance.speed.get() * side_angle.to_radians().sin());
-                instance.update_bbox(sprite);
+                instance.bbox_is_stale.set(true);
                 if collider(self, handle).is_none() {
                     break
                 }
@@ -229,6 +223,6 @@ impl Game {
 
         instance.x.set(old_x);
         instance.y.set(old_y);
-        instance.update_bbox(sprite);
+        instance.bbox_is_stale.set(true);
     }
 }

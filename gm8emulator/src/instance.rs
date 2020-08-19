@@ -75,6 +75,7 @@ pub struct Instance {
     pub bbox_left: Cell<i32>,
     pub bbox_right: Cell<i32>,
     pub bbox_bottom: Cell<i32>,
+    pub bbox_is_stale: Cell<bool>,
 
     pub fields: RefCell<HashMap<usize, Field>>,
     pub alarms: RefCell<HashMap<u32, i32>>,
@@ -143,6 +144,7 @@ impl Instance {
             bbox_left: Cell::new(BBOX_DEFAULT),
             bbox_right: Cell::new(BBOX_DEFAULT),
             bbox_bottom: Cell::new(BBOX_DEFAULT),
+            bbox_is_stale: Cell::new(true),
             fields: RefCell::new(HashMap::new()),
             alarms: RefCell::new(HashMap::new()),
         }
@@ -198,6 +200,7 @@ impl Instance {
             bbox_left: Cell::new(BBOX_DEFAULT),
             bbox_right: Cell::new(BBOX_DEFAULT),
             bbox_bottom: Cell::new(BBOX_DEFAULT),
+            bbox_is_stale: Cell::new(true),
             fields: RefCell::new(HashMap::new()),
             alarms: RefCell::new(HashMap::new()),
         }
@@ -270,56 +273,78 @@ impl Instance {
 
     // Updates the bbox variables if they're stale, otherwise does nothing
     pub fn update_bbox(&self, sprite: Option<&Sprite>) {
-        // Also do nothing if the given Sprite is None
-        if let Some(sprite) = sprite {
-            // Get coordinates of top-left and bottom-right corners of the collider at self's x and y,
-            // taking image scale (but not angle) into account
-            let x = self.x.get();
-            let y = self.y.get();
-            let xscale = self.image_xscale.get();
-            let yscale = self.image_yscale.get();
-            let mut top_left_x = (x - (Real::from(sprite.origin_x) * xscale)) + (Real::from(sprite.bbox_left) * xscale);
-            let mut top_left_y = (y - (Real::from(sprite.origin_y) * yscale)) + (Real::from(sprite.bbox_top) * yscale);
-            let mut bottom_right_x =
-                top_left_x + (Real::from(sprite.bbox_right + 1 - sprite.bbox_left) * xscale) - Real::from(1.0);
-            let mut bottom_right_y =
-                top_left_y + (Real::from(sprite.bbox_bottom + 1 - sprite.bbox_top) * yscale) - Real::from(1.0);
+        // Do nothing if bbox isn't stale
+        if self.bbox_is_stale.get() {
+            // Also do nothing if the given Sprite is None
+            if let Some(sprite) = sprite {
+                // Get coordinates of top-left and bottom-right corners of the collider at self's x and y,
+                // taking image scale (but not angle) into account
+                let x = self.x.get();
+                let y = self.y.get();
+                let xscale = self.image_xscale.get();
+                let yscale = self.image_yscale.get();
+                let mut top_left_x =
+                    (x - (Real::from(sprite.origin_x) * xscale)) + (Real::from(sprite.bbox_left) * xscale);
+                let mut top_left_y =
+                    (y - (Real::from(sprite.origin_y) * yscale)) + (Real::from(sprite.bbox_top) * yscale);
+                let mut bottom_right_x =
+                    top_left_x + (Real::from(sprite.bbox_right + 1 - sprite.bbox_left) * xscale) - Real::from(1.0);
+                let mut bottom_right_y =
+                    top_left_y + (Real::from(sprite.bbox_bottom + 1 - sprite.bbox_top) * yscale) - Real::from(1.0);
 
-            // Make sure left/right and top/bottom are the right way around
-            if xscale <= Real::from(0.0) {
-                std::mem::swap(&mut top_left_x, &mut bottom_right_x);
+                // Make sure left/right and top/bottom are the right way around
+                if xscale <= Real::from(0.0) {
+                    std::mem::swap(&mut top_left_x, &mut bottom_right_x);
+                }
+                if yscale <= Real::from(0.0) {
+                    std::mem::swap(&mut top_left_y, &mut bottom_right_y);
+                }
+
+                // Copy values for the other two corners (top-right, bottom-left)...
+                let mut top_right_x = bottom_right_x;
+                let mut top_right_y = top_left_y;
+                let mut bottom_left_x = top_left_x;
+                let mut bottom_left_y = bottom_right_y;
+
+                // Rotate these points
+                let angle = -self.image_angle.get().to_radians();
+                let sin = angle.sin().into_inner();
+                let cos = angle.cos().into_inner();
+                util::rotate_around(top_left_x.as_mut_ref(), top_left_y.as_mut_ref(), x.into(), y.into(), sin, cos);
+                util::rotate_around(top_right_x.as_mut_ref(), top_right_y.as_mut_ref(), x.into(), y.into(), sin, cos);
+                util::rotate_around(
+                    bottom_left_x.as_mut_ref(),
+                    bottom_left_y.as_mut_ref(),
+                    x.into(),
+                    y.into(),
+                    sin,
+                    cos,
+                );
+                util::rotate_around(
+                    bottom_right_x.as_mut_ref(),
+                    bottom_right_y.as_mut_ref(),
+                    x.into(),
+                    y.into(),
+                    sin,
+                    cos,
+                );
+
+                // Set left to whichever x is lowest, right to whichever x is highest,
+                // top to whichever y is lowest, and bottom to whichever y is highest.
+                self.bbox_left.set(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x))).round());
+                self.bbox_right.set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round());
+                self.bbox_top.set(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y))).round());
+                self.bbox_bottom.set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round());
+            } else {
+                // No valid collider provided - set default values and return
+                self.bbox_top.set(BBOX_DEFAULT);
+                self.bbox_left.set(BBOX_DEFAULT);
+                self.bbox_right.set(BBOX_DEFAULT);
+                self.bbox_bottom.set(BBOX_DEFAULT);
             }
-            if yscale <= Real::from(0.0) {
-                std::mem::swap(&mut top_left_y, &mut bottom_right_y);
-            }
 
-            // Copy values for the other two corners (top-right, bottom-left)...
-            let mut top_right_x = bottom_right_x;
-            let mut top_right_y = top_left_y;
-            let mut bottom_left_x = top_left_x;
-            let mut bottom_left_y = bottom_right_y;
-
-            // Rotate these points
-            let angle = -self.image_angle.get().to_radians();
-            let sin = angle.sin().into_inner();
-            let cos = angle.cos().into_inner();
-            util::rotate_around(top_left_x.as_mut_ref(), top_left_y.as_mut_ref(), x.into(), y.into(), sin, cos);
-            util::rotate_around(top_right_x.as_mut_ref(), top_right_y.as_mut_ref(), x.into(), y.into(), sin, cos);
-            util::rotate_around(bottom_left_x.as_mut_ref(), bottom_left_y.as_mut_ref(), x.into(), y.into(), sin, cos);
-            util::rotate_around(bottom_right_x.as_mut_ref(), bottom_right_y.as_mut_ref(), x.into(), y.into(), sin, cos);
-
-            // Set left to whichever x is lowest, right to whichever x is highest,
-            // top to whichever y is lowest, and bottom to whichever y is highest.
-            self.bbox_left.set(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x))).round());
-            self.bbox_right.set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round());
-            self.bbox_top.set(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y))).round());
-            self.bbox_bottom.set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round());
-        } else {
-            // No valid collider provided - set default values and return
-            self.bbox_top.set(BBOX_DEFAULT);
-            self.bbox_left.set(BBOX_DEFAULT);
-            self.bbox_right.set(BBOX_DEFAULT);
-            self.bbox_bottom.set(BBOX_DEFAULT);
+            // Indicate bbox is no longer stale
+            self.bbox_is_stale.set(false);
         }
     }
 

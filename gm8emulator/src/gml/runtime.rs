@@ -857,10 +857,26 @@ impl Game {
             InstanceVariable::Visible => Ok(instance.visible.get().into()),
             InstanceVariable::Persistent => Ok(instance.persistent.get().into()),
             InstanceVariable::Depth => Ok(instance.depth.get().into()),
-            InstanceVariable::BboxLeft => Ok(instance.bbox_left.get().into()),
-            InstanceVariable::BboxRight => Ok(instance.bbox_right.get().into()),
-            InstanceVariable::BboxTop => Ok(instance.bbox_top.get().into()),
-            InstanceVariable::BboxBottom => Ok(instance.bbox_bottom.get().into()),
+            InstanceVariable::BboxLeft => {
+                let sprite = self.get_instance_mask_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_left.get().into())
+            },
+            InstanceVariable::BboxRight => {
+                let sprite = self.get_instance_mask_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_right.get().into())
+            },
+            InstanceVariable::BboxTop => {
+                let sprite = self.get_instance_mask_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_top.get().into())
+            },
+            InstanceVariable::BboxBottom => {
+                let sprite = self.get_instance_mask_sprite(instance_handle);
+                instance.update_bbox(sprite);
+                Ok(instance.bbox_bottom.get().into())
+            },
             InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
             InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
             InstanceVariable::ImageSingle => {
@@ -1154,15 +1170,15 @@ impl Game {
             InstanceVariable::X => {
                 let v: Real = value.into();
                 if v != instance.x.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.x.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::Y => {
                 let v: Real = value.into();
                 if v != instance.y.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.y.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::Xprevious => instance.xprevious.set(value.into()),
@@ -1186,8 +1202,8 @@ impl Game {
             InstanceVariable::SpriteIndex => {
                 let v: i32 = value.into();
                 if v != instance.sprite_index.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.sprite_index.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::ImageIndex => {
@@ -1200,22 +1216,22 @@ impl Game {
             InstanceVariable::ImageXscale => {
                 let v: Real = value.into();
                 if v != instance.image_xscale.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.image_xscale.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::ImageYscale => {
                 let v: Real = value.into();
                 if v != instance.image_yscale.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.image_yscale.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::ImageAngle => {
                 let v: Real = value.into();
                 if v != instance.image_angle.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.image_angle.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::ImageAlpha => instance.image_alpha.set(value.into()),
@@ -1224,8 +1240,8 @@ impl Game {
             InstanceVariable::MaskIndex => {
                 let v: i32 = value.into();
                 if v != instance.mask_index.get() {
+                    instance.bbox_is_stale.set(true);
                     instance.mask_index.set(v);
-                    instance.update_bbox(self.get_instance_mask_sprite(instance_handle));
                 }
             },
             InstanceVariable::PathPosition => {
