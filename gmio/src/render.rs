@@ -43,6 +43,104 @@ pub enum BlendType {
     SrcAlphaSaturate,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrimitiveType {
+    PointList,
+    LineList,
+    LineStrip,
+    TriList,
+    TriStrip,
+    TriFan,
+}
+
+impl From<i32> for PrimitiveType {
+    fn from(pt: i32) -> Self {
+        match pt {
+            0 | 1 => PrimitiveType::PointList,
+            2 => PrimitiveType::LineList,
+            3 => PrimitiveType::LineStrip,
+            4 => PrimitiveType::TriList,
+            5 => PrimitiveType::TriStrip,
+            6 => PrimitiveType::TriFan,
+            _ => PrimitiveType::PointList, // GM8 just draws nothing in this case
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct Vertex {
+    pub pos: [f32; 3],
+    pub tex_coord: [f32; 2],
+    pub blend: [f32; 4],
+    pub atlas_xywh: [f32; 4],
+    pub normal: [f32; 3],
+}
+
+/// A builder to be used for building primitives.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PrimitiveBuilder {
+    vertices: Vec<Vertex>,
+    ptype: PrimitiveType,
+    atlas_ref: AtlasRef,
+}
+
+impl PrimitiveBuilder {
+    fn new(atlas_ref: AtlasRef, ptype: PrimitiveType) -> Self {
+        Self { vertices: Vec::new(), ptype, atlas_ref }
+    }
+
+    fn fill_shape(&mut self) {
+        match self.ptype {
+            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (),
+            PrimitiveType::LineStrip => {
+                if self.vertices.len() >= 2 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                }
+            },
+            PrimitiveType::TriFan => {
+                if self.vertices.len() >= 3 {
+                    self.vertices.push(*self.vertices.last().unwrap());
+                    self.vertices.push(self.vertices[0]);
+                }
+            },
+            PrimitiveType::TriStrip => {
+                let len = self.vertices.len();
+                if len >= 3 {
+                    self.vertices.push(self.vertices[len - 2]);
+                    self.vertices.push(self.vertices[len - 1]);
+                }
+            },
+        }
+    }
+
+    fn push_vertex_raw(&mut self, v: Vertex) -> &mut Self {
+        self.fill_shape();
+        self.vertices.push(v);
+        self
+    }
+
+    fn push_vertex(&mut self, pos: [f32; 3], tex_coord: [f32; 2], blend: [f32; 4], normal: [f32; 3]) -> &mut Self {
+        self.push_vertex_raw(Vertex { pos, tex_coord, blend, normal, atlas_xywh: self.atlas_ref.into() });
+        self
+    }
+
+    fn get_atlas_id(&self) -> u32 {
+        self.atlas_ref.atlas_id
+    }
+
+    fn get_type(&self) -> PrimitiveType {
+        match self.ptype {
+            PrimitiveType::LineStrip => PrimitiveType::LineList,
+            PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveType::TriList,
+            pt => pt,
+        }
+    }
+
+    fn get_vertices(&self) -> &[Vertex] {
+        &self.vertices
+    }
+}
+
 pub struct Renderer(Box<dyn RendererTrait>);
 
 pub trait RendererTrait {
@@ -66,12 +164,49 @@ pub trait RendererTrait {
     fn get_vsync(&self) -> bool;
     fn wait_vsync(&self);
 
-    fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64);
+    fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64) {
+        self.draw_sprite_general(
+            tex,
+            0.0,
+            0.0,
+            tex.w.into(),
+            tex.h.into(),
+            x,
+            y,
+            xs,
+            ys,
+            ang,
+            col,
+            col,
+            col,
+            col,
+            alpha,
+        );
+    }
+    fn draw_sprite_general(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
     fn set_model_matrix(&mut self, model: [f32; 16]);
     fn mult_model_matrix(&mut self, model: [f32; 16]);
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64);
+    fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64);
     fn set_view(
         &mut self,
         src_x: i32,
@@ -92,6 +227,7 @@ pub trait RendererTrait {
     fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         self.dump_sprite(&AtlasRef {
             atlas_id: texture.atlas_id,
+            sprite_id: texture.sprite_id,
             w: part_w,
             h: part_h,
             x: texture.x + part_x,
@@ -104,6 +240,8 @@ pub trait RendererTrait {
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
     fn get_pixel_interpolation(&self) -> bool;
     fn set_pixel_interpolation(&mut self, lerping: bool);
+    fn get_texture_repeat(&self) -> bool;
+    fn set_texture_repeat(&mut self, repeat: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
     fn draw_raw_frame(
@@ -124,52 +262,30 @@ pub trait RendererTrait {
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
 
+    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32;
+    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef>;
+
+    fn get_sprite_count(&self) -> i32;
+    fn set_sprite_count(&mut self, sprite_count: i32);
+
     fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
-        mut part_x: i32,
-        mut part_y: i32,
-        part_w: i32,
-        part_h: i32,
-        mut x: f64,
-        mut y: f64,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
+        x: f64,
+        y: f64,
         xscale: f64,
         yscale: f64,
         angle: f64,
         colour: i32,
         alpha: f64,
     ) {
-        if part_x < 0 {
-            x -= f64::from(part_x);
-            part_x = 0;
-        }
-        if part_y < 0 {
-            y -= f64::from(part_y);
-            part_y = 0;
-        }
-        let part_w = (part_x + part_w).min(texture.w) - part_x;
-        let part_h = (part_y + part_h).min(texture.h) - part_y;
-
-        if part_w >= 0 && part_h >= 0 {
-            self.draw_sprite(
-                &AtlasRef {
-                    atlas_id: texture.atlas_id,
-                    w: part_w,
-                    h: part_h,
-                    x: texture.x + part_x,
-                    y: texture.y + part_y,
-                    origin_x: 0.0,
-                    origin_y: 0.0,
-                },
-                x,
-                y,
-                xscale,
-                yscale,
-                angle,
-                colour,
-                alpha,
-            )
-        }
+        self.draw_sprite_general(
+            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, colour, colour, colour, colour, alpha,
+        )
     }
     fn draw_sprite_tiled(
         &mut self,
@@ -221,6 +337,61 @@ pub trait RendererTrait {
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64);
+    fn draw_rectangle_gradient(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        c4: i32,
+        alpha: f64,
+        outline: bool,
+    );
+    fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64);
+    fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64);
+    fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    );
+    fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool);
+    fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool);
+    fn set_circle_precision(&mut self, prec: i32);
+    fn get_circle_precision(&self) -> i32;
+    fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
+    fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64);
+    fn draw_primitive_2d(&mut self);
+    fn get_primitive_2d(&self) -> PrimitiveBuilder;
+    fn set_primitive_2d(&mut self, prim: PrimitiveBuilder);
+    fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>);
+    fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    );
+    fn draw_primitive_3d(&mut self);
+    fn get_primitive_3d(&self) -> PrimitiveBuilder;
+    fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 }
 
@@ -290,6 +461,29 @@ impl Renderer {
         self.0.draw_sprite(texture, x, y, xscale, yscale, angle, colour, alpha)
     }
 
+    pub fn draw_sprite_general(
+        &mut self,
+        texture: &AtlasRef,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
+        x: f64,
+        y: f64,
+        xscale: f64,
+        yscale: f64,
+        angle: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    ) {
+        self.0.draw_sprite_general(
+            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha,
+        )
+    }
+
     pub fn set_view_matrix(&mut self, view: [f32; 16]) {
         self.0.set_view_matrix(view)
     }
@@ -310,6 +504,10 @@ impl Renderer {
         self.0.set_projection_ortho(x, y, w, h, angle)
     }
 
+    pub fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
+        self.0.set_projection_perspective(x, y, w, h, angle)
+    }
+
     pub fn set_view(
         &mut self,
         src_x: i32,
@@ -328,10 +526,10 @@ impl Renderer {
     pub fn draw_sprite_partial(
         &mut self,
         texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
-        part_w: i32,
-        part_h: i32,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
         x: f64,
         y: f64,
         xscale: f64,
@@ -364,6 +562,125 @@ impl Renderer {
 
     pub fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         self.0.draw_rectangle_outline(x1, y1, x2, y2, colour, alpha)
+    }
+
+    pub fn draw_rectangle_gradient(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        c4: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.0.draw_rectangle_gradient(x1, y1, x2, y2, c1, c2, c3, c4, alpha, outline)
+    }
+
+    pub fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
+        self.0.draw_point(x, y, colour, alpha)
+    }
+
+    pub fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64) {
+        self.0.draw_line(x1, y1, x2, y2, width, c1, c2, alpha)
+    }
+
+    pub fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.0.draw_triangle(x1, y1, x2, y2, x3, y3, c1, c2, c3, alpha, outline)
+    }
+
+    pub fn draw_ellipse(
+        &mut self,
+        x: f64,
+        y: f64,
+        rad_x: f64,
+        rad_y: f64,
+        c1: i32,
+        c2: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.0.draw_ellipse(x, y, rad_x, rad_y, c1, c2, alpha, outline)
+    }
+
+    pub fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
+        self.0.draw_roundrect(x1, y1, x2, y2, c1, c2, alpha, outline)
+    }
+
+    pub fn set_circle_precision(&mut self, prec: i32) {
+        self.0.set_circle_precision(prec)
+    }
+
+    pub fn get_circle_precision(&self) -> i32 {
+        self.0.get_circle_precision()
+    }
+
+    pub fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.0.reset_primitive_2d(ptype, atlas_ref)
+    }
+
+    pub fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
+        self.0.vertex_2d(x, y, xtex, ytex, col, alpha)
+    }
+
+    pub fn draw_primitive_2d(&mut self) {
+        self.0.draw_primitive_2d()
+    }
+
+    pub fn get_primitive_2d(&self) -> PrimitiveBuilder {
+        self.0.get_primitive_2d()
+    }
+
+    pub fn set_primitive_2d(&mut self, prim: PrimitiveBuilder) {
+        self.0.set_primitive_2d(prim)
+    }
+
+    pub fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.0.reset_primitive_3d(ptype, atlas_ref)
+    }
+
+    pub fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    ) {
+        self.0.vertex_3d(x, y, z, nx, ny, nz, xtex, ytex, col, alpha)
+    }
+
+    pub fn draw_primitive_3d(&mut self) {
+        self.0.draw_primitive_3d()
+    }
+
+    pub fn get_primitive_3d(&self) -> PrimitiveBuilder {
+        self.0.get_primitive_3d()
+    }
+
+    pub fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
+        self.0.set_primitive_3d(prim)
     }
 
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
@@ -422,6 +739,22 @@ impl Renderer {
         self.0.reset_target()
     }
 
+    pub fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
+        self.0.get_texture_id(atl_ref)
+    }
+
+    pub fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
+        self.0.get_texture_from_id(id)
+    }
+
+    pub fn get_sprite_count(&self) -> i32 {
+        self.0.get_sprite_count()
+    }
+
+    pub fn set_sprite_count(&mut self, sprite_count: i32) {
+        self.0.set_sprite_count(sprite_count)
+    }
+
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
         self.0.get_blend_mode()
     }
@@ -436,6 +769,14 @@ impl Renderer {
 
     pub fn set_pixel_interpolation(&mut self, lerping: bool) {
         self.0.set_pixel_interpolation(lerping)
+    }
+
+    pub fn get_texture_repeat(&self) -> bool {
+        self.0.get_texture_repeat()
+    }
+
+    pub fn set_texture_repeat(&mut self, repeat: bool) {
+        self.0.set_texture_repeat(repeat)
     }
 
     pub fn flush_queue(&mut self) {

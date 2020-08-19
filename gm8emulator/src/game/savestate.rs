@@ -19,7 +19,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, SavedTexture, Scaling};
+use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -43,6 +43,8 @@ pub struct SaveState {
     pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
     pub interpolate_pixels: bool,
+    pub texture_repeat: bool,
+    pub sprite_count: i32,
     pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
@@ -84,6 +86,9 @@ pub struct SaveState {
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
+    pub circle_precision: i32,
+    pub primitive_2d: PrimitiveBuilder,
+    pub primitive_3d: PrimitiveBuilder,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -137,6 +142,8 @@ impl SaveState {
             textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
             interpolate_pixels: game.renderer.get_pixel_interpolation(),
+            texture_repeat: game.renderer.get_texture_repeat(),
+            sprite_count: game.renderer.get_sprite_count(),
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
@@ -170,6 +177,9 @@ impl SaveState {
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
+            circle_precision: game.renderer.get_circle_precision(),
+            primitive_2d: game.renderer.get_primitive_2d(),
+            primitive_3d: game.renderer.get_primitive_3d(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -222,6 +232,8 @@ impl SaveState {
         }
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
+        game.renderer.set_texture_repeat(self.texture_repeat);
+        game.renderer.set_sprite_count(self.sprite_count);
         game.renderer.set_vsync(self.vsync);
 
         let mut externals = self.externals;
@@ -270,6 +282,9 @@ impl SaveState {
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
+        game.renderer.set_circle_precision(self.circle_precision);
+        game.renderer.set_primitive_2d(self.primitive_2d);
+        game.renderer.set_primitive_3d(self.primitive_3d);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;

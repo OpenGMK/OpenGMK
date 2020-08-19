@@ -16,6 +16,7 @@ pub struct AtlasBuilder {
 #[repr(C)]
 pub struct AtlasRef {
     pub atlas_id: u32,
+    pub sprite_id: i32,
 
     pub x: i32,
     pub y: i32,
@@ -43,6 +44,7 @@ impl AtlasBuilder {
     ) -> Option<AtlasRef> {
         fn to_texture(
             id: u32,
+            sprite_id: i32,
             rect: rect_packer::Rect,
             data: Box<[u8]>,
             origin_x: i32,
@@ -51,6 +53,7 @@ impl AtlasBuilder {
             (
                 AtlasRef {
                     atlas_id: id,
+                    sprite_id,
                     w: rect.width,
                     h: rect.height,
                     x: rect.x,
@@ -63,7 +66,16 @@ impl AtlasBuilder {
         }
 
         if width <= 0 || height <= 0 {
-            return Some(AtlasRef { atlas_id: 0, w: width, h: height, x: 0, y: 0, origin_x: 0.0, origin_y: 0.0 })
+            return Some(AtlasRef {
+                atlas_id: 0,
+                sprite_id: -1,
+                w: width,
+                h: height,
+                x: 0,
+                y: 0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            })
         }
 
         if width > self.max_size || height > self.max_size {
@@ -72,7 +84,7 @@ impl AtlasBuilder {
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
             if let Some(rect) = packer.pack(width, height, false) {
-                let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                let (atlas_ref, data) = to_texture(id as _, self.textures.len() as _, rect, data, origin_x, origin_y);
                 self.textures.push((atlas_ref.clone(), data));
                 return Some(atlas_ref)
             } else {
@@ -87,7 +99,8 @@ impl AtlasBuilder {
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
-                        let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                        let (atlas_ref, data) =
+                            to_texture(id as _, self.textures.len() as _, rect, data, origin_x, origin_y);
                         self.textures.push((atlas_ref.clone(), data));
                         return Some(atlas_ref)
                     }

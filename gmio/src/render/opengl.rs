@@ -2,21 +2,24 @@ mod wgl;
 
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
-    render::{mat4mult, BlendType, RendererOptions, RendererTrait, SavedTexture, Scaling},
+    render::{
+        mat4mult, BlendType, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture, Scaling,
+        Vertex,
+    },
     window::Window,
 };
 use cfg_if::cfg_if;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
-use std::{any::Any, ffi::CStr, mem::size_of, ptr};
+use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
@@ -39,38 +42,37 @@ pub struct RendererImpl {
     gl: gl::Gl,
     //program: GLuint,
     //vao: GLuint,
-    vbo: GLuint,
-
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
+    sprites: HashMap<i32, AtlasRef>,
+    sprite_count: i32,
     stock_atlas_count: u32,
     current_atlas: GLuint,
     framebuffer_texture: GLuint,
     framebuffer_fbo: GLuint,
     white_pixel: AtlasRef,
-    draw_queue: Vec<DrawCommand>,
+    vertex_queue: Vec<Vertex>,
+    queue_type: PrimitiveType,
     interpolate_pixels: bool,
+    texture_repeat: bool,
+    circle_precision: i32,
+    depth: f32,
+    primitive_2d: PrimitiveBuilder,
+    primitive_3d: PrimitiveBuilder,
 
     model_matrix: [f32; 16],
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,  // uniform sampler2D tex
-    loc_proj: GLint, // uniform mat4 projection
+    loc_tex: GLint,    // uniform sampler2D tex
+    loc_proj: GLint,   // uniform mat4 projection
+    loc_repeat: GLint, // uniform bool repeat
+    loc_lerp: GLint,   // uniform bool lerp
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
 static FRAGMENT_SHADER_SOURCE: &[u8] = shader_file!("glsl/fragment.glsl");
-
-/// A command to draw a sprite or section of a sprite.
-/// These are queued and executed (instanced if possible).
-pub struct DrawCommand {
-    pub atlas_ref: AtlasRef,
-    pub model_view_matrix: [f32; 16],
-    pub blend: (f32, f32, f32),
-    pub alpha: f32,
-}
 
 unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
     let mut info_len: GLint = 0;
@@ -83,6 +85,54 @@ unsafe fn shader_info_log(gl: &gl::Gl, name: &str, id: GLuint) -> String {
         name,
         std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
     )
+}
+
+fn make_view_matrix(x: f64, y: f64, z: f64, w: f64, h: f64, angle: f64) -> [f32; 16] {
+    // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
+    let angle = angle.to_radians();
+    let sin_angle = -angle.sin() as f32;
+    let cos_angle = angle.cos() as f32;
+
+    #[rustfmt::skip]
+    let view_matrix: [f32; 16] = {
+        // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
+        let scx = -((x as f32) + (w as f32 / 2.0));
+        let scy = -((y as f32) + (h as f32 / 2.0));
+        let scz = -z as f32;
+        mat4mult(
+            // Place camera at (scx, scy, scz)
+            [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                scx, scy, scz, 1.0,
+            ],
+            // Rotate to view_angle
+            [
+                cos_angle,  sin_angle, 0.0, 0.0,
+                -sin_angle, cos_angle, 0.0, 0.0,
+                0.0,        0.0,       1.0, 0.0,
+                0.0,        0.0,       0.0, 1.0,
+            ]
+        )
+    };
+
+    view_matrix
+}
+
+fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
+    [
+        ((rgb & 0xFF) as f32) / 255.0,
+        (((rgb >> 8) & 0xFF) as f32) / 255.0,
+        (((rgb >> 16) & 0xFF) as f32) / 255.0,
+        alpha as f32,
+    ]
+}
+
+impl From<AtlasRef> for [f32; 4] {
+    fn from(ar: AtlasRef) -> Self {
+        [ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32]
+    }
 }
 
 impl From<BlendType> for GLenum {
@@ -119,6 +169,76 @@ impl From<GLenum> for BlendType {
             gl::SRC_ALPHA_SATURATE => BlendType::SrcAlphaSaturate,
             _ => unreachable!(),
         }
+    }
+}
+
+impl From<PrimitiveType> for GLenum {
+    fn from(pt: PrimitiveType) -> Self {
+        match pt {
+            PrimitiveType::PointList => gl::POINTS,
+            PrimitiveType::LineList => gl::LINES,
+            PrimitiveType::LineStrip => gl::LINE_STRIP,
+            PrimitiveType::TriList => gl::TRIANGLES,
+            PrimitiveType::TriStrip => gl::TRIANGLE_STRIP,
+            PrimitiveType::TriFan => gl::TRIANGLE_FAN,
+        }
+    }
+}
+
+impl From<GLenum> for PrimitiveType {
+    fn from(pt: GLenum) -> Self {
+        match pt {
+            gl::POINTS => PrimitiveType::PointList,
+            gl::LINES => PrimitiveType::LineList,
+            gl::LINE_STRIP => PrimitiveType::LineStrip,
+            gl::TRIANGLES => PrimitiveType::TriList,
+            gl::TRIANGLE_STRIP => PrimitiveType::TriStrip,
+            gl::TRIANGLE_FAN => PrimitiveType::TriFan,
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// A builder to be used for building basic shapes.
+struct ShapeBuilder {
+    primitive: PrimitiveBuilder,
+    outline: bool,
+    depth: f32,
+    alpha: f64,
+}
+
+impl ShapeBuilder {
+    fn new(outline: bool, atlas_ref: AtlasRef, alpha: f64, depth: f32) -> Self {
+        Self {
+            primitive: PrimitiveBuilder::new(
+                atlas_ref,
+                if outline { PrimitiveType::LineStrip } else { PrimitiveType::TriFan },
+            ),
+            outline,
+            depth,
+            alpha,
+        }
+    }
+
+    /// Shortcut for basic shapes.
+    fn push_point(&mut self, x: f64, y: f64, colour: i32) -> &mut Self {
+        self.primitive.push_vertex([x as f32, y as f32, self.depth], [0.0, 0.0], split_colour(colour, self.alpha), [
+            0.0, 0.0, 0.0,
+        ]);
+        self
+    }
+
+    /// Should only be called once. This is only used for basic shapes, so it's fine for it to be *possible* to
+    /// call it multiple times, as that makes things easier elsewhere.
+    fn build(&mut self) -> &PrimitiveBuilder {
+        if self.outline {
+            let vertices = self.primitive.get_vertices();
+            if vertices.len() > 2 {
+                let vertex = vertices[0];
+                self.primitive.push_vertex_raw(vertex);
+            }
+        }
+        &self.primitive
     }
 }
 
@@ -206,28 +326,10 @@ impl RendererImpl {
             gl.DeleteShader(vertex_shader);
             gl.DeleteShader(fragment_shader);
 
-            // set up vertex data and configure vertex attributes
-            let vertices: [f32; 12] = [
-                0.0, 0.0, 0.0, // bottom left
-                1.0, 0.0, 0.0, // bottom right
-                0.0, 1.0, 0.0, // top left
-                1.0, 1.0, 0.0, // top right
-            ];
-            let (mut vbo, mut vao) = (0, 0);
+            // set up vertex array
+            let mut vao = 0;
             gl.GenVertexArrays(1, &mut vao);
-            gl.GenBuffers(1, &mut vbo);
             gl.BindVertexArray(vao);
-
-            gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl.BufferData(
-                gl::ARRAY_BUFFER,
-                (vertices.len() * size_of::<GLfloat>()) as GLsizeiptr,
-                vertices.as_ptr().cast(),
-                gl::STATIC_DRAW,
-            );
-
-            gl.VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 3 * size_of::<GLfloat>() as GLsizei, ptr::null());
-            gl.EnableVertexAttribArray(0);
 
             // Enable and disable GL features
             gl.Enable(gl::SCISSOR_TEST);
@@ -290,18 +392,24 @@ impl RendererImpl {
                 imp,
                 //program,
                 //vao,
-                vbo,
-
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 fbo_ids: vec![],
+                sprites: HashMap::new(),
+                sprite_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 framebuffer_texture,
                 framebuffer_fbo,
                 white_pixel: Default::default(),
-                draw_queue: Vec::with_capacity(256),
+                vertex_queue: Vec::with_capacity(1536),
+                queue_type: PrimitiveType::TriList,
                 interpolate_pixels: options.interpolate_pixels,
+                texture_repeat: false,
+                circle_precision: 24,
+                depth: 0.0,
+                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
+                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
                 model_matrix: identity_matrix.clone(),
                 view_matrix: identity_matrix.clone(),
@@ -309,7 +417,8 @@ impl RendererImpl {
 
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
-
+                loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
+                loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
                 gl,
             };
 
@@ -337,6 +446,19 @@ impl RendererImpl {
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
         }
+    }
+
+    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveType) {
+        if atlas_id != self.current_atlas || self.queue_type != queue_type {
+            self.flush_queue();
+            self.current_atlas = atlas_id;
+            self.queue_type = queue_type;
+        }
+    }
+
+    fn push_primitive(&mut self, builder: &PrimitiveBuilder) {
+        self.setup_queue(builder.get_atlas_id(), builder.get_type());
+        self.vertex_queue.extend_from_slice(builder.get_vertices());
     }
 
     fn update_matrix(&mut self) {
@@ -386,6 +508,10 @@ impl RendererTrait for RendererImpl {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
         self.white_pixel =
             atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
+        // update primitive buffers with white pixel
+        self.reset_primitive_2d(PrimitiveType::PointList, None);
+        self.reset_primitive_3d(PrimitiveType::PointList, None);
+
         let (packers, sprites) = atl.into_inner();
 
         unsafe {
@@ -441,6 +567,8 @@ impl RendererTrait for RendererImpl {
                     gl::UNSIGNED_BYTE,    // type
                     pixels.as_ptr() as _, // pixels
                 );
+
+                self.sprite_count += 1;
             }
 
             // verify it actually worked
@@ -548,6 +676,7 @@ impl RendererTrait for RendererImpl {
     fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         // this only deletes sprites created with upload_sprite
         self.flush_queue();
+        self.sprites.remove(&atlas_ref.sprite_id);
         if atlas_ref.atlas_id >= self.stock_atlas_count {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
@@ -632,7 +761,9 @@ impl RendererTrait for RendererImpl {
             self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
         }
-        Ok(AtlasRef { atlas_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
+        let sprite_id = self.sprite_count;
+        self.sprite_count += 1;
+        Ok(AtlasRef { atlas_id, sprite_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
     }
 
     fn set_target(&mut self, atlas_ref: &AtlasRef) {
@@ -726,6 +857,23 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
+        self.sprites.entry(atl_ref.sprite_id).or_insert(*atl_ref);
+        atl_ref.sprite_id
+    }
+
+    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
+        if id >= 0 { self.sprites.get(&id) } else { None }
+    }
+
+    fn get_sprite_count(&self) -> i32 {
+        self.sprite_count
+    }
+
+    fn set_sprite_count(&mut self, sprite_count: i32) {
+        self.sprite_count = sprite_count;
+    }
+
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
         unsafe {
             // store read fbo
@@ -801,7 +949,7 @@ impl RendererTrait for RendererImpl {
 
             assert_eq!(self.gl.GetError(), 0);
         }
-        self.draw_queue.clear();
+        self.vertex_queue.clear();
         self.present(window_w as _, window_h as _, scaling);
         self.setup_frame(clear_colour);
     }
@@ -895,99 +1043,316 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn draw_sprite(
+    fn draw_sprite_general(
         &mut self,
         texture: &AtlasRef,
+        part_x: f64,
+        part_y: f64,
+        part_w: f64,
+        part_h: f64,
         x: f64,
         y: f64,
         xscale: f64,
         yscale: f64,
         angle: f64,
-        colour: i32,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
         alpha: f64,
     ) {
         let atlas_ref = texture.clone();
 
-        if atlas_ref.atlas_id != self.current_atlas {
-            if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
-                return
-            } // fail silently when drawing deleted sprite fonts
-            self.flush_queue();
-            self.current_atlas = atlas_ref.atlas_id;
+        if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
+            return // fail silently when drawing deleted sprite fonts
         }
+        self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
+        self.set_texture_repeat(false);
 
+        // get angle
         let angle = -angle.to_radians();
-        let angle_sin = angle.sin() as f32;
-        let angle_cos = angle.cos() as f32;
+        let angle_sin = angle.sin();
+        let angle_cos = angle.cos();
 
-        #[rustfmt::skip]
-        let model_view_matrix = mat4mult(
-            mat4mult(
-                mat4mult(
-                mat4mult(
-                        // Translate so sprite origin is at [0,0]
-                        [
-                            1.0, 0.0, 0.0, 0.0,
-                            0.0, 1.0, 0.0, 0.0,
-                            0.0, 0.0, 1.0, 0.0,
-                            -atlas_ref.origin_x, -atlas_ref.origin_y, 0.0, 1.0,
-                        ],
-                        // Scale according to image size and xscale/yscale
-                        [
-                            xscale as f32 * atlas_ref.w as f32, 0.0, 0.0, 0.0,
-                            0.0, yscale as f32 * atlas_ref.h as f32, 0.0, 0.0,
-                            0.0, 0.0, 1.0, 0.0,
-                            0.0, 0.0, 0.0, 1.0,
-                        ]
-                    ),
-                    // Translate by half a pixel, as GM does
-                    [
-                        1.0, 0.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, 0.0,
-                        -0.5, -0.5, 0.0, 1.0,
-                    ]
-                ),
-                // Rotate by image_angle
-                [
-                    angle_cos,  angle_sin, 0.0, 0.0,
-                    -angle_sin, angle_cos, 0.0, 0.0,
-                    0.0,        0.0,       1.0, 0.0,
-                    0.0,        0.0,       0.0, 1.0,
-                ]
-            ),
-            // Move the image into "world coordinates"
-            [
-                1.0,      0.0,      0.0, 0.0,
-                0.0,      1.0,      0.0, 0.0,
-                0.0,      0.0,      1.0, 0.0,
-                x as f32, y as f32, 0.0, 1.0,
-            ]
-        );
+        // get real width of drawn sprite
+        let width: f64 = xscale * f64::from(part_w);
+        let height: f64 = yscale * f64::from(part_h);
+        // calculate pre-rotation corner offsets from sprite origin
+        // incl. subtraction 0.5 from left and top (GM does this in an attempt to combat the DX half-pixel offset)
+        let left: f64 = -width * f64::from(atlas_ref.origin_x) - 0.5;
+        let top: f64 = -height * f64::from(atlas_ref.origin_y) - 0.5;
+        let right: f64 = left + width;
+        let bottom: f64 = top + height;
 
-        self.draw_queue.push(DrawCommand {
-            atlas_ref,
-            model_view_matrix,
-            blend: (
-                ((colour & 0xFF) as f32) / 255.0,
-                (((colour >> 8) & 0xFF) as f32) / 255.0,
-                (((colour >> 16) & 0xFF) as f32) / 255.0,
-            ),
-            alpha: alpha as f32,
+        // get texture corners
+        let tex_left = f64::from(part_x) / f64::from(atlas_ref.w);
+        let tex_top = f64::from(part_y) / f64::from(atlas_ref.h);
+        let tex_right = tex_left + f64::from(part_w) / f64::from(atlas_ref.w);
+        let tex_bottom = tex_top + f64::from(part_h) / f64::from(atlas_ref.h);
+
+        let (tex_left, tex_top, tex_right, tex_bottom) =
+            (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
+
+        let normal = [0.0, 0.0, 0.0];
+        let atlas_xywh = atlas_ref.into();
+        let depth = self.depth;
+
+        // rotate around draw origin
+        let rotate = |xoff, yoff| {
+            [(x + xoff * angle_cos - yoff * angle_sin) as f32, (y + yoff * angle_cos + xoff * angle_sin) as f32, depth]
+        };
+
+        // push the vertices
+        self.vertex_queue.push(Vertex {
+            pos: rotate(right, top),
+            tex_coord: [tex_right, tex_top],
+            blend: split_colour(col2, alpha),
+            atlas_xywh,
+            normal,
+        });
+        for _ in 0..2 {
+            self.vertex_queue.push(Vertex {
+                pos: rotate(left, top),
+                tex_coord: [tex_left, tex_top],
+                blend: split_colour(col1, alpha),
+                atlas_xywh,
+                normal,
+            });
+            self.vertex_queue.push(Vertex {
+                pos: rotate(right, bottom),
+                tex_coord: [tex_right, tex_bottom],
+                blend: split_colour(col3, alpha),
+                atlas_xywh,
+                normal,
+            });
+        }
+        self.vertex_queue.push(Vertex {
+            pos: rotate(left, bottom),
+            tex_coord: [tex_left, tex_bottom],
+            blend: split_colour(col4, alpha),
+            atlas_xywh,
+            normal,
         });
     }
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         let copied_pixel = self.white_pixel;
-        self.draw_sprite(&copied_pixel, x1, y1, x2 + 1.0 - x1, y2 + 1.0 - y1, 0.0, colour, alpha)
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        self.draw_sprite(&copied_pixel, x1 + 0.5, y1 + 0.5, x2 - x1, y2 - y1, 0.0, colour, alpha)
     }
 
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
-        let copied_pixel = self.white_pixel;
-        self.draw_sprite(&copied_pixel, x1, y1, x2 + 1.0 - x1, 1.0, 0.0, colour, alpha); // top line
-        self.draw_sprite(&copied_pixel, x1, y2, x2 + 1.0 - x1, 1.0, 0.0, colour, alpha); // bottom line
-        self.draw_sprite(&copied_pixel, x1, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // left line
-        self.draw_sprite(&copied_pixel, x2, y1, 1.0, y2 + 1.0 - y1, 0.0, colour, alpha); // right line
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        self.push_primitive(
+            ShapeBuilder::new(true, self.white_pixel, alpha, self.depth)
+                .push_point(x1, y1, colour)
+                .push_point(x2, y1, colour)
+                .push_point(x2, y2, colour)
+                .push_point(x1, y2, colour)
+                .build(),
+        );
+    }
+
+    fn draw_rectangle_gradient(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        c4: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        self.push_primitive(
+            ShapeBuilder::new(outline, self.white_pixel, alpha, self.depth)
+                .push_point(x1, y1, c1)
+                .push_point(x2, y1, c2)
+                .push_point(x2, y2, c3)
+                .push_point(x1, y2, c4)
+                .build(),
+        );
+    }
+
+    fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
+        self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
+        self.vertex_queue.push(Vertex {
+            pos: [x as f32, y as f32, self.depth],
+            tex_coord: [0.0, 0.0],
+            blend: split_colour(colour, alpha),
+            atlas_xywh: self.white_pixel.into(),
+            normal: [0.0, 0.0, 0.0],
+        });
+    }
+
+    fn draw_line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width: Option<f64>, c1: i32, c2: i32, alpha: f64) {
+        if let Some(width) = width {
+            let length = (x2 - x1).hypot(y2 - y1);
+            // on the off chance that they're in different points but the length is still somehow 0, check length
+            if length != 0.0 {
+                // calculate corners
+                let width_x = (y2 - y1) * (width / 2.0) / length;
+                let width_y = (x2 - x1) * (width / 2.0) / length;
+                // actually push the rectangle
+                self.push_primitive(
+                    ShapeBuilder::new(false, self.white_pixel, alpha, self.depth)
+                        .push_point(x1 - width_x, y1 + width_y, c1)
+                        .push_point(x1 + width_x, y1 - width_y, c1)
+                        .push_point(x2 + width_x, y2 - width_y, c2)
+                        .push_point(x2 - width_x, y2 + width_y, c2)
+                        .build(),
+                );
+            }
+        } else {
+            self.push_primitive(
+                ShapeBuilder::new(true, self.white_pixel, alpha, self.depth)
+                    .push_point(x1, y1, c1)
+                    .push_point(x2, y2, c2)
+                    .build(),
+            );
+        }
+    }
+
+    fn draw_triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        c1: i32,
+        c2: i32,
+        c3: i32,
+        alpha: f64,
+        outline: bool,
+    ) {
+        self.push_primitive(
+            ShapeBuilder::new(outline, self.white_pixel, alpha, self.depth)
+                .push_point(x1, y1, c1)
+                .push_point(x2, y2, c2)
+                .push_point(x3, y3, c3)
+                .build(),
+        );
+    }
+
+    fn draw_ellipse(&mut self, x: f64, y: f64, rad_x: f64, rad_y: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel, alpha, self.depth);
+        if !outline {
+            builder.push_point(x, y, c1);
+        }
+        for i in 0..=self.circle_precision {
+            let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
+            builder.push_point(x + rad_x * angle.cos(), y + rad_y * angle.sin(), c2);
+        }
+        self.push_primitive(builder.build());
+    }
+
+    fn draw_roundrect(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, c1: i32, c2: i32, alpha: f64, outline: bool) {
+        let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
+        let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
+        let xcenter = (x1 + x2) / 2.0;
+        let ycenter = (y1 + y2) / 2.0;
+        let width = (x2 - x1).abs();
+        let height = (y2 - y1).abs();
+        let rad_x = width.min(10.0) / 2.0;
+        let rad_y = height.min(10.0) / 2.0;
+        let rect_half_w = (width / 2.0 - rad_x).max(0.0);
+        let rect_half_h = (height / 2.0 - rad_y).max(0.0);
+        let mut builder = ShapeBuilder::new(outline, self.white_pixel, alpha, self.depth);
+        if !outline {
+            builder.push_point(xcenter, ycenter, c1);
+        }
+        let quarter_circle = self.circle_precision / 4;
+        for quad in 0..4 {
+            let circle_x = xcenter + if quad == 0 || quad == 3 { rect_half_w } else { -rect_half_w };
+            let circle_y = ycenter + if quad < 2 { rect_half_h } else { -rect_half_h };
+            for i in quarter_circle * quad..=quarter_circle * (quad + 1) {
+                let angle = f64::from(i) * 2.0 * PI / f64::from(self.circle_precision);
+                builder.push_point(circle_x + rad_x * angle.cos(), circle_y + rad_y * angle.sin(), c2);
+            }
+        }
+        self.push_primitive(builder.push_point(xcenter + rect_half_w + rad_x, ycenter + rect_half_h, c2).build());
+    }
+
+    fn set_circle_precision(&mut self, prec: i32) {
+        self.circle_precision = (prec.max(4).min(64) >> 2) << 2;
+    }
+
+    fn get_circle_precision(&self) -> i32 {
+        self.circle_precision
+    }
+
+    fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.primitive_2d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+    }
+
+    fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
+        self.primitive_2d.push_vertex(
+            [x as f32, y as f32, self.depth],
+            [xtex as f32, ytex as f32],
+            split_colour(col, alpha),
+            [0.0, 0.0, 0.0],
+        );
+    }
+
+    fn draw_primitive_2d(&mut self) {
+        // I would use push_primitive but that causes borrowing issues.
+        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_type());
+        self.vertex_queue.extend_from_slice(self.primitive_2d.get_vertices());
+    }
+
+    fn get_primitive_2d(&self) -> PrimitiveBuilder {
+        self.primitive_2d.clone()
+    }
+
+    fn set_primitive_2d(&mut self, prim: PrimitiveBuilder) {
+        self.primitive_2d = prim;
+    }
+
+    fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        self.primitive_3d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+    }
+
+    fn vertex_3d(
+        &mut self,
+        x: f64,
+        y: f64,
+        z: f64,
+        nx: f64,
+        ny: f64,
+        nz: f64,
+        xtex: f64,
+        ytex: f64,
+        col: i32,
+        alpha: f64,
+    ) {
+        self.primitive_3d.push_vertex(
+            [x as f32, y as f32, z as f32],
+            [xtex as f32, ytex as f32],
+            split_colour(col, alpha),
+            [nx as f32, ny as f32, nz as f32],
+        );
+    }
+
+    fn draw_primitive_3d(&mut self) {
+        // See draw_primitive_2d.
+        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_type());
+        self.vertex_queue.extend_from_slice(self.primitive_3d.get_vertices());
+    }
+
+    fn get_primitive_3d(&self) -> PrimitiveBuilder {
+        self.primitive_3d.clone()
+    }
+
+    fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
+        self.primitive_3d = prim;
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
@@ -1014,13 +1379,29 @@ impl RendererTrait for RendererImpl {
     fn set_pixel_interpolation(&mut self, lerping: bool) {
         // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
         // therefore, we need to apply the setting before every draw call
-        self.flush_queue();
-        self.interpolate_pixels = lerping;
+        if self.interpolate_pixels != lerping {
+            self.flush_queue();
+            self.interpolate_pixels = lerping;
+        }
+    }
+
+    fn get_texture_repeat(&self) -> bool {
+        self.texture_repeat
+    }
+
+    fn set_texture_repeat(&mut self, repeat: bool) {
+        if self.texture_repeat != repeat {
+            self.flush_queue();
+            self.texture_repeat = repeat;
+            unsafe {
+                self.gl.Uniform1i(self.loc_repeat, repeat as _);
+            }
+        }
     }
 
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
-        if self.draw_queue.is_empty() {
+        if self.vertex_queue.is_empty() {
             return
         }
 
@@ -1029,49 +1410,60 @@ impl RendererTrait for RendererImpl {
             let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
 
             let mut commands_vbo: GLuint = 0;
             self.gl.GenBuffers(1, &mut commands_vbo);
             self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             self.gl.BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<DrawCommand>() * self.draw_queue.len()) as _,
-                self.draw_queue.as_ptr().cast(),
+                (size_of::<Vertex>() * self.vertex_queue.len()) as _,
+                self.vertex_queue.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
 
             self.gl.Uniform1i(self.loc_tex, 0 as _);
 
-            // layout (location = 1) in mat4 model_view;
-            // layout (location = 6) in vec4 atlas_xywh;
-            // layout (location = 7) in vec3 blend;
-            // layout (location = 8) in float alpha;
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            self.gl.EnableVertexAttribArray(0);
+            self.gl.VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
             self.gl.EnableVertexAttribArray(1);
             self.gl.VertexAttribPointer(
                 1,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, model_view_matrix) as *const _,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
             );
             self.gl.EnableVertexAttribArray(2);
             self.gl.VertexAttribPointer(
                 2,
-                4,
+                2,
                 gl::FLOAT,
                 gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (4 * size_of::<f32>())) as *const _,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
             );
             self.gl.EnableVertexAttribArray(3);
             self.gl.VertexAttribPointer(
                 3,
-                4,
+                3,
                 gl::FLOAT,
                 gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (8 * size_of::<f32>())) as *const _,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
             );
             self.gl.EnableVertexAttribArray(4);
             self.gl.VertexAttribPointer(
@@ -1079,56 +1471,16 @@ impl RendererTrait for RendererImpl {
                 4,
                 gl::FLOAT,
                 gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, model_view_matrix) + (12 * size_of::<f32>())) as *const _,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
             );
-            self.gl.EnableVertexAttribArray(6);
-            self.gl.VertexAttribPointer(
-                6,
-                4,
-                gl::INT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                (offset_of!(DrawCommand, atlas_ref) + offset_of!(AtlasRef, x)) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(7);
-            self.gl.VertexAttribPointer(
-                7,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, blend) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(8);
-            self.gl.VertexAttribPointer(
-                8,
-                1,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<DrawCommand>() as i32,
-                offset_of!(DrawCommand, alpha) as *const _,
-            );
-            self.gl.VertexAttribDivisor(1, 1);
-            self.gl.VertexAttribDivisor(2, 1);
-            self.gl.VertexAttribDivisor(3, 1);
-            self.gl.VertexAttribDivisor(4, 1);
-            self.gl.VertexAttribDivisor(6, 1);
-            self.gl.VertexAttribDivisor(7, 1);
-            self.gl.VertexAttribDivisor(8, 1);
 
-            self.gl.BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-
-            // layout (location = 5) in vec2 tex_coord;
-            self.gl.EnableVertexAttribArray(5);
-            self.gl.VertexAttribPointer(5, 2, gl::FLOAT, gl::FALSE, (3 * size_of::<f32>()) as _, 0 as _);
-
-            self.gl.DrawArraysInstanced(gl::TRIANGLE_STRIP, 0, 4, self.draw_queue.len() as i32);
+            self.gl.DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
 
             self.gl.DeleteBuffers(1, &commands_vbo);
         }
 
-        self.draw_queue.clear();
+        self.vertex_queue.clear();
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
@@ -1160,34 +1512,6 @@ impl RendererTrait for RendererImpl {
         // Draw anything that was meant to be drawn with the old view first
         self.flush_queue();
 
-        // Note: sin is negated because it's the same as negating the angle, which is how GM8 does view angles
-        let angle = angle.to_radians();
-        let sin_angle = -angle.sin() as f32;
-        let cos_angle = angle.cos() as f32;
-
-        #[rustfmt::skip]
-        let view_matrix: [f32; 16] = {
-            // source rectangle's center coordinates aka -(x + w/2) and -(y + h/2)
-            let scx = -((x as f32) + (w as f32 / 2.0));
-            let scy = -((y as f32) + (h as f32 / 2.0));
-            mat4mult(
-                // Place camera at (scx, scy, 16000)
-                [
-                    1.0, 0.0, 0.0,     0.0,
-                    0.0, 1.0, 0.0,     0.0,
-                    0.0, 0.0, 1.0,     0.0,
-                    scx, scy, 16000.0, 1.0,
-                ],
-                // Rotate to view_angle
-                [
-                    cos_angle,  sin_angle, 0.0, 0.0,
-                    -sin_angle, cos_angle, 0.0, 0.0,
-                    0.0,        0.0,       1.0, 0.0,
-                    0.0,        0.0,       0.0, 1.0,
-                ]
-            )
-        };
-
         #[rustfmt::skip]
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
@@ -1199,7 +1523,24 @@ impl RendererTrait for RendererImpl {
             ]
         };
 
-        self.set_viewproj_matrix(view_matrix, proj_matrix);
+        self.set_viewproj_matrix(make_view_matrix(x, y, -16000.0, w, h, angle), proj_matrix);
+    }
+
+    fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
+        self.flush_queue();
+
+        #[rustfmt::skip]
+        let proj_matrix: [f32; 16] = {
+            // Squish to screen, flip vertically, and constrain z to range 1 - 32000
+            [
+                2.0, 0.0,                  0.0,                0.0,
+                0.0, 2.0 * (w / h) as f32, 0.0,                0.0,
+                0.0, 0.0,                  32000.0 / 31999.0,  1.0,
+                0.0, 0.0,                  -32000.0 / 31999.0, 0.0,
+            ]
+        };
+
+        self.set_viewproj_matrix(make_view_matrix(x, y, -w, w, h, angle), proj_matrix);
     }
 
     fn set_view(
