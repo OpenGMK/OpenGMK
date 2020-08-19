@@ -613,7 +613,7 @@ impl Game {
                                 self.apply_speeds(target);
 
                                 // If they're still colliding, move them back again
-                                if self.check_collision(instance, target) {
+                                if inst1.is_active() && inst2.is_active() && self.check_collision(instance, target) {
                                     inst1.x.set(inst1.xprevious.get());
                                     inst1.y.set(inst1.yprevious.get());
                                     inst1.bbox_is_stale.set(true);

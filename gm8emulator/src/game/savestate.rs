@@ -19,7 +19,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture};
+use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -112,19 +112,20 @@ pub struct SaveState {
     pub caption: RCStr,
     pub caption_stale: bool,
 
+    scaling: Scaling,
     unscaled_width: u32,
     unscaled_height: u32,
+    window_width: u32,
+    window_height: u32,
 
     replay: Replay,
     screenshot: Box<[u8]>,
-    screenshot_width: u32,
-    screenshot_height: u32,
 }
 
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
-        let (width, height) = game.window.get_inner_size();
-        let screenshot = game.renderer.get_pixels(0, 0, width as _, height as _);
+        let (window_width, window_height) = game.window.get_inner_size();
+        let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
 
         Self {
             compiler: game.compiler.clone(),
@@ -198,37 +199,37 @@ impl SaveState {
             spoofed_time_nanos: game.spoofed_time_nanos,
             caption: game.caption.clone(),
             caption_stale: game.caption_stale.clone(),
+            scaling: game.scaling,
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
+            window_width,
+            window_height,
             replay,
             screenshot,
-            screenshot_width: width,
-            screenshot_height: height,
         }
     }
 
     pub fn load_into(self, game: &mut Game) -> Replay {
-        game.window.resize(self.screenshot_width, self.screenshot_height);
+        game.window.resize(self.window_width, self.window_height);
 
         game.renderer.upload_dynamic_textures(&self.textures);
 
-        if let Some(Some(surf)) = self.surface_target.and_then(|id| self.surfaces.get(id as usize)) {
-            game.renderer.set_target(&surf.atlas_ref);
-        } else {
-            game.renderer.reset_target(
-                self.screenshot_width as _,
-                self.screenshot_height as _,
-                self.unscaled_width as _,
-                self.unscaled_height as _,
-            );
-        }
-
         game.renderer.draw_raw_frame(
             self.screenshot,
-            self.screenshot_width as _,
-            self.screenshot_height as _,
+            self.unscaled_width as _,
+            self.unscaled_height as _,
+            self.window_width as _,
+            self.window_height as _,
+            self.scaling,
             game.background_colour,
         );
+
+        let surfaces = self.surfaces;
+        if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
+            game.renderer.set_target(&surf.atlas_ref);
+        } else {
+            game.renderer.reset_target();
+        }
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
         game.renderer.set_texture_repeat(self.texture_repeat);
@@ -278,7 +279,7 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.surfaces = self.surfaces;
+        game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
         game.renderer.set_circle_precision(self.circle_precision);
@@ -303,6 +304,7 @@ impl SaveState {
         game.spoofed_time_nanos = self.spoofed_time_nanos;
         game.caption = self.caption;
         game.caption_stale = self.caption_stale;
+        game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
         self.replay
