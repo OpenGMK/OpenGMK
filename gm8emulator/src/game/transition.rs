@@ -203,7 +203,6 @@ fn fade_direct(game: &mut Game, surf_old: i32, surf_new: i32, progress: Real) {
     let surf_new = game.surfaces.get_asset(surf_new).unwrap();
 
     game.renderer.draw_sprite(&surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
-    println!("{}", progress);
     game.renderer.draw_sprite(&surf_new.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, progress.into());
 }
 
