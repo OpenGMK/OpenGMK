@@ -340,7 +340,8 @@ impl Game {
     }
 
     pub fn screen_refresh(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.renderer.present();
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.present(width, height, self.scaling);
         Ok(Default::default())
     }
 
@@ -351,18 +352,10 @@ impl Game {
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
-        let (width, height) = self.window.get_inner_size();
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(0, 0, width as _, height as _);
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        // get_pixels returns an upside down image for some reason?
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        match file::save_image(fname.as_ref(), width, height, rgba.into_boxed_slice()) {
+        let (width, height) = (self.unscaled_width, self.unscaled_height);
+        let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
+        match file::save_image(fname.as_ref(), width, height, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.into())),
         }
@@ -372,21 +365,11 @@ impl Game {
         let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let w = w.min(window_width as i32 - x);
-        let h = h.min(window_height as i32 - y);
-        let y = window_height as i32 - y - h; // upside down
+        let w = w.min(self.unscaled_width as i32 - x);
+        let h = h.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, w, h);
-        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-        // still upside down
-        for row in rgb.chunks((w * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        match file::save_image(fname.as_ref(), w as _, h as _, rgba.into_boxed_slice()) {
+        let rgba = self.renderer.get_pixels(x, y, w, h);
+        match file::save_image(fname.as_ref(), w as _, h as _, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.into())),
         }
@@ -394,7 +377,6 @@ impl Game {
 
     pub fn draw_getpixel(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let y = self.window.get_inner_size().1 as i32 - y - 1; // upside down
         self.renderer.flush_queue();
         let data = self.renderer.get_pixels(x, y, 1, 1);
         Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
@@ -1479,9 +1461,8 @@ impl Game {
     }
 
     pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        let (width, height) = self.window.get_inner_size();
         // reset viewport to top left of room because lol
-        self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        self.renderer.reset_target();
         self.surface_target = None;
         Ok(Default::default())
     }
@@ -5687,7 +5668,9 @@ impl Game {
                 break
             }
 
-            renderer.finish(width, height, clear_colour);
+            if window.get_inner_size() != (0, 0) {
+                renderer.finish(width, height, clear_colour);
+            }
         }
 
         // restore renderer
@@ -7053,20 +7036,11 @@ impl Game {
         // but we need the pixel data to make the colliders
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let width = width.min(window_width as i32 - x);
-        let height = height.min(window_height as i32 - y);
+        let width = width.min(self.unscaled_width as i32 - x);
+        let height = height.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, width, height);
-        // it comes out as upside-down rgb so flip it and convert it to rgba
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+        let rgba = self.renderer.get_pixels(x, y, width, height);
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
         let frames = vec![asset::sprite::Frame {
@@ -7102,20 +7076,11 @@ impl Game {
             // get image
             let x = x.max(0);
             let y = y.max(0);
-            let (window_width, window_height) = self.window.get_inner_size();
-            let width = width.min(window_width as i32 - x);
-            let height = height.min(window_height as i32 - y);
+            let width = width.min(self.unscaled_width as i32 - x);
+            let height = height.min(self.unscaled_height as i32 - y);
             self.renderer.flush_queue();
-            let rgb = self.renderer.get_pixels(x, y, width, height);
-            // it comes out as upside-down rgb so flip it and convert it to rgba
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for row in rgb.chunks((width * 3) as usize).rev() {
-                for col in row.chunks(3) {
-                    rgba.extend_from_slice(col);
-                    rgba.push(255);
-                }
-            }
-            let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+            let rgba = self.renderer.get_pixels(x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
             asset::sprite::scale(&mut image, sprite.width, sprite.height);
             // generate collision
@@ -7176,7 +7141,7 @@ impl Game {
                 atlas_ref: self
                     .renderer
                     .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_surface".into(), e.into()))?,
             }];
             let sprite_id = self.assets.sprites.len();
             self.assets.sprites.push(Some(Box::new(asset::Sprite {

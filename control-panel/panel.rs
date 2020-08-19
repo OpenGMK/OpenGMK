@@ -726,10 +726,6 @@ impl ControlPanel {
 
     pub fn draw(&mut self) {
         self.renderer.set_view(
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
             0,
             0,
             WINDOW_WIDTH as _,
@@ -1019,7 +1015,10 @@ impl ControlPanel {
             }
         }
 
-        self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour)
+        // this is janky and the window should probably be resizable but otherwise it crashes on intel when minimized
+        if self.window.get_inner_size() != (0, 0) {
+            self.renderer.finish(WINDOW_WIDTH, WINDOW_HEIGHT, self.clear_colour);
+        }
     }
 
     // Little helper function, input MUST be a BMP file in 32-bit RGBA format. Best used with include_bytes!()

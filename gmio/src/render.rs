@@ -10,6 +10,17 @@ use std::any::Any;
 // Re-export for more logical module pathing
 pub use crate::atlas::AtlasRef;
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum Scaling {
+    /// Fixed scale, with a multiplier. The multiplier always be strictly positive.
+    Fixed(f64),
+    /// Scale with window, but preserve aspect ratio.
+    /// The f64 must be strictly negative and has no meaning, but can still be accessed with window_get_region_scale().
+    Aspect(f64),
+    /// Scale to fill window.
+    Full,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedTexture {
     width: i32,
@@ -49,6 +60,8 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
+    fn resize_framebuffer(&mut self, width: u32, height: u32);
+
     fn set_vsync(&self, vsync: bool);
     fn get_vsync(&self) -> bool;
     fn wait_vsync(&self);
@@ -61,10 +74,6 @@ pub trait RendererTrait {
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64);
     fn set_view(
         &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -76,8 +85,8 @@ pub trait RendererTrait {
         port_h: i32,
     );
     fn flush_queue(&mut self);
-    fn present(&mut self);
-    fn finish(&mut self, width: u32, height: u32, clear_colour: Colour);
+    fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling);
+    fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
     fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
@@ -97,14 +106,23 @@ pub trait RendererTrait {
     fn set_pixel_interpolation(&mut self, lerping: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
-    fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour);
+    fn draw_raw_frame(
+        &mut self,
+        rgba: Box<[u8]>,
+        fb_w: i32,
+        fb_h: i32,
+        window_w: u32,
+        window_h: u32,
+        scaling: Scaling,
+        clear_colour: Colour,
+    );
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
 
     fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
-    fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32);
+    fn reset_target(&mut self);
 
     fn draw_sprite_partial(
         &mut self,
@@ -294,10 +312,6 @@ impl Renderer {
 
     pub fn set_view(
         &mut self,
-        width: u32,
-        height: u32,
-        unscaled_width: u32,
-        unscaled_height: u32,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -308,21 +322,7 @@ impl Renderer {
         port_w: i32,
         port_h: i32,
     ) {
-        self.0.set_view(
-            width,
-            height,
-            unscaled_width,
-            unscaled_height,
-            src_x,
-            src_y,
-            src_w,
-            src_h,
-            src_angle,
-            port_x,
-            port_y,
-            port_w,
-            port_h,
-        )
+        self.0.set_view(src_x, src_y, src_w, src_h, src_angle, port_x, port_y, port_w, port_h)
     }
 
     pub fn draw_sprite_partial(
@@ -381,12 +381,25 @@ impl Renderer {
         self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
     }
 
+    pub fn resize_framebuffer(&mut self, width: u32, height: u32) {
+        self.0.resize_framebuffer(width, height)
+    }
+
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         self.0.get_pixels(x, y, w, h)
     }
 
-    pub fn draw_raw_frame(&mut self, rgb: Box<[u8]>, w: i32, h: i32, clear_colour: Colour) {
-        self.0.draw_raw_frame(rgb, w, h, clear_colour)
+    pub fn draw_raw_frame(
+        &mut self,
+        rgba: Box<[u8]>,
+        fb_w: i32,
+        fb_h: i32,
+        window_w: u32,
+        window_h: u32,
+        scaling: Scaling,
+        clear_colour: Colour,
+    ) {
+        self.0.draw_raw_frame(rgba, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -405,8 +418,8 @@ impl Renderer {
         self.0.set_target(atlas_ref)
     }
 
-    pub fn reset_target(&mut self, w: i32, h: i32, unscaled_w: i32, unscaled_h: i32) {
-        self.0.reset_target(w, h, unscaled_w, unscaled_h)
+    pub fn reset_target(&mut self) {
+        self.0.reset_target()
     }
 
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
@@ -433,12 +446,12 @@ impl Renderer {
         self.0.clear_view(colour, alpha)
     }
 
-    pub fn present(&mut self) {
-        self.0.present()
+    pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
+        self.0.present(window_width, window_height, scaling)
     }
 
-    pub fn finish(&mut self, width: u32, height: u32, clear_colour: Colour) {
-        self.0.finish(width, height, clear_colour)
+    pub fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
+        self.0.finish(window_width, window_height, clear_colour)
     }
 }
 

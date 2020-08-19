@@ -42,7 +42,7 @@ use crate::{
 };
 use gmio::{
     atlas::AtlasBuilder,
-    render::{Renderer, RendererOptions},
+    render::{Renderer, RendererOptions, Scaling},
     window::{Window, WindowBuilder},
 };
 use indexmap::IndexMap;
@@ -154,6 +154,8 @@ pub struct Game {
 
     // winit windowing
     pub window: Window,
+    // Scaling type
+    pub scaling: Scaling,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     pub unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
@@ -333,6 +335,12 @@ impl Game {
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
+
+        let scaling = match settings.scaling {
+            0 => Scaling::Full,
+            n if n < 0 => Scaling::Aspect(f64::from(n) / 100.0),
+            n => Scaling::Fixed(f64::from(n) / 100.0),
+        };
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
@@ -818,6 +826,7 @@ impl Game {
             lives_capt_d: false,
             health_capt_d: false,
             window,
+            scaling,
             play_type: PlayType::Normal,
             stored_events: VecDeque::new(),
 
@@ -946,6 +955,11 @@ impl Game {
         if self.unscaled_width != width || self.unscaled_height != height {
             self.unscaled_width = width;
             self.unscaled_height = height;
+            self.renderer.resize_framebuffer(width, height);
+            let (width, height) = match self.scaling {
+                Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
+                _ => (width, height),
+            };
             self.window.resize(width, height);
         }
     }
