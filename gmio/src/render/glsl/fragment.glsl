@@ -1,19 +1,43 @@
 #version 330 core
 
 uniform sampler2D tex;
+uniform bool repeat;
+uniform bool lerp; // only used if repeat is on
 
 in vec2 frag_tex_coord;
 in vec4 frag_atlas_xywh;
-in vec3 frag_blend;
-in float frag_alpha;
+in vec4 frag_blend;
 
 out vec4 colour;
 
 void main() {
     vec2 tex_size = textureSize(tex, 0);
-    vec4 tex_col = texture(tex, vec2(
-        (frag_atlas_xywh.x + (frag_atlas_xywh.z * frag_tex_coord.x)) / tex_size.x,
-        (frag_atlas_xywh.y + (frag_atlas_xywh.w * frag_tex_coord.y)) / tex_size.y
-    ));
-    colour = vec4(tex_col.x * frag_blend.x, tex_col.y * frag_blend.y, tex_col.z * frag_blend.z, tex_col.w * frag_alpha);
+    vec2 sprite_coord;
+    vec4 tex_col;
+    if (repeat) {
+        // fract(x) is equivalent to mod(x, 1.0) and is always positive
+        sprite_coord = fract(frag_tex_coord) * frag_atlas_xywh.zw;
+        if (lerp) {
+            vec2 floor_coord = floor(sprite_coord - 0.5);
+            
+            vec2 topleft = (frag_atlas_xywh.xy + mod(floor_coord + 0.5, frag_atlas_xywh.zw)) / tex_size;
+            vec2 botright = (frag_atlas_xywh.xy + mod(floor_coord + 1.5, frag_atlas_xywh.zw)) / tex_size;
+            
+            vec4 sampleTL = texture(tex, topleft);
+            vec4 sampleTR = texture(tex, vec2(botright.x,topleft.y));
+            vec4 sampleBL = texture(tex, vec2(topleft.x,botright.y));
+            vec4 sampleBR = texture(tex, botright);
+            
+            vec2 factor = fract(sprite_coord + 0.5);
+            vec4 mix_top = mix(sampleTL, sampleTR, factor.x);
+            vec4 mix_bot = mix(sampleBL, sampleBR, factor.x);
+            tex_col = mix(mix_top, mix_bot, factor.y);
+        } else {
+            tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
+        }
+    } else {
+        sprite_coord = clamp(frag_tex_coord * frag_atlas_xywh.zw, vec2(0.5), frag_atlas_xywh.zw - 0.5);
+        tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
+    }
+    colour = tex_col * frag_blend;
 }

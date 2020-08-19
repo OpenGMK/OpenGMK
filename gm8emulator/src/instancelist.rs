@@ -159,8 +159,8 @@ pub struct InstanceList {
     chunks: ChunkList<Instance>,
     insert_order: Vec<usize>,
     draw_order: Vec<usize>,
-    id_map: HashMap<ID, usize>, // Object ID <-> Count
-    inactive_id_map: HashMap<ID, usize>,
+    object_id_map: HashMap<ID, Vec<usize>>, // Object ID <-> Count
+    inactive_id_map: HashMap<ID, Vec<usize>>,
 }
 
 // generic purpose non-borrowing iterators
@@ -220,19 +220,13 @@ pub struct ObjectIter {
 }
 impl ObjectIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        if self.count > 0 {
-            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance);
-                if inst.state.get() == InstanceState::Active {
-                    if inst.object_index.get() == self.object_index {
-                        self.count -= 1;
-                        self.position += idx + 1;
-                        return Some(instance)
-                    }
-                }
-            }
+        if self.position < self.count {
+            list.object_id_map
+                .get(&self.object_index)
+                .and_then(|v| nb_il_iter(v, &mut self.position, list, InstanceState::Active))
+        } else {
+            None
         }
-        None
     }
 }
 
@@ -242,7 +236,7 @@ impl InstanceList {
             chunks: ChunkList::new(),
             insert_order: Vec::new(),
             draw_order: Vec::new(),
-            id_map: HashMap::new(),
+            object_id_map: HashMap::new(),
             inactive_id_map: HashMap::new(),
         }
     }
@@ -258,7 +252,7 @@ impl InstanceList {
     }
 
     pub fn count(&self, object_index: ID) -> usize {
-        self.id_map.get(&object_index).copied().unwrap_or_default()
+        self.object_id_map.get(&object_index).map(|v| v.len()).unwrap_or_default()
     }
 
     pub fn count_all(&self) -> usize {
@@ -299,19 +293,24 @@ impl InstanceList {
     }
 
     pub fn iter_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = identities.borrow().iter().fold(0, |acc, x| acc + self.id_map.get(x).copied().unwrap_or_default());
+        let count = identities
+            .borrow()
+            .iter()
+            .fold(0, |acc, x| acc + self.object_id_map.get(x).map(|v| v.len()).unwrap_or_default());
         IdentityIter { count, position: 0, children: identities, state: InstanceState::Active }
     }
 
     pub fn iter_inactive_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count =
-            identities.borrow().iter().fold(0, |acc, x| acc + self.inactive_id_map.get(x).copied().unwrap_or_default());
+        let count = identities
+            .borrow()
+            .iter()
+            .fold(0, |acc, x| acc + self.inactive_id_map.get(x).map(|v| v.len()).unwrap_or_default());
         IdentityIter { count, position: 0, children: identities, state: InstanceState::Inactive }
     }
 
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
         ObjectIter {
-            count: self.id_map.get(&object_index).copied().unwrap_or(0),
+            count: self.object_id_map.get(&object_index).map(|v| v.len()).unwrap_or(0),
             position: 0,
             object_index: object_index,
         }
@@ -322,7 +321,7 @@ impl InstanceList {
         let value = self.chunks.insert(el);
         self.insert_order.push(value);
         self.draw_order.push(value);
-        self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+        self.object_id_map.entry(object_id).or_insert(Vec::new()).push(value);
         value
     }
 
@@ -334,51 +333,51 @@ impl InstanceList {
         self.chunks.remove(instance)
     }
 
-    pub fn deactivate(&mut self, instance: usize) {
-        let instance = self.get(instance);
+    pub fn deactivate(&mut self, handle: usize) {
+        let instance = self.get(handle);
         if instance.state.get() == InstanceState::Active {
             instance.state.set(InstanceState::Inactive);
 
             let object_id = instance.object_index.get();
             // Add to inactive
-            self.inactive_id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+            self.inactive_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
             // Remove from active
-            let entry = self.id_map.entry(object_id).and_modify(|n| *n -= 1);
+            let entry = self.object_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if *occupied.get() == 0 {
+                if occupied.get().is_empty() {
                     occupied.remove_entry();
                 }
             }
         }
     }
 
-    pub fn activate(&mut self, instance: usize) {
-        let instance = self.get(instance);
+    pub fn activate(&mut self, handle: usize) {
+        let instance = self.get(handle);
         if instance.state.get() == InstanceState::Inactive {
             instance.state.set(InstanceState::Active);
 
             let object_id = instance.object_index.get();
             // Add to active
-            self.id_map.entry(object_id).and_modify(|n| *n += 1).or_insert(1);
+            self.object_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
             // Remove from inactive
-            let entry = self.inactive_id_map.entry(object_id).and_modify(|n| *n -= 1);
+            let entry = self.inactive_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if *occupied.get() == 0 {
+                if occupied.get().is_empty() {
                     occupied.remove_entry();
                 }
             }
         }
     }
 
-    pub fn mark_deleted(&mut self, instance: usize) {
-        let instance = self.get(instance);
+    pub fn mark_deleted(&mut self, handle: usize) {
+        let instance = self.get(handle);
         if instance.state.get() != InstanceState::Deleted {
             instance.state.set(InstanceState::Deleted);
 
             let object_id = instance.object_index.get();
-            let entry = self.id_map.entry(object_id).and_modify(|n| *n -= 1);
+            let entry = self.object_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if *occupied.get() == 0 {
+                if occupied.get().is_empty() {
                     occupied.remove_entry();
                 }
             }
@@ -386,28 +385,27 @@ impl InstanceList {
     }
 
     pub fn obj_count_hint(&mut self, n: usize) {
-        self.id_map.reserve((n as isize - self.id_map.len() as isize).max(0) as usize)
+        self.object_id_map.reserve((n as isize - self.object_id_map.len() as isize).max(0) as usize);
     }
 
     pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
-        let id_map = &mut self.id_map; // borrowck :)
+        let mut removed_any = false;
         self.chunks.remove_with(|x| {
             let remove = f(x);
             if remove {
-                if x.state.get() == InstanceState::Active {
-                    let entry = id_map.entry(x.object_index.get()).and_modify(|n| *n -= 1);
-                    if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                        if *occupied.get() == 0 {
-                            occupied.remove_entry();
-                        }
-                    }
-                }
+                removed_any = true;
             }
             remove
         });
-        let chunks = &self.chunks;
-        self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-        self.insert_order.retain(|idx| chunks.get(*idx).is_some());
+        if removed_any {
+            let chunks = &self.chunks;
+            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
+            for instances in self.object_id_map.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map.retain(|_, list| !list.is_empty());
+        }
     }
 }
 
@@ -546,7 +544,7 @@ impl Serialize for InstanceList {
         list.serialize_field("chunks", &self.chunks)?;
         list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
-        list.serialize_field("id_map", &self.id_map)?;
+        list.serialize_field("object_id_map", &self.object_id_map)?;
         list.serialize_field("inactive_id_map", &self.inactive_id_map)?;
         list.end()
     }

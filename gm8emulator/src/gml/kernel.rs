@@ -16,6 +16,7 @@ use crate::{
     },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
+    tile::Tile,
 };
 use gmio::{
     render::{BlendType, Renderer, RendererOptions},
@@ -339,7 +340,8 @@ impl Game {
     }
 
     pub fn screen_refresh(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        self.renderer.present();
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.present(width, height, self.scaling);
         Ok(Default::default())
     }
 
@@ -350,18 +352,10 @@ impl Game {
 
     pub fn screen_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
-        let (width, height) = self.window.get_inner_size();
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(0, 0, width as _, height as _);
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        // get_pixels returns an upside down image for some reason?
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        match file::save_image(fname.as_ref(), width, height, rgba.into_boxed_slice()) {
+        let (width, height) = (self.unscaled_width, self.unscaled_height);
+        let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
+        match file::save_image(fname.as_ref(), width, height, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.into())),
         }
@@ -371,21 +365,11 @@ impl Game {
         let (fname, x, y, w, h) = expect_args!(args, [string, int, int, int, int])?;
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let w = w.min(window_width as i32 - x);
-        let h = h.min(window_height as i32 - y);
-        let y = window_height as i32 - y - h; // upside down
+        let w = w.min(self.unscaled_width as i32 - x);
+        let h = h.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, w, h);
-        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-        // still upside down
-        for row in rgb.chunks((w * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        match file::save_image(fname.as_ref(), w as _, h as _, rgba.into_boxed_slice()) {
+        let rgba = self.renderer.get_pixels(x, y, w, h);
+        match file::save_image(fname.as_ref(), w as _, h as _, rgba) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.into())),
         }
@@ -393,7 +377,6 @@ impl Game {
 
     pub fn draw_getpixel(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let y = self.window.get_inner_size().1 as i32 - y - 1; // upside down
         self.renderer.flush_queue();
         let data = self.renderer.get_pixels(x, y, 1, 1);
         Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
@@ -536,25 +519,38 @@ impl Game {
 
     pub fn draw_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        self.renderer.draw_rectangle(
-            x.into(),
-            y.into(),
-            x.into(),
-            y.into(),
+        self.renderer.draw_point(x.into(), y.into(), u32::from(self.draw_colour) as _, self.draw_alpha.into());
+        Ok(Default::default())
+    }
+
+    pub fn draw_line(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
+        self.renderer.draw_line(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            None,
+            u32::from(self.draw_colour) as _,
             u32::from(self.draw_colour) as _,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
     }
 
-    pub fn draw_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_line")
-    }
-
-    pub fn draw_line_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_line_width")
+    pub fn draw_line_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, w) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.draw_line(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            Some(w.into()),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_rectangle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -581,24 +577,71 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_roundrect(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_roundrect")
+    pub fn draw_roundrect(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [real, real, real, real, any])?;
+        self.renderer.draw_roundrect(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_triangle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_triangle")
+    pub fn draw_triangle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, x3, y3, outline) = expect_args!(args, [real, real, real, real, real, real, any])?;
+        self.renderer.draw_triangle(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            x3.into(),
+            y3.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_circle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_circle")
+    pub fn draw_circle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, radius, outline) = expect_args!(args, [real, real, real, any])?;
+        self.renderer.draw_ellipse(
+            x.into(),
+            y.into(),
+            radius.into(),
+            radius.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_ellipse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_ellipse")
+    pub fn draw_ellipse(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [real, real, real, real, any])?;
+        let xcenter = (x1 + x2) / 2.into();
+        let ycenter = (y1 + y2) / 2.into();
+        let rad_x = (xcenter - x1).abs();
+        let rad_y = (ycenter - y1).abs();
+        self.renderer.draw_ellipse(
+            xcenter.into(),
+            ycenter.into(),
+            rad_x.into(),
+            rad_y.into(),
+            u32::from(self.draw_colour) as _,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_arrow(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -623,93 +666,196 @@ impl Game {
 
     pub fn draw_point_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, col) = expect_args!(args, [real, real, int])?;
-        self.renderer.draw_rectangle(x.into(), y.into(), x.into(), y.into(), col, self.draw_alpha.into());
+        self.renderer.draw_point(x.into(), y.into(), col, self.draw_alpha.into());
         Ok(Default::default())
     }
 
-    pub fn draw_line_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_line_color")
+    pub fn draw_line_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, c1, c2) = expect_args!(args, [real, real, real, real, int, int])?;
+        self.renderer.draw_line(x1.into(), y1.into(), x2.into(), y2.into(), None, c1, c2, self.draw_alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn draw_line_width_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_line_width_color")
+    pub fn draw_line_width_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, w, c1, c2) = expect_args!(args, [real, real, real, real, real, int, int])?;
+        self.renderer.draw_line(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            Some(w.into()),
+            c1,
+            c2,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_rectangle_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function draw_rectangle_color")
+    pub fn draw_rectangle_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, c1, c2, c3, c4, outline) =
+            expect_args!(args, [real, real, real, real, int, int, int, int, any])?;
+        self.renderer.draw_rectangle_gradient(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            c1,
+            c2,
+            c3,
+            c4,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_roundrect_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_roundrect_color")
+    pub fn draw_roundrect_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2, outline) = expect_args!(args, [real, real, real, real, int, int, any])?;
+        self.renderer.draw_roundrect(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            col1,
+            col2,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_triangle_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function draw_triangle_color")
+    pub fn draw_triangle_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, x3, y3, c1, c2, c3, outline) =
+            expect_args!(args, [real, real, real, real, real, real, int, int, int, any])?;
+        self.renderer.draw_triangle(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            x3.into(),
+            y3.into(),
+            c1,
+            c2,
+            c3,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_circle_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_circle_color")
+    pub fn draw_circle_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, radius, col1, col2, outline) = expect_args!(args, [real, real, real, int, int, any])?;
+        self.renderer.draw_ellipse(
+            x.into(),
+            y.into(),
+            radius.into(),
+            radius.into(),
+            col1,
+            col2,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_ellipse_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_ellipse_color")
+    pub fn draw_ellipse_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2, outline) = expect_args!(args, [real, real, real, real, int, int, any])?;
+        let xcenter = (x1 + x2) / 2.into();
+        let ycenter = (y1 + y2) / 2.into();
+        let rad_x = (xcenter - x1).abs();
+        let rad_y = (ycenter - y1).abs();
+        self.renderer.draw_ellipse(
+            xcenter.into(),
+            ycenter.into(),
+            rad_x.into(),
+            rad_y.into(),
+            col1,
+            col2,
+            self.draw_alpha.into(),
+            outline.is_truthy(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_set_circle_precision(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_set_circle_precision")
+    pub fn draw_set_circle_precision(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let prec = expect_args!(args, [int])?;
+        self.renderer.set_circle_precision(prec);
+        Ok(Default::default())
     }
 
-    pub fn draw_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function draw_primitive_begin")
+    pub fn draw_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let kind = expect_args!(args, [int])?;
+        self.renderer.reset_primitive_2d(kind.into(), None);
+        Ok(Default::default())
     }
 
-    pub fn draw_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_primitive_begin_texture")
+    pub fn draw_primitive_begin_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, texture) = expect_args!(args, [int, int])?;
+        self.renderer.reset_primitive_2d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        Ok(Default::default())
     }
 
     pub fn draw_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function draw_primitive_end")
+        self.renderer.draw_primitive_2d();
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function draw_vertex")
+    pub fn draw_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [real, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), 0.0, 0.0, u32::from(self.draw_colour) as _, self.draw_alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_vertex_color")
+    pub fn draw_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, col, alpha) = expect_args!(args, [real, real, int, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), 0.0, 0.0, col, alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_vertex_texture")
+    pub fn draw_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, xtex, ytex) = expect_args!(args, [real, real, real, real])?;
+        self.renderer.vertex_2d(
+            x.into(),
+            y.into(),
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_vertex_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function draw_vertex_texture_color")
+    pub fn draw_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, int, real])?;
+        self.renderer.vertex_2d(x.into(), y.into(), xtex.into(), ytex.into(), col, alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn sprite_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_get_texture")
+    pub fn sprite_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_index, image_index) = expect_args!(args, [int, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            if let Some(atlas_ref) = sprite.frames.get(image_index as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                Ok(self.renderer.get_texture_id(atlas_ref).into())
+            } else {
+                Ok((-1).into())
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
-    pub fn background_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_get_texture")
+    pub fn background_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let bg_index = expect_args!(args, [int])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                Ok(self.renderer.get_texture_id(atlas_ref).into())
+            } else {
+                Ok((-1).into())
+            }
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn texture_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -728,19 +874,20 @@ impl Game {
         unimplemented!("Called unimplemented kernel function texture_set_blending")
     }
 
-    pub fn texture_set_repeat(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_repeat")
+    pub fn texture_set_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let repeat = expect_args!(args, [any])?;
+        self.renderer.set_texture_repeat(repeat.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn texture_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_get_width")
+        // we don't pad textures to po2
+        Ok(1.into())
     }
 
     pub fn texture_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_get_height")
+        // see texture_get_width
+        Ok(1.into())
     }
 
     pub fn texture_preload(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1010,7 +1157,6 @@ impl Game {
     }
 
     pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: left, top, width, height should be reals (yes, really)
         let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
@@ -1024,10 +1170,10 @@ impl Game {
             {
                 self.renderer.draw_sprite_partial(
                     atlas_ref,
-                    left.round(),
-                    top.round(),
-                    width.round(),
-                    height.round(),
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
                     x.into(),
                     y.into(),
                     xscale.into(),
@@ -1043,9 +1189,58 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 16
-        unimplemented!("Called unimplemented kernel function draw_sprite_general")
+    pub fn draw_sprite_general(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            sprite_index,
+            image_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+        ) = expect_args!(args, [
+            int, real, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+        ])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) =
+                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            {
+                self.renderer.draw_sprite_general(
+                    atlas_ref,
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
+                    col1,
+                    col2,
+                    col3,
+                    col4,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1119,14 +1314,30 @@ impl Game {
         }
     }
 
-    pub fn draw_background_stretched(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_background_stretched")
+    pub fn draw_background_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (bg_index, x, y, w, h) = expect_args!(args, [any, any, any, any, any])?;
+        self.draw_background_stretched_ext(context, &[bg_index, x, y, w, h, 0xffffff.into(), 1.0.into()])
     }
 
-    pub fn draw_background_stretched_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_background_stretched_ext")
+    pub fn draw_background_stretched_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (bg_index, x, y, w, h, colour, alpha) = expect_args!(args, [int, real, real, real, real, int, real])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    x.into(),
+                    y.into(),
+                    (w / background.width.into()).into(),
+                    (h / background.height.into()).into(),
+                    0.0,
+                    colour,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn draw_background_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1301,9 +1512,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function tile_set_alpha")
     }
 
-    pub fn tile_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function tile_add")
+    pub fn tile_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_index, tile_x, tile_y, width, height, x, y, depth) =
+            expect_args!(args, [int, int, int, int, int, real, real, real])?;
+        self.last_tile_id += 1;
+        self.tile_list.insert(Tile {
+            x: x.into(),
+            y: y.into(),
+            background_index: background_index.into(),
+            tile_x: tile_x.into(),
+            tile_y: tile_y.into(),
+            width: width.into(),
+            height: height.into(),
+            depth: depth.into(),
+            id: self.last_tile_id.into(),
+            alpha: Real::from(1.0).into(),
+            blend: 0xffffff.into(),
+            xscale: Real::from(1.0).into(),
+            yscale: Real::from(1.0).into(),
+            visible: true.into(),
+        });
+        Ok(Default::default())
     }
 
     pub fn tile_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1429,9 +1658,13 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
     }
 
-    pub fn surface_get_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function surface_get_texture")
+    pub fn surface_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let surf_id = expect_args!(args, [int])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            Ok(self.renderer.get_texture_id(&surf.atlas_ref).into())
+        } else {
+            Ok((-1).into())
+        }
     }
 
     pub fn surface_set_target(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1444,9 +1677,8 @@ impl Game {
     }
 
     pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        let (width, height) = self.window.get_inner_size();
         // reset viewport to top left of room because lol
-        self.renderer.reset_target(width as _, height as _, self.unscaled_width as _, self.unscaled_height as _);
+        self.renderer.reset_target();
         self.surface_target = None;
         Ok(Default::default())
     }
@@ -4151,19 +4383,19 @@ impl Game {
         let handle = match obj {
             gml::ALL => {
                 let mut iter = self.instance_list.iter_by_insertion();
-                (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
                     let mut iter = self.instance_list.iter_by_identity(ids);
-                    (0..n).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                    (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
                 } else {
                     None
                 }
             },
             inst_id => {
-                if n == 0 {
+                if n != 0 {
                     None
                 } else {
                     self.instance_list
@@ -5295,13 +5527,21 @@ impl Game {
     }
 
     pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function parameter_count")
+        // Gamemaker doesn't count parameter 0 (the game exe) as a "parameter"
+        return Ok((self.parameters.len() - 1).into())
     }
 
-    pub fn parameter_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function parameter_string")
+    pub fn parameter_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let param_index = expect_args!(args, [int])?;
+        if param_index >= 0 {
+            Ok(match self.parameters.get(param_index as usize) {
+                Some(a) => a.clone(),
+                None => "".to_string(),
+            }
+            .into())
+        } else {
+            Ok("".into())
+        }
     }
 
     pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -5649,7 +5889,9 @@ impl Game {
                 break
             }
 
-            renderer.finish(width, height, clear_colour);
+            if window.get_inner_size() != (0, 0) {
+                renderer.finish(width, height, clear_colour);
+            }
         }
 
         // restore renderer
@@ -7015,20 +7257,11 @@ impl Game {
         // but we need the pixel data to make the colliders
         let x = x.max(0);
         let y = y.max(0);
-        let (window_width, window_height) = self.window.get_inner_size();
-        let width = width.min(window_width as i32 - x);
-        let height = height.min(window_height as i32 - y);
+        let width = width.min(self.unscaled_width as i32 - x);
+        let height = height.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
-        let rgb = self.renderer.get_pixels(x, y, width, height);
-        // it comes out as upside-down rgb so flip it and convert it to rgba
-        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-        for row in rgb.chunks((width * 3) as usize).rev() {
-            for col in row.chunks(3) {
-                rgba.extend_from_slice(col);
-                rgba.push(255);
-            }
-        }
-        let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+        let rgba = self.renderer.get_pixels(x, y, width, height);
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
         let frames = vec![asset::sprite::Frame {
@@ -7064,20 +7297,11 @@ impl Game {
             // get image
             let x = x.max(0);
             let y = y.max(0);
-            let (window_width, window_height) = self.window.get_inner_size();
-            let width = width.min(window_width as i32 - x);
-            let height = height.min(window_height as i32 - y);
+            let width = width.min(self.unscaled_width as i32 - x);
+            let height = height.min(self.unscaled_height as i32 - y);
             self.renderer.flush_queue();
-            let rgb = self.renderer.get_pixels(x, y, width, height);
-            // it comes out as upside-down rgb so flip it and convert it to rgba
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for row in rgb.chunks((width * 3) as usize).rev() {
-                for col in row.chunks(3) {
-                    rgba.extend_from_slice(col);
-                    rgba.push(255);
-                }
-            }
-            let mut image = RgbaImage::from_vec(width as _, height as _, rgba).unwrap();
+            let rgba = self.renderer.get_pixels(x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
             asset::sprite::scale(&mut image, sprite.width, sprite.height);
             // generate collision
@@ -7138,7 +7362,7 @@ impl Game {
                 atlas_ref: self
                     .renderer
                     .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_surface".into(), e.into()))?,
             }];
             let sprite_id = self.assets.sprites.len();
             self.assets.sprites.push(Some(Box::new(asset::Sprite {
@@ -10319,7 +10543,8 @@ impl Game {
 
     pub fn sound_global_volume(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_global_volume")
+        //unimplemented!("Called unimplemented kernel function sound_global_volume")
+        Ok(Default::default())
     }
 
     pub fn sound_set_search_directory(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10532,59 +10757,147 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_culling")
     }
 
-    pub fn d3d_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_primitive_begin")
+    pub fn d3d_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let kind = expect_args!(args, [int])?;
+        self.renderer.reset_primitive_3d(kind.into(), None);
+        Ok(Default::default())
     }
 
-    pub fn d3d_primitive_begin_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_primitive_begin_texture")
+    pub fn d3d_primitive_begin_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (kind, texture) = expect_args!(args, [int, int])?;
+        self.renderer.reset_primitive_3d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        Ok(Default::default())
     }
 
     pub fn d3d_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_primitive_end")
+        self.renderer.draw_primitive_3d();
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function d3d_vertex")
+    pub fn d3d_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z) = expect_args!(args, [real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_vertex_color")
+    pub fn d3d_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, col, alpha) = expect_args!(args, [real, real, real, int, real])?;
+        self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, alpha.into());
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_vertex_texture")
+    pub fn d3d_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, xtex, ytex) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function d3d_vertex_texture_color")
+    pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            0.0,
+            0.0,
+            0.0,
+            xtex.into(),
+            ytex.into(),
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal")
+    pub fn d3d_vertex_normal(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz) = expect_args!(args, [real, real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            0.0,
+            0.0,
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_color")
+    pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, col, alpha) = expect_args!(args, [real, real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            0.0,
+            0.0,
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_texture")
+    pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, xtex, ytex) = expect_args!(args, [real, real, real, real, real, real, real, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            xtex.into(),
+            ytex.into(),
+            u32::from(self.draw_colour) as _,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function d3d_vertex_normal_texture_color")
+    pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
+            expect_args!(args, [real, real, real, real, real, real, real, real, int, real])?;
+        self.renderer.vertex_3d(
+            x.into(),
+            y.into(),
+            z.into(),
+            nx.into(),
+            ny.into(),
+            nz.into(),
+            xtex.into(),
+            ytex.into(),
+            col,
+            alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn d3d_draw_block(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10650,9 +10963,51 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_projection_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 13
-        unimplemented!("Called unimplemented kernel function d3d_set_projection_ext")
+    pub fn d3d_set_projection_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (eye_x, eye_y, eye_z, at_x, at_y, at_z, up_x, up_y, up_z, angle, aspect, znear, zfar) =
+            expect_args!(args, [real, real, real, real, real, real, real, real, real, real, real, real, real])?;
+
+        // zaxis = normal(at - eye)
+        let (za_x, za_y, za_z) = (at_x - eye_x, at_y - eye_y, at_z - eye_z);
+        let za_len = (za_x * za_x + za_y * za_y + za_z * za_z).sqrt();
+        let (za_x, za_y, za_z) = (za_x / za_len, za_y / za_len, za_z / za_len);
+        // xaxis = normal(cross(up, zaxis))
+        let (xa_x, xa_y, xa_z) = (up_y * za_z - up_z * za_y, up_z * za_x - up_x * za_z, up_x * za_y - up_y * za_x);
+        let xa_len = (xa_x * xa_x + xa_y * xa_y + xa_z * xa_z).sqrt();
+        let (xa_x, xa_y, xa_z) = (xa_x / xa_len, xa_y / xa_len, xa_z / xa_len);
+        // yaxis = cross(zaxis, xaxis)
+        let (ya_x, ya_y, ya_z) = (za_y * xa_z - za_z * xa_y, za_z * xa_x - za_x * xa_z, za_x * xa_y - za_y * xa_x);
+        // bottom row
+        let (xa_w, ya_w, za_w) = (
+            -(xa_x * eye_x + xa_y * eye_y + xa_z * eye_z),
+            -(ya_x * eye_x + ya_y * eye_y + ya_z * eye_z),
+            -(za_x * eye_x + za_y * eye_y + za_z * eye_z),
+        );
+
+        #[rustfmt::skip]
+        let view_matrix: [f32; 16] = [
+            xa_x.into_inner() as f32, ya_x.into_inner() as f32, za_x.into_inner() as f32, 0.0,
+            xa_y.into_inner() as f32, ya_y.into_inner() as f32, za_y.into_inner() as f32, 0.0,
+            xa_z.into_inner() as f32, ya_z.into_inner() as f32, za_z.into_inner() as f32, 0.0,
+            xa_w.into_inner() as f32, ya_w.into_inner() as f32, za_w.into_inner() as f32, 1.0,
+        ];
+
+        let half_angle = angle.to_radians() / 2.into();
+        let yscale = half_angle.cos() / half_angle.sin();
+        let xscale = (yscale / aspect).into_inner() as f32;
+        let yscale = yscale.into_inner() as f32;
+        let upper_z = (zfar / (zfar - znear)).into_inner() as f32;
+        let lower_z = (-znear * zfar / (zfar - znear)).into_inner() as f32;
+        #[rustfmt::skip]
+        let proj_matrix: [f32; 16] = [
+            xscale, 0.0,    0.0,     0.0,
+            0.0,    yscale, 0.0,     0.0,
+            0.0,    0.0,    upper_z, 1.0,
+            0.0,    0.0,    lower_z, 0.0,
+        ];
+
+        self.renderer.set_viewproj_matrix(view_matrix, proj_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_projection_ortho(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10661,9 +11016,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_set_projection_perspective")
+    pub fn d3d_set_projection_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, w, h, angle) = expect_args!(args, [real, real, real, real, real])?;
+        self.renderer.set_projection_perspective(x.into(), y.into(), w.into(), h.into(), angle.into());
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -10704,24 +11060,77 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_x")
+    pub fn d3d_transform_set_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0,  0.0, 0.0,
+            0.0, cos,  sin, 0.0,
+            0.0, -sin, cos, 0.0,
+            0.0, 0.0,  0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_y")
+    pub fn d3d_transform_set_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos, 0.0, -sin, 0.0,
+            0.0, 1.0, 0.0,  0.0,
+            sin, 0.0, cos,  0.0,
+            0.0, 0.0, 0.0,  1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_z(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_z")
+    pub fn d3d_transform_set_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos,  sin, 0.0, 0.0,
+            -sin, cos, 0.0, 0.0,
+            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_rotation_axis(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function d3d_transform_set_rotation_axis")
+    pub fn d3d_transform_set_rotation_axis(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xa, ya, za, angle) = expect_args!(args, [real, real, real, real])?;
+        let axis_len = (xa * xa + ya * ya + za * za).sqrt();
+        let (xa, ya, za) = (xa / axis_len, ya / axis_len, za / axis_len);
+        let angle = angle.to_radians();
+        let sin = -angle.sin();
+        let cos = angle.cos();
+        let anticos = Real::from(1.0) - cos;
+        let m00 = (cos + xa * xa * anticos).into_inner() as f32;
+        let m01 = (xa * ya * anticos - za * sin).into_inner() as f32;
+        let m02 = (xa * za * anticos + ya * sin).into_inner() as f32;
+        let m10 = (ya * xa * anticos + za * sin).into_inner() as f32;
+        let m11 = (cos + ya * ya * anticos).into_inner() as f32;
+        let m12 = (ya * za * anticos - xa * sin).into_inner() as f32;
+        let m20 = (za * za * anticos - ya * sin).into_inner() as f32;
+        let m21 = (za * ya * anticos + xa * sin).into_inner() as f32;
+        let m22 = (cos + za * za * anticos).into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix = [
+            m00, m10, m20, 0.0,
+            m01, m11, m21, 0.0,
+            m02, m12, m22, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_add_translation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10750,24 +11159,77 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_x")
+    pub fn d3d_transform_add_rotation_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            1.0, 0.0,  0.0, 0.0,
+            0.0, cos,  sin, 0.0,
+            0.0, -sin, cos, 0.0,
+            0.0, 0.0,  0.0, 1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_y")
+    pub fn d3d_transform_add_rotation_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos, 0.0, -sin, 0.0,
+            0.0, 1.0, 0.0,  0.0,
+            sin, 0.0, cos,  0.0,
+            0.0, 0.0, 0.0,  1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_z(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_z")
+    pub fn d3d_transform_add_rotation_z(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let angle = expect_args!(args, [real])?.to_radians();
+        let sin = -angle.sin().into_inner() as f32;
+        let cos = angle.cos().into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix: [f32; 16] = [
+            cos,  sin, 0.0, 0.0,
+            -sin, cos, 0.0, 0.0,
+            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 0.0, 1.0,
+        ];
+        self.renderer.set_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
-    pub fn d3d_transform_add_rotation_axis(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function d3d_transform_add_rotation_axis")
+    pub fn d3d_transform_add_rotation_axis(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xa, ya, za, angle) = expect_args!(args, [real, real, real, real])?;
+        let axis_len = (xa * xa + ya * ya + za * za).sqrt();
+        let (xa, ya, za) = (xa / axis_len, ya / axis_len, za / axis_len);
+        let angle = angle.to_radians();
+        let sin = -angle.sin();
+        let cos = angle.cos();
+        let anticos = Real::from(1.0) - cos;
+        let m00 = (cos + xa * xa * anticos).into_inner() as f32;
+        let m01 = (xa * ya * anticos - za * sin).into_inner() as f32;
+        let m02 = (xa * za * anticos + ya * sin).into_inner() as f32;
+        let m10 = (ya * xa * anticos + za * sin).into_inner() as f32;
+        let m11 = (cos + ya * ya * anticos).into_inner() as f32;
+        let m12 = (ya * za * anticos - xa * sin).into_inner() as f32;
+        let m20 = (za * za * anticos - ya * sin).into_inner() as f32;
+        let m21 = (za * ya * anticos + xa * sin).into_inner() as f32;
+        let m22 = (cos + za * za * anticos).into_inner() as f32;
+        #[rustfmt::skip]
+        let model_matrix = [
+            m00, m10, m20, 0.0,
+            m01, m11, m21, 0.0,
+            m02, m12, m22, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        self.renderer.mult_model_matrix(model_matrix);
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_stack_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

@@ -20,11 +20,15 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, SavedTexture};
+use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
-use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 /// Represents a savestate. Very similar to the Game struct, but without things which aren't serialized.
 #[derive(Clone, Serialize, Deserialize)]
@@ -39,10 +43,13 @@ pub struct SaveState {
     pub custom_draw_objects: HashSet<ID>,
 
     pub background_colour: Colour,
-    pub room_colour: Option<Colour>,
+    pub room_colour: Colour,
+    pub show_room_colour: bool,
     pub textures: Vec<Option<SavedTexture>>,
     pub blend_mode: (BlendType, BlendType),
     pub interpolate_pixels: bool,
+    pub texture_repeat: bool,
+    pub sprite_count: i32,
     pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
@@ -85,6 +92,9 @@ pub struct SaveState {
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
+    pub circle_precision: i32,
+    pub primitive_2d: PrimitiveBuilder,
+    pub primitive_3d: PrimitiveBuilder,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -108,19 +118,20 @@ pub struct SaveState {
     pub caption: RCStr,
     pub caption_stale: bool,
 
+    scaling: Scaling,
     unscaled_width: u32,
     unscaled_height: u32,
+    window_width: u32,
+    window_height: u32,
 
     replay: Replay,
     screenshot: Box<[u8]>,
-    screenshot_width: u32,
-    screenshot_height: u32,
 }
 
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
-        let (width, height) = game.window.get_inner_size();
-        let screenshot = game.renderer.get_pixels(0, 0, width as _, height as _);
+        let (window_width, window_height) = game.window.get_inner_size();
+        let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
 
         Self {
             compiler: game.compiler.clone(),
@@ -133,9 +144,12 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             room_colour: game.room_colour,
+            show_room_colour: game.show_room_colour,
             textures: game.renderer.dump_dynamic_textures(),
             blend_mode: game.renderer.get_blend_mode(),
             interpolate_pixels: game.renderer.get_pixel_interpolation(),
+            texture_repeat: game.renderer.get_texture_repeat(),
+            sprite_count: game.renderer.get_sprite_count(),
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             last_instance_id: game.last_instance_id.clone(),
@@ -170,6 +184,9 @@ impl SaveState {
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
+            circle_precision: game.renderer.get_circle_precision(),
+            primitive_2d: game.renderer.get_primitive_2d(),
+            primitive_3d: game.renderer.get_primitive_3d(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
@@ -189,39 +206,41 @@ impl SaveState {
             spoofed_time_nanos: game.spoofed_time_nanos,
             caption: game.caption.clone(),
             caption_stale: game.caption_stale.clone(),
+            scaling: game.scaling,
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
+            window_width,
+            window_height,
             replay,
             screenshot,
-            screenshot_width: width,
-            screenshot_height: height,
         }
     }
 
     pub fn load_into(self, game: &mut Game) -> Replay {
-        game.window.resize(self.screenshot_width, self.screenshot_height);
+        game.window.resize(self.window_width, self.window_height);
 
         game.renderer.upload_dynamic_textures(&self.textures);
 
-        if let Some(Some(surf)) = self.surface_target.and_then(|id| self.surfaces.get(id as usize)) {
-            game.renderer.set_target(&surf.atlas_ref);
-        } else {
-            game.renderer.reset_target(
-                self.screenshot_width as _,
-                self.screenshot_height as _,
-                self.unscaled_width as _,
-                self.unscaled_height as _,
-            );
-        }
-
         game.renderer.draw_raw_frame(
             self.screenshot,
-            self.screenshot_width as _,
-            self.screenshot_height as _,
+            self.unscaled_width as _,
+            self.unscaled_height as _,
+            self.window_width as _,
+            self.window_height as _,
+            self.scaling,
             game.background_colour,
         );
+
+        let surfaces = self.surfaces;
+        if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
+            game.renderer.set_target(&surf.atlas_ref);
+        } else {
+            game.renderer.reset_target();
+        }
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
+        game.renderer.set_texture_repeat(self.texture_repeat);
+        game.renderer.set_sprite_count(self.sprite_count);
         game.renderer.set_vsync(self.vsync);
 
         let mut externals = self.externals;
@@ -238,6 +257,7 @@ impl SaveState {
         game.custom_draw_objects = self.custom_draw_objects;
         game.background_colour = self.background_colour;
         game.room_colour = self.room_colour;
+        game.show_room_colour = self.show_room_colour;
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
         game.views_enabled = self.views_enabled;
@@ -267,9 +287,12 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.surfaces = self.surfaces;
+        game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
+        game.renderer.set_circle_precision(self.circle_precision);
+        game.renderer.set_primitive_2d(self.primitive_2d);
+        game.renderer.set_primitive_3d(self.primitive_3d);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;
@@ -289,6 +312,7 @@ impl SaveState {
         game.spoofed_time_nanos = self.spoofed_time_nanos;
         game.caption = self.caption;
         game.caption_stale = self.caption_stale;
+        game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
         self.replay

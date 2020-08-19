@@ -43,7 +43,7 @@ use crate::{
 };
 use gmio::{
     atlas::AtlasBuilder,
-    render::{Renderer, RendererOptions},
+    render::{Renderer, RendererOptions, Scaling},
     window::{Window, WindowBuilder},
 };
 use indexmap::IndexMap;
@@ -79,7 +79,8 @@ pub struct Game {
 
     pub renderer: Renderer,
     pub background_colour: Colour,
-    pub room_colour: Option<Colour>,
+    pub room_colour: Colour,
+    pub show_room_colour: bool,
 
     pub externals: Vec<Option<external::External>>,
 
@@ -144,6 +145,7 @@ pub struct Game {
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
+    pub parameters: Vec<String>,
 
     // window caption
     pub caption: RCStr,
@@ -154,6 +156,8 @@ pub struct Game {
 
     // winit windowing
     pub window: Window,
+    // Scaling type
+    pub scaling: Scaling,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
     pub unscaled_width: u32,
     // Height the window is supposed to have, assuming it hasn't been resized by the user
@@ -202,6 +206,7 @@ impl Game {
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
+        game_arguments: Vec<String>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -264,7 +269,8 @@ impl Game {
         let room1_width = room1.width;
         let room1_height = room1.height;
         let room1_speed = room1.speed;
-        let room1_colour = if room1.clear_screen { Some(room1.bg_colour.as_decimal().into()) } else { None };
+        let room1_colour = room1.bg_colour.as_decimal().into();
+        let room1_show_colour = room1.clear_screen;
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -331,6 +337,12 @@ impl Game {
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
+
+        let scaling = match settings.scaling {
+            0 => Scaling::Full,
+            n if n < 0 => Scaling::Aspect(f64::from(n) / 100.0),
+            n => Scaling::Fixed(f64::from(n) / 100.0),
+        };
 
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
@@ -702,10 +714,10 @@ impl Game {
                                 x: Cell::new(t.x.into()),
                                 y: Cell::new(t.y.into()),
                                 background_index: Cell::new(t.source_bg),
-                                tile_x: Cell::new(t.tile_x),
-                                tile_y: Cell::new(t.tile_y),
-                                width: Cell::new(t.width),
-                                height: Cell::new(t.height),
+                                tile_x: Cell::new(t.tile_x as _),
+                                tile_y: Cell::new(t.tile_y as _),
+                                width: Cell::new(t.width as _),
+                                height: Cell::new(t.height as _),
                                 depth: Cell::new(t.depth.into()),
                                 id: Cell::new(t.id),
                                 alpha: Cell::new(1.0.into()),
@@ -756,6 +768,7 @@ impl Game {
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
             room_colour: room1_colour,
+            show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
@@ -809,12 +822,14 @@ impl Game {
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
+            parameters: game_arguments,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
             lives_capt_d: false,
             health_capt_d: false,
             window,
+            scaling,
             play_type: PlayType::Normal,
             stored_events: VecDeque::new(),
 
@@ -943,6 +958,11 @@ impl Game {
         if self.unscaled_width != width || self.unscaled_height != height {
             self.unscaled_width = width;
             self.unscaled_height = height;
+            self.renderer.resize_framebuffer(width, height);
+            let (width, height) = match self.scaling {
+                Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
+                _ => (width, height),
+            };
             self.window.resize(width, height);
         }
     }
@@ -1016,7 +1036,8 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.room_colour = if room.clear_screen { Some(room.bg_colour) } else { None };
+        self.room_colour = room.bg_colour;
+        self.show_room_colour = room.clear_screen;
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
@@ -1141,18 +1162,13 @@ impl Game {
                 self.draw()?;
                 if let Some(transition) = self.get_transition(transition_kind) {
                     let (width, height) = self.window.get_inner_size();
-                    self.renderer.reset_target(
-                        width as _,
-                        height as _,
-                        self.unscaled_width as _,
-                        self.unscaled_height as _,
-                    );
+                    self.renderer.reset_target();
                     let old_vsync = self.renderer.get_vsync();
                     self.renderer.set_vsync(true);
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
-                        self.renderer.present();
+                        self.renderer.present(width, height, self.scaling);
                     }
                     self.renderer.set_vsync(old_vsync);
                 }
