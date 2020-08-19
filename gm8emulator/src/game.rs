@@ -832,7 +832,6 @@ impl Game {
             let dummy_instance = game
                 .instance_list
                 .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
-            game.instance_list.get(dummy_instance).update_bbox(game.get_instance_mask_sprite(dummy_instance));
             let value = game.eval(&expr, &mut Context {
                 this: dummy_instance,
                 other: dummy_instance,
@@ -1037,15 +1036,16 @@ impl Game {
                 };
 
                 // Add instance to list
-                let new_instance = self.instance_list.insert(Instance::new(
-                    instance.id as _,
-                    Real::from(instance.x),
-                    Real::from(instance.y),
-                    instance.object,
-                    object,
+                new_handles.push((
+                    self.instance_list.insert(Instance::new(
+                        instance.id as _,
+                        Real::from(instance.x),
+                        Real::from(instance.y),
+                        instance.object,
+                        object,
+                    )),
+                    instance,
                 ));
-                self.instance_list.get(new_instance).update_bbox(self.get_instance_mask_sprite(new_instance));
-                new_handles.push((new_instance, instance));
             }
         }
         for (handle, instance) in &new_handles {
@@ -1080,7 +1080,6 @@ impl Game {
         // Run room creation code
         let dummy_instance =
             self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-        self.instance_list.get(dummy_instance).update_bbox(self.get_instance_mask_sprite(dummy_instance));
         self.execute(&room.creation_code, &mut Context {
             this: dummy_instance,
             other: dummy_instance,
@@ -1545,6 +1544,7 @@ impl Game {
                             seed: self.rand.seed(),
                             instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
                                 let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
                                 instance_details(&self.assets, instance)
                             }),
                         })?
@@ -1585,6 +1585,7 @@ impl Game {
                             seed: self.rand.seed(),
                             instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
                                 let instance = self.instance_list.get(x);
+                                instance.update_bbox(self.get_instance_mask_sprite(x));
                                 instance_details(&self.assets, instance)
                             }),
                         })?;
@@ -1615,6 +1616,7 @@ impl Game {
                         let mut iter = self.instance_list.iter_by_drawing();
                         while let Some(handle) = iter.next(&self.instance_list) {
                             let instance = self.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
                             if x >= instance.bbox_left.get()
                                 && x <= instance.bbox_right.get()
                                 && y >= instance.bbox_top.get()
@@ -1635,6 +1637,7 @@ impl Game {
                     Event::MenuOption(id) => {
                         if let Some(handle) = self.instance_list.get_by_instid(id as _) {
                             let instance = self.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
                             stream.send_message(message::Information::InstanceClicked {
                                 details: instance_details(&self.assets, instance),
                             })?;
@@ -1764,6 +1767,18 @@ impl Game {
         // Get the sprite masks we're going to use and update instances' bbox vars
         let inst1 = self.instance_list.get(i1);
         let inst2 = self.instance_list.get(i2);
+        let sprite1 = self
+            .assets
+            .sprites
+            .get_asset(if inst1.mask_index.get() < 0 { inst1.sprite_index.get() } else { inst1.mask_index.get() })
+            .map(|x| x.as_ref());
+        let sprite2 = self
+            .assets
+            .sprites
+            .get_asset(if inst2.mask_index.get() < 0 { inst2.sprite_index.get() } else { inst2.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst1.update_bbox(sprite1);
+        inst2.update_bbox(sprite2);
 
         // First, an AABB. This is specifically matching how it's coded in GM8 runner.
         if inst1.bbox_right < inst2.bbox_left
@@ -1774,16 +1789,9 @@ impl Game {
             return false
         }
 
-        let get_sprite = |i: &Instance| {
-            self.assets
-                .sprites
-                .get_asset(if i.mask_index.get() < 0 { i.sprite_index.get() } else { i.mask_index.get() })
-                .map(|x| x.as_ref())
-        };
-
         // AABB passed - now we do precise pixel checks in the intersection of the two rectangles.
         // Collision cannot be true if either instance does not have a sprite.
-        if let (Some(sprite1), Some(sprite2)) = (get_sprite(inst1), get_sprite(inst2)) {
+        if let (Some(sprite1), Some(sprite2)) = (sprite1, sprite2) {
             // Get the colliders we're going to be colliding with
             let collider1 = match if sprite1.per_frame_colliders {
                 sprite1
@@ -1887,6 +1895,12 @@ impl Game {
     pub fn check_collision_point(&self, inst: usize, x: i32, y: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
 
         // AABB with the point
         if inst.bbox_right.get() < x
@@ -1901,12 +1915,6 @@ impl Game {
         if !precise {
             return true
         }
-
-        let sprite = self
-            .assets
-            .sprites
-            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
-            .map(|x| x.as_ref());
 
         // Can't collide if no sprite or no associated collider
         if let Some(sprite) = sprite {
@@ -1950,6 +1958,12 @@ impl Game {
     pub fn check_collision_rectangle(&self, inst: usize, x1: i32, y1: i32, x2: i32, y2: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
 
         let rect_left = x1.min(x2);
         let rect_top = y1.min(y2);
@@ -1969,12 +1983,6 @@ impl Game {
         if !precise {
             return true
         }
-
-        let sprite = self
-            .assets
-            .sprites
-            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
-            .map(|x| x.as_ref());
 
         // Can't collide if no sprite or no associated collider
         if let Some(sprite) = sprite {
@@ -2039,6 +2047,12 @@ impl Game {
     pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
 
         let bbox_left: Real = inst.bbox_left.get().into();
         let bbox_right: Real = inst.bbox_right.get().into();
@@ -2082,12 +2096,6 @@ impl Game {
         if !precise {
             return true
         }
-
-        let sprite = self
-            .assets
-            .sprites
-            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
-            .map(|x| x.as_ref());
 
         // Can't collide if no sprite or no associated collider
         if let Some(sprite) = sprite {

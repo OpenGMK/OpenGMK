@@ -429,6 +429,7 @@ impl Game {
                     let mask = self.get_instance_mask_sprite(handle);
 
                     let outside = if mask.is_some() {
+                        instance.update_bbox(mask);
                         instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
                     } else {
                         point_outside_rect(
@@ -459,6 +460,7 @@ impl Game {
                     let mask = self.get_instance_mask_sprite(handle);
 
                     let intersect = if mask.is_some() {
+                        instance.update_bbox(mask);
                         instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
                     } else {
                         point_outside_rect(
@@ -494,6 +496,7 @@ impl Game {
                         let view = &self.views[i];
 
                         let outside = if mask.is_some() {
+                            instance.update_bbox(mask);
                             instance_outside_rect(
                                 instance,
                                 view.source_x,
@@ -534,6 +537,7 @@ impl Game {
                         let view = &self.views[i];
 
                         let intersect = if mask.is_some() {
+                            instance.update_bbox(mask);
                             instance_intersect_rect(
                                 instance,
                                 view.source_x,
@@ -589,11 +593,11 @@ impl Game {
                             if inst1.solid.get() || inst2.solid.get() {
                                 inst1.x.set(inst1.xprevious.get());
                                 inst1.y.set(inst1.yprevious.get());
-                                inst1.update_bbox(self.get_instance_mask_sprite(instance));
+                                inst1.bbox_is_stale.set(true);
                                 inst1.path_position.set(inst1.path_positionprevious.get());
                                 inst2.x.set(inst2.xprevious.get());
                                 inst2.y.set(inst2.yprevious.get());
-                                inst2.update_bbox(self.get_instance_mask_sprite(target));
+                                inst2.bbox_is_stale.set(true);
                                 inst2.path_position.set(inst2.path_positionprevious.get());
                             }
 
@@ -612,11 +616,11 @@ impl Game {
                                 if inst1.is_active() && inst2.is_active() && self.check_collision(instance, target) {
                                     inst1.x.set(inst1.xprevious.get());
                                     inst1.y.set(inst1.yprevious.get());
-                                    inst1.update_bbox(self.get_instance_mask_sprite(instance));
+                                    inst1.bbox_is_stale.set(true);
                                     inst1.path_position.set(inst1.path_positionprevious.get());
                                     inst2.x.set(inst2.xprevious.get());
                                     inst2.y.set(inst2.yprevious.get());
-                                    inst2.update_bbox(self.get_instance_mask_sprite(target));
+                                    inst2.bbox_is_stale.set(true);
                                     inst2.path_position.set(inst2.path_positionprevious.get());
                                 }
                             }
