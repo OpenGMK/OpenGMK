@@ -157,6 +157,7 @@ pub enum Error {
     WrongArgumentCount(usize, usize),
     FunctionError(String, String),
     ReplayError(String),
+    BadDirectoryError(String),
 }
 
 impl std::error::Error for Error {}
@@ -200,6 +201,7 @@ impl Display for Error {
             Self::WrongArgumentCount(exp, got) => write!(f, "wrong argument count (expected: {}, got: {})", exp, got),
             Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
             Self::ReplayError(s) => write!(f, "{}", s),
+            Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
         }
     }
 }
@@ -974,11 +976,20 @@ impl Game {
             InstanceVariable::Health => Ok(self.health.into()),
             InstanceVariable::GameId => Ok(self.game_id.into()),
             InstanceVariable::WorkingDirectory => {
-                let mut cwd: String = std::env::current_dir().unwrap().to_string_lossy().to_string();
+                // get cwd in WTF-8
+                let os_cwd = std::env::current_dir().unwrap();
+                // try to read as UTF-8
+                let mut cwd =
+                    os_cwd.to_str().ok_or(gml::Error::BadDirectoryError(os_cwd.to_string_lossy().into_owned()))?;
+                // trim if on windows
                 if cfg!(target_os = "windows") {
-                    cwd = cwd.trim_start_matches("\\\\?\\").to_string();
+                    cwd = cwd.trim_start_matches("\\\\?\\");
                 }
-                Ok(cwd.into())
+                // try to encode with current encoding
+                // TODO: maybe try and get the short path name on windows?
+                self.encode_str_maybe(cwd)
+                    .map(|x| x.into_owned().into())
+                    .ok_or(gml::Error::BadDirectoryError(cwd.to_string()))
             },
             InstanceVariable::TempDirectory => todo!("temp_directory getter"),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),

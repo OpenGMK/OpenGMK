@@ -1,5 +1,6 @@
 use super::{DefineInfo, ExternalCall};
 use crate::gml;
+use encoding_rs::Encoding;
 use shared::{dll, message::MessageStream};
 use std::{
     io::{self, Read, Write},
@@ -19,7 +20,7 @@ impl From<dll::Value> for gml::Value {
     fn from(v: dll::Value) -> Self {
         match v {
             dll::Value::Real(x) => x.into(),
-            dll::Value::Str(s) => gml::Value::Str(String::from_utf8_lossy(&s[4..s.len() - 1]).to_string().into()),
+            dll::Value::Str(s) => gml::Value::Str((&s[4..s.len() - 1]).into()),
         }
     }
 }
@@ -68,7 +69,7 @@ fn make_pipe() -> Result<Pipe<'static>, String> {
 pub struct ExternalImpl(u32);
 
 impl ExternalImpl {
-    pub fn new(info: &DefineInfo) -> Result<Self, String> {
+    pub fn new(info: &DefineInfo, encoding: &'static Encoding) -> Result<Self, String> {
         unsafe {
             if BRIDGE.is_none() {
                 let mut bridge_path = std::env::current_exe().unwrap();
@@ -85,8 +86,8 @@ impl ExternalImpl {
         }
         let mut pipe = make_pipe()?;
         pipe.send_message(dll::Message::Define {
-            dll_name: info.dll_name.to_string(),
-            fn_name: info.fn_name.to_string(),
+            dll_name: info.dll_name.decode(encoding).into_owned(),
+            fn_name: info.fn_name.decode(encoding).into_owned(),
             call_conv: info.call_conv,
             res_type: info.res_type,
             arg_types: info.arg_types.clone(),

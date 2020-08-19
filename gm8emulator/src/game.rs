@@ -40,6 +40,8 @@ use crate::{
     math::Real,
     tile, util,
 };
+use encoding_rs::Encoding;
+use gm8exe::asset::PascalString;
 use gmio::{
     atlas::AtlasBuilder,
     render::{Renderer, RendererOptions, Scaling},
@@ -53,6 +55,7 @@ use shared::{
     types::{Colour, ID},
 };
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fs::File,
@@ -144,6 +147,7 @@ pub struct Game {
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
     pub parameters: Vec<String>,
+    pub encoding: &'static Encoding,
 
     // window caption
     pub caption: RCStr,
@@ -199,12 +203,19 @@ pub struct Assets {
     // todo
 }
 
+impl From<PascalString> for RCStr {
+    fn from(s: PascalString) -> Self {
+        s.0.as_ref().into()
+    }
+}
+
 impl Game {
     pub fn launch(
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
         game_arguments: Vec<String>,
+        encoding: &'static Encoding,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -288,36 +299,36 @@ impl Game {
         compiler.reserve_user_constants(constants.len());
 
         // Helper fn for registering asset names as constants
-        fn register_all<T>(compiler: &mut Compiler, assets: &[Option<T>], get_name: fn(&T) -> String) {
+        fn register_all<T>(compiler: &mut Compiler, assets: &[Option<T>], get_name: fn(&T) -> &PascalString) {
             assets
                 .iter()
                 .enumerate()
                 .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-                .for_each(|(i, x)| compiler.register_constant(get_name(x), i as f64))
+                .for_each(|(i, x)| compiler.register_constant(get_name(x).0.clone(), i as f64))
         }
 
         // Register all asset names
         // These are in order of asset precedence, please don't change the order
-        register_all(&mut compiler, &objects, |x| x.name.clone());
-        register_all(&mut compiler, &sprites, |x| x.name.clone());
-        register_all(&mut compiler, &sounds, |x| x.name.clone());
-        register_all(&mut compiler, &backgrounds, |x| x.name.clone());
-        register_all(&mut compiler, &paths, |x| x.name.clone());
-        register_all(&mut compiler, &fonts, |x| x.name.clone());
-        register_all(&mut compiler, &timelines, |x| x.name.clone());
-        register_all(&mut compiler, &scripts, |x| x.name.clone());
-        register_all(&mut compiler, &rooms, |x| x.name.clone());
-        register_all(&mut compiler, &triggers, |x| x.constant_name.clone());
+        register_all(&mut compiler, &objects, |x| &x.name);
+        register_all(&mut compiler, &sprites, |x| &x.name);
+        register_all(&mut compiler, &sounds, |x| &x.name);
+        register_all(&mut compiler, &backgrounds, |x| &x.name);
+        register_all(&mut compiler, &paths, |x| &x.name);
+        register_all(&mut compiler, &fonts, |x| &x.name);
+        register_all(&mut compiler, &timelines, |x| &x.name);
+        register_all(&mut compiler, &scripts, |x| &x.name);
+        register_all(&mut compiler, &rooms, |x| &x.name);
+        register_all(&mut compiler, &triggers, |x| &x.constant_name);
 
         // Register scripts
         scripts
             .iter()
             .enumerate()
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
-            .for_each(|(i, x)| compiler.register_script(x.name.clone(), i));
+            .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
         // Register user constants
-        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.clone(), i));
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
 
         // Set up a Renderer
         let options = RendererOptions {
@@ -427,6 +438,10 @@ impl Game {
             .map(|o| {
                 o.map(|b| {
                     let mut tallest_char_height = 0;
+                    let charset = match gm_version {
+                        Version::GameMaker8_0 => 1, // DEFAULT_CHARSET
+                        Version::GameMaker8_1 => b.charset,
+                    };
                     let chars = b
                         .dmap
                         .chunks_exact(6)
@@ -458,7 +473,8 @@ impl Game {
                         .collect::<Result<Box<_>, ()>>()?;
                     Ok(Box::new(Font {
                         name: b.name.into(),
-                        sys_name: b.sys_name,
+                        sys_name: b.sys_name.into(),
+                        charset,
                         size: b.size,
                         bold: b.bold,
                         italic: b.italic,
@@ -594,7 +610,7 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let compiled = match compiler.compile(&b.source) {
+                    let compiled = match compiler.compile(&b.source.0) {
                         Ok(s) => s,
                         Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
                     };
@@ -608,7 +624,7 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let creation_code = match compiler.compile(&b.creation_code) {
+                    let creation_code = match compiler.compile(&b.creation_code.0) {
                         Ok(c) => c,
                         Err(e) => return Err(format!("Compiler error in room {} creation code: {}", b.name, e)),
                     };
@@ -692,7 +708,7 @@ impl Game {
                                     y: i.y,
                                     object: i.object,
                                     id: i.id,
-                                    creation: match compiler.compile(&i.creation_code) {
+                                    creation: match compiler.compile(&i.creation_code.0) {
                                         Ok(c) => c,
                                         Err(e) => {
                                             return Err(format!(
@@ -736,7 +752,7 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let condition = match compiler.compile(&b.condition) {
+                    let condition = match compiler.compile(&b.condition.0) {
                         Ok(s) => s,
                         Err(e) => return Err(format!("Compiler error in trigger {}: {}", b.name, e)),
                     };
@@ -820,6 +836,7 @@ impl Game {
             open_ini: None,
             spoofed_time_nanos,
             parameters: game_arguments,
+            encoding,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -837,7 +854,7 @@ impl Game {
 
         // Evaluate constants
         for c in &constants {
-            let expr = game.compiler.compile_expression(&c.expression)?;
+            let expr = game.compiler.compile_expression(&c.expression.0)?;
             let dummy_instance = game
                 .instance_list
                 .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
@@ -961,6 +978,23 @@ impl Game {
                 _ => (width, height),
             };
             self.window.resize(width, height);
+        }
+    }
+
+    pub fn decode_str<'a>(&self, string: &'a [u8]) -> Cow<'a, str> {
+        match self.gm_version {
+            Version::GameMaker8_0 => self.encoding.decode_without_bom_handling(string).0,
+            Version::GameMaker8_1 => String::from_utf8_lossy(string),
+        }
+    }
+
+    pub fn encode_str_maybe<'a>(&self, utf8: &'a str) -> Option<Cow<'a, [u8]>> {
+        match self.gm_version {
+            Version::GameMaker8_0 => {
+                let (encoded, _, is_bad) = self.encoding.encode(utf8);
+                if is_bad { None } else { Some(encoded) }
+            },
+            Version::GameMaker8_1 => Some(Cow::from(utf8.as_bytes())),
         }
     }
 
@@ -1398,7 +1432,7 @@ impl Game {
             message::InstanceDetails {
                 id: instance.id.get(),
                 object_name: match assets.objects.get_asset(instance.object_index.get()) {
-                    Some(obj) => obj.name.as_ref().into(),
+                    Some(obj) => obj.name.decode_utf8().into(),
                     None => "<deleted object>".into(),
                 },
                 x: instance.x.get().into(),
