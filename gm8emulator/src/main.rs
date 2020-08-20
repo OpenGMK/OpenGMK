@@ -176,7 +176,9 @@ fn xmain() -> i32 {
         None
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args) {
+    let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
+
+    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, encoding) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

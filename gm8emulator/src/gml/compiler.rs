@@ -12,22 +12,22 @@ use super::{
 };
 use crate::{gml, math::Real};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, str};
 use token::Operator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Compiler {
     /// List of identifiers which represent const values
-    constants: HashMap<String, Value>,
+    constants: HashMap<Box<[u8]>, Value>,
 
     /// Table of user-defined constants to IDs
-    user_constant_names: HashMap<String, usize>,
+    user_constant_names: HashMap<Box<[u8]>, usize>,
 
     /// Table of script names to IDs
-    script_names: HashMap<String, usize>,
+    script_names: HashMap<Box<[u8]>, usize>,
 
     /// Lookup table of unique field names
-    fields: Vec<String>,
+    fields: Vec<Box<[u8]>>,
 }
 
 impl Compiler {
@@ -59,26 +59,25 @@ impl Compiler {
     /// Add a constant and its associated f64 value, such as an asset name.
     /// These constants will override built-in ones, such as c_red. However, if the same constant name is
     /// registered twice, the old one will NOT be overwritten and the value will be dropped, as per GM8.
-    pub fn register_constant(&mut self, name: String, value: f64) {
+    pub fn register_constant(&mut self, name: Box<[u8]>, value: f64) {
         self.constants.entry(name).or_insert(Value::Real(value.into()));
     }
 
-    /// Register a script name and its index.
-    /// Panics if two identical script names are registered - GM8 does not allow this.
-    pub fn register_script(&mut self, name: String, index: usize) {
+    /// Register a script name and its index. Duplicate script names are ignored.
+    pub fn register_script(&mut self, name: Box<[u8]>, index: usize) {
         self.script_names.entry(name).or_insert(index);
     }
 
-    pub fn register_user_constant(&mut self, name: String, index: usize) {
+    pub fn register_user_constant(&mut self, name: Box<[u8]>, index: usize) {
         self.user_constant_names.insert(name, index);
     }
 
     /// Compile a GML string into instructions.
-    pub fn compile(&mut self, source: &str) -> Result<Rc<[Instruction]>, ast::Error> {
+    pub fn compile(&mut self, source: &[u8]) -> Result<Rc<[Instruction]>, ast::Error> {
         let ast = ast::AST::new(source)?;
 
         let mut instructions = Vec::new();
-        let mut locals: Vec<&str> = Vec::new();
+        let mut locals: Vec<&[u8]> = Vec::new();
         for node in ast.iter() {
             self.compile_ast_line(node, &mut instructions, &mut locals);
         }
@@ -86,13 +85,13 @@ impl Compiler {
     }
 
     /// Compile an expression into a format which can be evaluated.
-    pub fn compile_expression(&mut self, source: &str) -> Result<Node, ast::Error> {
+    pub fn compile_expression(&mut self, source: &[u8]) -> Result<Node, ast::Error> {
         let expr = ast::AST::expression(source)?;
         Ok(self.compile_ast_expr(&expr, &[]))
     }
 
     /// Compile a single line of code from an AST expression.
-    fn compile_ast_line<'a>(&mut self, line: &'a ast::Expr, output: &mut Vec<Instruction>, locals: &mut Vec<&'a str>) {
+    fn compile_ast_line<'a>(&mut self, line: &'a ast::Expr, output: &mut Vec<Instruction>, locals: &mut Vec<&'a [u8]>) {
         match line {
             // Line of code identified by an assignment operator
             ast::Expr::Binary(binary_expr) => {
@@ -257,7 +256,7 @@ impl Compiler {
     }
 
     /// Compile an AST expression into a Node.
-    fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&str]) -> Node {
+    fn compile_ast_expr(&mut self, expr: &ast::Expr, locals: &[&[u8]]) -> Node {
         match expr {
             ast::Expr::LiteralReal(real) => Node::Literal { value: Value::Real(Real::from(*real)) },
 
@@ -268,7 +267,11 @@ impl Compiler {
                     Node::Literal { value: entry.clone() }
                 } else if let Some(constant_id) = self.user_constant_names.get(*string) {
                     Node::Constant { constant_id: *constant_id }
-                } else if let Some(f) = mappings::CONSTANTS.iter().find(|(s, _)| s == string).map(|(_, v)| v) {
+                } else if let Some(f) = str::from_utf8(string)
+                    .ok()
+                    .and_then(|s1| mappings::CONSTANTS.iter().find(|(s2, _)| &s1 == s2))
+                    .map(|(_, v)| v)
+                {
                     Node::Literal { value: Value::Real(Real::from(*f)) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
@@ -370,7 +373,10 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some((_, func, _)) = mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &function.name) {
+                } else if let Some((_, func, _)) = str::from_utf8(function.name)
+                    .ok()
+                    .and_then(|n1| mappings::FUNCTIONS.iter().find(|(n2, _, _)| &n1 == n2))
+                {
                     Node::Function {
                         args: function
                             .params
@@ -381,7 +387,9 @@ impl Compiler {
                         function: *func,
                     }
                 } else {
-                    Node::RuntimeError { error: gml::Error::UnknownFunction(function.name.to_string()) }
+                    Node::RuntimeError {
+                        error: gml::Error::UnknownFunction(String::from_utf8_lossy(function.name).into()),
+                    }
                 }
             },
 
@@ -408,23 +416,23 @@ impl Compiler {
     }
 
     /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
-    pub fn get_field_id(&mut self, name: &str) -> usize {
-        if let Some(i) = self.fields.iter().position(|x| x == name) {
+    pub fn get_field_id(&mut self, name: &[u8]) -> usize {
+        if let Some(i) = self.fields.iter().position(|x| x.as_ref() == name) {
             i
         } else {
             // Note: this isn't thread-safe. Add a mutex lock if you want it to be thread-safe.
             let i = self.fields.len();
-            self.fields.push(String::from(name));
+            self.fields.push(name.to_vec().into_boxed_slice());
             i
         }
     }
 
-    pub fn get_script_id(&mut self, name: &str) -> Option<usize> {
+    pub fn get_script_id(&mut self, name: &[u8]) -> Option<usize> {
         self.script_names.get(name).copied()
     }
 
     /// Converts an AST BinaryExpr to an Instruction.
-    fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&str]) -> Instruction {
+    fn binary_to_instruction(&mut self, binary_expr: &ast::BinaryExpr, locals: &[&[u8]]) -> Instruction {
         let modification_type = match binary_expr.op {
             Operator::Assign => None,
             Operator::AssignAdd => Some(BinaryOperator::Add),
@@ -502,10 +510,10 @@ impl Compiler {
     /// If no VarOwner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn identifier_to_variable(
         &mut self,
-        identifier: &str,
+        identifier: &[u8],
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
-        locals: &[&str],
+        locals: &[&[u8]],
     ) -> Node {
         let owner = match owner {
             Some(o) => o,
@@ -530,11 +538,11 @@ impl Compiler {
     /// If no owner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn make_set_instruction(
         &mut self,
-        identifier: &str,
+        identifier: &[u8],
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
         value: Node,
-        locals: &[&str],
+        locals: &[&[u8]],
     ) -> Instruction {
         let owner = match owner {
             Some(o) => o,
@@ -559,12 +567,12 @@ impl Compiler {
     /// If no owner is provided (ie. the variable wasn't specified with one), this function will infer one.
     fn make_modify_instruction(
         &mut self,
-        identifier: &str,
+        identifier: &[u8],
         owner: Option<InstanceIdentifier>,
         array: ArrayAccessor,
         operator: BinaryOperator,
         value: Node,
-        locals: &[&str],
+        locals: &[&[u8]],
     ) -> Instruction {
         let owner = match owner {
             Some(o) => o,
@@ -600,7 +608,7 @@ impl Compiler {
     }
 
     /// Converts an AST node to an InstanceIdentifier.
-    fn make_instance_identifier(&mut self, expression: &ast::Expr, locals: &[&str]) -> InstanceIdentifier {
+    fn make_instance_identifier(&mut self, expression: &ast::Expr, locals: &[&[u8]]) -> InstanceIdentifier {
         let node = self.compile_ast_expr(expression, locals);
         if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
@@ -616,7 +624,7 @@ impl Compiler {
     }
 
     /// Converts a list of expressions into an array accessor (or an error message).
-    fn make_array_accessor(&mut self, expression_list: &[ast::Expr], locals: &[&str]) -> Result<ArrayAccessor, usize> {
+    fn make_array_accessor(&mut self, expression_list: &[ast::Expr], locals: &[&[u8]]) -> Result<ArrayAccessor, usize> {
         match expression_list {
             [] => Ok(ArrayAccessor::None),
             [d] => Ok(ArrayAccessor::Single(Box::new(self.compile_ast_expr(d, locals)))),
@@ -630,6 +638,6 @@ impl Compiler {
 
     /// Get a field name by its ID. This clones the string; it should only be used in the case of an error.
     pub fn get_field_name(&self, id: usize) -> Option<String> {
-        self.fields.get(id).map(String::clone)
+        self.fields.get(id).map(|s| String::from_utf8_lossy(s).into())
     }
 }

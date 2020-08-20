@@ -3,6 +3,7 @@
 use super::{CallConv, DefineInfo, ExternalCall};
 use crate::gml;
 use dll_macros::external_call;
+use encoding_rs::Encoding;
 use shared::dll;
 use std::{
     ffi::{CStr, OsStr},
@@ -44,10 +45,11 @@ pub struct ExternalImpl {
 }
 
 impl ExternalImpl {
-    pub fn new(info: &DefineInfo) -> Result<Self, String> {
-        let mut os_dll_name = OsStr::new(info.dll_name.as_ref()).encode_wide().collect::<Vec<_>>();
+    pub fn new(info: &DefineInfo, encoding: &'static Encoding) -> Result<Self, String> {
+        let dll_name = info.dll_name.decode(encoding);
+        let mut os_dll_name = OsStr::new(dll_name.as_ref()).encode_wide().collect::<Vec<_>>();
         os_dll_name.push(0);
-        let mut os_fn_name = info.fn_name.to_string();
+        let mut os_fn_name = info.fn_name.decode(encoding).into_owned();
         os_fn_name.push('\0');
         unsafe {
             let dll_handle = LoadLibraryW(os_dll_name.as_ptr());
@@ -64,8 +66,8 @@ impl ExternalImpl {
                     GetLastError()
                 ))
             }
-            if info.fn_name.as_ref() == "FMODinit" {
-                dll::apply_fmod_hack(info.dll_name.as_ref(), dll_handle.cast())?;
+            if os_fn_name == "FMODinit\0" {
+                dll::apply_fmod_hack(dll_name.as_ref(), dll_handle.cast())?;
             }
             Ok(Self {
                 dll_handle,

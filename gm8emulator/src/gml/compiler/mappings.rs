@@ -3390,8 +3390,8 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("async_load", InstanceVariable::AsyncLoad),
 ];
 
-pub fn get_instance_variable_by_name(name: &str) -> Option<&InstanceVariable> {
-    INSTANCE_VARIABLES.iter().find(|(s, _)| *s == name).map(|(_, v)| v)
+pub fn get_instance_variable_by_name(name: &[u8]) -> Option<&InstanceVariable> {
+    std::str::from_utf8(name).ok().and_then(|n| INSTANCE_VARIABLES.iter().find(|(s, _)| *s == n).map(|(_, v)| v))
 }
 
 /// Mappings of function names to fn pointers

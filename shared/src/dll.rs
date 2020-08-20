@@ -55,6 +55,16 @@ impl From<&str> for Value {
     }
 }
 
+impl From<&[u8]> for Value {
+    fn from(s: &[u8]) -> Self {
+        let mut buf = Vec::with_capacity(5 + s.len());
+        buf.extend_from_slice(&(s.len() as u32).to_le_bytes());
+        buf.extend_from_slice(s);
+        buf.push(0);
+        Value::Str(buf)
+    }
+}
+
 // Value::Str takes a Pascal string with length but we can't rely on the result being one
 impl From<*const c_char> for Value {
     fn from(s: *const c_char) -> Self {

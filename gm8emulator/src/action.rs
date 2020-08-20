@@ -9,7 +9,7 @@ use crate::{
 };
 use gm8exe::asset::etc::CodeAction;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, str};
 
 /// Consts which match those used in GM8
 pub mod kind {
@@ -147,8 +147,9 @@ impl Tree {
                         // For the FUNCTION execution type, a kernel function name is provided in the action's fn_name.
                         // This is compiled to a function pointer.
                         execution_type::FUNCTION => {
-                            if let Some((_, f_ptr, _)) =
-                                mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &action.fn_name)
+                            if let Some((_, f_ptr, _)) = str::from_utf8(&action.fn_name.0)
+                                .ok()
+                                .and_then(|fn_name| mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &fn_name))
                             {
                                 output.push(Action {
                                     index: i,
@@ -186,7 +187,7 @@ impl Tree {
                                         &action.param_types,
                                         action.param_count,
                                     )?,
-                                    body: GmlBody::Code(compiler.compile(&action.fn_code).map_err(|e| e.message)?),
+                                    body: GmlBody::Code(compiler.compile(&action.fn_code.0).map_err(|e| e.message)?),
                                     if_else,
                                 },
                             });
@@ -217,16 +218,16 @@ impl Tree {
                         relative: action.is_relative,
                         invert_condition: action.invert_condition,
                         body: Body::Repeat {
-                            count: compiler.compile_expression(&action.param_strings[0]).map_err(|e| e.message)?,
+                            count: compiler.compile_expression(&action.param_strings[0].0).map_err(|e| e.message)?,
                             body: body.into_boxed_slice(),
                         },
                     });
                 },
 
                 kind::VARIABLE => {
-                    let code = action.param_strings[0].clone()
-                        + if action.is_relative { "+=" } else { "=" }
-                        + &action.param_strings[1];
+                    let mut code = action.param_strings[0].0.to_vec();
+                    code.extend_from_slice(if action.is_relative { b"+=" } else { b"=" });
+                    code.extend_from_slice(&action.param_strings[1].0);
                     output.push(Action {
                         index: i,
                         target: if action.applies_to_something { Some(action.applies_to) } else { None },
@@ -248,7 +249,7 @@ impl Tree {
                         invert_condition: action.invert_condition,
                         body: Body::Normal {
                             args: Box::new([]),
-                            body: GmlBody::Code(compiler.compile(&action.param_strings[0]).map_err(|e| e.message)?),
+                            body: GmlBody::Code(compiler.compile(&action.param_strings[0].0).map_err(|e| e.message)?),
                             if_else: None,
                         },
                     });
@@ -268,7 +269,7 @@ impl Tree {
 
     fn compile_params(
         compiler: &mut Compiler,
-        params: &[String],
+        params: &[gm8exe::asset::PascalString],
         types: &[u32],
         count: usize,
     ) -> Result<Box<[Node]>, String> {
@@ -277,8 +278,8 @@ impl Tree {
             .zip(types.iter())
             .take(count)
             .map(|(param, t)| match *t {
-                1 | 2 => Ok(Node::Literal { value: Value::Str(param.as_str().into()) }),
-                _ => compiler.compile_expression(param),
+                1 | 2 => Ok(Node::Literal { value: Value::Str(param.0.as_ref().into()) }),
+                _ => compiler.compile_expression(&param.0),
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.message)?

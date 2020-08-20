@@ -14,9 +14,9 @@ pub struct AST<'a>(Vec<Expr<'a>>);
 
 #[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
-    LiteralIdentifier(&'a str),
+    LiteralIdentifier(&'a [u8]),
     LiteralReal(f64),
-    LiteralString(&'a str),
+    LiteralString(&'a [u8]),
 
     Unary(Box<UnaryExpr<'a>>),
     Binary(Box<BinaryExpr<'a>>),
@@ -57,7 +57,7 @@ pub struct BinaryExpr<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionExpr<'a> {
-    pub name: &'a str,
+    pub name: &'a [u8],
     pub params: Vec<Expr<'a>>,
 }
 
@@ -97,12 +97,12 @@ pub struct SwitchExpr<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct VarExpr<'a> {
-    pub vars: Vec<&'a str>,
+    pub vars: Vec<&'a [u8]>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct GlobalVarExpr<'a> {
-    pub vars: Vec<&'a str>,
+    pub vars: Vec<&'a [u8]>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -131,9 +131,9 @@ impl Error {
 impl<'a> fmt::Display for Expr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expr::LiteralIdentifier(id) => write!(f, "{}", id),
+            Expr::LiteralIdentifier(id) => write!(f, "{}", String::from_utf8_lossy(id)),
             Expr::LiteralReal(r) => write!(f, "{}", r),
-            Expr::LiteralString(s) => write!(f, "\"{}\"", s),
+            Expr::LiteralString(s) => write!(f, "\"{}\"", String::from_utf8_lossy(s)),
 
             Expr::Unary(unary) => write!(f, "({} {})", unary.op, unary.child),
             Expr::Binary(binary) => write!(f, "({} {} {})", binary.op, binary.left, binary.right),
@@ -145,7 +145,7 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Function(call) => write!(
                 f,
                 "(@{} {})",
-                call.name,
+                String::from_utf8_lossy(call.name),
                 call.params.iter().fold(String::new(), |acc, fnname| acc + &format!("{} ", fnname)).trim_end()
             ),
             Expr::Group(group) => write!(
@@ -165,12 +165,18 @@ impl<'a> fmt::Display for Expr<'a> {
             Expr::Var(var) => write!(
                 f,
                 "(var {})",
-                var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
+                var.vars
+                    .iter()
+                    .fold(String::new(), |acc, varname| acc + &format!("{} ", String::from_utf8_lossy(varname)))
+                    .trim_end()
             ),
             Expr::GlobalVar(var) => write!(
                 f,
                 "(globalvar {})",
-                var.vars.iter().fold(String::new(), |acc, varname| acc + &format!("{} ", varname)).trim_end()
+                var.vars
+                    .iter()
+                    .fold(String::new(), |acc, varname| acc + &format!("{} ", String::from_utf8_lossy(varname)))
+                    .trim_end()
             ),
             Expr::With(with) => write!(f, "(with {} {})", with.target, with.body),
             Expr::While(while_ex) => write!(f, "(while {} {})", while_ex.cond, while_ex.body),
@@ -244,7 +250,7 @@ impl<'a> IntoIterator for AST<'a> {
 }
 
 impl<'a> AST<'a> {
-    pub fn new(source: &'a str) -> Result<Self, Error> {
+    pub fn new(source: &'a [u8]) -> Result<Self, Error> {
         let mut lex = Lexer::new(source).peekable();
         let mut expressions = Vec::new();
 
@@ -260,7 +266,7 @@ impl<'a> AST<'a> {
         Ok(Self(expressions))
     }
 
-    pub fn expression(source: &'a str) -> Result<Expr<'a>, Error> {
+    pub fn expression(source: &'a [u8]) -> Result<Expr<'a>, Error> {
         let mut lex = Lexer::new(source).peekable();
         let expr = AST::read_binary_tree(&mut lex, None, false)?;
         Ok(expr)
@@ -686,7 +692,7 @@ impl<'a> AST<'a> {
         Ok(lhs)
     }
 
-    fn read_function_call(lex: &mut Peekable<Lexer<'a>>, function_name: &'a str) -> Result<Expr<'a>, Error> {
+    fn read_function_call(lex: &mut Peekable<Lexer<'a>>, function_name: &'a [u8]) -> Result<Expr<'a>, Error> {
         expect_token!(lex.next(), Separator(Separator::ParenLeft));
 
         let mut params = Vec::new();
@@ -756,7 +762,7 @@ mod tests {
 
     /// Helper function for all the AST testcases.
     fn assert_ast(input: &str, expected_output: Option<Vec<Expr>>) {
-        match AST::new(input) {
+        match AST::new(input.as_bytes()) {
             Ok(ast) => {
                 if let Some(e) = expected_output {
                     assert_eq!(*ast, e);
@@ -779,7 +785,7 @@ mod tests {
             "a = 1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::LiteralReal(1.0),
             }))]),
         )
@@ -792,7 +798,7 @@ mod tests {
             "b += 2",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignAdd,
-                left: Expr::LiteralIdentifier("b"),
+                left: Expr::LiteralIdentifier(b"b"),
                 right: Expr::LiteralReal(2.0),
             }))]),
         )
@@ -805,7 +811,7 @@ mod tests {
             "c -= 3",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignSubtract,
-                left: Expr::LiteralIdentifier("c"),
+                left: Expr::LiteralIdentifier(b"c"),
                 right: Expr::LiteralReal(3.0),
             }))]),
         )
@@ -818,7 +824,7 @@ mod tests {
             "d *= 4",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignMultiply,
-                left: Expr::LiteralIdentifier("d"),
+                left: Expr::LiteralIdentifier(b"d"),
                 right: Expr::LiteralReal(4.0),
             }))]),
         )
@@ -831,7 +837,7 @@ mod tests {
             "e /= 5",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignDivide,
-                left: Expr::LiteralIdentifier("e"),
+                left: Expr::LiteralIdentifier(b"e"),
                 right: Expr::LiteralReal(5.0),
             }))]),
         )
@@ -844,7 +850,7 @@ mod tests {
             "f &= 6",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignBitwiseAnd,
-                left: Expr::LiteralIdentifier("f"),
+                left: Expr::LiteralIdentifier(b"f"),
                 right: Expr::LiteralReal(6.0),
             }))]),
         )
@@ -857,7 +863,7 @@ mod tests {
             "g |= 7",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignBitwiseOr,
-                left: Expr::LiteralIdentifier("g"),
+                left: Expr::LiteralIdentifier(b"g"),
                 right: Expr::LiteralReal(7.0),
             }))]),
         )
@@ -870,7 +876,7 @@ mod tests {
             "h ^= 8",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::AssignBitwiseXor,
-                left: Expr::LiteralIdentifier("h"),
+                left: Expr::LiteralIdentifier(b"h"),
                 right: Expr::LiteralReal(8.0),
             }))]),
         )
@@ -909,12 +915,12 @@ mod tests {
                     op: Operator::Index,
                     left: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Deref,
-                        left: Expr::LiteralIdentifier("a"),
-                        right: Expr::LiteralIdentifier("b"),
+                        left: Expr::LiteralIdentifier(b"a"),
+                        right: Expr::LiteralIdentifier(b"b"),
                     })),
-                    right: Expr::Group(vec![Expr::LiteralIdentifier("c")]),
+                    right: Expr::Group(vec![Expr::LiteralIdentifier(b"c")]),
                 })),
-                right: Expr::LiteralIdentifier("d"),
+                right: Expr::LiteralIdentifier(b"d"),
             }))]),
         );
     }
@@ -936,25 +942,25 @@ mod tests {
                                 op: Operator::Index,
                                 left: Expr::Binary(Box::new(BinaryExpr {
                                     op: Operator::Deref,
-                                    left: Expr::LiteralIdentifier("a"),
-                                    right: Expr::LiteralIdentifier("b"),
+                                    left: Expr::LiteralIdentifier(b"a"),
+                                    right: Expr::LiteralIdentifier(b"b"),
                                 })),
-                                right: Expr::Group(vec![Expr::LiteralIdentifier("c")]),
+                                right: Expr::Group(vec![Expr::LiteralIdentifier(b"c")]),
                             })),
-                            right: Expr::LiteralIdentifier("d"),
+                            right: Expr::LiteralIdentifier(b"d"),
                         })),
-                        right: Expr::LiteralIdentifier("e"),
+                        right: Expr::LiteralIdentifier(b"e"),
                     })),
-                    right: Expr::Group(vec![Expr::LiteralIdentifier("f"), Expr::LiteralIdentifier("g")]),
+                    right: Expr::Group(vec![Expr::LiteralIdentifier(b"f"), Expr::LiteralIdentifier(b"g")]),
                 })),
                 right: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Deref,
                     left: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Index,
-                        left: Expr::LiteralIdentifier("h"),
-                        right: Expr::Group(vec![Expr::LiteralIdentifier("i"), Expr::LiteralIdentifier("j")]),
+                        left: Expr::LiteralIdentifier(b"h"),
+                        right: Expr::Group(vec![Expr::LiteralIdentifier(b"i"), Expr::LiteralIdentifier(b"j")]),
                     })),
-                    right: Expr::LiteralIdentifier("k"),
+                    right: Expr::LiteralIdentifier(b"k"),
                 })),
             }))]),
         );
@@ -971,10 +977,10 @@ mod tests {
                     op: Operator::Deref,
                     left: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Add,
-                        left: Expr::LiteralIdentifier("a"),
+                        left: Expr::LiteralIdentifier(b"a"),
                         right: Expr::LiteralReal(1.0),
                     })),
-                    right: Expr::LiteralIdentifier("x"),
+                    right: Expr::LiteralIdentifier(b"x"),
                 })),
                 right: Expr::LiteralReal(400.0),
             }))]),
@@ -988,11 +994,11 @@ mod tests {
             "a=b=c",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Equal,
-                    left: Expr::LiteralIdentifier("b"),
-                    right: Expr::LiteralIdentifier("c"),
+                    left: Expr::LiteralIdentifier(b"b"),
+                    right: Expr::LiteralIdentifier(b"c"),
                 })),
             }))]),
         );
@@ -1011,29 +1017,29 @@ mod tests {
                         op: Operator::Deref,
                         left: Expr::Binary(Box::new(BinaryExpr {
                             op: Operator::Equal,
-                            left: Expr::LiteralIdentifier("a"),
-                            right: Expr::LiteralIdentifier("b"),
+                            left: Expr::LiteralIdentifier(b"a"),
+                            right: Expr::LiteralIdentifier(b"b"),
                         })),
-                        right: Expr::LiteralIdentifier("c"),
+                        right: Expr::LiteralIdentifier(b"c"),
                     })),
                     right: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Equal,
-                        left: Expr::LiteralIdentifier("d"),
-                        right: Expr::LiteralIdentifier("e"),
+                        left: Expr::LiteralIdentifier(b"d"),
+                        right: Expr::LiteralIdentifier(b"e"),
                     }))]),
                 })),
                 right: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Equal,
                     left: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Index,
-                        left: Expr::LiteralIdentifier("f"),
+                        left: Expr::LiteralIdentifier(b"f"),
                         right: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
                             op: Operator::Equal,
-                            left: Expr::LiteralIdentifier("g"),
-                            right: Expr::LiteralIdentifier("h"),
+                            left: Expr::LiteralIdentifier(b"g"),
+                            right: Expr::LiteralIdentifier(b"h"),
                         }))]),
                     })),
-                    right: Expr::LiteralIdentifier("i"),
+                    right: Expr::LiteralIdentifier(b"i"),
                 })),
             }))]),
         );
@@ -1053,7 +1059,7 @@ mod tests {
             "a=+1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Unary(Box::new(UnaryExpr { op: Operator::Add, child: Expr::LiteralReal(1.0) })),
             }))]),
         )
@@ -1066,7 +1072,7 @@ mod tests {
             "a=-1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Unary(Box::new(UnaryExpr { op: Operator::Subtract, child: Expr::LiteralReal(1.0) })),
             }))]),
         )
@@ -1079,7 +1085,7 @@ mod tests {
             "a=~1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Unary(Box::new(UnaryExpr { op: Operator::Complement, child: Expr::LiteralReal(1.0) })),
             }))]),
         )
@@ -1092,7 +1098,7 @@ mod tests {
             "a=!1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Unary(Box::new(UnaryExpr { op: Operator::Not, child: Expr::LiteralReal(1.0) })),
             }))]),
         )
@@ -1105,7 +1111,7 @@ mod tests {
             "a = 1+!~-b.c[+d]-2--3", // (- (- (+ 1 2) 3) 4)
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Subtract,
                     left: Expr::Binary(Box::new(BinaryExpr {
@@ -1123,12 +1129,12 @@ mod tests {
                                             op: Operator::Index,
                                             left: Expr::Binary(Box::new(BinaryExpr {
                                                 op: Operator::Deref,
-                                                left: Expr::LiteralIdentifier("b"),
-                                                right: Expr::LiteralIdentifier("c"),
+                                                left: Expr::LiteralIdentifier(b"b"),
+                                                right: Expr::LiteralIdentifier(b"c"),
                                             })),
                                             right: Expr::Group(vec![Expr::Unary(Box::new(UnaryExpr {
                                                 op: Operator::Add,
-                                                child: Expr::LiteralIdentifier("d"),
+                                                child: Expr::LiteralIdentifier(b"d"),
                                             }))]),
                                         })),
                                     })),
@@ -1150,12 +1156,12 @@ mod tests {
             "a = ~(b + 1)",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::Unary(Box::new(UnaryExpr {
                     op: Operator::Complement,
                     child: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Add,
-                        left: Expr::LiteralIdentifier("b"),
+                        left: Expr::LiteralIdentifier(b"b"),
                         right: Expr::LiteralReal(1.0),
                     })),
                 })),
@@ -1169,11 +1175,11 @@ mod tests {
             // Function call syntax
             "instance_create(random(800), random(608,), apple);",
             Some(vec![Expr::Function(Box::new(FunctionExpr {
-                name: "instance_create",
+                name: b"instance_create",
                 params: vec![
-                    Expr::Function(Box::new(FunctionExpr { name: "random", params: vec![Expr::LiteralReal(800.0)] })),
-                    Expr::Function(Box::new(FunctionExpr { name: "random", params: vec![Expr::LiteralReal(608.0)] })),
-                    Expr::LiteralIdentifier("apple"),
+                    Expr::Function(Box::new(FunctionExpr { name: b"random", params: vec![Expr::LiteralReal(800.0)] })),
+                    Expr::Function(Box::new(FunctionExpr { name: b"random", params: vec![Expr::LiteralReal(608.0)] })),
+                    Expr::LiteralIdentifier(b"apple"),
                 ],
             }))]),
         )
@@ -1187,29 +1193,29 @@ mod tests {
             Some(vec![Expr::For(Box::new(ForExpr {
                 start: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(0.0),
                 })),
                 cond: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::LessThan,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(10.0),
                 })),
                 step: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::AssignAdd,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(1.0),
                 })),
                 body: Expr::Group(vec![
                     Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Assign,
-                        left: Expr::LiteralIdentifier("a"),
+                        left: Expr::LiteralIdentifier(b"a"),
                         right: Expr::LiteralReal(1.0),
                     })),
                     Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Assign,
-                        left: Expr::LiteralIdentifier("b"),
-                        right: Expr::LiteralIdentifier("c"),
+                        left: Expr::LiteralIdentifier(b"b"),
+                        right: Expr::LiteralIdentifier(b"c"),
                     })),
                 ]),
             }))]),
@@ -1224,22 +1230,22 @@ mod tests {
             Some(vec![Expr::For(Box::new(ForExpr {
                 start: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(0.0),
                 })),
                 cond: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::LessThan,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(10.0),
                 })),
                 step: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::AssignAdd,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(1.0),
                 })),
                 body: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("c"),
+                    left: Expr::LiteralIdentifier(b"c"),
                     right: Expr::LiteralReal(3.0),
                 })),
             }))]),
@@ -1254,22 +1260,22 @@ mod tests {
             Some(vec![Expr::For(Box::new(ForExpr {
                 start: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(0.0),
                 })),
                 cond: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::LessThan,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(10.0),
                 })),
                 step: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::AssignAdd,
-                    left: Expr::LiteralIdentifier("i"),
+                    left: Expr::LiteralIdentifier(b"i"),
                     right: Expr::LiteralReal(1.0),
                 })),
                 body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("d"),
+                    left: Expr::LiteralIdentifier(b"d"),
                     right: Expr::LiteralReal(4.0),
                 }))]),
             }))]),
@@ -1282,7 +1288,7 @@ mod tests {
             "a := 1",
             Some(vec![Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Assign,
-                left: Expr::LiteralIdentifier("a"),
+                left: Expr::LiteralIdentifier(b"a"),
                 right: Expr::LiteralReal(1.0),
             }))]),
         );
@@ -1304,23 +1310,23 @@ mod tests {
             Some(vec![Expr::If(Box::new(IfExpr {
                 cond: Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Equal,
-                    left: Expr::LiteralIdentifier("a"),
+                    left: Expr::LiteralIdentifier(b"a"),
                     right: Expr::LiteralReal(1.0),
                 })),
                 body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
                     op: Operator::Assign,
-                    left: Expr::LiteralIdentifier("a"),
+                    left: Expr::LiteralIdentifier(b"a"),
                     right: Expr::LiteralReal(2.0),
                 }))]),
                 else_body: Some(Expr::If(Box::new(IfExpr {
                     cond: Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Equal,
-                        left: Expr::LiteralIdentifier("a"),
+                        left: Expr::LiteralIdentifier(b"a"),
                         right: Expr::LiteralReal(2.0),
                     })),
                     body: Expr::Group(vec![Expr::Binary(Box::new(BinaryExpr {
                         op: Operator::Assign,
-                        left: Expr::LiteralIdentifier("a"),
+                        left: Expr::LiteralIdentifier(b"a"),
                         right: Expr::LiteralReal(4.0),
                     }))]),
                     else_body: None,
@@ -1335,8 +1341,8 @@ mod tests {
             // var syntax - basic constructions
             "var a; var b, c",
             Some(vec![
-                Expr::Var(Box::new(VarExpr { vars: vec!["a"] })),
-                Expr::Var(Box::new(VarExpr { vars: vec!["b", "c"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec![b"b", b"c"] })),
             ]),
         )
     }
@@ -1348,8 +1354,8 @@ mod tests {
             "var; var a,b,; var c,var",
             Some(vec![
                 Expr::Var(Box::new(VarExpr { vars: vec![] })),
-                Expr::Var(Box::new(VarExpr { vars: vec!["a", "b"] })),
-                Expr::Var(Box::new(VarExpr { vars: vec!["c"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a", b"b"] })),
+                Expr::Var(Box::new(VarExpr { vars: vec![b"c"] })),
                 Expr::Var(Box::new(VarExpr { vars: vec![] })),
             ]),
         )
@@ -1365,20 +1371,20 @@ mod tests {
     #[test]
     fn expression_literal_real() {
         // expression - single literal real
-        assert_eq!(AST::expression("1").unwrap(), Expr::LiteralReal(1.0));
+        assert_eq!(AST::expression(b"1").unwrap(), Expr::LiteralReal(1.0));
     }
 
     #[test]
     fn expression_literal_identifier() {
         // expression - literal identifier
-        assert_eq!(AST::expression("a").unwrap(), Expr::LiteralIdentifier("a"));
+        assert_eq!(AST::expression(b"a").unwrap(), Expr::LiteralIdentifier(b"a"));
     }
 
     #[test]
     fn expression_with_operators() {
         // expression - unary and binary operators
         assert_eq!(
-            AST::expression("1 * -2").unwrap(),
+            AST::expression(b"1 * -2").unwrap(),
             Expr::Binary(Box::new(BinaryExpr {
                 op: Operator::Multiply,
                 left: Expr::LiteralReal(1.0),
@@ -1390,6 +1396,6 @@ mod tests {
     #[test]
     fn expression_with_overrun() {
         // expression with extra code after it - extra code should be dropped
-        assert_eq!(AST::expression("0; a=1; game_end()").unwrap(), Expr::LiteralReal(0.0));
+        assert_eq!(AST::expression(b"0; a=1; game_end()").unwrap(), Expr::LiteralReal(0.0));
     }
 }

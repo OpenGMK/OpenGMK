@@ -245,7 +245,18 @@ impl SaveState {
 
         let mut externals = self.externals;
         // we're always gonna be recording if we're loading savestates so disable sound
-        game.externals = externals.drain(..).map(|i| i.map(|i| External::new(i, true).unwrap())).collect();
+        game.externals = externals
+            .drain(..)
+            .map(|i| {
+                i.map(|i| {
+                    External::new(i, true, match game.gm_version {
+                        Version::GameMaker8_0 => game.encoding,
+                        Version::GameMaker8_1 => encoding_rs::UTF_8,
+                    })
+                    .unwrap()
+                })
+            })
+            .collect();
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;

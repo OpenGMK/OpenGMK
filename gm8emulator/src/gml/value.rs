@@ -15,7 +15,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Real(r) => write!(f, "{}", r),
-            Self::Str(s) => write!(f, "\"{}\"", s.as_ref()),
+            Self::Str(s) => write!(f, "\"{}\"", s),
         }
     }
 }
@@ -25,7 +25,7 @@ macro_rules! gml_cmp_impl {
         $(
             $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
                 let freal: fn(Real, Real) -> bool = $r_cond;
-                let fstr: fn(&str, &str) -> bool = $s_cond;
+                let fstr: fn(&[u8], &[u8]) -> bool = $s_cond;
                 if match (self, rhs) {
                     (Self::Real(a), Self::Real(b)) => freal(a, b),
                     (Self::Str(a), Self::Str(b)) => fstr(a.as_ref(), b.as_ref()),
@@ -165,10 +165,10 @@ impl Value {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs + rhs)),
             (Self::Str(lhs), Self::Str(rhs)) => Ok(Self::Str({
-                let mut string = String::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
-                string.push_str(lhs.as_ref());
-                string.push_str(rhs.as_ref());
-                RCStr::from(string)
+                let mut buf = Vec::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
+                buf.extend_from_slice(lhs.as_ref());
+                buf.extend_from_slice(rhs.as_ref());
+                RCStr::from(buf)
             })),
             (x, y) => invalid_op!(Add, x, y),
         }
@@ -179,10 +179,10 @@ impl Value {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs += rhs),
             (Self::Str(lhs), Self::Str(ref rhs)) => {
                 // TODO: a
-                let mut string = String::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
-                string.push_str(lhs.as_ref());
-                string.push_str(rhs.as_ref());
-                *lhs = string.into();
+                let mut buf = Vec::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
+                buf.extend_from_slice(lhs.as_ref());
+                buf.extend_from_slice(rhs.as_ref());
+                *lhs = buf.into();
                 Ok(())
             },
             (x, y) => invalid_op!(AssignAdd, x.clone(), y),
@@ -321,7 +321,7 @@ impl Value {
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
+        let mut bytes = Vec::with_capacity(16);
         match self {
             Self::Real(x) => {
                 bytes.resize(4, 0);
@@ -332,7 +332,7 @@ impl Value {
                 bytes.push(1);
                 bytes.resize(12, 0);
                 bytes.extend_from_slice(&(s.as_ref().len() as u32).to_le_bytes());
-                bytes.extend_from_slice(s.as_ref().as_bytes());
+                bytes.extend_from_slice(s.as_ref());
             },
         }
         bytes
@@ -348,7 +348,7 @@ impl Value {
                     let len = u32::from_le_bytes(block[12..16].try_into().unwrap());
                     let mut buf = vec![0; len as usize];
                     reader.read_exact(&mut buf).ok()?;
-                    String::from_utf8(buf).ok().map(|s| s.into())
+                    Some(Self::Str(buf.into()))
                 },
                 _ => None,
             }
@@ -412,6 +412,18 @@ impl From<&str> for Value {
     }
 }
 
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Self::Str(value.into())
+    }
+}
+
+impl From<&[u8]> for Value {
+    fn from(value: &[u8]) -> Self {
+        Self::Str(value.into())
+    }
+}
+
 impl From<Value> for i32 {
     // For lazy-converting a value into an i32.
     fn from(value: Value) -> Self {
@@ -458,6 +470,16 @@ impl From<Value> for RCStr {
         match value {
             Value::Real(_) => String::new().into(),
             Value::Str(s) => s,
+        }
+    }
+}
+
+impl<'a> From<&'a Value> for &'a [u8] {
+    // For lazy-converting a value into bytes.
+    fn from(value: &'a Value) -> Self {
+        match value {
+            Value::Real(_) => b"",
+            Value::Str(s) => s.as_ref(),
         }
     }
 }

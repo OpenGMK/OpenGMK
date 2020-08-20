@@ -91,7 +91,6 @@ The goal of this project is to create a program which will be able to parse GM8 
 ## Contributing
 This project has only been worked on by a few people so far in their little free time, contributions are very welcome - however we'd encourage getting in touch beforehand.
 
-## Credits
-- [Adamcake](https://github.com/Adamcake)'s absurd amount of runtime research.
+## Additional Credits
 - [DatZach](https://github.com/DatZach)'s [decompiler](https://github.com/WastedMeerkat/gm81decompiler) for "documenting" the loading sequence.
 - [Jabberwock-RU](https://github.com/Jabberwock-RU) for the new project (& organization) icon.

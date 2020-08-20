@@ -7,6 +7,7 @@ use crate::{
     gml::{self, Value},
 };
 use cfg_if::cfg_if;
+use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 use shared::dll;
 
@@ -48,21 +49,24 @@ pub trait ExternalCall {
 }
 
 impl External {
-    pub fn new(info: DefineInfo, disable_sound: bool) -> Result<Self, String> {
+    pub fn new(info: DefineInfo, disable_sound: bool, encoding: &'static Encoding) -> Result<Self, String> {
         if info.arg_types.len() > 4 && info.arg_types.contains(&dll::ValueType::Str) {
             return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
         }
         if info.arg_types.len() >= 16 {
             return Err("DLL functions can have at most 16 arguments".into())
         }
-        let mut dll_name_lower =
-            std::path::Path::new(info.dll_name.as_ref()).file_name().unwrap().to_string_lossy().to_string();
+        let mut dll_name_lower = std::path::Path::new(info.dll_name.decode(encoding).as_ref())
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         dll_name_lower.make_ascii_lowercase();
         let call = match dll_name_lower.as_str() {
             "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
                 Call::Dummy(info.res_type)
             },
-            _ => Call::DllCall(Box::new(platform::ExternalImpl::new(&info)?)),
+            _ => Call::DllCall(Box::new(platform::ExternalImpl::new(&info, encoding)?)),
         };
         Ok(Self { call, info })
     }
