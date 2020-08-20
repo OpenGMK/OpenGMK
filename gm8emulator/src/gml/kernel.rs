@@ -6744,7 +6744,7 @@ impl Game {
             for (src, dest) in args.iter().zip(new_args.iter_mut()) {
                 *dest = src.clone();
             }
-            match std::fs::read(path.to_string()) {
+            match std::fs::read(self.decode_str(path.as_ref()).as_ref()) {
                 Ok(code) => {
                     new_args[0] = code.into();
                     self.execute_string(context, &new_args)
@@ -7165,7 +7165,7 @@ impl Game {
     pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let sprite = expect_args!(args, [int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
-            Ok(sprite.name.to_string().into())
+            Ok(sprite.name.clone().into())
         } else {
             Ok("<undefined>".into())
         }
