@@ -3,3 +3,6 @@
 **/*.exe
 **/*.gmk
 **/*.gm81
+
+/.idea
+/.vscode
