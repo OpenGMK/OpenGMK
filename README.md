@@ -1,15 +1,28 @@
 [![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/8e3gqib3d6er2p2l?svg=true)](https://ci.appveyor.com/project/viri/gm8decompiler)
 [![Build Status (Travis)](https://travis-ci.com/OpenGM8/GM8Decompiler.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Decompiler)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![Discord](https://discordapp.com/api/guilds/730417804368412686/widget.png?style=shield)](http://gmemu.com/discord)
 
 # GM8Decompiler
-An open-source decompiler for GameMaker 8 executables. Reverts any GM8 game back to .gmk or .gm81 format.
+An open-source decompiler for GameMaker 8.x executables.
+Reverts any game back to .gmk or .gm81 format respectively.
 
 ## How it works
-GameMaker 8 executables contain two sections: the regular part which is virtualized by Windows, called the "runner", and a phase file containing all the game's assets, called the "gamedata". The gamedata contains all of the assets (sprites, rooms, GML code, etc...) which were exported from the GMK file when the game was built. When the game is run, it reads its gamedata section from disk and uses it to start the game. Since all the assets can be read from the gamedata by anyone who has the file, it is possible to extract them all and create a GMK from them. That's what this does.
+GameMaker 8 executables contain two sections:
+the regular part which is virtualized by Windows, called the "runner",
+and a phase file containing all the game's assets, called the "gamedata".
+The gamedata contains all of the assets (sprites, rooms, GML code, etc...)
+which were exported from the GMK file when the game was built.
+When the game is run, it reads its gamedata section from disk and uses it to start the game.
+Since all the assets can be read from the gamedata by anyone who has the file,
+it is possible to revert it to its original project file.
+That's what this tool does.
 
 ## Background
-My old decompiler was based on a fork of [WastedMeerkat's gm81decompiler](https://github.com/WastedMeerkat/gm81decompiler) which, while an excellent resource, was very messy and had several deep-seated bugs. For that reason and a few others, we eventually decided to create this project from scratch in Rust. It's based on our gm8exe library, [which is now a part of this repo](./gm8exe/), originally created for emulation purposes. This loader has been measured to be over ten times faster than the old one. It's also safer, more thorough, and supports more games.
-
-## Contact
-For any enquiries contact gm8emulator@gmail.com
+Originally, we created a fork of [WastedMeerkat's gm81decompiler](https://github.com/WastedMeerkat/gm81decompiler)
+which, while an excellent resource, was very messy and had several deep-seated bugs.
+For that reason and a few others, we eventually decided to create this project from scratch in Rust.
+It's based on our new gm8exe library, [which is now a part of this repo](./gm8exe/),
+originally created for emulation purposes.
+This loader has been measured to be **over ten times faster** than the old one.
+It's also safer, more thorough, and supports more games.
