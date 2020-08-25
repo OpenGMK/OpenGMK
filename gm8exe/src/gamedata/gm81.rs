@@ -202,9 +202,8 @@ where
 
     // Decrypt stream from encryption_start
     let game_data = &mut data.get_mut()[encryption_start as usize..];
-    let iter =
-        game_data.chunks_exact_mut(4).map(|slice| <&mut [u8] as TryInto<&mut [u8; 4]>>::try_into(slice).unwrap());
-    for chunk in iter {
+    let array_hack = |slice| <&mut [u8] as TryInto<&mut [u8; 4]>>::try_into(slice).unwrap();
+    for chunk in game_data.chunks_exact_mut(4).map(array_hack) {
         let dword = u32::from_le_bytes(*chunk);
         *chunk = (dword ^ generator.next().unwrap()).to_le_bytes();
     }
