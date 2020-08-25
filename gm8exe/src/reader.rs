@@ -268,7 +268,7 @@ where
         log!(logger, "   -   -> Color Depth: {}", match colour_depth {
             0 => "No Change",
             1 => "16-Bit",
-            2 | _ => "32-Bit",
+            _ => "32-Bit",
         });
 
         log!(logger, "   -   -> Resolution: {}", match resolution {
@@ -278,7 +278,7 @@ where
             3 => "800x600",
             4 => "1024x768",
             5 => "1280x1024",
-            6 | _ => "1600x1200",
+            _ => "1600x1200",
         });
 
         log!(logger, "   -   -> Frequency: {}", match frequency {
@@ -287,7 +287,7 @@ where
             2 => "70Hz",
             3 => "85Hz",
             4 => "100Hz",
-            5 | _ => "120Hz",
+            _ => "120Hz",
         });
 
         log!(logger, "   - Don't show the buttons in the window captions: {}", dont_show_buttons);
@@ -311,7 +311,7 @@ where
         log!(logger, "   - Game Process Priority: {}", match priority {
             0 => "Normal",
             1 => "High",
-            2 | _ => "Highest",
+            _ => "Highest",
         });
 
         log!(logger, "   - Freeze the game window when the window loses focus: {}", freeze_on_lose_focus);
@@ -319,7 +319,7 @@ where
         log!(logger, "   - Loading bar: {}", match loading_bar {
             0 => "No loading progress bar",
             1 => "Default loading progress bar",
-            2 | _ => "Own loading progress bar",
+            _ => "Own loading progress bar",
         });
 
         log!(logger, "   - Show your own image while loading: {}", custom_load_image.is_some());

@@ -86,7 +86,7 @@ impl Asset for IncludedFile {
             0 => ExportSetting::NoExport,
             1 => ExportSetting::TempFolder,
             2 => ExportSetting::GameFolder,
-            3 | _ => ExportSetting::CustomFolder(custom_folder_path),
+            _ => ExportSetting::CustomFolder(custom_folder_path),
         };
 
         let overwrite_file = reader.read_u32_le()? != 0;
