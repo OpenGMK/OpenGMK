@@ -221,6 +221,7 @@ struct NormalMaskGenerator {
 impl Iterator for NormalMaskGenerator {
     type Item = u32;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.seed1 = (0xFFFF & self.seed1) * 0x9069 + (self.seed1 >> 16);
         self.seed2 = (0xFFFF & self.seed2) * 0x4650 + (self.seed2 >> 16);
@@ -236,6 +237,7 @@ struct SudalvMaskGenerator<I: Iterator<Item = u16>> {
 impl<I: Iterator<Item = u16>> Iterator for SudalvMaskGenerator<I> {
     type Item = u32;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.seed1 = (0xFFFF & self.seed1) * u32::from(self.iter.next().unwrap()) + (self.seed1 >> 16);
         self.seed2 = (0xFFFF & self.seed2) * u32::from(self.iter.next().unwrap()) + (self.seed2 >> 16);
