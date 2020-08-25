@@ -1,6 +1,3 @@
-#![allow(clippy::new_without_default)]
-#![allow(clippy::unreadable_literal)]
-
 use gm8exe::GameVersion;
 use std::{
     env, fs,

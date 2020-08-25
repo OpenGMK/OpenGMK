@@ -29,3 +29,9 @@ impl Write for ZlibWriter {
         self.encoder.flush()
     }
 }
+
+impl Default for ZlibWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
