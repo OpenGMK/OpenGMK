@@ -107,11 +107,9 @@ impl Game {
             point.x *= instance.path_scale.get();
             point.y *= instance.path_scale.get();
             let angle = instance.path_orientation.get().to_radians();
-            util::rotate_around(
+            util::rotate_around_center(
                 point.x.as_mut_ref(),
                 point.y.as_mut_ref(),
-                0.0,
-                0.0,
                 angle.sin().into(),
                 angle.cos().into(),
             );
