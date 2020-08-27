@@ -544,8 +544,8 @@ impl Serialize for InstanceList {
         list.serialize_field("chunks", &self.chunks)?;
         list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
-        list.serialize_field("object_id_map", &self.object_id_map)?;
-        list.serialize_field("inactive_id_map", &self.inactive_id_map)?;
+        list.serialize_field("object_id_map", &defrag_map(&self.object_id_map, &self.insert_order))?;
+        list.serialize_field("inactive_id_map", &defrag_map(&self.inactive_id_map, &self.insert_order))?;
         list.end()
     }
 }
@@ -567,6 +567,18 @@ fn defrag(list: &[usize]) -> Vec<usize> {
     let mut output = Vec::with_capacity(list.len());
     for i in list.iter() {
         output.push(list.iter().copied().filter(|x| x < i).count())
+    }
+    output
+}
+
+fn defrag_map(map: &HashMap<i32, Vec<usize>>, all_insts: &[usize]) -> HashMap<i32, Vec<usize>> {
+    let mut output = HashMap::new();
+    for (obj_id, in_vec) in map.iter() {
+        let mut out_vec = Vec::with_capacity(in_vec.len());
+        for i in in_vec.iter() {
+            out_vec.push(all_insts.iter().copied().filter(|x| x < i).count())
+        }
+        output.insert(*obj_id, out_vec);
     }
     output
 }
