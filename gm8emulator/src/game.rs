@@ -1474,7 +1474,7 @@ impl Game {
         // Wait for a Hello, then send an update
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => (),
+                Some(None) => std::thread::yield_now(),
                 Some(Some(m)) => match m {
                     Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
                         // Create or load savefile, depending if it exists

@@ -719,7 +719,7 @@ impl ControlPanel {
                     break Ok(true)
                 },
                 Err(e) => break Err(e.into()),
-                _ => (),
+                _ => std::thread::yield_now(),
             }
         }
     }

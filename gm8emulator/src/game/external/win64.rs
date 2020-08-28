@@ -5,6 +5,7 @@ use shared::{dll, message::MessageStream};
 use std::{
     io::{self, Read, Write},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    thread,
 };
 
 impl From<&gml::Value> for dll::Value {
@@ -98,7 +99,7 @@ impl ExternalImpl {
         let mut read_buffer = Vec::new();
         loop {
             match pipe.receive_message::<dll::DefineResult>(&mut read_buffer).map_err(|e| e.to_string())? {
-                Some(None) => (),
+                Some(None) => thread::yield_now(),
                 Some(Some(message)) => return message.map(ExternalImpl),
                 None => return Err("The DLL bridge process was terminated mid-call.".into()),
             }
@@ -116,7 +117,7 @@ impl ExternalCall for ExternalImpl {
         let mut read_buffer = Vec::new();
         loop {
             match pipe.receive_message::<dll::Value>(&mut read_buffer).map_err(|e| e.to_string())? {
-                Some(None) => (),
+                Some(None) => thread::yield_now(),
                 Some(Some(message)) => return Ok(message.into()),
                 None => return Err("The DLL bridge process was terminated mid-call.".into()),
             }
