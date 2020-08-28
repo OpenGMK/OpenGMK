@@ -588,6 +588,12 @@ impl RendererTrait for RendererImpl {
             }
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
 
+            // verify it actually worked
+            match self.gl.GetError() {
+                0 => (),
+                err => return Err(format!("Failed to generate framebuffers! (OpenGL code {})", err)),
+            }
+
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
             self.fbo_ids = fbo_ids;
@@ -669,6 +675,12 @@ impl RendererTrait for RendererImpl {
 
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
             self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+
+            // verify it actually worked
+            match self.gl.GetError() {
+                0 => (),
+                err => return Err(format!("Failed to duplicate texture! (OpenGL code {})", err)),
+            }
         }
         Ok(new_sprite)
     }
@@ -688,6 +700,9 @@ impl RendererTrait for RendererImpl {
                     self.gl.DeleteFramebuffers(1, fbo);
                 }
                 self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+            }
+            unsafe {
+                assert_eq!(self.gl.GetError(), 0);
             }
         }
     }
@@ -1406,6 +1421,12 @@ impl RendererTrait for RendererImpl {
         }
 
         unsafe {
+            // if something else broke check here just in case
+            match self.gl.GetError() {
+                0 => (),
+                err => panic!("OpenGL threw an error somewhere (error code {})", err),
+            }
+
             self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
             let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
