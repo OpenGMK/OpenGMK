@@ -1521,7 +1521,7 @@ impl Game {
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => (),
+                Some(None) => self.renderer.wait_vsync(),
                 Some(Some(m)) => match m {
                     Message::Advance {
                         key_inputs,
