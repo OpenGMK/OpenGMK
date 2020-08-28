@@ -1558,9 +1558,11 @@ impl RendererTrait for RendererImpl {
         self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
 
         // Set viewport (gl::Viewport, gl::Scissor)
-        unsafe {
-            self.gl.Viewport(port_x, port_y, port_w, port_h);
-            self.gl.Scissor(port_x, port_y, port_w, port_h);
+        if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
+            unsafe {
+                self.gl.Viewport(port_x, port_y, port_w, port_h);
+                self.gl.Scissor(port_x, port_y, port_w, port_h);
+            }
         }
     }
 
