@@ -445,6 +445,7 @@ impl RendererImpl {
             // clear screen
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
@@ -482,6 +483,7 @@ impl RendererImpl {
                 ],
             );
             self.gl.UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 }
@@ -500,6 +502,7 @@ impl RendererTrait for RendererImpl {
                 // TODO: find proper fix or maybe allow allocating 16384x8192?
                 size = 8192;
             }
+            assert_eq!(self.gl.GetError(), 0);
         }
         size.max(0) as u32
     }
@@ -646,6 +649,7 @@ impl RendererTrait for RendererImpl {
 
             // cleanup
             self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+            assert_eq!(self.gl.GetError(), 0);
         }
         Ok(atlas_ref)
     }
@@ -767,6 +771,10 @@ impl RendererTrait for RendererImpl {
             self.gl.GenFramebuffers(1, &mut fbo);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
             self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+            match self.gl.GetError() {
+                0 => (),
+                err => return Err(format!("Failed to generate framebuffer! (OpenGL code {})", err)),
+            }
 
             // store opengl texture handles
             self.texture_ids[atlas_id as usize] = Some(tex_id);
@@ -775,6 +783,7 @@ impl RendererTrait for RendererImpl {
             // cleanup
             self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
+            assert_eq!(self.gl.GetError(), 0);
         }
         let sprite_id = self.sprite_count;
         self.sprite_count += 1;
@@ -786,6 +795,7 @@ impl RendererTrait for RendererImpl {
         if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
             unsafe {
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
+                assert_eq!(self.gl.GetError(), 0);
             }
             self.set_view(
                 atlas_ref.x,
@@ -811,6 +821,7 @@ impl RendererTrait for RendererImpl {
             self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
+            assert_eq!(self.gl.GetError(), 0);
             self.set_view(0, 0, fb_width, fb_height, 0.0, 0, 0, fb_width, fb_height);
         }
     }
@@ -839,6 +850,7 @@ impl RendererTrait for RendererImpl {
                 gl::UNSIGNED_BYTE, // type
                 ptr::null(),       // data
             );
+            assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
             let old_fbo = self.framebuffer_fbo;
             self.gl.GenFramebuffers(1, &mut self.framebuffer_fbo);
@@ -850,6 +862,7 @@ impl RendererTrait for RendererImpl {
                 self.framebuffer_texture,
                 0,
             );
+            assert_eq!(self.gl.GetError(), 0);
             // draw old fb onto new
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, old_fbo);
             let copy_width = width.min(old_width as _);
@@ -866,9 +879,11 @@ impl RendererTrait for RendererImpl {
                 gl::COLOR_BUFFER_BIT,
                 gl::LINEAR,
             );
+            assert_eq!(self.gl.GetError(), 0);
             // delete old texture and fbo
             self.gl.DeleteTextures(1, &old_tex);
             self.gl.DeleteFramebuffers(1, &old_fbo);
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
@@ -919,6 +934,7 @@ impl RendererTrait for RendererImpl {
 
             // cleanup
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as GLuint);
+            assert_eq!(self.gl.GetError(), 0);
 
             data.into_boxed_slice()
         }
@@ -931,6 +947,7 @@ impl RendererTrait for RendererImpl {
             data.set_len(len);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
             self.gl.ReadPixels(x, y, w, h, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            assert_eq!(self.gl.GetError(), 0);
             data.into_boxed_slice()
         }
     }
@@ -1376,6 +1393,7 @@ impl RendererTrait for RendererImpl {
         unsafe {
             self.gl.GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
             self.gl.GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
+            assert_eq!(self.gl.GetError(), 0);
         }
         ((src as GLenum).into(), (dst as GLenum).into())
     }
@@ -1384,6 +1402,7 @@ impl RendererTrait for RendererImpl {
         self.flush_queue();
         unsafe {
             self.gl.BlendFunc(src.into(), dst.into());
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
@@ -1410,6 +1429,7 @@ impl RendererTrait for RendererImpl {
             self.texture_repeat = repeat;
             unsafe {
                 self.gl.Uniform1i(self.loc_repeat, repeat as _);
+                assert_eq!(self.gl.GetError(), 0);
             }
         }
     }
@@ -1442,6 +1462,7 @@ impl RendererTrait for RendererImpl {
                 self.vertex_queue.as_ptr().cast(),
                 gl::STATIC_DRAW,
             );
+            assert_eq!(self.gl.GetError(), 0);
 
             self.gl.Uniform1i(self.loc_tex, 0 as _);
 
@@ -1499,6 +1520,7 @@ impl RendererTrait for RendererImpl {
             self.gl.DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
 
             self.gl.DeleteBuffers(1, &commands_vbo);
+            assert_eq!(self.gl.GetError(), 0);
         }
 
         self.vertex_queue.clear();
@@ -1583,6 +1605,7 @@ impl RendererTrait for RendererImpl {
             unsafe {
                 self.gl.Viewport(port_x, port_y, port_w, port_h);
                 self.gl.Scissor(port_x, port_y, port_w, port_h);
+                assert_eq!(self.gl.GetError(), 0);
             }
         }
     }
@@ -1592,6 +1615,7 @@ impl RendererTrait for RendererImpl {
         unsafe {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
@@ -1669,6 +1693,7 @@ impl RendererTrait for RendererImpl {
                 // Present buffer
                 self.imp.swap_buffers();
             }
+            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
