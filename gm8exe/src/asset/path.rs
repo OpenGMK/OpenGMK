@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 
-use minio::{ReadPrimitives, WritePrimitives};
+
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 530;

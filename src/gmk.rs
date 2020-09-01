@@ -5,7 +5,7 @@ use gm8exe::{
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };
-use minio::WritePrimitives;
+
 use rayon::prelude::*;
 use std::{io, u32};
 

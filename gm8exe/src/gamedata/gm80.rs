@@ -1,4 +1,4 @@
-use minio::ReadPrimitives;
+
 use std::{
     cmp::max,
     io::{self, Read, Seek, SeekFrom},

@@ -1,5 +1,5 @@
 use crate::reader::PESection;
-use minio::{ReadPrimitives, WritePrimitives};
+
 use std::io::{self, Seek, SeekFrom};
 
 /// A windows icon from the .rsrc header

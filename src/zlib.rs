@@ -1,5 +1,5 @@
 use flate2::write::ZlibEncoder;
-use minio::WritePrimitives;
+
 use std::io::{self, Write};
 
 /// Takes some data and writes the compressed data to the cursor in GM8 format.

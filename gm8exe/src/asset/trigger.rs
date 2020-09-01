@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 
-use minio::{ReadPrimitives, WritePrimitives};
+
 use std::{
     fmt::{self, Display},
     io::{self, Seek, SeekFrom},

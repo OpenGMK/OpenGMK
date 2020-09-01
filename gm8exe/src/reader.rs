@@ -6,7 +6,7 @@ use crate::{
     GameAssets, GameVersion,
 };
 use flate2::bufread::ZlibDecoder;
-use minio::ReadPrimitives;
+
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     error::Error,

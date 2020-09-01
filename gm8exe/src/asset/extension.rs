@@ -3,7 +3,7 @@ use crate::{
     reader::inflate,
 };
 
-use minio::ReadPrimitives;
+
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 700;

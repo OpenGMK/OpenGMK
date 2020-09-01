@@ -1,4 +1,4 @@
-use minio::ReadPrimitives;
+
 use std::{
     convert::TryInto,
     io::{self, Read, Seek, SeekFrom},
