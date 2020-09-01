@@ -2,8 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     convert::TryInto,
     io::{self, Seek, SeekFrom},
@@ -73,29 +72,29 @@ impl Asset for Sprite {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let origin_x = reader.read_i32_le()?;
-        let origin_y = reader.read_i32_le()?;
-        let frame_count = reader.read_u32_le()?;
+        let origin_x = reader.read_i32::<LE>()?;
+        let origin_y = reader.read_i32::<LE>()?;
+        let frame_count = reader.read_u32::<LE>()?;
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
             let mut frames = Vec::with_capacity(frame_count as usize);
             for _ in 0..frame_count {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_FRAME)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let frame_width = reader.read_u32_le()?;
-                let frame_height = reader.read_u32_le()?;
+                let frame_width = reader.read_u32::<LE>()?;
+                let frame_height = reader.read_u32::<LE>()?;
 
-                let pixeldata_len = reader.read_u32_le()? as usize;
+                let pixeldata_len = reader.read_u32::<LE>()? as usize;
 
                 // read pixeldata
                 let pos = reader.position() as usize;
@@ -113,18 +112,18 @@ impl Asset for Sprite {
                 T: AsRef<[u8]>,
             {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_COLLISION)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let width = reader.read_u32_le()?;
-                let height = reader.read_u32_le()?;
-                let bbox_left = reader.read_u32_le()?;
-                let bbox_right = reader.read_u32_le()?;
-                let bbox_bottom = reader.read_u32_le()?;
-                let bbox_top = reader.read_u32_le()?;
+                let width = reader.read_u32::<LE>()?;
+                let height = reader.read_u32::<LE>()?;
+                let bbox_left = reader.read_u32::<LE>()?;
+                let bbox_right = reader.read_u32::<LE>()?;
+                let bbox_bottom = reader.read_u32::<LE>()?;
+                let bbox_top = reader.read_u32::<LE>()?;
 
                 let mask_size = width as usize * height as usize;
                 let pos = reader.position() as usize;
@@ -153,7 +152,7 @@ impl Asset for Sprite {
             }
 
             let mut colliders: Vec<CollisionMap>;
-            let per_frame_colliders = reader.read_u32_le()? != 0;
+            let per_frame_colliders = reader.read_u32::<LE>()? != 0;
             if per_frame_colliders {
                 colliders = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
@@ -175,35 +174,35 @@ impl Asset for Sprite {
         W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION as u32)?;
-        result += writer.write_i32_le(self.origin_x)?;
-        result += writer.write_i32_le(self.origin_y)?;
+        result += writer.write_u32::<LE>(VERSION as u32)?;
+        result += writer.write_i32::<LE>(self.origin_x)?;
+        result += writer.write_i32::<LE>(self.origin_y)?;
         if !self.frames.is_empty() {
-            result += writer.write_u32_le(self.frames.len() as u32)?;
+            result += writer.write_u32::<LE>(self.frames.len() as u32)?;
             for frame in self.frames.iter() {
-                result += writer.write_u32_le(VERSION_FRAME)?;
-                result += writer.write_u32_le(frame.width)?;
-                result += writer.write_u32_le(frame.height)?;
-                result += writer.write_u32_le(frame.data.len() as u32)?;
+                result += writer.write_u32::<LE>(VERSION_FRAME)?;
+                result += writer.write_u32::<LE>(frame.width)?;
+                result += writer.write_u32::<LE>(frame.height)?;
+                result += writer.write_u32::<LE>(frame.data.len() as u32)?;
 
                 let pixeldata = frame.data.clone();
                 result += writer.write_all(&pixeldata).map(|()| pixeldata.len())?;
             }
-            result += writer.write_u32_le(self.per_frame_colliders as u32)?;
+            result += writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
             for collider in self.colliders.iter() {
-                result += writer.write_u32_le(VERSION_COLLISION)?;
-                result += writer.write_u32_le(collider.width)?;
-                result += writer.write_u32_le(collider.height)?;
-                result += writer.write_u32_le(collider.bbox_left)?;
-                result += writer.write_u32_le(collider.bbox_right)?;
-                result += writer.write_u32_le(collider.bbox_bottom)?;
-                result += writer.write_u32_le(collider.bbox_top)?;
+                result += writer.write_u32::<LE>(VERSION_COLLISION)?;
+                result += writer.write_u32::<LE>(collider.width)?;
+                result += writer.write_u32::<LE>(collider.height)?;
+                result += writer.write_u32::<LE>(collider.bbox_left)?;
+                result += writer.write_u32::<LE>(collider.bbox_right)?;
+                result += writer.write_u32::<LE>(collider.bbox_bottom)?;
+                result += writer.write_u32::<LE>(collider.bbox_top)?;
                 for pixel in &*collider.data {
-                    result += writer.write_u32_le(*pixel as u32)?;
+                    result += writer.write_u32::<LE>(*pixel as u32)?;
                 }
             }
         } else {
-            result += writer.write_u32_le(0)?;
+            result += writer.write_u32::<LE>(0)?;
         }
 
         Ok(result)
