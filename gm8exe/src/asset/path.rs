@@ -52,12 +52,7 @@ impl From<u32> for ConnectionKind {
 }
 
 impl Asset for Path {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -81,22 +76,19 @@ impl Asset for Path {
         Ok(Path { name, connection, precision, closed, points })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION)?;
-        result += writer.write_u32::<LE>(self.connection as u32)?;
-        result += writer.write_u32::<LE>(self.closed as u32)?;
-        result += writer.write_u32::<LE>(self.precision as u32)?;
-        result += writer.write_u32::<LE>(self.points.len() as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.connection as u32)?;
+        writer.write_u32::<LE>(self.closed as u32)?;
+        writer.write_u32::<LE>(self.precision as u32)?;
+        // TODO: add debug assertions for these lengths everywhere, for real
+        writer.write_u32::<LE>(self.points.len() as u32)?;
         for point in self.points.iter() {
-            result += writer.write_f64::<LE>(point.x)?;
-            result += writer.write_f64::<LE>(point.y)?;
-            result += writer.write_f64::<LE>(point.speed)?;
+            writer.write_f64::<LE>(point.x)?;
+            writer.write_f64::<LE>(point.y)?;
+            writer.write_f64::<LE>(point.speed)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }
