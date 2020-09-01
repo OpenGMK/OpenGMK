@@ -48,13 +48,7 @@ pub enum ExportSetting {
 }
 
 impl Asset for IncludedFile {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
-
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
@@ -106,10 +100,7 @@ impl Asset for IncludedFile {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.file_name)?;
         writer.write_pas_string(&self.source_path)?;
@@ -117,10 +108,10 @@ impl Asset for IncludedFile {
         writer.write_u32::<LE>(self.source_length as u32)?;
         writer.write_u32::<LE>(self.stored_in_gmk as u32)?;
         if let Some(data) = &self.embedded_data {
-            result += writer.write_u32::<LE>(data.len() as u32)?;
+            writer.write_u32::<LE>(data.len() as u32)?;
             // TODO: minio.write_buffer?
             writer.write_all(data)?;
-            result += data.len();
+            data.len();
         }
         match &self.export_settings {
             ExportSetting::NoExport => {
