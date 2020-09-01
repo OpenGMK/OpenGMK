@@ -436,7 +436,7 @@ where
 }
 
 // Writes a DnD Code Action
-pub fn write_action<W>(writer: &mut W, action: &asset::etc::CodeAction) -> io::Result<usize>
+pub fn write_action<W>(writer: &mut W, action: &asset::CodeAction) -> io::Result<usize>
 where
     W: io::Write,
 {

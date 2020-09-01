@@ -1,4 +1,5 @@
 pub mod background;
+pub mod codeaction;
 pub mod constant;
 pub mod extension;
 pub mod font;
@@ -12,10 +13,9 @@ pub mod sprite;
 pub mod timeline;
 pub mod trigger;
 
-pub mod etc;
-
 pub use self::{
     background::Background,
+    codeaction::CodeAction,
     constant::Constant,
     extension::Extension,
     font::Font,

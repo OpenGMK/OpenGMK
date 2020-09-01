@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
