@@ -1,5 +1,5 @@
 use crate::reader::ReaderError;
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io;
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer
@@ -27,7 +27,7 @@ where
     ) -> Result<(), ReaderError> {
         let (b, w) = mask_buffer.overflowing_add(*mask_buffer);
         if b == 0 {
-            let v = data.read_u32_le()?;
+            let v = data.read_u32::<LE>()?;
             let (b, w) = v.overflowing_add(v);
             *mask_buffer = b + 1;
             *next_bit_buffer = w;
@@ -40,7 +40,7 @@ where
     }
 
     // Data always starts with a bitmask, so let's pull it in and assign our buffers their IVs
-    let v = data.read_u32_le()?;
+    let v = data.read_u32::<LE>()?;
     let (b, w) = v.overflowing_add(v);
     let mut mask_buffer = b + 1;
     let mut next_bit_buffer = w;
