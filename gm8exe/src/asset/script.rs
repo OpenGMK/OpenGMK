@@ -16,12 +16,7 @@ pub struct Script {
 }
 
 impl Asset for Script {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -35,14 +30,10 @@ impl Asset for Script {
         Ok(Script { name, source })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION as u32)?;
-        result += writer.write_pas_string(&self.source)?;
-
-        Ok(result)
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION as u32)?;
+        writer.write_pas_string(&self.source)?;
+        Ok(())
     }
 }
