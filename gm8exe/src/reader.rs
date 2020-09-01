@@ -16,7 +16,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum ReaderError {
-    AssetError(AssetDataError),
+    AssetError(Error),
     InvalidExeHeader,
     IO(io::Error),
     PartialUPXPacking,
@@ -47,7 +47,7 @@ macro_rules! from_err {
     };
 }
 
-from_err!(ReaderError, AssetDataError, AssetError);
+from_err!(ReaderError, Error, AssetError);
 from_err!(ReaderError, io::Error, IO);
 
 /// Helper function for inflating zlib data.
@@ -441,7 +441,7 @@ where
     ) -> Result<Vec<Option<Box<T>>>, ReaderError>
     where
         T: Send,
-        F: Fn(&[u8]) -> Result<T, AssetDataError> + Sync,
+        F: Fn(&[u8]) -> Result<T, Error> + Sync,
     {
         let to_asset = |ch| {
             inflate(&ch).and_then(|data| {
@@ -450,7 +450,7 @@ where
                     Some(&[0, 0, 0, 0]) => Ok(None),
                     // If there are at least 4 bytes (Some) then [4..] will yield a 0-size slice.
                     Some(_) => Ok(Some(Box::new(deserializer(data.get(4..).unwrap_or_else(|| unreachable!()))?))),
-                    None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
+                    None => Err(ReaderError::AssetError(Error::MalformedData)),
                 }
             })
         };

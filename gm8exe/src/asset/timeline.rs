@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, etc::CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -17,7 +17,7 @@ pub struct Timeline {
 }
 
 impl Asset for Timeline {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
         Self: Sized,

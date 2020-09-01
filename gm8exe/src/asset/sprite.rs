@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -63,7 +63,7 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
         Self: Sized,
@@ -101,13 +101,13 @@ impl Asset for Sprite {
                 reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
                 let data = match reader.get_mut().get(pos..pos + pixeldata_len) {
                     Some(b) => b.to_vec().into_boxed_slice(),
-                    None => return Err(AssetDataError::MalformedData),
+                    None => return Err(Error::MalformedData),
                 };
 
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
 
-            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, AssetDataError>
+            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, Error>
             where
                 T: AsRef<[u8]>,
             {
@@ -137,7 +137,7 @@ impl Asset for Sprite {
                             u32::from_le_bytes(*<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap()) != 0
                         })
                         .collect(),
-                    None => return Err(AssetDataError::MalformedData),
+                    None => return Err(Error::MalformedData),
                 };
 
                 Ok(CollisionMap {

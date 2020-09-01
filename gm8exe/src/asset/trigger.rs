@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -57,7 +57,7 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
         Self: Sized,

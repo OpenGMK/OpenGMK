@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, etc::CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -46,7 +46,7 @@ pub struct Object {
 }
 
 impl Asset for Object {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
         Self: Sized,
@@ -76,7 +76,7 @@ impl Asset for Object {
         // Oh, also, it's 0..=n so the number is actually 11 instead of 12 because there are 12 lists. Yeah.
         let event_list_count = reader.read_u32::<LE>()?;
         if event_list_count != 11 {
-            return Err(AssetDataError::MalformedData);
+            return Err(Error::MalformedData);
         }
         let mut events = Vec::with_capacity((event_list_count + 1) as usize);
 

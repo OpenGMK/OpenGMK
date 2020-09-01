@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -25,7 +25,7 @@ pub struct Background {
 }
 
 impl Asset for Background {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
         Self: Sized,
@@ -49,14 +49,14 @@ impl Asset for Background {
 
             // sanity check
             if data_len != (width * height * 4) {
-                return Err(AssetDataError::MalformedData);
+                return Err(Error::MalformedData);
             }
 
             let pos = reader.position() as usize;
             let len = data_len as usize;
             let buf = match reader.into_inner().get(pos..pos + len) {
                 Some(b) => b.to_vec(),
-                None => return Err(AssetDataError::MalformedData),
+                None => return Err(Error::MalformedData),
             };
 
             Ok(Background { name, width, height, data: Some(buf.into_boxed_slice()) })

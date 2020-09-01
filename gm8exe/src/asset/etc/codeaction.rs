@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Error, PascalString, ReadPascalString, WritePascalString},
     def::ID,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -54,7 +54,7 @@ pub struct CodeAction {
 }
 
 impl CodeAction {
-    pub fn from_cur<B>(reader: &mut Cursor<B>, strict: bool) -> Result<Self, AssetDataError>
+    pub fn from_cur<B>(reader: &mut Cursor<B>, strict: bool) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
     {
@@ -78,12 +78,12 @@ impl CodeAction {
 
         let param_count = reader.read_u32::<LE>()? as usize;
         if param_count > PARAM_COUNT {
-            return Err(AssetDataError::MalformedData);
+            return Err(Error::MalformedData);
         }
 
         // type count - should always be 8
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
-            return Err(AssetDataError::MalformedData);
+            return Err(Error::MalformedData);
         }
 
         let mut param_types = [0u32; PARAM_COUNT];
@@ -96,7 +96,7 @@ impl CodeAction {
 
         // arg count - should always be 8
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
-            return Err(AssetDataError::MalformedData);
+            return Err(Error::MalformedData);
         }
 
         let mut param_strings: [PascalString; 8] = Default::default();

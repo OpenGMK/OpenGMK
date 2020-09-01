@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, AssetDataError, PascalString, ReadPascalString},
+    asset::{assert_ver, Error, PascalString, ReadPascalString},
     reader::inflate,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -116,7 +116,7 @@ impl From<u32> for CallingConvention {
 }
 
 impl Extension {
-    pub fn read(reader: &mut io::Cursor<&mut [u8]>, strict: bool) -> Result<Self, AssetDataError> {
+    pub fn read(reader: &mut io::Cursor<&mut [u8]>, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
@@ -239,7 +239,7 @@ impl Extension {
                     file.contents =
                         match inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())) {
                             Ok(x) => x.into_boxed_slice(),
-                            Err(_) => return Err(AssetDataError::MalformedData),
+                            Err(_) => return Err(Error::MalformedData),
                         };
                 }
             }
