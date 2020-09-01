@@ -1627,6 +1627,7 @@ impl RendererTrait for RendererImpl {
         unsafe {
             let mut fb_draw = 0;
             self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
+            assert_eq!(self.gl.GetError(), 0);
             if fb_draw == self.framebuffer_fbo as _ {
                 // Finish drawing frame
                 self.flush_queue();
@@ -1690,10 +1691,16 @@ impl RendererTrait for RendererImpl {
 
                 self.gl.Enable(gl::SCISSOR_TEST);
 
+                assert_eq!(self.gl.GetError(), 0);
+
                 // Present buffer
                 self.imp.swap_buffers();
+
+                // On Nvidia/AMD cards, unless the emulator is running in admin mode, if it is screenshared on Discord,
+                // SwapBuffers will return TRUE i.e. no error, but glGetError will return GL_INVALID_OPERATION.
+                // This hack evades the error, but a less awful solution would be really nice to have.
+                self.gl.GetError();
             }
-            assert_eq!(self.gl.GetError(), 0);
         }
     }
 
