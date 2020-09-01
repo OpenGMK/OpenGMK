@@ -25,12 +25,7 @@ pub struct Background {
 }
 
 impl Asset for Background {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -39,7 +34,7 @@ impl Asset for Background {
             assert_ver(version1, VERSION1)?;
             assert_ver(version2, VERSION2)?;
         } else {
-            reader.seek(SeekFrom::Current(8))?;
+            reader.seek(SeekFrom::Current(8))?; // TODO: sizeof u32
         }
 
         let width = reader.read_u32::<LE>()?;
@@ -54,6 +49,8 @@ impl Asset for Background {
 
             let pos = reader.position() as usize;
             let len = data_len as usize;
+
+            // TODO: this will not build. use read_all, fucking dumbass
             let buf = match reader.into_inner().get(pos..pos + len) {
                 Some(b) => b.to_vec(),
                 None => return Err(Error::MalformedData),
@@ -65,10 +62,7 @@ impl Asset for Background {
         }
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION1 as u32)?;
         writer.write_u32::<LE>(VERSION2 as u32)?;
