@@ -6,7 +6,7 @@ use std::{
 
 /// The settings used to decrypt antidec2-protected data, usually extracted from machine code
 #[derive(Copy, Clone)]
-pub struct AntidecMetadata {
+pub struct Metadata {
     pub exe_load_offset: u32,
     pub header_start: u32,
     pub xor_mask: u32,
@@ -16,7 +16,7 @@ pub struct AntidecMetadata {
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe (GM8.0).
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
-pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMetadata>> {
+pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < (0x144AC0 as usize) + 4 {
         return Ok(None);
@@ -48,7 +48,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         // sub mask
         exe.set_position(0x000322E4);
         let sub_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
-        Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
+        Ok(Some(Metadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
     }
@@ -56,7 +56,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
 
 /// Helper function for checking whether a data stream looks like an antidec2-protected exe (GM8.1).
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
-pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMetadata>> {
+pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x1F0C53 as usize {
         return Ok(None);
@@ -86,7 +86,7 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         // sub mask
         exe.set_position(0x00046293);
         let sub_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
-        Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
+        Ok(Some(Metadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
     }
@@ -95,7 +95,7 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
 /// Removes antidec2 encryption from gamedata, given the IVs required to do so.
 /// Also sets the cursor to the start of the gamedata.
 /// Returns true on success, or false indicating that the provided settings are incompatible with the data.
-pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: AntidecMetadata) -> io::Result<bool> {
+pub fn decrypt(data: &mut io::Cursor<&mut [u8]>, settings: Metadata) -> io::Result<bool> {
     // Offset in the file where the header is
     let offset = settings.exe_load_offset + settings.header_start;
     // Subtract 4 from that position to make sure the first chunk gets decrypted, in case it isn't 4-byte aligned
