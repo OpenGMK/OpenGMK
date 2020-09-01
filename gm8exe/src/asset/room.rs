@@ -111,12 +111,7 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -226,78 +221,70 @@ impl Asset for Room {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION)?;
-        result += writer.write_pas_string(&self.caption)?;
-        result += writer.write_u32::<LE>(self.width)?;
-        result += writer.write_u32::<LE>(self.height)?;
-        result += writer.write_u32::<LE>(self.speed)?;
-        result += writer.write_u32::<LE>(self.persistent as u32)?;
-        result += writer.write_u32::<LE>(self.bg_colour.into())?;
-        result += writer.write_u32::<LE>(
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_pas_string(&self.caption)?;
+        writer.write_u32::<LE>(self.width)?;
+        writer.write_u32::<LE>(self.height)?;
+        writer.write_u32::<LE>(self.speed)?;
+        writer.write_u32::<LE>(self.persistent as u32)?;
+        writer.write_u32::<LE>(self.bg_colour.into())?;
+        writer.write_u32::<LE>(
             ((!self.clear_region as u32) << 1) | (self.clear_screen as u32)
         )?;
-        result += writer.write_pas_string(&self.creation_code)?;
-
-        result += writer.write_u32::<LE>(self.backgrounds.len() as u32)?;
+        writer.write_pas_string(&self.creation_code)?;
+        writer.write_u32::<LE>(self.backgrounds.len() as u32)?;
         for background in &self.backgrounds {
-            result += writer.write_u32::<LE>(background.visible_on_start as u32)?;
-            result += writer.write_u32::<LE>(background.is_foreground as u32)?;
-            result += writer.write_i32::<LE>(background.source_bg)?;
-            result += writer.write_i32::<LE>(background.xoffset)?;
-            result += writer.write_i32::<LE>(background.yoffset)?;
-            result += writer.write_u32::<LE>(background.tile_horz as u32)?;
-            result += writer.write_u32::<LE>(background.tile_vert as u32)?;
-            result += writer.write_i32::<LE>(background.hspeed)?;
-            result += writer.write_i32::<LE>(background.vspeed)?;
-            result += writer.write_u32::<LE>(background.stretch as u32)?;
+            writer.write_u32::<LE>(background.visible_on_start as u32)?;
+            writer.write_u32::<LE>(background.is_foreground as u32)?;
+            writer.write_i32::<LE>(background.source_bg)?;
+            writer.write_i32::<LE>(background.xoffset)?;
+            writer.write_i32::<LE>(background.yoffset)?;
+            writer.write_u32::<LE>(background.tile_horz as u32)?;
+            writer.write_u32::<LE>(background.tile_vert as u32)?;
+            writer.write_i32::<LE>(background.hspeed)?;
+            writer.write_i32::<LE>(background.vspeed)?;
+            writer.write_u32::<LE>(background.stretch as u32)?;
         }
-
-        result += writer.write_u32::<LE>(self.views_enabled as u32)?;
-        result += writer.write_u32::<LE>(self.views.len() as u32)?;
+        writer.write_u32::<LE>(self.views_enabled as u32)?;
+        writer.write_u32::<LE>(self.views.len() as u32)?;
         for view in &self.views {
-            result += writer.write_u32::<LE>(view.visible as u32)?;
-            result += writer.write_i32::<LE>(view.source_x)?;
-            result += writer.write_i32::<LE>(view.source_y)?;
-            result += writer.write_u32::<LE>(view.source_w)?;
-            result += writer.write_u32::<LE>(view.source_h)?;
-            result += writer.write_i32::<LE>(view.port_x)?;
-            result += writer.write_i32::<LE>(view.port_y)?;
-            result += writer.write_u32::<LE>(view.port_w)?;
-            result += writer.write_u32::<LE>(view.port_h)?;
-            result += writer.write_i32::<LE>(view.following.hborder)?;
-            result += writer.write_i32::<LE>(view.following.vborder)?;
-            result += writer.write_i32::<LE>(view.following.hspeed)?;
-            result += writer.write_i32::<LE>(view.following.vspeed)?;
-            result += writer.write_i32::<LE>(view.following.target)?;
+            writer.write_u32::<LE>(view.visible as u32)?;
+            writer.write_i32::<LE>(view.source_x)?;
+            writer.write_i32::<LE>(view.source_y)?;
+            writer.write_u32::<LE>(view.source_w)?;
+            writer.write_u32::<LE>(view.source_h)?;
+            writer.write_i32::<LE>(view.port_x)?;
+            writer.write_i32::<LE>(view.port_y)?;
+            writer.write_u32::<LE>(view.port_w)?;
+            writer.write_u32::<LE>(view.port_h)?;
+            writer.write_i32::<LE>(view.following.hborder)?;
+            writer.write_i32::<LE>(view.following.vborder)?;
+            writer.write_i32::<LE>(view.following.hspeed)?;
+            writer.write_i32::<LE>(view.following.vspeed)?;
+            writer.write_i32::<LE>(view.following.target)?;
         }
-
-        result += writer.write_u32::<LE>(self.instances.len() as u32)?;
+        writer.write_u32::<LE>(self.instances.len() as u32)?; // TODO: srsly grep for 'len as u32'
         for instance in &self.instances {
-            result += writer.write_i32::<LE>(instance.x)?;
-            result += writer.write_i32::<LE>(instance.y)?;
-            result += writer.write_i32::<LE>(instance.object)?;
-            result += writer.write_i32::<LE>(instance.id)?;
-            result += writer.write_pas_string(&instance.creation_code)?;
+            writer.write_i32::<LE>(instance.x)?;
+            writer.write_i32::<LE>(instance.y)?;
+            writer.write_i32::<LE>(instance.object)?;
+            writer.write_i32::<LE>(instance.id)?;
+            writer.write_pas_string(&instance.creation_code)?;
         }
-
-        result += writer.write_u32::<LE>(self.tiles.len() as u32)?;
+        writer.write_u32::<LE>(self.tiles.len() as u32)?;
         for tile in &self.tiles {
-            result += writer.write_i32::<LE>(tile.x)?;
-            result += writer.write_i32::<LE>(tile.y)?;
-            result += writer.write_i32::<LE>(tile.source_bg)?;
-            result += writer.write_u32::<LE>(tile.tile_x)?;
-            result += writer.write_u32::<LE>(tile.tile_y)?;
-            result += writer.write_u32::<LE>(tile.width)?;
-            result += writer.write_u32::<LE>(tile.height)?;
-            result += writer.write_i32::<LE>(tile.depth)?;
-            result += writer.write_i32::<LE>(tile.id)?;
+            writer.write_i32::<LE>(tile.x)?;
+            writer.write_i32::<LE>(tile.y)?;
+            writer.write_i32::<LE>(tile.source_bg)?;
+            writer.write_u32::<LE>(tile.tile_x)?;
+            writer.write_u32::<LE>(tile.tile_y)?;
+            writer.write_u32::<LE>(tile.width)?;
+            writer.write_u32::<LE>(tile.height)?;
+            writer.write_i32::<LE>(tile.depth)?;
+            writer.write_i32::<LE>(tile.id)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }
