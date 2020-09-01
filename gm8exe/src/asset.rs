@@ -2,7 +2,7 @@ pub mod background;
 pub mod constant;
 pub mod extension;
 pub mod font;
-pub mod includedfile;
+pub mod included_file;
 pub mod object;
 pub mod path;
 pub mod room;
@@ -19,7 +19,7 @@ pub use self::{
     constant::Constant,
     extension::Extension,
     font::Font,
-    includedfile::IncludedFile,
+    included_file::IncludedFile,
     object::Object,
     path::Path,
     room::Room,

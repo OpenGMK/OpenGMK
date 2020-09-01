@@ -1,7 +1,7 @@
 use crate::{collision, zlib::ZlibWriter};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
-    asset::{self, includedfile::ExportSetting, PascalString},
+    asset::{self, included_file::ExportSetting, PascalString},
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };

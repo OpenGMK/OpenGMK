@@ -651,7 +651,7 @@ where
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
-        use crate::asset::includedfile::ExportSetting;
+        use crate::asset::included_file::ExportSetting;
         for file in &included_files {
             log!(
                 logger,
