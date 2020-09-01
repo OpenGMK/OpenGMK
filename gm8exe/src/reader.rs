@@ -482,7 +482,7 @@ where
 
     // Triggers
     assert_ver!("triggers header", 800, exe.read_u32::<LE>()?)?;
-    let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, a_strict, a_version), multithread)?;
+    let triggers = get_assets(&mut exe, |data| Trigger::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         triggers.iter().flatten().for_each(|trigger| {
             log!(
@@ -508,7 +508,7 @@ where
 
     // Sounds
     assert_ver!("sounds header", 800, exe.read_u32::<LE>()?)?;
-    let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, a_strict, a_version), multithread)?;
+    let sounds = get_assets(&mut exe, |data| Sound::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         sounds.iter().flatten().for_each(|sound| {
             log!(logger, " + Added sound '{}' ({})", sound.name, sound.source);
@@ -517,7 +517,7 @@ where
 
     // Sprites
     assert_ver!("sprites header", 800, exe.read_u32::<LE>()?)?;
-    let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, a_strict, a_version), multithread)?;
+    let sprites = get_assets(&mut exe, |data| Sprite::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         sprites.iter().flatten().for_each(|sprite| {
             let framecount = sprite.frames.len();
@@ -539,7 +539,7 @@ where
 
     // Backgrounds
     assert_ver!("backgrounds header", 800, exe.read_u32::<LE>()?)?;
-    let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, a_strict, a_version), multithread)?;
+    let backgrounds = get_assets(&mut exe, |data| Background::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         backgrounds.iter().flatten().for_each(|background| {
             log!(logger, " + Added background '{}' ({}x{})", background.name, background.width, background.height);
@@ -548,7 +548,7 @@ where
 
     // Paths
     assert_ver!("paths header", 800, exe.read_u32::<LE>()?)?;
-    let paths = get_assets(&mut exe, |data| Path::deserialize(data, a_strict, a_version), multithread)?;
+    let paths = get_assets(&mut exe, |data| Path::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         use crate::asset::path::ConnectionKind;
 
@@ -571,7 +571,7 @@ where
 
     // Scripts
     assert_ver!("scripts header", 800, exe.read_u32::<LE>()?)?;
-    let scripts = get_assets(&mut exe, |data| Script::deserialize(data, a_strict, a_version), multithread)?;
+    let scripts = get_assets(&mut exe, |data| Script::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         scripts.iter().flatten().for_each(|script| {
             log!(logger, " + Added script '{}'", script.name);
@@ -580,7 +580,7 @@ where
 
     // Fonts
     assert_ver!("fonts header", 800, exe.read_u32::<LE>()?)?;
-    let fonts = get_assets(&mut exe, |data| Font::deserialize(data, a_strict, a_version), multithread)?;
+    let fonts = get_assets(&mut exe, |data| Font::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         fonts.iter().flatten().for_each(|font| {
             log!(
@@ -597,7 +597,7 @@ where
 
     // Timelines
     assert_ver!("timelines header", 800, exe.read_u32::<LE>()?)?;
-    let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, a_strict, a_version), multithread)?;
+    let timelines = get_assets(&mut exe, |data| Timeline::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         timelines.iter().flatten().for_each(|timeline| {
             log!(logger, " + Added timeline '{}' (moments: {})", timeline.name, timeline.moments.len());
@@ -606,7 +606,7 @@ where
 
     // Objects
     assert_ver!("objects header", 800, exe.read_u32::<LE>()?)?;
-    let objects = get_assets(&mut exe, |data| Object::deserialize(data, a_strict, a_version), multithread)?;
+    let objects = get_assets(&mut exe, |data| Object::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         objects.iter().flatten().for_each(|object| {
             log!(
@@ -623,7 +623,7 @@ where
 
     // Rooms
     assert_ver!("rooms header", 800, exe.read_u32::<LE>()?)?;
-    let rooms = get_assets(&mut exe, |data| Room::deserialize(data, a_strict, a_version), multithread)?;
+    let rooms = get_assets(&mut exe, |data| Room::deserialize_exe(data, a_strict, a_version), multithread)?;
     if logger.is_some() {
         rooms.iter().flatten().for_each(|room| {
             log!(
@@ -647,7 +647,7 @@ where
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into()))
+            inflate(chunk).and_then(|data| IncludedFile::deserialize_exe(data, a_strict, a_version).map_err(|e| e.into()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
