@@ -9,7 +9,6 @@ use byteorder::{LE, ReadBytesExt};
 use flate2::bufread::ZlibDecoder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
-    error::Error,
     fmt::{self, Display},
     io::{self, Read, Seek, SeekFrom},
 };
@@ -22,7 +21,7 @@ pub enum ReaderError {
     PartialUPXPacking,
     UnknownFormat,
 }
-impl Error for ReaderError {}
+impl std::error::Error for ReaderError {}
 impl Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
@@ -176,7 +175,7 @@ where
                 if got == expected {
                     Ok(())
                 } else {
-                    Err(ReaderError::AssetError(AssetDataError::VersionError { expected, got }))
+                    Err(ReaderError::AssetError(Error::VersionError { expected, got }))
                 }
             } else {
                 Ok(())
