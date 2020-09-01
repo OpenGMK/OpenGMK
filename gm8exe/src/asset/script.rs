@@ -2,8 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
@@ -26,7 +25,7 @@ impl Asset for Script {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
@@ -41,7 +40,7 @@ impl Asset for Script {
         W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION as u32)?;
+        result += writer.write_u32::<LE>(VERSION as u32)?;
         result += writer.write_pas_string(&self.source)?;
 
         Ok(result)
