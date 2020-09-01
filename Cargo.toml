@@ -9,6 +9,7 @@ edition = "2018"
 chrono = "0.4"
 
 [dependencies]
+byteorder = "1"
 flate2 = "1.0.12"
 getopts = "0.2.21"
 gm8exe = { path = "gm8exe" }
