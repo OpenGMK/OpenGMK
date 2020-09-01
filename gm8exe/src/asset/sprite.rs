@@ -63,12 +63,7 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -134,6 +129,7 @@ impl Asset for Sprite {
                         .map(|ch| {
                             // until we get const generics we need to do this to get an exact array.
                             // panic is unreachable and is optimized out.
+                            // TODO: you can use byteorder for this!! please!!!
                             u32::from_le_bytes(*<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap()) != 0
                         })
                         .collect(),
@@ -169,42 +165,37 @@ impl Asset for Sprite {
         Ok(Sprite { name, origin_x, origin_y, frames, colliders, per_frame_colliders })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION as u32)?;
-        result += writer.write_i32::<LE>(self.origin_x)?;
-        result += writer.write_i32::<LE>(self.origin_y)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION as u32)?;
+        writer.write_i32::<LE>(self.origin_x)?;
+        writer.write_i32::<LE>(self.origin_y)?;
         if !self.frames.is_empty() {
-            result += writer.write_u32::<LE>(self.frames.len() as u32)?;
+            writer.write_u32::<LE>(self.frames.len() as u32)?; // TODO: len as u32
             for frame in self.frames.iter() {
-                result += writer.write_u32::<LE>(VERSION_FRAME)?;
-                result += writer.write_u32::<LE>(frame.width)?;
-                result += writer.write_u32::<LE>(frame.height)?;
-                result += writer.write_u32::<LE>(frame.data.len() as u32)?;
-
+                writer.write_u32::<LE>(VERSION_FRAME)?;
+                writer.write_u32::<LE>(frame.width)?;
+                writer.write_u32::<LE>(frame.height)?;
+                writer.write_u32::<LE>(frame.data.len() as u32)?;
                 let pixeldata = frame.data.clone();
-                result += writer.write_all(&pixeldata).map(|()| pixeldata.len())?;
+                writer.write_all(&pixeldata)?;
             }
-            result += writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
+            writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
             for collider in self.colliders.iter() {
-                result += writer.write_u32::<LE>(VERSION_COLLISION)?;
-                result += writer.write_u32::<LE>(collider.width)?;
-                result += writer.write_u32::<LE>(collider.height)?;
-                result += writer.write_u32::<LE>(collider.bbox_left)?;
-                result += writer.write_u32::<LE>(collider.bbox_right)?;
-                result += writer.write_u32::<LE>(collider.bbox_bottom)?;
-                result += writer.write_u32::<LE>(collider.bbox_top)?;
+                writer.write_u32::<LE>(VERSION_COLLISION)?;
+                writer.write_u32::<LE>(collider.width)?;
+                writer.write_u32::<LE>(collider.height)?;
+                writer.write_u32::<LE>(collider.bbox_left)?;
+                writer.write_u32::<LE>(collider.bbox_right)?;
+                writer.write_u32::<LE>(collider.bbox_bottom)?;
+                writer.write_u32::<LE>(collider.bbox_top)?;
                 for pixel in &*collider.data {
-                    result += writer.write_u32::<LE>(*pixel as u32)?;
+                    writer.write_u32::<LE>(*pixel as u32)?;
                 }
             }
         } else {
-            result += writer.write_u32::<LE>(0)?;
+            writer.write_u32::<LE>(0)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }
