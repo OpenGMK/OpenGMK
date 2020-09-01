@@ -2,8 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     fmt::{self, Display},
     io::{self, Seek, SeekFrom},
@@ -65,7 +64,7 @@ impl Asset for Trigger {
     {
         let mut reader = io::Cursor::new(bytes.as_ref());
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
@@ -73,7 +72,7 @@ impl Asset for Trigger {
 
         let name = reader.read_pas_string()?;
         let condition = reader.read_pas_string()?;
-        let moment = TriggerKind::from(reader.read_u32_le()?);
+        let moment = TriggerKind::from(reader.read_u32::<LE>()?);
         let constant_name = reader.read_pas_string()?;
 
         Ok(Trigger { name, condition, moment, constant_name })
@@ -83,10 +82,10 @@ impl Asset for Trigger {
     where
         W: io::Write,
     {
-        let mut result = writer.write_u32_le(VERSION as u32)?;
+        let mut result = writer.write_u32::<LE>(VERSION as u32)?;
         result += writer.write_pas_string(&self.name)?;
         result += writer.write_pas_string(&self.condition)?;
-        result += writer.write_u32_le(self.moment as u32)?;
+        result += writer.write_u32::<LE>(self.moment as u32)?;
         result += writer.write_pas_string(&self.constant_name)?;
 
         Ok(result)
