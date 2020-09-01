@@ -2,8 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 530;
@@ -62,21 +61,21 @@ impl Asset for Path {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let connection = ConnectionKind::from(reader.read_u32_le()?);
+        let connection = ConnectionKind::from(reader.read_u32::<LE>()?);
 
-        let closed = reader.read_u32_le()? != 0;
-        let precision = reader.read_u32_le()?;
+        let closed = reader.read_u32::<LE>()? != 0;
+        let precision = reader.read_u32::<LE>()?;
 
-        let point_count = reader.read_u32_le()? as usize;
+        let point_count = reader.read_u32::<LE>()? as usize;
         let mut points = Vec::with_capacity(point_count);
         for _ in 0..point_count {
-            points.push(Point { x: reader.read_f64_le()?, y: reader.read_f64_le()?, speed: reader.read_f64_le()? });
+            points.push(Point { x: reader.read_f64::<LE>()?, y: reader.read_f64::<LE>()?, speed: reader.read_f64::<LE>()? });
         }
 
         Ok(Path { name, connection, precision, closed, points })
@@ -87,15 +86,15 @@ impl Asset for Path {
         W: io::Write,
     {
         let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_u32_le(self.connection as u32)?;
-        result += writer.write_u32_le(self.closed as u32)?;
-        result += writer.write_u32_le(self.precision as u32)?;
-        result += writer.write_u32_le(self.points.len() as u32)?;
+        result += writer.write_u32::<LE>(VERSION)?;
+        result += writer.write_u32::<LE>(self.connection as u32)?;
+        result += writer.write_u32::<LE>(self.closed as u32)?;
+        result += writer.write_u32::<LE>(self.precision as u32)?;
+        result += writer.write_u32::<LE>(self.points.len() as u32)?;
         for point in self.points.iter() {
-            result += writer.write_f64_le(point.x)?;
-            result += writer.write_f64_le(point.y)?;
-            result += writer.write_f64_le(point.speed)?;
+            result += writer.write_f64::<LE>(point.x)?;
+            result += writer.write_f64::<LE>(point.y)?;
+            result += writer.write_f64::<LE>(point.speed)?;
         }
 
         Ok(result)
