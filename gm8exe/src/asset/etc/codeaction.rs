@@ -2,8 +2,7 @@ use crate::{
     asset::{assert_ver, AssetDataError, PascalString, ReadPascalString, WritePascalString},
     def::ID,
 };
-
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Seek, SeekFrom};
 
 pub const VERSION: u32 = 440;
@@ -60,43 +59,43 @@ impl CodeAction {
         B: AsRef<[u8]>,
     {
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let lib_id = reader.read_u32_le()?;
-        let id = reader.read_u32_le()?;
-        let action_kind = reader.read_u32_le()?;
-        let can_be_relative = reader.read_u32_le()?;
-        let is_condition = reader.read_u32_le()? != 0;
-        let applies_to_something = reader.read_u32_le()? != 0;
-        let execution_type = reader.read_u32_le()?;
+        let lib_id = reader.read_u32::<LE>()?;
+        let id = reader.read_u32::<LE>()?;
+        let action_kind = reader.read_u32::<LE>()?;
+        let can_be_relative = reader.read_u32::<LE>()?;
+        let is_condition = reader.read_u32::<LE>()? != 0;
+        let applies_to_something = reader.read_u32::<LE>()? != 0;
+        let execution_type = reader.read_u32::<LE>()?;
 
         let fn_name = reader.read_pas_string()?;
         let fn_code = reader.read_pas_string()?;
 
-        let param_count = reader.read_u32_le()? as usize;
+        let param_count = reader.read_u32::<LE>()? as usize;
         if param_count > PARAM_COUNT {
             return Err(AssetDataError::MalformedData);
         }
 
         // type count - should always be 8
-        if reader.read_u32_le()? as usize != PARAM_COUNT {
+        if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
             return Err(AssetDataError::MalformedData);
         }
 
         let mut param_types = [0u32; PARAM_COUNT];
         for val in param_types.iter_mut() {
-            *val = reader.read_u32_le()?;
+            *val = reader.read_u32::<LE>()?;
         }
 
-        let applies_to = reader.read_i32_le()? as ID;
-        let is_relative = reader.read_u32_le()? != 0;
+        let applies_to = reader.read_i32::<LE>()? as ID;
+        let is_relative = reader.read_u32::<LE>()? != 0;
 
         // arg count - should always be 8
-        if reader.read_u32_le()? as usize != PARAM_COUNT {
+        if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
             return Err(AssetDataError::MalformedData);
         }
 
@@ -105,7 +104,7 @@ impl CodeAction {
             *val = reader.read_pas_string()?;
         }
 
-        let invert_condition = reader.read_u32_le()? != 0;
+        let invert_condition = reader.read_u32::<LE>()? != 0;
 
         Ok(CodeAction {
             id,
@@ -126,33 +125,34 @@ impl CodeAction {
         })
     }
 
-    pub fn write_to<W>(&self, writer: &mut W) -> io::Result<usize>
+    pub fn write_to<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
     {
-        let mut result = writer.write_u32_le(VERSION)?;
-        result += writer.write_u32_le(self.lib_id)?;
-        result += writer.write_u32_le(self.id)?;
-        result += writer.write_u32_le(self.action_kind)?;
-        result += writer.write_u32_le(self.can_be_relative)?;
-        result += writer.write_u32_le(self.is_condition as u32)?;
-        result += writer.write_u32_le(self.applies_to_something as u32)?;
-        result += writer.write_u32_le(self.execution_type)?;
-        result += writer.write_pas_string(&self.fn_name)?;
-        result += writer.write_pas_string(&self.fn_code)?;
-        result += writer.write_u32_le(self.param_count as u32)?;
-        result += writer.write_u32_le(PARAM_COUNT as u32)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.lib_id)?;
+        writer.write_u32::<LE>(self.id)?;
+        writer.write_u32::<LE>(self.action_kind)?;
+        writer.write_u32::<LE>(self.can_be_relative)?;
+        writer.write_u32::<LE>(self.is_condition as u32)?;
+        writer.write_u32::<LE>(self.applies_to_something as u32)?;
+        writer.write_u32::<LE>(self.execution_type)?;
+        writer.write_pas_string(&self.fn_name)?;
+        writer.write_pas_string(&self.fn_code)?;
+        writer.write_u32::<LE>(self.param_count as u32)?;
+        writer.write_u32::<LE>(PARAM_COUNT as u32)?;
         for i in &self.param_types {
-            result += writer.write_u32_le(*i)?;
+            // TODO: Write this directly with something like bytemuck
+            // TODO: Maybe safe-transmute can help? Unsure. Research.
+            writer.write_u32::<LE>(*i)?;
         }
-        result += writer.write_i32_le(self.applies_to)?;
-        result += writer.write_u32_le(self.is_relative as u32)?;
-        result += writer.write_u32_le(PARAM_COUNT as u32)?;
+        writer.write_i32::<LE>(self.applies_to)?;
+        writer.write_u32::<LE>(self.is_relative as u32)?;
+        writer.write_u32::<LE>(PARAM_COUNT as u32)?;
         for i in &self.param_strings {
-            result += writer.write_pas_string(i)?;
+            writer.write_pas_string(i)?;
         }
-        result += writer.write_u32_le(self.invert_condition as u32)?;
-
-        Ok(result)
+        writer.write_u32::<LE>(self.invert_condition as u32)?;
+        Ok(())
     }
 }
