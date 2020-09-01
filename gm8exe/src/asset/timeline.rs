@@ -17,12 +17,7 @@ pub struct Timeline {
 }
 
 impl Asset for Timeline {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -57,21 +52,20 @@ impl Asset for Timeline {
         Ok(Timeline { name, moments })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION)?;
-        result += writer.write_u32::<LE>(self.moments.len() as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.moments.len() as u32)?;
         for (moment_index, actions) in &self.moments {
-            result += writer.write_u32::<LE>(*moment_index)?;
-            result += writer.write_u32::<LE>(VERSION_MOMENT as u32)?;
-            result += writer.write_u32::<LE>(actions.len() as u32)?;
+            writer.write_u32::<LE>(*moment_index)?;
+            writer.write_u32::<LE>(VERSION_MOMENT as u32)?;
+            writer.write_u32::<LE>(actions.len() as u32)?;
             for action in actions {
-                result += action.write_to(writer)?;
+                // TODO: I said what to do in aNother file that uses this exact line
+                // &mut W -> W, usize return
+                action.write_to(&mut writer)?;
             }
         }
-        Ok(result)
+        Ok(())
     }
 }
