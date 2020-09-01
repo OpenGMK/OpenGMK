@@ -1,4 +1,4 @@
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     convert::TryInto,
     io::{self, Read, Seek, SeekFrom},
@@ -31,7 +31,7 @@ where
     if buf == [0xE8, 0x80, 0xF2, 0xDD, 0xFF, 0xC7, 0x45, 0xF0] {
         // Looks like GM8.1 so let's parse the rest of loading sequence.
         // Next dword is the point where we start reading the header
-        let header_start = exe.read_u32_le()?;
+        let header_start = exe.read_u32::<LE>()?;
 
         // Next we'll read the magic value
         exe.seek(SeekFrom::Current(125))?;
@@ -39,7 +39,7 @@ where
         exe.read_exact(&mut buf)?;
         let gm81_magic: Option<u32> = match buf {
             [0x81, 0x7D, 0xEC] => {
-                let magic = exe.read_u32_le()?;
+                let magic = exe.read_u32::<LE>()?;
                 if exe.read_u8()? == 0x74 {
                     log!(logger, "GM8.1 magic check looks intact - value is 0x{:X}", magic);
                     Some(magic)
@@ -115,8 +115,8 @@ pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> io::Result<Opt
     let mut pos = exe.position();
     loop {
         exe.set_position(pos);
-        let d1 = exe.read_u32_le()?;
-        let d2 = exe.read_u32_le()?;
+        let d1 = exe.read_u32::<LE>()?;
+        let d2 = exe.read_u32::<LE>()?;
         let parsed_value = (d1 & 0xFF00FF00) | (d2 & 0x00FF00FF);
         let parsed_xor = (d1 & 0x00FF00FF) | (d2 & 0xFF00FF00);
         if parsed_value == value {
@@ -154,7 +154,7 @@ where
     };
 
     let sudalv_magic_point = (data.position() - 12) as u32;
-    let hash_key = format!("_MJD{}#RWK", data.read_u32_le()?);
+    let hash_key = format!("_MJD{}#RWK", data.read_u32::<LE>()?);
     let hash_key_utf16: Vec<u8> = hash_key.bytes().flat_map(|c| once(c).chain(once(0))).collect();
 
     // generate crc table
@@ -169,7 +169,7 @@ where
     }
 
     // get our two seeds for generating xor masks
-    let seed1 = data.read_u32_le()?;
+    let seed1 = data.read_u32::<LE>()?;
     let seed2 = crc_32(&hash_key_utf16, &crc_table);
 
     log!(logger, "Decrypting GM8.1 protection (hashkey: {}, seed1: {}, seed2: {})", hash_key, seed1, seed2);

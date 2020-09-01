@@ -1,4 +1,4 @@
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     cmp::max,
     io::{self, Read, Seek, SeekFrom},
@@ -27,7 +27,7 @@ where
         // If the next byte isn't a CMP, the GM8.0 magic check has been patched out.
         let gm80_magic: Option<u32> = match exe.read_u8()? {
             0x3D => {
-                let magic = exe.read_u32_le()?;
+                let magic = exe.read_u32::<LE>()?;
                 let mut buf = [0u8; 6];
                 exe.read_exact(&mut buf)?;
                 if buf == [0x0F, 0x85, 0x18, 0x01, 0x00, 0x00] {
@@ -57,7 +57,7 @@ where
             if buf == [0x8B, 0xC6, 0xE8, 0x07, 0xBD, 0xFD, 0xFF] {
                 match exe.read_u8()? {
                     0x3D => {
-                        let magic = exe.read_u32_le()?;
+                        let magic = exe.read_u32::<LE>()?;
                         let mut buf = [0u8; 6];
                         exe.read_exact(&mut buf)?;
                         if buf == [0x0F, 0x85, 0xF5, 0x00, 0x00, 0x00] {
@@ -86,7 +86,7 @@ where
 
         // Read header start pos
         exe.set_position(0x144AC0);
-        let header_start = exe.read_u32_le()?;
+        let header_start = exe.read_u32::<LE>()?;
         log!(logger, "Reading header from 0x{:X}", header_start);
         exe.set_position(header_start as u64);
 
@@ -94,7 +94,7 @@ where
         match gm80_magic {
             Some(n) => {
                 loop {
-                    let header1 = match exe.read_u32_le() {
+                    let header1 = match exe.read_u32::<LE>() {
                         Ok(h) => h,
                         _ => {
                             log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
@@ -122,7 +122,7 @@ where
         }
         match gm80_header_ver {
             Some(n) => {
-                let header2 = exe.read_u32_le()?;
+                let header2 = exe.read_u32::<LE>()?;
                 if header2 != n {
                     log!(logger, "Failed to read GM8.0 header: expected version {}, got {}", n, header2);
                     return Ok(false);
@@ -149,8 +149,8 @@ where
     let mut reverse_table = [0u8; 256];
 
     // the swap table is squished inbetween 2 chunks of useless garbage
-    let garbage1_size = data.read_u32_le()? as i64 * 4;
-    let garbage2_size = data.read_u32_le()? as i64 * 4;
+    let garbage1_size = data.read_u32::<LE>()? as i64 * 4;
+    let garbage2_size = data.read_u32::<LE>()? as i64 * 4;
     data.seek(SeekFrom::Current(garbage1_size))?;
     assert_eq!(data.read(&mut swap_table)?, 256);
     data.seek(SeekFrom::Current(garbage2_size))?;
@@ -161,7 +161,7 @@ where
     }
 
     // asset data length
-    let len = data.read_u32_le()? as usize;
+    let len = data.read_u32::<LE>()? as usize;
 
     // simplifying for expressions below
     let pos = data.position() as usize; // stream position

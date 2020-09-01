@@ -1,4 +1,4 @@
-
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     convert::TryInto,
     io::{self, Read, Seek, SeekFrom},
@@ -30,24 +30,24 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         // Looks like antidec's loading sequence, so let's extract values from it
         // First, the xor byte that's used to decrypt the decryption code (yes you read that right)
         exe.seek(SeekFrom::Current(-9))?;
-        let byte_xor_mask = exe.read_u8()?;
+        let byte_xor_mask = exe.read_u8::<LE>()?;
         // Convert it into a u32 mask so we can apply it easily to dwords
         let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x000322A9);
-        let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
+        let exe_load_offset = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // Now the header_start from later in the file
         exe.set_position(0x00144AC0);
-        let header_start = exe.read_u32_le()?;
+        let header_start = exe.read_u32::<LE>()?;
         // xor mask
         exe.set_position(0x000322D3);
-        let xor_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let xor_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // add mask
         exe.set_position(0x000322D8);
-        let add_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let add_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // sub mask
         exe.set_position(0x000322E4);
-        let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let sub_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
@@ -73,19 +73,19 @@ pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<AntidecMeta
         let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
         exe.set_position(0x00046255);
-        let exe_load_offset = exe.read_u32_le()? ^ dword_xor_mask;
+        let exe_load_offset = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // Now the header_start from later in the file
         exe.set_position(0x001F0C53);
-        let header_start = exe.read_u32_le()?;
+        let header_start = exe.read_u32::<LE>()?;
         // xor mask
         exe.set_position(0x00046283);
-        let xor_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let xor_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // add mask
         exe.set_position(0x00046274);
-        let add_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let add_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         // sub mask
         exe.set_position(0x00046293);
-        let sub_mask = exe.read_u32_le()? ^ dword_xor_mask;
+        let sub_mask = exe.read_u32::<LE>()? ^ dword_xor_mask;
         Ok(Some(AntidecMetadata { exe_load_offset, header_start, xor_mask, add_mask, sub_mask }))
     } else {
         Ok(None)
