@@ -46,12 +46,7 @@ pub struct Object {
 }
 
 impl Asset for Object {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -108,32 +103,30 @@ impl Asset for Object {
         Ok(Object { name, sprite_index, solid, visible, depth, persistent, parent_index, mask_index, events })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION)?;
-        result += writer.write_u32::<LE>(self.sprite_index as u32)?;
-        result += writer.write_u32::<LE>(self.solid as u32)?;
-        result += writer.write_u32::<LE>(self.visible as u32)?;
-        result += writer.write_u32::<LE>(self.depth as u32)?;
-        result += writer.write_u32::<LE>(self.persistent as u32)?;
-        result += writer.write_u32::<LE>(self.parent_index as u32)?;
-        result += writer.write_u32::<LE>(self.mask_index as u32)?;
-
-        result += writer.write_u32::<LE>((self.events.len() - 1) as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.sprite_index as u32)?;
+        writer.write_u32::<LE>(self.solid as u32)?;
+        writer.write_u32::<LE>(self.visible as u32)?;
+        writer.write_u32::<LE>(self.depth as u32)?;
+        writer.write_u32::<LE>(self.persistent as u32)?;
+        writer.write_u32::<LE>(self.parent_index as u32)?;
+        writer.write_u32::<LE>(self.mask_index as u32)?;
+        writer.write_u32::<LE>((self.events.len() - 1) as u32)?; // TODO: checks! cast checks too!
         for sub_list in self.events.iter() {
             for (sub, actions) in sub_list.iter() {
-                result += writer.write_u32::<LE>(*sub)?;
-                result += writer.write_u32::<LE>(VERSION_EVENT as u32)?;
-                result += writer.write_u32::<LE>(actions.len() as u32)?;
+                writer.write_u32::<LE>(*sub)?;
+                writer.write_u32::<LE>(VERSION_EVENT as u32)?;
+                writer.write_u32::<LE>(actions.len() as u32)?;
                 for action in actions.iter() {
-                    result += action.write_to(writer)?;
+                    // TODO: remove usize return from this
+                    // TODO: make this fucntion vvvv take impl io::Write instead
+                    action.write_to(&mut writer)?;
                 }
             }
-            result += writer.write_i32::<LE>(-1_i32)?;
+            writer.write_i32::<LE>(-1)?; // TODO: what's this again
         }
-        Ok(result)
+        Ok(())
     }
 }
