@@ -81,12 +81,7 @@ impl From<u32> for SoundKind {
 }
 
 impl Asset for Sound {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -137,35 +132,30 @@ impl Asset for Sound {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32::<LE>(VERSION)?;
-        result += writer.write_u32::<LE>(self.kind as u32)?;
-        result += writer.write_pas_string(&self.extension)?;
-        result += writer.write_pas_string(&self.source)?;
-
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.kind as u32)?;
+        writer.write_pas_string(&self.extension)?;
+        writer.write_pas_string(&self.source)?;
         if let Some(data) = &self.data {
-            result += writer.write_u32::<LE>(true as u32)?;
-            result += writer.write_u32::<LE>(data.len() as u32)?;
-            result += writer.write_all(&data).map(|()| data.len())?;
+            writer.write_u32::<LE>(true as u32)?;
+            writer.write_u32::<LE>(data.len() as u32)?;
+            writer.write_all(&data)?;
         } else {
-            result += writer.write_u32::<LE>(0)?;
+            writer.write_u32::<LE>(0)?;
         }
-
-        let mut effects = self.fx.chorus as u32;
-        effects |= (self.fx.echo as u32) << 1;
-        effects |= (self.fx.flanger as u32) << 2;
-        effects |= (self.fx.gargle as u32) << 3;
-        effects |= (self.fx.reverb as u32) << 4;
-
-        result += writer.write_u32::<LE>(effects)?;
-        result += writer.write_f64::<LE>(self.volume)?;
-        result += writer.write_f64::<LE>(self.pan)?;
-        result += writer.write_u32::<LE>(self.preload as u32)?;
-
-        Ok(result)
+        writer.write_u32::<LE>({
+            let mut effects = self.fx.chorus as u32;
+            effects |= (self.fx.echo as u32) << 1;
+            effects |= (self.fx.flanger as u32) << 2;
+            effects |= (self.fx.gargle as u32) << 3;
+            effects |= (self.fx.reverb as u32) << 4;
+            effects
+        })?;
+        writer.write_f64::<LE>(self.volume)?;
+        writer.write_f64::<LE>(self.pan)?;
+        writer.write_u32::<LE>(self.preload as u32)?;
+        Ok(())
     }
 }
