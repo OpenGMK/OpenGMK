@@ -74,7 +74,7 @@ impl Asset for Trigger {
     }
 
     fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
-        writer.write_u32::<LE>(VERSION as u32)?;
+        writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.name)?;
         writer.write_pas_string(&self.condition)?;
         writer.write_u32::<LE>(self.moment as u32)?;

@@ -167,7 +167,7 @@ impl Asset for Sprite {
 
     fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
-        writer.write_u32::<LE>(VERSION as u32)?;
+        writer.write_u32::<LE>(VERSION)?;
         writer.write_i32::<LE>(self.origin_x)?;
         writer.write_i32::<LE>(self.origin_y)?;
         if !self.frames.is_empty() {
