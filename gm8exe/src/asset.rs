@@ -1,5 +1,5 @@
 pub mod background;
-pub mod codeaction;
+pub mod code_action;
 pub mod constant;
 pub mod extension;
 pub mod font;
@@ -15,7 +15,7 @@ pub mod trigger;
 
 pub use self::{
     background::Background,
-    codeaction::CodeAction,
+    code_action::CodeAction,
     constant::Constant,
     extension::Extension,
     font::Font,
