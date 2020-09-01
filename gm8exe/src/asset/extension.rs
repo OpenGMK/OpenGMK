@@ -158,7 +158,7 @@ impl Extension {
 
                 let id = reader.read_u32::<LE>()?;
 
-                let arg_count = reader.read_i32_le()?;
+                let arg_count = reader.read_i32::<LE>()?;
                 let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
                 for val in arg_types.iter_mut() {
                     *val = reader.read_u32::<LE>()?.into();
