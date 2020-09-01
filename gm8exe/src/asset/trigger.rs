@@ -57,12 +57,7 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
@@ -78,16 +73,12 @@ impl Asset for Trigger {
         Ok(Trigger { name, condition, moment, constant_name })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_u32::<LE>(VERSION as u32)?;
-        result += writer.write_pas_string(&self.name)?;
-        result += writer.write_pas_string(&self.condition)?;
-        result += writer.write_u32::<LE>(self.moment as u32)?;
-        result += writer.write_pas_string(&self.constant_name)?;
-
-        Ok(result)
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_u32::<LE>(VERSION as u32)?;
+        writer.write_pas_string(&self.name)?;
+        writer.write_pas_string(&self.condition)?;
+        writer.write_u32::<LE>(self.moment as u32)?;
+        writer.write_pas_string(&self.constant_name)?;
+        Ok(())
     }
 }
