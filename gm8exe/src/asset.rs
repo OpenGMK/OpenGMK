@@ -31,19 +31,13 @@ pub use self::{
 };
 
 use crate::GameVersion;
-use std::{
-    fmt::{self, Display},
-    io,
-};
+use std::{fmt::{self, Display}, io};
 
-pub trait Asset {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized;
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write;
+pub trait Asset: Sized {
+    /// Deserializes the asset from the format used in game executables.
+    fn deserialize_exe(reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error>;
+    /// Serializes the asset to the format used in game executables.
+    fn serialize_exe(&self, writer: impl io::Write, version: GameVersion) -> io::Result<()>;
 }
 
 #[derive(Debug)]
