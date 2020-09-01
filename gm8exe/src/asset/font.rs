@@ -57,12 +57,7 @@ pub struct Font {
 }
 
 impl Asset for Font {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -120,21 +115,19 @@ impl Asset for Font {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.sys_name)?;
         writer.write_u32::<LE>(self.size)?;
         writer.write_u32::<LE>(self.bold as u32)?;
         writer.write_u32::<LE>(self.italic as u32)?;
+        // TODO: Missing info! Uh-oh! GM81 bits you know what it is
         writer.write_u32::<LE>(self.range_start)?;
         writer.write_u32::<LE>(self.range_end)?;
         writer.write_u32::<LE>(self.map_width)?;
         writer.write_u32::<LE>(self.map_height)?;
-        writer.write_u32::<LE>(self.pixel_map.len() as u32)?;
+        writer.write_u32::<LE>(self.pixel_map.len() as u32)?; // TODO: len as u32
         writer.write_all(&self.pixel_map);
         Ok(())
     }
