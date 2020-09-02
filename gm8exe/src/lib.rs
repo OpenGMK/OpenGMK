@@ -32,19 +32,21 @@ mod colour;
 use crate::{asset::*, rsrc::WindowsIcon};
 use settings::{GameHelpDialog, Settings};
 
+pub type AssetList<T> = Vec<Option<Box<T>>>;
+
 pub struct GameAssets {
-    pub triggers: Vec<Option<Box<Trigger>>>,
+    pub triggers: AssetList<Trigger>,
     pub constants: Vec<Constant>,
     pub extensions: Vec<Extension>,
-    pub sprites: Vec<Option<Box<Sprite>>>,
-    pub sounds: Vec<Option<Box<Sound>>>,
-    pub backgrounds: Vec<Option<Box<Background>>>,
-    pub paths: Vec<Option<Box<Path>>>,
-    pub scripts: Vec<Option<Box<Script>>>,
-    pub fonts: Vec<Option<Box<Font>>>,
-    pub timelines: Vec<Option<Box<Timeline>>>,
-    pub objects: Vec<Option<Box<Object>>>,
-    pub rooms: Vec<Option<Box<Room>>>,
+    pub sprites: AssetList<Sprite>,
+    pub sounds: AssetList<Sound>,
+    pub backgrounds: AssetList<Background>,
+    pub paths: AssetList<Path>,
+    pub scripts: AssetList<Script>,
+    pub fonts: AssetList<Font>,
+    pub timelines: AssetList<Timeline>,
+    pub objects: AssetList<Object>,
+    pub rooms: AssetList<Room>,
     pub included_files: Vec<IncludedFile>,
     pub version: GameVersion,
 
