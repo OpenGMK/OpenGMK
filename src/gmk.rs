@@ -1,7 +1,7 @@
 use crate::{collision, zlib::ZlibWriter};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
-    asset::{self, included_file::ExportSetting, PascalString},
+    asset::{self, included_file::ExportSetting, PascalString, WritePascalString},
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };
@@ -9,15 +9,6 @@ use std::convert::TryInto;
 use rayon::prelude::*;
 use std::{io, u32};
 use byteorder::{WriteBytesExt, LE};
-
-pub trait WritePascalString: io::Write {
-    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<()> {
-        self.write_u32::<LE>(s.0.len() as u32)?;
-        self.write_all(&s.0)?;
-        Ok(())
-    }
-}
-impl<W> WritePascalString for W where W: io::Write {}
 
 pub trait WriteBuffer: io::Write {
     fn write_buffer(&mut self, buf: &[u8]) -> io::Result<usize> {

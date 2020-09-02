@@ -71,7 +71,3 @@ pub enum GameVersion {
 }
 
 pub use colour::Colour;
-
-pub mod deps {
-    pub use minio;
-}

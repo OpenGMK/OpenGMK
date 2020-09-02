@@ -32,6 +32,7 @@ pub use self::{
 
 use crate::GameVersion;
 use std::{fmt::{self, Display}, io};
+use byteorder::{ReadBytesExt, LE, WriteBytesExt};
 
 pub trait Asset: Sized {
     /// Deserializes the asset from the format used in game executables.
@@ -109,20 +110,20 @@ pub trait ReadChunk: io::Read {
 impl<R> ReadChunk for R where R: io::Read {}
 
 // pascal-string extension for easy use
-pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
+pub trait ReadPascalString: byteorder::ReadBytesExt + io::Read + ReadChunk {
     fn read_pas_string(&mut self) -> io::Result<PascalString> {
-        let len = self.read_u32_le()? as usize;
-        let mut buf = vec![0u8; len];
-        self.read_exact(&mut buf)?;
+        let len = self.read_u32::<LE>()? as usize;
+        let buf = self.read_chunk(len)?;
         Ok(PascalString(buf.into_boxed_slice()))
     }
 }
+impl<R> ReadPascalString for R where R: byteorder::ReadBytesExt + io::Read + ReadChunk {}
 
-pub trait WritePascalString: io::Write + minio::WritePrimitives {
-    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<usize> {
-        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write_all(s.0.as_ref()).map(|()| s.0.len() + x))
+pub trait WritePascalString: byteorder::WriteBytesExt + io::Write {
+    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<()> {
+        self.write_u32::<LE>(s.0.len() as u32)?;
+        self.write_all(&s.0)?;
+        Ok(())
     }
 }
-
-impl<R> ReadPascalString for R where R: io::Read {}
-impl<W> WritePascalString for W where W: io::Write {}
+impl<W> WritePascalString for W where W: byteorder::WriteBytesExt + io::Write {}
