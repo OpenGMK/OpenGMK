@@ -4,6 +4,7 @@ use crate::{
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Seek, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -64,11 +65,8 @@ impl Asset for IncludedFile {
         let stored_in_gmk = reader.read_u32::<LE>()? != 0;
 
         let embedded_data = if stored_in_gmk && data_exists {
-            // TODO: this should be minio::read_buffer? Does that function exist yet?
             let len = reader.read_u32::<LE>()? as usize;
-            let pos = reader.position() as usize;
-            reader.seek(SeekFrom::Current(len as i64))?;
-            Some(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()).to_vec().into_boxed_slice())
+            Some(reader.read_chunk(len).into_boxed_slice())
         } else {
             None
         };
