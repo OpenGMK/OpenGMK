@@ -8,5 +8,4 @@ edition = "2018"
 [dependencies]
 byteorder = "1"
 flate2 = { version = "1.0", features = ["rust_backend"] }
-minio = { git = "https://github.com/notviri/minio" }
 rayon = "1.2.0"
