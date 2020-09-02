@@ -96,10 +96,7 @@ impl Asset for Sprite {
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
 
-            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, Error>
-            where
-                T: AsRef<[u8]>,
-            {
+            fn read_collision(mut reader: impl io::Read + io::Seek, strict: bool) -> Result<CollisionMap, Error> {
                 if strict {
                     let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_COLLISION)?;
