@@ -111,21 +111,13 @@ impl Asset for Sprite {
                 let bbox_bottom = reader.read_u32::<LE>()?;
                 let bbox_top = reader.read_u32::<LE>()?;
 
-                let mask_size = width as usize * height as usize;
-                let pos = reader.position() as usize;
-                reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
-                    Some(b) => b
-                        .chunks_exact(4)
-                        .map(|ch| {
-                            // until we get const generics we need to do this to get an exact array.
-                            // panic is unreachable and is optimized out.
-                            // TODO: you can use byteorder for this!! please!!!
-                            u32::from_le_bytes(*<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap()) != 0
-                        })
-                        .collect(),
-                    None => return Err(Error::MalformedData),
-                };
+                // safety: all uninitialized memory is written to
+                // TODO: Maybe there's a function to Vec<u8> -> Vec<u32> ?
+                let mask_pixelcount = width as usize * height as usize;
+                let mut mask_data = Vec::with_capacity(mask_pixelcount);
+                unsafe { mask_data.set_len(mask_pixelcount) };
+                reader.read_u32_into::<LE>(&mut mask_data[..])?;
+                let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
 
                 Ok(CollisionMap {
                     width,
@@ -134,7 +126,7 @@ impl Asset for Sprite {
                     bbox_right,
                     bbox_bottom,
                     bbox_top,
-                    data: mask.into_boxed_slice(),
+                    data,
                 })
             }
 
