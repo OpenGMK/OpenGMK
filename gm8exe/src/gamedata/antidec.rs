@@ -30,7 +30,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> 
         // Looks like antidec's loading sequence, so let's extract values from it
         // First, the xor byte that's used to decrypt the decryption code (yes you read that right)
         exe.seek(SeekFrom::Current(-9))?;
-        let byte_xor_mask = exe.read_u8::<LE>()?;
+        let byte_xor_mask = exe.read_u8()?;
         // Convert it into a u32 mask so we can apply it easily to dwords
         let dword_xor_mask = u32::from_ne_bytes([byte_xor_mask, byte_xor_mask, byte_xor_mask, byte_xor_mask]);
         // Next, the file offset for loading gamedata bytes
