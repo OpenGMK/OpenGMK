@@ -113,9 +113,9 @@ impl Asset for Sprite {
 
                 // safety: all uninitialized memory is written to
                 // TODO: Maybe there's a function to Vec<u8> -> Vec<u32> ?
-                let mask_pixelcount = width as usize * height as usize;
-                let mut mask_data = Vec::with_capacity(mask_pixelcount);
-                unsafe { mask_data.set_len(mask_pixelcount) };
+                let pixel_count = width as usize * height as usize;
+                let mut mask_data = Vec::with_capacity(pixel_count);
+                unsafe { mask_data.set_len(pixel_count) };
                 reader.read_u32_into::<LE>(&mut mask_data[..])?;
                 let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
 
