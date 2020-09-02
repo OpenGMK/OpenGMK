@@ -43,7 +43,7 @@ impl Asset for Timeline {
 
             let mut actions = Vec::with_capacity(action_count);
             for _ in 0..action_count {
-                actions.push(CodeAction::from_cur(&mut reader, strict)?);
+                actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
             }
 
             moments.push((moment_index, actions));
@@ -63,7 +63,7 @@ impl Asset for Timeline {
             for action in actions {
                 // TODO: I said what to do in aNother file that uses this exact line
                 // &mut W -> W, usize return
-                action.write_to(&mut writer)?;
+                action.serialize_exe(&mut writer, version)?;
             }
         }
         Ok(())

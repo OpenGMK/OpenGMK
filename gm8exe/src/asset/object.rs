@@ -93,7 +93,7 @@ impl Asset for Object {
                 let action_count = reader.read_u32::<LE>()?;
                 let mut actions: Vec<CodeAction> = Vec::with_capacity(action_count as usize);
                 for _ in 0..action_count {
-                    actions.push(CodeAction::from_cur(&mut reader, strict)?);
+                    actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
                 }
                 sub_event_list.push((index as u32, actions));
             }
@@ -120,9 +120,7 @@ impl Asset for Object {
                 writer.write_u32::<LE>(VERSION_EVENT as u32)?;
                 writer.write_u32::<LE>(actions.len() as u32)?;
                 for action in actions.iter() {
-                    // TODO: remove usize return from this
-                    // TODO: make this fucntion vvvv take impl io::Write instead
-                    action.write_to(&mut writer)?;
+                    action.serialize_exe(&mut writer, version)?;
                 }
             }
             writer.write_i32::<LE>(-1)?; // TODO: what's this again
