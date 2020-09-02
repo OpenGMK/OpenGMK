@@ -114,7 +114,6 @@ dependencies = [
  "flate2 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "gm8exe 0.1.0",
- "minio 1.0.0 (git+https://github.com/notviri/minio)",
  "rayon 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -157,11 +156,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "autocfg 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "minio"
-version = "1.0.0"
-source = "git+https://github.com/notviri/minio#65bb6a127b8b552057d362edeae6072661b6104f"
 
 [[package]]
 name = "miniz_oxide"
@@ -277,7 +271,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum libc 0.2.76 (registry+https://github.com/rust-lang/crates.io-index)" = "755456fae044e6fa1ebbbd1b3e902ae19e73097ed4ed87bb79934a867c007bc3"
 "checksum maybe-uninit 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 "checksum memoffset 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "c198b026e1bbf08a937e94c6c60f9ec4a2267f5b0d2eec9c1b21b061ce2be55f"
-"checksum minio 1.0.0 (git+https://github.com/notviri/minio)" = "<none>"
 "checksum miniz_oxide 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4d7559a8a40d0f97e1edea3220f698f78b1c5ab67532e49f68fde3910323b722"
 "checksum num-integer 0.1.43 (registry+https://github.com/rust-lang/crates.io-index)" = "8d59457e662d541ba17869cf51cf177c0b5f0cbf476c66bdc90bf1edac4f875b"
 "checksum num-traits 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)" = "ac267bcc07f48ee5f8935ab0d24f316fb722d7a1292e2913f0cc196b29ffd611"
