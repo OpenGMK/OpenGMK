@@ -1,36 +1,49 @@
-use flate2::write::ZlibEncoder;
+use flate2::{Compression, write::ZlibEncoder};
 
 use std::io::{self, Write};
+use byteorder::{WriteBytesExt, LE};
+use std::convert::TryInto;
 
 /// Takes some data and writes the compressed data to the cursor in GM8 format.
 pub struct ZlibWriter {
-    pub encoder: ZlibEncoder<Vec<u8>>,
+    encoder: ZlibEncoder<Vec<u8>>,
 }
 
 impl ZlibWriter {
+    #[inline]
     pub fn new() -> ZlibWriter {
-        ZlibWriter { encoder: ZlibEncoder::new(Vec::new(), flate2::Compression::default()) }
+        // TODO: Make a PR for flate2 and make Compression a const fn with the ctors and yeah .
+        ZlibWriter { encoder: ZlibEncoder::new(Vec::new(), Compression::default()) }
     }
 
-    pub fn finish<W: Write>(self, cursor: &mut W) -> io::Result<usize> {
+    pub fn finish(self, mut writer: impl io::Write) -> io::Result<()> {
         let encoded = self.encoder.finish()?;
-        let size_len = cursor.write_u32_le(encoded.len() as u32)?;
-        cursor.write_all(&encoded)?;
-        Ok(size_len + encoded.len())
+        writer.write_u32::<LE>(encoded.len().try_into().expect("zlib block len > u32 max"))?;
+        writer.write_all(&encoded)?;
+        Ok(())
     }
 }
 
 impl Write for ZlibWriter {
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.encoder.write(buf)
+        self.encoder.write_all(buf)?;
+        Ok(buf.len())
     }
 
+    #[inline]
     fn flush(&mut self) -> io::Result<()> {
         self.encoder.flush()
+    }
+
+    #[inline]
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.encoder.write_all(buf)
     }
 }
 
 impl Default for ZlibWriter {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
