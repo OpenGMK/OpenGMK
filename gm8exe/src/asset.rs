@@ -98,12 +98,12 @@ impl From<&str> for PascalString {
 
 /// Helper trait to read big blocks of raw data.
 pub trait ReadChunk: io::Read {
-    fn read_chunk(&mut self, len: usize) -> Vec<u8> {
-        // safety: read_all specifies to expect buf to be uninitialized and never read from it
+    fn read_chunk(&mut self, len: usize) -> io::Result<Vec<u8>> {
+        // safety: read_exact specifies to expect buf to be uninitialized and never read from it
         let mut buf = Vec::with_capacity(len);
         unsafe { buf.set_len(len) };
-        reader.read_all(&mut buf[..])?;
-        buf
+        self.read_exact(&mut buf[..])?;
+        Ok(buf)
     }
 }
 impl<R> ReadChunk for R where R: io::Read {}

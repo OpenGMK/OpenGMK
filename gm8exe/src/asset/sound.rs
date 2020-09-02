@@ -98,7 +98,7 @@ impl Asset for Sound {
 
         let data = if reader.read_u32::<LE>()? != 0 {
             let len = reader.read_u32::<LE>()? as usize;
-            Some(reader.read_chunk(len).into_boxed_slice())
+            Some(reader.read_chunk(len)?.into_boxed_slice())
         } else {
             None
         };

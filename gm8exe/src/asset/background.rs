@@ -47,7 +47,7 @@ impl Asset for Background {
                 return Err(Error::MalformedData);
             }
 
-            let data = Some(reader.read_chunk(len).into_boxed_slice());
+            let data = Some(reader.read_chunk(len)?.into_boxed_slice());
             Ok(Background { name, width, height, data })
         } else {
             Ok(Background { name, width: 0, height: 0, data: None })

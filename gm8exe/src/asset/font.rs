@@ -92,7 +92,7 @@ impl Asset for Font {
         let map_width = reader.read_u32::<LE>()?;
         let map_height = reader.read_u32::<LE>()?;
         let len = reader.read_u32::<LE>()? as usize;
-        let pixel_map = reader.read_chunk(len);
+        let pixel_map = reader.read_chunk(len)?.into_boxed_slice();
 
         Ok(Font {
             name,

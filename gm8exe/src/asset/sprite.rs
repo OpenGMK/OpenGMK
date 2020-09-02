@@ -91,7 +91,7 @@ impl Asset for Sprite {
                 let frame_height = reader.read_u32::<LE>()?;
 
                 let len = reader.read_u32::<LE>()? as usize;
-                let data = reader.read_chunk(len).into_boxed_slice();
+                let data = reader.read_chunk(len)?.into_boxed_slice();
 
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
