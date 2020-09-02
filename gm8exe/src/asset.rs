@@ -96,6 +96,18 @@ impl From<&str> for PascalString {
     }
 }
 
+/// Helper trait to read big blocks of raw data.
+pub trait ReadChunk: io::Read {
+    fn read_chunk(&mut self, len: usize) -> Vec<u8> {
+        // safety: read_all specifies to expect buf to be uninitialized and never read from it
+        let mut buf = Vec::with_capacity(len);
+        unsafe { buf.set_len(len) };
+        reader.read_all(&mut buf[..])?;
+        buf
+    }
+}
+impl<R> ReadChunk for R where R: io::Read {}
+
 // pascal-string extension for easy use
 pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
     fn read_pas_string(&mut self) -> io::Result<PascalString> {
