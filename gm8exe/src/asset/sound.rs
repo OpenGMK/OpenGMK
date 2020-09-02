@@ -4,6 +4,7 @@ use crate::{
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Seek, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -97,13 +98,7 @@ impl Asset for Sound {
 
         let data = if reader.read_u32::<LE>()? != 0 {
             let len = reader.read_u32::<LE>()? as usize;
-            let pos = reader.position() as usize;
-            reader.seek(SeekFrom::Current(len as i64))?;
-            let pos2 = reader.position() as usize;
-            match reader.get_ref().get(pos..pos2) {
-                Some(b) => Some(b.to_vec().into_boxed_slice()),
-                None => return Err(Error::MalformedData),
-            }
+            Some(reader.read_chunk(len).into_boxed_slice())
         } else {
             None
         };
@@ -114,6 +109,7 @@ impl Asset for Sound {
         let flanger: bool = (effects & 0b100) != 0;
         let gargle: bool = (effects & 0b1000) != 0;
         let reverb: bool = (effects & 0b10000) != 0;
+        let fx = SoundFX { chorus, echo, flanger, gargle, reverb };
 
         let volume = reader.read_f64::<LE>()?;
         let pan = reader.read_f64::<LE>()?;
@@ -128,7 +124,7 @@ impl Asset for Sound {
             volume,
             pan,
             preload,
-            fx: SoundFX { chorus, echo, flanger, gargle, reverb },
+            fx,
         })
     }
 
