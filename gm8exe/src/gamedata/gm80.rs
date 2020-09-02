@@ -1,4 +1,4 @@
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{LE, ReadBytesExt};
 use std::{
     cmp::max,
     io::{self, Read, Seek, SeekFrom},

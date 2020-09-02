@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, SeekFrom};
 use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
@@ -111,7 +111,7 @@ impl Asset for Font {
         })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.sys_name)?;

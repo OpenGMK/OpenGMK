@@ -1,5 +1,5 @@
 use crate::reader::ReaderError;
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{LE, ReadBytesExt};
 use std::io;
 
 /// Unpack the bytecode of a UPX-protected exe into a separate buffer

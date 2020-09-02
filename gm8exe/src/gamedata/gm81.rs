@@ -1,4 +1,4 @@
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{LE, ReadBytesExt};
 use std::{
     convert::TryInto,
     io::{self, Read, Seek, SeekFrom},

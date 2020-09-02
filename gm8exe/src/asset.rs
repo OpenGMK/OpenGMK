@@ -32,7 +32,7 @@ pub use self::{
 
 use crate::GameVersion;
 use std::{fmt::{self, Display}, io};
-use byteorder::{ReadBytesExt, LE, WriteBytesExt};
+use byteorder::LE;
 
 pub trait Asset: Sized {
     /// Deserializes the asset from the format used in game executables.

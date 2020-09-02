@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 800;
 
@@ -16,7 +16,7 @@ pub struct Script {
 }
 
 impl Asset for Script {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -30,7 +30,7 @@ impl Asset for Script {
         Ok(Script { name, source })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.source)?;

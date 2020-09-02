@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 430;
 pub const VERSION_EVENT: u32 = 400;

@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, SeekFrom};
 use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
@@ -49,7 +49,7 @@ pub enum ExportSetting {
 }
 
 impl Asset for IncludedFile {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
@@ -98,7 +98,7 @@ impl Asset for IncludedFile {
         })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.file_name)?;
         writer.write_pas_string(&self.source_path)?;

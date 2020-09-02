@@ -1,6 +1,6 @@
 use crate::{asset::{assert_ver, Error, PascalString, ReadPascalString, WritePascalString}, def::ID, GameVersion};
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Cursor, Seek, SeekFrom};
+use std::io::{self, SeekFrom};
 use crate::asset::Asset;
 
 pub const VERSION: u32 = 440;
@@ -52,7 +52,7 @@ pub struct CodeAction {
 }
 
 impl Asset for CodeAction {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
@@ -120,7 +120,7 @@ impl Asset for CodeAction {
         })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_u32::<LE>(self.lib_id)?;
         writer.write_u32::<LE>(self.id)?;
