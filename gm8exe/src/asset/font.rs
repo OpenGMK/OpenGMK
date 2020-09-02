@@ -4,6 +4,7 @@ use crate::{
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Seek, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -91,12 +92,7 @@ impl Asset for Font {
         let map_width = reader.read_u32::<LE>()?;
         let map_height = reader.read_u32::<LE>()?;
         let len = reader.read_u32::<LE>()? as usize;
-
-        let pos = reader.position() as usize;
-        let pixel_map = match reader.into_inner().get(pos..pos + len) {
-            Some(b) => b.to_vec().into_boxed_slice(),
-            None => return Err(Error::MalformedData),
-        };
+        let pixel_map = reader.read_chunk(len);
 
         Ok(Font {
             name,
