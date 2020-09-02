@@ -5,7 +5,7 @@ use gm8exe::{
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };
-
+use std::convert::TryInto;
 use rayon::prelude::*;
 use std::{io, u32};
 use byteorder::{WriteBytesExt, LE};
@@ -211,11 +211,11 @@ where
             })
             .collect::<Result<Vec<_>, io::Error>>()?
             .into_iter()
-            .fold(Ok(0usize), |res: io::Result<_>, enc| {
-                writer.write_u32::<LE>(enc.len() as u32)?;
+            .try_fold((), |_, enc| {
+                writer.write_u32::<LE>(enc.len().try_into().unwrap())?;
                 writer.write_buffer(&enc)?;
-                res.map(|r| r + result)
-            })?;
+                Ok(())
+            })
     } else {
         for asset in list {
             let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -232,9 +232,8 @@ where
             writer.write_u32::<LE>(buf.len() as u32)?;
             writer.write_buffer(&buf)?;
         }
+        Ok(())
     }
-
-    Ok(())
 }
 
 // Writes a trigger (uncompressed data)
@@ -668,7 +667,7 @@ where
         enc.write_u32::<LE>(file.overwrite_file as u32)?;
         enc.write_u32::<LE>(file.free_memory as u32)?;
         enc.write_u32::<LE>(file.remove_at_end as u32)?;
-        enc.finish(writer)?;
+        enc.finish(&mut *writer)?;
     }
     Ok(())
 }
