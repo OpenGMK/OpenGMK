@@ -61,8 +61,6 @@ impl Asset for Timeline {
             writer.write_u32::<LE>(VERSION_MOMENT as u32)?;
             writer.write_u32::<LE>(actions.len() as u32)?;
             for action in actions {
-                // TODO: I said what to do in aNother file that uses this exact line
-                // &mut W -> W, usize return
                 action.serialize_exe(&mut writer, version)?;
             }
         }
