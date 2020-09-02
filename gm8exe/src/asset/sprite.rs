@@ -7,6 +7,7 @@ use std::{
     convert::TryInto,
     io::{self, Seek, SeekFrom},
 };
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -89,15 +90,8 @@ impl Asset for Sprite {
                 let frame_width = reader.read_u32::<LE>()?;
                 let frame_height = reader.read_u32::<LE>()?;
 
-                let pixeldata_len = reader.read_u32::<LE>()? as usize;
-
-                // read pixeldata
-                let pos = reader.position() as usize;
-                reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
-                let data = match reader.get_mut().get(pos..pos + pixeldata_len) {
-                    Some(b) => b.to_vec().into_boxed_slice(),
-                    None => return Err(Error::MalformedData),
-                };
+                let len = reader.read_u32::<LE>()? as usize;
+                let data = reader.read_chunk(len).into_boxed_slice();
 
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
