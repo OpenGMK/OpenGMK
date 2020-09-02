@@ -124,7 +124,7 @@ impl Asset for Font {
         writer.write_u32::<LE>(self.map_width)?;
         writer.write_u32::<LE>(self.map_height)?;
         writer.write_u32::<LE>(self.pixel_map.len() as u32)?; // TODO: len as u32
-        writer.write_all(&self.pixel_map);
+        writer.write_all(&self.pixel_map)?;
         Ok(())
     }
 }
