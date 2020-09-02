@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString, ReadChunk},
     GameVersion,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
@@ -40,23 +40,15 @@ impl Asset for Background {
         let width = reader.read_u32::<LE>()?;
         let height = reader.read_u32::<LE>()?;
         if width > 0 && height > 0 {
-            let data_len = reader.read_u32::<LE>()?;
+            let len = reader.read_u32::<LE>()? as usize;
 
             // sanity check
-            if data_len != (width * height * 4) {
+            if len != (width as usize * height as usize * 4) {
                 return Err(Error::MalformedData);
             }
 
-            let pos = reader.position() as usize;
-            let len = data_len as usize;
-
-            // TODO: this will not build. use read_all, fucking dumbass
-            let buf = match reader.into_inner().get(pos..pos + len) {
-                Some(b) => b.to_vec(),
-                None => return Err(Error::MalformedData),
-            };
-
-            Ok(Background { name, width, height, data: Some(buf.into_boxed_slice()) })
+            let data = Some(reader.read_chunk(len).into_boxed_slice());
+            Ok(Background { name, width, height, data })
         } else {
             Ok(Background { name, width: 0, height: 0, data: None })
         }
