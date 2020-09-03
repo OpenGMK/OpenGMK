@@ -7560,13 +7560,13 @@ impl Game {
         let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let image_index = subimg % sprite.frames.len() as i32;
-            if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
+            if let Some(frame) = sprite.frames.get(image_index as usize) {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
-                    atlas_ref.w as u32,
-                    atlas_ref.h as u32,
-                    self.renderer.dump_sprite(atlas_ref),
+                    frame.width,
+                    frame.height,
+                    self.renderer.dump_sprite(&frame.atlas_ref),
                 ) {
                     return Err(gml::Error::FunctionError("sprite_save".into(), e.into()))
                 }
@@ -7759,8 +7759,8 @@ impl Game {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
-                    atlas_ref.w as u32,
-                    atlas_ref.h as u32,
+                    background.width,
+                    background.height,
                     self.renderer.dump_sprite(atlas_ref),
                 ) {
                     return Err(gml::Error::FunctionError("background_save".into(), e.into()))
