@@ -10733,9 +10733,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_end")
     }
 
-    pub fn d3d_set_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_perspective")
+    pub fn d3d_set_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let perspective = expect_args!(args, [any])?;
+        self.renderer.set_perspective(perspective.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_hidden(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
