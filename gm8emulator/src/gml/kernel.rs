@@ -3332,8 +3332,12 @@ impl Game {
         self.max(context, args)
     }
 
-    pub fn mean(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function mean")
+    pub fn mean(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        if !args.is_empty() {
+            Ok(Value::from(args.iter().cloned().map(Real::from).sum::<Real>() / Real::from(args.len() as f64)))
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn median(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
