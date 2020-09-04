@@ -1073,7 +1073,13 @@ impl RendererTrait for RendererImpl {
             self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
-            for tex_id in self.texture_ids.iter().skip(self.stock_atlas_count as usize).copied() {
+            for (tex_id, zbuf_id) in self
+                .texture_ids
+                .iter()
+                .copied()
+                .zip(self.zbuf_ids.iter().copied())
+                .skip(self.stock_atlas_count as usize)
+            {
                 textures.push(match tex_id {
                     Some(tex_id) => {
                         self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
@@ -1083,7 +1089,21 @@ impl RendererTrait for RendererImpl {
                         self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
                         let mut pixels = vec![0; width as usize * height as usize * 4];
                         self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
-                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice() })
+                        let zbuf = if let Some(zbuf_id) = zbuf_id {
+                            self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                            let mut zbuf = vec![0.0; width as usize * height as usize];
+                            self.gl.GetTexImage(
+                                gl::TEXTURE_2D,
+                                0,
+                                gl::DEPTH_COMPONENT,
+                                gl::FLOAT,
+                                zbuf.as_mut_ptr().cast(),
+                            );
+                            Some(zbuf.into_boxed_slice())
+                        } else {
+                            None
+                        };
+                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice(), zbuf })
                     },
                     None => None,
                 });
@@ -1148,6 +1168,31 @@ impl RendererTrait for RendererImpl {
                         0,
                     );
                     self.fbo_ids[i] = Some(fbo_id);
+
+                    if let Some(zbuf) = tex.zbuf.as_ref() {
+                        let mut zbuf_id = 0;
+                        self.gl.GenTextures(1, &mut zbuf_id);
+                        self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                        self.gl.TexImage2D(
+                            gl::TEXTURE_2D,
+                            0,
+                            gl::DEPTH_COMPONENT24 as _,
+                            tex.width,
+                            tex.height,
+                            0,
+                            gl::DEPTH_COMPONENT,
+                            gl::FLOAT,
+                            zbuf.as_ptr().cast(),
+                        );
+                        self.zbuf_ids[i] = Some(zbuf_id);
+                        self.gl.FramebufferTexture2D(
+                            gl::READ_FRAMEBUFFER,
+                            gl::DEPTH_ATTACHMENT,
+                            gl::TEXTURE_2D,
+                            zbuf_id,
+                            0,
+                        );
+                    }
                 }
             }
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);

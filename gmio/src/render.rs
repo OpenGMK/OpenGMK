@@ -26,6 +26,7 @@ pub struct SavedTexture {
     width: i32,
     height: i32,
     pixels: Box<[u8]>,
+    zbuf: Option<Box<[f32]>>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
