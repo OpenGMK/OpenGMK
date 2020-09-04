@@ -10724,13 +10724,13 @@ impl Game {
     }
 
     pub fn d3d_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_start")
+        self.renderer.set_3d(true);
+        Ok(Default::default())
     }
 
     pub fn d3d_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_end")
+        self.renderer.set_3d(false);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10739,9 +10739,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_hidden(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_hidden")
+    pub fn d3d_set_hidden(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let hidden = expect_args!(args, [any])?;
+        self.renderer.set_depth_test(hidden.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
