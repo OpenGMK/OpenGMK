@@ -125,10 +125,10 @@ pub struct Game {
     pub surfaces: Vec<Option<surface::Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
-
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
+    pub fps: u32,              // initially 0
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
@@ -835,6 +835,7 @@ impl Game {
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
+            fps: 0,
             parameters: game_arguments,
             encoding,
             caption: "".to_string().into(),
@@ -1392,6 +1393,8 @@ impl Game {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
+        let mut time_last = time_now;
+        let mut frame_count = 0;
         loop {
             self.process_window_events();
 
@@ -1413,7 +1416,17 @@ impl Game {
             let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
+                self.fps = self.room_speed.into();
+            } else {
+                // gm8 just ignores any leftover time after a second has passed, so we do the same
+                if time_now.duration_since(time_last) >= Duration::from_secs(1) {
+                    time_last = time_now;
+                    self.fps = frame_count;
+                    frame_count = 0;
+                }
             }
+            frame_count += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;
@@ -1518,6 +1531,7 @@ impl Game {
         let mut game_mousey = 0;
         let mut do_update_mouse = false;
         self.play_type = PlayType::Record;
+        self.fps = self.room_speed.into();
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
@@ -1715,6 +1729,7 @@ impl Game {
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
         self.play_type = PlayType::Replay;
+        self.fps = self.room_speed.into();
 
         let mut time_now = std::time::Instant::now();
         loop {
