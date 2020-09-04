@@ -3486,7 +3486,10 @@ impl Game {
         // TODO: bytes-ify
         // See the comment on string_copy.
         expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
-            let sub = s.as_ref().get(..s.as_ref().char_indices().nth(ix as usize).map_or(0, |(i, _)| i)).unwrap_or("");
+            let sub = s
+                .as_ref()
+                .get(..s.as_ref().char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i))
+                .unwrap_or("");
             let sub2 = s
                 .as_ref()
                 .get(
