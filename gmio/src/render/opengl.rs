@@ -1087,11 +1087,14 @@ impl RendererTrait for RendererImpl {
                         let mut height = 0;
                         self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
                         self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                        let mut pixels = vec![0; width as usize * height as usize * 4];
+                        let len = (width * height) as usize;
+                        let mut pixels: Vec<u8> = Vec::with_capacity(len * 4);
+                        pixels.set_len(len * 4);
                         self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
                         let zbuf = if let Some(zbuf_id) = zbuf_id {
                             self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
-                            let mut zbuf = vec![0.0; width as usize * height as usize];
+                            let mut zbuf: Vec<f32> = Vec::with_capacity(len);
+                            zbuf.set_len(len);
                             self.gl.GetTexImage(
                                 gl::TEXTURE_2D,
                                 0,
