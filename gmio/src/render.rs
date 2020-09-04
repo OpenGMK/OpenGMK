@@ -393,6 +393,9 @@ pub trait RendererTrait {
     fn get_primitive_3d(&self) -> PrimitiveBuilder;
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
+
+    fn get_depth(&self) -> f32;
+    fn set_depth(&mut self, depth: f32);
 }
 
 pub struct RendererOptions {
@@ -785,6 +788,14 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn get_depth(&self) -> f32 {
+        self.0.get_depth()
+    }
+
+    pub fn set_depth(&mut self, depth: f32) {
+        self.0.set_depth(depth)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

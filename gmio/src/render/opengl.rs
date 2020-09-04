@@ -57,6 +57,7 @@ pub struct RendererImpl {
     interpolate_pixels: bool,
     texture_repeat: bool,
     circle_precision: i32,
+    using_3d: bool,
     depth: f32,
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
@@ -407,6 +408,7 @@ impl RendererImpl {
                 interpolate_pixels: options.interpolate_pixels,
                 texture_repeat: false,
                 circle_precision: 24,
+                using_3d: false,
                 depth: 0.0,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
@@ -1616,6 +1618,18 @@ impl RendererTrait for RendererImpl {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
             assert_eq!(self.gl.GetError(), 0);
+        }
+    }
+
+    fn get_depth(&self) -> f32 {
+        self.depth
+    }
+
+    fn set_depth(&mut self, depth: f32) {
+        if self.using_3d {
+            self.depth = depth.max(-16000.0).min(16000.0);
+        } else {
+            self.depth = 0.0;
         }
     }
 
