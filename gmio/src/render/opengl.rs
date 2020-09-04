@@ -1283,7 +1283,6 @@ impl RendererTrait for RendererImpl {
             (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
 
         let normal = [0.0, 0.0, 0.0];
-        let atlas_xywh = atlas_ref.into();
         let depth = self.depth;
 
         // rotate around draw origin
@@ -1292,36 +1291,13 @@ impl RendererTrait for RendererImpl {
         };
 
         // push the vertices
-        self.vertex_queue.push(Vertex {
-            pos: rotate(right, top),
-            tex_coord: [tex_right, tex_top],
-            blend: split_colour(col2, alpha),
-            atlas_xywh,
-            normal,
-        });
-        for _ in 0..2 {
-            self.vertex_queue.push(Vertex {
-                pos: rotate(left, top),
-                tex_coord: [tex_left, tex_top],
-                blend: split_colour(col1, alpha),
-                atlas_xywh,
-                normal,
-            });
-            self.vertex_queue.push(Vertex {
-                pos: rotate(right, bottom),
-                tex_coord: [tex_right, tex_bottom],
-                blend: split_colour(col3, alpha),
-                atlas_xywh,
-                normal,
-            });
-        }
-        self.vertex_queue.push(Vertex {
-            pos: rotate(left, bottom),
-            tex_coord: [tex_left, tex_bottom],
-            blend: split_colour(col4, alpha),
-            atlas_xywh,
-            normal,
-        });
+        self.push_primitive(
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+                .push_vertex(rotate(left, top), [tex_left, tex_top], split_colour(col1, alpha), normal)
+                .push_vertex(rotate(right, top), [tex_right, tex_top], split_colour(col2, alpha), normal)
+                .push_vertex(rotate(right, bottom), [tex_right, tex_bottom], split_colour(col3, alpha), normal)
+                .push_vertex(rotate(left, bottom), [tex_left, tex_bottom], split_colour(col4, alpha), normal),
+        );
     }
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
@@ -1822,9 +1798,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_culling(&self) -> bool {
-        unsafe {
-            self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE
-        }
+        unsafe { self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE }
     }
 
     fn set_culling(&mut self, culling: bool) {
