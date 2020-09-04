@@ -67,10 +67,11 @@ pub struct RendererImpl {
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,    // uniform sampler2D tex
-    loc_proj: GLint,   // uniform mat4 projection
-    loc_repeat: GLint, // uniform bool repeat
-    loc_lerp: GLint,   // uniform bool lerp
+    loc_tex: GLint,        // uniform sampler2D tex
+    loc_proj: GLint,       // uniform mat4 projection
+    loc_repeat: GLint,     // uniform bool repeat
+    loc_lerp: GLint,       // uniform bool lerp
+    loc_alpha_test: GLint, // uniform bool alpha_test
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -423,8 +424,13 @@ impl RendererImpl {
                 loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
                 loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
                 loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
+                loc_alpha_test: gl.GetUniformLocation(program, b"alpha_test\0".as_ptr().cast()),
                 gl,
             };
+
+            // default uniform values
+            renderer.gl.Uniform1i(renderer.loc_repeat, renderer.texture_repeat as _);
+            renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
 
             // Start first frame
             renderer.setup_frame(clear_colour);

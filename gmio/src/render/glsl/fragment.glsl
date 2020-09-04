@@ -3,12 +3,13 @@
 uniform sampler2D tex;
 uniform bool repeat;
 uniform bool lerp; // only used if repeat is on
+uniform bool alpha_test;
 
 in vec2 frag_tex_coord;
 in vec4 frag_atlas_xywh;
 in vec4 frag_blend;
 
-out vec4 colour;
+out vec4 out_colour;
 
 void main() {
     vec2 tex_size = textureSize(tex, 0);
@@ -39,5 +40,10 @@ void main() {
         sprite_coord = clamp(frag_tex_coord * frag_atlas_xywh.zw, vec2(0.5), frag_atlas_xywh.zw - 0.5);
         tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
     }
-    colour = tex_col * frag_blend;
+    vec4 colour = tex_col * frag_blend;
+    if (alpha_test && colour.a <= 0) {
+        // discarding is bad for performance but blend modes make this a necessity
+        discard;
+    }
+    out_colour = colour;
 }
