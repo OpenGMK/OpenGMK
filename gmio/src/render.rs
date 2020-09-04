@@ -396,6 +396,8 @@ pub trait RendererTrait {
 
     fn get_depth(&self) -> f32;
     fn set_depth(&mut self, depth: f32);
+    fn get_perspective(&self) -> bool;
+    fn set_perspective(&mut self, perspective: bool);
 }
 
 pub struct RendererOptions {
@@ -796,6 +798,14 @@ impl Renderer {
 
     pub fn set_depth(&mut self, depth: f32) {
         self.0.set_depth(depth)
+    }
+
+    pub fn get_perspective(&self) -> bool {
+        self.0.get_perspective()
+    }
+
+    pub fn set_perspective(&mut self, perspective: bool) {
+        self.0.set_perspective(perspective)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

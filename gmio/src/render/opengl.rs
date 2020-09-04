@@ -58,6 +58,7 @@ pub struct RendererImpl {
     texture_repeat: bool,
     circle_precision: i32,
     using_3d: bool,
+    perspective: bool,
     depth: f32,
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
@@ -409,6 +410,7 @@ impl RendererImpl {
                 texture_repeat: false,
                 circle_precision: 24,
                 using_3d: false,
+                perspective: false,
                 depth: 0.0,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
@@ -1600,7 +1602,11 @@ impl RendererTrait for RendererImpl {
         port_w: i32,
         port_h: i32,
     ) {
-        self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        if self.using_3d && self.perspective {
+            self.set_projection_perspective(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        } else {
+            self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        }
 
         // Set viewport (gl::Viewport, gl::Scissor)
         if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
@@ -1631,6 +1637,14 @@ impl RendererTrait for RendererImpl {
         } else {
             self.depth = 0.0;
         }
+    }
+
+    fn get_perspective(&self) -> bool {
+        self.perspective
+    }
+
+    fn set_perspective(&mut self, perspective: bool) {
+        self.perspective = perspective;
     }
 
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
