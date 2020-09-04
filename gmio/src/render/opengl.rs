@@ -60,6 +60,7 @@ pub struct RendererImpl {
     texture_repeat: bool,
     circle_precision: i32,
     using_3d: bool,
+    depth_test: bool,
     perspective: bool,
     depth: f32,
     primitive_2d: PrimitiveBuilder,
@@ -419,6 +420,7 @@ impl RendererImpl {
                 texture_repeat: false,
                 circle_precision: 24,
                 using_3d: false,
+                depth_test: false,
                 perspective: false,
                 depth: 0.0,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
@@ -1679,6 +1681,22 @@ impl RendererTrait for RendererImpl {
             self.depth = depth.max(-16000.0).min(16000.0);
         } else {
             self.depth = 0.0;
+        }
+    }
+
+    fn get_depth_test(&self) -> bool {
+        self.depth_test
+    }
+
+    fn set_depth_test(&mut self, depth_test: bool) {
+        self.depth_test = depth_test;
+        unsafe {
+            self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
+            if self.depth_test {
+                self.gl.Enable(gl::DEPTH_TEST);
+            } else {
+                self.gl.Disable(gl::DEPTH_TEST);
+            }
         }
     }
 

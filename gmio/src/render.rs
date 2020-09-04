@@ -396,6 +396,8 @@ pub trait RendererTrait {
 
     fn get_depth(&self) -> f32;
     fn set_depth(&mut self, depth: f32);
+    fn get_depth_test(&self) -> bool;
+    fn set_depth_test(&mut self, depth_test: bool);
     fn get_perspective(&self) -> bool;
     fn set_perspective(&mut self, perspective: bool);
 }
@@ -798,6 +800,14 @@ impl Renderer {
 
     pub fn set_depth(&mut self, depth: f32) {
         self.0.set_depth(depth)
+    }
+
+    pub fn get_depth_test(&self) -> bool {
+        self.0.get_depth_test()
+    }
+
+    pub fn set_depth_test(&mut self, depth_test: bool) {
+        self.0.set_depth_test(depth_test)
     }
 
     pub fn get_perspective(&self) -> bool {
