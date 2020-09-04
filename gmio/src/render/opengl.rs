@@ -1794,10 +1794,10 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_depth(&mut self, depth: f32) {
-        if self.using_3d {
-            self.depth = depth.max(-16000.0).min(16000.0);
-        } else {
-            self.depth = 0.0;
+        let new_depth = if self.using_3d { depth.max(-16000.0).min(16000.0) } else { 0.0 };
+        if self.depth != new_depth {
+            self.flush_queue();
+            self.depth = new_depth;
         }
     }
 
@@ -1806,13 +1806,16 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_depth_test(&mut self, depth_test: bool) {
-        self.depth_test = depth_test;
-        unsafe {
-            self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
-            if self.depth_test {
-                self.gl.Enable(gl::DEPTH_TEST);
-            } else {
-                self.gl.Disable(gl::DEPTH_TEST);
+        if self.depth_test != depth_test {
+            self.flush_queue();
+            self.depth_test = depth_test;
+            unsafe {
+                self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
+                if self.depth_test {
+                    self.gl.Enable(gl::DEPTH_TEST);
+                } else {
+                    self.gl.Disable(gl::DEPTH_TEST);
+                }
             }
         }
     }
@@ -1822,6 +1825,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_perspective(&mut self, perspective: bool) {
+        // don't need to flush_queue for this because this only affects set_view
         self.perspective = perspective;
     }
 
