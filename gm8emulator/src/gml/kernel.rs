@@ -10771,9 +10771,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_fog")
     }
 
-    pub fn d3d_set_culling(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_culling")
+    pub fn d3d_set_culling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let cull = expect_args!(args, [any])?;
+        self.renderer.set_culling(cull.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
