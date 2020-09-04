@@ -427,6 +427,15 @@ impl PartialOrd for Real {
     }
 }
 
+impl std::iter::Sum<Real> for Real {
+    fn sum<I>(iter: I) -> Real
+    where
+        I: Iterator<Item = Real>,
+    {
+        iter.fold(Real(0.0), Real::add)
+    }
+}
+
 impl Real {
     #[inline(always)]
     pub fn abs(self) -> Self {
