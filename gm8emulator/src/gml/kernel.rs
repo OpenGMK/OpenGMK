@@ -10743,9 +10743,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_hidden")
     }
 
-    pub fn d3d_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_depth")
+    pub fn d3d_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let depth = expect_args!(args, [real])?;
+        self.renderer.set_depth(depth.into_inner() as f32);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
