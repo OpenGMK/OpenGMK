@@ -1820,6 +1820,12 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_culling(&self) -> bool {
+        unsafe {
+            self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE
+        }
+    }
+
     fn set_culling(&mut self, culling: bool) {
         unsafe {
             if culling {
