@@ -374,9 +374,19 @@ impl RendererImpl {
                 gl::UNSIGNED_BYTE,   // type
                 ptr::null(),         // data
             );
-            gl.GenRenderbuffers(1, &mut framebuffer_zbuf);
-            gl.BindRenderbuffer(gl::RENDERBUFFER, framebuffer_zbuf);
-            gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, options.size.0 as _, options.size.1 as _);
+            gl.GenTextures(1, &mut framebuffer_zbuf);
+            gl.BindTexture(gl::TEXTURE_2D, framebuffer_zbuf);
+            gl.TexImage2D(
+                gl::TEXTURE_2D,             // target
+                0,                          // level
+                gl::DEPTH_COMPONENT24 as _, // internalformat
+                options.size.0 as _,        // width
+                options.size.1 as _,        // height
+                0,                          // border ("must be 0")
+                gl::DEPTH_COMPONENT,        // format
+                gl::FLOAT,                  // type
+                ptr::null(),                // data
+            );
             gl.GenFramebuffers(1, &mut framebuffer_fbo);
             gl.BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
             gl.FramebufferTexture2D(
@@ -386,7 +396,7 @@ impl RendererImpl {
                 framebuffer_texture,
                 0,
             );
-            gl.FramebufferRenderbuffer(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, framebuffer_zbuf);
+            gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, framebuffer_zbuf, 0);
 
             // Create identity matrix to initialize MVP matrices with
             #[rustfmt::skip]
@@ -719,7 +729,7 @@ impl RendererTrait for RendererImpl {
                 self.gl.DeleteTextures(1, &tex_id);
                 self.texture_ids[atlas_ref.atlas_id as usize] = None;
                 if let Some(Some(zbuf)) = self.zbuf_ids.get(atlas_ref.atlas_id as usize) {
-                    self.gl.DeleteRenderbuffers(1, zbuf);
+                    self.gl.DeleteTextures(1, zbuf);
                     self.zbuf_ids[atlas_ref.atlas_id as usize] = None;
                 }
                 if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
@@ -800,10 +810,20 @@ impl RendererTrait for RendererImpl {
             // generate zbuffer if applicable
             if has_zbuffer {
                 let mut zbuf_id: GLuint = 0;
-                self.gl.GenRenderbuffers(1, &mut zbuf_id);
-                self.gl.BindRenderbuffer(gl::RENDERBUFFER, zbuf_id);
-                self.gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, width as _, height as _);
-                self.gl.FramebufferRenderbuffer(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, zbuf_id);
+                self.gl.GenTextures(1, &mut zbuf_id);
+                self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                self.gl.TexImage2D(
+                    gl::TEXTURE_2D,             // target
+                    0,                          // level
+                    gl::DEPTH_COMPONENT24 as _, // internalformat
+                    width as _,                 // width
+                    height as _,                // height
+                    0,                          // border ("must be 0")
+                    gl::DEPTH_COMPONENT,        // format
+                    gl::FLOAT,                  // type
+                    ptr::null(),                // data
+                );
+                self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, zbuf_id, 0);
                 match self.gl.GetError() {
                     0 => (),
                     err => return Err(format!("Failed to generate depth buffer! (OpenGL code {})", err)),
@@ -889,9 +909,19 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
             // set up new zbuffer
             let old_zbuf = self.framebuffer_zbuf;
-            self.gl.GenRenderbuffers(1, &mut self.framebuffer_zbuf);
-            self.gl.BindRenderbuffer(gl::RENDERBUFFER, self.framebuffer_zbuf);
-            self.gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, width as _, height as _);
+            self.gl.GenTextures(1, &mut self.framebuffer_zbuf);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            self.gl.TexImage2D(
+                gl::TEXTURE_2D,             // target
+                0,                          // level
+                gl::DEPTH_COMPONENT24 as _, // internalformat
+                width as _,                 // width
+                height as _,                // height
+                0,                          // border ("must be 0")
+                gl::DEPTH_COMPONENT,        // format
+                gl::FLOAT,                  // type
+                ptr::null(),                // data
+            );
             assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
             let old_fbo = self.framebuffer_fbo;
@@ -904,11 +934,12 @@ impl RendererTrait for RendererImpl {
                 self.framebuffer_texture,
                 0,
             );
-            self.gl.FramebufferRenderbuffer(
+            self.gl.FramebufferTexture2D(
                 gl::READ_FRAMEBUFFER,
                 gl::DEPTH_ATTACHMENT,
-                gl::RENDERBUFFER,
+                gl::TEXTURE_2D,
                 self.framebuffer_zbuf,
+                0,
             );
             assert_eq!(self.gl.GetError(), 0);
             // draw old fb onto new
@@ -930,7 +961,7 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
             // delete old texture and fbo
             self.gl.DeleteTextures(1, &old_tex);
-            self.gl.DeleteRenderbuffers(1, &old_zbuf);
+            self.gl.DeleteTextures(1, &old_zbuf);
             self.gl.DeleteFramebuffers(1, &old_fbo);
             assert_eq!(self.gl.GetError(), 0);
         }
