@@ -50,6 +50,7 @@ pub struct RendererImpl {
     stock_atlas_count: u32,
     current_atlas: GLuint,
     framebuffer_texture: GLuint,
+    framebuffer_zbuf: GLuint,
     framebuffer_fbo: GLuint,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
@@ -356,7 +357,7 @@ impl RendererImpl {
             gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
 
             // Create framebuffer
-            let (mut framebuffer_texture, mut framebuffer_fbo) = (0, 0);
+            let (mut framebuffer_texture, mut framebuffer_zbuf, mut framebuffer_fbo) = (0, 0, 0);
             gl.GenTextures(1, &mut framebuffer_texture);
             gl.BindTexture(gl::TEXTURE_2D, framebuffer_texture);
             gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
@@ -371,6 +372,9 @@ impl RendererImpl {
                 gl::UNSIGNED_BYTE,   // type
                 ptr::null(),         // data
             );
+            gl.GenRenderbuffers(1, &mut framebuffer_zbuf);
+            gl.BindRenderbuffer(gl::RENDERBUFFER, framebuffer_zbuf);
+            gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, options.size.0 as _, options.size.1 as _);
             gl.GenFramebuffers(1, &mut framebuffer_fbo);
             gl.BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
             gl.FramebufferTexture2D(
@@ -380,6 +384,7 @@ impl RendererImpl {
                 framebuffer_texture,
                 0,
             );
+            gl.FramebufferRenderbuffer(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, framebuffer_zbuf);
 
             // Create identity matrix to initialize MVP matrices with
             #[rustfmt::skip]
@@ -403,6 +408,7 @@ impl RendererImpl {
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 framebuffer_texture,
+                framebuffer_zbuf,
                 framebuffer_fbo,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
@@ -454,7 +460,7 @@ impl RendererImpl {
             self.set_view(0, 0, width, height, 0.0, 0, 0, width, height);
             // clear screen
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             assert_eq!(self.gl.GetError(), 0);
         }
     }
@@ -861,6 +867,12 @@ impl RendererTrait for RendererImpl {
                 ptr::null(),       // data
             );
             assert_eq!(self.gl.GetError(), 0);
+            // set up new zbuffer
+            let old_zbuf = self.framebuffer_zbuf;
+            self.gl.GenRenderbuffers(1, &mut self.framebuffer_zbuf);
+            self.gl.BindRenderbuffer(gl::RENDERBUFFER, self.framebuffer_zbuf);
+            self.gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, width as _, height as _);
+            assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
             let old_fbo = self.framebuffer_fbo;
             self.gl.GenFramebuffers(1, &mut self.framebuffer_fbo);
@@ -871,6 +883,12 @@ impl RendererTrait for RendererImpl {
                 gl::TEXTURE_2D,
                 self.framebuffer_texture,
                 0,
+            );
+            self.gl.FramebufferRenderbuffer(
+                gl::READ_FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::RENDERBUFFER,
+                self.framebuffer_zbuf,
             );
             assert_eq!(self.gl.GetError(), 0);
             // draw old fb onto new
@@ -886,12 +904,13 @@ impl RendererTrait for RendererImpl {
                 0,
                 copy_width as _,
                 copy_height as _,
-                gl::COLOR_BUFFER_BIT,
-                gl::LINEAR,
+                gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT,
+                gl::NEAREST,
             );
             assert_eq!(self.gl.GetError(), 0);
             // delete old texture and fbo
             self.gl.DeleteTextures(1, &old_tex);
+            self.gl.DeleteRenderbuffers(1, &old_zbuf);
             self.gl.DeleteFramebuffers(1, &old_fbo);
             assert_eq!(self.gl.GetError(), 0);
         }
@@ -1628,7 +1647,7 @@ impl RendererTrait for RendererImpl {
         self.flush_queue();
         unsafe {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             assert_eq!(self.gl.GetError(), 0);
         }
     }
