@@ -83,6 +83,10 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
+    pub using_3d: bool,
+    pub depth: f32,
+    pub depth_test: bool,
+    pub perspective: bool,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
@@ -176,6 +180,10 @@ impl SaveState {
             draw_alpha: game.draw_alpha.clone(),
             draw_halign: game.draw_halign.clone(),
             draw_valign: game.draw_valign.clone(),
+            using_3d: game.renderer.get_3d(),
+            depth: game.renderer.get_depth(),
+            depth_test: game.renderer.get_depth_test(),
+            perspective: game.renderer.get_perspective(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
@@ -294,6 +302,10 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
+        game.renderer.set_3d(self.using_3d);
+        game.renderer.set_depth(self.depth);
+        game.renderer.set_depth_test(self.depth_test);
+        game.renderer.set_perspective(self.perspective);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
