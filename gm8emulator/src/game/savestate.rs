@@ -120,12 +120,14 @@ pub struct SaveState {
 
     replay: Replay,
     screenshot: Box<[u8]>,
+    zbuffer: Box<[f32]>,
 }
 
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
         let (window_width, window_height) = game.window.get_inner_size();
         let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
+        let zbuffer = game.renderer.dump_zbuffer();
 
         Self {
             compiler: game.compiler.clone(),
@@ -206,6 +208,7 @@ impl SaveState {
             window_height,
             replay,
             screenshot,
+            zbuffer,
         }
     }
 
@@ -216,6 +219,7 @@ impl SaveState {
 
         game.renderer.draw_raw_frame(
             self.screenshot,
+            self.zbuffer,
             self.unscaled_width as _,
             self.unscaled_height as _,
             self.window_width as _,

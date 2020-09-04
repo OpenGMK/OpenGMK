@@ -1032,9 +1032,25 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn dump_zbuffer(&self) -> Box<[f32]> {
+        unsafe {
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            let mut width = 0;
+            let mut height = 0;
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            let len = (width * height) as usize;
+            let mut data: Vec<f32> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
+            data.into_boxed_slice()
+        }
+    }
+
     fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -1057,6 +1073,18 @@ impl RendererTrait for RendererImpl {
                 gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 rgba.as_ptr().cast(),
+            );
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            self.gl.TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0,
+                0,
+                fb_w,
+                fb_h,
+                gl::DEPTH_COMPONENT,
+                gl::FLOAT,
+                zbuf.as_ptr().cast(),
             );
 
             assert_eq!(self.gl.GetError(), 0);

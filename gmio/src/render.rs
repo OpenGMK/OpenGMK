@@ -245,9 +245,11 @@ pub trait RendererTrait {
     fn set_texture_repeat(&mut self, repeat: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
+    fn dump_zbuffer(&self) -> Box<[f32]>;
     fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -716,9 +718,14 @@ impl Renderer {
         self.0.get_pixels(x, y, w, h)
     }
 
+    pub fn dump_zbuffer(&self) -> Box<[f32]> {
+        self.0.dump_zbuffer()
+    }
+
     pub fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -726,7 +733,7 @@ impl Renderer {
         scaling: Scaling,
         clear_colour: Colour,
     ) {
-        self.0.draw_raw_frame(rgba, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
+        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
