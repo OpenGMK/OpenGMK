@@ -100,15 +100,16 @@ impl PrimitiveBuilder {
             },
             PrimitiveType::TriFan => {
                 if self.vertices.len() >= 3 {
-                    self.vertices.push(*self.vertices.last().unwrap());
+                    let last_vert = *self.vertices.last().unwrap();
                     self.vertices.push(self.vertices[0]);
+                    self.vertices.push(last_vert);
                 }
             },
             PrimitiveType::TriStrip => {
                 let len = self.vertices.len();
                 if len >= 3 {
-                    self.vertices.push(self.vertices[len - 2]);
                     self.vertices.push(self.vertices[len - 1]);
+                    self.vertices.push(self.vertices[len - 2]);
                 }
             },
         }
