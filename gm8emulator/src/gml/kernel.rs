@@ -8921,7 +8921,7 @@ impl Game {
 
     pub fn part_system_drawit(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        self.particles.draw_system(id, &mut self.renderer, &self.assets);
+        self.particles.draw_system(id, &mut self.renderer, &self.assets, false);
         Ok(Default::default())
     }
 

@@ -314,7 +314,7 @@ impl Game {
         }
 
         fn draw_part_syst(game: &mut Game, id: i32) {
-            game.particles.draw_system(id, &mut game.renderer, &game.assets);
+            game.particles.draw_system(id, &mut game.renderer, &game.assets, true);
         }
 
         // draw backgrounds
