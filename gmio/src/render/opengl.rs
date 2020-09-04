@@ -1672,6 +1672,16 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_3d(&self) -> bool {
+        self.using_3d
+    }
+
+    fn set_3d(&mut self, use_3d: bool) {
+        self.using_3d = use_3d;
+        self.set_depth_test(use_3d);
+        self.set_perspective(use_3d);
+    }
+
     fn get_depth(&self) -> f32 {
         self.depth
     }

@@ -394,6 +394,8 @@ pub trait RendererTrait {
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
 
+    fn get_3d(&self) -> bool;
+    fn set_3d(&mut self, use_3d: bool);
     fn get_depth(&self) -> f32;
     fn set_depth(&mut self, depth: f32);
     fn get_depth_test(&self) -> bool;
@@ -792,6 +794,14 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn get_3d(&self) -> bool {
+        self.0.get_3d()
+    }
+
+    pub fn set_3d(&mut self, use_3d: bool) {
+        self.0.set_3d(use_3d)
     }
 
     pub fn get_depth(&self) -> f32 {
