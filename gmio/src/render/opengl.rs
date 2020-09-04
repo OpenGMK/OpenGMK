@@ -629,6 +629,7 @@ impl RendererTrait for RendererImpl {
 
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
+            self.zbuf_ids.resize(self.texture_ids.len(), None);
             self.fbo_ids = fbo_ids;
             self.stock_atlas_count = textures.len() as u32;
         }
