@@ -44,6 +44,7 @@ pub struct RendererImpl {
     //vao: GLuint,
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
+    zbuf_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
     sprites: HashMap<i32, AtlasRef>,
     sprite_count: i32,
@@ -402,6 +403,7 @@ impl RendererImpl {
                 //vao,
                 atlas_packers: vec![],
                 texture_ids: vec![],
+                zbuf_ids: vec![],
                 fbo_ids: vec![],
                 sprites: HashMap::new(),
                 sprite_count: 0,
@@ -636,7 +638,7 @@ impl RendererTrait for RendererImpl {
         let atlas_ref = AtlasRef {
             origin_x: origin_x as f32 / width as f32,
             origin_y: origin_y as f32 / height as f32,
-            ..self.create_surface(width, height)?
+            ..self.create_surface(width, height, false)?
         };
         unsafe {
             // store previous
@@ -671,7 +673,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
-        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h)?;
+        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h, false)?;
         unsafe {
             // store previous
             let mut prev_read_fbo = 0;
@@ -713,15 +715,15 @@ impl RendererTrait for RendererImpl {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
                 self.gl.DeleteTextures(1, &tex_id);
-            }
-            self.texture_ids[atlas_ref.atlas_id as usize] = None;
-            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
-                unsafe {
-                    self.gl.DeleteFramebuffers(1, fbo);
+                self.texture_ids[atlas_ref.atlas_id as usize] = None;
+                if let Some(Some(zbuf)) = self.zbuf_ids.get(atlas_ref.atlas_id as usize) {
+                    self.gl.DeleteRenderbuffers(1, zbuf);
+                    self.zbuf_ids[atlas_ref.atlas_id as usize] = None;
                 }
-                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
-            }
-            unsafe {
+                if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+                    self.gl.DeleteFramebuffers(1, fbo);
+                    self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+                }
                 assert_eq!(self.gl.GetError(), 0);
             }
         }
@@ -739,11 +741,12 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.wait_vsync() }
     }
 
-    fn create_surface(&mut self, width: i32, height: i32) -> Result<AtlasRef, String> {
+    fn create_surface(&mut self, width: i32, height: i32, has_zbuffer: bool) -> Result<AtlasRef, String> {
         let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
             id as u32
         } else {
             self.texture_ids.push(None);
+            self.zbuf_ids.push(None);
             self.fbo_ids.push(None);
             self.texture_ids.len() as u32 - 1
         };
@@ -790,6 +793,21 @@ impl RendererTrait for RendererImpl {
             match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to generate framebuffer! (OpenGL code {})", err)),
+            }
+
+            // generate zbuffer if applicable
+            if has_zbuffer {
+                let mut zbuf_id: GLuint = 0;
+                self.gl.GenRenderbuffers(1, &mut zbuf_id);
+                self.gl.BindRenderbuffer(gl::RENDERBUFFER, zbuf_id);
+                self.gl.RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT24, width as _, height as _);
+                self.gl.FramebufferRenderbuffer(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::RENDERBUFFER, zbuf_id);
+                match self.gl.GetError() {
+                    0 => (),
+                    err => return Err(format!("Failed to generate depth buffer! (OpenGL code {})", err)),
+                }
+                // store handle
+                self.zbuf_ids[atlas_id as usize] = Some(zbuf_id);
             }
 
             // store opengl texture handles

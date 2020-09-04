@@ -1616,7 +1616,7 @@ impl Game {
         let surf = Surface {
             width: w as _,
             height: h as _,
-            atlas_ref: match self.renderer.create_surface(w, h) {
+            atlas_ref: match self.renderer.create_surface(w, h, true) {
                 Ok(atl_ref) => atl_ref,
                 Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
             },
