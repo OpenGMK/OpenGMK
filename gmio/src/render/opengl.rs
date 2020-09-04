@@ -1817,6 +1817,16 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn set_culling(&mut self, culling: bool) {
+        unsafe {
+            if culling {
+                self.gl.Enable(gl::CULL_FACE);
+            } else {
+                self.gl.Disable(gl::CULL_FACE);
+            }
+        }
+    }
+
     fn get_perspective(&self) -> bool {
         self.perspective
     }
