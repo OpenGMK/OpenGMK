@@ -49,7 +49,7 @@ void main() {
     vec4 colour = tex_col * frag_blend;
     // apply fog
     if (fog_enabled) {
-        float f = (fog_end - fog_z) / (fog_end - fog_begin);
+        float f = clamp((fog_end - fog_z) / (fog_end - fog_begin), 0, 1);
         colour = (1-f) * fog_colour + f * colour;
     }
     // alpha test
