@@ -19,7 +19,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture, Scaling};
+use gmio::render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -89,6 +89,7 @@ pub struct SaveState {
     pub write_depth: bool,
     pub culling: bool,
     pub perspective: bool,
+    pub fog: Option<Fog>,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
@@ -188,6 +189,7 @@ impl SaveState {
             write_depth: game.renderer.get_write_depth(),
             culling: game.renderer.get_culling(),
             perspective: game.renderer.get_perspective(),
+            fog: game.renderer.get_fog(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
@@ -312,6 +314,7 @@ impl SaveState {
         game.renderer.set_write_depth(self.write_depth);
         game.renderer.set_culling(self.culling);
         game.renderer.set_perspective(self.perspective);
+        game.renderer.set_fog(self.fog);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
