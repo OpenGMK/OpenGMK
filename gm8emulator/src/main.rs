@@ -46,6 +46,7 @@ fn xmain() -> i32 {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
+    opts.optopt("tmp", "tempdir", "directory to store temporary files in", "DIRECTORY");
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
@@ -75,6 +76,17 @@ fn xmain() -> i32 {
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
     let verbose = matches.opt_present("v");
+    let temp_dir = matches.opt_str("tmp").map(|path| {
+        let path = PathBuf::from(path);
+        if !path.is_dir() {
+            if path.exists() {
+                panic!("temp directory exists but is not a directory");
+            } else {
+                std::fs::create_dir_all(&path).unwrap();
+            }
+        }
+        path
+    });
     let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
         Ok(p) => p,
         Err(e) => {
@@ -178,7 +190,7 @@ fn xmain() -> i32 {
 
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
-    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, encoding) {
+    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, temp_dir, encoding) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

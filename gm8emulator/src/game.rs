@@ -143,6 +143,7 @@ pub struct Game {
 
     pub game_id: i32,
     pub program_directory: RCStr,
+    pub temp_directory: RCStr,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
@@ -215,6 +216,7 @@ impl Game {
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
         game_arguments: Vec<String>,
+        temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
@@ -772,12 +774,68 @@ impl Game {
 
         renderer.push_atlases(atlases)?;
 
+        let mut rand = Random::new();
+
+        let temp_directory = match temp_dir {
+            Some(path) => path,
+            None => {
+                // read path from tempdir.txt or if that's not possible get std::env::temp_dir()
+                let mut dir = if let Some(path) = std::fs::read("tempdir.txt")
+                    .ok()
+                    .and_then(|bytes| {
+                        // manual decode to avoid encoding errors
+                        match gm_version {
+                            Version::GameMaker8_0 => encoding
+                                .decode_without_bom_handling_and_without_replacement(&bytes)
+                                .map(|x| x.into_owned()),
+                            Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
+                        }
+                    })
+                    .map(|path| PathBuf::from(path))
+                {
+                    path
+                } else {
+                    std::env::temp_dir()
+                };
+                // closure to make a gm_ttt folder within a given path
+                let mut make_temp_dir = |path: &mut PathBuf| {
+                    let mut folder = "gm_ttt_".to_string();
+                    folder += &rand.next_int(99999).to_string();
+                    path.push(&folder);
+                    while path.exists() {
+                        path.pop();
+                        folder.truncate(7); // length of "gm_ttt_"
+                        folder += &rand.next_int(99999).to_string();
+                        path.push(&folder);
+                    }
+                    std::fs::create_dir_all(path)
+                };
+                // try making folders
+                if let Err(e) = make_temp_dir(&mut dir) {
+                    eprintln!("Could not create temp folder in {:?}: {}", dir, e);
+                    // GM8 would try C:\temp but let's skip that
+                    match std::env::current_dir().map(|x| {
+                        dir = x;
+                        make_temp_dir(&mut dir)
+                    }) {
+                        Ok(_) => eprintln!("Using game directory instead."),
+                        Err(e) => {
+                            eprintln!("Could not use game directory either: {}", e);
+                            eprintln!("Trying to run anyway. If this game uses the temp folder, it will likely crash.");
+                            dir = PathBuf::new();
+                        },
+                    }
+                }
+                dir
+            },
+        };
+
         let mut game = Self {
             compiler,
             file_manager: FileManager::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
-            rand: Random::new(),
+            rand,
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
@@ -832,6 +890,7 @@ impl Game {
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             program_directory: program_directory.into(),
+            temp_directory: "".into(),
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
@@ -851,6 +910,8 @@ impl Game {
             unscaled_width: 0,
             unscaled_height: 0,
         };
+
+        game.temp_directory = game.encode_str_maybe(temp_directory.to_str().unwrap()).unwrap().into_owned().into();
 
         // Evaluate constants
         for c in &constants {
