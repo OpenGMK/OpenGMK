@@ -10755,9 +10755,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_zwriteenable")
+    pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let write_depth = expect_args!(args, [any])?;
+        self.renderer.set_write_depth(write_depth.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_lighting(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
