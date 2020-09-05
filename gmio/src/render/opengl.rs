@@ -1797,6 +1797,23 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_write_depth(&self) -> bool {
+        let mut write_depth = gl::FALSE;
+        unsafe {
+            self.gl.GetBooleanv(gl::DEPTH_WRITEMASK, &mut write_depth);
+        }
+        write_depth != gl::FALSE
+    }
+
+    fn set_write_depth(&mut self, write_depth: bool) {
+        if write_depth != self.get_write_depth() {
+            self.flush_queue();
+            unsafe {
+                self.gl.DepthMask(write_depth as _);
+            }
+        }
+    }
+
     fn get_culling(&self) -> bool {
         unsafe { self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE }
     }
