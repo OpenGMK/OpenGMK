@@ -256,6 +256,8 @@ impl Game {
 
         if self.show_room_colour {
             self.renderer.clear_view(self.room_colour, 1.0);
+        } else {
+            self.renderer.clear_zbuf();
         }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
