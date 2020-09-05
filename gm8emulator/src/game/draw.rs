@@ -413,6 +413,7 @@ impl Game {
         }
 
         self.renderer.set_depth(-13000.0);
+        // TODO: cursor sprite goes here
 
         Ok(())
     }
