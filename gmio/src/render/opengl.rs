@@ -64,6 +64,8 @@ pub struct RendererImpl {
     perspective: bool,
     depth: f32,
     fog: Option<Fog>,
+    lighting: bool,
+    gouraud: bool,
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
 
@@ -439,6 +441,8 @@ impl RendererImpl {
                 perspective: false,
                 depth: 0.0,
                 fog: None,
+                lighting: false,
+                gouraud: true,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
@@ -500,7 +504,19 @@ impl RendererImpl {
 
     fn push_primitive(&mut self, builder: &PrimitiveBuilder) {
         self.setup_queue(builder.get_atlas_id(), builder.get_type());
-        self.vertex_queue.extend_from_slice(builder.get_vertices());
+        if self.lighting && !self.gouraud && builder.get_type() == PrimitiveType::TriList {
+            for tri in builder.get_vertices().chunks(3) {
+                let first = tri[0];
+                let normal = first.normal;
+                self.vertex_queue.push(first);
+                for vertex in &tri[1..] {
+                    let vertex = Vertex { normal, ..*vertex };
+                    self.vertex_queue.push(vertex);
+                }
+            }
+        } else {
+            self.vertex_queue.extend_from_slice(builder.get_vertices());
+        }
     }
 
     fn update_matrix(&mut self) {
@@ -1879,6 +1895,15 @@ impl RendererTrait for RendererImpl {
             }
             self.fog = fog;
         }
+    }
+
+    fn get_gouraud(&self) -> bool {
+        self.gouraud
+    }
+
+    fn set_gouraud(&mut self, gouraud: bool) {
+        // no need to flush queue here because it only takes effect when things are added
+        self.gouraud = gouraud;
     }
 
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

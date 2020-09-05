@@ -413,6 +413,8 @@ pub trait RendererTrait {
     fn set_perspective(&mut self, perspective: bool);
     fn get_fog(&self) -> Option<Fog>;
     fn set_fog(&mut self, fog: Option<Fog>);
+    fn get_gouraud(&self) -> bool;
+    fn set_gouraud(&mut self, gouraud: bool);
 }
 
 pub struct RendererOptions {
@@ -870,6 +872,14 @@ impl Renderer {
 
     pub fn set_fog(&mut self, fog: Option<Fog>) {
         self.0.set_fog(fog)
+    }
+
+    pub fn get_gouraud(&self) -> bool {
+        self.0.get_gouraud()
+    }
+
+    pub fn set_gouraud(&mut self, gouraud: bool) {
+        self.0.set_gouraud(gouraud)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
