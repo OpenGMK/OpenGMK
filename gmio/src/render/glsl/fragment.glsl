@@ -5,7 +5,7 @@ uniform bool repeat;
 uniform bool lerp; // only used if repeat is on
 uniform bool alpha_test;
 uniform bool fog_enabled;
-uniform vec4 fog_colour;
+uniform vec3 fog_colour;
 uniform float fog_begin;
 uniform float fog_end;
 
@@ -50,7 +50,7 @@ void main() {
     // apply fog
     if (fog_enabled) {
         float f = clamp((fog_end - fog_z) / (fog_end - fog_begin), 0, 1);
-        colour = (1-f) * fog_colour + f * colour;
+        colour.rgb = (1-f) * fog_colour + f * colour.rgb;
     }
     // alpha test
     if (alpha_test && colour.a <= 0) {

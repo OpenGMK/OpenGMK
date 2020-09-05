@@ -1862,7 +1862,7 @@ impl RendererTrait for RendererImpl {
                 self.gl.Uniform1i(self.loc_fog_enabled, fog.is_some() as _);
                 if let Some(fog) = fog.as_ref() {
                     let col = split_colour(fog.colour, 1.0);
-                    self.gl.Uniform4fv(self.loc_fog_colour, 1, col.as_ptr());
+                    self.gl.Uniform3fv(self.loc_fog_colour, 1, col.as_ptr());
                     self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
                     self.gl.Uniform1f(self.loc_fog_end, fog.end);
                 }
