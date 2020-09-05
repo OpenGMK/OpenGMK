@@ -90,6 +90,7 @@ pub struct SaveState {
     pub culling: bool,
     pub perspective: bool,
     pub fog: Option<Fog>,
+    pub gouraud: bool,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub auto_draw: bool,
@@ -190,6 +191,7 @@ impl SaveState {
             culling: game.renderer.get_culling(),
             perspective: game.renderer.get_perspective(),
             fog: game.renderer.get_fog(),
+            gouraud: game.renderer.get_gouraud(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             auto_draw: game.auto_draw,
@@ -315,6 +317,7 @@ impl SaveState {
         game.renderer.set_culling(self.culling);
         game.renderer.set_perspective(self.perspective);
         game.renderer.set_fog(self.fog);
+        game.renderer.set_gouraud(self.gouraud);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.auto_draw = self.auto_draw;
