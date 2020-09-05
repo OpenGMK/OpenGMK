@@ -19,7 +19,7 @@ use crate::{
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Renderer, RendererOptions},
+    render::{BlendType, Fog, Renderer, RendererOptions},
     window,
 };
 use image::RgbaImage;
@@ -10771,9 +10771,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_shading")
     }
 
-    pub fn d3d_set_fog(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function d3d_set_fog")
+    pub fn d3d_set_fog(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (enabled, colour, begin, end) = expect_args!(args, [any, int, real, real])?;
+        let fog = if enabled.is_truthy() {
+            Some(Fog { colour, begin: begin.into_inner() as f32, end: end.into_inner() as f32 })
+        } else {
+            None
+        };
+        self.renderer.set_fog(fog);
+        Ok(Default::default())
     }
 
     pub fn d3d_set_culling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
