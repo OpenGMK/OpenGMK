@@ -10768,9 +10768,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_set_lighting")
     }
 
-    pub fn d3d_set_shading(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_shading")
+    pub fn d3d_set_shading(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let gouraud = expect_args!(args, [any])?;
+        self.renderer.set_gouraud(gouraud.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_fog(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
