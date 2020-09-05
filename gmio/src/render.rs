@@ -97,34 +97,27 @@ impl PrimitiveBuilder {
         Self { vertices: Vec::new(), ptype, atlas_ref }
     }
 
-    fn fill_shape(&mut self) {
-        match self.ptype {
-            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (),
-            PrimitiveType::LineStrip => {
-                if self.vertices.len() >= 2 {
-                    self.vertices.push(*self.vertices.last().unwrap());
-                }
-            },
-            PrimitiveType::TriFan => {
-                if self.vertices.len() >= 3 {
-                    let last_vert = *self.vertices.last().unwrap();
-                    self.vertices.push(self.vertices[0]);
-                    self.vertices.push(last_vert);
-                }
-            },
-            PrimitiveType::TriStrip => {
-                let len = self.vertices.len();
-                if len >= 3 {
-                    self.vertices.push(self.vertices[len - 1]);
-                    self.vertices.push(self.vertices[len - 2]);
-                }
-            },
-        }
-    }
-
     fn push_vertex_raw(&mut self, v: Vertex) -> &mut Self {
-        self.fill_shape();
+        // if we need to fill out a shape get the other two points
+        let (v1, v2) = match self.ptype {
+            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (None, None),
+            PrimitiveType::LineStrip => (self.vertices.last().copied().filter(|_| self.vertices.len() >= 2), None),
+            PrimitiveType::TriFan | PrimitiveType::TriStrip if self.vertices.len() < 3 => (None, None),
+            PrimitiveType::TriStrip | PrimitiveType::TriFan => {
+                (Some(self.vertices[self.vertices.len() - 2]), self.vertices.last().copied())
+            },
+        };
+        if let Some(v1) = v1 {
+            self.vertices.push(v1);
+        }
         self.vertices.push(v);
+        if let Some(v2) = v2 {
+            self.vertices.push(v2);
+        } else if self.vertices.len() == 3 && self.ptype == PrimitiveType::TriFan {
+            // i hate that this works
+            self.vertices.swap(0, 1);
+            self.vertices.swap(1, 2);
+        }
         self
     }
 
