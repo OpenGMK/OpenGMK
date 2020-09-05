@@ -1394,7 +1394,7 @@ impl Game {
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
         let mut time_last = time_now;
-        let mut frame_count = 0;
+        let mut frame_counter = 0;
         loop {
             self.process_window_events();
 
@@ -1421,11 +1421,11 @@ impl Game {
                 // gm8 just ignores any leftover time after a second has passed, so we do the same
                 if time_now.duration_since(time_last) >= Duration::from_secs(1) {
                     time_last = time_now;
-                    self.fps = frame_count;
-                    frame_count = 0;
+                    self.fps = frame_counter;
+                    frame_counter = 0;
                 }
             }
-            frame_count += 1;
+            frame_counter += 1;
 
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
@@ -1531,7 +1531,7 @@ impl Game {
         let mut game_mousey = 0;
         let mut do_update_mouse = false;
         self.play_type = PlayType::Record;
-        self.fps = self.room_speed.into();
+        let mut frame_counter = 0;
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
@@ -1717,6 +1717,12 @@ impl Game {
                 }
             }
 
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if self.window.close_requested() {
                 break Ok(())
             }
@@ -1729,7 +1735,7 @@ impl Game {
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
         self.play_type = PlayType::Replay;
-        self.fps = self.room_speed.into();
+        let mut frame_counter = 0;
 
         let mut time_now = std::time::Instant::now();
         loop {
@@ -1781,6 +1787,13 @@ impl Game {
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
             }
+
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;
