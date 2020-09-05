@@ -1803,6 +1803,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_depth_test(&mut self, depth_test: bool) {
+        let depth_test = depth_test && self.using_3d;
         if self.depth_test != depth_test {
             self.flush_queue();
             self.depth_test = depth_test;

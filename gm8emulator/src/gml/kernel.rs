@@ -10757,7 +10757,9 @@ impl Game {
 
     pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let write_depth = expect_args!(args, [any])?;
-        self.renderer.set_write_depth(write_depth.is_truthy());
+        if self.renderer.get_3d() {
+            self.renderer.set_write_depth(write_depth.is_truthy());
+        }
         Ok(Default::default())
     }
 
