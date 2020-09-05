@@ -3,8 +3,8 @@ mod wgl;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{
-        mat4mult, BlendType, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture, Scaling,
-        Vertex,
+        mat4mult, BlendType, Fog, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture,
+        Scaling, Vertex,
     },
     window::Window,
 };
@@ -63,6 +63,7 @@ pub struct RendererImpl {
     depth_test: bool,
     perspective: bool,
     depth: f32,
+    fog: Option<Fog>,
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
 
@@ -70,11 +71,15 @@ pub struct RendererImpl {
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,        // uniform sampler2D tex
-    loc_proj: GLint,       // uniform mat4 projection
-    loc_repeat: GLint,     // uniform bool repeat
-    loc_lerp: GLint,       // uniform bool lerp
-    loc_alpha_test: GLint, // uniform bool alpha_test
+    loc_tex: GLint,         // uniform sampler2D tex
+    loc_proj: GLint,        // uniform mat4 projection
+    loc_repeat: GLint,      // uniform bool repeat
+    loc_lerp: GLint,        // uniform bool lerp
+    loc_alpha_test: GLint,  // uniform bool alpha_test
+    loc_fog_enabled: GLint, // uniform bool fog_enabled
+    loc_fog_colour: GLint,  // uniform vec4 fog_colour
+    loc_fog_begin: GLint,   // uniform float fog_begin
+    loc_fog_end: GLint,     // uniform float fog_end
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -433,6 +438,7 @@ impl RendererImpl {
                 depth_test: false,
                 perspective: false,
                 depth: 0.0,
+                fog: None,
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
@@ -445,12 +451,17 @@ impl RendererImpl {
                 loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
                 loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
                 loc_alpha_test: gl.GetUniformLocation(program, b"alpha_test\0".as_ptr().cast()),
+                loc_fog_enabled: gl.GetUniformLocation(program, b"fog_enabled\0".as_ptr().cast()),
+                loc_fog_colour: gl.GetUniformLocation(program, b"fog_colour\0".as_ptr().cast()),
+                loc_fog_begin: gl.GetUniformLocation(program, b"fog_begin\0".as_ptr().cast()),
+                loc_fog_end: gl.GetUniformLocation(program, b"fog_end\0".as_ptr().cast()),
                 gl,
             };
 
             // default uniform values
             renderer.gl.Uniform1i(renderer.loc_repeat, renderer.texture_repeat as _);
             renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
+            renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
 
             // Start first frame
             renderer.setup_frame(clear_colour);
@@ -1838,6 +1849,26 @@ impl RendererTrait for RendererImpl {
     fn set_perspective(&mut self, perspective: bool) {
         // don't need to flush_queue for this because this only affects set_view
         self.perspective = perspective;
+    }
+
+    fn get_fog(&self) -> Option<Fog> {
+        self.fog.clone()
+    }
+
+    fn set_fog(&mut self, fog: Option<Fog>) {
+        if fog != self.fog {
+            self.flush_queue();
+            unsafe {
+                self.gl.Uniform1i(self.loc_fog_enabled, fog.is_some() as _);
+                if let Some(fog) = fog.as_ref() {
+                    let col = split_colour(fog.colour, 1.0);
+                    self.gl.Uniform4fv(self.loc_fog_colour, 1, col.as_ptr());
+                    self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
+                    self.gl.Uniform1f(self.loc_fog_end, fog.end);
+                }
+            }
+            self.fog = fog;
+        }
     }
 
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

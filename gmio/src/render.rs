@@ -29,6 +29,13 @@ pub struct SavedTexture {
     zbuf: Option<Box<[f32]>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Fog {
+    pub colour: i32,
+    pub begin: f32,
+    pub end: f32,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum BlendType {
     Zero,
@@ -410,6 +417,8 @@ pub trait RendererTrait {
     fn set_culling(&mut self, culling: bool);
     fn get_perspective(&self) -> bool;
     fn set_perspective(&mut self, perspective: bool);
+    fn get_fog(&self) -> Option<Fog>;
+    fn set_fog(&mut self, fog: Option<Fog>);
 }
 
 pub struct RendererOptions {
@@ -855,6 +864,14 @@ impl Renderer {
 
     pub fn set_perspective(&mut self, perspective: bool) {
         self.0.set_perspective(perspective)
+    }
+
+    pub fn get_fog(&self) -> Option<Fog> {
+        self.0.get_fog()
+    }
+
+    pub fn set_fog(&mut self, fog: Option<Fog>) {
+        self.0.set_fog(fog)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

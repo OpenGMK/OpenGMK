@@ -11,10 +11,12 @@ layout (location = 4) in vec4 atlas_xywh;
 out vec2 frag_tex_coord;
 out vec4 frag_atlas_xywh;
 out vec4 frag_blend;
+out float fog_z;
 
 void main() {
     frag_tex_coord = tex_coord;
     frag_atlas_xywh = atlas_xywh;
     frag_blend = blend;
     gl_Position = projection * vec4(pos, 1.0);
+    fog_z = gl_Position.z;
 }
