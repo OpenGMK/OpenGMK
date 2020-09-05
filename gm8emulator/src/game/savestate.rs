@@ -86,6 +86,7 @@ pub struct SaveState {
     pub using_3d: bool,
     pub depth: f32,
     pub depth_test: bool,
+    pub write_depth: bool,
     pub culling: bool,
     pub perspective: bool,
     pub surfaces: Vec<Option<Surface>>,
@@ -184,6 +185,7 @@ impl SaveState {
             using_3d: game.renderer.get_3d(),
             depth: game.renderer.get_depth(),
             depth_test: game.renderer.get_depth_test(),
+            write_depth: game.renderer.get_write_depth(),
             culling: game.renderer.get_culling(),
             perspective: game.renderer.get_perspective(),
             surfaces: game.surfaces.clone(),
@@ -307,6 +309,7 @@ impl SaveState {
         game.renderer.set_3d(self.using_3d);
         game.renderer.set_depth(self.depth);
         game.renderer.set_depth_test(self.depth_test);
+        game.renderer.set_write_depth(self.write_depth);
         game.renderer.set_culling(self.culling);
         game.renderer.set_perspective(self.perspective);
         game.surfaces = surfaces;
