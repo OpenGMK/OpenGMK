@@ -397,6 +397,7 @@ pub trait RendererTrait {
     fn get_primitive_3d(&self) -> PrimitiveBuilder;
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
+    fn clear_zbuf(&mut self);
 
     fn get_3d(&self) -> bool;
     fn set_3d(&mut self, use_3d: bool);
@@ -809,6 +810,10 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn clear_zbuf(&mut self) {
+        self.0.clear_zbuf()
     }
 
     pub fn get_3d(&self) -> bool {

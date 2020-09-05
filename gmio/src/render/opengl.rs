@@ -1767,6 +1767,15 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn clear_zbuf(&mut self) {
+        if self.using_3d {
+            self.flush_queue();
+            unsafe {
+                self.gl.Clear(gl::DEPTH_BUFFER_BIT);
+            }
+        }
+    }
+
     fn get_3d(&self) -> bool {
         self.using_3d
     }
