@@ -19,7 +19,7 @@ use crate::{
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Fog, Renderer, RendererOptions},
+    render::{BlendType, Fog, Light, Renderer, RendererOptions},
     window,
 };
 use image::RgbaImage;
@@ -10763,9 +10763,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_set_lighting(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_lighting")
+    pub fn d3d_set_lighting(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let enabled = expect_args!(args, [any])?;
+        self.renderer.set_lighting_enabled(enabled.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_set_shading(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -11296,24 +11297,41 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_transform_stack_discard")
     }
 
-    pub fn d3d_light_define_ambient(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_light_define_ambient")
+    pub fn d3d_light_define_ambient(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let colour = expect_args!(args, [int])?;
+        self.renderer.set_ambient_colour(colour);
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_define_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_light_define_direction")
+    pub fn d3d_light_define_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, dx, dy, dz, colour) = expect_args!(args, [int, real, real, real, int])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light(id as usize, Light::Directional {
+                direction: [dx.into_inner() as f32, dy.into_inner() as f32, dz.into_inner() as f32],
+                colour,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_define_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_light_define_point")
+    pub fn d3d_light_define_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, z, range, colour) = expect_args!(args, [int, real, real, real, real, int])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light(id as usize, Light::Point {
+                position: [x.into_inner() as f32, y.into_inner() as f32, z.into_inner() as f32],
+                range: range.into_inner() as f32,
+                colour,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_enable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_light_enable")
+    pub fn d3d_light_enable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, enabled) = expect_args!(args, [int, any])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light_enabled(id as usize, enabled.is_truthy());
+        }
+        Ok(Default::default())
     }
 
     pub fn d3d_model_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
