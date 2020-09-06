@@ -3,7 +3,7 @@ mod wgl;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{
-        mat4mult, BlendType, Fog, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture,
+        mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture,
         Scaling, Vertex,
     },
     window::Window,
@@ -66,6 +66,8 @@ pub struct RendererImpl {
     fog: Option<Fog>,
     lighting: bool,
     gouraud: bool,
+    ambient_colour: i32,
+    lights: [(bool, Light); 8], // (enabled, light)
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
 
@@ -73,15 +75,19 @@ pub struct RendererImpl {
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,         // uniform sampler2D tex
-    loc_proj: GLint,        // uniform mat4 projection
-    loc_repeat: GLint,      // uniform bool repeat
-    loc_lerp: GLint,        // uniform bool lerp
-    loc_alpha_test: GLint,  // uniform bool alpha_test
-    loc_fog_enabled: GLint, // uniform bool fog_enabled
-    loc_fog_colour: GLint,  // uniform vec4 fog_colour
-    loc_fog_begin: GLint,   // uniform float fog_begin
-    loc_fog_end: GLint,     // uniform float fog_end
+    loc_tex: GLint,              // uniform sampler2D tex
+    loc_model: GLint,            // uniform mat4 model
+    loc_proj: GLint,             // uniform mat4 projection
+    loc_repeat: GLint,           // uniform bool repeat
+    loc_lerp: GLint,             // uniform bool lerp
+    loc_alpha_test: GLint,       // uniform bool alpha_test
+    loc_fog_enabled: GLint,      // uniform bool fog_enabled
+    loc_fog_colour: GLint,       // uniform vec4 fog_colour
+    loc_fog_begin: GLint,        // uniform float fog_begin
+    loc_fog_end: GLint,          // uniform float fog_end
+    loc_lighting_enabled: GLint, // uniform bool lighting_enabled
+    loc_ambient_colour: GLint,   // uniform vec3 ambient_colour
+    loc_lights: Vec<LightUniform>,
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -146,6 +152,15 @@ impl From<AtlasRef> for [f32; 4] {
     fn from(ar: AtlasRef) -> Self {
         [ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32]
     }
+}
+
+#[derive(Debug)]
+struct LightUniform {
+    enabled: GLint,
+    is_point: GLint,
+    pos: GLint,
+    colour: GLint,
+    range: GLint,
 }
 
 impl From<BlendType> for GLenum {
@@ -414,6 +429,30 @@ impl RendererImpl {
                 0.0, 0.0, 0.0, 1.0,
             ];
 
+            let loc_lights = {
+                let mut lights = Vec::with_capacity(8);
+                let mut enabled_name = *b"lights[0].enabled\0";
+                let mut is_point_name = *b"lights[0].is_point\0";
+                let mut pos_name = *b"lights[0].pos\0";
+                let mut col_name = *b"lights[0].colour\0";
+                let mut range_name = *b"lights[0].range\0";
+                for i in b'0'..b'8' {
+                    enabled_name[7] = i;
+                    is_point_name[7] = i;
+                    pos_name[7] = i;
+                    col_name[7] = i;
+                    range_name[7] = i;
+                    lights.push(LightUniform {
+                        enabled: gl.GetUniformLocation(program, enabled_name.as_ptr().cast()),
+                        is_point: gl.GetUniformLocation(program, is_point_name.as_ptr().cast()),
+                        pos: gl.GetUniformLocation(program, pos_name.as_ptr().cast()),
+                        colour: gl.GetUniformLocation(program, col_name.as_ptr().cast()),
+                        range: gl.GetUniformLocation(program, range_name.as_ptr().cast()),
+                    });
+                }
+                lights
+            };
+
             // Create Renderer
             let mut renderer = Self {
                 imp,
@@ -443,6 +482,8 @@ impl RendererImpl {
                 fog: None,
                 lighting: false,
                 gouraud: true,
+                ambient_colour: 0,
+                lights: [(false, Light::Directional { direction: [0.0; 3], colour: 0 }); 8],
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
@@ -451,14 +492,21 @@ impl RendererImpl {
                 proj_matrix: identity_matrix.clone(),
 
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
+                loc_model: gl.GetUniformLocation(program, b"model\0".as_ptr().cast()),
                 loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
                 loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
                 loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
                 loc_alpha_test: gl.GetUniformLocation(program, b"alpha_test\0".as_ptr().cast()),
+
                 loc_fog_enabled: gl.GetUniformLocation(program, b"fog_enabled\0".as_ptr().cast()),
                 loc_fog_colour: gl.GetUniformLocation(program, b"fog_colour\0".as_ptr().cast()),
                 loc_fog_begin: gl.GetUniformLocation(program, b"fog_begin\0".as_ptr().cast()),
                 loc_fog_end: gl.GetUniformLocation(program, b"fog_end\0".as_ptr().cast()),
+
+                loc_lighting_enabled: gl.GetUniformLocation(program, b"lighting_enabled\0".as_ptr().cast()),
+                loc_ambient_colour: gl.GetUniformLocation(program, b"ambient_colour\0".as_ptr().cast()),
+                loc_lights,
+
                 gl,
             };
 
@@ -466,6 +514,11 @@ impl RendererImpl {
             renderer.gl.Uniform1i(renderer.loc_repeat, renderer.texture_repeat as _);
             renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
             renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
+            renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
+            renderer.gl.Uniform3f(renderer.loc_ambient_colour, 0.0, 0.0, 0.0);
+            for light in renderer.loc_lights.iter() {
+                renderer.gl.Uniform1i(light.enabled, false as _);
+            }
 
             // Start first frame
             renderer.setup_frame(clear_colour);
@@ -521,15 +574,17 @@ impl RendererImpl {
 
     fn update_matrix(&mut self) {
         unsafe {
+            // upload model matrix
+            self.gl.UniformMatrix4fv(self.loc_model, 1, gl::FALSE, self.model_matrix.as_ptr());
             // get half-pixel length in clip space
             let mut viewport = [0; 4];
             self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
             let offset_x = 1.0 / f64::from(viewport[2]);
             let offset_y = 1.0 / f64::from(viewport[3]);
-            // build matrix
+            // build viewproj matrix
             #[rustfmt::skip]
             let viewproj = mat4mult(
-                mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix)),
+                mat4mult(self.view_matrix, self.proj_matrix),
                 // flip vertically because GL textures are flipped vertically vs DX
                 // also GL's screen space is offset half a pixel vs DX so shift it
                 [
@@ -1904,6 +1959,75 @@ impl RendererTrait for RendererImpl {
     fn set_gouraud(&mut self, gouraud: bool) {
         // no need to flush queue here because it only takes effect when things are added
         self.gouraud = gouraud;
+    }
+
+    fn get_lighting_enabled(&self) -> bool {
+        self.lighting
+    }
+
+    fn set_lighting_enabled(&mut self, enabled: bool) {
+        if self.lighting != enabled {
+            self.flush_queue();
+            self.lighting = enabled;
+            unsafe {
+                self.gl.Uniform1i(self.loc_lighting_enabled, enabled as _);
+            }
+        }
+    }
+
+    fn get_ambient_colour(&self) -> i32 {
+        self.ambient_colour
+    }
+
+    fn set_ambient_colour(&mut self, colour: i32) {
+        if self.ambient_colour != colour {
+            self.flush_queue();
+            self.ambient_colour = colour;
+            unsafe {
+                let col = split_colour(colour, 1.0);
+                self.gl.Uniform3fv(self.loc_ambient_colour, 1, col.as_ptr());
+            }
+        }
+    }
+
+    fn get_lights(&self) -> [(bool, Light); 8] {
+        self.lights
+    }
+
+    fn set_light_enabled(&mut self, id: usize, enabled: bool) {
+        if self.lights[id].0 != enabled {
+            self.flush_queue();
+            self.lights[id].0 = enabled;
+            unsafe {
+                self.gl.Uniform1i(self.loc_lights[id].enabled, enabled as _);
+            }
+        }
+    }
+
+    fn set_light(&mut self, id: usize, light: Light) {
+        if self.lights[id].1 != light {
+            self.flush_queue();
+            unsafe {
+                dbg!(&self.loc_lights[id]);
+                let loc_light = &mut self.loc_lights[id];
+                match light {
+                    Light::Directional { direction, colour } => {
+                        self.gl.Uniform1i(loc_light.is_point, false as _);
+                        self.gl.Uniform3fv(loc_light.pos, 1, direction.as_ptr());
+                        let col = split_colour(colour, 1.0);
+                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                    },
+                    Light::Point { position, range, colour } => {
+                        self.gl.Uniform1i(loc_light.is_point, true as _);
+                        self.gl.Uniform3fv(loc_light.pos, 1, position.as_ptr());
+                        self.gl.Uniform1f(loc_light.range, range);
+                        let col = split_colour(colour, 1.0);
+                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                    },
+                }
+            }
+            self.lights[id].1 = light;
+        }
     }
 
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

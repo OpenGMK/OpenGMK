@@ -36,6 +36,12 @@ pub struct Fog {
     pub end: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Light {
+    Directional { direction: [f32; 3], colour: i32 },
+    Point { position: [f32; 3], range: f32, colour: i32 },
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum BlendType {
     Zero,
@@ -415,6 +421,13 @@ pub trait RendererTrait {
     fn set_fog(&mut self, fog: Option<Fog>);
     fn get_gouraud(&self) -> bool;
     fn set_gouraud(&mut self, gouraud: bool);
+    fn get_lighting_enabled(&self) -> bool;
+    fn set_lighting_enabled(&mut self, enabled: bool);
+    fn get_ambient_colour(&self) -> i32;
+    fn set_ambient_colour(&mut self, colour: i32);
+    fn get_lights(&self) -> [(bool, Light); 8];
+    fn set_light_enabled(&mut self, id: usize, enabled: bool);
+    fn set_light(&mut self, id: usize, light: Light);
 }
 
 pub struct RendererOptions {
@@ -880,6 +893,34 @@ impl Renderer {
 
     pub fn set_gouraud(&mut self, gouraud: bool) {
         self.0.set_gouraud(gouraud)
+    }
+
+    pub fn get_lighting_enabled(&self) -> bool {
+        self.0.get_lighting_enabled()
+    }
+
+    pub fn set_lighting_enabled(&mut self, enabled: bool) {
+        self.0.set_lighting_enabled(enabled)
+    }
+
+    pub fn get_ambient_colour(&self) -> i32 {
+        self.0.get_ambient_colour()
+    }
+
+    pub fn set_ambient_colour(&mut self, colour: i32) {
+        self.0.set_ambient_colour(colour)
+    }
+
+    pub fn get_lights(&self) -> [(bool, Light); 8] {
+        self.0.get_lights()
+    }
+
+    pub fn set_light_enabled(&mut self, id: usize, enabled: bool) {
+        self.0.set_light_enabled(id, enabled)
+    }
+
+    pub fn set_light(&mut self, id: usize, light: Light) {
+        self.0.set_light(id, light)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
