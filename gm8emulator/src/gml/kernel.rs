@@ -11235,7 +11235,7 @@ impl Game {
             0.0,  0.0, 0.0, 0.0,
             0.0,  0.0, 0.0, 1.0,
         ];
-        self.renderer.set_model_matrix(model_matrix);
+        self.renderer.mult_model_matrix(model_matrix);
         Ok(Default::default())
     }
 
