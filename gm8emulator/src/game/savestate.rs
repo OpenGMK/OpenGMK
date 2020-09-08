@@ -104,6 +104,8 @@ pub struct SaveState {
     pub health: Real,
     pub health_capt: RCStr,
     pub health_capt_d: bool,
+    pub error_occurred: bool,
+    pub error_last: RCStr,
 
     pub game_id: i32,
     pub program_directory: RCStr,
@@ -193,6 +195,8 @@ impl SaveState {
             health: game.health.clone(),
             health_capt: game.health_capt.clone(),
             health_capt_d: game.health_capt_d.clone(),
+            error_occurred: game.error_occurred,
+            error_last: game.error_last.clone(),
             game_id: game.game_id.clone(),
             program_directory: game.program_directory.clone(),
             gm_version: game.gm_version.clone(),
@@ -309,6 +313,8 @@ impl SaveState {
         game.health = self.health;
         game.health_capt = self.health_capt;
         game.health_capt_d = self.health_capt_d;
+        game.error_occurred = self.error_occurred;
+        game.error_last = self.error_last;
         game.game_id = self.game_id;
         game.program_directory = self.program_directory;
         game.gm_version = self.gm_version;
