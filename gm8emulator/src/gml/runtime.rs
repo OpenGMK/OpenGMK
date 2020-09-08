@@ -1143,8 +1143,8 @@ impl Game {
             InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
             InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
-            InstanceVariable::ErrorOccurred => todo!("error_occurred getter"),
-            InstanceVariable::ErrorLast => todo!("error_last getter"),
+            InstanceVariable::ErrorOccurred => Ok(self.error_occurred.into()),
+            InstanceVariable::ErrorLast => Ok(self.error_last.clone().into()),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
             InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
             InstanceVariable::GamemakerVersion => Ok(match self.gm_version {
@@ -1467,8 +1467,8 @@ impl Game {
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
-            InstanceVariable::ErrorOccurred => todo!("error_occurred setter"),
-            InstanceVariable::ErrorLast => todo!("error_last setter"),
+            InstanceVariable::ErrorOccurred => self.error_occurred = value.is_truthy(),
+            InstanceVariable::ErrorLast => self.error_last = value.into(),
             _ => return Err(Error::ReadOnlyVariable(*var)),
         }
         Ok(())
