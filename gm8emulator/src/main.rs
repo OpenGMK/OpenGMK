@@ -102,7 +102,16 @@ fn xmain() -> i32 {
                     .map(|entry| entry.path())
             })
             // if we can't find one, make one
-            .unwrap_or_else(|| format!("gm_ttt_{:.0}", rand::random::<f64>().fract() * 99999.0).into())
+            .unwrap_or_else(|| {
+                let path = [proj_path.clone(), format!("gm_ttt_{:.0}", rand::random::<f64>().fract() * 99999.0).into()]
+                    .iter()
+                    .collect();
+                if let Err(e) = std::fs::create_dir_all(&path) {
+                    println!("Could not create temp folder: {}", e);
+                    println!("If this game uses the temp folder, it will most likely crash.");
+                }
+                path
+            })
     });
     let replay = matches.opt_str("f").map(|filename| {
         let mut filepath = PathBuf::from(&filename);
