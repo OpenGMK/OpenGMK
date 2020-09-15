@@ -7690,9 +7690,11 @@ impl Game {
                 name: format!("__newbackground{}", background_id).into(),
                 width: width as _,
                 height: height as _,
-                atlas_ref: Some(self.renderer
-                    .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
-                    .map_err(|e| gml::Error::FunctionError("background_create_from_surface".into(), e.into()))?),
+                atlas_ref: Some(
+                    self.renderer
+                        .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
+                        .map_err(|e| gml::Error::FunctionError("background_create_from_surface".into(), e.into()))?,
+                ),
             })));
             Ok(background_id.into())
         } else {
