@@ -1221,8 +1221,13 @@ impl Game {
                 instance.image_index.set(value.into());
             },
             InstanceVariable::ImageSingle => {
-                instance.image_index.set(value.into());
-                instance.image_speed.set(Real::from(0.0));
+                let img = Real::from(value);
+                if img >= Real::from(0.0) {
+                    instance.image_index.set(img);
+                    instance.image_speed.set(Real::from(0.0));
+                } else {
+                    instance.image_speed.set(Real::from(1.0));
+                }
             },
             InstanceVariable::ImageXscale => {
                 let v: Real = value.into();
