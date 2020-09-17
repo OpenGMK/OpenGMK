@@ -11166,7 +11166,7 @@ impl Game {
         let model_matrix: [f32; 16] = [
             cos,  sin, 0.0, 0.0,
             -sin, cos, 0.0, 0.0,
-            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 1.0, 0.0,
             0.0,  0.0, 0.0, 1.0,
         ];
         self.renderer.set_model_matrix(model_matrix);
@@ -11265,7 +11265,7 @@ impl Game {
         let model_matrix: [f32; 16] = [
             cos,  sin, 0.0, 0.0,
             -sin, cos, 0.0, 0.0,
-            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 1.0, 0.0,
             0.0,  0.0, 0.0, 1.0,
         ];
         self.renderer.mult_model_matrix(model_matrix);
