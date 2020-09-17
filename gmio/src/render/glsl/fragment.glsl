@@ -12,6 +12,7 @@ uniform float fog_end;
 in vec2 frag_tex_coord;
 in vec4 frag_atlas_xywh;
 in vec4 frag_blend;
+flat in vec4 frag_blend_flat;
 in float fog_z;
 
 out vec4 out_colour;
@@ -46,7 +47,7 @@ void main() {
         sprite_coord = clamp(frag_tex_coord * frag_atlas_xywh.zw, vec2(0.5), frag_atlas_xywh.zw - 0.5);
         tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
     }
-    vec4 colour = tex_col * frag_blend;
+    vec4 colour = tex_col * frag_blend * frag_blend_flat;
     // apply fog
     if (fog_enabled) {
         float f = clamp((fog_end - fog_z) / (fog_end - fog_begin), 0, 1);

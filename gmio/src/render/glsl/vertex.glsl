@@ -12,6 +12,7 @@ uniform mat4 model;
 uniform mat4 projection;
 
 uniform bool lighting_enabled;
+uniform bool gouraud_shading;
 uniform vec3 ambient_colour;
 uniform Light lights[8];
 uniform bool light_enabled[8];
@@ -29,14 +30,17 @@ layout (location = 4) in vec4 atlas_xywh;
 out vec2 frag_tex_coord;
 out vec4 frag_atlas_xywh;
 out vec4 frag_blend;
+flat out vec4 frag_blend_flat;
 out float fog_z;
 
 void main() {
     vec4 world_pos = model * vec4(pos, 1.0);
     frag_tex_coord = tex_coord;
     frag_atlas_xywh = atlas_xywh;
+    frag_blend = blend;
+    frag_blend_flat = vec4(1.0);
     if (lighting_enabled) {
-        vec3 light_col = ambient_colour;
+        vec3 light_col = vec3(0.0);
         vec3 new_normal = -normalize((model * vec4(normal, 0.0)).xyz);
         for (int i = 0; i < 8; i++) {
             if (lights[i].enabled) {
@@ -54,9 +58,13 @@ void main() {
                 light_col += this_light_col * max(0.0, dot(normalize(ray), new_normal));
             }
         }
-        frag_blend = blend * vec4(light_col, 1.0);
-    } else {
-        frag_blend = blend;
+        if (gouraud_shading) {
+            frag_blend.rgb *= light_col;
+            frag_blend.rgb += ambient_colour;
+        } else {
+            frag_blend_flat.rgb *= light_col;
+            frag_blend_flat.rgb += ambient_colour;
+        }
     }
     gl_Position = projection * world_pos;
     fog_z = gl_Position.z;

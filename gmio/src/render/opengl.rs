@@ -86,6 +86,7 @@ pub struct RendererImpl {
     loc_fog_begin: GLint,        // uniform float fog_begin
     loc_fog_end: GLint,          // uniform float fog_end
     loc_lighting_enabled: GLint, // uniform bool lighting_enabled
+    loc_gouraud_shading: GLint,  // uniform bool gouraud_shading
     loc_ambient_colour: GLint,   // uniform vec3 ambient_colour
     loc_lights: Vec<LightUniform>,
 }
@@ -368,6 +369,9 @@ impl RendererImpl {
 
             gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
+            // Use DX provoking vertex convention
+            gl.ProvokingVertex(gl::FIRST_VERTEX_CONVENTION);
+
             // Unbind VBO
             gl.BindBuffer(gl::ARRAY_BUFFER, 0);
 
@@ -504,6 +508,7 @@ impl RendererImpl {
                 loc_fog_end: gl.GetUniformLocation(program, b"fog_end\0".as_ptr().cast()),
 
                 loc_lighting_enabled: gl.GetUniformLocation(program, b"lighting_enabled\0".as_ptr().cast()),
+                loc_gouraud_shading: gl.GetUniformLocation(program, b"gouraud_shading\0".as_ptr().cast()),
                 loc_ambient_colour: gl.GetUniformLocation(program, b"ambient_colour\0".as_ptr().cast()),
                 loc_lights,
 
@@ -515,6 +520,7 @@ impl RendererImpl {
             renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
             renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
             renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
+            renderer.gl.Uniform1i(renderer.loc_gouraud_shading, true as _);
             renderer.gl.Uniform3f(renderer.loc_ambient_colour, 0.0, 0.0, 0.0);
             for light in renderer.loc_lights.iter() {
                 renderer.gl.Uniform1i(light.enabled, false as _);
@@ -557,19 +563,7 @@ impl RendererImpl {
 
     fn push_primitive(&mut self, builder: &PrimitiveBuilder) {
         self.setup_queue(builder.get_atlas_id(), builder.get_type());
-        if self.lighting && !self.gouraud && builder.get_type() == PrimitiveType::TriList {
-            for tri in builder.get_vertices().chunks(3) {
-                let first = tri[0];
-                let normal = first.normal;
-                self.vertex_queue.push(first);
-                for vertex in &tri[1..] {
-                    let vertex = Vertex { normal, ..*vertex };
-                    self.vertex_queue.push(vertex);
-                }
-            }
-        } else {
-            self.vertex_queue.extend_from_slice(builder.get_vertices());
-        }
+        self.vertex_queue.extend_from_slice(builder.get_vertices());
     }
 
     fn update_matrix(&mut self) {
@@ -1957,8 +1951,13 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_gouraud(&mut self, gouraud: bool) {
-        // no need to flush queue here because it only takes effect when things are added
-        self.gouraud = gouraud;
+        if self.gouraud != gouraud {
+            self.flush_queue();
+            self.gouraud = gouraud;
+            unsafe {
+                self.gl.Uniform1i(self.loc_gouraud_shading, gouraud as _);
+            }
+        }
     }
 
     fn get_lighting_enabled(&self) -> bool {
@@ -2008,7 +2007,6 @@ impl RendererTrait for RendererImpl {
         if self.lights[id].1 != light {
             self.flush_queue();
             unsafe {
-                dbg!(&self.loc_lights[id]);
                 let loc_light = &mut self.loc_lights[id];
                 match light {
                     Light::Directional { direction, colour } => {
