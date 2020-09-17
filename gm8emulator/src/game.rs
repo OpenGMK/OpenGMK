@@ -141,6 +141,9 @@ pub struct Game {
     pub health_capt: RCStr,    // default "Health: "
     pub health_capt_d: bool,   // display in caption?
 
+    pub error_occurred: bool,
+    pub error_last: RCStr,
+
     pub game_id: i32,
     pub program_directory: RCStr,
     pub gm_version: Version,
@@ -843,6 +846,8 @@ impl Game {
             score_capt_d: false,
             lives_capt_d: false,
             health_capt_d: false,
+            error_occurred: false,
+            error_last: "".to_string().into(),
             window,
             scaling,
             play_type: PlayType::Normal,

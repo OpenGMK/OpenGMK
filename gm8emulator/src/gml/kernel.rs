@@ -7647,14 +7647,62 @@ impl Game {
         unimplemented!("Called unimplemented kernel function background_set_alpha_from_background")
     }
 
-    pub fn background_create_from_screen(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function background_create_from_screen")
+    pub fn background_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, width, height, removeback, smooth) = expect_args!(args, [int, int, int, int, any, any])?;
+        let x = x.max(0);
+        let y = y.max(0);
+        let width = width.min(self.unscaled_width as i32 - x);
+        let height = height.min(self.unscaled_height as i32 - y);
+        self.renderer.flush_queue();
+        let rgba = self.renderer.get_pixels(x, y, width, height);
+        let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+        asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+        let background_id = self.assets.backgrounds.len();
+        self.assets.backgrounds.push(Some(Box::new(asset::Background {
+            name: format!("__newbackground{}", background_id).into(),
+            width: width as _,
+            height: height as _,
+            atlas_ref: Some(
+                self.renderer
+                    .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
+                    .map_err(|e| gml::Error::FunctionError("background_create_from_screen".into(), e.into()))?,
+            ),
+        })));
+        Ok(background_id.into())
     }
 
-    pub fn background_create_from_surface(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function background_create_from_surface")
+    pub fn background_create_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, width, height, removeback, smooth) =
+            expect_args!(args, [int, int, int, int, int, any, any])?;
+        if self.surface_target == Some(surf_id) {
+            self.renderer.flush_queue();
+        }
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let x = x.max(0);
+            let y = y.max(0);
+            let width = width.min(surf.width as i32 - x);
+            let height = height.min(surf.height as i32 - y);
+            let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+            let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            let background_id = self.assets.backgrounds.len();
+            self.assets.backgrounds.push(Some(Box::new(asset::Background {
+                name: format!("__newbackground{}", background_id).into(),
+                width: width as _,
+                height: height as _,
+                atlas_ref: Some(
+                    self.renderer
+                        .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
+                        .map_err(|e| gml::Error::FunctionError("background_create_from_surface".into(), e.into()))?,
+                ),
+            })));
+            Ok(background_id.into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "background_create_from_surface".into(),
+                format!("Surface {} does not exist", surf_id),
+            ))
+        }
     }
 
     pub fn background_create_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -11428,7 +11476,7 @@ impl Game {
         let model_matrix: [f32; 16] = [
             cos,  sin, 0.0, 0.0,
             -sin, cos, 0.0, 0.0,
-            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 1.0, 0.0,
             0.0,  0.0, 0.0, 1.0,
         ];
         self.renderer.set_model_matrix(model_matrix);
@@ -11527,7 +11575,7 @@ impl Game {
         let model_matrix: [f32; 16] = [
             cos,  sin, 0.0, 0.0,
             -sin, cos, 0.0, 0.0,
-            0.0,  0.0, 0.0, 0.0,
+            0.0,  0.0, 1.0, 0.0,
             0.0,  0.0, 0.0, 1.0,
         ];
         self.renderer.mult_model_matrix(model_matrix);

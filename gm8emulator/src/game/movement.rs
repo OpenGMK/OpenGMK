@@ -56,7 +56,8 @@ impl Game {
         let mut run_event = false;
         if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
             // Calculate how much offset (0-1) we want to add to the instance's path position
-            let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0)) / path.length;
+            let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0))
+                / (path.length * instance.path_scale.get());
 
             // Work out what the new position should be
             let new_position = instance.path_position.get() + offset;
