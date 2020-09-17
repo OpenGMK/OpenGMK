@@ -107,7 +107,7 @@ impl PrimitiveBuilder {
         // if we need to fill out a shape get the other two points
         let (v1, v2) = match self.ptype {
             PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (None, None),
-            PrimitiveType::LineStrip => (self.vertices.last().copied().filter(|_| self.vertices.len() >= 2), None),
+            PrimitiveType::LineStrip => (self.vertices.last().filter(|_| self.vertices.len() >= 2).copied(), None),
             PrimitiveType::TriFan | PrimitiveType::TriStrip if self.vertices.len() < 3 => (None, None),
             PrimitiveType::TriStrip | PrimitiveType::TriFan => {
                 (Some(self.vertices[self.vertices.len() - 2]), self.vertices.last().copied())
@@ -119,6 +119,11 @@ impl PrimitiveBuilder {
         self.vertices.push(v);
         if let Some(v2) = v2 {
             self.vertices.push(v2);
+            let len = self.vertices.len();
+            if len % 6 == 3 && self.ptype == PrimitiveType::TriStrip {
+                self.vertices.swap(len - 2, len - 1);
+                self.vertices.swap(len - 3, len - 2);
+            }
         } else if self.vertices.len() == 3 && self.ptype == PrimitiveType::TriFan {
             // i hate that this works
             self.vertices.swap(0, 1);
