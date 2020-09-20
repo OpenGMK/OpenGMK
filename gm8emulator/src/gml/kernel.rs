@@ -8485,8 +8485,23 @@ impl Game {
     }
 
     pub fn object_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function object_add")
+        let id = self.assets.objects.len() as i32;
+        let children = Default::default();
+        let object = Box::new(asset::Object {
+            name: format!("__newobject{}", id).into(),
+            solid: false,
+            visible: true,
+            persistent: false,
+            depth: 0,
+            sprite_index: -1,
+            mask_index: -1,
+            parent_index: -1,
+            events: Default::default(),
+            children,
+        });
+        object.children.borrow_mut().insert(id);
+        self.assets.objects.push(Some(object));
+        Ok(id.into())
     }
 
     pub fn object_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
