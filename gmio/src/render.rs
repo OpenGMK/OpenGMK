@@ -750,6 +750,14 @@ impl Renderer {
         self.0.set_primitive_3d(prim)
     }
 
+    pub fn extend_buffers(&self, buf: &mut VertexBuffer) {
+        self.0.extend_buffers(buf)
+    }
+
+    pub fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
+        self.0.draw_buffers(atlas_ref, buf)
+    }
+
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
         self.0.dump_sprite(atlas_ref)
     }
