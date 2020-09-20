@@ -24,7 +24,10 @@ use gmio::{
 };
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
-use std::{io::Read, process::Command};
+use std::{
+    io::{Read, Write},
+    process::Command,
+};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -11514,9 +11517,27 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_model_load")
     }
 
-    pub fn d3d_model_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_model_save")
+    pub fn d3d_model_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, fname) = expect_args!(args, [int, string])?;
+        fn save_model(model: &model::Model, fname: &str) -> std::io::Result<()> {
+            let mut file = std::fs::File::create(fname)?;
+            writeln!(&mut file, "100\r\n{}\r", model.commands.len())?;
+            for cmd in &model.commands {
+                let (cmd, args) = cmd.to_line();
+                write!(&mut file, "{}", cmd)?;
+                for arg in args.iter() {
+                    write!(&mut file, " {:.4}", arg)?;
+                }
+                writeln!(&mut file, "\r")?;
+            }
+            Ok(())
+        }
+        if let Some(model) = self.models.get_asset(model_id) {
+            if let Err(e) = save_model(model, &fname) {
+                return Err(gml::Error::FunctionError("d3d_model_save".into(), format!("{}", e)))
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn d3d_model_draw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
