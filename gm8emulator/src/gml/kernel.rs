@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
+        draw, external, model, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
         SceneChange, Version,
     },
     gml::{
@@ -19,7 +19,7 @@ use crate::{
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Fog, Light, PrimitiveType, Renderer, RendererOptions},
+    render::{BlendType, Fog, Light, Renderer, RendererOptions},
     window,
 };
 use image::RgbaImage;
@@ -10985,325 +10985,131 @@ impl Game {
     pub fn d3d_draw_block(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-        let alpha = self.draw_alpha.into();
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x1, y1, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x1, y2, z1, 0.0, 0.0, -1.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y2, z1, 0.0, 0.0, -1.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y1, z1, 0.0, 0.0, -1.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x1, y1, z2, 0.0, 0.0, 1.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x2, y1, z2, 0.0, 0.0, 1.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.vertex_3d(x2, y2, z2, 0.0, 0.0, 1.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x1, y2, z2, 0.0, 0.0, 1.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x1, y2, z1, 0.0, 1.0, 0.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x1, y2, z2, 0.0, 1.0, 0.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y2, z2, 0.0, 1.0, 0.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y2, z1, 0.0, 1.0, 0.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x2, y2, z1, 1.0, 0.0, 0.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x2, y2, z2, 1.0, 0.0, 0.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y1, z2, 1.0, 0.0, 0.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y1, z1, 1.0, 0.0, 0.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x2, y1, z1, 0.0, -1.0, 0.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x2, y1, z2, 0.0, -1.0, 0.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x1, y1, z2, 0.0, -1.0, 0.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x1, y1, z1, 0.0, -1.0, 0.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-        self.renderer.vertex_3d(x1, y1, z1, -1.0, 0.0, 0.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x1, y1, z2, -1.0, 0.0, 0.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x1, y2, z2, -1.0, 0.0, 0.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x1, y2, z1, -1.0, 0.0, 0.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.set_texture_repeat(old_repeat);
+        model::draw_block(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn d3d_draw_cylinder(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, any, int])?;
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let steps = steps.max(3).min(128);
-        let trigs = (0..=steps)
-            .map(|i| {
-                let angle = Real::from(i * 360).to_radians() / steps.into();
-                (angle.cos().into_inner(), angle.sin().into_inner())
-            })
-            .collect::<Vec<_>>();
-        let xcenter = (x2 + x1) / 2.0;
-        let ycenter = (y2 + y1) / 2.0;
-        let xrad = (x2 - x1) / 2.0;
-        let yrad = (y2 - y1) / 2.0;
-        let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-        let alpha = self.draw_alpha.into();
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
-        if closed.is_truthy() {
-            self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-            self.renderer.vertex_3d(xcenter, ycenter, z2, 0.0, 0.0, 1.0, 0.0, vrepeat.into_inner(), col, alpha);
-            for (cos, sin) in &trigs {
-                self.renderer.vertex_3d(
-                    xcenter + xrad * cos,
-                    ycenter + yrad * sin,
-                    z2,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    vrepeat.into_inner(),
-                    col,
-                    alpha,
-                );
-            }
-            self.renderer.draw_primitive_3d();
-        }
-        self.renderer.reset_primitive_3d(PrimitiveType::TriStrip, atlas_ref);
-        for (i, (cos, sin)) in trigs.iter().copied().enumerate() {
-            self.renderer.vertex_3d(
-                xcenter + xrad * cos,
-                ycenter + yrad * sin,
-                z2,
-                cos,
-                sin,
-                0.0,
-                hrepeat_step * i as f64,
-                vrepeat.into_inner(),
-                col,
-                alpha,
-            );
-            self.renderer.vertex_3d(
-                xcenter + xrad * cos,
-                ycenter + yrad * sin,
-                z1,
-                cos,
-                sin,
-                0.0,
-                hrepeat_step * i as f64,
-                0.0,
-                col,
-                alpha,
-            );
-        }
-        self.renderer.draw_primitive_3d();
-        if closed.is_truthy() {
-            self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-            self.renderer.vertex_3d(xcenter, ycenter, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
-            for (cos, sin) in trigs.iter().rev() {
-                self.renderer.vertex_3d(
-                    xcenter + xrad * cos,
-                    ycenter + yrad * sin,
-                    z1,
-                    0.0,
-                    0.0,
-                    -1.0,
-                    0.0,
-                    0.0,
-                    col,
-                    alpha,
-                );
-            }
-            self.renderer.draw_primitive_3d();
-        }
-        self.renderer.set_texture_repeat(old_repeat);
+        model::draw_cylinder(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            closed.is_truthy(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn d3d_draw_cone(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, any, int])?;
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let steps = steps.max(3).min(128);
-        let trigs = (0..=steps)
-            .map(|i| {
-                let angle = Real::from(i * 360).to_radians() / steps.into();
-                (angle.cos().into_inner(), angle.sin().into_inner())
-            })
-            .collect::<Vec<_>>();
-        let xcenter = (x2 + x1) / 2.0;
-        let ycenter = (y2 + y1) / 2.0;
-        let xrad = (x2 - x1) / 2.0;
-        let yrad = (y2 - y1) / 2.0;
-        let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-        let alpha = self.draw_alpha.into();
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
-        self.renderer.reset_primitive_3d(PrimitiveType::TriStrip, atlas_ref);
-        for (i, (cos, sin)) in trigs.iter().copied().enumerate() {
-            self.renderer.vertex_3d(
-                xcenter,
-                ycenter,
-                z2,
-                0.0,
-                0.0,
-                1.0,
-                hrepeat_step * i as f64,
-                vrepeat.into_inner(),
-                col,
-                alpha,
-            );
-            self.renderer.vertex_3d(
-                xcenter + xrad * cos,
-                ycenter + yrad * sin,
-                z1,
-                cos,
-                sin,
-                0.0,
-                hrepeat_step * i as f64,
-                0.0,
-                col,
-                alpha,
-            );
-        }
-        self.renderer.draw_primitive_3d();
-        if closed.is_truthy() {
-            self.renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
-            self.renderer.vertex_3d(xcenter, ycenter, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
-            for (cos, sin) in trigs.iter().rev() {
-                self.renderer.vertex_3d(
-                    xcenter + xrad * cos,
-                    ycenter + yrad * sin,
-                    z1,
-                    0.0,
-                    0.0,
-                    -1.0,
-                    0.0,
-                    0.0,
-                    col,
-                    alpha,
-                );
-            }
-            self.renderer.draw_primitive_3d();
-        }
-        self.renderer.set_texture_repeat(old_repeat);
+        model::draw_cone(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            closed.is_truthy(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn d3d_draw_ellipsoid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, int])?;
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let steps = steps.max(3).min(128);
-        let trigs = (0..=steps)
-            .map(|i| {
-                let angle = Real::from(i * 360).to_radians() / steps.into();
-                (angle.cos().into_inner(), angle.sin().into_inner())
-            })
-            .collect::<Vec<_>>();
-        let xcenter = (x2 + x1) / 2.0;
-        let ycenter = (y2 + y1) / 2.0;
-        let zcenter = (z2 + z1) / 2.0;
-        let xrad = (x2 - x1) / 2.0;
-        let yrad = (y2 - y1) / 2.0;
-        let zrad = (z2 - z1) / 2.0;
-        let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-        let alpha = self.draw_alpha.into();
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
-        let row_count = (steps + 1) / 2;
-        let vrepeat_step = (vrepeat / row_count.into()).into_inner();
-        for row in 0..row_count {
-            let row1_angle = Real::from(row * 360).to_radians() / steps.into();
-            let row2_angle = Real::from((row + 1) * 360).to_radians() / steps.into();
-            let (row1_cos, row1_sin) = (row1_angle.cos().into_inner(), row1_angle.sin().into_inner());
-            let (row2_cos, row2_sin) = (row2_angle.cos().into_inner(), row2_angle.sin().into_inner());
-            self.renderer.reset_primitive_3d(PrimitiveType::TriStrip, atlas_ref);
-            for (i, (cos, sin)) in trigs.iter().copied().enumerate() {
-                self.renderer.vertex_3d(
-                    xcenter + xrad * cos * row1_sin,
-                    ycenter + yrad * sin * row1_sin,
-                    zcenter + zrad * row1_cos,
-                    cos * row1_sin,
-                    sin * row1_sin,
-                    row1_cos,
-                    hrepeat_step * i as f64,
-                    vrepeat_step * f64::from(row),
-                    col,
-                    alpha,
-                );
-                self.renderer.vertex_3d(
-                    xcenter + xrad * cos * row2_sin,
-                    ycenter + yrad * sin * row2_sin,
-                    zcenter + zrad * row2_cos,
-                    cos * row2_sin,
-                    sin * row2_sin,
-                    row2_cos,
-                    hrepeat_step * i as f64,
-                    vrepeat_step * f64::from(row + 1),
-                    col,
-                    alpha,
-                );
-            }
-            self.renderer.draw_primitive_3d();
-        }
-        self.renderer.set_texture_repeat(old_repeat);
+        model::draw_ellipsoid(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn d3d_draw_wall(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        // set texture repeat outside the if block so it gets set to true if ny is 0 (yes, really)
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let diag_length = (x2 - x1).hypot(y2 - y1);
-        if diag_length != 0.0 {
-            let nx = (y2 - y1) / diag_length;
-            let ny = -(x2 - x1) / diag_length;
-            let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-            let alpha = self.draw_alpha.into();
-            self.renderer
-                .reset_primitive_3d(PrimitiveType::TriFan, self.renderer.get_texture_from_id(tex_id as _).copied());
-            self.renderer.vertex_3d(x1, y1, z1, nx, ny, 0.0, 0.0, 0.0, col, alpha);
-            self.renderer.vertex_3d(x2, y2, z1, nx, ny, 0.0, 0.0, vrepeat.into_inner(), col, alpha);
-            self.renderer.vertex_3d(x2, y2, z2, nx, ny, 0.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-            self.renderer.vertex_3d(x1, y1, z2, nx, ny, 0.0, hrepeat.into_inner(), 0.0, col, alpha);
-            self.renderer.draw_primitive_3d();
-            self.renderer.set_texture_repeat(old_repeat);
-        }
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_wall(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn d3d_draw_floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        let (x1, y1, z1, x2, y2, z2) =
-            (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
-        let alpha = self.draw_alpha.into();
-        let old_repeat = self.renderer.get_texture_repeat();
-        self.renderer.set_texture_repeat(true);
-        self.renderer
-            .reset_primitive_3d(PrimitiveType::TriFan, self.renderer.get_texture_from_id(tex_id as _).copied());
-        self.renderer.vertex_3d(x1, y1, z1, 0.0, 0.0, 1.0, 0.0, 0.0, col, alpha);
-        self.renderer.vertex_3d(x1, y2, z1, 0.0, 0.0, 1.0, 0.0, vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y2, z2, 0.0, 0.0, 1.0, hrepeat.into_inner(), vrepeat.into_inner(), col, alpha);
-        self.renderer.vertex_3d(x2, y1, z2, 0.0, 0.0, 1.0, hrepeat.into_inner(), 0.0, col, alpha);
-        self.renderer.draw_primitive_3d();
-        self.renderer.set_texture_repeat(old_repeat);
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_floor(
+            &mut self.renderer,
+            atlas_ref,
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
