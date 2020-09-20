@@ -81,6 +81,23 @@ impl From<i32> for PrimitiveType {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum PrimitiveShape {
+    Point,
+    Line,
+    Triangle,
+}
+
+impl From<PrimitiveType> for PrimitiveShape {
+    fn from(pt: PrimitiveType) -> Self {
+        match pt {
+            PrimitiveType::PointList => PrimitiveShape::Point,
+            PrimitiveType::LineList | PrimitiveType::LineStrip => PrimitiveShape::Line,
+            PrimitiveType::TriList | PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveShape::Triangle,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 struct Vertex {
     pub pos: [f32; 3],
@@ -141,12 +158,8 @@ impl PrimitiveBuilder {
         self.atlas_ref.atlas_id
     }
 
-    fn get_type(&self) -> PrimitiveType {
-        match self.ptype {
-            PrimitiveType::LineStrip => PrimitiveType::LineList,
-            PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveType::TriList,
-            pt => pt,
-        }
+    fn get_shape(&self) -> PrimitiveShape {
+        self.ptype.into()
     }
 
     fn get_vertices(&self) -> &[Vertex] {

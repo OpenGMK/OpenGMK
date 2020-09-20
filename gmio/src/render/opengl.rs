@@ -3,8 +3,8 @@ mod wgl;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{
-        mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture,
-        Scaling, Vertex,
+        mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
+        RendererTrait, SavedTexture, Scaling, Vertex,
     },
     window::Window,
 };
@@ -55,7 +55,7 @@ pub struct RendererImpl {
     framebuffer_fbo: GLuint,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
-    queue_type: PrimitiveType,
+    queue_type: PrimitiveShape,
     interpolate_pixels: bool,
     texture_repeat: bool,
     circle_precision: i32,
@@ -201,29 +201,12 @@ impl From<GLenum> for BlendType {
     }
 }
 
-impl From<PrimitiveType> for GLenum {
-    fn from(pt: PrimitiveType) -> Self {
-        match pt {
-            PrimitiveType::PointList => gl::POINTS,
-            PrimitiveType::LineList => gl::LINES,
-            PrimitiveType::LineStrip => gl::LINE_STRIP,
-            PrimitiveType::TriList => gl::TRIANGLES,
-            PrimitiveType::TriStrip => gl::TRIANGLE_STRIP,
-            PrimitiveType::TriFan => gl::TRIANGLE_FAN,
-        }
-    }
-}
-
-impl From<GLenum> for PrimitiveType {
-    fn from(pt: GLenum) -> Self {
-        match pt {
-            gl::POINTS => PrimitiveType::PointList,
-            gl::LINES => PrimitiveType::LineList,
-            gl::LINE_STRIP => PrimitiveType::LineStrip,
-            gl::TRIANGLES => PrimitiveType::TriList,
-            gl::TRIANGLE_STRIP => PrimitiveType::TriStrip,
-            gl::TRIANGLE_FAN => PrimitiveType::TriFan,
-            _ => unreachable!(),
+impl From<PrimitiveShape> for GLenum {
+    fn from(shape: PrimitiveShape) -> Self {
+        match shape {
+            PrimitiveShape::Point => gl::POINTS,
+            PrimitiveShape::Line => gl::LINES,
+            PrimitiveShape::Triangle => gl::TRIANGLES,
         }
     }
 }
@@ -475,7 +458,7 @@ impl RendererImpl {
                 framebuffer_fbo,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
-                queue_type: PrimitiveType::TriList,
+                queue_type: PrimitiveShape::Triangle,
                 interpolate_pixels: options.interpolate_pixels,
                 texture_repeat: false,
                 circle_precision: 24,
@@ -553,7 +536,7 @@ impl RendererImpl {
         }
     }
 
-    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveType) {
+    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveShape) {
         if atlas_id != self.current_atlas || self.queue_type != queue_type {
             self.flush_queue();
             self.current_atlas = atlas_id;
@@ -562,7 +545,7 @@ impl RendererImpl {
     }
 
     fn push_primitive(&mut self, builder: &PrimitiveBuilder) {
-        self.setup_queue(builder.get_atlas_id(), builder.get_type());
+        self.setup_queue(builder.get_atlas_id(), builder.get_shape());
         self.vertex_queue.extend_from_slice(builder.get_vertices());
     }
 
@@ -1421,7 +1404,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
-        self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
+        self.setup_queue(self.white_pixel.atlas_id, PrimitiveShape::Point);
         self.vertex_queue.push(Vertex {
             pos: [x as f32, y as f32, self.depth],
             tex_coord: [0.0, 0.0],
@@ -1544,7 +1527,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_primitive_2d(&mut self) {
         // I would use push_primitive but that causes borrowing issues.
-        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_type());
+        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_shape());
         self.vertex_queue.extend_from_slice(self.primitive_2d.get_vertices());
     }
 
@@ -1583,7 +1566,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_primitive_3d(&mut self) {
         // See draw_primitive_2d.
-        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_type());
+        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_shape());
         self.vertex_queue.extend_from_slice(self.primitive_3d.get_vertices());
     }
 
