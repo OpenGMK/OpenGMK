@@ -49,7 +49,7 @@ pub struct RendererImpl {
     sprites: HashMap<i32, AtlasRef>,
     sprite_count: i32,
     stock_atlas_count: u32,
-    current_atlas: GLuint,
+    current_atlas: u32,
     framebuffer_texture: GLuint,
     framebuffer_zbuf: GLuint,
     framebuffer_fbo: GLuint,
@@ -1331,7 +1331,6 @@ impl RendererTrait for RendererImpl {
         if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
             return // fail silently when drawing deleted sprite fonts
         }
-        self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
         self.set_texture_repeat(false);
 
         // get angle
