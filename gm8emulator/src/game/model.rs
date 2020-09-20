@@ -1,5 +1,6 @@
 use crate::math::Real;
 use gmio::render::{PrimitiveType, VertexBuffer};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Command {
