@@ -236,6 +236,7 @@ pub trait RendererTrait {
     );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
+    fn get_model_matrix(&self) -> [f32; 16];
     fn set_model_matrix(&mut self, model: [f32; 16]);
     fn mult_model_matrix(&mut self, model: [f32; 16]);
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64);
@@ -552,6 +553,10 @@ impl Renderer {
 
     pub fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
         self.0.set_viewproj_matrix(view, proj)
+    }
+
+    pub fn get_model_matrix(&self) -> [f32; 16] {
+        self.0.get_model_matrix()
     }
 
     pub fn set_model_matrix(&mut self, model: [f32; 16]) {

@@ -1763,6 +1763,10 @@ impl RendererTrait for RendererImpl {
         self.update_matrix();
     }
 
+    fn get_model_matrix(&self) -> [f32; 16] {
+        self.model_matrix
+    }
+
     fn set_model_matrix(&mut self, model: [f32; 16]) {
         self.flush_queue();
         self.model_matrix = model;
