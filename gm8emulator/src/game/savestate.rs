@@ -85,6 +85,7 @@ pub struct SaveState {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
+    pub model_matrix: [f32; 16],
     pub auto_draw: bool,
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
@@ -178,6 +179,7 @@ impl SaveState {
             draw_valign: game.draw_valign.clone(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
+            model_matrix: game.renderer.get_model_matrix(),
             auto_draw: game.auto_draw,
             circle_precision: game.renderer.get_circle_precision(),
             primitive_2d: game.renderer.get_primitive_2d(),
@@ -234,6 +236,7 @@ impl SaveState {
         } else {
             game.renderer.reset_target();
         }
+        game.renderer.set_model_matrix(self.model_matrix);
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
         game.renderer.set_texture_repeat(self.texture_repeat);
