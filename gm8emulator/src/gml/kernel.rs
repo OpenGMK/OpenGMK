@@ -10859,29 +10859,23 @@ impl Game {
 
     pub fn d3d_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z) = expect_args!(args, [real, real, real])?;
-        self.renderer.vertex_3d(
-            x.into(),
-            y.into(),
-            z.into(),
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            u32::from(self.draw_colour) as _,
-            self.draw_alpha.into(),
-        );
+        // And here we see the really weird GM8 colour rules where when drawing 3D vertices,
+        // the LSB of the blue component is set to 0 when the colour isn't specified, and 1 when it is.
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
+        self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, self.draw_alpha.into());
         Ok(Default::default())
     }
 
     pub fn d3d_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, col, alpha) = expect_args!(args, [real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, alpha.into());
         Ok(Default::default())
     }
 
     pub fn d3d_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, xtex, ytex) = expect_args!(args, [real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10891,7 +10885,7 @@ impl Game {
             0.0,
             xtex.into(),
             ytex.into(),
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10899,6 +10893,7 @@ impl Game {
 
     pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10916,6 +10911,7 @@ impl Game {
 
     pub fn d3d_vertex_normal(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz) = expect_args!(args, [real, real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10925,7 +10921,7 @@ impl Game {
             nz.into(),
             0.0,
             0.0,
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10933,6 +10929,7 @@ impl Game {
 
     pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, col, alpha) = expect_args!(args, [real, real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10950,6 +10947,7 @@ impl Game {
 
     pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, xtex, ytex) = expect_args!(args, [real, real, real, real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10959,7 +10957,7 @@ impl Game {
             nz.into(),
             xtex.into(),
             ytex.into(),
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10968,6 +10966,7 @@ impl Game {
     pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
             expect_args!(args, [real, real, real, real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10988,7 +10987,7 @@ impl Game {
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
         let (x1, y1, z1, x2, y2, z2) =
             (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let col = u32::from(self.draw_colour) as _;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         let alpha = self.draw_alpha.into();
         let old_repeat = self.renderer.get_texture_repeat();
         self.renderer.set_texture_repeat(true);
@@ -11050,7 +11049,7 @@ impl Game {
         let xrad = (x2 - x1) / 2.0;
         let yrad = (y2 - y1) / 2.0;
         let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as _;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         let alpha = self.draw_alpha.into();
         let old_repeat = self.renderer.get_texture_repeat();
         self.renderer.set_texture_repeat(true);
@@ -11142,7 +11141,7 @@ impl Game {
         let xrad = (x2 - x1) / 2.0;
         let yrad = (y2 - y1) / 2.0;
         let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as _;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         let alpha = self.draw_alpha.into();
         let old_repeat = self.renderer.get_texture_repeat();
         self.renderer.set_texture_repeat(true);
@@ -11217,7 +11216,7 @@ impl Game {
         let yrad = (y2 - y1) / 2.0;
         let zrad = (z2 - z1) / 2.0;
         let hrepeat_step = (hrepeat / steps.into()).into_inner();
-        let col = u32::from(self.draw_colour) as _;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         let alpha = self.draw_alpha.into();
         let old_repeat = self.renderer.get_texture_repeat();
         self.renderer.set_texture_repeat(true);
@@ -11274,7 +11273,7 @@ impl Game {
         if diag_length != 0.0 {
             let nx = (y2 - y1) / diag_length;
             let ny = -(x2 - x1) / diag_length;
-            let col = u32::from(self.draw_colour) as _;
+            let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
             let alpha = self.draw_alpha.into();
             self.renderer
                 .reset_primitive_3d(PrimitiveType::TriFan, self.renderer.get_texture_from_id(tex_id as _).copied());
@@ -11293,7 +11292,7 @@ impl Game {
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
         let (x1, y1, z1, x2, y2, z2) =
             (x1.into_inner(), y1.into_inner(), z1.into_inner(), x2.into_inner(), y2.into_inner(), z2.into_inner());
-        let col = u32::from(self.draw_colour) as _;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         let alpha = self.draw_alpha.into();
         let old_repeat = self.renderer.get_texture_repeat();
         self.renderer.set_texture_repeat(true);
