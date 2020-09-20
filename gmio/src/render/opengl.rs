@@ -1684,8 +1684,8 @@ impl RendererTrait for RendererImpl {
         let verts = self.primitive_3d.get_vertices();
         match self.primitive_3d.get_shape() {
             PrimitiveShape::Point => buf.points.extend_from_slice(verts),
-            PrimitiveShape::Line => buf.lines.extend_from_slice(&verts[..verts.len() / 2]),
-            PrimitiveShape::Triangle => buf.tris.extend_from_slice(&verts[..verts.len() / 3]),
+            PrimitiveShape::Line => buf.lines.extend_from_slice(&verts[..verts.len() / 2 * 2]),
+            PrimitiveShape::Triangle => buf.tris.extend_from_slice(&verts[..verts.len() / 3 * 3]),
         }
     }
 
