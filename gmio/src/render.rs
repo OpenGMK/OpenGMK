@@ -167,6 +167,13 @@ impl PrimitiveBuilder {
     }
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct VertexBuffer {
+    points: Vec<Vertex>,
+    lines: Vec<Vertex>,
+    tris: Vec<Vertex>,
+}
+
 pub struct Renderer(Box<dyn RendererTrait>);
 
 pub trait RendererTrait {
@@ -420,6 +427,8 @@ pub trait RendererTrait {
     fn draw_primitive_3d(&mut self);
     fn get_primitive_3d(&self) -> PrimitiveBuilder;
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
+    fn extend_buffers(&self, buf: &mut VertexBuffer);
+    fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
     fn clear_zbuf(&mut self);
 

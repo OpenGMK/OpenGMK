@@ -4,7 +4,7 @@ use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{
         mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
-        RendererTrait, SavedTexture, Scaling, Vertex,
+        RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
     window::Window,
 };
@@ -147,6 +147,19 @@ fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
         (((rgb >> 16) & 0xFF) as f32) / 255.0,
         alpha as f32,
     ]
+}
+
+// TODO: probably put this in render.rs instead
+impl VertexBuffer {
+    pub fn swap_colour(&mut self, old: (i32, f64), new: (i32, f64)) {
+        let old = split_colour(old.0, old.1);
+        let new = split_colour(new.0, new.1);
+        for vert in self.points.iter_mut().chain(&mut self.lines).chain(&mut self.tris) {
+            if vert.blend == old {
+                vert.blend = new;
+            }
+        }
+    }
 }
 
 impl From<AtlasRef> for [f32; 4] {
@@ -1665,6 +1678,22 @@ impl RendererTrait for RendererImpl {
 
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
         self.primitive_3d = prim;
+    }
+
+    fn extend_buffers(&self, buf: &mut VertexBuffer) {
+        let verts = self.primitive_3d.get_vertices();
+        match self.primitive_3d.get_shape() {
+            PrimitiveShape::Point => buf.points.extend_from_slice(verts),
+            PrimitiveShape::Line => buf.lines.extend_from_slice(&verts[..verts.len() / 2]),
+            PrimitiveShape::Triangle => buf.tris.extend_from_slice(&verts[..verts.len() / 3]),
+        }
+    }
+
+    fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
+        self.flush_queue();
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Triangle, &buf.tris);
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
