@@ -549,6 +549,95 @@ impl RendererImpl {
         self.vertex_queue.extend_from_slice(builder.get_vertices());
     }
 
+    fn draw_buffer(&mut self, atlas_id: u32, shape: PrimitiveShape, buffer: &[Vertex]) {
+        if buffer.is_empty() {
+            return
+        }
+
+        unsafe {
+            // if something else broke check here just in case
+            match self.gl.GetError() {
+                0 => (),
+                err => panic!("OpenGL threw an error somewhere (error code {})", err),
+            }
+
+            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_id as usize].unwrap());
+            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
+
+            let mut commands_vbo: GLuint = 0;
+            self.gl.GenBuffers(1, &mut commands_vbo);
+            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+            self.gl.BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<Vertex>() * buffer.len()) as _,
+                buffer.as_ptr().cast(),
+                gl::STATIC_DRAW,
+            );
+            assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.Uniform1i(self.loc_tex, 0 as _);
+
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            self.gl.EnableVertexAttribArray(0);
+            self.gl.VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(1);
+            self.gl.VertexAttribPointer(
+                1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(2);
+            self.gl.VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(3);
+            self.gl.VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(4);
+            self.gl.VertexAttribPointer(
+                4,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
+            );
+
+            self.gl.DrawArrays(shape.into(), 0, buffer.len() as i32);
+
+            self.gl.DeleteBuffers(1, &commands_vbo);
+            assert_eq!(self.gl.GetError(), 0);
+        }
+    }
+
     fn update_matrix(&mut self) {
         unsafe {
             // upload model matrix
@@ -1627,94 +1716,9 @@ impl RendererTrait for RendererImpl {
 
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
-        if self.vertex_queue.is_empty() {
-            return
-        }
-
-        unsafe {
-            // if something else broke check here just in case
-            match self.gl.GetError() {
-                0 => (),
-                err => panic!("OpenGL threw an error somewhere (error code {})", err),
-            }
-
-            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
-            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
-            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
-
-            let mut commands_vbo: GLuint = 0;
-            self.gl.GenBuffers(1, &mut commands_vbo);
-            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            self.gl.BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<Vertex>() * self.vertex_queue.len()) as _,
-                self.vertex_queue.as_ptr().cast(),
-                gl::STATIC_DRAW,
-            );
-            assert_eq!(self.gl.GetError(), 0);
-
-            self.gl.Uniform1i(self.loc_tex, 0 as _);
-
-            // layout (location = 0) in vec3 pos;
-            // layout (location = 1) in vec4 blend;
-            // layout (location = 2) in vec2 tex_coord;
-            // layout (location = 3) in vec3 normal;
-            // layout (location = 4) in vec4 atlas_xywh;
-            self.gl.EnableVertexAttribArray(0);
-            self.gl.VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, pos) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(1);
-            self.gl.VertexAttribPointer(
-                1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, blend) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(2);
-            self.gl.VertexAttribPointer(
-                2,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, tex_coord) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(3);
-            self.gl.VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, normal) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(4);
-            self.gl.VertexAttribPointer(
-                4,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, atlas_xywh) as *const _,
-            );
-
-            self.gl.DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
-
-            self.gl.DeleteBuffers(1, &commands_vbo);
-            assert_eq!(self.gl.GetError(), 0);
-        }
-
-        self.vertex_queue.clear();
+        let mut queue = Vec::new();
+        std::mem::swap(&mut queue, &mut self.vertex_queue);
+        self.draw_buffer(self.current_atlas, self.queue_type, &queue);
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
