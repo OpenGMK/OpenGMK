@@ -19,6 +19,84 @@ pub enum Command {
     Floor { pos1: [Real; 3], pos2: [Real; 3], tex_repeat: [Real; 2] },
 }
 
+impl Command {
+    // for use with d3d_model_save
+    pub fn to_line(&self) -> (i32, [Real; 10]) {
+        let mut args = [Real::from(0); 10];
+        let cmd = match self {
+            Command::Begin(pt) => {
+                args[0] = match pt {
+                    PrimitiveType::PointList => 1,
+                    PrimitiveType::LineList => 2,
+                    PrimitiveType::LineStrip => 3,
+                    PrimitiveType::TriList => 4,
+                    PrimitiveType::TriStrip => 5,
+                    PrimitiveType::TriFan => 6,
+                }
+                .into();
+                0
+            },
+            Command::End => 1,
+            Command::Vertex { pos, normal, tex_coord } => {
+                args[..3].copy_from_slice(pos);
+                args[3..6].copy_from_slice(normal);
+                args[6..8].copy_from_slice(tex_coord);
+                8
+            },
+            Command::VertexColour { pos, normal, tex_coord, col: (col, alpha) } => {
+                args[..3].copy_from_slice(pos);
+                args[3..6].copy_from_slice(normal);
+                args[6..8].copy_from_slice(tex_coord);
+                args[8] = (*col).into();
+                args[9] = *alpha;
+                9
+            },
+            Command::Block { pos1, pos2, tex_repeat } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                10
+            },
+            Command::Cylinder { pos1, pos2, tex_repeat, closed, steps } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                args[8] = (*closed as i32).into();
+                args[9] = (*steps).into();
+                11
+            },
+            Command::Cone { pos1, pos2, tex_repeat, closed, steps } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                args[8] = (*closed as i32).into();
+                args[9] = (*steps).into();
+                12
+            },
+            Command::Ellipsoid { pos1, pos2, tex_repeat, steps } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                args[8] = (*steps).into();
+                13
+            },
+            Command::Wall { pos1, pos2, tex_repeat } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                14
+            },
+            Command::Floor { pos1, pos2, tex_repeat } => {
+                args[..3].copy_from_slice(pos1);
+                args[3..6].copy_from_slice(pos2);
+                args[6..8].copy_from_slice(tex_repeat);
+                15
+            },
+        };
+        (cmd, args)
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Model {
     pub old_draw_colour: Option<(i32, f64)>,
