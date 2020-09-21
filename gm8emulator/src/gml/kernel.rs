@@ -11518,9 +11518,122 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_model_load(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_model_load")
+    pub fn d3d_model_load(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, fname) = expect_args!(args, [int, string])?;
+        fn load_model(fname: &str) -> Result<model::Model, Box<dyn std::error::Error>> {
+            let mut file = std::fs::File::open(fname)?;
+            let version = file::read_real(&mut file)?;
+            if version != 100.0 {
+                return Err("invalid version".into())
+            };
+            file::skip_line(&mut file)?;
+            let command_count = match file::read_real(&mut file)? as i32 {
+                x if x < 0 => return Err("negative command count".into()),
+                x => x as usize,
+            };
+            file::skip_line(&mut file)?;
+            let mut commands = Vec::with_capacity(command_count);
+            for _ in 0..command_count {
+                let cmd = file::read_real(&mut file)?.round() as i32;
+                let mut args = [0.0; 10];
+                for x in &mut args {
+                    *x = file::read_real(&mut file)?;
+                }
+                file::skip_line(&mut file)?;
+                commands.push(match cmd {
+                    0 => model::Command::Begin((args[0] as i32).into()),
+                    1 => model::Command::End,
+                    2 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [0.into(); 2],
+                    },
+                    3 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [0.into(); 2],
+                        col: (args[3] as i32, args[4].into()),
+                    },
+                    4 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [args[3].into(), args[4].into()],
+                    },
+                    5 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [args[3].into(), args[4].into()],
+                        col: (args[5] as i32, args[6].into()),
+                    },
+                    6 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [0.into(); 2],
+                    },
+                    7 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [0.into(); 2],
+                        col: (args[6] as i32, args[7].into()),
+                    },
+                    8 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [args[6].into(), args[7].into()],
+                    },
+                    9 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [args[6].into(), args[7].into()],
+                        col: (args[8] as i32, args[9].into()),
+                    },
+                    10 => model::Command::Block {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    11 => model::Command::Cylinder {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        closed: args[8] >= 0.5,
+                        steps: args[9] as _,
+                    },
+                    12 => model::Command::Cone {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        closed: args[8] >= 0.5,
+                        steps: args[9] as _,
+                    },
+                    13 => model::Command::Ellipsoid {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        steps: args[8] as _,
+                    },
+                    14 => model::Command::Wall {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    15 => model::Command::Floor {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    _ => continue,
+                });
+            }
+            Ok(model::Model { old_draw_colour: None, commands, cache: None })
+        }
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            match load_model(&fname) {
+                Ok(new_model) => *model = new_model,
+                Err(e) => return Err(gml::Error::FunctionError("d3d_model_load".into(), e.to_string())),
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn d3d_model_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
