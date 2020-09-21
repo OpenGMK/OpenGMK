@@ -113,6 +113,7 @@ fn xmain() -> i32 {
                 path
             })
     });
+    let can_clear_temp_dir = temp_dir.is_none();
     let replay = matches.opt_str("f").map(|filename| {
         let mut filepath = PathBuf::from(&filename);
         match filepath.extension().and_then(|x| x.to_str()) {
@@ -214,9 +215,13 @@ fn xmain() -> i32 {
         components.record(path, port)
     } else {
         // cache temp_dir because the other functions take ownership
-        let temp_dir: PathBuf = components.decode_str(components.temp_directory.as_ref()).into_owned().into();
+        let temp_dir: Option<PathBuf> = if can_clear_temp_dir {
+            Some(components.decode_str(components.temp_directory.as_ref()).into_owned().into())
+        } else {
+            None
+        };
         let result = if let Some(replay) = replay { components.replay(replay) } else { components.run() };
-        if temp_dir.starts_with(std::env::temp_dir()) {
+        if let Some(temp_dir) = temp_dir {
             std::fs::remove_dir_all(temp_dir).ok();
         }
         result
