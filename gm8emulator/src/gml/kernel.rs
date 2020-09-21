@@ -10992,6 +10992,7 @@ impl Game {
         model::draw_block(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11013,6 +11014,7 @@ impl Game {
         model::draw_cylinder(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11036,6 +11038,7 @@ impl Game {
         model::draw_cone(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11059,6 +11062,7 @@ impl Game {
         model::draw_ellipsoid(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11081,6 +11085,7 @@ impl Game {
         model::draw_wall(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11102,6 +11107,7 @@ impl Game {
         model::draw_floor(
             &mut self.renderer,
             atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11591,6 +11597,7 @@ impl Game {
                             model::draw_block(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -11614,6 +11621,7 @@ impl Game {
                             model::draw_cylinder(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -11639,6 +11647,7 @@ impl Game {
                             model::draw_cone(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 // yes, GM8 does this too. why is gm8 like this
                                 (x + *x1).into_inner(),
                                 y1.into_inner(),
@@ -11664,6 +11673,7 @@ impl Game {
                             model::draw_ellipsoid(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -11682,6 +11692,7 @@ impl Game {
                             model::draw_wall(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -11699,6 +11710,7 @@ impl Game {
                             model::draw_floor(
                                 &mut self.renderer,
                                 atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),

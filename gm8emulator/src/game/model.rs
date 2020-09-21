@@ -104,9 +104,10 @@ pub struct Model {
     pub cache: Option<VertexBuffer>,
 }
 
-pub fn draw_block(
+pub fn draw_block<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -117,7 +118,9 @@ pub fn draw_block(
     vrepeat: f64,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     let old_repeat = renderer.get_texture_repeat();
     renderer.set_texture_repeat(true);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
@@ -125,43 +128,44 @@ pub fn draw_block(
     renderer.vertex_3d(x1, y2, z1, 0.0, 0.0, -1.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y2, z1, 0.0, 0.0, -1.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y1, z1, 0.0, 0.0, -1.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
     renderer.vertex_3d(x1, y1, z2, 0.0, 0.0, 1.0, 0.0, 0.0, col, alpha);
     renderer.vertex_3d(x2, y1, z2, 0.0, 0.0, 1.0, hrepeat, 0.0, col, alpha);
     renderer.vertex_3d(x2, y2, z2, 0.0, 0.0, 1.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x1, y2, z2, 0.0, 0.0, 1.0, 0.0, vrepeat, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
     renderer.vertex_3d(x1, y2, z1, 0.0, 1.0, 0.0, 0.0, 0.0, col, alpha);
     renderer.vertex_3d(x1, y2, z2, 0.0, 1.0, 0.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y2, z2, 0.0, 1.0, 0.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y2, z1, 0.0, 1.0, 0.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
     renderer.vertex_3d(x2, y2, z1, 1.0, 0.0, 0.0, 0.0, 0.0, col, alpha);
     renderer.vertex_3d(x2, y2, z2, 1.0, 0.0, 0.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y1, z2, 1.0, 0.0, 0.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y1, z1, 1.0, 0.0, 0.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
     renderer.vertex_3d(x2, y1, z1, 0.0, -1.0, 0.0, 0.0, 0.0, col, alpha);
     renderer.vertex_3d(x2, y1, z2, 0.0, -1.0, 0.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x1, y1, z2, 0.0, -1.0, 0.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x1, y1, z1, 0.0, -1.0, 0.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
     renderer.vertex_3d(x1, y1, z1, -1.0, 0.0, 0.0, 0.0, 0.0, col, alpha);
     renderer.vertex_3d(x1, y1, z2, -1.0, 0.0, 0.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x1, y2, z2, -1.0, 0.0, 0.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x1, y2, z1, -1.0, 0.0, 0.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.set_texture_repeat(old_repeat);
 }
 
-pub fn draw_cylinder(
+pub fn draw_cylinder<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -174,7 +178,9 @@ pub fn draw_cylinder(
     steps: i32,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     let steps = steps.max(3).min(128);
     let trigs = (0..=steps)
         .map(|i| {
@@ -195,7 +201,7 @@ pub fn draw_cylinder(
         for (cos, sin) in &trigs {
             renderer.vertex_3d(xcenter + xrad * cos, ycenter + yrad * sin, z2, 0.0, 0.0, 1.0, 0.0, vrepeat, col, alpha);
         }
-        renderer.draw_primitive_3d();
+        primitive_draw(renderer);
     }
     renderer.reset_primitive_3d(PrimitiveType::TriStrip, atlas_ref);
     for (i, (cos, sin)) in trigs.iter().copied().enumerate() {
@@ -224,21 +230,22 @@ pub fn draw_cylinder(
             alpha,
         );
     }
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     if closed {
         renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
         renderer.vertex_3d(xcenter, ycenter, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
         for (cos, sin) in trigs.iter().rev() {
             renderer.vertex_3d(xcenter + xrad * cos, ycenter + yrad * sin, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
         }
-        renderer.draw_primitive_3d();
+        primitive_draw(renderer);
     }
     renderer.set_texture_repeat(old_repeat);
 }
 
-pub fn draw_cone(
+pub fn draw_cone<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -251,7 +258,9 @@ pub fn draw_cone(
     steps: i32,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     let steps = steps.max(3).min(128);
     let trigs = (0..=steps)
         .map(|i| {
@@ -282,21 +291,22 @@ pub fn draw_cone(
             alpha,
         );
     }
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     if closed {
         renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
         renderer.vertex_3d(xcenter, ycenter, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
         for (cos, sin) in trigs.iter().rev() {
             renderer.vertex_3d(xcenter + xrad * cos, ycenter + yrad * sin, z1, 0.0, 0.0, -1.0, 0.0, 0.0, col, alpha);
         }
-        renderer.draw_primitive_3d();
+        primitive_draw(renderer);
     }
     renderer.set_texture_repeat(old_repeat);
 }
 
-pub fn draw_ellipsoid(
+pub fn draw_ellipsoid<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -308,7 +318,9 @@ pub fn draw_ellipsoid(
     steps: i32,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     let steps = steps.max(3).min(128);
     let trigs = (0..=steps)
         .map(|i| {
@@ -359,14 +371,15 @@ pub fn draw_ellipsoid(
                 alpha,
             );
         }
-        renderer.draw_primitive_3d();
+        primitive_draw(renderer);
     }
     renderer.set_texture_repeat(old_repeat);
 }
 
-pub fn draw_wall(
+pub fn draw_wall<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -377,7 +390,9 @@ pub fn draw_wall(
     vrepeat: f64,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     // set texture repeat outside the if block so it gets set to true if ny is 0 (yes, really)
     let old_repeat = renderer.get_texture_repeat();
     renderer.set_texture_repeat(true);
@@ -390,14 +405,15 @@ pub fn draw_wall(
         renderer.vertex_3d(x2, y2, z1, nx, ny, 0.0, 0.0, vrepeat, col, alpha);
         renderer.vertex_3d(x2, y2, z2, nx, ny, 0.0, hrepeat, vrepeat, col, alpha);
         renderer.vertex_3d(x1, y1, z2, nx, ny, 0.0, hrepeat, 0.0, col, alpha);
-        renderer.draw_primitive_3d();
+        primitive_draw(renderer);
         renderer.set_texture_repeat(old_repeat);
     }
 }
 
-pub fn draw_floor(
+pub fn draw_floor<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
+    mut primitive_draw: F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -408,7 +424,9 @@ pub fn draw_floor(
     vrepeat: f64,
     col: i32,
     alpha: f64,
-) {
+) where
+    F: FnMut(&mut Renderer),
+{
     let old_repeat = renderer.get_texture_repeat();
     renderer.set_texture_repeat(true);
     renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
@@ -416,6 +434,6 @@ pub fn draw_floor(
     renderer.vertex_3d(x1, y2, z1, 0.0, 0.0, 1.0, 0.0, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y2, z2, 0.0, 0.0, 1.0, hrepeat, vrepeat, col, alpha);
     renderer.vertex_3d(x2, y1, z2, 0.0, 0.0, 1.0, hrepeat, 0.0, col, alpha);
-    renderer.draw_primitive_3d();
+    primitive_draw(renderer);
     renderer.set_texture_repeat(old_repeat);
 }
