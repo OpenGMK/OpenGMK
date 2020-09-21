@@ -11639,7 +11639,8 @@ impl Game {
                             model::draw_cone(
                                 &mut self.renderer,
                                 atlas_ref,
-                                x1.into_inner(),
+                                // yes, GM8 does this too. why is gm8 like this
+                                (x + *x1).into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
                                 x2.into_inner(),
