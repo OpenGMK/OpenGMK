@@ -1115,7 +1115,7 @@ impl Game {
             InstanceVariable::CaptionScore => Ok(self.score_capt.clone().into()),
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
-            InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
+            InstanceVariable::Fps => Ok(self.fps.into()),
             InstanceVariable::CurrentTime => {
                 // GM uses GetTickCount, which has a resolution of *roughly* 16ms.
                 if let Some(nanos) = self.spoofed_time_nanos {

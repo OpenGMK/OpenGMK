@@ -105,8 +105,11 @@ impl Manager {
         }
     }
 
-    pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets) {
+    pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets, set_depth: bool) {
         if let Some(ps) = self.systems.get_asset_mut(id) {
+            if set_depth {
+                renderer.set_depth(ps.depth.into_inner() as f32);
+            }
             ps.draw(renderer, assets, &self.types, &self.shapes);
         }
     }

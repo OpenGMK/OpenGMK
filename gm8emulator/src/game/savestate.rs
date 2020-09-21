@@ -3,6 +3,7 @@ use crate::{
     game::{
         background, draw,
         external::{DefineInfo, External},
+        model::Model,
         particle,
         string::RCStr,
         surface::Surface,
@@ -19,7 +20,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
 };
-use gmio::render::{BlendType, PrimitiveBuilder, SavedTexture, Scaling};
+use gmio::render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};
@@ -83,9 +84,18 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
+    pub using_3d: bool,
+    pub depth: f32,
+    pub depth_test: bool,
+    pub write_depth: bool,
+    pub culling: bool,
+    pub perspective: bool,
+    pub fog: Option<Fog>,
+    pub gouraud: bool,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
     pub model_matrix: [f32; 16],
+    pub models: Vec<Option<Model>>,
     pub auto_draw: bool,
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
@@ -123,12 +133,14 @@ pub struct SaveState {
 
     replay: Replay,
     screenshot: Box<[u8]>,
+    zbuffer: Box<[f32]>,
 }
 
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
         let (window_width, window_height) = game.window.get_inner_size();
         let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
+        let zbuffer = game.renderer.dump_zbuffer();
 
         Self {
             compiler: game.compiler.clone(),
@@ -177,9 +189,18 @@ impl SaveState {
             draw_alpha: game.draw_alpha.clone(),
             draw_halign: game.draw_halign.clone(),
             draw_valign: game.draw_valign.clone(),
+            using_3d: game.renderer.get_3d(),
+            depth: game.renderer.get_depth(),
+            depth_test: game.renderer.get_depth_test(),
+            write_depth: game.renderer.get_write_depth(),
+            culling: game.renderer.get_culling(),
+            perspective: game.renderer.get_perspective(),
+            fog: game.renderer.get_fog(),
+            gouraud: game.renderer.get_gouraud(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
             model_matrix: game.renderer.get_model_matrix(),
+            models: game.models.clone(),
             auto_draw: game.auto_draw,
             circle_precision: game.renderer.get_circle_precision(),
             primitive_2d: game.renderer.get_primitive_2d(),
@@ -212,6 +233,7 @@ impl SaveState {
             window_height,
             replay,
             screenshot,
+            zbuffer,
         }
     }
 
@@ -222,6 +244,7 @@ impl SaveState {
 
         game.renderer.draw_raw_frame(
             self.screenshot,
+            self.zbuffer,
             self.unscaled_width as _,
             self.unscaled_height as _,
             self.window_width as _,
@@ -297,8 +320,17 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
+        game.renderer.set_3d(self.using_3d);
+        game.renderer.set_depth(self.depth);
+        game.renderer.set_depth_test(self.depth_test);
+        game.renderer.set_write_depth(self.write_depth);
+        game.renderer.set_culling(self.culling);
+        game.renderer.set_perspective(self.perspective);
+        game.renderer.set_fog(self.fog);
+        game.renderer.set_gouraud(self.gouraud);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
+        game.models = self.models;
         game.auto_draw = self.auto_draw;
         game.renderer.set_circle_precision(self.circle_precision);
         game.renderer.set_primitive_2d(self.primitive_2d);

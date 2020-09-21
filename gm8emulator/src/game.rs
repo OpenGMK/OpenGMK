@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
+pub mod model;
 pub mod movement;
 pub mod particle;
 pub mod replay;
@@ -124,11 +125,12 @@ pub struct Game {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<surface::Surface>>,
     pub surface_target: Option<i32>,
+    pub models: Vec<Option<model::Model>>,
     pub auto_draw: bool,
-
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
+    pub fps: u32,              // initially 0
     pub transition_kind: i32,  // default 0
     pub transition_steps: i32, // default 80
     pub score: i32,            // default 0
@@ -878,6 +880,7 @@ impl Game {
             draw_valign: draw::Valign::Top,
             surfaces: Vec::new(),
             surface_target: None,
+            models: Vec::new(),
             auto_draw: true,
             last_instance_id,
             last_tile_id,
@@ -897,6 +900,7 @@ impl Game {
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
+            fps: 0,
             parameters: game_arguments,
             encoding,
             caption: "".to_string().into(),
@@ -1458,6 +1462,8 @@ impl Game {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
+        let mut time_last = time_now;
+        let mut frame_counter = 0;
         loop {
             self.process_window_events();
 
@@ -1479,7 +1485,17 @@ impl Game {
             let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
+                self.fps = self.room_speed.into();
+            } else {
+                // gm8 just ignores any leftover time after a second has passed, so we do the same
+                if time_now.duration_since(time_last) >= Duration::from_secs(1) {
+                    time_last = time_now;
+                    self.fps = frame_counter;
+                    frame_counter = 0;
+                }
             }
+            frame_counter += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;
@@ -1584,6 +1600,7 @@ impl Game {
         let mut game_mousey = 0;
         let mut do_update_mouse = false;
         self.play_type = PlayType::Record;
+        let mut frame_counter = 0;
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
@@ -1769,6 +1786,12 @@ impl Game {
                 }
             }
 
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if self.window.close_requested() {
                 break Ok(())
             }
@@ -1781,6 +1804,7 @@ impl Game {
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
         self.play_type = PlayType::Replay;
+        let mut frame_counter = 0;
 
         let mut time_now = std::time::Instant::now();
         loop {
@@ -1832,6 +1856,13 @@ impl Game {
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
             }
+
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;

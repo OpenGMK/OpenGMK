@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
+        draw, external, model, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
         SceneChange, Version,
     },
     gml::{
@@ -19,12 +19,15 @@ use crate::{
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Renderer, RendererOptions},
+    render::{BlendType, Fog, Light, Renderer, RendererOptions},
     window,
 };
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
-use std::{io::Read, process::Command};
+use std::{
+    io::{Read, Write},
+    process::Command,
+};
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
@@ -1616,7 +1619,7 @@ impl Game {
         let surf = Surface {
             width: w as _,
             height: h as _,
-            atlas_ref: match self.renderer.create_surface(w, h) {
+            atlas_ref: match self.renderer.create_surface(w, h, true) {
                 Ok(atl_ref) => atl_ref,
                 Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
             },
@@ -8988,7 +8991,7 @@ impl Game {
 
     pub fn part_system_drawit(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        self.particles.draw_system(id, &mut self.renderer, &self.assets);
+        self.particles.draw_system(id, &mut self.renderer, &self.assets, false);
         Ok(Default::default())
     }
 
@@ -10791,53 +10794,68 @@ impl Game {
     }
 
     pub fn d3d_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_start")
+        self.renderer.set_3d(true);
+        Ok(Default::default())
     }
 
     pub fn d3d_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_end")
+        self.renderer.set_3d(false);
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_perspective(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_perspective")
+    pub fn d3d_set_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let perspective = expect_args!(args, [any])?;
+        self.renderer.set_perspective(perspective.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_hidden(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_hidden")
+    pub fn d3d_set_hidden(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let hidden = expect_args!(args, [any])?;
+        self.renderer.set_depth_test(hidden.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_depth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_depth")
+    pub fn d3d_set_depth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let depth = expect_args!(args, [real])?;
+        self.renderer.set_depth(depth.into_inner() as f32);
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_zwriteenable")
+    pub fn d3d_set_zwriteenable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let write_depth = expect_args!(args, [any])?;
+        if self.renderer.get_3d() {
+            self.renderer.set_write_depth(write_depth.is_truthy());
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_lighting(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_lighting")
+    pub fn d3d_set_lighting(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let enabled = expect_args!(args, [any])?;
+        self.renderer.set_lighting_enabled(enabled.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_shading(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_shading")
+    pub fn d3d_set_shading(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let gouraud = expect_args!(args, [any])?;
+        self.renderer.set_gouraud(gouraud.is_truthy());
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_fog(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function d3d_set_fog")
+    pub fn d3d_set_fog(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (enabled, colour, begin, end) = expect_args!(args, [any, int, real, real])?;
+        let fog = if enabled.is_truthy() {
+            Some(Fog { colour, begin: begin.into_inner() as f32, end: end.into_inner() as f32 })
+        } else {
+            None
+        };
+        self.renderer.set_fog(fog);
+        Ok(Default::default())
     }
 
-    pub fn d3d_set_culling(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_set_culling")
+    pub fn d3d_set_culling(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let cull = expect_args!(args, [any])?;
+        self.renderer.set_culling(cull.is_truthy());
+        Ok(Default::default())
     }
 
     pub fn d3d_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10859,29 +10877,23 @@ impl Game {
 
     pub fn d3d_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z) = expect_args!(args, [real, real, real])?;
-        self.renderer.vertex_3d(
-            x.into(),
-            y.into(),
-            z.into(),
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            u32::from(self.draw_colour) as _,
-            self.draw_alpha.into(),
-        );
+        // And here we see the really weird GM8 colour rules where when drawing 3D vertices,
+        // the LSB of the blue component is set to 0 when the colour isn't specified, and 1 when it is.
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
+        self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, self.draw_alpha.into());
         Ok(Default::default())
     }
 
     pub fn d3d_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, col, alpha) = expect_args!(args, [real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(x.into(), y.into(), z.into(), 0.0, 0.0, 0.0, 0.0, 0.0, col, alpha.into());
         Ok(Default::default())
     }
 
     pub fn d3d_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, xtex, ytex) = expect_args!(args, [real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10891,7 +10903,7 @@ impl Game {
             0.0,
             xtex.into(),
             ytex.into(),
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10899,6 +10911,7 @@ impl Game {
 
     pub fn d3d_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, xtex, ytex, col, alpha) = expect_args!(args, [real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10916,6 +10929,7 @@ impl Game {
 
     pub fn d3d_vertex_normal(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz) = expect_args!(args, [real, real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10925,7 +10939,7 @@ impl Game {
             nz.into(),
             0.0,
             0.0,
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10933,6 +10947,7 @@ impl Game {
 
     pub fn d3d_vertex_normal_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, col, alpha) = expect_args!(args, [real, real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10950,6 +10965,7 @@ impl Game {
 
     pub fn d3d_vertex_normal_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, xtex, ytex) = expect_args!(args, [real, real, real, real, real, real, real, real])?;
+        let col = u32::from(self.draw_colour) as i32 & 0xfeffff;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10959,7 +10975,7 @@ impl Game {
             nz.into(),
             xtex.into(),
             ytex.into(),
-            u32::from(self.draw_colour) as _,
+            col,
             self.draw_alpha.into(),
         );
         Ok(Default::default())
@@ -10968,6 +10984,7 @@ impl Game {
     pub fn d3d_vertex_normal_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
             expect_args!(args, [real, real, real, real, real, real, real, real, int, real])?;
+        let col = col | 0x010000;
         self.renderer.vertex_3d(
             x.into(),
             y.into(),
@@ -10983,34 +11000,141 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_draw_block(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_draw_block")
+    pub fn d3d_draw_block(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_block(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_draw_cylinder(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function d3d_draw_cylinder")
+    pub fn d3d_draw_cylinder(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real, any, int])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_cylinder(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            closed.is_truthy(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_draw_cone(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function d3d_draw_cone")
+    pub fn d3d_draw_cone(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real, any, int])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_cone(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            closed.is_truthy(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_draw_ellipsoid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function d3d_draw_ellipsoid")
+    pub fn d3d_draw_ellipsoid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, steps) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real, int])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_ellipsoid(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into_inner(),
+            y1.into_inner(),
+            z1.into_inner(),
+            x2.into_inner(),
+            y2.into_inner(),
+            z2.into_inner(),
+            hrepeat.into_inner(),
+            vrepeat.into_inner(),
+            steps,
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_draw_wall(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_draw_wall")
+    pub fn d3d_draw_wall(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_wall(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
-    pub fn d3d_draw_floor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_draw_floor")
+    pub fn d3d_draw_floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
+            expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        model::draw_floor(
+            &mut self.renderer,
+            atlas_ref,
+            |r: &mut Renderer| r.draw_primitive_3d(),
+            x1.into(),
+            y1.into(),
+            z1.into(),
+            x2.into(),
+            y2.into(),
+            z2.into(),
+            hrepeat.into(),
+            vrepeat.into(),
+            u32::from(self.draw_colour) as i32 & 0xfeffff,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn d3d_set_projection(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -11345,137 +11469,622 @@ impl Game {
         unimplemented!("Called unimplemented kernel function d3d_transform_stack_discard")
     }
 
-    pub fn d3d_light_define_ambient(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_light_define_ambient")
+    pub fn d3d_light_define_ambient(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let colour = expect_args!(args, [int])?;
+        self.renderer.set_ambient_colour(colour);
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_define_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_light_define_direction")
+    pub fn d3d_light_define_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, dx, dy, dz, colour) = expect_args!(args, [int, real, real, real, int])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light(id as usize, Light::Directional {
+                direction: [dx.into_inner() as f32, dy.into_inner() as f32, dz.into_inner() as f32],
+                colour,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_define_point(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_light_define_point")
+    pub fn d3d_light_define_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, z, range, colour) = expect_args!(args, [int, real, real, real, real, int])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light(id as usize, Light::Point {
+                position: [x.into_inner() as f32, y.into_inner() as f32, z.into_inner() as f32],
+                range: range.into_inner() as f32,
+                colour,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_light_enable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_light_enable")
+    pub fn d3d_light_enable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, enabled) = expect_args!(args, [int, any])?;
+        if (0..8).contains(&id) {
+            self.renderer.set_light_enabled(id as usize, enabled.is_truthy());
+        }
+        Ok(Default::default())
     }
 
     pub fn d3d_model_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_model_create")
+        let model = Default::default();
+        if let Some(id) = self.models.iter().position(|x| x.is_none()) {
+            self.models[id] = Some(model);
+            Ok(id.into())
+        } else {
+            self.models.push(Some(model));
+            Ok((self.models.len() - 1).into())
+        }
     }
 
-    pub fn d3d_model_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_model_destroy")
+    pub fn d3d_model_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let model_id = expect_args!(args, [int])?;
+        if self.models.get_asset(model_id).is_some() {
+            self.models[model_id as usize] = None;
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_model_clear")
+    pub fn d3d_model_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let model_id = expect_args!(args, [int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            *model = Default::default();
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_load(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_model_load")
+    pub fn d3d_model_load(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, fname) = expect_args!(args, [int, string])?;
+        fn load_model(fname: &str) -> Result<model::Model, Box<dyn std::error::Error>> {
+            let mut file = std::fs::File::open(fname)?;
+            let version = file::read_real(&mut file)?;
+            if version != 100.0 {
+                return Err("invalid version".into())
+            };
+            file::skip_line(&mut file)?;
+            let command_count = match file::read_real(&mut file)? as i32 {
+                x if x < 0 => return Err("negative command count".into()),
+                x => x as usize,
+            };
+            file::skip_line(&mut file)?;
+            let mut commands = Vec::with_capacity(command_count);
+            for _ in 0..command_count {
+                let cmd = file::read_real(&mut file)?.round() as i32;
+                let mut args = [0.0; 10];
+                for x in &mut args {
+                    *x = file::read_real(&mut file)?;
+                }
+                file::skip_line(&mut file)?;
+                commands.push(match cmd {
+                    0 => model::Command::Begin((args[0] as i32).into()),
+                    1 => model::Command::End,
+                    2 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [0.into(); 2],
+                    },
+                    3 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [0.into(); 2],
+                        col: (args[3] as i32, args[4].into()),
+                    },
+                    4 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [args[3].into(), args[4].into()],
+                    },
+                    5 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [0.into(); 3],
+                        tex_coord: [args[3].into(), args[4].into()],
+                        col: (args[5] as i32, args[6].into()),
+                    },
+                    6 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [0.into(); 2],
+                    },
+                    7 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [0.into(); 2],
+                        col: (args[6] as i32, args[7].into()),
+                    },
+                    8 => model::Command::Vertex {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [args[6].into(), args[7].into()],
+                    },
+                    9 => model::Command::VertexColour {
+                        pos: [args[0].into(), args[1].into(), args[2].into()],
+                        normal: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_coord: [args[6].into(), args[7].into()],
+                        col: (args[8] as i32, args[9].into()),
+                    },
+                    10 => model::Command::Block {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    11 => model::Command::Cylinder {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        closed: args[8] >= 0.5,
+                        steps: args[9] as _,
+                    },
+                    12 => model::Command::Cone {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        closed: args[8] >= 0.5,
+                        steps: args[9] as _,
+                    },
+                    13 => model::Command::Ellipsoid {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                        steps: args[8] as _,
+                    },
+                    14 => model::Command::Wall {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    15 => model::Command::Floor {
+                        pos1: [args[0].into(), args[1].into(), args[2].into()],
+                        pos2: [args[3].into(), args[4].into(), args[5].into()],
+                        tex_repeat: [args[6].into(), args[7].into()],
+                    },
+                    _ => continue,
+                });
+            }
+            Ok(model::Model { old_draw_colour: None, commands, cache: None })
+        }
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            match load_model(&fname) {
+                Ok(new_model) => *model = new_model,
+                Err(e) => return Err(gml::Error::FunctionError("d3d_model_load".into(), e.to_string())),
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_model_save")
+    pub fn d3d_model_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, fname) = expect_args!(args, [int, string])?;
+        fn save_model(model: &model::Model, fname: &str) -> std::io::Result<()> {
+            let mut file = std::fs::File::create(fname)?;
+            writeln!(&mut file, "100\r\n{}\r", model.commands.len())?;
+            for cmd in &model.commands {
+                let (cmd, args) = cmd.to_line();
+                write!(&mut file, "{}", cmd)?;
+                for arg in args.iter() {
+                    write!(&mut file, " {:.4}", arg)?;
+                }
+                writeln!(&mut file, "\r")?;
+            }
+            Ok(())
+        }
+        if let Some(model) = self.models.get_asset(model_id) {
+            if let Err(e) = save_model(model, &fname) {
+                return Err(gml::Error::FunctionError("d3d_model_save".into(), format!("{}", e)))
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_draw(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function d3d_model_draw")
+    pub fn d3d_model_draw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, tex_id) = expect_args!(args, [int, real, real, real, int])?;
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            // grab some borrows for the lambda
+            let draw_colour = (u32::from(self.draw_colour) as i32 & 0xfeffff, self.draw_alpha.into_inner());
+            if model.cache.is_none() {
+                // yes, this will only fill the cache once
+                let mut buffers = Default::default();
+                let mut uses_draw_colour = false;
+                for command in &model.commands {
+                    match command {
+                        model::Command::Begin(ptype) => self.renderer.reset_primitive_3d(*ptype, atlas_ref),
+                        model::Command::Vertex { pos: [x, y, z], normal: [nx, ny, nz], tex_coord: [xtex, ytex] } => {
+                            self.renderer.vertex_3d(
+                                x.into_inner(),
+                                y.into_inner(),
+                                z.into_inner(),
+                                nx.into_inner(),
+                                ny.into_inner(),
+                                nz.into_inner(),
+                                xtex.into_inner(),
+                                ytex.into_inner(),
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::VertexColour {
+                            pos: [x, y, z],
+                            normal: [nx, ny, nz],
+                            tex_coord: [xtex, ytex],
+                            col: (col, alpha),
+                        } => {
+                            self.renderer.vertex_3d(
+                                x.into_inner(),
+                                y.into_inner(),
+                                z.into_inner(),
+                                nx.into_inner(),
+                                ny.into_inner(),
+                                nz.into_inner(),
+                                xtex.into_inner(),
+                                ytex.into_inner(),
+                                *col | 1,
+                                alpha.into_inner(),
+                            );
+                        },
+                        model::Command::Block { pos1: [x1, y1, z1], pos2: [x2, y2, z2], tex_repeat: [hr, vr] } => {
+                            model::draw_block(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                x1.into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::Cylinder {
+                            pos1: [x1, y1, z1],
+                            pos2: [x2, y2, z2],
+                            tex_repeat: [hr, vr],
+                            closed,
+                            steps,
+                        } => {
+                            model::draw_cylinder(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                x1.into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                *closed,
+                                *steps,
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::Cone {
+                            pos1: [x1, y1, z1],
+                            pos2: [x2, y2, z2],
+                            tex_repeat: [hr, vr],
+                            closed,
+                            steps,
+                        } => {
+                            model::draw_cone(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                // yes, GM8 does this too. why is gm8 like this
+                                (x + *x1).into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                *closed,
+                                *steps,
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::Ellipsoid {
+                            pos1: [x1, y1, z1],
+                            pos2: [x2, y2, z2],
+                            tex_repeat: [hr, vr],
+                            steps,
+                        } => {
+                            model::draw_ellipsoid(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                x1.into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                *steps,
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::Wall { pos1: [x1, y1, z1], pos2: [x2, y2, z2], tex_repeat: [hr, vr] } => {
+                            model::draw_wall(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                x1.into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::Floor { pos1: [x1, y1, z1], pos2: [x2, y2, z2], tex_repeat: [hr, vr] } => {
+                            model::draw_floor(
+                                &mut self.renderer,
+                                atlas_ref,
+                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                x1.into_inner(),
+                                y1.into_inner(),
+                                z1.into_inner(),
+                                x2.into_inner(),
+                                y2.into_inner(),
+                                z2.into_inner(),
+                                hr.into_inner(),
+                                vr.into_inner(),
+                                draw_colour.0,
+                                draw_colour.1,
+                            );
+                            uses_draw_colour = true;
+                        },
+                        model::Command::End => {
+                            self.renderer.extend_buffers(&mut buffers);
+                        },
+                    }
+                }
+                if uses_draw_colour {
+                    model.old_draw_colour = Some(draw_colour);
+                }
+                model.cache = Some(buffers);
+            }
+            let cache = model.cache.as_mut().unwrap();
+            if let Some(old_col) = model.old_draw_colour {
+                cache.swap_colour(old_col, draw_colour);
+            }
+            let old_model_matrix = self.renderer.get_model_matrix();
+            #[rustfmt::skip]
+            let translation: [f32; 16] = [
+                1.0,                    0.0,                    0.0,                    0.0,
+                0.0,                    1.0,                    0.0,                    0.0,
+                0.0,                    0.0,                    1.0,                    0.0,
+                x.into_inner() as f32,  y.into_inner() as f32,  z.into_inner() as f32,  1.0,
+            ];
+            self.renderer.mult_model_matrix(translation);
+            self.renderer.draw_buffers(atlas_ref, cache);
+            self.renderer.set_model_matrix(old_model_matrix);
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_primitive_begin(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function d3d_model_primitive_begin")
+    pub fn d3d_model_primitive_begin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, kind) = expect_args!(args, [int, int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Begin(kind.into()));
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function d3d_model_primitive_end")
+    pub fn d3d_model_primitive_end(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let model_id = expect_args!(args, [int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::End);
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex")
+    pub fn d3d_model_vertex(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z) = expect_args!(args, [int, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Vertex {
+                pos: [x, y, z],
+                normal: [0.into(); 3],
+                tex_coord: [0.into(); 2],
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_color")
+    pub fn d3d_model_vertex_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, col, alpha) = expect_args!(args, [int, real, real, real, int, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::VertexColour {
+                pos: [x, y, z],
+                normal: [0.into(); 3],
+                tex_coord: [0.into(); 2],
+                col: (col, alpha),
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_texture")
+    pub fn d3d_model_vertex_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, xtex, ytex) = expect_args!(args, [int, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Vertex {
+                pos: [x, y, z],
+                normal: [0.into(); 3],
+                tex_coord: [xtex, ytex],
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_texture_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_texture_color")
+    pub fn d3d_model_vertex_texture_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, xtex, ytex, col, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::VertexColour {
+                pos: [x, y, z],
+                normal: [0.into(); 3],
+                tex_coord: [xtex, ytex],
+                col: (col, alpha),
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_normal(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal")
+    pub fn d3d_model_vertex_normal(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, nx, ny, nz) = expect_args!(args, [int, real, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Vertex {
+                pos: [x, y, z],
+                normal: [nx, ny, nz],
+                tex_coord: [0.into(); 2],
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_normal_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal_color")
+    pub fn d3d_model_vertex_normal_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, nx, ny, nz, col, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::VertexColour {
+                pos: [x, y, z],
+                normal: [nx, ny, nz],
+                tex_coord: [0.into(); 2],
+                col: (col, alpha),
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_vertex_normal_texture(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal_texture")
+    pub fn d3d_model_vertex_normal_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x, y, z, nx, ny, nz, xtex, ytex) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Vertex {
+                pos: [x, y, z],
+                normal: [nx, ny, nz],
+                tex_coord: [xtex, ytex],
+            });
+        }
+        Ok(Default::default())
     }
 
     pub fn d3d_model_vertex_normal_texture_color(
         &mut self,
         _context: &mut Context,
-        _args: &[Value],
+        args: &[Value],
     ) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function d3d_model_vertex_normal_texture_color")
+        let (model_id, x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::VertexColour {
+                pos: [x, y, z],
+                normal: [nx, ny, nz],
+                tex_coord: [xtex, ytex],
+                col: (col, alpha),
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_block(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_model_block")
+    pub fn d3d_model_block(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Block {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_cylinder(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function d3d_model_cylinder")
+    pub fn d3d_model_cylinder(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, closed, steps) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, any, int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Cylinder {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+                closed: closed.is_truthy(),
+                steps,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_cone(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function d3d_model_cone")
+    pub fn d3d_model_cone(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, closed, steps) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, any, int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Cone {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+                closed: closed.is_truthy(),
+                steps,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_ellipsoid(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function d3d_model_ellipsoid")
+    pub fn d3d_model_ellipsoid(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, steps) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, int])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Ellipsoid {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+                steps,
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_wall(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_model_wall")
+    pub fn d3d_model_wall(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Wall {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+            });
+        }
+        Ok(Default::default())
     }
 
-    pub fn d3d_model_floor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function d3d_model_floor")
+    pub fn d3d_model_floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
+        if let Some(model) = self.models.get_asset_mut(model_id) {
+            model.commands.push(model::Command::Floor {
+                pos1: [x1, y1, z1],
+                pos2: [x2, y2, z2],
+                tex_repeat: [hrepeat, vrepeat],
+            });
+        }
+        Ok(Default::default())
     }
 }

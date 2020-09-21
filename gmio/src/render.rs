@@ -26,6 +26,20 @@ pub struct SavedTexture {
     width: i32,
     height: i32,
     pixels: Box<[u8]>,
+    zbuf: Option<Box<[f32]>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Fog {
+    pub colour: i32,
+    pub begin: f32,
+    pub end: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Light {
+    Directional { direction: [f32; 3], colour: i32 },
+    Point { position: [f32; 3], range: f32, colour: i32 },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -67,6 +81,23 @@ impl From<i32> for PrimitiveType {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum PrimitiveShape {
+    Point,
+    Line,
+    Triangle,
+}
+
+impl From<PrimitiveType> for PrimitiveShape {
+    fn from(pt: PrimitiveType) -> Self {
+        match pt {
+            PrimitiveType::PointList => PrimitiveShape::Point,
+            PrimitiveType::LineList | PrimitiveType::LineStrip => PrimitiveShape::Line,
+            PrimitiveType::TriList | PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveShape::Triangle,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 struct Vertex {
     pub pos: [f32; 3],
@@ -89,33 +120,32 @@ impl PrimitiveBuilder {
         Self { vertices: Vec::new(), ptype, atlas_ref }
     }
 
-    fn fill_shape(&mut self) {
-        match self.ptype {
-            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (),
-            PrimitiveType::LineStrip => {
-                if self.vertices.len() >= 2 {
-                    self.vertices.push(*self.vertices.last().unwrap());
-                }
-            },
-            PrimitiveType::TriFan => {
-                if self.vertices.len() >= 3 {
-                    self.vertices.push(*self.vertices.last().unwrap());
-                    self.vertices.push(self.vertices[0]);
-                }
-            },
-            PrimitiveType::TriStrip => {
-                let len = self.vertices.len();
-                if len >= 3 {
-                    self.vertices.push(self.vertices[len - 2]);
-                    self.vertices.push(self.vertices[len - 1]);
-                }
-            },
-        }
-    }
-
     fn push_vertex_raw(&mut self, v: Vertex) -> &mut Self {
-        self.fill_shape();
+        // if we need to fill out a shape get the other two points
+        let (v1, v2) = match self.ptype {
+            PrimitiveType::PointList | PrimitiveType::LineList | PrimitiveType::TriList => (None, None),
+            PrimitiveType::LineStrip => (self.vertices.last().filter(|_| self.vertices.len() >= 2).copied(), None),
+            PrimitiveType::TriFan | PrimitiveType::TriStrip if self.vertices.len() < 3 => (None, None),
+            PrimitiveType::TriStrip | PrimitiveType::TriFan => {
+                (Some(self.vertices[self.vertices.len() - 2]), self.vertices.last().copied())
+            },
+        };
+        if let Some(v1) = v1 {
+            self.vertices.push(v1);
+        }
         self.vertices.push(v);
+        if let Some(v2) = v2 {
+            self.vertices.push(v2);
+            let len = self.vertices.len();
+            if len % 6 == 3 && self.ptype == PrimitiveType::TriStrip {
+                self.vertices.swap(len - 2, len - 1);
+                self.vertices.swap(len - 3, len - 2);
+            }
+        } else if self.vertices.len() == 3 && self.ptype == PrimitiveType::TriFan {
+            // i hate that this works
+            self.vertices.swap(0, 1);
+            self.vertices.swap(1, 2);
+        }
         self
     }
 
@@ -128,17 +158,20 @@ impl PrimitiveBuilder {
         self.atlas_ref.atlas_id
     }
 
-    fn get_type(&self) -> PrimitiveType {
-        match self.ptype {
-            PrimitiveType::LineStrip => PrimitiveType::LineList,
-            PrimitiveType::TriStrip | PrimitiveType::TriFan => PrimitiveType::TriList,
-            pt => pt,
-        }
+    fn get_shape(&self) -> PrimitiveShape {
+        self.ptype.into()
     }
 
     fn get_vertices(&self) -> &[Vertex] {
         &self.vertices
     }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct VertexBuffer {
+    points: Vec<Vertex>,
+    lines: Vec<Vertex>,
+    tris: Vec<Vertex>,
 }
 
 pub struct Renderer(Box<dyn RendererTrait>);
@@ -245,9 +278,11 @@ pub trait RendererTrait {
     fn set_texture_repeat(&mut self, repeat: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
+    fn dump_zbuffer(&self) -> Box<[f32]>;
     fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -259,7 +294,7 @@ pub trait RendererTrait {
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
 
-    fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String>;
+    fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
 
@@ -393,7 +428,34 @@ pub trait RendererTrait {
     fn draw_primitive_3d(&mut self);
     fn get_primitive_3d(&self) -> PrimitiveBuilder;
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder);
+    fn extend_buffers(&self, buf: &mut VertexBuffer);
+    fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
+    fn clear_zbuf(&mut self);
+
+    fn get_3d(&self) -> bool;
+    fn set_3d(&mut self, use_3d: bool);
+    fn get_depth(&self) -> f32;
+    fn set_depth(&mut self, depth: f32);
+    fn get_depth_test(&self) -> bool;
+    fn set_depth_test(&mut self, depth_test: bool);
+    fn get_write_depth(&self) -> bool;
+    fn set_write_depth(&mut self, write_depth: bool);
+    fn get_culling(&self) -> bool;
+    fn set_culling(&mut self, culling: bool);
+    fn get_perspective(&self) -> bool;
+    fn set_perspective(&mut self, perspective: bool);
+    fn get_fog(&self) -> Option<Fog>;
+    fn set_fog(&mut self, fog: Option<Fog>);
+    fn get_gouraud(&self) -> bool;
+    fn set_gouraud(&mut self, gouraud: bool);
+    fn get_lighting_enabled(&self) -> bool;
+    fn set_lighting_enabled(&mut self, enabled: bool);
+    fn get_ambient_colour(&self) -> i32;
+    fn set_ambient_colour(&mut self, colour: i32);
+    fn get_lights(&self) -> [(bool, Light); 8];
+    fn set_light_enabled(&mut self, id: usize, enabled: bool);
+    fn set_light(&mut self, id: usize, light: Light);
 }
 
 pub struct RendererOptions {
@@ -688,6 +750,14 @@ impl Renderer {
         self.0.set_primitive_3d(prim)
     }
 
+    pub fn extend_buffers(&self, buf: &mut VertexBuffer) {
+        self.0.extend_buffers(buf)
+    }
+
+    pub fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
+        self.0.draw_buffers(atlas_ref, buf)
+    }
+
     pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
         self.0.dump_sprite(atlas_ref)
     }
@@ -711,9 +781,14 @@ impl Renderer {
         self.0.get_pixels(x, y, w, h)
     }
 
+    pub fn dump_zbuffer(&self) -> Box<[f32]> {
+        self.0.dump_zbuffer()
+    }
+
     pub fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -721,7 +796,7 @@ impl Renderer {
         scaling: Scaling,
         clear_colour: Colour,
     ) {
-        self.0.draw_raw_frame(rgba, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
+        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -732,8 +807,8 @@ impl Renderer {
         self.0.upload_dynamic_textures(textures)
     }
 
-    pub fn create_surface(&mut self, w: i32, h: i32) -> Result<AtlasRef, String> {
-        self.0.create_surface(w, h)
+    pub fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String> {
+        self.0.create_surface(w, h, has_zbuffer)
     }
 
     pub fn set_target(&mut self, atlas_ref: &AtlasRef) {
@@ -790,6 +865,102 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn clear_zbuf(&mut self) {
+        self.0.clear_zbuf()
+    }
+
+    pub fn get_3d(&self) -> bool {
+        self.0.get_3d()
+    }
+
+    pub fn set_3d(&mut self, use_3d: bool) {
+        self.0.set_3d(use_3d)
+    }
+
+    pub fn get_depth(&self) -> f32 {
+        self.0.get_depth()
+    }
+
+    pub fn set_depth(&mut self, depth: f32) {
+        self.0.set_depth(depth)
+    }
+
+    pub fn get_depth_test(&self) -> bool {
+        self.0.get_depth_test()
+    }
+
+    pub fn set_depth_test(&mut self, depth_test: bool) {
+        self.0.set_depth_test(depth_test)
+    }
+
+    pub fn get_write_depth(&self) -> bool {
+        self.0.get_write_depth()
+    }
+
+    pub fn set_write_depth(&mut self, write_depth: bool) {
+        self.0.set_write_depth(write_depth)
+    }
+
+    pub fn get_culling(&self) -> bool {
+        self.0.get_culling()
+    }
+
+    pub fn set_culling(&mut self, culling: bool) {
+        self.0.set_culling(culling)
+    }
+
+    pub fn get_perspective(&self) -> bool {
+        self.0.get_perspective()
+    }
+
+    pub fn set_perspective(&mut self, perspective: bool) {
+        self.0.set_perspective(perspective)
+    }
+
+    pub fn get_fog(&self) -> Option<Fog> {
+        self.0.get_fog()
+    }
+
+    pub fn set_fog(&mut self, fog: Option<Fog>) {
+        self.0.set_fog(fog)
+    }
+
+    pub fn get_gouraud(&self) -> bool {
+        self.0.get_gouraud()
+    }
+
+    pub fn set_gouraud(&mut self, gouraud: bool) {
+        self.0.set_gouraud(gouraud)
+    }
+
+    pub fn get_lighting_enabled(&self) -> bool {
+        self.0.get_lighting_enabled()
+    }
+
+    pub fn set_lighting_enabled(&mut self, enabled: bool) {
+        self.0.set_lighting_enabled(enabled)
+    }
+
+    pub fn get_ambient_colour(&self) -> i32 {
+        self.0.get_ambient_colour()
+    }
+
+    pub fn set_ambient_colour(&mut self, colour: i32) {
+        self.0.set_ambient_colour(colour)
+    }
+
+    pub fn get_lights(&self) -> [(bool, Light); 8] {
+        self.0.get_lights()
+    }
+
+    pub fn set_light_enabled(&mut self, id: usize, enabled: bool) {
+        self.0.set_light_enabled(id, enabled)
+    }
+
+    pub fn set_light(&mut self, id: usize, light: Light) {
+        self.0.set_light(id, light)
     }
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {

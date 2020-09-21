@@ -3,8 +3,8 @@ mod wgl;
 use crate::{
     atlas::{AtlasBuilder, AtlasRef},
     render::{
-        mat4mult, BlendType, PrimitiveBuilder, PrimitiveType, RendererOptions, RendererTrait, SavedTexture, Scaling,
-        Vertex,
+        mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
+        RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
     window::Window,
 };
@@ -44,20 +44,30 @@ pub struct RendererImpl {
     //vao: GLuint,
     atlas_packers: Vec<DensePacker>,
     texture_ids: Vec<Option<GLuint>>,
+    zbuf_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
     sprites: HashMap<i32, AtlasRef>,
     sprite_count: i32,
     stock_atlas_count: u32,
-    current_atlas: GLuint,
+    current_atlas: u32,
     framebuffer_texture: GLuint,
+    framebuffer_zbuf: GLuint,
     framebuffer_fbo: GLuint,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
-    queue_type: PrimitiveType,
+    queue_type: PrimitiveShape,
     interpolate_pixels: bool,
     texture_repeat: bool,
     circle_precision: i32,
+    using_3d: bool,
+    depth_test: bool,
+    perspective: bool,
     depth: f32,
+    fog: Option<Fog>,
+    lighting: bool,
+    gouraud: bool,
+    ambient_colour: i32,
+    lights: [(bool, Light); 8], // (enabled, light)
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
 
@@ -65,10 +75,20 @@ pub struct RendererImpl {
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
 
-    loc_tex: GLint,    // uniform sampler2D tex
-    loc_proj: GLint,   // uniform mat4 projection
-    loc_repeat: GLint, // uniform bool repeat
-    loc_lerp: GLint,   // uniform bool lerp
+    loc_tex: GLint,              // uniform sampler2D tex
+    loc_model: GLint,            // uniform mat4 model
+    loc_proj: GLint,             // uniform mat4 projection
+    loc_repeat: GLint,           // uniform bool repeat
+    loc_lerp: GLint,             // uniform bool lerp
+    loc_alpha_test: GLint,       // uniform bool alpha_test
+    loc_fog_enabled: GLint,      // uniform bool fog_enabled
+    loc_fog_colour: GLint,       // uniform vec4 fog_colour
+    loc_fog_begin: GLint,        // uniform float fog_begin
+    loc_fog_end: GLint,          // uniform float fog_end
+    loc_lighting_enabled: GLint, // uniform bool lighting_enabled
+    loc_gouraud_shading: GLint,  // uniform bool gouraud_shading
+    loc_ambient_colour: GLint,   // uniform vec3 ambient_colour
+    loc_lights: Vec<LightUniform>,
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -129,10 +149,32 @@ fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
     ]
 }
 
+// TODO: probably put this in render.rs instead
+impl VertexBuffer {
+    pub fn swap_colour(&mut self, old: (i32, f64), new: (i32, f64)) {
+        let old = split_colour(old.0, old.1);
+        let new = split_colour(new.0, new.1);
+        for vert in self.points.iter_mut().chain(&mut self.lines).chain(&mut self.tris) {
+            if vert.blend == old {
+                vert.blend = new;
+            }
+        }
+    }
+}
+
 impl From<AtlasRef> for [f32; 4] {
     fn from(ar: AtlasRef) -> Self {
         [ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32]
     }
+}
+
+#[derive(Debug)]
+struct LightUniform {
+    enabled: GLint,
+    is_point: GLint,
+    pos: GLint,
+    colour: GLint,
+    range: GLint,
 }
 
 impl From<BlendType> for GLenum {
@@ -172,29 +214,12 @@ impl From<GLenum> for BlendType {
     }
 }
 
-impl From<PrimitiveType> for GLenum {
-    fn from(pt: PrimitiveType) -> Self {
-        match pt {
-            PrimitiveType::PointList => gl::POINTS,
-            PrimitiveType::LineList => gl::LINES,
-            PrimitiveType::LineStrip => gl::LINE_STRIP,
-            PrimitiveType::TriList => gl::TRIANGLES,
-            PrimitiveType::TriStrip => gl::TRIANGLE_STRIP,
-            PrimitiveType::TriFan => gl::TRIANGLE_FAN,
-        }
-    }
-}
-
-impl From<GLenum> for PrimitiveType {
-    fn from(pt: GLenum) -> Self {
-        match pt {
-            gl::POINTS => PrimitiveType::PointList,
-            gl::LINES => PrimitiveType::LineList,
-            gl::LINE_STRIP => PrimitiveType::LineStrip,
-            gl::TRIANGLES => PrimitiveType::TriList,
-            gl::TRIANGLE_STRIP => PrimitiveType::TriStrip,
-            gl::TRIANGLE_FAN => PrimitiveType::TriFan,
-            _ => unreachable!(),
+impl From<PrimitiveShape> for GLenum {
+    fn from(shape: PrimitiveShape) -> Self {
+        match shape {
+            PrimitiveShape::Point => gl::POINTS,
+            PrimitiveShape::Line => gl::LINES,
+            PrimitiveShape::Triangle => gl::TRIANGLES,
         }
     }
 }
@@ -340,6 +365,9 @@ impl RendererImpl {
 
             gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
+            // Use DX provoking vertex convention
+            gl.ProvokingVertex(gl::FIRST_VERTEX_CONVENTION);
+
             // Unbind VBO
             gl.BindBuffer(gl::ARRAY_BUFFER, 0);
 
@@ -353,7 +381,7 @@ impl RendererImpl {
             gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
 
             // Create framebuffer
-            let (mut framebuffer_texture, mut framebuffer_fbo) = (0, 0);
+            let (mut framebuffer_texture, mut framebuffer_zbuf, mut framebuffer_fbo) = (0, 0, 0);
             gl.GenTextures(1, &mut framebuffer_texture);
             gl.BindTexture(gl::TEXTURE_2D, framebuffer_texture);
             gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
@@ -368,6 +396,19 @@ impl RendererImpl {
                 gl::UNSIGNED_BYTE,   // type
                 ptr::null(),         // data
             );
+            gl.GenTextures(1, &mut framebuffer_zbuf);
+            gl.BindTexture(gl::TEXTURE_2D, framebuffer_zbuf);
+            gl.TexImage2D(
+                gl::TEXTURE_2D,             // target
+                0,                          // level
+                gl::DEPTH_COMPONENT24 as _, // internalformat
+                options.size.0 as _,        // width
+                options.size.1 as _,        // height
+                0,                          // border ("must be 0")
+                gl::DEPTH_COMPONENT,        // format
+                gl::FLOAT,                  // type
+                ptr::null(),                // data
+            );
             gl.GenFramebuffers(1, &mut framebuffer_fbo);
             gl.BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
             gl.FramebufferTexture2D(
@@ -377,6 +418,7 @@ impl RendererImpl {
                 framebuffer_texture,
                 0,
             );
+            gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, framebuffer_zbuf, 0);
 
             // Create identity matrix to initialize MVP matrices with
             #[rustfmt::skip]
@@ -387,6 +429,30 @@ impl RendererImpl {
                 0.0, 0.0, 0.0, 1.0,
             ];
 
+            let loc_lights = {
+                let mut lights = Vec::with_capacity(8);
+                let mut enabled_name = *b"lights[0].enabled\0";
+                let mut is_point_name = *b"lights[0].is_point\0";
+                let mut pos_name = *b"lights[0].pos\0";
+                let mut col_name = *b"lights[0].colour\0";
+                let mut range_name = *b"lights[0].range\0";
+                for i in b'0'..b'8' {
+                    enabled_name[7] = i;
+                    is_point_name[7] = i;
+                    pos_name[7] = i;
+                    col_name[7] = i;
+                    range_name[7] = i;
+                    lights.push(LightUniform {
+                        enabled: gl.GetUniformLocation(program, enabled_name.as_ptr().cast()),
+                        is_point: gl.GetUniformLocation(program, is_point_name.as_ptr().cast()),
+                        pos: gl.GetUniformLocation(program, pos_name.as_ptr().cast()),
+                        colour: gl.GetUniformLocation(program, col_name.as_ptr().cast()),
+                        range: gl.GetUniformLocation(program, range_name.as_ptr().cast()),
+                    });
+                }
+                lights
+            };
+
             // Create Renderer
             let mut renderer = Self {
                 imp,
@@ -394,20 +460,30 @@ impl RendererImpl {
                 //vao,
                 atlas_packers: vec![],
                 texture_ids: vec![],
+                zbuf_ids: vec![],
                 fbo_ids: vec![],
                 sprites: HashMap::new(),
                 sprite_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 framebuffer_texture,
+                framebuffer_zbuf,
                 framebuffer_fbo,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
-                queue_type: PrimitiveType::TriList,
+                queue_type: PrimitiveShape::Triangle,
                 interpolate_pixels: options.interpolate_pixels,
                 texture_repeat: false,
                 circle_precision: 24,
+                using_3d: false,
+                depth_test: false,
+                perspective: false,
                 depth: 0.0,
+                fog: None,
+                lighting: false,
+                gouraud: true,
+                ambient_colour: 0,
+                lights: [(false, Light::Directional { direction: [0.0; 3], colour: 0 }); 8],
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
@@ -416,11 +492,35 @@ impl RendererImpl {
                 proj_matrix: identity_matrix.clone(),
 
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
+                loc_model: gl.GetUniformLocation(program, b"model\0".as_ptr().cast()),
                 loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
                 loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
                 loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
+                loc_alpha_test: gl.GetUniformLocation(program, b"alpha_test\0".as_ptr().cast()),
+
+                loc_fog_enabled: gl.GetUniformLocation(program, b"fog_enabled\0".as_ptr().cast()),
+                loc_fog_colour: gl.GetUniformLocation(program, b"fog_colour\0".as_ptr().cast()),
+                loc_fog_begin: gl.GetUniformLocation(program, b"fog_begin\0".as_ptr().cast()),
+                loc_fog_end: gl.GetUniformLocation(program, b"fog_end\0".as_ptr().cast()),
+
+                loc_lighting_enabled: gl.GetUniformLocation(program, b"lighting_enabled\0".as_ptr().cast()),
+                loc_gouraud_shading: gl.GetUniformLocation(program, b"gouraud_shading\0".as_ptr().cast()),
+                loc_ambient_colour: gl.GetUniformLocation(program, b"ambient_colour\0".as_ptr().cast()),
+                loc_lights,
+
                 gl,
             };
+
+            // default uniform values
+            renderer.gl.Uniform1i(renderer.loc_repeat, renderer.texture_repeat as _);
+            renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
+            renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
+            renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
+            renderer.gl.Uniform1i(renderer.loc_gouraud_shading, true as _);
+            renderer.gl.Uniform3f(renderer.loc_ambient_colour, 0.0, 0.0, 0.0);
+            for light in renderer.loc_lights.iter() {
+                renderer.gl.Uniform1i(light.enabled, false as _);
+            }
 
             // Start first frame
             renderer.setup_frame(clear_colour);
@@ -444,12 +544,12 @@ impl RendererImpl {
             self.set_view(0, 0, width, height, 0.0, 0, 0, width, height);
             // clear screen
             self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             assert_eq!(self.gl.GetError(), 0);
         }
     }
 
-    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveType) {
+    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveShape) {
         if atlas_id != self.current_atlas || self.queue_type != queue_type {
             self.flush_queue();
             self.current_atlas = atlas_id;
@@ -458,21 +558,112 @@ impl RendererImpl {
     }
 
     fn push_primitive(&mut self, builder: &PrimitiveBuilder) {
-        self.setup_queue(builder.get_atlas_id(), builder.get_type());
+        self.setup_queue(builder.get_atlas_id(), builder.get_shape());
         self.vertex_queue.extend_from_slice(builder.get_vertices());
+    }
+
+    fn draw_buffer(&mut self, atlas_id: u32, shape: PrimitiveShape, buffer: &[Vertex]) {
+        if buffer.is_empty() {
+            return
+        }
+
+        unsafe {
+            // if something else broke check here just in case
+            match self.gl.GetError() {
+                0 => (),
+                err => panic!("OpenGL threw an error somewhere (error code {})", err),
+            }
+
+            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_id as usize].unwrap());
+            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
+
+            let mut commands_vbo: GLuint = 0;
+            self.gl.GenBuffers(1, &mut commands_vbo);
+            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+            self.gl.BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<Vertex>() * buffer.len()) as _,
+                buffer.as_ptr().cast(),
+                gl::STATIC_DRAW,
+            );
+            assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.Uniform1i(self.loc_tex, 0 as _);
+
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            self.gl.EnableVertexAttribArray(0);
+            self.gl.VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(1);
+            self.gl.VertexAttribPointer(
+                1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(2);
+            self.gl.VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(3);
+            self.gl.VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
+            );
+            self.gl.EnableVertexAttribArray(4);
+            self.gl.VertexAttribPointer(
+                4,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
+            );
+
+            self.gl.DrawArrays(shape.into(), 0, buffer.len() as i32);
+
+            self.gl.DeleteBuffers(1, &commands_vbo);
+            assert_eq!(self.gl.GetError(), 0);
+        }
     }
 
     fn update_matrix(&mut self) {
         unsafe {
+            // upload model matrix
+            self.gl.UniformMatrix4fv(self.loc_model, 1, gl::FALSE, self.model_matrix.as_ptr());
             // get half-pixel length in clip space
             let mut viewport = [0; 4];
             self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
             let offset_x = 1.0 / f64::from(viewport[2]);
             let offset_y = 1.0 / f64::from(viewport[3]);
-            // build matrix
+            // build viewproj matrix
             #[rustfmt::skip]
             let viewproj = mat4mult(
-                mat4mult(self.model_matrix, mat4mult(self.view_matrix, self.proj_matrix)),
+                mat4mult(self.view_matrix, self.proj_matrix),
                 // flip vertically because GL textures are flipped vertically vs DX
                 // also GL's screen space is offset half a pixel vs DX so shift it
                 [
@@ -599,6 +790,7 @@ impl RendererTrait for RendererImpl {
 
             // store opengl texture handles
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
+            self.zbuf_ids.resize(self.texture_ids.len(), None);
             self.fbo_ids = fbo_ids;
             self.stock_atlas_count = textures.len() as u32;
         }
@@ -620,7 +812,7 @@ impl RendererTrait for RendererImpl {
         let atlas_ref = AtlasRef {
             origin_x: origin_x as f32 / width as f32,
             origin_y: origin_y as f32 / height as f32,
-            ..self.create_surface(width, height)?
+            ..self.create_surface(width, height, false)?
         };
         unsafe {
             // store previous
@@ -655,7 +847,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
-        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h)?;
+        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h, false)?;
         unsafe {
             // store previous
             let mut prev_read_fbo = 0;
@@ -697,15 +889,15 @@ impl RendererTrait for RendererImpl {
             let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
             unsafe {
                 self.gl.DeleteTextures(1, &tex_id);
-            }
-            self.texture_ids[atlas_ref.atlas_id as usize] = None;
-            if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
-                unsafe {
-                    self.gl.DeleteFramebuffers(1, fbo);
+                self.texture_ids[atlas_ref.atlas_id as usize] = None;
+                if let Some(Some(zbuf)) = self.zbuf_ids.get(atlas_ref.atlas_id as usize) {
+                    self.gl.DeleteTextures(1, zbuf);
+                    self.zbuf_ids[atlas_ref.atlas_id as usize] = None;
                 }
-                self.fbo_ids[atlas_ref.atlas_id as usize] = None;
-            }
-            unsafe {
+                if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+                    self.gl.DeleteFramebuffers(1, fbo);
+                    self.fbo_ids[atlas_ref.atlas_id as usize] = None;
+                }
                 assert_eq!(self.gl.GetError(), 0);
             }
         }
@@ -723,11 +915,12 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.wait_vsync() }
     }
 
-    fn create_surface(&mut self, width: i32, height: i32) -> Result<AtlasRef, String> {
+    fn create_surface(&mut self, width: i32, height: i32, has_zbuffer: bool) -> Result<AtlasRef, String> {
         let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
             id as u32
         } else {
             self.texture_ids.push(None);
+            self.zbuf_ids.push(None);
             self.fbo_ids.push(None);
             self.texture_ids.len() as u32 - 1
         };
@@ -774,6 +967,31 @@ impl RendererTrait for RendererImpl {
             match self.gl.GetError() {
                 0 => (),
                 err => return Err(format!("Failed to generate framebuffer! (OpenGL code {})", err)),
+            }
+
+            // generate zbuffer if applicable
+            if has_zbuffer {
+                let mut zbuf_id: GLuint = 0;
+                self.gl.GenTextures(1, &mut zbuf_id);
+                self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                self.gl.TexImage2D(
+                    gl::TEXTURE_2D,             // target
+                    0,                          // level
+                    gl::DEPTH_COMPONENT24 as _, // internalformat
+                    width as _,                 // width
+                    height as _,                // height
+                    0,                          // border ("must be 0")
+                    gl::DEPTH_COMPONENT,        // format
+                    gl::FLOAT,                  // type
+                    ptr::null(),                // data
+                );
+                self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, zbuf_id, 0);
+                match self.gl.GetError() {
+                    0 => (),
+                    err => return Err(format!("Failed to generate depth buffer! (OpenGL code {})", err)),
+                }
+                // store handle
+                self.zbuf_ids[atlas_id as usize] = Some(zbuf_id);
             }
 
             // store opengl texture handles
@@ -851,6 +1069,22 @@ impl RendererTrait for RendererImpl {
                 ptr::null(),       // data
             );
             assert_eq!(self.gl.GetError(), 0);
+            // set up new zbuffer
+            let old_zbuf = self.framebuffer_zbuf;
+            self.gl.GenTextures(1, &mut self.framebuffer_zbuf);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            self.gl.TexImage2D(
+                gl::TEXTURE_2D,             // target
+                0,                          // level
+                gl::DEPTH_COMPONENT24 as _, // internalformat
+                width as _,                 // width
+                height as _,                // height
+                0,                          // border ("must be 0")
+                gl::DEPTH_COMPONENT,        // format
+                gl::FLOAT,                  // type
+                ptr::null(),                // data
+            );
+            assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
             let old_fbo = self.framebuffer_fbo;
             self.gl.GenFramebuffers(1, &mut self.framebuffer_fbo);
@@ -860,6 +1094,13 @@ impl RendererTrait for RendererImpl {
                 gl::COLOR_ATTACHMENT0,
                 gl::TEXTURE_2D,
                 self.framebuffer_texture,
+                0,
+            );
+            self.gl.FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                self.framebuffer_zbuf,
                 0,
             );
             assert_eq!(self.gl.GetError(), 0);
@@ -876,12 +1117,13 @@ impl RendererTrait for RendererImpl {
                 0,
                 copy_width as _,
                 copy_height as _,
-                gl::COLOR_BUFFER_BIT,
-                gl::LINEAR,
+                gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT,
+                gl::NEAREST,
             );
             assert_eq!(self.gl.GetError(), 0);
             // delete old texture and fbo
             self.gl.DeleteTextures(1, &old_tex);
+            self.gl.DeleteTextures(1, &old_zbuf);
             self.gl.DeleteFramebuffers(1, &old_fbo);
             assert_eq!(self.gl.GetError(), 0);
         }
@@ -952,9 +1194,25 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn dump_zbuffer(&self) -> Box<[f32]> {
+        unsafe {
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            let mut width = 0;
+            let mut height = 0;
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            let len = (width * height) as usize;
+            let mut data: Vec<f32> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
+            data.into_boxed_slice()
+        }
+    }
+
     fn draw_raw_frame(
         &mut self,
         rgba: Box<[u8]>,
+        zbuf: Box<[f32]>,
         fb_w: i32,
         fb_h: i32,
         window_w: u32,
@@ -978,6 +1236,18 @@ impl RendererTrait for RendererImpl {
                 gl::UNSIGNED_BYTE,
                 rgba.as_ptr().cast(),
             );
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            self.gl.TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0,
+                0,
+                fb_w,
+                fb_h,
+                gl::DEPTH_COMPONENT,
+                gl::FLOAT,
+                zbuf.as_ptr().cast(),
+            );
 
             assert_eq!(self.gl.GetError(), 0);
         }
@@ -993,7 +1263,13 @@ impl RendererTrait for RendererImpl {
             self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
             let mut textures = Vec::with_capacity(self.texture_ids.len() - self.stock_atlas_count as usize);
-            for tex_id in self.texture_ids.iter().skip(self.stock_atlas_count as usize).copied() {
+            for (tex_id, zbuf_id) in self
+                .texture_ids
+                .iter()
+                .copied()
+                .zip(self.zbuf_ids.iter().copied())
+                .skip(self.stock_atlas_count as usize)
+            {
                 textures.push(match tex_id {
                     Some(tex_id) => {
                         self.gl.BindTexture(gl::TEXTURE_2D, tex_id);
@@ -1001,9 +1277,26 @@ impl RendererTrait for RendererImpl {
                         let mut height = 0;
                         self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
                         self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                        let mut pixels = vec![0; width as usize * height as usize * 4];
+                        let len = (width * height) as usize;
+                        let mut pixels: Vec<u8> = Vec::with_capacity(len * 4);
+                        pixels.set_len(len * 4);
                         self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::RGBA, gl::UNSIGNED_BYTE, pixels.as_mut_ptr().cast());
-                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice() })
+                        let zbuf = if let Some(zbuf_id) = zbuf_id {
+                            self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                            let mut zbuf: Vec<f32> = Vec::with_capacity(len);
+                            zbuf.set_len(len);
+                            self.gl.GetTexImage(
+                                gl::TEXTURE_2D,
+                                0,
+                                gl::DEPTH_COMPONENT,
+                                gl::FLOAT,
+                                zbuf.as_mut_ptr().cast(),
+                            );
+                            Some(zbuf.into_boxed_slice())
+                        } else {
+                            None
+                        };
+                        Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice(), zbuf })
                     },
                     None => None,
                 });
@@ -1068,6 +1361,31 @@ impl RendererTrait for RendererImpl {
                         0,
                     );
                     self.fbo_ids[i] = Some(fbo_id);
+
+                    if let Some(zbuf) = tex.zbuf.as_ref() {
+                        let mut zbuf_id = 0;
+                        self.gl.GenTextures(1, &mut zbuf_id);
+                        self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
+                        self.gl.TexImage2D(
+                            gl::TEXTURE_2D,
+                            0,
+                            gl::DEPTH_COMPONENT24 as _,
+                            tex.width,
+                            tex.height,
+                            0,
+                            gl::DEPTH_COMPONENT,
+                            gl::FLOAT,
+                            zbuf.as_ptr().cast(),
+                        );
+                        self.zbuf_ids[i] = Some(zbuf_id);
+                        self.gl.FramebufferTexture2D(
+                            gl::READ_FRAMEBUFFER,
+                            gl::DEPTH_ATTACHMENT,
+                            gl::TEXTURE_2D,
+                            zbuf_id,
+                            0,
+                        );
+                    }
                 }
             }
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
@@ -1098,7 +1416,6 @@ impl RendererTrait for RendererImpl {
         if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
             return // fail silently when drawing deleted sprite fonts
         }
-        self.setup_queue(atlas_ref.atlas_id, PrimitiveType::TriList);
         self.set_texture_repeat(false);
 
         // get angle
@@ -1126,7 +1443,6 @@ impl RendererTrait for RendererImpl {
             (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
 
         let normal = [0.0, 0.0, 0.0];
-        let atlas_xywh = atlas_ref.into();
         let depth = self.depth;
 
         // rotate around draw origin
@@ -1135,36 +1451,13 @@ impl RendererTrait for RendererImpl {
         };
 
         // push the vertices
-        self.vertex_queue.push(Vertex {
-            pos: rotate(right, top),
-            tex_coord: [tex_right, tex_top],
-            blend: split_colour(col2, alpha),
-            atlas_xywh,
-            normal,
-        });
-        for _ in 0..2 {
-            self.vertex_queue.push(Vertex {
-                pos: rotate(left, top),
-                tex_coord: [tex_left, tex_top],
-                blend: split_colour(col1, alpha),
-                atlas_xywh,
-                normal,
-            });
-            self.vertex_queue.push(Vertex {
-                pos: rotate(right, bottom),
-                tex_coord: [tex_right, tex_bottom],
-                blend: split_colour(col3, alpha),
-                atlas_xywh,
-                normal,
-            });
-        }
-        self.vertex_queue.push(Vertex {
-            pos: rotate(left, bottom),
-            tex_coord: [tex_left, tex_bottom],
-            blend: split_colour(col4, alpha),
-            atlas_xywh,
-            normal,
-        });
+        self.push_primitive(
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+                .push_vertex(rotate(left, top), [tex_left, tex_top], split_colour(col1, alpha), normal)
+                .push_vertex(rotate(right, top), [tex_right, tex_top], split_colour(col2, alpha), normal)
+                .push_vertex(rotate(right, bottom), [tex_right, tex_bottom], split_colour(col3, alpha), normal)
+                .push_vertex(rotate(left, bottom), [tex_left, tex_bottom], split_colour(col4, alpha), normal),
+        );
     }
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
@@ -1213,7 +1506,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn draw_point(&mut self, x: f64, y: f64, colour: i32, alpha: f64) {
-        self.setup_queue(self.white_pixel.atlas_id, PrimitiveType::PointList);
+        self.setup_queue(self.white_pixel.atlas_id, PrimitiveShape::Point);
         self.vertex_queue.push(Vertex {
             pos: [x as f32, y as f32, self.depth],
             tex_coord: [0.0, 0.0],
@@ -1336,7 +1629,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_primitive_2d(&mut self) {
         // I would use push_primitive but that causes borrowing issues.
-        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_type());
+        self.setup_queue(self.primitive_2d.get_atlas_id(), self.primitive_2d.get_shape());
         self.vertex_queue.extend_from_slice(self.primitive_2d.get_vertices());
     }
 
@@ -1375,7 +1668,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_primitive_3d(&mut self) {
         // See draw_primitive_2d.
-        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_type());
+        self.setup_queue(self.primitive_3d.get_atlas_id(), self.primitive_3d.get_shape());
         self.vertex_queue.extend_from_slice(self.primitive_3d.get_vertices());
     }
 
@@ -1385,6 +1678,22 @@ impl RendererTrait for RendererImpl {
 
     fn set_primitive_3d(&mut self, prim: PrimitiveBuilder) {
         self.primitive_3d = prim;
+    }
+
+    fn extend_buffers(&self, buf: &mut VertexBuffer) {
+        let verts = self.primitive_3d.get_vertices();
+        match self.primitive_3d.get_shape() {
+            PrimitiveShape::Point => buf.points.extend_from_slice(verts),
+            PrimitiveShape::Line => buf.lines.extend_from_slice(&verts[..verts.len() / 2 * 2]),
+            PrimitiveShape::Triangle => buf.tris.extend_from_slice(&verts[..verts.len() / 3 * 3]),
+        }
+    }
+
+    fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
+        self.flush_queue();
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
+        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Triangle, &buf.tris);
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
@@ -1436,94 +1745,9 @@ impl RendererTrait for RendererImpl {
 
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
-        if self.vertex_queue.is_empty() {
-            return
-        }
-
-        unsafe {
-            // if something else broke check here just in case
-            match self.gl.GetError() {
-                0 => (),
-                err => panic!("OpenGL threw an error somewhere (error code {})", err),
-            }
-
-            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[self.current_atlas as usize].unwrap());
-            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
-            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
-
-            let mut commands_vbo: GLuint = 0;
-            self.gl.GenBuffers(1, &mut commands_vbo);
-            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
-            self.gl.BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<Vertex>() * self.vertex_queue.len()) as _,
-                self.vertex_queue.as_ptr().cast(),
-                gl::STATIC_DRAW,
-            );
-            assert_eq!(self.gl.GetError(), 0);
-
-            self.gl.Uniform1i(self.loc_tex, 0 as _);
-
-            // layout (location = 0) in vec3 pos;
-            // layout (location = 1) in vec4 blend;
-            // layout (location = 2) in vec2 tex_coord;
-            // layout (location = 3) in vec3 normal;
-            // layout (location = 4) in vec4 atlas_xywh;
-            self.gl.EnableVertexAttribArray(0);
-            self.gl.VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, pos) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(1);
-            self.gl.VertexAttribPointer(
-                1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, blend) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(2);
-            self.gl.VertexAttribPointer(
-                2,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, tex_coord) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(3);
-            self.gl.VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, normal) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(4);
-            self.gl.VertexAttribPointer(
-                4,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, atlas_xywh) as *const _,
-            );
-
-            self.gl.DrawArrays(self.queue_type.into(), 0, self.vertex_queue.len() as i32);
-
-            self.gl.DeleteBuffers(1, &commands_vbo);
-            assert_eq!(self.gl.GetError(), 0);
-        }
-
-        self.vertex_queue.clear();
+        let mut queue = Vec::new();
+        std::mem::swap(&mut queue, &mut self.vertex_queue);
+        self.draw_buffer(self.current_atlas, self.queue_type, &queue);
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
@@ -1602,7 +1826,11 @@ impl RendererTrait for RendererImpl {
         port_w: i32,
         port_h: i32,
     ) {
-        self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        if self.using_3d && self.perspective {
+            self.set_projection_perspective(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        } else {
+            self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        }
 
         // Set viewport (gl::Viewport, gl::Scissor)
         if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
@@ -1618,8 +1846,204 @@ impl RendererTrait for RendererImpl {
         self.flush_queue();
         unsafe {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             assert_eq!(self.gl.GetError(), 0);
+        }
+    }
+
+    fn clear_zbuf(&mut self) {
+        if self.using_3d {
+            self.flush_queue();
+            unsafe {
+                self.gl.Clear(gl::DEPTH_BUFFER_BIT);
+            }
+        }
+    }
+
+    fn get_3d(&self) -> bool {
+        self.using_3d
+    }
+
+    fn set_3d(&mut self, use_3d: bool) {
+        self.using_3d = use_3d;
+        self.set_depth_test(use_3d);
+        self.set_perspective(use_3d);
+    }
+
+    fn get_depth(&self) -> f32 {
+        self.depth
+    }
+
+    fn set_depth(&mut self, depth: f32) {
+        let new_depth = if self.using_3d { depth.max(-16000.0).min(16000.0) } else { 0.0 };
+        if self.depth != new_depth {
+            self.flush_queue();
+            self.depth = new_depth;
+        }
+    }
+
+    fn get_depth_test(&self) -> bool {
+        self.depth_test
+    }
+
+    fn set_depth_test(&mut self, depth_test: bool) {
+        let depth_test = depth_test && self.using_3d;
+        if self.depth_test != depth_test {
+            self.flush_queue();
+            self.depth_test = depth_test;
+            unsafe {
+                self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
+                if self.depth_test {
+                    self.gl.Enable(gl::DEPTH_TEST);
+                } else {
+                    self.gl.Disable(gl::DEPTH_TEST);
+                }
+            }
+        }
+    }
+
+    fn get_write_depth(&self) -> bool {
+        let mut write_depth = gl::FALSE;
+        unsafe {
+            self.gl.GetBooleanv(gl::DEPTH_WRITEMASK, &mut write_depth);
+        }
+        write_depth != gl::FALSE
+    }
+
+    fn set_write_depth(&mut self, write_depth: bool) {
+        if write_depth != self.get_write_depth() {
+            self.flush_queue();
+            unsafe {
+                self.gl.DepthMask(write_depth as _);
+            }
+        }
+    }
+
+    fn get_culling(&self) -> bool {
+        unsafe { self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE }
+    }
+
+    fn set_culling(&mut self, culling: bool) {
+        if culling != self.get_culling() {
+            self.flush_queue();
+            unsafe {
+                if culling {
+                    self.gl.Enable(gl::CULL_FACE);
+                } else {
+                    self.gl.Disable(gl::CULL_FACE);
+                }
+            }
+        }
+    }
+
+    fn get_perspective(&self) -> bool {
+        self.perspective
+    }
+
+    fn set_perspective(&mut self, perspective: bool) {
+        // don't need to flush_queue for this because this only affects set_view
+        self.perspective = perspective;
+    }
+
+    fn get_fog(&self) -> Option<Fog> {
+        self.fog.clone()
+    }
+
+    fn set_fog(&mut self, fog: Option<Fog>) {
+        if fog != self.fog {
+            self.flush_queue();
+            unsafe {
+                self.gl.Uniform1i(self.loc_fog_enabled, fog.is_some() as _);
+                if let Some(fog) = fog.as_ref() {
+                    let col = split_colour(fog.colour, 1.0);
+                    self.gl.Uniform3fv(self.loc_fog_colour, 1, col.as_ptr());
+                    self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
+                    self.gl.Uniform1f(self.loc_fog_end, fog.end);
+                }
+            }
+            self.fog = fog;
+        }
+    }
+
+    fn get_gouraud(&self) -> bool {
+        self.gouraud
+    }
+
+    fn set_gouraud(&mut self, gouraud: bool) {
+        if self.gouraud != gouraud {
+            self.flush_queue();
+            self.gouraud = gouraud;
+            unsafe {
+                self.gl.Uniform1i(self.loc_gouraud_shading, gouraud as _);
+            }
+        }
+    }
+
+    fn get_lighting_enabled(&self) -> bool {
+        self.lighting
+    }
+
+    fn set_lighting_enabled(&mut self, enabled: bool) {
+        if self.lighting != enabled {
+            self.flush_queue();
+            self.lighting = enabled;
+            unsafe {
+                self.gl.Uniform1i(self.loc_lighting_enabled, enabled as _);
+            }
+        }
+    }
+
+    fn get_ambient_colour(&self) -> i32 {
+        self.ambient_colour
+    }
+
+    fn set_ambient_colour(&mut self, colour: i32) {
+        if self.ambient_colour != colour {
+            self.flush_queue();
+            self.ambient_colour = colour;
+            unsafe {
+                let col = split_colour(colour, 1.0);
+                self.gl.Uniform3fv(self.loc_ambient_colour, 1, col.as_ptr());
+            }
+        }
+    }
+
+    fn get_lights(&self) -> [(bool, Light); 8] {
+        self.lights
+    }
+
+    fn set_light_enabled(&mut self, id: usize, enabled: bool) {
+        if self.lights[id].0 != enabled {
+            self.flush_queue();
+            self.lights[id].0 = enabled;
+            unsafe {
+                self.gl.Uniform1i(self.loc_lights[id].enabled, enabled as _);
+            }
+        }
+    }
+
+    fn set_light(&mut self, id: usize, light: Light) {
+        if self.lights[id].1 != light {
+            self.flush_queue();
+            unsafe {
+                let loc_light = &mut self.loc_lights[id];
+                match light {
+                    Light::Directional { direction, colour } => {
+                        self.gl.Uniform1i(loc_light.is_point, false as _);
+                        self.gl.Uniform3fv(loc_light.pos, 1, direction.as_ptr());
+                        let col = split_colour(colour, 1.0);
+                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                    },
+                    Light::Point { position, range, colour } => {
+                        self.gl.Uniform1i(loc_light.is_point, true as _);
+                        self.gl.Uniform3fv(loc_light.pos, 1, position.as_ptr());
+                        self.gl.Uniform1f(loc_light.range, range);
+                        let col = split_colour(colour, 1.0);
+                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                    },
+                }
+            }
+            self.lights[id].1 = light;
         }
     }
 

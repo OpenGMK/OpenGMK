@@ -58,7 +58,7 @@ impl From<Error> for String {
 
 // Helper functions
 
-fn read_until<P>(file: &mut File, mut end_pred: P) -> Result<Vec<u8>>
+fn read_until<P>(file: &mut File, mut end_pred: P) -> io::Result<Vec<u8>>
 where
     P: FnMut(u8) -> bool,
 {
@@ -74,7 +74,7 @@ where
 }
 
 // Returns Ok(false) on EOF
-fn skip_until<P>(file: &mut File, end_pred: P) -> Result<bool>
+fn skip_until<P>(file: &mut File, end_pred: P) -> io::Result<bool>
 where
     P: Fn(u8) -> bool,
 {
@@ -143,58 +143,7 @@ impl FileManager {
 
     pub fn read_real(&mut self, handle: i32) -> Result<f64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                // Read digits and at most one period or comma, plus one extra character
-                let mut period_seen = false;
-                let mut nonspace_seen = false;
-                let mut bytes = read_until(&mut f.file, |b| {
-                    // If you read spaces or dashes at the start, skip them
-                    if b == 0x20 || b == 0x2d {
-                        return nonspace_seen
-                    }
-                    nonspace_seen = true;
-                    // Comma or period
-                    if b == 0x2e || b == 0x2c {
-                        if period_seen {
-                            true
-                        } else {
-                            period_seen = true;
-                            false
-                        }
-                    } else {
-                        b < 0x30 || b > 0x39
-                    }
-                })?;
-                // read_until leaves a trailing character, so remove that
-                if let Some(&b) = bytes.last() {
-                    if b < 0x30 || b > 0x39 {
-                        // Remove the trailing character and step back if it's a CR
-                        if bytes.pop().unwrap() == 0x0d {
-                            f.file.seek(SeekFrom::Current(-1))?;
-                        }
-                    }
-                }
-                // Having done that, there may still be a trailing dot, so remove that
-                if let Some(&b) = bytes.last() {
-                    if b == 0x2e || b == 0x2c {
-                        bytes.pop();
-                    }
-                }
-                // These bytes are guaranteed to be UTF-8 so no worries here
-                let mut text = String::from_utf8_lossy(bytes.as_slice()).replace(",", ".");
-                // Remove spaces and all dashes but one
-                let mut minus_seen = false;
-                text.retain(|c| {
-                    if c == '-' {
-                        if minus_seen {
-                            return false
-                        }
-                        minus_seen = true;
-                    }
-                    c != ' '
-                });
-                text.parse().or(Ok(0.0))
-            },
+            Some(Some(f)) => Ok(read_real(&mut f.file)?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
@@ -231,10 +180,7 @@ impl FileManager {
 
     pub fn skip_line(&mut self, handle: i32) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                skip_until(&mut f.file, |c| c == 0x0a)?;
-                Ok(())
-            },
+            Some(Some(f)) => Ok(skip_line(&mut f.file)?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
@@ -315,6 +261,64 @@ impl Default for FileManager {
     fn default() -> Self {
         Self { handles: Default::default() }
     }
+}
+
+pub fn read_real(f: &mut File) -> io::Result<f64> {
+    // Read digits and at most one period or comma, plus one extra character
+    let mut period_seen = false;
+    let mut nonspace_seen = false;
+    let mut bytes = read_until(f, |b| {
+        // If you read spaces or dashes at the start, skip them
+        if b == 0x20 || b == 0x2d {
+            return nonspace_seen
+        }
+        nonspace_seen = true;
+        // Comma or period
+        if b == 0x2e || b == 0x2c {
+            if period_seen {
+                true
+            } else {
+                period_seen = true;
+                false
+            }
+        } else {
+            b < 0x30 || b > 0x39
+        }
+    })?;
+    // read_until leaves a trailing character, so remove that
+    if let Some(&b) = bytes.last() {
+        if b < 0x30 || b > 0x39 {
+            // Remove the trailing character and step back if it's a CR
+            if bytes.pop().unwrap() == 0x0d {
+                f.seek(SeekFrom::Current(-1))?;
+            }
+        }
+    }
+    // Having done that, there may still be a trailing dot, so remove that
+    if let Some(&b) = bytes.last() {
+        if b == 0x2e || b == 0x2c {
+            bytes.pop();
+        }
+    }
+    // These bytes are guaranteed to be UTF-8 so no worries here
+    let mut text = String::from_utf8_lossy(bytes.as_slice()).replace(",", ".");
+    // Remove spaces and all dashes but one
+    let mut minus_seen = false;
+    text.retain(|c| {
+        if c == '-' {
+            if minus_seen {
+                return false
+            }
+            minus_seen = true;
+        }
+        c != ' '
+    });
+    text.parse().or(Ok(0.0))
+}
+
+pub fn skip_line(f: &mut File) -> io::Result<()> {
+    skip_until(f, |c| c == 0x0a)?;
+    Ok(())
 }
 
 pub fn file_exists(path: &str) -> bool {

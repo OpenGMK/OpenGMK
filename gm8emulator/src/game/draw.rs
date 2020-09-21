@@ -256,11 +256,14 @@ impl Game {
 
         if self.show_room_colour {
             self.renderer.clear_view(self.room_colour, 1.0);
+        } else {
+            self.renderer.clear_zbuf();
         }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
             let instance = game.instance_list.get(idx);
             if instance.visible.get() {
+                game.renderer.set_depth(instance.depth.get().into_inner() as f32);
                 if game.custom_draw_objects.contains(&instance.object_index.get()) {
                     // Custom draw event
                     game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
@@ -295,6 +298,7 @@ impl Game {
             let tile = game.tile_list.get(idx);
             if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
                 if let Some(atlas) = &background.atlas_ref {
+                    game.renderer.set_depth(tile.depth.get().into_inner() as f32);
                     game.renderer.draw_sprite_partial(
                         atlas,
                         tile.tile_x.get().into(),
@@ -314,10 +318,11 @@ impl Game {
         }
 
         fn draw_part_syst(game: &mut Game, id: i32) {
-            game.particles.draw_system(id, &mut game.renderer, &game.assets);
+            game.particles.draw_system(id, &mut game.renderer, &game.assets, true);
         }
 
         // draw backgrounds
+        self.renderer.set_depth(12000.0);
         for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
@@ -390,6 +395,7 @@ impl Game {
         }
 
         // draw foregrounds
+        self.renderer.set_depth(-12000.0);
         for background in self.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
@@ -407,6 +413,9 @@ impl Game {
                 }
             }
         }
+
+        self.renderer.set_depth(-13000.0);
+        // TODO: cursor sprite goes here
 
         Ok(())
     }
