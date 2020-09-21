@@ -213,7 +213,13 @@ fn xmain() -> i32 {
     if let Err(err) = if let Some(path) = project_path {
         components.record(path, port)
     } else {
-        if let Some(replay) = replay { components.replay(replay) } else { components.run() }
+        // cache temp_dir because the other functions take ownership
+        let temp_dir: PathBuf = components.decode_str(components.temp_directory.as_ref()).into_owned().into();
+        let result = if let Some(replay) = replay { components.replay(replay) } else { components.run() };
+        if temp_dir.starts_with(std::env::temp_dir()) {
+            std::fs::remove_dir_all(temp_dir).ok();
+        }
+        result
     } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
