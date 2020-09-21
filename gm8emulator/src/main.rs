@@ -89,6 +89,31 @@ fn xmain() -> i32 {
         p.push(name);
         p
     });
+    let temp_dir = project_path.as_ref().map(|proj_path| {
+        // attempt to find temp dir in project path
+        std::fs::read_dir(proj_path)
+            .ok()
+            .and_then(|iter| {
+                iter.filter_map(|x| x.ok())
+                    .find(|p| {
+                        p.metadata().ok().filter(|p| p.is_dir()).is_some()
+                            && p.file_name().to_str().filter(|s| s.starts_with("gm_ttt_")).is_some()
+                    })
+                    .map(|entry| entry.path())
+            })
+            // if we can't find one, make one
+            .unwrap_or_else(|| {
+                let path = [proj_path.clone(), format!("gm_ttt_{:.0}", rand::random::<f64>().fract() * 99999.0).into()]
+                    .iter()
+                    .collect();
+                if let Err(e) = std::fs::create_dir_all(&path) {
+                    println!("Could not create temp folder: {}", e);
+                    println!("If this game uses the temp folder, it will most likely crash.");
+                }
+                path
+            })
+    });
+    let can_clear_temp_dir = temp_dir.is_none();
     let replay = matches.opt_str("f").map(|filename| {
         let mut filepath = PathBuf::from(&filename);
         match filepath.extension().and_then(|x| x.to_str()) {
@@ -178,7 +203,7 @@ fn xmain() -> i32 {
 
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
-    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, encoding) {
+    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, temp_dir, encoding) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
@@ -189,7 +214,17 @@ fn xmain() -> i32 {
     if let Err(err) = if let Some(path) = project_path {
         components.record(path, port)
     } else {
-        if let Some(replay) = replay { components.replay(replay) } else { components.run() }
+        // cache temp_dir because the other functions take ownership
+        let temp_dir: Option<PathBuf> = if can_clear_temp_dir {
+            Some(components.decode_str(components.temp_directory.as_ref()).into_owned().into())
+        } else {
+            None
+        };
+        let result = if let Some(replay) = replay { components.replay(replay) } else { components.run() };
+        if let Some(temp_dir) = temp_dir {
+            std::fs::remove_dir_all(temp_dir).ok();
+        }
+        result
     } {
         println!("Runtime error: {}", err);
         EXIT_FAILURE
