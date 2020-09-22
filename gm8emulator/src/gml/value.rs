@@ -312,11 +312,11 @@ impl Value {
         }
     }
 
-    pub fn repr(&self) -> String {
+    pub fn repr(&self) -> RCStr {
         match self {
-            Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r),
-            Self::Real(r) => format!("{:.2}", r),
-            Self::Str(string) => string.to_string(),
+            Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r).into(),
+            Self::Real(r) => format!("{:.2}", r).into(),
+            Self::Str(string) => string.clone(),
         }
     }
 
