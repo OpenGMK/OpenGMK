@@ -7739,9 +7739,31 @@ impl Game {
         Ok(background_id.into())
     }
 
-    pub fn background_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function background_replace")
+    pub fn background_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (background_id, fname, removeback, smooth) = expect_args!(args, [int, string, any, any])?;
+        if let Some(background) = self.assets.backgrounds.get_asset_mut(background_id) {
+            if let Some(atlas_ref) = background.atlas_ref {
+                self.renderer.delete_sprite(atlas_ref);
+            }
+            let mut image = file::load_image(fname.as_ref())
+                .map_err(|e| gml::Error::FunctionError("background_replace".into(), e.into()))?;
+            asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
+            let width = image.width();
+            let height = image.height();
+            let atlas_ref = self
+                .renderer
+                .upload_sprite(image.into_raw().into_boxed_slice(), width as _, height as _, 0, 0)
+                .map_err(|e| gml::Error::FunctionError("background_replace".into(), e.into()))?;
+            background.atlas_ref = Some(atlas_ref);
+            background.width = width;
+            background.height = height;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "background_replace".into(),
+                "Trying to replace non-existing background.".into(),
+            ))
+        }
     }
 
     pub fn background_add_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8561,19 +8583,28 @@ impl Game {
         }
     }
 
-    pub fn room_set_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_width")
+    pub fn room_set_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, width) = expect_args!(args, [int, int])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.width = width as _;
+        }
+        Ok(Default::default())
     }
 
-    pub fn room_set_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_height")
+    pub fn room_set_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, height) = expect_args!(args, [int, int])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.height = height as _;
+        }
+        Ok(Default::default())
     }
 
-    pub fn room_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_caption")
+    pub fn room_set_caption(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, caption) = expect_args!(args, [int, bytes])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.caption = caption;
+        }
+        Ok(Default::default())
     }
 
     pub fn room_set_persistent(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8586,14 +8617,35 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_set_code")
     }
 
-    pub fn room_set_background_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function room_set_background_color")
+    pub fn room_set_background_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, colour, show) = expect_args!(args, [int, int, any])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.bg_colour = (colour as u32).into();
+            room.clear_screen = show.is_truthy();
+        }
+        Ok(Default::default())
     }
 
-    pub fn room_set_background(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 12
-        unimplemented!("Called unimplemented kernel function room_set_background")
+    pub fn room_set_background(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, bg, visible, is_foreground, bg_id, x, y, htiled, vtiled, hspeed, vspeed, alpha) =
+            expect_args!(args, [int, int, any, any, int, real, real, any, any, real, real, real])?;
+        if bg >= 0 {
+            if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+                if let Some(bg) = room.backgrounds.get_mut(bg as usize) {
+                    bg.visible = visible.is_truthy();
+                    bg.is_foreground = is_foreground.is_truthy();
+                    bg.background_id = bg_id;
+                    bg.x_offset = x;
+                    bg.y_offset = y;
+                    bg.tile_horizontal = htiled.is_truthy();
+                    bg.tile_vertical = vtiled.is_truthy();
+                    bg.hspeed = hspeed;
+                    bg.vspeed = vspeed;
+                    bg.alpha = alpha;
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn room_set_view(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
