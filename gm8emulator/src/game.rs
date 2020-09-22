@@ -49,6 +49,7 @@ use gmio::{
     render::{Renderer, RendererOptions, Scaling},
     window::{Window, WindowBuilder},
 };
+use includedfile::IncludedFile;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::{
@@ -151,6 +152,7 @@ pub struct Game {
     pub game_id: i32,
     pub program_directory: RCStr,
     pub temp_directory: RCStr,
+    pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
     pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
@@ -255,6 +257,7 @@ impl Game {
             constants,
             fonts,
             icon_data: _,
+            included_files,
             last_instance_id,
             last_tile_id,
             objects,
@@ -343,6 +346,40 @@ impl Game {
                 dir
             },
         };
+
+        let included_files = included_files
+            .into_iter()
+            .map(|i| {
+                use gm8exe::asset::includedfile::ExportSetting;
+                let export_settings = match i.export_settings {
+                    ExportSetting::NoExport => includedfile::ExportSetting::NoExport,
+                    ExportSetting::TempFolder => includedfile::ExportSetting::TempFolder,
+                    ExportSetting::GameFolder => includedfile::ExportSetting::GameFolder,
+                    ExportSetting::CustomFolder(dir) => match decode_str_maybe(dir.0.to_vec()) {
+                        Some(s) => includedfile::ExportSetting::CustomFolder(s),
+                        None => {
+                            panic!("could not decode includedfile export directory {}", String::from_utf8_lossy(&dir.0))
+                        },
+                    },
+                };
+                let mut i = IncludedFile {
+                    name: match decode_str_maybe(i.file_name.0.to_vec()) {
+                        Some(s) => s,
+                        None => {
+                            panic!("could not decode includedfile name {}", String::from_utf8_lossy(&i.file_name.0))
+                        },
+                    },
+                    data: i.embedded_data,
+                    export_settings,
+                    overwrite: i.overwrite_file,
+                    free_after_export: i.free_memory,
+                    remove_at_end: i.remove_at_end,
+                };
+                i.export(temp_directory.clone(), program_directory.to_string().into())?;
+                Ok(i)
+            })
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .expect("failed to extract included files");
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -898,6 +935,7 @@ impl Game {
             game_id: game_id as i32,
             program_directory: program_directory.into(),
             temp_directory: "".into(),
+            included_files,
             gm_version,
             open_ini: None,
             spoofed_time_nanos,
