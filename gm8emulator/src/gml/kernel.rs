@@ -5466,19 +5466,47 @@ impl Game {
         Ok(new_path.into())
     }
 
-    pub fn export_include_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function export_include_file")
+    pub fn export_include_file(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let name = expect_args!(args, [bytes])?;
+        let temp_directory = self.decode_str(self.temp_directory.as_ref()).into_owned().into();
+        let program_directory = self.decode_str(self.program_directory.as_ref()).into_owned().into();
+        if let Some(file) = self.included_files.iter_mut().filter(|i| name.eq_ignore_ascii_case(i.name.as_ref())).next()
+        {
+            match file.export(temp_directory, program_directory) {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("export_include_file".into(), e.to_string())),
+            }
+        } else {
+            Err(gml::Error::FunctionError("export_include_file".into(), "Trying to export non-existing file.".into()))
+        }
     }
 
-    pub fn export_include_file_location(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function export_include_file_location")
+    pub fn export_include_file_location(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (name, path) = expect_args!(args, [bytes, string])?;
+        if let Some(file) = self.included_files.iter_mut().filter(|i| name.eq_ignore_ascii_case(i.name.as_ref())).next()
+        {
+            let path_ref: &str = path.as_ref();
+            match file.export_to(path_ref.as_ref()) {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("export_include_file_location".into(), e.to_string())),
+            }
+        } else {
+            Err(gml::Error::FunctionError(
+                "export_include_file_location".into(),
+                "Trying to export non-existing file.".into(),
+            ))
+        }
     }
 
-    pub fn discard_include_file(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function discard_include_file")
+    pub fn discard_include_file(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let name = expect_args!(args, [bytes])?;
+        if let Some(file) = self.included_files.iter_mut().filter(|i| name.eq_ignore_ascii_case(i.name.as_ref())).next()
+        {
+            file.data = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("discard_include_file".into(), "Trying to discard non-existing file.".into()))
+        }
     }
 
     pub fn execute_program(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
