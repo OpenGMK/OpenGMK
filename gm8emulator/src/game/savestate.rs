@@ -96,6 +96,7 @@ pub struct SaveState {
     pub surface_target: Option<i32>,
     pub model_matrix: [f32; 16],
     pub models: Vec<Option<Model>>,
+    pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
@@ -201,6 +202,7 @@ impl SaveState {
             surface_target: game.surface_target,
             model_matrix: game.renderer.get_model_matrix(),
             models: game.models.clone(),
+            model_matrix_stack: game.model_matrix_stack.clone(),
             auto_draw: game.auto_draw,
             circle_precision: game.renderer.get_circle_precision(),
             primitive_2d: game.renderer.get_primitive_2d(),
@@ -331,6 +333,7 @@ impl SaveState {
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.models = self.models;
+        game.model_matrix_stack = self.model_matrix_stack;
         game.auto_draw = self.auto_draw;
         game.renderer.set_circle_precision(self.circle_precision);
         game.renderer.set_primitive_2d(self.primitive_2d);
