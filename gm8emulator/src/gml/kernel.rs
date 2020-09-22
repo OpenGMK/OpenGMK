@@ -10795,12 +10795,12 @@ impl Game {
 
     pub fn d3d_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         self.renderer.set_3d(true);
-        Ok(Default::default())
+        Ok(1.into())
     }
 
     pub fn d3d_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         self.renderer.set_3d(false);
-        Ok(Default::default())
+        Ok(1.into())
     }
 
     pub fn d3d_set_perspective(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
