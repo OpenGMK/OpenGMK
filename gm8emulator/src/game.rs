@@ -133,18 +133,20 @@ pub struct Game {
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
-    pub fps: u32,              // initially 0
-    pub transition_kind: i32,  // default 0
-    pub transition_steps: i32, // default 80
-    pub score: i32,            // default 0
-    pub score_capt: RCStr,     // default "Score: "
-    pub score_capt_d: bool,    // display in caption?
-    pub lives: i32,            // default -1
-    pub lives_capt: RCStr,     // default "Lives: "
-    pub lives_capt_d: bool,    // display in caption?
-    pub health: Real,          // default 100.0
-    pub health_capt: RCStr,    // default "Health: "
-    pub health_capt_d: bool,   // display in caption?
+    pub fps: u32,                 // initially 0
+    pub transition_kind: i32,     // default 0
+    pub transition_steps: i32,    // default 80
+    pub cursor_sprite: i32,       // default -1
+    pub cursor_sprite_frame: u32, // default 0
+    pub score: i32,               // default 0
+    pub score_capt: RCStr,        // default "Score: "
+    pub score_capt_d: bool,       // display in caption?
+    pub lives: i32,               // default -1
+    pub lives_capt: RCStr,        // default "Lives: "
+    pub lives_capt_d: bool,       // display in caption?
+    pub health: Real,             // default 100.0
+    pub health_capt: RCStr,       // default "Health: "
+    pub health_capt_d: bool,      // display in caption?
 
     pub error_occurred: bool,
     pub error_last: RCStr,
@@ -926,6 +928,8 @@ impl Game {
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
             transition_kind: 0,
             transition_steps: 80,
+            cursor_sprite: -1,
+            cursor_sprite_frame: 0,
             score: 0,
             score_capt: "Score: ".to_string().into(),
             lives: -1,
@@ -1176,6 +1180,7 @@ impl Game {
         self.caption = room.caption;
         self.input_manager.clear_presses();
         self.particles.effect_clear();
+        self.cursor_sprite_frame = 0;
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
@@ -1468,6 +1473,7 @@ impl Game {
                 }
             }
         }
+        self.cursor_sprite_frame += 1;
 
         // Clear inputs for this frame
         self.input_manager.clear_presses();

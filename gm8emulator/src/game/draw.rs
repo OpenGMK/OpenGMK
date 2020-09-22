@@ -415,7 +415,19 @@ impl Game {
         }
 
         self.renderer.set_depth(-13000.0);
-        // TODO: cursor sprite goes here
+        if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
+            let (x, y) = self.get_mouse_in_room();
+            self.renderer.draw_sprite(
+                &sprite.frames[self.cursor_sprite_frame as usize % sprite.frames.len()].atlas_ref,
+                x.into(),
+                y.into(),
+                1.0,
+                1.0,
+                0.0,
+                0xffffff,
+                1.0,
+            );
+        }
 
         Ok(())
     }

@@ -108,6 +108,8 @@ pub struct SaveState {
 
     pub transition_kind: i32,
     pub transition_steps: i32,
+    pub cursor_sprite: i32,
+    pub cursor_sprite_frame: u32,
     pub score: i32,
     pub score_capt: RCStr,
     pub score_capt_d: bool,
@@ -213,6 +215,8 @@ impl SaveState {
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             transition_kind: game.transition_kind.clone(),
             transition_steps: game.transition_steps.clone(),
+            cursor_sprite: game.cursor_sprite.clone(),
+            cursor_sprite_frame: game.cursor_sprite_frame.clone(),
             score: game.score.clone(),
             score_capt: game.score_capt.clone(),
             score_capt_d: game.score_capt_d.clone(),
@@ -345,6 +349,8 @@ impl SaveState {
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.transition_kind = self.transition_kind;
         game.transition_steps = self.transition_steps;
+        game.cursor_sprite = self.cursor_sprite;
+        game.cursor_sprite_frame = self.cursor_sprite_frame;
         game.score = self.score;
         game.score_capt = self.score_capt;
         game.score_capt_d = self.score_capt_d;
