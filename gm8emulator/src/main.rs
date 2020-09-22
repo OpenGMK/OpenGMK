@@ -214,13 +214,22 @@ fn xmain() -> i32 {
     if let Err(err) = if let Some(path) = project_path {
         components.record(path, port)
     } else {
-        // cache temp_dir because the other functions take ownership
+        // cache temp_dir and included files because the other functions take ownership
         let temp_dir: Option<PathBuf> = if can_clear_temp_dir {
             Some(components.decode_str(components.temp_directory.as_ref()).into_owned().into())
         } else {
             None
         };
+        let files_to_delete = components
+            .included_files
+            .iter()
+            .filter(|i| i.remove_at_end)
+            .map(|i| PathBuf::from(components.decode_str(i.name.as_ref()).into_owned()))
+            .collect::<Vec<_>>();
         let result = if let Some(replay) = replay { components.replay(replay) } else { components.run() };
+        for file in files_to_delete.into_iter() {
+            std::fs::remove_file(file).ok();
+        }
         if let Some(temp_dir) = temp_dir {
             std::fs::remove_dir_all(temp_dir).ok();
         }
