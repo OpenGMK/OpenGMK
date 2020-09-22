@@ -10083,9 +10083,40 @@ impl Game {
         }
     }
 
-    pub fn ds_map_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_map_read")
+    pub fn ds_map_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_map(mut reader: &[u8]) -> Option<ds::Map> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x191 {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let size = u32::from_le_bytes(buf) as usize;
+            let mut keys = Vec::with_capacity(size);
+            let mut values = Vec::with_capacity(size);
+            for _ in 0..size {
+                keys.push(Value::from_reader(&mut reader)?);
+            }
+            for _ in 0..size {
+                values.push(Value::from_reader(&mut reader)?);
+            }
+            Some(ds::Map { keys, values })
+        }
+        match self.maps.get_mut(id) {
+            Ok(old_map) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(map) = read_map(data.as_slice()) {
+                            *old_map = map;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_map_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_map_read".into(), e.into())),
+        }
     }
 
     pub fn ds_priority_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -10272,9 +10303,40 @@ impl Game {
         }
     }
 
-    pub fn ds_priority_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function ds_priority_read")
+    pub fn ds_priority_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, hex_data) = expect_args!(args, [int, string])?;
+        fn read_priority(mut reader: &[u8]) -> Option<ds::Priority> {
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf).ok()?;
+            if u32::from_le_bytes(buf) != 0x1f5 {
+                return None
+            }
+            reader.read_exact(&mut buf).ok()?;
+            let size = u32::from_le_bytes(buf) as usize;
+            let mut priorities = Vec::with_capacity(size);
+            let mut values = Vec::with_capacity(size);
+            for _ in 0..size {
+                priorities.push(Value::from_reader(&mut reader)?);
+            }
+            for _ in 0..size {
+                values.push(Value::from_reader(&mut reader)?);
+            }
+            Some(ds::Priority { priorities, values })
+        }
+        match self.priority_queues.get_mut(id) {
+            Ok(old_pq) => {
+                match hex::decode(hex_data.as_ref()) {
+                    Ok(data) => {
+                        if let Some(pq) = read_priority(data.as_slice()) {
+                            *old_pq = pq;
+                        }
+                    },
+                    Err(e) => println!("Warning (ds_priority_read): {}", e),
+                }
+                Ok(Default::default())
+            },
+            Err(e) => Err(gml::Error::FunctionError("ds_priority_read".into(), e.into())),
+        }
     }
 
     pub fn ds_grid_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
