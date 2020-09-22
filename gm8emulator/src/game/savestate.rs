@@ -3,6 +3,7 @@ use crate::{
     game::{
         background, draw,
         external::{DefineInfo, External},
+        includedfile::IncludedFile,
         model::Model,
         particle,
         string::RCStr,
@@ -121,6 +122,7 @@ pub struct SaveState {
 
     pub game_id: i32,
     pub program_directory: RCStr,
+    pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub spoofed_time_nanos: Option<u128>,
     pub caption: RCStr,
@@ -224,6 +226,7 @@ impl SaveState {
             error_last: game.error_last.clone(),
             game_id: game.game_id.clone(),
             program_directory: game.program_directory.clone(),
+            included_files: game.included_files.clone(),
             gm_version: game.gm_version.clone(),
             spoofed_time_nanos: game.spoofed_time_nanos,
             caption: game.caption.clone(),
@@ -355,6 +358,7 @@ impl SaveState {
         game.error_last = self.error_last;
         game.game_id = self.game_id;
         game.program_directory = self.program_directory;
+        game.included_files = self.included_files;
         game.gm_version = self.gm_version;
         game.spoofed_time_nanos = self.spoofed_time_nanos;
         game.caption = self.caption;
