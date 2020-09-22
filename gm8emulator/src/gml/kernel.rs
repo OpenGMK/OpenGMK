@@ -11440,33 +11440,43 @@ impl Game {
     }
 
     pub fn d3d_transform_stack_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_clear")
+        self.model_matrix_stack.clear();
+        Ok(Default::default())
     }
 
     pub fn d3d_transform_stack_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_empty")
+        Ok(self.model_matrix_stack.is_empty().into())
     }
 
     pub fn d3d_transform_stack_push(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_push")
+        if self.model_matrix_stack.len() < 999 {
+            self.model_matrix_stack.push(self.renderer.get_model_matrix());
+            Ok(true.into())
+        } else {
+            Ok(false.into())
+        }
     }
 
     pub fn d3d_transform_stack_pop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_pop")
+        if let Some(mat) = self.model_matrix_stack.pop() {
+            self.renderer.set_model_matrix(mat);
+            Ok(true.into())
+        } else {
+            Ok(false.into())
+        }
     }
 
     pub fn d3d_transform_stack_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_top")
+        if let Some(mat) = self.model_matrix_stack.last() {
+            self.renderer.set_model_matrix(*mat);
+            Ok(true.into())
+        } else {
+            Ok(false.into())
+        }
     }
 
     pub fn d3d_transform_stack_discard(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function d3d_transform_stack_discard")
+        Ok(self.model_matrix_stack.pop().is_some().into())
     }
 
     pub fn d3d_light_define_ambient(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
