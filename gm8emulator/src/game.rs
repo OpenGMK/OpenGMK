@@ -289,6 +289,60 @@ impl Game {
         let room1_colour = room1.bg_colour.as_decimal().into();
         let room1_show_colour = room1.clear_screen;
 
+        let mut rand = Random::new();
+
+        // manual decode to avoid errors
+        let decode_str_maybe = |bytes: Vec<u8>| match gm_version {
+            Version::GameMaker8_0 => {
+                encoding.decode_without_bom_handling_and_without_replacement(&bytes).map(|x| x.into_owned())
+            },
+            Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
+        };
+
+        let temp_directory = match temp_dir {
+            Some(path) => path,
+            None => {
+                // read path from tempdir.txt or if that's not possible get std::env::temp_dir()
+                let mut dir = if let Some(path) =
+                    std::fs::read("tempdir.txt").ok().and_then(decode_str_maybe).map(|path| PathBuf::from(path))
+                {
+                    path
+                } else {
+                    std::env::temp_dir()
+                };
+                // closure to make a gm_ttt folder within a given path
+                let mut make_temp_dir = |path: &mut PathBuf| {
+                    let mut folder = "gm_ttt_".to_string();
+                    folder += &rand.next_int(99999).to_string();
+                    path.push(&folder);
+                    while path.exists() {
+                        path.pop();
+                        folder.truncate(7); // length of "gm_ttt_"
+                        folder += &rand.next_int(99999).to_string();
+                        path.push(&folder);
+                    }
+                    std::fs::create_dir_all(path)
+                };
+                // try making folders
+                if let Err(e) = make_temp_dir(&mut dir) {
+                    eprintln!("Could not create temp folder in {:?}: {}", dir, e);
+                    // GM8 would try C:\temp but let's skip that
+                    match std::env::current_dir().map(|x| {
+                        dir = x;
+                        make_temp_dir(&mut dir)
+                    }) {
+                        Ok(_) => eprintln!("Using game directory instead."),
+                        Err(e) => {
+                            eprintln!("Could not use game directory either: {}", e);
+                            eprintln!("Trying to run anyway. If this game uses the temp folder, it will likely crash.");
+                            dir = PathBuf::new();
+                        },
+                    }
+                }
+                dir
+            },
+        };
+
         // Set up a GML compiler
         let mut compiler = Compiler::new();
         compiler.reserve_scripts(scripts.iter().flatten().count());
@@ -779,62 +833,6 @@ impl Game {
             event_holders[ev::DRAW].iter().flat_map(|(_, x)| x.borrow().iter().copied().collect::<Vec<_>>()).collect();
 
         renderer.push_atlases(atlases)?;
-
-        let mut rand = Random::new();
-
-        let temp_directory = match temp_dir {
-            Some(path) => path,
-            None => {
-                // read path from tempdir.txt or if that's not possible get std::env::temp_dir()
-                let mut dir = if let Some(path) = std::fs::read("tempdir.txt")
-                    .ok()
-                    .and_then(|bytes| {
-                        // manual decode to avoid encoding errors
-                        match gm_version {
-                            Version::GameMaker8_0 => encoding
-                                .decode_without_bom_handling_and_without_replacement(&bytes)
-                                .map(|x| x.into_owned()),
-                            Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
-                        }
-                    })
-                    .map(|path| PathBuf::from(path))
-                {
-                    path
-                } else {
-                    std::env::temp_dir()
-                };
-                // closure to make a gm_ttt folder within a given path
-                let mut make_temp_dir = |path: &mut PathBuf| {
-                    let mut folder = "gm_ttt_".to_string();
-                    folder += &rand.next_int(99999).to_string();
-                    path.push(&folder);
-                    while path.exists() {
-                        path.pop();
-                        folder.truncate(7); // length of "gm_ttt_"
-                        folder += &rand.next_int(99999).to_string();
-                        path.push(&folder);
-                    }
-                    std::fs::create_dir_all(path)
-                };
-                // try making folders
-                if let Err(e) = make_temp_dir(&mut dir) {
-                    eprintln!("Could not create temp folder in {:?}: {}", dir, e);
-                    // GM8 would try C:\temp but let's skip that
-                    match std::env::current_dir().map(|x| {
-                        dir = x;
-                        make_temp_dir(&mut dir)
-                    }) {
-                        Ok(_) => eprintln!("Using game directory instead."),
-                        Err(e) => {
-                            eprintln!("Could not use game directory either: {}", e);
-                            eprintln!("Trying to run anyway. If this game uses the temp folder, it will likely crash.");
-                            dir = PathBuf::new();
-                        },
-                    }
-                }
-                dir
-            },
-        };
 
         let mut game = Self {
             compiler,
