@@ -7548,9 +7548,61 @@ impl Game {
         Ok(sprite_id.into())
     }
 
-    pub fn sprite_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function sprite_replace")
+    pub fn sprite_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, fname, imgnumb, removeback, smooth, origin_x, origin_y) =
+            expect_args!(args, [int, string, int, any, any, int, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            for frame in &sprite.frames {
+                self.renderer.delete_sprite(frame.atlas_ref);
+            }
+            let imgnumb = imgnumb.max(1) as usize;
+            // will need a different case for loading animated gifs but those aren't supported yet
+            if fname.as_ref()[fname.as_ref().len() - 4..].eq_ignore_ascii_case(".gif") {
+                return Err(gml::Error::FunctionError(
+                    "sprite_add".into(),
+                    "Loading GIF animations is not yet supported.".into(),
+                ))
+            }
+            let mut images = file::load_image_strip(fname.as_ref(), imgnumb)
+                .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
+            for image in images.iter_mut() {
+                asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
+            }
+            let (width, height) = images[0].dimensions();
+            // make colliders
+            let colliders = asset::sprite::make_colliders(&images, false);
+            // collect atlas refs
+            let renderer = &mut self.renderer;
+            let frames = images
+                .drain(..)
+                .map(|i| {
+                    Ok(asset::sprite::Frame {
+                        width,
+                        height,
+                        atlas_ref: renderer
+                            .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
+                            .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
+                    })
+                })
+                .collect::<gml::Result<_>>()?;
+            *sprite = Box::new(asset::Sprite {
+                name: sprite.name.clone(),
+                frames,
+                bbox_left: colliders[0].bbox_left,
+                bbox_right: colliders[0].bbox_right,
+                bbox_top: colliders[0].bbox_top,
+                bbox_bottom: colliders[0].bbox_bottom,
+                colliders,
+                width,
+                height,
+                origin_x,
+                origin_y,
+                per_frame_colliders: false,
+            });
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("sprite_replace".into(), "Trying to replace non-existing sprite.".into()))
+        }
     }
 
     pub fn sprite_add_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
