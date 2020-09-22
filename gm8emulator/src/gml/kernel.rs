@@ -11511,7 +11511,7 @@ impl Game {
     }
 
     pub fn d3d_transform_stack_push(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        if self.model_matrix_stack.len() < 999 {
+        if self.model_matrix_stack.len() <= 1000 {
             self.model_matrix_stack.push(self.renderer.get_model_matrix());
             Ok(true.into())
         } else {
