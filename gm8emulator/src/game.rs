@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
+pub mod includedfile;
 pub mod model;
 pub mod movement;
 pub mod particle;
