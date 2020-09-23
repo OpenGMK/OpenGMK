@@ -91,6 +91,8 @@ pub trait WindowTrait {
     fn set_visible(&mut self, visible: bool);
     fn show_context_menu(&mut self, options: &[(String, usize)]);
     fn window_handle(&self) -> usize;
+    fn display_width(&self) -> i32;
+    fn display_height(&self) -> i32;
 }
 
 impl Window {
@@ -178,6 +180,14 @@ impl Window {
     /// This is not only here for Renderer, but there's a GML getter for this too...
     pub fn window_handle(&self) -> usize {
         self.0.window_handle()
+    }
+
+    pub fn display_width(&self) -> i32 {
+        self.0.display_width()
+    }
+
+    pub fn display_height(&self) -> i32 {
+        self.0.display_height()
     }
 }
 

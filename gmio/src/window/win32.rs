@@ -403,6 +403,22 @@ impl WindowTrait for WindowImpl {
     fn window_handle(&self) -> usize {
         self.hwnd as _
     }
+
+    fn display_width(&self) -> i32 {
+        unsafe {
+            //TODO: get the current screen instead
+            //let mon = MonitorFromWindow(self.hwnd,winapi::winuser::MONITOR_DEFAULTTONEAREST);
+            //GetMonitorInfoW(mon, ...)
+            GetSystemMetrics(SM_CXSCREEN)
+        }
+    }
+
+    fn display_height(&self) -> i32 {
+        unsafe {
+            //TODO: get the current screen instead
+            GetSystemMetrics(SM_CYSCREEN)
+        }
+    }
 }
 
 impl Drop for WindowImpl {

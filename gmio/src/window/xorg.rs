@@ -2,7 +2,10 @@
 
 use super::{Cursor, Event, Style, WindowBuilder, WindowTrait};
 use std::{any::Any, ffi, ptr, slice};
-use x11::xlib;
+use x11::{
+    xlib,
+    xlib::{XDisplayHeight, XDisplayWidth},
+};
 
 pub struct WindowImpl {
     pub display: *mut xlib::Display,
@@ -130,5 +133,13 @@ impl WindowTrait for WindowImpl {
 
     fn window_handle(&self) -> usize {
         todo!()
+    }
+
+    fn display_width(&self) -> i32 {
+        unsafe { XDisplayWidth(self.display, self.window_id) }
+    }
+
+    fn display_height(&self) -> i32 {
+        unsafe { XDisplayHeight(self.display, self.window_id) }
     }
 }
