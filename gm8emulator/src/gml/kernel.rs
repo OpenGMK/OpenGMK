@@ -61,13 +61,11 @@ macro_rules! expect_args {
 
 impl Game {
     pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_get_width")
+        Ok(self.window.display_width().into())
     }
 
     pub fn display_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_get_height")
+        Ok(self.window.display_height().into())
     }
 
     pub fn display_get_colordepth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
