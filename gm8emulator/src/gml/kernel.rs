@@ -3536,23 +3536,10 @@ impl Game {
     }
 
     pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string, string, int]).map(|(ss, s, ix)| {
-            // TODO: This edge case could be less disgusting.
-            let ix = (ix as isize - 1).max(0) as usize;
-            Value::Str(if s.as_ref().is_char_boundary(ix) {
-                s.as_ref()
-                    .chars()
-                    .take(ix)
-                    .chain(ss.as_ref().chars())
-                    .chain(s.as_ref().chars().skip(ix + ss.as_ref().chars().count()))
-                    .collect::<String>()
-                    .into()
-            } else {
-                let mut newstr = s.as_ref().to_string();
-                newstr.insert_str(ix, ss.as_ref());
-                newstr.into()
-            })
+        // string_insert doesn't care about UTF-8
+        expect_args!(args, [bytes, bytes, int]).map(|(ss, s, ix)| {
+            let ix = ((ix as isize - 1).max(0) as usize).min(s.as_ref().len());
+            s.as_ref()[..ix].iter().chain(ss.as_ref()).chain(&s.as_ref()[ix..]).copied().collect::<Vec<_>>().into()
         })
     }
 
