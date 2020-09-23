@@ -8351,9 +8351,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_append")
     }
 
-    pub fn path_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_delete")
+    pub fn path_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path_id = expect_args!(args, [int])?;
+        if self.assets.paths.get_asset(path_id).is_some() {
+            self.assets.paths[path_id as usize] = None;
+        }
+        Ok(Default::default())
     }
 
     pub fn path_add_point(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
