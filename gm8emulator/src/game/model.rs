@@ -402,9 +402,9 @@ pub fn draw_wall<F>(
         let ny = -(x2 - x1) / diag_length;
         renderer.reset_primitive_3d(PrimitiveType::TriFan, atlas_ref);
         renderer.vertex_3d(x1, y1, z1, nx, ny, 0.0, 0.0, 0.0, col, alpha);
-        renderer.vertex_3d(x2, y2, z1, nx, ny, 0.0, 0.0, vrepeat, col, alpha);
+        renderer.vertex_3d(x2, y2, z1, nx, ny, 0.0, hrepeat, 0.0, col, alpha);
         renderer.vertex_3d(x2, y2, z2, nx, ny, 0.0, hrepeat, vrepeat, col, alpha);
-        renderer.vertex_3d(x1, y1, z2, nx, ny, 0.0, hrepeat, 0.0, col, alpha);
+        renderer.vertex_3d(x1, y1, z2, nx, ny, 0.0, 0.0, vrepeat, col, alpha);
         primitive_draw(renderer);
         renderer.set_texture_repeat(old_repeat);
     }
