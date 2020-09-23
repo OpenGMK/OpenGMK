@@ -1759,14 +1759,31 @@ impl Game {
         }
     }
 
-    pub fn draw_surface_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_surface_part")
+    pub fn draw_surface_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, l, t, w, h, x, y) = expect_args!(args, [any, any, any, any, any, any, any])?;
+        self.draw_surface_part_ext(context, &[surf_id, l, t, w, h, x, y, 1.into(), 1.into(), 0xffffff.into(), 1.into()])
     }
 
-    pub fn draw_surface_part_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_surface_part_ext")
+    pub fn draw_surface_part_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, l, t, w, h, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite_partial(
+                &surf.atlas_ref,
+                l.into(),
+                t.into(),
+                w.into(),
+                h.into(),
+                x.into(),
+                y.into(),
+                xscale.into(),
+                yscale.into(),
+                0.0,
+                colour,
+                alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_surface_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
