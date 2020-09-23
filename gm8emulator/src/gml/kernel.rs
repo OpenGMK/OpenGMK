@@ -3481,21 +3481,24 @@ impl Game {
     }
 
     pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        // This is the worst thing that anyone's ever written. Please try to ignore it.
-        // I can get invalid indices as in mid-char or OOB and pretend nothing went wrong.
-        expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
-            let sub = s
-                .as_ref()
-                .get(s.as_ref().char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i)..)
-                .unwrap_or("");
-            Value::Str(
-                sub.get(..sub.char_indices().nth(len as usize).map_or(sub.len(), |(i, _)| i))
-                    .unwrap_or("")
-                    .to_string()
-                    .into(),
-            )
-        })
+        let (s, start, len) = expect_args!(args, [bytes, int, int])?;
+        let start = (start as isize - 1).max(0) as usize;
+        let len = len.max(0) as usize;
+        let s = s.as_ref();
+        let (start, end) = match self.gm_version {
+            Version::GameMaker8_0 => {
+                let end = (start + len).min(s.len());
+                (start, end)
+            },
+            Version::GameMaker8_1 => {
+                let s = self.decode_str(s);
+                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
+                let sub = s.get(start..).unwrap_or("");
+                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
+                (start, start + len)
+            },
+        };
+        Ok(Value::from(s.get(start..end).unwrap_or(b"")))
     }
 
     pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3514,24 +3517,24 @@ impl Game {
     }
 
     pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        // See the comment on string_copy.
-        expect_args!(args, [string, int, int]).map(|(s, ix, len)| {
-            let sub = s
-                .as_ref()
-                .get(..s.as_ref().char_indices().nth((ix as isize - 1).max(0) as usize).map_or(0, |(i, _)| i))
-                .unwrap_or("");
-            let sub2 = s
-                .as_ref()
-                .get(
-                    s.as_ref()
-                        .char_indices()
-                        .nth((ix as isize + len as isize - 1).max(0) as usize)
-                        .map_or(0, |(i, _)| i)..,
-                )
-                .unwrap_or("");
-            Value::Str(format!("{}{}", sub, sub2).into())
-        })
+        let (s, start, len) = expect_args!(args, [bytes, int, int])?;
+        let start = (start as isize - 1).max(0) as usize;
+        let len = len.max(0) as usize;
+        let s = s.as_ref();
+        let (start, end) = match self.gm_version {
+            Version::GameMaker8_0 => {
+                let end = (start + len).min(s.len());
+                (start, end)
+            },
+            Version::GameMaker8_1 => {
+                let s = self.decode_str(s);
+                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
+                let sub = s.get(start..).unwrap_or("");
+                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
+                (start, start + len)
+            },
+        };
+        Ok(s[..start].iter().chain(&s[end..]).copied().collect::<Vec<_>>().into())
     }
 
     pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3556,11 +3559,13 @@ impl Game {
     }
 
     pub fn string_lower(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string])
             .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_lowercase()).collect::<String>().into()))
     }
 
     pub fn string_upper(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string])
             .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_uppercase()).collect::<String>().into()))
     }
@@ -3585,11 +3590,13 @@ impl Game {
     }
 
     pub fn string_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string, string, string])
             .map(|(s, x, y)| Value::Str(s.as_ref().replacen(x.as_ref(), y.as_ref(), 1).into()))
     }
 
     pub fn string_replace_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        // TODO: bytes-ify
         expect_args!(args, [string, string, string])
             .map(|(s, x, y)| Value::Str(s.as_ref().replace(x.as_ref(), y.as_ref()).into()))
     }
