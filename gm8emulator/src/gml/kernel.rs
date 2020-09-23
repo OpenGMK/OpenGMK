@@ -3636,7 +3636,7 @@ impl Game {
 
     pub fn point_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
-        Ok((y1 - y2).arctan2(x2 - x1).to_degrees().into())
+        Ok((y1 - y2).arctan2(x2 - x1).to_degrees().rem_euclid(360.into()).into())
     }
 
     pub fn lengthdir_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
