@@ -7827,9 +7827,20 @@ impl Game {
         }
     }
 
-    pub fn background_create_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function background_create_color")
+    pub fn background_create_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (w, h, col) = expect_args!(args, [int, int, int])?;
+        let background_id = self.assets.backgrounds.len();
+        self.assets.backgrounds.push(Some(Box::new(asset::Background {
+            name: format!("__newbackground{}", background_id).into(),
+            width: w as _,
+            height: h as _,
+            atlas_ref: Some(
+                self.renderer
+                    .create_sprite_colour(w, h, (col as u32).into())
+                    .map_err(|e| gml::Error::FunctionError("background_create_color".into(), e))?,
+            ),
+        })));
+        Ok(background_id.into())
     }
 
     pub fn background_create_gradient(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
