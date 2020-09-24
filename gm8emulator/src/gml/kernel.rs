@@ -7763,10 +7763,33 @@ impl Game {
     pub fn background_set_alpha_from_background(
         &mut self,
         _context: &mut Context,
-        _args: &[Value],
+        args: &[Value],
     ) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function background_set_alpha_from_background")
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if self.assets.backgrounds.get_asset(dst_id).filter(|bg| bg.atlas_ref.is_some()).is_none() {
+            return Ok(Default::default())
+        }
+        let (alpha_src, src_w) =
+            match self.assets.backgrounds.get_asset(src_id).map(|bg| (bg.atlas_ref.as_ref(), bg.width)) {
+                Some((Some(atlas_ref), w)) => (self.renderer.dump_sprite(atlas_ref), w),
+                _ => return Ok(Default::default()),
+            };
+        if let Some((Some(atlas_ref), dst_w, dst_h)) =
+            self.assets.backgrounds.get_asset_mut(dst_id).map(|bg| (bg.atlas_ref.as_mut(), bg.width, bg.height))
+        {
+            let mut dst = self.renderer.dump_sprite(atlas_ref);
+            self.renderer.delete_sprite(*atlas_ref);
+            for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
+                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                    dst_col[3] = src_col[3];
+                }
+            }
+            *atlas_ref = self
+                .renderer
+                .upload_sprite(dst, dst_w as _, dst_h as _, 0, 0)
+                .map_err(|e| gml::Error::FunctionError("background_set_alpha_from_background".into(), e))?;
+        }
+        Ok(Default::default())
     }
 
     pub fn background_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
