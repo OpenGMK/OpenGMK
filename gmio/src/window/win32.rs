@@ -256,7 +256,7 @@ impl WindowImpl {
                 cursor: builder.cursor,
                 style: builder.style,
                 title: builder.title.to_owned(),
-                visible: false,
+                visible: true,
 
                 hwnd,
                 user_data,
