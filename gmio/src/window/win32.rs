@@ -406,17 +406,27 @@ impl WindowTrait for WindowImpl {
 
     fn display_width(&self) -> i32 {
         unsafe {
-            //TODO: get the current screen instead
-            //let mon = MonitorFromWindow(self.hwnd,winapi::winuser::MONITOR_DEFAULTTONEAREST);
-            //GetMonitorInfoW(mon, ...)
-            GetSystemMetrics(SM_CXSCREEN)
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmPelsWidth as i32
+            } else {
+                panic!("Couldn't get screen width: EnumDisplaySettingsW(...) -> {}", response)
+            }
         }
     }
 
     fn display_height(&self) -> i32 {
         unsafe {
-            //TODO: get the current screen instead
-            GetSystemMetrics(SM_CYSCREEN)
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmPelsHeight as i32
+            } else {
+                panic!("Couldn't get screen height: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
         }
     }
 }
