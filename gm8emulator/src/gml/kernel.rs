@@ -654,9 +654,32 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_button")
     }
 
-    pub fn draw_healthbar(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_healthbar")
+    pub fn draw_healthbar(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, amount, backcol, mincol, maxcol, direction, showback, showborder) =
+            expect_args!(args, [real, real, real, real, real, int, int, int, int, any, any])?;
+        let health_ratio = f64::from(amount / Real::from(100.0));
+        let lerp = |min, max| (health_ratio * f64::from(max) + (1.0 - health_ratio) * f64::from(min)) as u8 as i32;
+        let bar_colour = lerp(mincol & 0xff, maxcol & 0xff)
+            | (lerp((mincol >> 8) & 0xff, (maxcol >> 8) & 0xff) << 8)
+            | (lerp((mincol >> 16) & 0xff, (maxcol >> 16) & 0xff) << 16);
+        let (x1, y1, x2, y2) = (x1.into_inner(), y1.into_inner(), x2.into_inner(), y2.into_inner());
+        if showback.is_truthy() {
+            self.renderer.draw_rectangle(x1, y1, x2, y2, backcol, self.draw_alpha.into());
+            if showborder.is_truthy() {
+                self.renderer.draw_rectangle_outline(x1, y1, x2, y2, 0, self.draw_alpha.into());
+            }
+        }
+        let (x1, y1, x2, y2) = match direction {
+            1 => (x2 - (x2 - x1) * health_ratio, y1, x2, y2),
+            2 => (x1, y1, x2, y1 + (y2 - y1) * health_ratio),
+            3 => (x1, y2 - (y2 - y1) * health_ratio, x2, y2),
+            _ => (x1, y1, x2 - (x2 - x1) * health_ratio, y2),
+        };
+        self.renderer.draw_rectangle(x1, y1, x2, y2, bar_colour, self.draw_alpha.into());
+        if showborder.is_truthy() {
+            self.renderer.draw_rectangle_outline(x1, y1, x2, y2, 0, self.draw_alpha.into());
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
