@@ -915,6 +915,19 @@ impl RendererTrait for RendererImpl {
         unsafe { self.imp.wait_vsync() }
     }
 
+    fn create_sprite_colour(&mut self, width: i32, height: i32, col: Colour) -> Result<AtlasRef, String> {
+        let atlas_ref = self.create_surface(width, height, false)?;
+        unsafe {
+            let mut prev_read_fbo = 0;
+            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
+            self.gl.ClearColor(col.r as f32, col.g as f32, col.b as f32, 1.0);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+        }
+        Ok(atlas_ref)
+    }
+
     fn create_surface(&mut self, width: i32, height: i32, has_zbuffer: bool) -> Result<AtlasRef, String> {
         let atlas_id = if let Some(id) = self.texture_ids.iter().position(|x| x.is_none()) {
             id as u32

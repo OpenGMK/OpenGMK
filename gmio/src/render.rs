@@ -294,6 +294,7 @@ pub trait RendererTrait {
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
 
+    fn create_sprite_colour(&mut self, width: i32, height: i32, col: Colour) -> Result<AtlasRef, String>;
     fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
@@ -805,6 +806,10 @@ impl Renderer {
 
     pub fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]) {
         self.0.upload_dynamic_textures(textures)
+    }
+
+    pub fn create_sprite_colour(&mut self, width: i32, height: i32, col: Colour) -> Result<AtlasRef, String> {
+        self.0.create_sprite_colour(width, height, col)
     }
 
     pub fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String> {
