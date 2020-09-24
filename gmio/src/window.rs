@@ -93,6 +93,8 @@ pub trait WindowTrait {
     fn window_handle(&self) -> usize;
     fn display_width(&self) -> i32;
     fn display_height(&self) -> i32;
+    fn display_frequency(&self) -> i32;
+    fn display_color(&self) -> i32;
 }
 
 impl Window {
@@ -188,6 +190,14 @@ impl Window {
 
     pub fn display_height(&self) -> i32 {
         self.0.display_height()
+    }
+
+    pub fn display_frequency(&self) -> i32 {
+        self.0.display_frequency()
+    }
+
+    pub fn display_color(&self) -> i32 {
+        self.0.display_color()
     }
 }
 

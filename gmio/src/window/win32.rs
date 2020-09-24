@@ -22,20 +22,22 @@ use winapi::{
     um::{
         commctrl::_TrackMouseEvent,
         errhandlingapi::GetLastError,
+        wingdi::DEVMODEW,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
             AdjustWindowRect, ClientToScreen, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow,
-            DispatchMessageW, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, InsertMenuA,
-            LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor, SetForegroundWindow,
-            SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu, TranslateMessage,
-            UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP,
-            IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS,
-            IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION,
-            MF_STRING, MSG, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW,
-            TME_LEAVE, TPM_LEFTALIGN, TPM_TOPALIGN, TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN,
-            WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE,
-            WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION,
-            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            DispatchMessageW, EnumDisplaySettingsW, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect,
+            InsertMenuA, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor,
+            SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu,
+            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, ENUM_CURRENT_SETTINGS,
+            GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS,
+            IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW,
+            IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION, MF_STRING, MSG, PM_REMOVE, SM_CXSCREEN,
+            SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE, TPM_LEFTALIGN, TPM_TOPALIGN,
+            TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
+            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
+            WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP,
+            WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -427,6 +429,28 @@ impl WindowTrait for WindowImpl {
             }
         }
     }
+
+    fn display_frequency(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmDisplayFrequency as i32
+            } else {
+                panic!("Couldn't get screen frequency: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
+
+    fn display_color(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmBitsPerPel as i32
+            } else {
+                panic!("Couldn't get screen color depth: EnumDisplaySettingsW(...) -> {}", response)
+            }
         }
     }
 }
