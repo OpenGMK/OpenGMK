@@ -180,8 +180,8 @@ unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
     LoadImageW(ptr::null_mut(), name, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED) as HCURSOR
 }
 
-fn window_title_wstr(title: &str) -> Vec<wchar_t> {
-    OsStr::new(title).encode_wide().chain(Some(0x00)).collect()
+fn make_wstr(input: impl AsRef<OsStr>) -> Vec<wchar_t> {
+    input.as_ref().encode_wide().chain(Some(0x00)).collect()
 }
 
 impl WindowImpl {
@@ -198,7 +198,7 @@ impl WindowImpl {
         };
         let mut client_width = builder.size.0.min(c_int::max_value() as u32) as c_int;
         let mut client_height = builder.size.1.min(c_int::max_value() as u32) as c_int;
-        let title = window_title_wstr(&builder.title);
+        let title = make_wstr(&builder.title);
         unsafe {
             let (width, height, x_pos, y_pos) = {
                 match builder.style {
@@ -370,7 +370,7 @@ impl WindowTrait for WindowImpl {
     }
 
     fn set_title(&mut self, title: &str) {
-        let wide_title = window_title_wstr(title);
+        let wide_title = make_wstr(title);
         self.title = title.to_owned();
         unsafe {
             SetWindowTextW(self.hwnd, wide_title.as_ptr());
