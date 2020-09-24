@@ -69,13 +69,11 @@ impl Game {
     }
 
     pub fn display_get_colordepth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_get_colordepth")
+        Ok(self.window.display_color().into())
     }
 
     pub fn display_get_frequency(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_get_frequency")
+        Ok(self.window.display_frequency().into())
     }
 
     pub fn display_set_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
