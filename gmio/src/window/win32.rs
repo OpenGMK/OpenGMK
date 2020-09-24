@@ -8,6 +8,7 @@ use std::{
     mem,
     ops::Drop,
     os::windows::ffi::OsStrExt,
+    path::PathBuf,
     ptr, slice,
     sync::atomic::{self, AtomicU16, AtomicUsize},
 };
@@ -16,12 +17,14 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
+        ntdef::ULARGE_INTEGER,
         windef::{HBRUSH, HCURSOR, HWND, POINT, RECT},
         windowsx::{GET_X_LPARAM, GET_Y_LPARAM},
     },
     um::{
         commctrl::_TrackMouseEvent,
         errhandlingapi::GetLastError,
+        fileapi::GetDiskFreeSpaceExW,
         wingdi::DEVMODEW,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
@@ -182,6 +185,13 @@ unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
 
 fn make_wstr(input: impl AsRef<OsStr>) -> Vec<wchar_t> {
     input.as_ref().encode_wide().chain(Some(0x00)).collect()
+}
+
+fn trim_drive(drive: Option<char>) -> PathBuf {
+    match drive {
+        Some(letter) => (letter.to_string() + r":\").into(),
+        None => std::env::current_dir().unwrap(),
+    }
 }
 
 impl WindowImpl {
@@ -451,6 +461,24 @@ impl WindowTrait for WindowImpl {
             } else {
                 panic!("Couldn't get screen color depth: EnumDisplaySettingsW(...) -> {}", response)
             }
+        }
+    }
+
+    fn disk_free(&self, drive: Option<char>) -> Option<u64> {
+        unsafe {
+            let mut free: ULARGE_INTEGER = mem::zeroed();
+            let wpath = make_wstr(trim_drive(drive));
+            let response = GetDiskFreeSpaceExW(wpath.as_ptr(), &mut free, ptr::null_mut(), ptr::null_mut());
+            if response != 0 { Some(*free.QuadPart()) } else { None }
+        }
+    }
+
+    fn disk_size(&self, drive: Option<char>) -> Option<u64> {
+        unsafe {
+            let mut size: ULARGE_INTEGER = mem::zeroed();
+            let wpath = make_wstr(trim_drive(drive));
+            let response = GetDiskFreeSpaceExW(wpath.as_ptr(), ptr::null_mut(), &mut size, ptr::null_mut());
+            if response != 0 { Some(*size.QuadPart()) } else { None }
         }
     }
 }
