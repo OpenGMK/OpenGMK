@@ -5832,12 +5832,20 @@ impl Game {
         }
     }
 
-    pub fn disk_free(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function disk_free")
+    pub fn disk_free(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path = match args.get(0).clone() {
+            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+            _ => None,
+        };
+        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1.0).into())
     }
 
-    pub fn disk_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("Called unimplemented kernel function disk_size")
+    pub fn disk_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let path = match args.get(0).clone() {
+            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+            _ => None,
+        };
+        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1.0).into())
     }
 
     pub fn splash_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
