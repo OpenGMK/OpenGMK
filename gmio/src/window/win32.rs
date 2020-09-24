@@ -325,7 +325,6 @@ impl WindowTrait for WindowImpl {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        // TODO: does gamemaker adjust the X/Y to make sense for the new window?
         if let Style::BorderlessFullscreen = self.style {
             return
         }
@@ -334,7 +333,9 @@ impl WindowTrait for WindowImpl {
         let width = border_x + (width as i32).max(0);
         let height = border_y + (height as i32).max(0);
         unsafe {
-            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
+            // GM8 centers the window on the primary display when it's resized
+            let (x, y) = center_coords_primary_monitor(width, height);
+            SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
         }
     }
 
