@@ -365,6 +365,8 @@ impl RendererImpl {
 
             gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
+            gl.DepthFunc(gl::LEQUAL);
+
             // Use DX provoking vertex convention
             gl.ProvokingVertex(gl::FIRST_VERTEX_CONVENTION);
 
