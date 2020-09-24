@@ -613,7 +613,6 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             if let Some(window_data) = hwnd_windowdata(hwnd) {
                 let width = u32::from(LOWORD(lparam as DWORD));
                 let height = u32::from(HIWORD(lparam as DWORD));
-                println!("WM_SIZE @ w: {}, h: {}", width, height);
                 match window_data.events.last_mut() {
                     Some(Event::Resize(w, h)) => {
                         *w = width;
