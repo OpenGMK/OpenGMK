@@ -157,7 +157,7 @@ impl Window {
         self.0.get_title()
     }
 
-    /// Gets the window caption.
+    /// Sets the window caption.
     pub fn set_title(&mut self, title: &str) {
         self.0.set_title(title)
     }
