@@ -673,7 +673,7 @@ impl Game {
             1 => (x2 - (x2 - x1) * health_ratio, y1, x2, y2),
             2 => (x1, y1, x2, y1 + (y2 - y1) * health_ratio),
             3 => (x1, y2 - (y2 - y1) * health_ratio, x2, y2),
-            _ => (x1, y1, x2 - (x2 - x1) * health_ratio, y2),
+            _ => (x1, y1, x1 + (x2 - x1) * health_ratio, y2),
         };
         self.renderer.draw_rectangle(x1, y1, x2, y2, bar_colour, self.draw_alpha.into());
         if showborder.is_truthy() {
