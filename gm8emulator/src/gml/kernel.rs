@@ -7547,14 +7547,7 @@ impl Game {
         let (fname, imgnumb, removeback, smooth, origin_x, origin_y) =
             expect_args!(args, [string, int, any, any, int, int])?;
         let imgnumb = imgnumb.max(1) as usize;
-        // will need a different case for loading animated gifs but those aren't supported yet
-        if fname.as_ref()[fname.as_ref().len() - 4..].eq_ignore_ascii_case(".gif") {
-            return Err(gml::Error::FunctionError(
-                "sprite_add".into(),
-                "Loading GIF animations is not yet supported.".into(),
-            ))
-        }
-        let mut images = file::load_image_strip(fname.as_ref(), imgnumb)
+        let mut images = file::load_animation(fname.as_ref(), imgnumb)
             .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
         for image in images.iter_mut() {
             asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
@@ -7603,15 +7596,8 @@ impl Game {
                 self.renderer.delete_sprite(frame.atlas_ref);
             }
             let imgnumb = imgnumb.max(1) as usize;
-            // will need a different case for loading animated gifs but those aren't supported yet
-            if fname.as_ref()[fname.as_ref().len() - 4..].eq_ignore_ascii_case(".gif") {
-                return Err(gml::Error::FunctionError(
-                    "sprite_add".into(),
-                    "Loading GIF animations is not yet supported.".into(),
-                ))
-            }
-            let mut images = file::load_image_strip(fname.as_ref(), imgnumb)
-                .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
+            let mut images = file::load_animation(fname.as_ref(), imgnumb)
+                .map_err(|e| gml::Error::FunctionError("sprite_replace".into(), e.into()))?;
             for image in images.iter_mut() {
                 asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
             }

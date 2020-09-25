@@ -1,9 +1,10 @@
-use image::{ImageError, ImageFormat, Pixel, RgbaImage};
+use image::{gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
     fs::File,
-    io::{self, Read, Seek, SeekFrom, Write},
+    io::{self, BufReader, Read, Seek, SeekFrom, Write},
     path::Path,
 };
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -357,25 +358,32 @@ pub fn load_image(path: &str) -> Result<RgbaImage> {
     Ok(image::open(path)?.into_rgba())
 }
 
-pub fn load_image_strip(path: &str, imgnumb: usize) -> Result<Vec<RgbaImage>> {
-    let image = load_image(path.as_ref())?;
-    let sprite_width = image.width() as usize / imgnumb;
-    let sprite_height = image.height() as usize;
-    // get pixel data for each frame
-    if imgnumb > 1 {
-        let mut images = Vec::with_capacity(imgnumb);
-        for i in 0..imgnumb {
-            let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
-            for row in image.rows() {
-                for p in row.skip(i * sprite_width).take(sprite_width) {
-                    pixels.extend_from_slice(p.channels());
-                }
-            }
-            images.push(RgbaImage::from_vec(sprite_width as _, sprite_height as _, pixels).unwrap());
-        }
-        Ok(images)
+pub fn load_animation(path: &str, imgnumb: usize) -> Result<Vec<RgbaImage>> {
+    if ImageFormat::from_path(path)? == ImageFormat::Gif {
+        GifDecoder::new(BufReader::new(File::open(path)?))?
+            .into_frames()
+            .map(|r| r.map(|f| f.into_buffer()).map_err(Error::from))
+            .collect()
     } else {
-        Ok(vec![image])
+        let image = load_image(path.as_ref())?;
+        let sprite_width = image.width() as usize / imgnumb;
+        let sprite_height = image.height() as usize;
+        // get pixel data for each frame
+        if imgnumb > 1 {
+            let mut images = Vec::with_capacity(imgnumb);
+            for i in 0..imgnumb {
+                let mut pixels = Vec::with_capacity(sprite_width * sprite_height * 4);
+                for row in image.rows() {
+                    for p in row.skip(i * sprite_width).take(sprite_width) {
+                        pixels.extend_from_slice(p.channels());
+                    }
+                }
+                images.push(RgbaImage::from_vec(sprite_width as _, sprite_height as _, pixels).unwrap());
+            }
+            Ok(images)
+        } else {
+            Ok(vec![image])
+        }
     }
 }
 
