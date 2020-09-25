@@ -107,7 +107,7 @@ pub struct Model {
 pub fn draw_block<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -165,7 +165,7 @@ pub fn draw_block<F>(
 pub fn draw_cylinder<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -245,7 +245,7 @@ pub fn draw_cylinder<F>(
 pub fn draw_cone<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -306,7 +306,7 @@ pub fn draw_cone<F>(
 pub fn draw_ellipsoid<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -379,7 +379,7 @@ pub fn draw_ellipsoid<F>(
 pub fn draw_wall<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,
@@ -413,7 +413,7 @@ pub fn draw_wall<F>(
 pub fn draw_floor<F>(
     renderer: &mut Renderer,
     atlas_ref: Option<AtlasRef>,
-    mut primitive_draw: F,
+    primitive_draw: &mut F,
     x1: f64,
     y1: f64,
     z1: f64,

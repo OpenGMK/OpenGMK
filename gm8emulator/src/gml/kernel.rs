@@ -11285,7 +11285,7 @@ impl Game {
         model::draw_block(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11307,7 +11307,7 @@ impl Game {
         model::draw_cylinder(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11331,7 +11331,7 @@ impl Game {
         model::draw_cone(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11355,7 +11355,7 @@ impl Game {
         model::draw_ellipsoid(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into_inner(),
             y1.into_inner(),
             z1.into_inner(),
@@ -11378,7 +11378,7 @@ impl Game {
         model::draw_wall(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11400,7 +11400,7 @@ impl Game {
         model::draw_floor(
             &mut self.renderer,
             atlas_ref,
-            |r: &mut Renderer| r.draw_primitive_3d(),
+            &mut |r: &mut Renderer| r.draw_primitive_3d(),
             x1.into(),
             y1.into(),
             z1.into(),
@@ -11966,11 +11966,27 @@ impl Game {
         let (model_id, x, y, z, tex_id) = expect_args!(args, [int, real, real, real, int])?;
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
         if let Some(model) = self.models.get_asset_mut(model_id) {
-            // grab some borrows for the lambda
+            // translate according to given position
+            let old_model_matrix = self.renderer.get_model_matrix();
+            #[rustfmt::skip]
+                let translation: [f32; 16] = [
+                1.0,                    0.0,                    0.0,                    0.0,
+                0.0,                    1.0,                    0.0,                    0.0,
+                0.0,                    0.0,                    1.0,                    0.0,
+                x.into_inner() as f32,  y.into_inner() as f32,  z.into_inner() as f32,  1.0,
+            ];
+            self.renderer.mult_model_matrix(translation);
+
             let draw_colour = (u32::from(self.draw_colour) as i32 & 0xfeffff, self.draw_alpha.into_inner());
-            if model.cache.is_none() {
-                // yes, this will only fill the cache once
+            if model.cache.is_none() || self.gm_version == Version::GameMaker8_0 {
+                // GM8.0 does not use model caching.
+                // GM8.1 draws the model semi-normally once, then caches that and redraws.
                 let mut buffers = Default::default();
+                let mut primitive_draw: Box<dyn FnMut(&mut Renderer)> = match self.gm_version {
+                    Version::GameMaker8_0 => Box::new(|r| r.draw_primitive_3d()),
+                    Version::GameMaker8_1 => {
+                        Box::new(|r| r.extend_buffers(&mut buffers)) },
+                };
                 let mut uses_draw_colour = false;
                 for command in &model.commands {
                     match command {
@@ -12013,7 +12029,7 @@ impl Game {
                             model::draw_block(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -12037,7 +12053,7 @@ impl Game {
                             model::draw_cylinder(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -12063,7 +12079,7 @@ impl Game {
                             model::draw_cone(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 // yes, GM8 does this too. why is gm8 like this
                                 (x + *x1).into_inner(),
                                 y1.into_inner(),
@@ -12089,7 +12105,7 @@ impl Game {
                             model::draw_ellipsoid(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -12108,7 +12124,7 @@ impl Game {
                             model::draw_wall(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -12126,7 +12142,7 @@ impl Game {
                             model::draw_floor(
                                 &mut self.renderer,
                                 atlas_ref,
-                                |r: &mut Renderer| r.extend_buffers(&mut buffers),
+                                &mut primitive_draw,
                                 x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
@@ -12140,31 +12156,24 @@ impl Game {
                             );
                             uses_draw_colour = true;
                         },
-                        model::Command::End => {
-                            self.renderer.extend_buffers(&mut buffers);
-                        },
+                        model::Command::End => primitive_draw(&mut self.renderer),
                     }
                 }
                 if uses_draw_colour {
                     model.old_draw_colour = Some(draw_colour);
                 }
+                drop(primitive_draw);
                 model.cache = Some(buffers);
             }
-            let cache = model.cache.as_mut().unwrap();
-            if let Some(old_col) = model.old_draw_colour {
-                cache.swap_colour(old_col, draw_colour);
-                model.old_draw_colour = Some(draw_colour);
+            if self.gm_version == Version::GameMaker8_1 {
+                let cache = model.cache.as_mut().unwrap();
+                if let Some(old_col) = model.old_draw_colour {
+                    cache.swap_colour(old_col, draw_colour);
+                    model.old_draw_colour = Some(draw_colour);
+                }
+                self.renderer.draw_buffers(atlas_ref, cache);
             }
-            let old_model_matrix = self.renderer.get_model_matrix();
-            #[rustfmt::skip]
-            let translation: [f32; 16] = [
-                1.0,                    0.0,                    0.0,                    0.0,
-                0.0,                    1.0,                    0.0,                    0.0,
-                0.0,                    0.0,                    1.0,                    0.0,
-                x.into_inner() as f32,  y.into_inner() as f32,  z.into_inner() as f32,  1.0,
-            ];
-            self.renderer.mult_model_matrix(translation);
-            self.renderer.draw_buffers(atlas_ref, cache);
+
             self.renderer.set_model_matrix(old_model_matrix);
         }
         Ok(Default::default())
