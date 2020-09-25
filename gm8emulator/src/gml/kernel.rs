@@ -857,8 +857,8 @@ impl Game {
     pub fn sprite_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.frames.get(image_index as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
-            {
+            let image_index = image_index.rem_euclid(sprite.frames.len() as _) as usize;
+            if let Some(atlas_ref) = sprite.frames.get(image_index).map(|x| &x.atlas_ref) {
                 Ok(self.renderer.get_texture_id(atlas_ref).into())
             } else {
                 Ok((-1).into())
@@ -1046,7 +1046,8 @@ impl Game {
         expect_args!(args, [])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            let image_index = instance.image_index.get().floor().into_inner() as i32 % sprite.frames.len() as i32;
+            let image_index =
+                (instance.image_index.get().floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize);
             if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
                 self.renderer.draw_sprite(
                     atlas_ref,
@@ -1070,8 +1071,10 @@ impl Game {
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) { instance.image_index.get() } else { image_index };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as _) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
@@ -1104,8 +1107,10 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
@@ -1149,8 +1154,10 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite(
                     atlas_ref,
@@ -1197,8 +1204,10 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite_partial(
                     atlas_ref,
@@ -1248,8 +1257,10 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite_general(
                     atlas_ref,
@@ -1298,8 +1309,10 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) =
-                sprite.frames.get(image_index.floor().into_inner() as usize % sprite.frames.len()).map(|x| &x.atlas_ref)
+            if let Some(atlas_ref) = sprite
+                .frames
+                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
+                .map(|x| &x.atlas_ref)
             {
                 self.renderer.draw_sprite_tiled(
                     atlas_ref,
@@ -7683,7 +7696,8 @@ impl Game {
         let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let image_index = subimg % sprite.frames.len() as i32;
-            if let Some(frame) = sprite.frames.get(image_index as usize) {
+            if let Some(frame) = sprite.frames.get((image_index as isize).rem_euclid(sprite.frames.len() as _) as usize)
+            {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
