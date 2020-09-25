@@ -12139,6 +12139,7 @@ impl Game {
             let cache = model.cache.as_mut().unwrap();
             if let Some(old_col) = model.old_draw_colour {
                 cache.swap_colour(old_col, draw_colour);
+                model.old_draw_colour = Some(draw_colour);
             }
             let old_model_matrix = self.renderer.get_model_matrix();
             #[rustfmt::skip]
