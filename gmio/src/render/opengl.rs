@@ -1847,12 +1847,6 @@ impl RendererTrait for RendererImpl {
         port_w: i32,
         port_h: i32,
     ) {
-        if self.using_3d && self.perspective {
-            self.set_projection_perspective(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
-        } else {
-            self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
-        }
-
         // Set viewport (gl::Viewport, gl::Scissor)
         if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
             unsafe {
@@ -1861,6 +1855,12 @@ impl RendererTrait for RendererImpl {
                 assert_eq!(self.gl.GetError(), 0);
             }
         }
+        if self.using_3d && self.perspective {
+            self.set_projection_perspective(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        } else {
+            self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
+        }
+
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
