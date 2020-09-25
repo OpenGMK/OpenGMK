@@ -179,7 +179,7 @@ pub struct Game {
 }
 
 /// Enum indicating which GameMaker version a game was built with
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Version {
     GameMaker8_0,
     GameMaker8_1,
