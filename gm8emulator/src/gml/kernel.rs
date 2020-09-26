@@ -280,7 +280,8 @@ impl Game {
         };
         self.scaling = scaling;
         if let Scaling::Fixed(n) = scaling {
-            let (region_w, region_h) = ((self.unscaled_width as f64 * n) as u32, (self.unscaled_height as f64 * n) as u32);
+            let (region_w, region_h) =
+                ((self.unscaled_width as f64 * n) as u32, (self.unscaled_height as f64 * n) as u32);
             let (width, height) = if shrink_window.is_truthy() {
                 let (window_w, window_h) = self.window.get_inner_size();
                 (region_w.max(window_w), region_h.max(window_h))
@@ -5267,8 +5268,7 @@ impl Game {
         match self.file_manager.open(filename.as_ref(), file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => {
-                let err_str: String = e.into();
-                println!("Warning: file_text_open_read on {} failed: {}", filename, err_str);
+                println!("Warning: file_text_open_read on {} failed: {}", filename, e);
                 Ok(Value::Real(Real::from(-1.0)))
             },
         }

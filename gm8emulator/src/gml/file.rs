@@ -47,12 +47,18 @@ impl From<ImageError> for Error {
 
 impl From<Error> for String {
     fn from(e: Error) -> Self {
-        match e {
-            Error::InvalidFile(handle) => format!("invalid file handle {}", handle),
-            Error::IOError(err) => format!("io error: {}", err),
-            Error::OutOfFiles => "out of files".into(),
-            Error::WrongContent => "invalid operation".into(),
-            Error::ImageError(err) => format!("image error: {}", err),
+        e.to_string()
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
+            Error::IOError(err) => write!(f, "io error: {}", err),
+            Error::OutOfFiles => write!(f, "out of files"),
+            Error::WrongContent => write!(f, "invalid operation"),
+            Error::ImageError(err) => write!(f, "image error: {}", err),
         }
     }
 }
