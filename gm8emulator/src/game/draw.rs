@@ -203,10 +203,8 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        if self.surface_target.is_none() {
-            let (width, height) = self.window.get_inner_size();
-            self.renderer.present(width, height, self.scaling);
-        }
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.present(width, height, self.scaling);
 
         // Reset viewport
         self.renderer.set_view(
