@@ -280,7 +280,7 @@ impl Game {
         };
         self.scaling = scaling;
         if let Scaling::Fixed(n) = scaling {
-            let (region_w, region_h) = (self.unscaled_width, self.unscaled_height);
+            let (region_w, region_h) = ((self.unscaled_width as f64 * n) as u32, (self.unscaled_height as f64 * n) as u32);
             let (width, height) = if shrink_window.is_truthy() {
                 let (window_w, window_h) = self.window.get_inner_size();
                 (region_w.max(window_w), region_h.max(window_h))
