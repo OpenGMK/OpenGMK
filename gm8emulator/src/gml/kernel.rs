@@ -230,8 +230,8 @@ impl Game {
     }
 
     pub fn window_center(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_center")
+        self.window.center();
+        Ok(Default::default())
     }
 
     pub fn window_default(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
