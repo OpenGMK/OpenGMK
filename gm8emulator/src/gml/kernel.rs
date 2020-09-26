@@ -6457,8 +6457,14 @@ impl Game {
     }
 
     pub fn keyboard_wait(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function keyboard_wait")
+        if self.play_type == PlayType::Normal {
+            self.input_manager.key_set_lastkey(0);
+            while self.input_manager.key_get_lastkey() == 0 {
+                datetime::sleep(std::time::Duration::from_millis(50));
+                self.process_window_events();
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn mouse_wait(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
