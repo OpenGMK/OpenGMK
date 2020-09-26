@@ -5456,13 +5456,18 @@ impl Game {
     }
 
     pub fn file_find_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_find_next")
+        while let Some(p) = self.file_finder.as_mut().and_then(|ff| ff.next()) {
+            if let Some(p) = p.to_str().and_then(|p| self.encode_str_maybe(p)) {
+                return Ok(Value::from(p.as_ref()))
+            }
+        }
+        self.file_finder = None;
+        Ok(b"".as_ref().into())
     }
 
     pub fn file_find_close(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_find_close")
+        self.file_finder = None;
+        Ok(Default::default())
     }
 
     pub fn file_attributes(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
