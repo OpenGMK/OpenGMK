@@ -13,6 +13,7 @@ uniform mat4 projection;
 
 uniform bool lighting_enabled;
 uniform bool gouraud_shading;
+uniform bool gm81_normalize;
 uniform vec3 ambient_colour;
 uniform Light lights[8];
 uniform bool light_enabled[8];
@@ -41,7 +42,10 @@ void main() {
     frag_blend_flat = vec4(1.0);
     if (lighting_enabled) {
         vec3 light_col = vec3(0.0);
-        vec3 new_normal = -normalize((model * vec4(normal, 0.0)).xyz);
+        vec3 new_normal = -(model * vec4(normal, 0.0)).xyz;
+        if (gm81_normalize) {
+            new_normal = normalize(new_normal);
+        }
         for (int i = 0; i < 8; i++) {
             if (lights[i].enabled) {
                 vec3 this_light_col = lights[i].colour;

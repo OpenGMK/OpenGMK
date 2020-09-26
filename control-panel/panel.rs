@@ -186,7 +186,11 @@ impl ControlPanel {
         let clear_colour = Colour::new(220.0 / 255.0, 220.0 / 255.0, 220.0 / 255.0);
         let mut renderer = Renderer::new(
             (),
-            &RendererOptions { size: (WINDOW_WIDTH, WINDOW_HEIGHT), vsync: true, interpolate_pixels: false },
+            &RendererOptions {
+                size: (WINDOW_WIDTH, WINDOW_HEIGHT),
+                interpolate_pixels: false,
+                ..Default::default()
+            },
             &window,
             clear_colour,
         )?;

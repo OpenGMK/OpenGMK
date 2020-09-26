@@ -88,6 +88,7 @@ pub struct RendererImpl {
     loc_lighting_enabled: GLint, // uniform bool lighting_enabled
     loc_gouraud_shading: GLint,  // uniform bool gouraud_shading
     loc_ambient_colour: GLint,   // uniform vec3 ambient_colour
+    loc_gm81_normalize: GLint,   // uniform bool gm81_normalize
     loc_lights: Vec<LightUniform>,
 }
 
@@ -508,6 +509,7 @@ impl RendererImpl {
                 loc_lighting_enabled: gl.GetUniformLocation(program, b"lighting_enabled\0".as_ptr().cast()),
                 loc_gouraud_shading: gl.GetUniformLocation(program, b"gouraud_shading\0".as_ptr().cast()),
                 loc_ambient_colour: gl.GetUniformLocation(program, b"ambient_colour\0".as_ptr().cast()),
+                loc_gm81_normalize: gl.GetUniformLocation(program, b"gm81_normalize\0".as_ptr().cast()),
                 loc_lights,
 
                 gl,
@@ -519,6 +521,7 @@ impl RendererImpl {
             renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
             renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
             renderer.gl.Uniform1i(renderer.loc_gouraud_shading, true as _);
+            renderer.gl.Uniform1i(renderer.loc_gm81_normalize, options.normalize_normals as _);
             renderer.gl.Uniform3f(renderer.loc_ambient_colour, 0.0, 0.0, 0.0);
             for light in renderer.loc_lights.iter() {
                 renderer.gl.Uniform1i(light.enabled, false as _);
@@ -1860,7 +1863,6 @@ impl RendererTrait for RendererImpl {
         } else {
             self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
         }
-
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {

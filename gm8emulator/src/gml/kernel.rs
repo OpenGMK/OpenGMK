@@ -5977,7 +5977,8 @@ impl Game {
         let height = 200;
 
         let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
-        let options = RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false };
+        let options =
+            RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false, ..Default::default() };
 
         // TODO: this should block as a dialog, not block the entire fucking thread
         // otherwise windows thinks it's not responding or whatever
@@ -11990,8 +11991,7 @@ impl Game {
                 let mut buffers = Default::default();
                 let mut primitive_draw: Box<dyn FnMut(&mut Renderer)> = match self.gm_version {
                     Version::GameMaker8_0 => Box::new(|r| r.draw_primitive_3d()),
-                    Version::GameMaker8_1 => {
-                        Box::new(|r| r.extend_buffers(&mut buffers)) },
+                    Version::GameMaker8_1 => Box::new(|r| r.extend_buffers(&mut buffers)),
                 };
                 let mut uses_draw_colour = false;
                 for command in &model.commands {

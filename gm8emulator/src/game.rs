@@ -437,6 +437,7 @@ impl Game {
             size: (room1_width, room1_height),
             vsync: settings.vsync, // TODO: Overrideable
             interpolate_pixels: settings.interpolate_pixels,
+            normalize_normals: gm_version == Version::GameMaker8_1,
         };
 
         let (width, height) = options.size;
