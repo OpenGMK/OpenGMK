@@ -5450,9 +5450,55 @@ impl Game {
         }
     }
 
-    pub fn file_find_first(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function file_find_first")
+    pub fn file_find_first(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path, attribs) = expect_args!(args, [string, int])?;
+        if path.ends_with("/") || path.ends_with("\\") {
+            // match nothing
+            self.file_finder = None;
+            return Ok(b"".as_ref().into())
+        }
+        // unwrap arguments
+        let path: &str = path.as_ref();
+        let include_read_only = (attribs & 1) != 0;
+        let include_hidden = (attribs & 2) != 0;
+        let include_sys_file = (attribs & 4) != 0;
+        let include_volume_id = (attribs & 8) != 0;
+        let include_directory = (attribs & 16) != 0;
+        let include_archive = (attribs & 32) != 0;
+        match glob::glob_with(path, glob::MatchOptions { case_sensitive: false, ..Default::default() }) {
+            Ok(paths) => {
+                // add . and .. to start if necessary
+                let path: &std::path::Path = path.as_ref();
+                let preceding: Vec<std::path::PathBuf> = match path.file_name().and_then(|p| p.to_str()) {
+                    Some("*") | Some(".*") | Some("*.") => vec![".".into(), "..".into()],
+                    Some(".") => vec![".".into()],
+                    Some("..") => vec!["..".into()],
+                    _ => vec![],
+                };
+                self.file_finder = Some(Box::new(
+                    preceding.into_iter().chain(
+                        paths
+                            .filter_map(Result::ok)
+                            .filter(move |p| {
+                                let md = match p.metadata() {
+                                    Ok(m) => m,
+                                    Err(_) => return false,
+                                };
+                                // false means the check isn't in yet
+                                (include_read_only || !md.permissions().readonly())
+                                    && (include_hidden || !false)
+                                    && (include_sys_file || !false)
+                                    && (include_volume_id || !false)
+                                    && (include_directory || !md.is_dir())
+                                    && (include_archive || !false)
+                            })
+                            .map(|p| p.file_name().map(|p| p.into()).unwrap_or(p)),
+                    ),
+                ));
+                self.file_find_next(context, &[])
+            },
+            Err(e) => Err(gml::Error::FunctionError("file_find_first".into(), e.to_string())),
+        }
     }
 
     pub fn file_find_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
