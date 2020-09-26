@@ -7589,8 +7589,13 @@ impl Game {
         let (fname, imgnumb, removeback, smooth, origin_x, origin_y) =
             expect_args!(args, [string, int, any, any, int, int])?;
         let imgnumb = imgnumb.max(1) as usize;
-        let mut images = file::load_animation(fname.as_ref(), imgnumb)
-            .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?;
+        let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
+            Ok(frames) => frames,
+            Err(e) => {
+                println!("Warning: sprite_add on {} failed: {}", fname, e);
+                return Ok((-1).into())
+            },
+        };
         for image in images.iter_mut() {
             asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
         }
@@ -7638,8 +7643,13 @@ impl Game {
                 self.renderer.delete_sprite(frame.atlas_ref);
             }
             let imgnumb = imgnumb.max(1) as usize;
-            let mut images = file::load_animation(fname.as_ref(), imgnumb)
-                .map_err(|e| gml::Error::FunctionError("sprite_replace".into(), e.into()))?;
+            let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
+                Ok(frames) => frames,
+                Err(e) => {
+                    println!("Warning: sprite_replace on {} failed: {}", fname, e);
+                    return Ok((-1).into())
+                },
+            };
             for image in images.iter_mut() {
                 asset::sprite::process_image(image, removeback.is_truthy(), smooth.is_truthy());
             }
@@ -7910,8 +7920,13 @@ impl Game {
 
     pub fn background_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (fname, removeback, smooth) = expect_args!(args, [string, any, any])?;
-        let mut image = file::load_image(fname.as_ref())
-            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+        let mut image = match file::load_image(fname.as_ref()) {
+            Ok(im) => im,
+            Err(e) => {
+                println!("Warning: background_add on {} failed: {}", fname, e);
+                return Ok((-1).into())
+            },
+        };
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
         let width = image.width();
         let height = image.height();
@@ -7935,8 +7950,13 @@ impl Game {
             if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.delete_sprite(atlas_ref);
             }
-            let mut image = file::load_image(fname.as_ref())
-                .map_err(|e| gml::Error::FunctionError("background_replace".into(), e.into()))?;
+            let mut image = match file::load_image(fname.as_ref()) {
+                Ok(im) => im,
+                Err(e) => {
+                    println!("Warning: background_add on {} failed: {}", fname, e);
+                    return Ok((-1).into())
+                },
+            };
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
             let width = image.width();
             let height = image.height();
