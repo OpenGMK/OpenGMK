@@ -59,7 +59,7 @@ void main() {
                         this_light_col = vec3(0.0);
                     }
                 }
-                light_col += this_light_col * max(0.0, dot(normalize(ray), new_normal));
+                light_col += this_light_col * min(1.0, max(0.0, dot(normalize(ray), new_normal)));
             }
         }
         if (gouraud_shading) {
