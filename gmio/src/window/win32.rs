@@ -329,11 +329,24 @@ impl WindowTrait for WindowImpl {
             return
         }
 
+        self.user_data.client_size = (width as i32, height as i32);
+
         let (border_x, border_y) = self.user_data.border_offset;
         let width = border_x + (width as i32).max(0);
         let height = border_y + (height as i32).max(0);
         unsafe {
             // GM8 centers the window on the primary display when it's resized
+            let (x, y) = center_coords_primary_monitor(width, height);
+            SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
+        }
+    }
+
+    fn center(&mut self) {
+        let (client_x, client_y) = self.user_data.client_size;
+        let (border_x, border_y) = self.user_data.border_offset;
+        let width = border_x + client_x;
+        let height = border_y + client_y;
+        unsafe {
             let (x, y) = center_coords_primary_monitor(width, height);
             SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
         }
