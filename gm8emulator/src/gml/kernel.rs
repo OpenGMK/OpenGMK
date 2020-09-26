@@ -202,14 +202,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_get_cursor")
     }
 
-    pub fn window_set_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_color")
+    pub fn window_set_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let col = expect_args!(args, [int])?;
+        self.background_colour = (col as u32).into();
+        Ok(Default::default())
     }
 
-    pub fn window_get_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_color")
+    pub fn window_get_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(u32::from(self.background_colour).into())
     }
 
     pub fn window_set_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
