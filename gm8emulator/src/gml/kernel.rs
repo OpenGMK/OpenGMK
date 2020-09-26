@@ -19,7 +19,7 @@ use crate::{
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Fog, Light, Renderer, RendererOptions},
+    render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
     window,
 };
 use image::RgbaImage;
@@ -257,27 +257,48 @@ impl Game {
 
     pub fn window_set_region_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
+        // unscaled_width and unscaled_height will need to be separated into framebuffer size
+        // and window region size for this to work
+        // probably keep the framebuffer size on the renderer and make a getter?
         unimplemented!("Called unimplemented kernel function window_set_region_size")
     }
 
     pub fn window_get_region_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_region_width")
+        Ok(self.unscaled_width.into())
     }
 
     pub fn window_get_region_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_region_height")
+        Ok(self.unscaled_height.into())
     }
 
-    pub fn window_set_region_scale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function window_set_region_scale")
+    pub fn window_set_region_scale(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (scaling, shrink_window) = expect_args!(args, [real, any])?;
+        let scaling = match scaling {
+            n if n == 0.into() => Scaling::Full,
+            n if n < 0.into() => Scaling::Aspect(n.into_inner()),
+            n => Scaling::Fixed(n.into_inner()),
+        };
+        self.scaling = scaling;
+        if let Scaling::Fixed(n) = scaling {
+            let (region_w, region_h) = (self.unscaled_width, self.unscaled_height);
+            let (width, height) = if shrink_window.is_truthy() {
+                let (window_w, window_h) = self.window.get_inner_size();
+                (region_w.max(window_w), region_h.max(window_h))
+            } else {
+                (region_w, region_h)
+            };
+            self.window.resize(width, height);
+        }
+        Ok(Default::default())
     }
 
     pub fn window_get_region_scale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_region_scale")
+        let result = match self.scaling {
+            Scaling::Fixed(n) => n,
+            Scaling::Aspect(n) => n,
+            Scaling::Full => 0.0,
+        };
+        Ok(result.into())
     }
 
     pub fn window_mouse_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
