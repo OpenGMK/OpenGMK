@@ -2076,82 +2076,83 @@ impl RendererTrait for RendererImpl {
             return
         }
         unsafe {
-            let mut fb_draw = 0;
-            self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_draw);
-            assert_eq!(self.gl.GetError(), 0);
-            if fb_draw == self.framebuffer_fbo as _ {
-                // Finish drawing frame
-                self.flush_queue();
+            // Finish drawing frame
+            self.flush_queue();
 
-                // Get framebuffer size
-                let (mut fb_width, mut fb_height) = (0, 0);
-                self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
+            // Get framebuffer size
+            let (mut fb_width, mut fb_height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
 
-                // yeah i know but they need to be converted anyway
-                let (window_width, window_height) = (window_width as i32, window_height as i32);
+            // yeah i know but they need to be converted anyway
+            let (window_width, window_height) = (window_width as i32, window_height as i32);
 
-                // Scaling
-                let (w_x, w_y, w_w, w_h) = match scaling {
-                    Scaling::Fixed(scale) => {
-                        let w = (f64::from(fb_width) * scale) as i32;
-                        let h = (f64::from(fb_height) * scale) as i32;
-                        ((window_width - w) / 2, (window_height - h) / 2, w, h)
-                    },
-                    Scaling::Aspect(_) => {
-                        if fb_width > 0 && fb_height > 0 {
-                            let fixed_width = window_height * fb_width / fb_height;
-                            if fixed_width < window_width {
-                                // window is too wide
-                                ((window_width - fixed_width) / 2, 0, fixed_width, window_height)
-                            } else {
-                                // window is too tall
-                                let fixed_height = window_width * fb_height / fb_width;
-                                (0, (window_height - fixed_height) / 2, window_width, fixed_height)
-                            }
+            // Scaling
+            let (w_x, w_y, w_w, w_h) = match scaling {
+                Scaling::Fixed(scale) => {
+                    let w = (f64::from(fb_width) * scale) as i32;
+                    let h = (f64::from(fb_height) * scale) as i32;
+                    ((window_width - w) / 2, (window_height - h) / 2, w, h)
+                },
+                Scaling::Aspect(_) => {
+                    if fb_width > 0 && fb_height > 0 {
+                        let fixed_width = window_height * fb_width / fb_height;
+                        if fixed_width < window_width {
+                            // window is too wide
+                            ((window_width - fixed_width) / 2, 0, fixed_width, window_height)
                         } else {
-                            // can never be too careful
-                            (0, 0, fb_width, fb_height)
+                            // window is too tall
+                            let fixed_height = window_width * fb_height / fb_width;
+                            (0, (window_height - fixed_height) / 2, window_width, fixed_height)
                         }
-                    },
-                    Scaling::Full => (0, 0, window_width, window_height),
-                };
+                    } else {
+                        // can never be too careful
+                        (0, 0, fb_width, fb_height)
+                    }
+                },
+                Scaling::Full => (0, 0, window_width, window_height),
+            };
 
-                // On Intel, glBlitFrameBuffer just does nothing if the scissor box is too big, which it
-                // very well could be. So just disable the scissor test for now.
-                self.gl.Disable(gl::SCISSOR_TEST);
+            // On Intel, glBlitFrameBuffer just does nothing if the scissor box is too big, which it
+            // very well could be. So just disable the scissor test for now.
+            self.gl.Disable(gl::SCISSOR_TEST);
 
-                // Draw framebuffer to screen
-                self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-                self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
-                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
-                self.gl.BlitFramebuffer(
-                    0,
-                    fb_height,
-                    fb_width,
-                    0,
-                    w_x,
-                    w_y,
-                    w_x + w_w,
-                    w_y + w_h,
-                    gl::COLOR_BUFFER_BIT,
-                    if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
-                );
-                self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
+            // Remember old framebuffer so we can rebind it after we're done
+            let mut fb_old = 0;
+            self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_old);
+            assert_eq!(self.gl.GetError(), 0);
 
-                self.gl.Enable(gl::SCISSOR_TEST);
+            // Draw framebuffer to screen
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BlitFramebuffer(
+                0,
+                fb_height,
+                fb_width,
+                0,
+                w_x,
+                w_y,
+                w_x + w_w,
+                w_y + w_h,
+                gl::COLOR_BUFFER_BIT,
+                if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
+            );
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
 
-                assert_eq!(self.gl.GetError(), 0);
+            self.gl.Enable(gl::SCISSOR_TEST);
 
-                // Present buffer
-                self.imp.swap_buffers();
+            assert_eq!(self.gl.GetError(), 0);
 
-                // On Nvidia/AMD cards, unless the emulator is running in admin mode, if it is screenshared on Discord,
-                // SwapBuffers will return TRUE i.e. no error, but glGetError will return GL_INVALID_OPERATION.
-                // This hack evades the error, but a less awful solution would be really nice to have.
-                self.gl.GetError();
-            }
+            // Present buffer
+            // Note: Game Maker always presents the backbuffer, even when the target is a surface.
+            self.imp.swap_buffers();
+
+            // On Nvidia/AMD cards, unless the emulator is running in admin mode, if it is screenshared on Discord,
+            // SwapBuffers will return TRUE i.e. no error, but glGetError will return GL_INVALID_OPERATION.
+            // This hack evades the error, but a less awful solution would be really nice to have.
+            self.gl.GetError();
         }
     }
 
