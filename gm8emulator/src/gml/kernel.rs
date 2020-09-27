@@ -1706,7 +1706,7 @@ impl Game {
             yscale: Real::from(1.0).into(),
             visible: true.into(),
         });
-        Ok(Default::default())
+        Ok(self.last_tile_id.into())
     }
 
     pub fn tile_find(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
