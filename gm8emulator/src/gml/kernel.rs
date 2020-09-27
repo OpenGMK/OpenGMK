@@ -8800,9 +8800,14 @@ impl Game {
         }
     }
 
-    pub fn object_is_ancestor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function object_is_ancestor")
+    pub fn object_is_ancestor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (child_id, parent_id) = expect_args!(args, [int, int])?;
+        if child_id != parent_id {
+            if let Some(parent) = self.assets.objects.get_asset(parent_id) {
+                return Ok(parent.children.borrow().contains(&child_id).into())
+            }
+        }
+        Ok(false.into())
     }
 
     pub fn object_set_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
