@@ -469,6 +469,28 @@ impl TileList {
         value
     }
 
+    pub fn remove(&mut self, idx: usize) {
+        self.chunks.remove(idx);
+        self.insert_order.retain(|&i| i != idx);
+        self.draw_order.retain(|&i| i != idx);
+    }
+
+    pub fn remove_with(&mut self, f: impl Fn(&Tile) -> bool) {
+        let mut removed_any = false;
+        self.chunks.remove_with(|x| {
+            let remove = f(x);
+            if remove {
+                removed_any = true;
+            }
+            remove
+        });
+        if removed_any {
+            let chunks = &self.chunks;
+            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
+        }
+    }
+
     pub fn clear(&mut self) {
         self.chunks.clear();
         self.insert_order.clear();
