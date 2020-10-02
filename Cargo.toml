@@ -6,11 +6,11 @@ license = "GPL-2.0-only"
 edition = "2018"
 
 [build-dependencies]
-time = { default-features = false, features = ["std"], version = "0.2" }
+time = { version = "0.2", features = ["std"], default-features = false }
 
 [dependencies]
 byteorder = "1"
-flate2 = "1.0.12"
+flate2 = { git = "https://github.com/rust-lang/flate2-rs.git", features = ["zlib-ng-compat"], default-features = false }
 getopts = "0.2.21"
 gm8exe = { path = "gm8exe" }
 rayon = "1.2"
