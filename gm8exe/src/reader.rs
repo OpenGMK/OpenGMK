@@ -432,27 +432,28 @@ where
         src: &mut io::Cursor<&[u8]>,
         deserializer: F,
         multithread: bool,
-    ) -> Result<Vec<Option<Box<T>>>, ReaderError>
+    ) -> Result<AssetList<T>, ReaderError>
     where
         T: Send,
         F: Fn(&[u8]) -> Result<T, Error> + Sync,
     {
-        let to_asset = |ch| {
-            inflate(&ch).and_then(|data| {
-                // If the first u32 is 0 then the underlying data doesn't exist (is a None asset).
+        let to_asset = |data: &[u8]| {
+            inflate(data).and_then(|data| {
+                // If the first u32 is 0 then it's a deleted asset, and is None.
+                // Safety: If there are at least 4 bytes (data.get(..4) -> Some)
+                // then [4..] will yield a 0-size slice at the very least.
                 match data.get(..4) {
                     Some(&[0, 0, 0, 0]) => Ok(None),
-                    // If there are at least 4 bytes (Some) then [4..] will yield a 0-size slice.
-                    Some(_) => Ok(Some(Box::new(deserializer(data.get(4..).unwrap_or_else(|| unreachable!()))?))),
+                    Some(_) => Ok(Some(Box::new(deserializer(unsafe { data.get_unchecked(4..) })?))),
                     None => Err(ReaderError::AssetError(Error::MalformedData)),
                 }
             })
         };
 
         if multithread {
-            get_asset_refs(src)?.par_iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.par_iter().copied().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         } else {
-            get_asset_refs(src)?.iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.iter().copied().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         }
     }
 
@@ -462,7 +463,7 @@ where
         version: GameVersion,
         strict: bool,
         multithread: bool,
-    ) -> Result<Vec<Option<Box<T>>>, ReaderError>
+    ) -> Result<AssetList<T>, ReaderError>
         where
             T: Asset + Send,
     {
