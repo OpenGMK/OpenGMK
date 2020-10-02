@@ -4,6 +4,7 @@ pub mod datetime;
 pub mod ds;
 pub mod file;
 pub mod kernel;
+pub mod network;
 pub mod rand;
 pub mod runtime;
 pub mod value;

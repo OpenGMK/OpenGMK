@@ -12,7 +12,7 @@ use crate::{
         self,
         compiler::mappings,
         datetime::{self, DateTime},
-        ds, file, Context, Value,
+        ds, file, network, Context, Value,
     },
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
@@ -6777,9 +6777,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mplay_message_clear")
     }
 
-    pub fn mplay_ipaddress(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function mplay_ipaddress")
+    pub fn mplay_ipaddress(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(network::get_local_ip().unwrap_or([127,0,0,1].into()).to_string().into())
     }
 
     pub fn event_inherited(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
