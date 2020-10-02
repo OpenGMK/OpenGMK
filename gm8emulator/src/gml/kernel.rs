@@ -6779,7 +6779,7 @@ impl Game {
 
     pub fn mplay_ipaddress(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(network::get_local_ip().unwrap_or([127,0,0,1].into()).to_string().into())
+        Ok(network::get_local_ip().unwrap_or(std::net::Ipv4Addr::LOCALHOST.into()).to_string().into())
     }
 
     pub fn event_inherited(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {

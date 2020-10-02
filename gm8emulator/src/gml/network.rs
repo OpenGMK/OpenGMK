@@ -3,10 +3,7 @@ use std::{io, net};
 pub fn get_local_ip() -> io::Result<net::IpAddr> {
     // For the meaning of 0.0.0.0, see 'INADDR_ANY'. Port 0 states that we don't expect any
     // response (RFC 768), so the operating system is allowed to select any ephemeral port.
-    let socket = match net::UdpSocket::bind(net::SocketAddr::from(([0,0,0,0], 0))) {
-        Ok(s) => s,
-        Err(e) => return Err(e),
-    };
+    let socket = net::UdpSocket::bind(net::SocketAddr::from((net::Ipv4Addr::UNSPECIFIED, 0)))?;
 
     // Seems to work anyway even with default 'false', so we do this just in case.
     let _ = socket.set_broadcast(true);
@@ -33,7 +30,7 @@ pub fn get_local_ip() -> io::Result<net::IpAddr> {
 
         // See 'INADDR_BROADCAST'. This also handles the virtual network adapters such as
         // ones from VMWare / VirtualBox to imitate the IP lookup based on gethostbyname().
-        ([255,255,255,255], port).into(),  // limited broadcast: 255.255.255.255/32
+        (net::Ipv4Addr::BROADCAST, port).into(),  // limited broadcast: 255.255.255.255/32
 
         // If all the previous effort has failed (which is pretty unlikely scenario), we
         // give up and try to obtain at least the correct loopback address of this cursed
@@ -44,8 +41,6 @@ pub fn get_local_ip() -> io::Result<net::IpAddr> {
 
     // Note that there are no real 'connections' in UDP, so what .connect() actually does
     // is a statement to the network driver about the destination address to be used.
-    match socket.connect(&broadcast[..]).and_then(|_| socket.local_addr()) {
-        Ok(address) => Ok(address.ip()),
-        Err(e) => Err(e),
-    }
+    socket.connect(&broadcast[..])?;
+    Ok(socket.local_addr()?.ip())
 }
