@@ -438,6 +438,12 @@ where
         F: Fn(&[u8]) -> Result<T, Error> + Sync,
     {
         let to_asset = |data: &[u8]| {
+            // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
+            // This will short circuit on length, but it checks against this literal to make sure.
+            if data == &[0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
+                return Ok(None);
+            }
+
             inflate(data).and_then(|data| {
                 // If the first u32 is 0 then it's a deleted asset, and is None.
                 // Safety: If there are at least 4 bytes (data.get(..4) -> Some)
