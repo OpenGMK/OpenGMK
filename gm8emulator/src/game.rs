@@ -157,7 +157,8 @@ pub struct Game {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
-    pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
+    pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
+    pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,
     pub encoding: &'static Encoding,
 
@@ -943,6 +944,7 @@ impl Game {
             included_files,
             gm_version,
             open_ini: None,
+            file_finder: None,
             spoofed_time_nanos,
             fps: 0,
             parameters: game_arguments,
