@@ -252,7 +252,10 @@ impl InstanceList {
     }
 
     pub fn count(&self, object_index: ID) -> usize {
-        self.object_id_map.get(&object_index).map(|v| v.len()).unwrap_or_default()
+        self.object_id_map
+            .get(&object_index)
+            .map(|v| v.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() == InstanceState::Active).count())
+            .unwrap_or_default()
     }
 
     pub fn count_all(&self) -> usize {
@@ -373,14 +376,6 @@ impl InstanceList {
         let instance = self.get(handle);
         if instance.state.get() != InstanceState::Deleted {
             instance.state.set(InstanceState::Deleted);
-
-            let object_id = instance.object_index.get();
-            let entry = self.object_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
-            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if occupied.get().is_empty() {
-                    occupied.remove_entry();
-                }
-            }
         }
     }
 
