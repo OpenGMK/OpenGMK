@@ -354,6 +354,8 @@ impl InputManager {
 
     /// Updates previous mouse position to be the current one
     pub fn mouse_update_previous(&mut self) {
+        self.mouse_x_previous = self.mouse_x;
+        self.mouse_y_previous = self.mouse_y;
         self.mouse_scroll_up = false;
         self.mouse_scroll_down = false;
     }
