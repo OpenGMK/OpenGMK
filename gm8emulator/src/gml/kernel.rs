@@ -7595,7 +7595,7 @@ impl Game {
         let rgba = self.renderer.get_pixels(x, y, width, height);
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
         asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
-        let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+        let colliders = asset::sprite::make_colliders_precise(std::slice::from_ref(&image), 0, false);
         let frames = vec![asset::sprite::Frame {
             width: width as _,
             height: height as _,
@@ -7646,7 +7646,7 @@ impl Game {
             }
             images.push(image);
             let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
-            sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+            sprite.colliders = asset::sprite::make_colliders_precise(&images, 0, sprite.per_frame_colliders);
             sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
             sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
             sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
@@ -7687,7 +7687,7 @@ impl Game {
             let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback.is_truthy(), smooth.is_truthy());
-            let colliders = asset::sprite::make_colliders(std::slice::from_ref(&image), false);
+            let colliders = asset::sprite::make_colliders_precise(std::slice::from_ref(&image), 0, false);
             let frames = vec![asset::sprite::Frame {
                 width: width as _,
                 height: height as _,
@@ -7745,7 +7745,7 @@ impl Game {
                 }
                 images.push(image);
                 let sprite = self.assets.sprites.get_asset_mut(sprite_id).unwrap();
-                sprite.colliders = asset::sprite::make_colliders(&images, sprite.per_frame_colliders);
+                sprite.colliders = asset::sprite::make_colliders_precise(&images, 0, sprite.per_frame_colliders);
                 sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
                 sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
                 sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
@@ -7794,7 +7794,7 @@ impl Game {
         }
         let (width, height) = images[0].dimensions();
         // make colliders
-        let colliders = asset::sprite::make_colliders(&images, false);
+        let colliders = asset::sprite::make_colliders_precise(&images, 0, false);
         // collect atlas refs
         // yes i know it's a new texture for every frame like in gm8 but it's fine
         let frames = images
@@ -7848,7 +7848,7 @@ impl Game {
             }
             let (width, height) = images[0].dimensions();
             // make colliders
-            let colliders = asset::sprite::make_colliders(&images, false);
+            let colliders = asset::sprite::make_colliders_precise(&images, 0, false);
             // collect atlas refs
             let renderer = &mut self.renderer;
             let frames = images

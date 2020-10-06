@@ -150,9 +150,7 @@ fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
     }
 }
 
-pub fn make_colliders(frames: &[RgbaImage], sepmasks: bool) -> Vec<Collider> {
-    // only supports precise colliders with 0 tolerance rn
-    let tolerance = 0;
+pub fn make_colliders_precise(frames: &[RgbaImage], tolerance: u8, sepmasks: bool) -> Vec<Collider> {
     let width = frames[0].width();
     let height = frames[0].height();
     if sepmasks {
