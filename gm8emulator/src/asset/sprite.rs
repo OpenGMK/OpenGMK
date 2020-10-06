@@ -27,6 +27,14 @@ pub struct Frame {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct BoundingBox {
+    pub left: u32,
+    pub right: u32,
+    pub top: u32,
+    pub bottom: u32,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Collider {
     pub width: u32,
     pub height: u32,
@@ -93,40 +101,53 @@ pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool) {
     }
 }
 
-/// Creates a collider from the given collision data and dimensions, calculating the bbox_left, right, top, and bottom
-/// values. The algorithm doesn't check more pixels than it needs to.
-fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
-    let mut bbox_left = width - 1;
-    let mut bbox_right = 0;
-    let mut bbox_top = height - 1;
-    let mut bbox_bottom = 0;
-    let coll = |x, y| data[(y * width + x) as usize];
+/// Calculates bounding box values for a given frame.
+/// The algorithm doesn't check more pixels than it needs to.
+fn make_bbox(coll: impl Fn(u32, u32) -> bool, frame_width: u32, frame_height: u32) -> BoundingBox {
+    let mut left = frame_width - 1;
+    let mut right = 0;
+    let mut top = frame_height - 1;
+    let mut bottom = 0;
     // Set bbox_left and bbox_top to the leftmost column with collision, and the highest pixel within that column.
-    for x in 0..width {
-        if let Some(y) = (0..height).find(|&y| coll(x, y)) {
-            bbox_left = x;
-            bbox_top = y;
+    for x in 0..frame_width {
+        if let Some(y) = (0..frame_height).find(|&y| coll(x, y)) {
+            left = x;
+            top = y;
             break
         }
     }
     // Set bbox_top to the highest pixel in the remaining columns, if there's one above the one we already found.
-    if let Some(y) = (0..bbox_top).find(|&y| ((bbox_left + 1)..width).any(|x| coll(x, y))) {
-        bbox_top = y;
+    if let Some(y) = (0..top).find(|&y| ((left + 1)..frame_width).any(|x| coll(x, y))) {
+        top = y;
     }
     // Set bbox_right and bbox_bottom to the rightmost column with collision, and the lowest pixel within that column,
     // ignoring the rows and columns which are known to be empty.
-    for x in (bbox_left..width).rev() {
-        if let Some(y) = (bbox_top..height).rfind(|&y| coll(x, y)) {
-            bbox_right = x;
-            bbox_bottom = y;
+    for x in (left..frame_width).rev() {
+        if let Some(y) = (top..frame_height).rfind(|&y| coll(x, y)) {
+            right = x;
+            bottom = y;
             break
         }
     }
     // Set bbox_bottom to the lowest pixel between bbox_left and bbox_right, if there's one below the one we found.
-    if let Some(y) = ((bbox_bottom + 1)..height).rev().find(|&y| (bbox_left..(bbox_right + 1)).any(|x| coll(x, y))) {
-        bbox_bottom = y;
+    if let Some(y) = ((bottom + 1)..frame_height).rev().find(|&y| (left..(right + 1)).any(|x| coll(x, y))) {
+        bottom = y;
     }
-    Collider { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data }
+    BoundingBox { left, right, top, bottom }
+}
+
+/// Creates a collider from the given collision data and dimensions, giving it an appropriate bounding box.
+fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
+    let bbox = make_bbox(|x, y| data[(y * width + x) as usize], width, height);
+    Collider {
+        width,
+        height,
+        bbox_left: bbox.left,
+        bbox_right: bbox.right,
+        bbox_top: bbox.top,
+        bbox_bottom: bbox.bottom,
+        data,
+    }
 }
 
 pub fn make_colliders(frames: &[RgbaImage], sepmasks: bool) -> Vec<Collider> {
