@@ -7949,9 +7949,65 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_save_strip")
     }
 
-    pub fn sprite_collision_mask(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 9
-        unimplemented!("Called unimplemented kernel function sprite_collision_mask")
+    pub fn sprite_collision_mask(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, sepmasks, bboxmode, bbleft, bbtop, bbright, bbbottom, kind, tolerance) =
+            expect_args!(args, [int, any, int, int, int, int, int, int, int])?;
+        let tolerance = tolerance.min(255).max(0) as u8;
+        let sepmasks = sepmasks.is_truthy();
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
+            // formulate requested bounding box
+            let bbox = match bboxmode {
+                0 => None, // automatic
+                1 => Some(asset::sprite::BoundingBox {
+                    // full image
+                    left: 0,
+                    right: sprite.width - 1,
+                    top: 0,
+                    bottom: sprite.height - 1,
+                }),
+                _ => Some(asset::sprite::BoundingBox {
+                    // user defined
+                    left: bbleft.max(0) as u32,
+                    right: (bbright as u32).min(sprite.width),
+                    top: bbtop.max(0) as u32,
+                    bottom: (bbbottom as u32).min(sprite.height),
+                }),
+            };
+
+            // download frames from gpu
+            let renderer = &mut self.renderer;
+            let frames = sprite
+                .frames
+                .iter()
+                .map(|f| RgbaImage::from_vec(f.width, f.height, renderer.dump_sprite(&f.atlas_ref).to_vec()).unwrap())
+                .collect::<Vec<RgbaImage>>();
+
+            // make colliders
+            sprite.colliders = match kind {
+                0 => asset::sprite::make_colliders_precise(&frames, tolerance, sepmasks), // precise
+                _ => asset::sprite::make_colliders_shaped(&frames, tolerance, sepmasks, bbox, match kind {
+                    1 => Some(asset::sprite::ColliderShape::Rectangle),
+                    2 => Some(asset::sprite::ColliderShape::Ellipse),
+                    3 => Some(asset::sprite::ColliderShape::Diamond),
+                    _ => None,
+                }),
+            };
+
+            // set bbox variables manually if needed (even if using precise collision)
+            if let Some(bbox) = bbox {
+                for c in &mut sprite.colliders {
+                    c.bbox_left = bbox.left;
+                    c.bbox_top = bbox.top;
+                    c.bbox_right = bbox.right;
+                    c.bbox_bottom = bbox.bottom;
+                }
+            }
+            sprite.bbox_left = sprite.colliders.iter().map(|c| c.bbox_left).min().unwrap();
+            sprite.bbox_top = sprite.colliders.iter().map(|c| c.bbox_top).min().unwrap();
+            sprite.bbox_right = sprite.colliders.iter().map(|c| c.bbox_right).max().unwrap();
+            sprite.bbox_bottom = sprite.colliders.iter().map(|c| c.bbox_bottom).max().unwrap();
+        }
+        Ok(Default::default())
     }
 
     pub fn sprite_set_cache_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
