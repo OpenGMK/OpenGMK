@@ -26,7 +26,7 @@ pub struct Frame {
     pub atlas_ref: AtlasRef,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct BoundingBox {
     pub left: u32,
     pub right: u32,
