@@ -45,6 +45,12 @@ pub struct Collider {
     pub data: Box<[bool]>,
 }
 
+pub enum ColliderShape {
+    Rectangle,
+    Ellipse,
+    Diamond,
+}
+
 pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool) {
     if removeback {
         // remove background colour
@@ -178,6 +184,65 @@ pub fn make_colliders_precise(frames: &[RgbaImage], tolerance: u8, sepmasks: boo
         }
         vec![complete_bbox(data.into_boxed_slice(), width, height)]
     }
+}
+
+pub fn make_colliders_shaped(
+    frames: &[RgbaImage],
+    tolerance: u8,
+    sepmasks: bool,
+    bbox: Option<BoundingBox>,
+    shape: Option<ColliderShape>,
+) -> Vec<Collider> {
+    let width = frames[0].width();
+    let height = frames[0].height();
+    let bbox_iterator: Box<dyn Iterator<Item = BoundingBox>> = if let Some(bbox) = bbox {
+        Box::new(std::iter::once(bbox))
+    } else {
+        let bbox_iterator = frames.iter().map(|f| make_bbox(|x, y| f.get_pixel(x, y)[3] > tolerance, width, height));
+        if sepmasks {
+            Box::new(bbox_iterator)
+        } else {
+            Box::new(std::iter::once(bbox_iterator.fold(
+                BoundingBox { left: width - 1, right: 0, top: height - 1, bottom: 0 },
+                |acc, new| BoundingBox {
+                    left: acc.left.min(new.left),
+                    right: acc.right.max(new.right),
+                    top: acc.top.min(new.top),
+                    bottom: acc.bottom.max(new.bottom),
+                },
+            )))
+        }
+    };
+    bbox_iterator
+        .map(|bbox| {
+            let mut data = vec![false; (width * height) as usize].into_boxed_slice();
+            match shape {
+                None => (),
+                Some(ColliderShape::Rectangle) => {
+                    for y in bbox.top..bbox.bottom + 1 {
+                        for x in bbox.left..bbox.right + 1 {
+                            data[(y * width + x) as usize] = true;
+                        }
+                    }
+                },
+                Some(ColliderShape::Ellipse) => {
+                    unimplemented!("sprite_collision_mask with disk shape is not yet implemented")
+                },
+                Some(ColliderShape::Diamond) => {
+                    unimplemented!("sprite_collision_mask with diamond shape is not yet implemented")
+                },
+            }
+            Collider {
+                width,
+                height,
+                bbox_left: bbox.left,
+                bbox_right: bbox.right,
+                bbox_top: bbox.top,
+                bbox_bottom: bbox.bottom,
+                data,
+            }
+        })
+        .collect()
 }
 
 // used for adding frames to sprites
