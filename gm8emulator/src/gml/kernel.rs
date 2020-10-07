@@ -1409,13 +1409,48 @@ impl Game {
     }
 
     pub fn draw_background_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_background_part")
+        let (bg_index, left, top, width, height, x, y) =
+            expect_args!(_args, [any, any, any, any, any, any, any])?;
+
+        self.draw_background_part_ext(_context, &[
+            bg_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            1.into(),
+            1.into(),
+            0xFFFFFF.into(),
+            1.into(),
+        ])
     }
 
     pub fn draw_background_part_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_background_part_ext")
+        let (bg_index, left, top, width, height, x, y, xscale, yscale, color, alpha) =
+            expect_args!(_args, [int, real, real, real, real, real, real, real, real, int, real])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                self.renderer.draw_sprite_partial(
+                    atlas_ref,
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    0.0,
+                    color,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn draw_background_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
