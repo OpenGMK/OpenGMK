@@ -1408,11 +1408,11 @@ impl Game {
         }
     }
 
-    pub fn draw_background_part(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn draw_background_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, left, top, width, height, x, y) =
-            expect_args!(_args, [any, any, any, any, any, any, any])?;
+            expect_args!(args, [any, any, any, any, any, any, any])?;
 
-        self.draw_background_part_ext(_context, &[
+        self.draw_background_part_ext(context, &[
             bg_index,
             left,
             top,
@@ -1427,9 +1427,9 @@ impl Game {
         ])
     }
 
-    pub fn draw_background_part_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn draw_background_part_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, left, top, width, height, x, y, xscale, yscale, color, alpha) =
-            expect_args!(_args, [int, real, real, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite_partial(
