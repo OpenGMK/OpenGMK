@@ -472,19 +472,53 @@ impl Game {
         expect_args!(args, [int]).map(|c| (c / 256 / 256) % 256).map(Value::from)
     }
 
-    pub fn color_get_hue(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_hue")
+    pub fn color_get_hue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let c = expect_args!(args, [int])?;
+        let (h, _s, _v) = self.rgb_to_hsv(c);
+        Ok(h.into())
     }
 
-    pub fn color_get_saturation(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_saturation")
+    pub fn color_get_saturation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let c = expect_args!(args, [int])?;
+        let (_h, s, _v) = self.rgb_to_hsv(c);
+        Ok(s.into())
     }
 
-    pub fn color_get_value(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function color_get_value")
+    pub fn color_get_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let c = expect_args!(args, [int])?;
+        let (_h, _s, v) = self.rgb_to_hsv(c);
+        Ok(v.into())
+    }
+
+    pub fn rgb_to_hsv(&mut self, color: i32) -> (i32, i32, i32) {
+        let (r, g, b) = (Real::from(color & 255), Real::from((color >> 8) & 255), Real::from((color >> 16) & 255));
+
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let diff = max - min;
+
+        let mut h = (max + min) / Real::from(2.0);
+        let s;
+        let v = max;
+
+        // Achromatic
+        if max == min {
+            h = Real::from(0.0);
+            s = Real::from(0.0);
+        } else {
+            s = diff / max;
+
+            if max == r {
+                h = (Real::from(60) * ((g - b) / diff) + Real::from(360)) % Real::from(360)
+            }
+            if max == g {
+                h = (Real::from(60) * ((b - r) / diff) + Real::from(120)) % Real::from(360)
+            }
+            if max == b {
+                h = (Real::from(60) * ((r - g) / diff) + Real::from(240)) % Real::from(360)
+            }
+        }
+        return (((h / Real::from(360)) * Real::from(255)).round(), (s * Real::from(255)).round(), v.round())
     }
 
     pub fn merge_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1409,8 +1443,7 @@ impl Game {
     }
 
     pub fn draw_background_part(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (bg_index, left, top, width, height, x, y) =
-            expect_args!(args, [any, any, any, any, any, any, any])?;
+        let (bg_index, left, top, width, height, x, y) = expect_args!(args, [any, any, any, any, any, any, any])?;
 
         self.draw_background_part_ext(context, &[
             bg_index,
