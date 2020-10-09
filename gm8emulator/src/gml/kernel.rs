@@ -59,6 +59,37 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
+pub fn rgb_to_hsv(color: i32) -> (i32, i32, i32) {
+    let (r, g, b) = (Real::from(color & 0xFF), Real::from((color >> 8) & 0xFF), Real::from((color >> 16) & 0xFF));
+
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let diff = max - min;
+
+    let mut h = (max + min) / Real::from(2.0);
+    let s;
+    let v = max;
+
+    // Achromatic
+    if max == min {
+        h = Real::from(0.0);
+        s = Real::from(0.0);
+    } else {
+        s = diff / max;
+
+        if max == r {
+            h = (Real::from(60) * ((g - b) / diff) + Real::from(360)) % Real::from(360)
+        }
+        if max == g {
+            h = (Real::from(60) * ((b - r) / diff) + Real::from(120)) % Real::from(360)
+        }
+        if max == b {
+            h = (Real::from(60) * ((r - g) / diff) + Real::from(240)) % Real::from(360)
+        }
+    }
+    (((h / Real::from(360)) * Real::from(255)).round(), (s * Real::from(255)).round(), v.round())
+}
+
 impl Game {
     pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         Ok(self.window.display_width().into())
@@ -474,51 +505,20 @@ impl Game {
 
     pub fn color_get_hue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (h, _, _) = self.rgb_to_hsv(c);
+        let (h, _, _) = rgb_to_hsv(c);
         Ok(h.into())
     }
 
     pub fn color_get_saturation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (_, s, _) = self.rgb_to_hsv(c);
+        let (_, s, _) = rgb_to_hsv(c);
         Ok(s.into())
     }
 
     pub fn color_get_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (_, _, v) = self.rgb_to_hsv(c);
+        let (_, _, v) = rgb_to_hsv(c);
         Ok(v.into())
-    }
-
-    pub fn rgb_to_hsv(&mut self, color: i32) -> (i32, i32, i32) {
-        let (r, g, b) = (Real::from(color & 0xFF), Real::from((color >> 8) & 0xFF), Real::from((color >> 16) & 0xFF));
-
-        let max = r.max(g).max(b);
-        let min = r.min(g).min(b);
-        let diff = max - min;
-
-        let mut h = (max + min) / Real::from(2.0);
-        let s;
-        let v = max;
-
-        // Achromatic
-        if max == min {
-            h = Real::from(0.0);
-            s = Real::from(0.0);
-        } else {
-            s = diff / max;
-
-            if max == r {
-                h = (Real::from(60) * ((g - b) / diff) + Real::from(360)) % Real::from(360)
-            }
-            if max == g {
-                h = (Real::from(60) * ((b - r) / diff) + Real::from(120)) % Real::from(360)
-            }
-            if max == b {
-                h = (Real::from(60) * ((r - g) / diff) + Real::from(240)) % Real::from(360)
-            }
-        }
-        return (((h / Real::from(360)) * Real::from(255)).round(), (s * Real::from(255)).round(), v.round())
     }
 
     pub fn merge_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
