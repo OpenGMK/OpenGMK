@@ -474,19 +474,19 @@ impl Game {
 
     pub fn color_get_hue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (h, _s, _v) = self.rgb_to_hsv(c);
+        let (h, _, _) = self.rgb_to_hsv(c);
         Ok(h.into())
     }
 
     pub fn color_get_saturation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (_h, s, _v) = self.rgb_to_hsv(c);
+        let (_, s, _) = self.rgb_to_hsv(c);
         Ok(s.into())
     }
 
     pub fn color_get_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
-        let (_h, _s, v) = self.rgb_to_hsv(c);
+        let (_, _, v) = self.rgb_to_hsv(c);
         Ok(v.into())
     }
 
