@@ -5,6 +5,7 @@ mod action;
 mod asset;
 mod game;
 mod gml;
+mod handleman;
 mod input;
 mod instance;
 mod instancelist;

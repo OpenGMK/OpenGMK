@@ -14,6 +14,7 @@ use crate::{
         datetime::{self, DateTime},
         ds, file, network, Context, Value,
     },
+    handleman::HandleManager,
     instance::{DummyFieldHolder, Field, Instance, InstanceState},
     math::Real,
     tile::Tile,
@@ -9779,103 +9780,134 @@ impl Game {
 
     pub fn ds_stack_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.stacks.add(ds::Stack::new()).into())
+        Ok(self.stacks.put(ds::Stack::new()).into())
     }
 
     pub fn ds_stack_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_destroy".into(), e.into())),
+        if self.stacks.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_stack_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id) {
-            Ok(stack) => {
+        match self.stacks.get_mut(id as usize) {
+            Some(stack) => {
                 stack.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.stacks.get(src_id) {
-            Ok(stack) => stack.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_stack_copy".into(), e.into())),
+        let src = match self.stacks.get(src_id as usize) {
+            Some(stack) => stack.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_stack_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.stacks.get_mut(id) {
-            Ok(stack) => {
+        match self.stacks.get_mut(id as usize) {
+            Some(stack) => {
                 *stack = src;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id) {
-            Ok(stack) => Ok(stack.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_size".into(), e.into())),
+        match self.stacks.get(id as usize) {
+            Some(stack) => Ok(stack.len().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_size".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id) {
-            Ok(stack) => Ok(stack.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_empty".into(), e.into())),
+        match self.stacks.get(id as usize) {
+            Some(stack) => Ok(stack.is_empty().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_empty".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.stacks.get_mut(id) {
-            Ok(stack) => {
+        match self.stacks.get_mut(id as usize) {
+            Some(stack) => {
                 stack.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_push".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_push".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id) {
-            Ok(stack) => Ok(stack.pop().unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_pop".into(), e.into())),
+        match self.stacks.get_mut(id as usize) {
+            Some(stack) => Ok(stack.pop().unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_pop".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id) {
-            Ok(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_top".into(), e.into())),
+        match self.stacks.get(id as usize) {
+            Some(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_top".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id) {
-            Ok(stack) => {
+        match self.stacks.get_mut(id as usize) {
+            Some(stack) => {
                 let mut output = "65000000".to_string();
                 output.push_str(&hex::encode_upper((stack.len() as u32).to_le_bytes()));
                 output.extend(stack.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_write".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_write".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_stack_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, hex_data) = expect_args!(args, [int, string])?;
-        match self.stacks.get_mut(id) {
-            Ok(old_stack) => {
+        match self.stacks.get_mut(id as usize) {
+            Some(old_stack) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
                         let mut reader = data.as_slice();
@@ -9902,97 +9934,131 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_stack_read".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_stack_read".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.queues.add(ds::Queue::new()).into())
+        Ok(self.queues.put(ds::Queue::new()).into())
     }
 
     pub fn ds_queue_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_destroy".into(), e.into())),
+        if self.queues.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_queue_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_queue_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get_mut(id) {
-            Ok(queue) => {
+        match self.queues.get_mut(id as usize) {
+            Some(queue) => {
                 queue.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.queues.get(src_id) {
-            Ok(queue) => queue.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_queue_copy".into(), e.into())),
+        let src = match self.queues.get(src_id as usize) {
+            Some(queue) => queue.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_queue_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.queues.get_mut(id) {
-            Ok(queue) => {
+        match self.queues.get_mut(id as usize) {
+            Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
-            Ok(queue) => Ok(queue.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_size".into(), e.into())),
+        match self.queues.get(id as usize) {
+            Some(queue) => Ok(queue.len().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_size".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
-            Ok(queue) => Ok(queue.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_empty".into(), e.into())),
+        match self.queues.get(id as usize) {
+            Some(queue) => Ok(queue.is_empty().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_empty".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_enqueue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.queues.get_mut(id) {
-            Ok(queue) => {
+        match self.queues.get_mut(id as usize) {
+            Some(queue) => {
                 queue.push_back(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_enqueue".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_enqueue".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get_mut(id) {
-            Ok(queue) => Ok(queue.pop_front().unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_dequeue".into(), e.into())),
+        match self.queues.get_mut(id as usize) {
+            Some(queue) => Ok(queue.pop_front().unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_dequeue".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_head(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
-            Ok(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_head".into(), e.into())),
+        match self.queues.get(id as usize) {
+            Some(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_head".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_queue_tail(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id) {
-            Ok(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_queue_tail".into(), e.into())),
+        match self.queues.get(id as usize) {
+            Some(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_queue_tail".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10008,141 +10074,178 @@ impl Game {
 
     pub fn ds_list_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.lists.add(ds::List::new()).into())
+        Ok(self.lists.put(ds::List::new()).into())
     }
 
     pub fn ds_list_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_destroy".into(), e.into())),
+        if self.lists.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_list_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_list_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 list.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.lists.get(src_id) {
-            Ok(list) => list.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+        let src = match self.lists.get(src_id as usize) {
+            Some(list) => list.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_list_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 *list = src;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id) {
-            Ok(list) => Ok(list.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_size".into(), e.into())),
+        match self.lists.get(id as usize) {
+            Some(list) => Ok(list.len().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_size".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id) {
-            Ok(list) => Ok(list.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_empty".into(), e.into())),
+        match self.lists.get(id as usize) {
+            Some(list) => Ok(list.is_empty().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_empty".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 list.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_add".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_add".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 if index >= 0 && (index as usize) <= list.len() {
                     list.insert(index as usize, val);
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_insert".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_insert".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list[index as usize] = val;
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_replace".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_replace".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index) = expect_args!(args, [int, int])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list.remove(index as usize);
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_delete".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_delete".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_find_index(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.lists.get(id) {
-            Ok(list) => Ok(list
+        match self.lists.get(id as usize) {
+            Some(list) => Ok(list
                 .iter()
                 .enumerate()
                 .find(|(_, x)| ds::eq(x, &val, self.ds_precision))
                 .map(|(i, _)| i as i32)
                 .unwrap_or(-1)
                 .into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_list_find_index".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_find_index".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index) = expect_args!(args, [int, int])?;
-        match self.lists.get(id) {
-            Ok(list) => {
+        match self.lists.get(id as usize) {
+            Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     Ok(list[index as usize].clone())
                 } else {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_find_value".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_find_value".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_sort(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, asc) = expect_args!(args, [int, bool])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 let precision = self.ds_precision; // otherwise we get borrowing issues
                 if asc {
                     list.sort_by(|x, y| ds::cmp(x, y, precision));
@@ -10151,14 +10254,17 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_sort".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_sort".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_shuffle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 for _ in 1..list.len() {
                     let id1 = self.rand.next_int(list.len() as u32 - 1);
                     let id2 = self.rand.next_int(list.len() as u32 - 1);
@@ -10166,20 +10272,26 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_shuffle".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_shuffle".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_list_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id) {
-            Ok(list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(list) => {
                 let mut output = "2D010000".to_string();
                 output.push_str(&hex::encode_upper((list.len() as u32).to_le_bytes()));
                 output.extend(list.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_write".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_write".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10199,8 +10311,8 @@ impl Game {
             }
             Some(list)
         }
-        match self.lists.get_mut(id) {
-            Ok(old_list) => {
+        match self.lists.get_mut(id as usize) {
+            Some(old_list) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
                         if let Some(list) = read_list(data.as_slice()) {
@@ -10211,171 +10323,223 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_list_read".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_list_read".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.maps.add(ds::Map { keys: Vec::new(), values: Vec::new() }).into())
+        Ok(self.maps.put(ds::Map { keys: Vec::new(), values: Vec::new() }).into())
     }
 
     pub fn ds_map_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_destroy".into(), e.into())),
+        if self.maps.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_map_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_map_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 map.keys.clear();
                 map.values.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.maps.get(src_id) {
-            Ok(map) => map.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_map_copy".into(), e.into())),
+        let src = match self.maps.get(src_id as usize) {
+            Some(map) => map.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_map_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 *map = src;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.keys.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_size".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.keys.len().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_size".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.keys.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_empty".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.keys.is_empty().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_empty".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key, val) = expect_args!(args, [int, any, any])?;
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 let index = map.get_next_index(&key, self.ds_precision);
                 map.keys.insert(index, key);
                 map.values.insert(index, val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_add".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_add".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key, val) = expect_args!(args, [int, any, any])?;
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 if let Some(index) = map.get_index(&key, self.ds_precision) {
                     map.values[index] = val;
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_replace".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_replace".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 if let Some(index) = map.get_index(&key, self.ds_precision) {
                     map.keys.remove(index);
                     map.values.remove(index);
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_delete".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_delete".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_exists".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_exists".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_value".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_find_value".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_find_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id) {
-            Ok(map) => {
+        match self.maps.get(id as usize) {
+            Some(map) => {
                 let index = map.get_index_unchecked(&key, self.ds_precision);
                 if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_previous".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_find_previous".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_find_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id) {
-            Ok(map) => {
+        match self.maps.get(id as usize) {
+            Some(map) => {
                 let index = map.get_next_index(&key, self.ds_precision);
                 if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_next".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_find_next".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_find_first(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_first".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_find_first".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_find_last(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id) {
-            Ok(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_map_find_last".into(), e.into())),
+        match self.maps.get(id as usize) {
+            Some(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_find_last".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_map_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get_mut(id) {
-            Ok(map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(map) => {
                 let mut output = "91010000".to_string();
                 output.push_str(&hex::encode_upper((map.keys.len() as u32).to_le_bytes()));
                 output.extend(map.keys.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 output.extend(map.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_write".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_write".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10399,8 +10563,8 @@ impl Game {
             }
             Some(ds::Map { keys, values })
         }
-        match self.maps.get_mut(id) {
-            Ok(old_map) => {
+        match self.maps.get_mut(id as usize) {
+            Some(old_map) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
                         if let Some(map) = read_map(data.as_slice()) {
@@ -10411,96 +10575,124 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_map_read".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_map_read".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.priority_queues.add(ds::Priority { priorities: Vec::new(), values: Vec::new() }).into())
+        Ok(self.priority_queues.put(ds::Priority { priorities: Vec::new(), values: Vec::new() }).into())
     }
 
     pub fn ds_priority_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_destroy".into(), e.into())),
+        if self.priority_queues.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_priority_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_priority_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 pq.priorities.clear();
                 pq.values.clear();
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.priority_queues.get(src_id) {
-            Ok(queue) => queue.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_priority_copy".into(), e.into())),
+        let src = match self.priority_queues.get(src_id as usize) {
+            Some(queue) => queue.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_priority_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.priority_queues.get_mut(id) {
-            Ok(queue) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id) {
-            Ok(pq) => Ok(pq.priorities.len().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
+        match self.priority_queues.get(id as usize) {
+            Some(pq) => Ok(pq.priorities.len().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_size".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id) {
-            Ok(pq) => Ok(pq.priorities.is_empty().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_clear".into(), e.into())),
+        match self.priority_queues.get(id as usize) {
+            Some(pq) => Ok(pq.priorities.is_empty().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_empty".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val, prio) = expect_args!(args, [int, any, any])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 pq.priorities.push(prio);
                 pq.values.push(val);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_add".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_add".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_change_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val, prio) = expect_args!(args, [int, any, any])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
                     pq.priorities[pos] = prio;
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_change_priority".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_change_priority".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_find_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.priority_queues.get(id) {
-            Ok(pq) => {
+        match self.priority_queues.get(id as usize) {
+            Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
                     Ok(pq.priorities[pos].clone())
@@ -10508,14 +10700,17 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_priority".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_find_priority".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_delete_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
                     pq.priorities.remove(pos);
@@ -10523,14 +10718,17 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_value".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_delete_value".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_delete_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 if let Some(min) = pq.min_id(self.ds_precision) {
                     pq.priorities.remove(min);
                     Ok(pq.values.remove(min))
@@ -10538,28 +10736,34 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_min".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_delete_min".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_find_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id) {
-            Ok(pq) => {
+        match self.priority_queues.get(id as usize) {
+            Some(pq) => {
                 if let Some(min) = pq.min_id(self.ds_precision) {
                     Ok(pq.values[min].clone())
                 } else {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_min".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_find_min".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_delete_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 if let Some(max) = pq.max_id(self.ds_precision) {
                     pq.priorities.remove(max);
                     Ok(pq.values.remove(max))
@@ -10567,35 +10771,44 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_delete_max".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_delete_max".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_find_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id) {
-            Ok(pq) => {
+        match self.priority_queues.get(id as usize) {
+            Some(pq) => {
                 if let Some(max) = pq.max_id(self.ds_precision) {
                     Ok(pq.values[max].clone())
                 } else {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_find_max".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_find_max".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_priority_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id) {
-            Ok(pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(pq) => {
                 let mut output = "F5010000".to_string();
                 output.push_str(&hex::encode_upper((pq.priorities.len() as u32).to_le_bytes()));
                 output.extend(pq.priorities.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 output.extend(pq.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_write".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_write".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10619,8 +10832,8 @@ impl Game {
             }
             Some(ds::Priority { priorities, values })
         }
-        match self.priority_queues.get_mut(id) {
-            Ok(old_pq) => {
+        match self.priority_queues.get_mut(id as usize) {
+            Some(old_pq) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
                         if let Some(pq) = read_priority(data.as_slice()) {
@@ -10631,7 +10844,10 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_priority_read".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_priority_read".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10643,36 +10859,46 @@ impl Game {
                 "grids cannot have negative dimensions".to_string(),
             ))
         }
-        Ok(self.grids.add(ds::Grid::new(width as usize, height as usize)).into())
+        Ok(self.grids.put(ds::Grid::new(width as usize, height as usize)).into())
     }
 
     pub fn ds_grid_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.destroy(id) {
-            Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_destroy".into(), e.into())),
+        if self.grids.delete(id as usize) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_grid_destroy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            ))
         }
     }
 
     pub fn ds_grid_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src_grid = match self.grids.get(src_id) {
-            Ok(grid) => grid.clone(),
-            Err(e) => return Err(gml::Error::FunctionError("ds_grid_copy".into(), e.into())),
+        let src_grid = match self.grids.get(src_id as usize) {
+            Some(grid) => grid.clone(),
+            None => return Err(gml::Error::FunctionError(
+                "ds_grid_copy".into(),
+                ds::Error::NonexistentStructure(src_id).into()
+            )),
         };
-        match self.grids.get_mut(id) {
-            Ok(grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(grid) => {
                 *grid = src_grid;
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_copy".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_copy".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_grid_resize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, width, height) = expect_args!(args, [int, int, int])?;
-        match self.grids.get_mut(id) {
-            Ok(grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(grid) => {
                 if width < 0 || height < 0 {
                     return Err(gml::Error::FunctionError(
                         "ds_grid_resize".into(),
@@ -10682,30 +10908,39 @@ impl Game {
                 grid.resize(width as usize, height as usize);
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_resize".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_resize".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_grid_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get(id) {
-            Ok(grid) => Ok(grid.width().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_width".into(), e.into())),
+        match self.grids.get(id as usize) {
+            Some(grid) => Ok(grid.width().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_width".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_grid_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get(id) {
-            Ok(grid) => Ok(grid.height().into()),
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_width".into(), e.into())),
+        match self.grids.get(id as usize) {
+            Some(grid) => Ok(grid.height().into()),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_height".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_grid_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.grids.get_mut(id) {
-            Ok(grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(grid) => {
                 for x in 0..grid.width() {
                     for y in 0..grid.height() {
                         grid.set(x, y, val.clone());
@@ -10713,20 +10948,26 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_clear".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_clear".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
     pub fn ds_grid_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
-        match self.grids.get_mut(id) {
-            Ok(grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(grid) => {
                 if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
                     grid.set(x as usize, y as usize, val);
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_set".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_set".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10787,15 +11028,18 @@ impl Game {
 
     pub fn ds_grid_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y) = expect_args!(args, [int, int, int])?;
-        match self.grids.get(id) {
-            Ok(grid) => {
+        match self.grids.get(id as usize) {
+            Some(grid) => {
                 if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
                     Ok(grid.get(x as usize, y as usize).clone())
                 } else {
                     Ok(Default::default())
                 }
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_set".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_get".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10876,8 +11120,8 @@ impl Game {
 
     pub fn ds_grid_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get_mut(id) {
-            Ok(grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(grid) => {
                 let mut output = "59020000".to_string();
                 output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
                 output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
@@ -10888,7 +11132,10 @@ impl Game {
                 }
                 Ok(output.into())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_write".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_write".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
@@ -10912,8 +11159,8 @@ impl Game {
             }
             Some(grid)
         }
-        match self.grids.get_mut(id) {
-            Ok(old_grid) => {
+        match self.grids.get_mut(id as usize) {
+            Some(old_grid) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
                         if let Some(grid) = read_grid(data.as_slice()) {
@@ -10924,7 +11171,10 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            Err(e) => Err(gml::Error::FunctionError("ds_grid_read".into(), e.into())),
+            None => Err(gml::Error::FunctionError(
+                "ds_grid_read".into(),
+                ds::Error::NonexistentStructure(id).into()
+            )),
         }
     }
 
