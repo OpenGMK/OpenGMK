@@ -223,9 +223,40 @@ impl Game {
         Ok(self.window.get_title().to_owned().into())
     }
 
-    pub fn window_set_cursor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_cursor")
+    pub fn window_set_cursor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let cursor_type = expect_args!(args, [real])?;
+
+        // CR_DEFAULT =>
+        // CR_DRAG =>
+        // CR_HSPLIT =>
+        // CR_MULTIDRAG =>
+        // CR_NODROP =>
+        // CR_NONE =>
+        // CR_SQLWAIT =>
+        // CR_VSPLIT =>
+        // Invisible, //
+        use mappings::constants;
+        let new_cursor = match f64::from(cursor_type) {
+            constants::CR_ARROW => gmio::window::Cursor::Arrow,          // ⇖
+            constants::CR_APPSTART => gmio::window::Cursor::AppStart,    // ⇖⌛
+            constants::CR_BEAM => gmio::window::Cursor::Beam,            // I
+            constants::CR_CROSS => gmio::window::Cursor::Cross,          // +
+            constants::CR_HANDPOINT => gmio::window::Cursor::Hand,       // 👆
+            constants::CR_HELP => gmio::window::Cursor::Help,            //
+            constants::CR_HOURGLASS => gmio::window::Cursor::Hourglass,  // ⌛
+            constants::CR_NO => gmio::window::Cursor::No,                //
+            constants::CR_SIZE_ALL => gmio::window::Cursor::SizeAll,     // ✥
+            constants::CR_SIZE_NESW => gmio::window::Cursor::SizeNESW,   // ⤢
+            constants::CR_SIZE_NS => gmio::window::Cursor::SizeNS,       // ↕
+            constants::CR_SIZE_NWSE => gmio::window::Cursor::SizeNWSE,   // ⤡
+            constants::CR_SIZE_WE => gmio::window::Cursor::SizeWE,       // ↔
+            constants::CR_UPARROW => gmio::window::Cursor::Up,           // ↑
+            _ => gmio::window::Cursor::Arrow                  // Default case
+        };
+
+
+        self.window.set_cursor(new_cursor);
+        Ok(Default::default())
     }
 
     pub fn window_get_cursor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -341,9 +372,11 @@ impl Game {
         Ok(self.input_manager.mouse_get_location().1.into())
     }
 
-    pub fn window_mouse_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function window_mouse_set")
+    pub fn window_mouse_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [int, int])?;
+        self.window.set_cursor_pos(x as _, y as _);
+        self.input_manager.set_mouse_pos(x.into(), y.into());
+        Ok(0.into())
     }
 
     pub fn window_view_mouse_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {

@@ -30,11 +30,11 @@ use winapi::{
         winuser::{
             AdjustWindowRect, ClientToScreen, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow,
             DispatchMessageW, EnumDisplaySettingsW, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect,
-            InsertMenuA, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor,
+            InsertMenuA, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor, SetCursorPos,
             SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu,
             TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, ENUM_CURRENT_SETTINGS,
             GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS,
-            IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW,
+            IDC_HAND, IDC_HELP, IDC_IBEAM, IDC_NO,   IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW,
             IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION, MF_STRING, MSG, PM_REMOVE, SM_CXSCREEN,
             SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE, TPM_LEFTALIGN, TPM_TOPALIGN,
             TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
@@ -171,8 +171,10 @@ unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
         Cursor::Beam => IDC_IBEAM,
         Cursor::Cross => IDC_CROSS,
         Cursor::Hand => IDC_HAND,
+        Cursor::Help => IDC_HELP,
         Cursor::Hourglass => IDC_WAIT,
         Cursor::Invisible => return ptr::null_mut() as HCURSOR,
+        Cursor::No => IDC_NO,
         Cursor::SizeNESW => IDC_SIZENESW,
         Cursor::SizeNS => IDC_SIZENS,
         Cursor::SizeNWSE => IDC_SIZENWSE,
@@ -372,6 +374,12 @@ impl WindowTrait for WindowImpl {
             if self.user_data.mouse_tracked {
                 SetCursor(self.user_data.cursor_handle);
             }
+        }
+    }
+
+    fn set_cursor_pos(&mut self, x: i32, y: i32)->i32 {
+        unsafe {
+            SetCursorPos(x, y)
         }
     }
 

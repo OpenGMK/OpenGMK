@@ -25,8 +25,10 @@ pub enum Cursor {
     Beam,      // I
     Cross,     // +
     Hand,      // 👆
+    Help,      //
     Hourglass, // ⌛
     Invisible, //
+    No,        //
     SizeNESW,  // ⤢
     SizeNS,    // ↕
     SizeNWSE,  // ⤡
@@ -85,6 +87,7 @@ pub trait WindowTrait {
     fn get_pos(&self) -> (i32, i32);
     fn get_cursor(&self) -> Cursor;
     fn set_cursor(&mut self, cursor: Cursor);
+    fn set_cursor_pos(&mut self, x: i32, y: i32) -> i32;
     fn set_style(&mut self, style: Style);
     fn get_title(&self) -> &str;
     fn set_title(&mut self, title: &str);
@@ -152,6 +155,11 @@ impl Window {
     /// Sets the window cursor displayed when hovered over the window.
     pub fn set_cursor(&mut self, cursor: Cursor) {
         self.0.set_cursor(cursor)
+    }
+
+    /// Sets the window cursor position
+    pub fn set_cursor_pos(&mut self, x: i32, y: i32) -> i32 {
+        self.0.set_cursor_pos(x, y)
     }
 
     /// Sets the window style.
