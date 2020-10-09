@@ -491,7 +491,7 @@ impl Game {
     }
 
     pub fn rgb_to_hsv(&mut self, color: i32) -> (i32, i32, i32) {
-        let (r, g, b) = (Real::from(color & 255), Real::from((color >> 8) & 255), Real::from((color >> 16) & 255));
+        let (r, g, b) = (Real::from(color & 0xFF), Real::from((color >> 8) & 0xFF), Real::from((color >> 16) & 0xFF));
 
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);
