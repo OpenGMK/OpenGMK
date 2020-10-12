@@ -1,3 +1,4 @@
+use crate::handleman::{HandleManager, HandleArray};
 use image::{gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
     fs::File,
@@ -9,7 +10,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct FileManager {
-    handles: [Option<Handle>; 32],
+    handles: HandleArray<Handle>,
 }
 
 #[derive(Debug)]
@@ -95,7 +96,7 @@ where
 
 impl FileManager {
     pub fn new() -> Self {
-        Self { handles: Default::default() }
+        Self { handles: HandleArray::new() }
     }
 
     pub fn open(&mut self, path: &str, content: Content, read: bool, write: bool, append: bool) -> Result<i32> {
@@ -107,11 +108,8 @@ impl FileManager {
             .truncate(content == Content::Text && write && !append)
             .open(path)?;
 
-        match self.handles.iter_mut().enumerate().find(|(_, x)| x.is_none()) {
-            Some((i, handle)) => {
-                *handle = Some(Handle { file, content });
-                Ok((i + 1) as i32)
-            },
+        match self.handles.add( Handle { file, content } ) {
+            Some(i) => Ok((i + 1) as i32),
             None => Err(Error::OutOfFiles),
         }
     }
@@ -119,9 +117,10 @@ impl FileManager {
     pub fn close(&mut self, handle: i32, content: Content) -> Result<()> {
         if handle > 0 {
             match self.handles.get((handle - 1) as usize) {
-                Some(Some(f)) => {
+                Some(f) => {
                     if f.content == content {
-                        Ok(self.handles[(handle - 1) as usize] = None)
+                        self.handles.delete((handle - 1) as usize);
+                        Ok(())
                     } else {
                         Err(Error::WrongContent)
                     }
@@ -136,7 +135,7 @@ impl FileManager {
     pub fn clear(&mut self, handle: i32) -> Result<()> {
         if handle > 0 {
             match self.handles.get_mut((handle - 1) as usize) {
-                Some(Some(f)) => {
+                Some(f) => {
                     f.file.seek(SeekFrom::Start(0))?;
                     f.file.set_len(0)?;
                     Ok(())
@@ -150,14 +149,14 @@ impl FileManager {
 
     pub fn read_real(&mut self, handle: i32) -> Result<f64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(read_real(&mut f.file)?),
+            Some(f) => Ok(read_real(&mut f.file)?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
 
     pub fn read_string(&mut self, handle: i32) -> Result<Vec<u8>> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 let mut bytes = read_until(&mut f.file, |c| c == 0x0a)?;
                 if bytes.last() == Some(&0x0a) {
                     // LF
@@ -177,7 +176,7 @@ impl FileManager {
 
     pub fn write_string(&mut self, handle: i32, text: &[u8]) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 f.file.write_all(text)?;
                 Ok(())
             },
@@ -187,14 +186,14 @@ impl FileManager {
 
     pub fn skip_line(&mut self, handle: i32) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(skip_line(&mut f.file)?),
+            Some(f) => Ok(skip_line(&mut f.file)?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
 
     pub fn is_eof(&mut self, handle: i32) -> Result<bool> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 let mut buf: [u8; 1] = [0];
                 let last_pos = f.file.stream_position()?;
                 let bytes_read = f.file.read(&mut buf)?;
@@ -207,7 +206,7 @@ impl FileManager {
 
     pub fn is_eoln(&mut self, handle: i32) -> Result<bool> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 let mut buf: [u8; 2] = [0, 0];
                 let last_pos = f.file.stream_position()?;
                 let bytes_read = f.file.read(&mut buf)?;
@@ -220,7 +219,7 @@ impl FileManager {
 
     pub fn read_byte(&mut self, handle: i32) -> Result<u8> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 let mut buf: [u8; 1] = [0];
                 f.file.read_exact(&mut buf)?;
                 Ok(buf[0])
@@ -231,7 +230,7 @@ impl FileManager {
 
     pub fn write_byte(&mut self, handle: i32, byte: u8) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 f.file.write_all(&[byte])?;
                 Ok(())
             },
@@ -241,14 +240,14 @@ impl FileManager {
 
     pub fn tell(&mut self, handle: i32) -> Result<u64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(f.file.stream_position()?),
+            Some(f) => Ok(f.file.stream_position()?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
 
     pub fn seek(&mut self, handle: i32, pos: i32) -> Result<()> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
+            Some(f) => {
                 f.file.seek(SeekFrom::Start(pos as u64))?;
                 Ok(())
             },
@@ -258,7 +257,7 @@ impl FileManager {
 
     pub fn size(&mut self, handle: i32) -> Result<u64> {
         match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(f.file.stream_len()?),
+            Some(f) => Ok(f.file.stream_len()?),
             _ => Err(Error::InvalidFile(handle)),
         }
     }
@@ -266,7 +265,7 @@ impl FileManager {
 
 impl Default for FileManager {
     fn default() -> Self {
-        Self { handles: Default::default() }
+        Self { handles: HandleArray::new() }
     }
 }
 
