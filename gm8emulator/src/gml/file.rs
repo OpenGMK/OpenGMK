@@ -1,7 +1,7 @@
-use crate::handleman::{HandleManager, HandleArray};
+use crate::handleman::{self, HandleManager, HandleArray};
 use image::{gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{self, BufReader, Read, Seek, SeekFrom, Write},
     path::Path,
 };
@@ -94,17 +94,20 @@ impl FileManager {
     }
 
     pub fn open(&mut self, path: &str, content: Content, read: bool, write: bool, append: bool) -> Result<i32> {
-        let file = File::with_options()
-            .create(!read)
+        let mut opts = OpenOptions::new();
+        opts.create(!read)
             .read(read)
             .write(write)
             .append(append)
-            .truncate(content == Content::Text && write && !append)
-            .open(path)?;
+            .truncate(content == Content::Text && write && !append);
 
-        match self.handles.add( Handle { file, content } ) {
-            Some(i) => Ok((i + 1) as i32),
-            None => Err(Error::OutOfFiles),
+        match self.handles.add_from( || Ok(Handle { file: opts.open(path)?, content }) ) {
+            Ok(i) => Ok((i + 1) as i32),
+            Err(e) => if e.is::<handleman::OutOfHandleSlotsError>() {
+                Err(Error::OutOfFiles)
+            } else {
+                Err(Error::IOError(*e.downcast::<io::Error>().unwrap()))
+            },
         }
     }
 

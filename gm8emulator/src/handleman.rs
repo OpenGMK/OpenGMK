@@ -5,6 +5,21 @@ use serde::{Serialize, Deserialize};
 // TODO: Replace with 'const generics' when stabilized.
 const ARRAY_SIZE: usize = 32;  // as limited in GM file API
 
+// Required because handle initialization closures must be able to return unknown errors.
+// https://doc.rust-lang.org/rust-by-example/error/multiple_error_types/boxing_errors.html
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+#[derive(Debug, Clone)]
+pub struct OutOfHandleSlotsError;
+
+impl std::fmt::Display for OutOfHandleSlotsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "handle limit reached")
+    }
+}
+
+impl std::error::Error for OutOfHandleSlotsError {}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HandleList<T> (Vec<Option<T>>,);
 
@@ -45,13 +60,19 @@ impl<T> HandleArray<T> {
 
 pub trait HandleManager<T>: private::HandleStorage<T> {
     fn add(&mut self, handle: T) -> Option<usize> {
+        self.add_from(|| Ok(handle)).ok()
+    }
+
+    fn add_from<F>(&mut self, init_handle: F) -> Result<usize>
+        where F: FnOnce() -> Result<T>,
+    {
         for (index, slot) in self.iter_mut().enumerate() {
             if slot.is_none() {
-                slot.replace(handle);
-                return Some(index);
+                slot.replace(init_handle()?);
+                return Ok(index);
             }
         }
-        self.push(handle)
+        self.push_from(init_handle)
     }
 
     fn delete(&mut self, index: usize) -> bool {
@@ -70,7 +91,8 @@ mod private {
 
     pub trait HandleStorage<T> {
         fn iter_mut(&mut self) -> std::slice::IterMut<Option<T>>;
-        fn push(&mut self, handle: T) -> Option<usize>;
+        fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
+            where F: FnOnce() -> Result<T>;
     }
 
     impl<T> HandleStorage<T> for HandleList<T> {
@@ -78,9 +100,12 @@ mod private {
             self.0.iter_mut()
         }
 
-        fn push(&mut self, handle: T) -> Option<usize> {
-            self.0.push(handle.into());
-            Some(self.0.len() - 1)
+        fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
+            where F: FnOnce() -> Result<T>
+        {
+            // init will occur before push but there it's pretty legit
+            self.0.push(init_handle()?.into());
+            Ok(self.0.len() - 1)
         }
     }
 
@@ -89,8 +114,10 @@ mod private {
             self.0.iter_mut()
         }
 
-        fn push(&mut self, _handle: T) -> Option<usize> {
-            None
+        fn push_from<F>(&mut self, _init_handle: F) -> Result<usize>
+            where F: FnOnce() -> Result<T>
+        {
+            Err(OutOfHandleSlotsError.into())
         }
     }
 }
