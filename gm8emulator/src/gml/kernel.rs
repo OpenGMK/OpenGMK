@@ -914,12 +914,10 @@ impl Game {
     pub fn sprite_get_texture(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = image_index.rem_euclid(sprite.frames.len() as _) as usize;
-            if let Some(atlas_ref) = sprite.frames.get(image_index).map(|x| &x.atlas_ref) {
-                Ok(self.renderer.get_texture_id(atlas_ref).into())
-            } else {
-                Ok((-1).into())
+            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(image_index)) {
+                return Ok(self.renderer.get_texture_id(atlas_ref).into());
             }
+            Ok((-1).into())
         } else {
             Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
         }
@@ -1103,9 +1101,7 @@ impl Game {
         expect_args!(args, [])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            let image_index =
-                (instance.image_index.get().floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize);
-            if let Some(atlas_ref) = sprite.frames.get(image_index as usize).map(|x| &x.atlas_ref) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.sprite_index.get())) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     instance.x.get().into(),
@@ -1127,12 +1123,7 @@ impl Game {
         let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) { instance.image_index.get() } else { image_index };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as _) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x.into(),
@@ -1164,11 +1155,7 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x.into(),
@@ -1211,11 +1198,7 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x.into(),
@@ -1261,11 +1244,7 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite_partial(
                     atlas_ref,
                     left.into(),
@@ -1314,11 +1293,7 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite_general(
                     atlas_ref,
                     left.into(),
@@ -1366,11 +1341,7 @@ impl Game {
             } else {
                 image_index
             };
-            if let Some(atlas_ref) = sprite
-                .frames
-                .get((image_index.floor().into_inner() as isize).rem_euclid(sprite.frames.len() as isize) as usize)
-                .map(|x| &x.atlas_ref)
-            {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite_tiled(
                     atlas_ref,
                     x.into(),
@@ -2969,7 +2940,7 @@ impl Game {
             y += inst.y.get();
         }
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.frames.get(0).map(|x| &x.atlas_ref) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(0)) {
                 for _ in 0..self.lives {
                     self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
                     x += sprite.width.into();
@@ -7996,8 +7967,7 @@ impl Game {
         let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let image_index = subimg % sprite.frames.len() as i32;
-            if let Some(frame) = sprite.frames.get((image_index as isize).rem_euclid(sprite.frames.len() as _) as usize)
-            {
+            if let Some(frame) = sprite.get_frame(Real::from(image_index)) {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
