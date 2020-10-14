@@ -411,17 +411,10 @@ impl Game {
         self.renderer.set_depth(-13000.0);
         if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
             let (x, y) = self.get_mouse_in_room();
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32)) {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    x.into(),
-                    y.into(),
-                    1.0,
-                    1.0,
-                    0.0,
-                    0xffffff,
-                    1.0,
-                );
+            if let Some(atlas_ref) =
+                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+            {
+                self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }
         }
 

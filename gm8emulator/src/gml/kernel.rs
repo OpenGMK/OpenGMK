@@ -915,7 +915,7 @@ impl Game {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(image_index)) {
-                return Ok(self.renderer.get_texture_id(atlas_ref).into());
+                return Ok(self.renderer.get_texture_id(atlas_ref).into())
             }
             Ok((-1).into())
         } else {

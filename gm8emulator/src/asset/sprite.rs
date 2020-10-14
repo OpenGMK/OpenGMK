@@ -271,14 +271,13 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
 
 impl Sprite {
     fn get_image_index(&self, image_index: Real) -> Option<usize> {
-        (image_index.floor().into_inner() as isize).checked_rem_euclid(self.frames.len() as isize).map(|x| {x as usize})
+        (image_index.floor().into_inner() as isize).checked_rem_euclid(self.frames.len() as isize).map(|x| x as usize)
     }
 
     pub fn get_frame(&self, image_index: Real) -> Option<&Frame> {
-        if let Some(image_index) = self.get_image_index(image_index) {
-            self.frames.get(image_index)
-        } else {
-            None
+        match self.get_image_index(image_index) {
+            Some(image_index) => self.frames.get(image_index),
+            None => None,
         }
     }
 
