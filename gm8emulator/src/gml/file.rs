@@ -103,11 +103,11 @@ impl FileManager {
 
         match self.handles.add_from( || Ok(Handle { file: opts.open(path)?, content }) ) {
             Ok(i) => Ok((i + 1) as i32),
-            Err(e) => if e.is::<handleman::OutOfHandleSlotsError>() {
-                Err(Error::OutOfFiles)
-            } else {
-                Err(Error::IOError(*e.downcast::<io::Error>().unwrap()))
-            },
+            Err(e) => Err(match e {
+                handleman::Error::OutOfSlots => Error::OutOfFiles,
+                handleman::Error::InitError(src) => Error::IOError(
+                    *src.downcast::<io::Error>().unwrap()),
+            }),
         }
     }
 

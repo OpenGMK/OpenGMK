@@ -1,24 +1,41 @@
 // This module implements the handle indices allocation as in the original GM.
 
+use std::{result, error};
 use serde::{Serialize, Deserialize};
 
 // TODO: Replace with 'const generics' when stabilized.
 const ARRAY_SIZE: usize = 32;  // as limited in GM file API
 
-// Required because handle initialization closures must be able to return unknown errors.
-// https://doc.rust-lang.org/rust-by-example/error/multiple_error_types/boxing_errors.html
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+// Required because handle initialization closures must be able to return any errors.
+// TODO: Do we also need "+ Send + Sync + 'static" for BoxedStdError?
+type BoxedStdError = Box<dyn error::Error>;
+type InitResult<T> = result::Result<T, BoxedStdError>;
 
-#[derive(Debug, Clone)]
-pub struct OutOfHandleSlotsError;
+#[derive(Debug)]
+pub enum Error {
+    OutOfSlots,
+    InitError(BoxedStdError),
+}
 
-impl std::fmt::Display for OutOfHandleSlotsError {
+pub type Result<T> = result::Result<T, Error>;
+
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "handle limit reached")
+        match self {
+            Self::OutOfSlots => write!(f, "handle limit reached"),
+            Self::InitError(e) => e.fmt(f),
+        }
     }
 }
 
-impl std::error::Error for OutOfHandleSlotsError {}
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::InitError(e) => Some(e.as_ref()),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HandleList<T> (Vec<Option<T>>,);
@@ -58,17 +75,25 @@ impl<T> HandleArray<T> {
     }
 }
 
+#[inline]
+fn cvt<T>(i: InitResult<T>) -> Result<T> {
+    match i {
+        Ok(r) => Ok(r),
+        Err(e) => Err(Error::InitError(e)),
+    }
+}
+
 pub trait HandleManager<T>: private::HandleStorage<T> {
     fn add(&mut self, handle: T) -> Option<usize> {
         self.add_from(|| Ok(handle)).ok()
     }
 
     fn add_from<F>(&mut self, init_handle: F) -> Result<usize>
-        where F: FnOnce() -> Result<T>,
+        where F: FnOnce() -> InitResult<T>,
     {
         for (index, slot) in self.iter_mut().enumerate() {
             if slot.is_none() {
-                slot.replace(init_handle()?);
+                slot.replace(cvt(init_handle())?);
                 return Ok(index);
             }
         }
@@ -92,7 +117,7 @@ mod private {
     pub trait HandleStorage<T> {
         fn iter_mut(&mut self) -> std::slice::IterMut<Option<T>>;
         fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
-            where F: FnOnce() -> Result<T>;
+            where F: FnOnce() -> InitResult<T>;
     }
 
     impl<T> HandleStorage<T> for HandleList<T> {
@@ -101,10 +126,10 @@ mod private {
         }
 
         fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
-            where F: FnOnce() -> Result<T>
+            where F: FnOnce() -> InitResult<T>
         {
             // init will occur before push but there it's pretty legit
-            self.0.push(init_handle()?.into());
+            self.0.push(cvt(init_handle())?.into());
             Ok(self.0.len() - 1)
         }
     }
@@ -115,9 +140,9 @@ mod private {
         }
 
         fn push_from<F>(&mut self, _init_handle: F) -> Result<usize>
-            where F: FnOnce() -> Result<T>
+            where F: FnOnce() -> InitResult<T>
         {
-            Err(OutOfHandleSlotsError.into())
+            Err(Error::OutOfSlots)
         }
     }
 }
