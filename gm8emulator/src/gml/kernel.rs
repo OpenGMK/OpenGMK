@@ -21,6 +21,7 @@ use crate::{
 use gmio::{
     render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
     window,
+    window::Cursor,
 };
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
@@ -3226,9 +3227,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_cd_playing")
     }
 
-    pub fn action_set_cursor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_set_cursor")
+    pub fn action_set_cursor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_id, show_window_cursor) = expect_args!(args, [int, any])?;
+        self.cursor_sprite = sprite_id;
+        let cursor = match show_window_cursor.is_truthy() {
+            true => Cursor::default(), // GM8 seems to always resets to default cursor on call of this function
+            false => Cursor::Invisible,
+        };
+        self.window.set_cursor(cursor);
+        Ok(Default::default())
     }
 
     pub fn action_webpage(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
