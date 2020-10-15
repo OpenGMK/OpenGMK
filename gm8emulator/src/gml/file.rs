@@ -109,35 +109,27 @@ impl FileManager {
     }
 
     pub fn close(&mut self, handle: i32, content: Content) -> Result<()> {
-        if handle > 0 {
-            match self.handles.get((handle - 1) as usize) {
-                Some(f) => {
-                    if f.content == content {
-                        self.handles.delete((handle - 1) as usize);
-                        Ok(())
-                    } else {
-                        Err(Error::WrongContent)
-                    }
-                },
-                _ => Err(Error::InvalidFile(handle)),
-            }
-        } else {
-            Ok(())
+        match self.handles.get((handle - 1) as usize) {
+            Some(f) => {
+                if f.content == content {
+                    self.handles.delete((handle - 1) as usize);
+                    Ok(())
+                } else {
+                    Err(Error::WrongContent)
+                }
+            },
+            _ => Err(Error::InvalidFile(handle)),
         }
     }
 
     pub fn clear(&mut self, handle: i32) -> Result<()> {
-        if handle > 0 {
-            match self.handles.get_mut((handle - 1) as usize) {
-                Some(f) => {
-                    f.file.seek(SeekFrom::Start(0))?;
-                    f.file.set_len(0)?;
-                    Ok(())
-                },
-                _ => Err(Error::InvalidFile(handle)),
-            }
-        } else {
-            Ok(())
+        match self.handles.get_mut((handle - 1) as usize) {
+            Some(f) => {
+                f.file.seek(SeekFrom::Start(0))?;
+                f.file.set_len(0)?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidFile(handle)),
         }
     }
 
