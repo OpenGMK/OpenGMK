@@ -268,3 +268,24 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
         *input = RgbaImage::from_vec(width, height, output_vec).unwrap();
     }
 }
+
+impl Sprite {
+    fn get_image_index(&self, image_index: Real) -> Option<usize> {
+        (image_index.floor().into_inner() as isize).checked_rem_euclid(self.frames.len() as isize).map(|x| x as usize)
+    }
+
+    pub fn get_frame(&self, image_index: Real) -> Option<&Frame> {
+        match self.get_image_index(image_index) {
+            Some(image_index) => self.frames.get(image_index),
+            None => None,
+        }
+    }
+
+    pub fn get_atlas_ref(&self, image_index: Real) -> Option<&AtlasRef> {
+        if let Some(image_index) = self.get_image_index(image_index) {
+            self.frames.get(image_index).map(|x| &x.atlas_ref)
+        } else {
+            None
+        }
+    }
+}

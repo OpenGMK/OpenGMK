@@ -1431,7 +1431,7 @@ impl Particle {
                     }
                 }
                 if let Some(sprite) = assets.sprites.get_asset(sprite) {
-                    sprite.frames.get((subimage % sprite.frames.len() as i32) as usize).map(|x| &x.atlas_ref)
+                    sprite.get_atlas_ref(Real::from(subimage % sprite.frames.len() as i32))
                 } else {
                     None
                 }

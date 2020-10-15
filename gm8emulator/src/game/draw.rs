@@ -268,22 +268,18 @@ impl Game {
                 } else {
                     // Default draw action
                     if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        let image_index = (instance.image_index.get().floor().into_inner() as i32)
-                            .rem_euclid(sprite.frames.len() as i32);
-                        let atlas_ref = match sprite.frames.get(image_index as usize) {
-                            Some(f1) => &f1.atlas_ref,
-                            None => return Ok(()), // sprite with 0 frames?
-                        };
-                        game.renderer.draw_sprite(
-                            atlas_ref,
-                            instance.x.get().into(),
-                            instance.y.get().into(),
-                            instance.image_xscale.get().into(),
-                            instance.image_yscale.get().into(),
-                            instance.image_angle.get().into(),
-                            instance.image_blend.get(),
-                            instance.image_alpha.get().into(),
-                        )
+                        if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
+                            game.renderer.draw_sprite(
+                                atlas_ref,
+                                instance.x.get().into(),
+                                instance.y.get().into(),
+                                instance.image_xscale.get().into(),
+                                instance.image_yscale.get().into(),
+                                instance.image_angle.get().into(),
+                                instance.image_blend.get(),
+                                instance.image_alpha.get().into(),
+                            )
+                        }
                     }
                     Ok(())
                 }
@@ -415,16 +411,11 @@ impl Game {
         self.renderer.set_depth(-13000.0);
         if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
             let (x, y) = self.get_mouse_in_room();
-            self.renderer.draw_sprite(
-                &sprite.frames[self.cursor_sprite_frame as usize % sprite.frames.len()].atlas_ref,
-                x.into(),
-                y.into(),
-                1.0,
-                1.0,
-                0.0,
-                0xffffff,
-                1.0,
-            );
+            if let Some(atlas_ref) =
+                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+            {
+                self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
+            }
         }
 
         Ok(())
