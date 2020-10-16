@@ -73,7 +73,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub file_manager: FileManager,
+    pub text_files: FileManager,
+    pub binary_files: FileManager,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -880,7 +881,8 @@ impl Game {
 
         let mut game = Self {
             compiler,
-            file_manager: FileManager::new(),
+            text_files: FileManager::new(),
+            binary_files: FileManager::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand,

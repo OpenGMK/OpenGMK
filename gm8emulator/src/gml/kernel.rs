@@ -5127,7 +5127,7 @@ impl Game {
             1 => (false, true),
             2 | _ => (true, true),
         };
-        match self.file_manager.open(filename.as_ref(), file::Content::Binary, read, write, false) {
+        match self.binary_files.open(filename.as_ref(), file::Content::Binary, read, write, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
         }
@@ -5135,7 +5135,7 @@ impl Game {
 
     pub fn file_bin_rewrite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.clear(handle) {
+        match self.binary_files.clear(handle) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_rewrite".into(), e.to_string())),
         }
@@ -5143,7 +5143,7 @@ impl Game {
 
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.close(handle, file::Content::Binary) {
+        match self.binary_files.close(handle, file::Content::Binary) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.to_string())),
         }
@@ -5151,7 +5151,7 @@ impl Game {
 
     pub fn file_bin_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.tell(handle) {
+        match self.binary_files.tell(handle) {
             Ok(p) => Ok(f64::from(p as i32).into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_position".into(), e.to_string())),
         }
@@ -5159,7 +5159,7 @@ impl Game {
 
     pub fn file_bin_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.size(handle) {
+        match self.binary_files.size(handle) {
             Ok(l) => Ok(f64::from(l as i32).into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_size".into(), e.to_string())),
         }
@@ -5167,7 +5167,7 @@ impl Game {
 
     pub fn file_bin_seek(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, pos) = expect_args!(args, [int, int])?;
-        match self.file_manager.seek(handle, pos) {
+        match self.binary_files.seek(handle, pos) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.to_string())),
         }
@@ -5175,7 +5175,7 @@ impl Game {
 
     pub fn file_bin_read_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.read_byte(handle) {
+        match self.binary_files.read_byte(handle) {
             Ok(b) => Ok(f64::from(b).into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte".into(), e.to_string())),
         }
@@ -5183,7 +5183,7 @@ impl Game {
 
     pub fn file_bin_write_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, byte) = expect_args!(args, [int, int])?;
-        match self.file_manager.write_byte(handle, byte as u8) {
+        match self.binary_files.write_byte(handle, byte as u8) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.to_string())),
         }
@@ -5191,7 +5191,7 @@ impl Game {
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(filename.as_ref(), file::Content::Text, true, false, false) {
+        match self.text_files.open(filename.as_ref(), file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => {
                 eprintln!("Warning: file_text_open_read on {} failed: {}", filename, e);
@@ -5202,7 +5202,7 @@ impl Game {
 
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, false) {
+        match self.text_files.open(filename.as_ref(), file::Content::Text, false, true, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
         }
@@ -5210,7 +5210,7 @@ impl Game {
 
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, true) {
+        match self.text_files.open(filename.as_ref(), file::Content::Text, false, true, true) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
         }
@@ -5218,7 +5218,7 @@ impl Game {
 
     pub fn file_text_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.close(handle, file::Content::Text) {
+        match self.text_files.close(handle, file::Content::Text) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.to_string())),
         }
@@ -5226,7 +5226,7 @@ impl Game {
 
     pub fn file_text_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.read_string(handle) {
+        match self.text_files.read_string(handle) {
             Ok(s) => Ok(s.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_read_string".into(), e.to_string())),
         }
@@ -5234,7 +5234,7 @@ impl Game {
 
     pub fn file_text_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.read_real(handle) {
+        match self.text_files.read_real(handle) {
             Ok(r) => Ok(r.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_read_real".into(), e.to_string())),
         }
@@ -5242,7 +5242,7 @@ impl Game {
 
     pub fn file_text_readln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.skip_line(handle) {
+        match self.text_files.skip_line(handle) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_readln".into(), e.to_string())),
         }
@@ -5250,7 +5250,7 @@ impl Game {
 
     pub fn file_text_eof(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.is_eof(handle) {
+        match self.text_files.is_eof(handle) {
             Ok(res) => Ok(res.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_eof".into(), e.to_string())),
         }
@@ -5258,7 +5258,7 @@ impl Game {
 
     pub fn file_text_eoln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.is_eoln(handle) {
+        match self.text_files.is_eoln(handle) {
             Ok(res) => Ok(res.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_eoln".into(), e.to_string())),
         }
@@ -5266,7 +5266,7 @@ impl Game {
 
     pub fn file_text_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, text) = expect_args!(args, [int, bytes])?;
-        match self.file_manager.write_string(handle, text.as_ref()) {
+        match self.text_files.write_string(handle, text.as_ref()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.to_string())),
         }
@@ -5275,7 +5275,7 @@ impl Game {
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
         let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
-        match self.file_manager.write_string(handle, text.as_bytes()) {
+        match self.text_files.write_string(handle, text.as_bytes()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.to_string())),
         }
@@ -5283,7 +5283,7 @@ impl Game {
 
     pub fn file_text_writeln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.file_manager.write_string(handle, b"\r\n") {
+        match self.text_files.write_string(handle, b"\r\n") {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.to_string())),
         }
