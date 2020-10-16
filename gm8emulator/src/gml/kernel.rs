@@ -2067,7 +2067,7 @@ impl Game {
                 self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h),
             ) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+                Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.into())),
             }
         } else {
             Ok(Default::default())
@@ -5137,7 +5137,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.clear(handle) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_rewrite".into(), e.into())),
         }
     }
 
