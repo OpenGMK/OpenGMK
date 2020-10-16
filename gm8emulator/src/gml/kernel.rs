@@ -3654,9 +3654,9 @@ impl Game {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
             Value::Str(s) => match self.decode_str(s.as_ref()).trim() {
-                x if x.len() == 0 => Ok(Value::Real(Real::from(0.0))),
+                x if x.len() == 0 => Ok(Default::default()),
                 x => match x.parse::<f64>() {
-                    Ok(r) => Ok(Value::Real(r.into())),
+                    Ok(r) => Ok(r.into()),
                     Err(e) => Err(gml::Error::FunctionError("real".into(), format!("can't convert {} - {}", s, e))),
                 },
             },
@@ -4560,7 +4560,7 @@ impl Game {
             let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>();
             Ok(count.into())
         } else {
-            Ok(Value::Real(Real::from(0.0)))
+            Ok(Default::default())
         }
     }
 
@@ -5136,7 +5136,7 @@ impl Game {
     pub fn file_bin_rewrite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.clear(handle) {
-            Ok(()) => Ok(Value::Real(Real::from(0.0))),
+            Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
         }
     }
@@ -5144,7 +5144,7 @@ impl Game {
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Binary) {
-            Ok(()) => Ok(Value::Real(Real::from(0.0))),
+            Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
         }
     }
@@ -5168,7 +5168,7 @@ impl Game {
     pub fn file_bin_seek(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, pos) = expect_args!(args, [int, int])?;
         match self.file_manager.seek(handle, pos) {
-            Ok(()) => Ok(Value::from(0.0)),
+            Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.into())),
         }
     }
@@ -5184,7 +5184,7 @@ impl Game {
     pub fn file_bin_write_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, byte) = expect_args!(args, [int, int])?;
         match self.file_manager.write_byte(handle, byte as u8) {
-            Ok(()) => Ok(Value::from(0.0)),
+            Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.into())),
         }
     }
@@ -5195,7 +5195,7 @@ impl Game {
             Ok(i) => Ok(i.into()),
             Err(e) => {
                 println!("Warning: file_text_open_read on {} failed: {}", filename, e);
-                Ok(Value::Real(Real::from(-1.0)))
+                Ok((-1.0).into())
             },
         }
     }
@@ -5219,7 +5219,7 @@ impl Game {
     pub fn file_text_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
-            Ok(()) => Ok(Value::Real(Real::from(0.0))),
+            Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.into())),
         }
     }
@@ -7280,7 +7280,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.frames.len().into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7289,7 +7289,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7298,7 +7298,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7307,7 +7307,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_x.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7316,7 +7316,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_y.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7325,7 +7325,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_left.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7334,7 +7334,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_right.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7343,7 +7343,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_top.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
@@ -7352,7 +7352,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_bottom.into())
         } else {
-            Ok(Value::Real(Real::from(-1.0)))
+            Ok((-1.0).into())
         }
     }
 
