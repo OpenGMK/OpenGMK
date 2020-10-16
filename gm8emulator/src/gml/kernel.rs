@@ -5127,7 +5127,7 @@ impl Game {
             1 => (false, true),
             2 | _ => (true, true),
         };
-        match self.binary_files.open(filename.as_ref(), file::Content::Binary, read, write, false) {
+        match self.binary_files.open(filename.as_ref(), true, read, write, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
         }
@@ -5143,7 +5143,7 @@ impl Game {
 
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.binary_files.close(handle, file::Content::Binary) {
+        match self.binary_files.close(handle) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.to_string())),
         }
@@ -5191,7 +5191,7 @@ impl Game {
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.text_files.open(filename.as_ref(), file::Content::Text, true, false, false) {
+        match self.text_files.open(filename.as_ref(), false, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => {
                 eprintln!("Warning: file_text_open_read on {} failed: {}", filename, e);
@@ -5202,7 +5202,7 @@ impl Game {
 
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.text_files.open(filename.as_ref(), file::Content::Text, false, true, false) {
+        match self.text_files.open(filename.as_ref(), false, false, true, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
         }
@@ -5210,7 +5210,7 @@ impl Game {
 
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.text_files.open(filename.as_ref(), file::Content::Text, false, true, true) {
+        match self.text_files.open(filename.as_ref(), false, false, true, true) {
             Ok(i) => Ok(i.into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
         }
@@ -5218,7 +5218,7 @@ impl Game {
 
     pub fn file_text_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.close(handle, file::Content::Text) {
+        match self.text_files.close(handle) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.to_string())),
         }
