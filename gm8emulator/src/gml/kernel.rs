@@ -3952,32 +3952,7 @@ impl Game {
         let collision = match obj {
             gml::SELF => false,
             gml::OTHER => self.check_collision(context.this, context.other),
-            gml::ALL => self.check_collision_any(context.this).is_some(),
-            obj if obj < 100000 => {
-                // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(target) => {
-                                if target != context.this && self.check_collision(context.this, target) {
-                                    break true
-                                }
-                            },
-                            None => break false,
-                        }
-                    }
-                } else {
-                    false
-                }
-            },
-            instance_id => {
-                // Target is an instance ID
-                match self.instance_list.get_by_instid(instance_id) {
-                    Some(id) => id != context.this && self.check_collision(context.this, id),
-                    None => false,
-                }
-            },
+            obj => self.find_instance_with(obj, |handle| self.check_collision(context.this, handle)).is_some(),
         };
 
         // Move self back to where it was
@@ -4497,59 +4472,10 @@ impl Game {
     }
 
     pub fn collision_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, object_id, precise, exclude_self) = expect_args!(args, [int, int, int, any, any])?;
-        let precise = precise.is_truthy();
-        let include_self = !exclude_self.is_truthy();
-        let id = match object_id {
-            gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(handle) => {
-                            if (include_self || handle != context.this)
-                                && self.check_collision_point(handle, x, y, precise)
-                            {
-                                break Some(handle)
-                            }
-                        },
-                        None => break None,
-                    }
-                }
-            },
-            _ if object_id < 0 => None,
-            object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(handle) => {
-                                if (include_self || handle != context.this)
-                                    && self.check_collision_point(handle, x, y, precise)
-                                {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
-                    }
-                } else {
-                    None
-                }
-            },
-            instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if (include_self || handle != context.this) && self.check_collision_point(handle, x, y, precise) {
-                        Some(handle)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-        };
-
-        match id {
+        let (x, y, object_id, precise, exclude_self) = expect_args!(args, [int, int, int, bool, bool])?;
+        match self.find_instance_with(object_id, |handle| {
+            (!exclude_self || handle != context.this) && self.check_collision_point(handle, x, y, precise)
+        }) {
             Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
@@ -4578,61 +4504,10 @@ impl Game {
 
     pub fn collision_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, object_id, precise, exclude_self) =
-            expect_args!(args, [real, real, real, real, int, any, any])?;
-        let precise = precise.is_truthy();
-        let include_self = !exclude_self.is_truthy();
-        let id = match object_id {
-            gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(handle) => {
-                            if (include_self || handle != context.this)
-                                && self.check_collision_line(handle, x1, y1, x2, y2, precise)
-                            {
-                                break Some(handle)
-                            }
-                        },
-                        None => break None,
-                    }
-                }
-            },
-            _ if object_id < 0 => None,
-            object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(handle) => {
-                                if (include_self || handle != context.this)
-                                    && self.check_collision_line(handle, x1, y1, x2, y2, precise)
-                                {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
-                    }
-                } else {
-                    None
-                }
-            },
-            instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if (include_self || handle != context.this)
-                        && self.check_collision_line(handle, x1, y1, x2, y2, precise)
-                    {
-                        Some(handle)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-        };
-
-        match id {
+            expect_args!(args, [int, int, int, int, int, bool, bool])?;
+        match self.find_instance_with(object_id, |handle| {
+            (!exclude_self || handle != context.this) && self.check_collision_line(handle, x1, y1, x2, y2, precise)
+        }) {
             Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
@@ -4693,48 +4568,7 @@ impl Game {
 
     pub fn instance_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [int, int, int])?;
-        let id: Option<usize> = match object_id {
-            gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(handle) => {
-                            if self.check_collision_point(handle, x, y, true) {
-                                break Some(handle)
-                            }
-                        },
-                        None => break None,
-                    }
-                }
-            },
-            _ if object_id < 0 => None, // Doesn't even check for other
-            object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(handle) => {
-                                if self.check_collision_point(handle, x, y, true) {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
-                    }
-                } else {
-                    None
-                }
-            },
-            instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if self.check_collision_point(handle, x, y, true) { Some(handle) } else { None }
-                } else {
-                    None
-                }
-            },
-        };
-
-        match id {
+        match self.find_instance_with(object_id, |handle| self.check_collision_point(handle, x, y, true)) {
             Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
@@ -4872,48 +4706,7 @@ impl Game {
         instance.bbox_is_stale.set(true);
 
         // Check collision with target
-        let other: Option<usize> = match obj {
-            gml::ALL => {
-                // Target is all instances
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(target) => {
-                            if target != context.this && self.check_collision(context.this, target) {
-                                break Some(target)
-                            }
-                        },
-                        None => break None,
-                    }
-                }
-            },
-            _ if obj < 0 => None, // Doesn't even check for other
-            obj if obj < 100000 => {
-                // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(target) => {
-                                if target != context.this && self.check_collision(context.this, target) {
-                                    break Some(target)
-                                }
-                            },
-                            None => break None,
-                        }
-                    }
-                } else {
-                    None
-                }
-            },
-            instance_id => {
-                // Target is an instance ID
-                match self.instance_list.get_by_instid(instance_id) {
-                    Some(id) if id != context.this && self.check_collision(context.this, id) => Some(id),
-                    _ => None,
-                }
-            },
-        };
+        let other = self.find_instance_with(obj, |handle| handle != context.this && self.check_collision(context.this, target));
 
         // Move self back to where it was
         instance.x.set(old_x);
@@ -5024,43 +4817,7 @@ impl Game {
         let meeting = match object_id {
             gml::SELF => self.check_collision_point(context.this, x, y, true),
             gml::OTHER => self.check_collision_point(context.other, x, y, true),
-            gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(handle) => {
-                            if self.check_collision_point(handle, x, y, true) {
-                                break true
-                            }
-                        },
-                        None => break false,
-                    }
-                }
-            },
-            object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(handle) => {
-                                if self.check_collision_point(handle, x, y, true) {
-                                    break true
-                                }
-                            },
-                            None => break false,
-                        }
-                    }
-                } else {
-                    false
-                }
-            },
-            instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    self.check_collision_point(handle, x, y, true)
-                } else {
-                    false
-                }
-            },
+            obj => self.find_instance_with(obj, |handle| self.check_collision_point(handle, x, y, true)),
         };
         Ok(meeting.into())
     }
