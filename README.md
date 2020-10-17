@@ -27,9 +27,8 @@ After cloning the GM8Emulator repository, set up Rust in your CLI by typing the 
 - `rustup self update`
 - `rustup update`
 - `rustup install nightly`
-- `rustup default nightly`
 
-Once that is set up, build the program in your CLI by typing `cargo build --release`, then navigate to the `/target/release` folder to start making and running your TAS! Note that you can run the build commmand again from this folder if you need to.
+Once that is set up, build the program in your CLI by typing `cargo +nightly build --release`, then navigate to the `/target/release` folder to start making and running your TAS! Note that you can run the build command again from this folder if you need to.
 
 ### TASing
 
@@ -67,7 +66,7 @@ Run the following commands in your CLI in `target/release`, replacing anything i
 
 > Many games use 32-bit DLL files for things like audio. These cannot be directly called from 64-bit programs, so the workaround is to use a 32-bit bridge executable. Unfortunately Cargo doesn’t let us do this cleanly yet so it requires a little extra setup.
 > 
-> Run `rustup target add i686-pc-windows-msvc` to install the 32-bit build target, then run `cargo build --release` from the "dll-bridge" directory. This will place the dll-bridge.exe in "target/i686-pc-windows-msvc/release". You will need to move this into the folder with the emulator executable for it to work. After that, you should be sorted.
+> Run `rustup target add i686-pc-windows-msvc` to install the 32-bit build target, then run `cargo +nightly build --release` from the "dll-bridge" directory. This will place the dll-bridge.exe in "target/i686-pc-windows-msvc/release". You will need to move this into the folder with the emulator executable for it to work. After that, you should be sorted.
 
 ### Audio/Visual
 
