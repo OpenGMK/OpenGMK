@@ -32,6 +32,7 @@ use std::{
 
 macro_rules! _arg_into {
     (any, $v: expr) => {{ Ok($v.clone()) }};
+    (bool, $v: expr) => {{ Ok($v.is_truthy()) }};
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
     (string, $v: expr) => {{ Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
