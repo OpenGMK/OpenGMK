@@ -2748,7 +2748,7 @@ impl Game {
     }
 
     pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(Value::clone)
+        expect_args!(args, [any]).map(|x| x.clone())
     }
 
     pub fn action_if_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4501,7 +4501,7 @@ impl Game {
 
     pub fn collision_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, object_id, precise, exclude_self) =
-            expect_args!(args, [int, int, int, int, int, bool, bool])?;
+            expect_args!(args, [real, real, real, real, int, bool, bool])?;
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_line(handle, x1, y1, x2, y2, precise)
         }) {
@@ -4704,7 +4704,7 @@ impl Game {
 
         // Check collision with target
         let other =
-            self.find_instance_with(obj, |handle| handle != context.this && self.check_collision(context.this, target));
+            self.find_instance_with(obj, |handle| handle != context.this && self.check_collision(context.this, handle));
 
         // Move self back to where it was
         instance.x.set(old_x);
@@ -4814,7 +4814,7 @@ impl Game {
         let meeting = match object_id {
             gml::SELF => self.check_collision_point(context.this, x, y, true),
             gml::OTHER => self.check_collision_point(context.other, x, y, true),
-            obj => self.find_instance_with(obj, |handle| self.check_collision_point(handle, x, y, true)),
+            obj => self.find_instance_with(obj, |handle| self.check_collision_point(handle, x, y, true)).is_some(),
         };
         Ok(meeting.into())
     }
