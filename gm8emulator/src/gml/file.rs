@@ -12,6 +12,7 @@ pub struct FileHandle(File,);
 
 #[derive(Debug)]
 pub enum Error {
+    LegacyFileUnopened,
     InvalidFile(i32),
     IOError(io::Error),
     ImageError(ImageError),
@@ -32,9 +33,10 @@ impl From<ImageError> for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
-            Error::IOError(err) => write!(f, "io error: {}", err),
-            Error::ImageError(err) => write!(f, "image error: {}", err),
+            Self::LegacyFileUnopened => write!(f, "file is not opened"),
+            Self::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
+            Self::IOError(err) => write!(f, "io error: {}", err),
+            Self::ImageError(err) => write!(f, "image error: {}", err),
         }
     }
 }
@@ -106,8 +108,23 @@ impl FileHandle {
         Ok(bytes)
     }
 
+    pub fn write_real(&mut self, real: f64) -> Result<()> {
+        let text = if real.fract() == 0.0 {
+            format!(" {:.0}", real)
+        } else {
+            format!(" {:.6}", real)
+        };
+        self.0.write_all(text.as_bytes())?;
+        Ok(())
+    }
+
     pub fn write_string(&mut self, text: &[u8]) -> Result<()> {
         self.0.write_all(text)?;
+        Ok(())
+    }
+
+    pub fn write_newline(&mut self) -> Result<()> {
+        self.0.write_all(b"\r\n")?;
         Ok(())
     }
 

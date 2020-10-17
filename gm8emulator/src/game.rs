@@ -160,6 +160,7 @@ pub struct Game {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
+    pub open_file: Option<FileHandle>,       // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,
@@ -949,6 +950,7 @@ impl Game {
             included_files,
             gm_version,
             open_ini: None,
+            open_file: None,
             file_finder: None,
             spoofed_time_nanos,
             fps: 0,

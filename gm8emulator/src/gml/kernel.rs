@@ -5329,11 +5329,9 @@ impl Game {
 
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
-        let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
-
         match self.text_files.get_mut((handle-1) as usize)
             .map_or(Err(file::Error::InvalidFile(handle)),
-                |f| f.write_string(text.as_bytes()))
+                |f| f.write_real(num.into()))
         {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.to_string())),
@@ -5344,71 +5342,137 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut((handle-1) as usize)
             .map_or(Err(file::Error::InvalidFile(handle)),
-                |f| f.write_string(b"\r\n"))
+                |f| f.write_newline())
         {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.to_string())),
         }
     }
 
-    pub fn file_open_read(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_open_read")
+    pub fn file_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let filename = expect_args!(args, [string])?;
+        match file::FileHandle::open(filename.as_ref(), false, true, false, false) {
+            Ok(f) => { self.open_file.replace(f); },
+            Err(e) => {
+                self.open_file.take();
+                eprintln!("Warning: file_open_read on {} failed: {}", filename, e);
+            },
+        };
+        Ok(Default::default())
     }
 
-    pub fn file_open_write(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_open_write")
+    pub fn file_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let filename = expect_args!(args, [string])?;
+        match file::FileHandle::open(filename.as_ref(), false, false, true, false) {
+            Ok(f) => {
+                self.open_file.replace(f);
+                Ok(Default::default())
+            },
+            Err(e) => {
+                self.open_file.take();
+                Err(gml::Error::FunctionError("file_open_write".into(), e.to_string()))
+            },
+        }
     }
 
-    pub fn file_open_append(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_open_append")
+    pub fn file_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let filename = expect_args!(args, [string])?;
+        match file::FileHandle::open(filename.as_ref(), false, false, true, true) {
+            Ok(f) => {
+                self.open_file.replace(f);
+                Ok(Default::default())
+            },
+            Err(e) => {
+                self.open_file.take();
+                Err(gml::Error::FunctionError("file_open_append".into(), e.to_string()))
+            },
+        }
     }
 
-    pub fn file_close(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_close")
+    pub fn file_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.open_file.take();
+        Ok(Default::default())
     }
 
-    pub fn file_read_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_read_string")
+    pub fn file_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.read_string() )
+        {
+            Ok(s) => Ok(s.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_read_string".into(), e.to_string())),
+        }
     }
 
-    pub fn file_read_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_read_real")
+    pub fn file_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.read_real())
+        {
+            Ok(r) => Ok(r.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_read_real".into(), e.to_string())),
+        }
     }
 
-    pub fn file_readln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_readln")
+    pub fn file_readln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.skip_line())
+        {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_readln".into(), e.to_string())),
+        }
     }
 
-    pub fn file_eof(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_eof")
+    pub fn file_eof(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.is_eof())
+        {
+            Ok(res) => Ok(res.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_eof".into(), e.to_string())),
+        }
     }
 
-    pub fn file_eoln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_eoln")
+    pub fn file_eoln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.is_eoln())
+        {
+            Ok(res) => Ok(res.into()),
+            Err(e) => Err(gml::Error::FunctionError("file_eoln".into(), e.to_string())),
+        }
     }
 
-    pub fn file_write_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_write_string")
+    pub fn file_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let text = expect_args!(args, [bytes])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.write_string(text.as_ref()))
+        {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_write_string".into(), e.to_string())),
+        }
     }
 
-    pub fn file_write_real(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function file_write_real")
+    pub fn file_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let num = expect_args!(args, [real])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.write_real(num.into()))
+        {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_write_real".into(), e.to_string())),
+        }
     }
 
-    pub fn file_writeln(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function file_writeln")
+    pub fn file_writeln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened),
+            |f| f.write_newline())
+        {
+            Ok(()) => Ok(Default::default()),
+            Err(e) => Err(gml::Error::FunctionError("file_writeln".into(), e.to_string())),
+        }
     }
 
     pub fn file_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
