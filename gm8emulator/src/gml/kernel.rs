@@ -4545,61 +4545,10 @@ impl Game {
 
     pub fn collision_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, object_id, precise, exclude_self) =
-            expect_args!(args, [int, int, int, int, int, any, any])?;
-        let precise = precise.is_truthy();
-        let include_self = !exclude_self.is_truthy();
-        let id = match object_id {
-            gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                loop {
-                    match iter.next(&self.instance_list) {
-                        Some(handle) => {
-                            if (include_self || handle != context.this)
-                                && self.check_collision_rectangle(handle, x1, y1, x2, y2, precise)
-                            {
-                                break Some(handle)
-                            }
-                        },
-                        None => break None,
-                    }
-                }
-            },
-            _ if object_id < 0 => None,
-            object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.instance_list) {
-                            Some(handle) => {
-                                if (include_self || handle != context.this)
-                                    && self.check_collision_rectangle(handle, x1, y1, x2, y2, precise)
-                                {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
-                    }
-                } else {
-                    None
-                }
-            },
-            instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if (include_self || handle != context.this)
-                        && self.check_collision_rectangle(handle, x1, y1, x2, y2, precise)
-                    {
-                        Some(handle)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-        };
-
-        match id {
+            expect_args!(args, [int, int, int, int, int, bool, bool])?;
+        match self.find_instance_with(object_id, |handle| {
+            (!exclude_self || handle != context.this) && self.check_collision_rectangle(handle, x1, y1, x2, y2, precise)
+        }) {
             Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
