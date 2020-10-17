@@ -2748,7 +2748,7 @@ impl Game {
     }
 
     pub fn action_if(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [any]).map(|x| x.is_truthy().into())
+        expect_args!(args, [any]).map(Value::clone)
     }
 
     pub fn action_if_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
