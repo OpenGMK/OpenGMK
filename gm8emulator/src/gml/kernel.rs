@@ -5248,7 +5248,10 @@ impl Game {
 
     pub fn file_text_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        if self.text_files.delete((handle-1) as usize) {
+        let c = self.text_files.capacity();
+
+        // NB: .delete() MUST be called - beware the short-circuit evaluation here!
+        if self.text_files.delete((handle-1) as usize) || (1..=c).contains(&(handle as usize)) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(

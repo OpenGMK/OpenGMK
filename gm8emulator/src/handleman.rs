@@ -73,6 +73,10 @@ impl<T> HandleArray<T> {
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         self.0.get_mut(index)?.as_mut()
     }
+
+    pub fn capacity(&self) -> usize {
+        self.0.len()
+    }
 }
 
 #[inline]
