@@ -2372,6 +2372,52 @@ impl Game {
         }
         None
     }
+
+    /// Finds an instance that matches the predicate.
+    /// `object_id` can be -3 for `all`, an object ID, or an instance ID.
+    /// The predicate should take an instance handle as an argument, and return true if it matches.
+    pub fn find_instance_with(&self, object_id: i32, pred: impl Fn(usize) -> bool) -> Option<usize> {
+        match object_id {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if pred(handle) {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            _ if object_id < 0 => None,
+            object_id if object_id < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if pred(handle) {
+                                    break Some(handle)
+                                }
+                            },
+                            None => break None,
+                        }
+                    }
+                } else {
+                    None
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    if pred(handle) { Some(handle) } else { None }
+                } else {
+                    None
+                }
+            },
+        }
+    }
 }
 
 pub trait GetAsset<T> {
