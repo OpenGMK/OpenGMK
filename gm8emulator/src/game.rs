@@ -6,6 +6,7 @@ pub mod includedfile;
 pub mod model;
 pub mod movement;
 pub mod particle;
+pub mod pathfinding;
 pub mod replay;
 pub mod savestate;
 pub mod string;
@@ -132,6 +133,8 @@ pub struct Game {
     pub auto_draw: bool,
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+
+    pub potential_step_settings: pathfinding::PotentialStepSettings,
 
     pub fps: u32,                 // initially 0
     pub transition_kind: i32,     // default 0
@@ -928,6 +931,7 @@ impl Game {
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
             cursor_sprite: -1,

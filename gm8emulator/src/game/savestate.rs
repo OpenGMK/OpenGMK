@@ -6,6 +6,7 @@ use crate::{
         includedfile::IncludedFile,
         model::Model,
         particle,
+        pathfinding::PotentialStepSettings,
         string::RCStr,
         surface::Surface,
         view::View,
@@ -105,6 +106,8 @@ pub struct SaveState {
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+
+    pub potential_step_settings: PotentialStepSettings,
 
     pub transition_kind: i32,
     pub transition_steps: i32,
@@ -213,6 +216,7 @@ impl SaveState {
             primitive_3d: game.renderer.get_primitive_3d(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
+            potential_step_settings: game.potential_step_settings.clone(),
             transition_kind: game.transition_kind.clone(),
             transition_steps: game.transition_steps.clone(),
             cursor_sprite: game.cursor_sprite.clone(),
@@ -347,6 +351,7 @@ impl SaveState {
         game.renderer.set_primitive_3d(self.primitive_3d);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
+        game.potential_step_settings = self.potential_step_settings;
         game.transition_kind = self.transition_kind;
         game.transition_steps = self.transition_steps;
         game.cursor_sprite = self.cursor_sprite;
