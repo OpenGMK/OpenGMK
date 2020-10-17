@@ -4424,9 +4424,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mp_potential_path")
     }
 
-    pub fn mp_potential_step_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function mp_potential_step_object")
+    pub fn mp_potential_step_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, obj) = expect_args!(args, [real, real, real, int])?;
+        Ok(pathfinding::potential_step(
+            x,
+            y,
+            step_size,
+            &self.potential_step_settings,
+            self.instance_list.get(context.this),
+            || match obj {
+                gml::SELF => false,
+                gml::OTHER => self.check_collision(context.this, context.other),
+                obj => self.find_instance_with(obj, |handle| self.check_collision(context.this, handle)).is_some(),
+            },
+        )
+        .into())
     }
 
     pub fn mp_potential_path_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
