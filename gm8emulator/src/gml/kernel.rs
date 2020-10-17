@@ -5,8 +5,8 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, model, particle, replay, string::RCStr, surface::Surface, view::View, Game, GetAsset, PlayType,
-        SceneChange, Version,
+        draw, external, model, particle, pathfinding, replay, string::RCStr, surface::Surface, view::View, Game,
+        GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
         self,
@@ -4389,14 +4389,34 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mp_linear_path_object")
     }
 
-    pub fn mp_potential_settings(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function mp_potential_settings")
+    pub fn mp_potential_settings(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (max_rotation, rotate_step, check_distance, rotate_on_spot) = expect_args!(args, [real, real, real, any])?;
+        self.potential_step_settings = pathfinding::PotentialStepSettings {
+            max_rotation,
+            rotate_step,
+            check_distance,
+            rotate_on_spot: rotate_on_spot.is_truthy(),
+        };
+        Ok(Default::default())
     }
 
-    pub fn mp_potential_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function mp_potential_step")
+    pub fn mp_potential_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
+        Ok(pathfinding::potential_step(
+            x,
+            y,
+            step_size,
+            &self.potential_step_settings,
+            self.instance_list.get(context.this),
+            || {
+                if checkall {
+                    self.check_collision_any(context.this).is_some()
+                } else {
+                    self.check_collision_solid(context.this).is_some()
+                }
+            },
+        )
+        .into())
     }
 
     pub fn mp_potential_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
