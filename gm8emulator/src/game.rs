@@ -2429,24 +2429,10 @@ pub trait GetAsset<T> {
 
 impl<T> GetAsset<T> for Vec<Option<T>> {
     fn get_asset(&self, index: ID) -> Option<&T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get(index as usize)?.as_ref()
     }
 
     fn get_asset_mut(&mut self, index: ID) -> Option<&mut T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get_mut(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get_mut(index as usize)?.as_mut()
     }
 }
