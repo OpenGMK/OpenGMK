@@ -8,7 +8,15 @@ use std::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct FileHandle(File,);
+pub struct TextHandle(File,);
+#[derive(Debug)]
+pub struct BinaryHandle(File,);
+
+pub enum AccessMode {
+    Read,
+    Write,
+    Special,  // 'append' for text files, 'read-write' for binary
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -71,22 +79,23 @@ where
     Ok(false)
 }
 
-impl FileHandle {
-    pub fn open(path: &str, is_binary: bool, read: bool, write: bool, append: bool) -> io::Result<Self> {
+impl TextHandle {
+    pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
+        #[rustfmt::skip]
+        let (read, write, append) = match mode {
+            AccessMode::Read    => (true,  false, false),
+            AccessMode::Write   => (false, true,  false),
+            AccessMode::Special => (false, true,  true ),
+        };
+
         Ok( Self ( OpenOptions::new()
             .create(!read)
             .read(read)
             .write(write)
             .append(append)
-            .truncate(!is_binary && write && !append)
+            .truncate(write && !append)
             .open(path)?
         ) )
-    }
-
-    pub fn clear(&mut self) -> Result<()> {
-        self.0.seek(SeekFrom::Start(0))?;
-        self.0.set_len(0)?;
-        Ok(())
     }
 
     pub fn read_real(&mut self) -> Result<f64> {
@@ -146,6 +155,30 @@ impl FileHandle {
         let bytes_read = self.0.read(&mut buf)?;
         self.0.seek(SeekFrom::Start(last_pos))?;
         Ok(bytes_read == 0 || (buf[0] == 0x0d && buf[1] == 0x0a))
+    }
+}
+
+impl BinaryHandle {
+    pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
+        #[rustfmt::skip]
+        let (read, write) = match mode {
+            AccessMode::Read    => (true,  false),
+            AccessMode::Write   => (false, true ),
+            AccessMode::Special => (true,  true ),
+        };
+
+        Ok( Self ( OpenOptions::new()
+            .create(!read)
+            .read(read)
+            .write(write)
+            .open(path)?
+        ) )
+    }
+
+    pub fn clear(&mut self) -> Result<()> {
+        self.0.seek(SeekFrom::Start(0))?;
+        self.0.set_len(0)?;
+        Ok(())
     }
 
     pub fn read_byte(&mut self) -> Result<u8> {

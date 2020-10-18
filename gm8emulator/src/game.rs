@@ -30,8 +30,7 @@ use crate::{
         Object, Script, Timeline,
     },
     gml::{
-        self, ds, ev,
-        file::FileHandle,
+        self, ds, ev, file,
         rand::Random,
         Compiler, Context,
     },
@@ -73,8 +72,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub text_files: HandleArray<FileHandle>,
-    pub binary_files: HandleArray<FileHandle>,
+    pub text_files: HandleArray<file::TextHandle>,
+    pub binary_files: HandleArray<file::BinaryHandle>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -160,7 +159,7 @@ pub struct Game {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
-    pub open_file: Option<FileHandle>,       // for legacy file functions from GM <= 5.1
+    pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,

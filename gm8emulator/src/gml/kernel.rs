@@ -5122,13 +5122,13 @@ impl Game {
 
     pub fn file_bin_open(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (filename, mode) = expect_args!(args, [string, int])?;
-        let (read, write) = match mode {
-            0 => (true, false),
-            1 => (false, true),
-            2 | _ => (true, true),
+        let mode = match mode {
+            0 => file::AccessMode::Read,
+            1 => file::AccessMode::Write,
+            2 | _ => file::AccessMode::Special,
         };
         match self.binary_files.add_from(
-            || Ok(file::FileHandle::open(filename.as_ref(), true, read, write, false)?) )
+            || Ok(file::BinaryHandle::open(filename.as_ref(), mode)?) )
         {
             Ok(i) => Ok((i+1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
@@ -5218,7 +5218,7 @@ impl Game {
         use std::error::Error as _;  // for .source() trait method
 
         match self.text_files.add_from(
-            || Ok(file::FileHandle::open(filename.as_ref(), false, true, false, false)?) )
+            || Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Read)?) )
         {
             Ok(i) => Ok((i+1).into()),
             Err(e) if e.source().and_then(|r| r.downcast_ref::<std::io::Error>())
@@ -5231,7 +5231,7 @@ impl Game {
     pub fn file_text_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
         match self.text_files.add_from(
-            || Ok(file::FileHandle::open(filename.as_ref(), false, false, true, false)?) )
+            || Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Write)?) )
         {
             Ok(i) => Ok((i+1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
@@ -5241,7 +5241,7 @@ impl Game {
     pub fn file_text_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
         match self.text_files.add_from(
-            || Ok(file::FileHandle::open(filename.as_ref(), false, false, true, true)?) )
+            || Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Special)?) )
         {
             Ok(i) => Ok((i+1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
@@ -5353,7 +5353,7 @@ impl Game {
 
     pub fn file_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::FileHandle::open(filename.as_ref(), false, true, false, false) {
+        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Read) {
             Ok(f) => { self.open_file.replace(f); },
             Err(e) => {
                 self.open_file.take();
@@ -5367,7 +5367,7 @@ impl Game {
 
     pub fn file_open_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::FileHandle::open(filename.as_ref(), false, false, true, false) {
+        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Write) {
             Ok(f) => {
                 self.open_file.replace(f);
                 Ok(Default::default())
@@ -5381,7 +5381,7 @@ impl Game {
 
     pub fn file_open_append(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::FileHandle::open(filename.as_ref(), false, false, true, true) {
+        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Special) {
             Ok(f) => {
                 self.open_file.replace(f);
                 Ok(Default::default())
