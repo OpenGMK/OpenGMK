@@ -160,6 +160,21 @@ impl TextHandle {
 
 impl BinaryHandle {
     pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
+        Ok( Self ( Self::_open(path, mode)? ) )
+    }
+
+    // Binary files are always created by GM if they doesn't exist, but in such
+    // cases it opens them in read-write mode rather than specified, so both the
+    // file_bin_read_byte() and file_bin_write_byte() works. However, we can't
+    // simply specify the .create(true) because it's explicitly disallowed in the
+    // code of std::fs for read-only mode. We also don't use Path::is_file()
+    // because it may theoretically fail if someone will create a file with the
+    // same name between testing and opening, and also would require an additional
+    // function call every time. Instead, when a read-only or write-only mode was
+    // requested for a file, we try first to create it and fail if it's exists.
+    fn _open(path: &str, mode: AccessMode) -> io::Result<File> {
+        let mut opts = OpenOptions::new();
+
         #[rustfmt::skip]
         let (read, write) = match mode {
             AccessMode::Read    => (true,  false),
@@ -167,12 +182,28 @@ impl BinaryHandle {
             AccessMode::Special => (true,  true ),
         };
 
-        Ok( Self ( OpenOptions::new()
-            .create(!read)
+        if !(read && write) {
+            // We don't return on other errors (that is, not AlreadyExists) here
+            // because the second call to .open() may give us a more exact one.
+            if let r @ Ok(_) = opts
+                .create_new(true)
+                .read(true)
+                .write(true)
+                .open(path)
+            {
+                return r;
+            };
+
+            opts.create_new(false);
+        };
+
+        // Note that .create() is necessary here not only for read-write case but
+        // also to behave correctly if file was erased between .open() calls. Same
+        // is also the reason why this opening attempt is secondary, not primary.
+        opts.create(write)  // not .create(true), read the initial comment why!
             .read(read)
             .write(write)
-            .open(path)?
-        ) )
+            .open(path)
     }
 
     pub fn clear(&mut self) -> Result<()> {
