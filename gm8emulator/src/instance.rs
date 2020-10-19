@@ -227,14 +227,18 @@ impl Instance {
 
     // Sets hspeed, also updating direction and speed
     pub fn set_hspeed(&self, hspeed: Real) {
-        self.hspeed.set(hspeed);
-        self.update_speed_direction()
+        if self.hspeed.get() != hspeed {
+            self.hspeed.set(hspeed);
+            self.update_speed_direction()
+        }
     }
 
     // Sets vspeed, also updating direction and speed
     pub fn set_vspeed(&self, vspeed: Real) {
-        self.vspeed.set(vspeed);
-        self.update_speed_direction()
+        if self.vspeed.get() != vspeed {
+            self.vspeed.set(vspeed);
+            self.update_speed_direction()
+        }
     }
 
     // Sets hspeed and vspeed, also updating direction and speed
