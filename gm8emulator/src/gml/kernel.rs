@@ -414,7 +414,7 @@ impl Game {
         let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
         match file::save_image(fname.as_ref(), width, height, rgba) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.to_string())),
         }
     }
 
@@ -428,7 +428,7 @@ impl Game {
         let rgba = self.renderer.get_pixels(x, y, w, h);
         match file::save_image(fname.as_ref(), w as _, h as _, rgba) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.to_string())),
         }
     }
 
@@ -2046,7 +2046,7 @@ impl Game {
             match file::save_image(fname.as_ref(), surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref))
             {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.into())),
+                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.to_string())),
             }
         } else {
             Ok(Default::default())
@@ -2067,7 +2067,7 @@ impl Game {
                 self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h),
             ) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.into())),
+                Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.to_string())),
             }
         } else {
             Ok(Default::default())
@@ -5129,7 +5129,7 @@ impl Game {
         };
         match self.file_manager.open(filename.as_ref(), file::Content::Binary, read, write, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
         }
     }
 
@@ -5137,7 +5137,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.clear(handle) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_rewrite".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_rewrite".into(), e.to_string())),
         }
     }
 
@@ -5145,7 +5145,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Binary) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_close".into(), e.to_string())),
         }
     }
 
@@ -5153,7 +5153,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.tell(handle) {
             Ok(p) => Ok(f64::from(p as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_position".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_position".into(), e.to_string())),
         }
     }
 
@@ -5161,7 +5161,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.size(handle) {
             Ok(l) => Ok(f64::from(l as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_size".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_size".into(), e.to_string())),
         }
     }
 
@@ -5169,7 +5169,7 @@ impl Game {
         let (handle, pos) = expect_args!(args, [int, int])?;
         match self.file_manager.seek(handle, pos) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.to_string())),
         }
     }
 
@@ -5177,7 +5177,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_byte(handle) {
             Ok(b) => Ok(f64::from(b).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte".into(), e.to_string())),
         }
     }
 
@@ -5185,7 +5185,7 @@ impl Game {
         let (handle, byte) = expect_args!(args, [int, int])?;
         match self.file_manager.write_byte(handle, byte as u8) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.to_string())),
         }
     }
 
@@ -5204,7 +5204,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, false) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
         }
     }
 
@@ -5212,7 +5212,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match self.file_manager.open(filename.as_ref(), file::Content::Text, false, true, true) {
             Ok(i) => Ok(i.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
         }
     }
 
@@ -5220,7 +5220,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.close(handle, file::Content::Text) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_close".into(), e.to_string())),
         }
     }
 
@@ -5228,7 +5228,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_string(handle) {
             Ok(s) => Ok(s.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_string".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_string".into(), e.to_string())),
         }
     }
 
@@ -5236,7 +5236,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.read_real(handle) {
             Ok(r) => Ok(r.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_real".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_read_real".into(), e.to_string())),
         }
     }
 
@@ -5244,7 +5244,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.skip_line(handle) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_readln".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_readln".into(), e.to_string())),
         }
     }
 
@@ -5252,7 +5252,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.is_eof(handle) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eof".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eof".into(), e.to_string())),
         }
     }
 
@@ -5260,7 +5260,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.is_eoln(handle) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eoln".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_eoln".into(), e.to_string())),
         }
     }
 
@@ -5268,7 +5268,7 @@ impl Game {
         let (handle, text) = expect_args!(args, [int, bytes])?;
         match self.file_manager.write_string(handle, text.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.to_string())),
         }
     }
 
@@ -5277,7 +5277,7 @@ impl Game {
         let text = if num.fract() == Real::from(0.0) { format!(" {:.0}", num) } else { format!(" {:.6}", num) };
         match self.file_manager.write_string(handle, text.as_bytes()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.to_string())),
         }
     }
 
@@ -5285,7 +5285,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.file_manager.write_string(handle, b"\r\n") {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.to_string())),
         }
     }
 
@@ -5360,7 +5360,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match file::delete(filename.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_delete".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("file_delete".into(), e.to_string())),
         }
     }
 
@@ -5393,7 +5393,7 @@ impl Game {
         let path = expect_args!(args, [string])?;
         match file::dir_create(path.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("directory_create".into(), e.into())),
+            Err(e) => Err(gml::Error::FunctionError("directory_create".into(), e.to_string())),
         }
     }
 
@@ -7720,7 +7720,7 @@ impl Game {
                     frame.height,
                     self.renderer.dump_sprite(&frame.atlas_ref),
                 ) {
-                    return Err(gml::Error::FunctionError("sprite_save".into(), e.into()))
+                    return Err(gml::Error::FunctionError("sprite_save".into(), e.to_string()))
                 }
             }
         }
@@ -8085,7 +8085,7 @@ impl Game {
                     background.height,
                     self.renderer.dump_sprite(atlas_ref),
                 ) {
-                    return Err(gml::Error::FunctionError("background_save".into(), e.into()))
+                    return Err(gml::Error::FunctionError("background_save".into(), e.to_string()))
                 }
             }
         }

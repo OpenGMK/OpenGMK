@@ -46,12 +46,6 @@ impl From<ImageError> for Error {
     }
 }
 
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        e.to_string()
-    }
-}
-
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
