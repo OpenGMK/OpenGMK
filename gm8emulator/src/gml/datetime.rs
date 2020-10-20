@@ -45,7 +45,7 @@ impl DateTime {
     }
 
     pub fn from_hms(h: i32, m: i32, s: i32) -> Option<Self> {
-        if h > 0 && m > 0 && s > 0 {
+        if h >= 0 && m >= 0 && s >= 0 {
             epoch().date().and_hms_opt(h as u32, m as u32, s as u32).map(|dt| Self(dt))
         } else {
             None
@@ -62,6 +62,22 @@ impl DateTime {
 
     pub fn day(&self) -> u32 {
         self.0.date().day()
+    }
+
+    pub fn day_of_year(&self) -> u32 {
+        self.0.date().ordinal()
+    }
+
+    pub fn hour_of_year(&self) -> u32 {
+        (self.day_of_year() - 1) * 24 + self.0.time().hour()
+    }
+
+    pub fn minute_of_year(&self) -> u32 {
+        self.hour_of_year() * 60 + self.0.time().minute()
+    }
+
+    pub fn second_of_year(&self) -> u32 {
+        self.minute_of_year() * 60 + self.0.time().second()
     }
 
     pub fn hour(&self) -> u32 {
