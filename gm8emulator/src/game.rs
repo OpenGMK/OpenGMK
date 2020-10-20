@@ -31,11 +31,11 @@ use crate::{
     },
     gml::{
         self, ds, ev,
-        file::FileManager,
+        file::FileHandle,
         rand::Random,
         Compiler, Context,
     },
-    handleman::HandleList,
+    handleman::{HandleList, HandleArray},
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -73,8 +73,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub text_files: FileManager,
-    pub binary_files: FileManager,
+    pub text_files: HandleArray<FileHandle>,
+    pub binary_files: HandleArray<FileHandle>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -881,8 +881,8 @@ impl Game {
 
         let mut game = Self {
             compiler,
-            text_files: FileManager::new(),
-            binary_files: FileManager::new(),
+            text_files: HandleArray::new(),
+            binary_files: HandleArray::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand,
