@@ -1,6 +1,6 @@
 use image::{gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{self, BufReader, Read, Seek, SeekFrom, Write},
     path::Path,
 };
@@ -8,28 +8,21 @@ use std::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct FileManager {
-    handles: [Option<Handle>; 32],
-}
-
+pub struct TextHandle(File,);
 #[derive(Debug)]
-pub struct Handle {
-    file: File,
-    content: Content,
-}
+pub struct BinaryHandle(File,);
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Content {
-    Binary,
-    Text,
+pub enum AccessMode {
+    Read,
+    Write,
+    Special,  // 'append' for text files, 'read-write' for binary
 }
 
 #[derive(Debug)]
 pub enum Error {
+    LegacyFileUnopened,
     InvalidFile(i32),
     IOError(io::Error),
-    OutOfFiles,
-    WrongContent,
     ImageError(ImageError),
 }
 
@@ -45,20 +38,13 @@ impl From<ImageError> for Error {
     }
 }
 
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        e.to_string()
-    }
-}
-
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
-            Error::IOError(err) => write!(f, "io error: {}", err),
-            Error::OutOfFiles => write!(f, "out of files"),
-            Error::WrongContent => write!(f, "invalid operation"),
-            Error::ImageError(err) => write!(f, "image error: {}", err),
+            Self::LegacyFileUnopened => write!(f, "file is not opened"),
+            Self::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
+            Self::IOError(err) => write!(f, "io error: {}", err),
+            Self::ImageError(err) => write!(f, "image error: {}", err),
         }
     }
 }
@@ -93,180 +79,161 @@ where
     Ok(false)
 }
 
-impl FileManager {
-    pub fn new() -> Self {
-        Self { handles: Default::default() }
-    }
+impl TextHandle {
+    pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
+        #[rustfmt::skip]
+        let (read, write, append) = match mode {
+            AccessMode::Read    => (true,  false, false),
+            AccessMode::Write   => (false, true,  false),
+            AccessMode::Special => (false, true,  true ),
+        };
 
-    pub fn open(&mut self, path: &str, content: Content, read: bool, write: bool, append: bool) -> Result<i32> {
-        let file = File::with_options()
+        Ok( Self ( OpenOptions::new()
             .create(!read)
             .read(read)
             .write(write)
             .append(append)
-            .truncate(content == Content::Text && write && !append)
-            .open(path)?;
-
-        match self.handles.iter_mut().enumerate().find(|(_, x)| x.is_none()) {
-            Some((i, handle)) => {
-                *handle = Some(Handle { file, content });
-                Ok((i + 1) as i32)
-            },
-            None => Err(Error::OutOfFiles),
-        }
+            .truncate(write && !append)
+            .open(path)?
+        ) )
     }
 
-    pub fn close(&mut self, handle: i32, content: Content) -> Result<()> {
-        if handle > 0 {
-            match self.handles.get((handle - 1) as usize) {
-                Some(Some(f)) => {
-                    if f.content == content {
-                        Ok(self.handles[(handle - 1) as usize] = None)
-                    } else {
-                        Err(Error::WrongContent)
-                    }
-                },
-                _ => Err(Error::InvalidFile(handle)),
+    pub fn read_real(&mut self) -> Result<f64> {
+        Ok(read_real(&mut self.0)?)
+    }
+
+    pub fn read_string(&mut self) -> Result<Vec<u8>> {
+        let mut bytes = read_until(&mut self.0, |c| c == 0x0a)?;
+        if bytes.last() == Some(&0x0a) {
+            // LF
+            bytes.pop();
+            self.0.seek(SeekFrom::Current(-1))?;
+            if bytes.last() == Some(&0x0d) {
+                // CR
+                bytes.pop();
+                self.0.seek(SeekFrom::Current(-1))?;
             }
+        }
+        Ok(bytes)
+    }
+
+    pub fn write_real(&mut self, real: f64) -> Result<()> {
+        let text = if real.fract() == 0.0 {
+            format!(" {:.0}", real)
         } else {
-            Ok(())
-        }
+            format!(" {:.6}", real)
+        };
+        self.0.write_all(text.as_bytes())?;
+        Ok(())
     }
 
-    pub fn clear(&mut self, handle: i32) -> Result<()> {
-        if handle > 0 {
-            match self.handles.get_mut((handle - 1) as usize) {
-                Some(Some(f)) => {
-                    f.file.seek(SeekFrom::Start(0))?;
-                    f.file.set_len(0)?;
-                    Ok(())
-                },
-                _ => Err(Error::InvalidFile(handle)),
-            }
-        } else {
-            Ok(())
-        }
+    pub fn write_string(&mut self, text: &[u8]) -> Result<()> {
+        self.0.write_all(text)?;
+        Ok(())
     }
 
-    pub fn read_real(&mut self, handle: i32) -> Result<f64> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(read_real(&mut f.file)?),
-            _ => Err(Error::InvalidFile(handle)),
-        }
+    pub fn write_newline(&mut self) -> Result<()> {
+        self.0.write_all(b"\r\n")?;
+        Ok(())
     }
 
-    pub fn read_string(&mut self, handle: i32) -> Result<Vec<u8>> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                let mut bytes = read_until(&mut f.file, |c| c == 0x0a)?;
-                if bytes.last() == Some(&0x0a) {
-                    // LF
-                    bytes.pop();
-                    f.file.seek(SeekFrom::Current(-1))?;
-                    if bytes.last() == Some(&0x0d) {
-                        // CR
-                        bytes.pop();
-                        f.file.seek(SeekFrom::Current(-1))?;
-                    }
-                }
-                Ok(bytes)
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
+    pub fn skip_line(&mut self) -> Result<()> {
+        Ok(skip_line(&mut self.0)?)
     }
 
-    pub fn write_string(&mut self, handle: i32, text: &[u8]) -> Result<()> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                f.file.write_all(text)?;
-                Ok(())
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
+    pub fn is_eof(&mut self) -> Result<bool> {
+        let mut buf: [u8; 1] = [0];
+        let last_pos = self.0.stream_position()?;
+        let bytes_read = self.0.read(&mut buf)?;
+        self.0.seek(SeekFrom::Start(last_pos))?;
+        Ok(bytes_read == 0)
     }
 
-    pub fn skip_line(&mut self, handle: i32) -> Result<()> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(skip_line(&mut f.file)?),
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn is_eof(&mut self, handle: i32) -> Result<bool> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                let mut buf: [u8; 1] = [0];
-                let last_pos = f.file.stream_position()?;
-                let bytes_read = f.file.read(&mut buf)?;
-                f.file.seek(SeekFrom::Start(last_pos))?;
-                Ok(bytes_read == 0)
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn is_eoln(&mut self, handle: i32) -> Result<bool> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                let mut buf: [u8; 2] = [0, 0];
-                let last_pos = f.file.stream_position()?;
-                let bytes_read = f.file.read(&mut buf)?;
-                f.file.seek(SeekFrom::Start(last_pos))?;
-                Ok(bytes_read == 0 || (buf[0] == 0x0d && buf[1] == 0x0a))
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn read_byte(&mut self, handle: i32) -> Result<u8> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                let mut buf: [u8; 1] = [0];
-                f.file.read_exact(&mut buf)?;
-                Ok(buf[0])
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn write_byte(&mut self, handle: i32, byte: u8) -> Result<()> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                f.file.write_all(&[byte])?;
-                Ok(())
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn tell(&mut self, handle: i32) -> Result<u64> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(f.file.stream_position()?),
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn seek(&mut self, handle: i32, pos: i32) -> Result<()> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => {
-                f.file.seek(SeekFrom::Start(pos as u64))?;
-                Ok(())
-            },
-            _ => Err(Error::InvalidFile(handle)),
-        }
-    }
-
-    pub fn size(&mut self, handle: i32) -> Result<u64> {
-        match self.handles.get_mut((handle - 1) as usize) {
-            Some(Some(f)) => Ok(f.file.stream_len()?),
-            _ => Err(Error::InvalidFile(handle)),
-        }
+    pub fn is_eoln(&mut self) -> Result<bool> {
+        let mut buf: [u8; 2] = [0, 0];
+        let last_pos = self.0.stream_position()?;
+        let bytes_read = self.0.read(&mut buf)?;
+        self.0.seek(SeekFrom::Start(last_pos))?;
+        Ok(bytes_read == 0 || (buf[0] == 0x0d && buf[1] == 0x0a))
     }
 }
 
-impl Default for FileManager {
-    fn default() -> Self {
-        Self { handles: Default::default() }
+impl BinaryHandle {
+    pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
+        Ok( Self ( Self::_open(path, mode)? ) )
+    }
+
+    // Binary files are always created by GM if they doesn't exist, but in such
+    // cases it opens them in read-write mode rather than specified, so both the
+    // file_bin_read_byte() and file_bin_write_byte() works. However, we can't
+    // simply specify the .create(true) because it's explicitly disallowed in the
+    // code of std::fs for read-only mode. We also don't use Path::is_file()
+    // because it may theoretically fail if someone will create a file with the
+    // same name between testing and opening, and also would require an additional
+    // function call every time. Instead, when a read-only or write-only mode was
+    // requested for a file, we try first to create it and fail if it's exists.
+    fn _open(path: &str, mode: AccessMode) -> io::Result<File> {
+        let mut opts = OpenOptions::new();
+
+        #[rustfmt::skip]
+        let (read, write) = match mode {
+            AccessMode::Read    => (true,  false),
+            AccessMode::Write   => (false, true ),
+            AccessMode::Special => (true,  true ),
+        };
+
+        if !(read && write) {
+            // We don't return on other errors (that is, not AlreadyExists) here
+            // because the second call to .open() may give us a more exact one.
+            if let r @ Ok(_) = opts
+                .create_new(true)
+                .read(true)
+                .write(true)
+                .open(path)
+            {
+                return r;
+            };
+
+            opts.create_new(false);
+        };
+
+        // Note that .create() is necessary here not only for read-write case but
+        // also to behave correctly if file was erased between .open() calls. Same
+        // is also the reason why this opening attempt is secondary, not primary.
+        opts.create(write)  // not .create(true), read the initial comment why!
+            .read(read)
+            .write(write)
+            .open(path)
+    }
+
+    pub fn clear(&mut self) -> Result<()> {
+        self.0.seek(SeekFrom::Start(0))?;
+        self.0.set_len(0)?;
+        Ok(())
+    }
+
+    pub fn read_byte(&mut self) -> Result<u8> {
+        let mut buf: [u8; 1] = [0];
+        self.0.read_exact(&mut buf)?;
+        Ok(buf[0])
+    }
+
+    pub fn write_byte(&mut self, byte: u8) -> Result<()> {
+        self.0.write_all(&[byte])?;
+        Ok(())
+    }
+
+    pub fn tell(&mut self) -> Result<u64> {
+        Ok(self.0.stream_position()?)
+    }
+
+    pub fn seek(&mut self, pos: i32) -> Result<()> {
+        self.0.seek(SeekFrom::Start(pos as u64))?;
+        Ok(())
+    }
+
+    pub fn size(&mut self) -> Result<u64> {
+        Ok(self.0.stream_len()?)
     }
 }
 

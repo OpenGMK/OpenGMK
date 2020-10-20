@@ -1,10 +1,11 @@
-#![feature(asm, seek_convenience, with_options)]
+#![feature(asm, seek_convenience)]
 #![allow(dead_code)] // Shut up.
 
 mod action;
 mod asset;
 mod game;
 mod gml;
+mod handleman;
 mod input;
 mod instance;
 mod instancelist;

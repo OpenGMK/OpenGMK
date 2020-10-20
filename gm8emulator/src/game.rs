@@ -30,13 +30,11 @@ use crate::{
         Object, Script, Timeline,
     },
     gml::{
-        self,
-        ds::{self, DataStructureManager},
-        ev,
-        file::FileManager,
+        self, ds, ev, file,
         rand::Random,
         Compiler, Context,
     },
+    handleman::{HandleList, HandleArray},
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -62,6 +60,7 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    convert::TryFrom,
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -74,7 +73,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub file_manager: FileManager,
+    pub text_files: HandleArray<file::TextHandle>,
+    pub binary_files: HandleArray<file::BinaryHandle>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -112,12 +112,12 @@ pub struct Game {
     pub globalvars: HashSet<usize>,
     pub game_start: bool,
 
-    pub stacks: DataStructureManager<ds::Stack>,
-    pub queues: DataStructureManager<ds::Queue>,
-    pub lists: DataStructureManager<ds::List>,
-    pub maps: DataStructureManager<ds::Map>,
-    pub priority_queues: DataStructureManager<ds::Priority>,
-    pub grids: DataStructureManager<ds::Grid>,
+    pub stacks: HandleList<ds::Stack>,
+    pub queues: HandleList<ds::Queue>,
+    pub lists: HandleList<ds::List>,
+    pub maps: HandleList<ds::Map>,
+    pub priority_queues: HandleList<ds::Priority>,
+    pub grids: HandleList<ds::Grid>,
     pub ds_precision: Real,
 
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
@@ -160,6 +160,7 @@ pub struct Game {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
+    pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,
@@ -881,7 +882,8 @@ impl Game {
 
         let mut game = Self {
             compiler,
-            file_manager: FileManager::new(),
+            text_files: HandleArray::new(),
+            binary_files: HandleArray::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
             rand,
@@ -909,12 +911,12 @@ impl Game {
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
             game_start: true,
-            stacks: DataStructureManager::new(),
-            queues: DataStructureManager::new(),
-            lists: DataStructureManager::new(),
-            maps: DataStructureManager::new(),
-            priority_queues: DataStructureManager::new(),
-            grids: DataStructureManager::new(),
+            stacks: HandleList::new(),
+            queues: HandleList::new(),
+            lists: HandleList::new(),
+            maps: HandleList::new(),
+            priority_queues: HandleList::new(),
+            grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
             draw_font: None,
             draw_font_id: -1,
@@ -948,6 +950,7 @@ impl Game {
             included_files,
             gm_version,
             open_ini: None,
+            open_file: None,
             file_finder: None,
             spoofed_time_nanos,
             fps: 0,
@@ -2427,24 +2430,10 @@ pub trait GetAsset<T> {
 
 impl<T> GetAsset<T> for Vec<Option<T>> {
     fn get_asset(&self, index: ID) -> Option<&T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get(usize::try_from(index).ok()?)?.as_ref()
     }
 
     fn get_asset_mut(&mut self, index: ID) -> Option<&mut T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get_mut(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get_mut(usize::try_from(index).ok()?)?.as_mut()
     }
 }
