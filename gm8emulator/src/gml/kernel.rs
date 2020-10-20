@@ -5194,7 +5194,7 @@ impl Game {
         match self.file_manager.open(filename.as_ref(), file::Content::Text, true, false, false) {
             Ok(i) => Ok(i.into()),
             Err(e) => {
-                println!("Warning: file_text_open_read on {} failed: {}", filename, e);
+                eprintln!("Warning: file_text_open_read on {} failed: {}", filename, e);
                 Ok((-1.0).into())
             },
         }
@@ -7569,7 +7569,7 @@ impl Game {
         let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
             Ok(frames) => frames,
             Err(e) => {
-                println!("Warning: sprite_add on {} failed: {}", fname, e);
+                eprintln!("Warning: sprite_add on {} failed: {}", fname, e);
                 return Ok((-1).into())
             },
         };
@@ -7623,7 +7623,7 @@ impl Game {
             let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
                 Ok(frames) => frames,
                 Err(e) => {
-                    println!("Warning: sprite_replace on {} failed: {}", fname, e);
+                    eprintln!("Warning: sprite_replace on {} failed: {}", fname, e);
                     return Ok((-1).into())
                 },
             };
@@ -7955,7 +7955,7 @@ impl Game {
         let mut image = match file::load_image(fname.as_ref()) {
             Ok(im) => im,
             Err(e) => {
-                println!("Warning: background_add on {} failed: {}", fname, e);
+                eprintln!("Warning: background_add on {} failed: {}", fname, e);
                 return Ok((-1).into())
             },
         };
@@ -7985,7 +7985,7 @@ impl Game {
             let mut image = match file::load_image(fname.as_ref()) {
                 Ok(im) => im,
                 Err(e) => {
-                    println!("Warning: background_add on {} failed: {}", fname, e);
+                    eprintln!("Warning: background_add on {} failed: {}", fname, e);
                     return Ok((-1).into())
                 },
             };
@@ -9930,7 +9930,7 @@ impl Game {
                             *old_stack = stack;
                         }
                     },
-                    Err(e) => println!("Warning (ds_stack_read): {}", e),
+                    Err(e) => eprintln!("Warning (ds_stack_read): {}", e),
                 }
                 Ok(Default::default())
             },
@@ -10319,7 +10319,7 @@ impl Game {
                             *old_list = list;
                         }
                     },
-                    Err(e) => println!("Warning (ds_list_read): {}", e),
+                    Err(e) => eprintln!("Warning (ds_list_read): {}", e),
                 }
                 Ok(Default::default())
             },
@@ -10571,7 +10571,7 @@ impl Game {
                             *old_map = map;
                         }
                     },
-                    Err(e) => println!("Warning (ds_map_read): {}", e),
+                    Err(e) => eprintln!("Warning (ds_map_read): {}", e),
                 }
                 Ok(Default::default())
             },
@@ -10840,7 +10840,7 @@ impl Game {
                             *old_pq = pq;
                         }
                     },
-                    Err(e) => println!("Warning (ds_priority_read): {}", e),
+                    Err(e) => eprintln!("Warning (ds_priority_read): {}", e),
                 }
                 Ok(Default::default())
             },
@@ -11167,7 +11167,7 @@ impl Game {
                             *old_grid = grid;
                         }
                     },
-                    Err(e) => println!("Warning (ds_grid_read): {}", e),
+                    Err(e) => eprintln!("Warning (ds_grid_read): {}", e),
                 }
                 Ok(Default::default())
             },
