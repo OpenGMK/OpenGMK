@@ -5215,14 +5215,16 @@ impl Game {
 
     pub fn file_text_open_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
+        use std::error::Error as _;  // for .source() trait method
+
         match self.text_files.add_from(
             || Ok(file::FileHandle::open(filename.as_ref(), false, true, false, false)?) )
         {
             Ok(i) => Ok((i+1).into()),
-            Err(e) => {
-                eprintln!("Warning: file_text_open_read on {} failed: {}", filename, e);
-                Ok((-1.0).into())
-            },
+            Err(e) if e.source().and_then(|r| r.downcast_ref::<std::io::Error>())
+                .map_or(false, |s| s.kind() == std::io::ErrorKind::NotFound)
+                => Ok((-1.0).into()),
+            Err(e) => Err(gml::Error::FunctionError("file_text_open_read".into(), e.to_string())),
         }
     }
 
@@ -5355,7 +5357,9 @@ impl Game {
             Ok(f) => { self.open_file.replace(f); },
             Err(e) => {
                 self.open_file.take();
-                eprintln!("Warning: file_open_read on {} failed: {}", filename, e);
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    return Err(gml::Error::FunctionError("file_open_read".into(), e.to_string()));
+                }
             },
         };
         Ok(Default::default())
