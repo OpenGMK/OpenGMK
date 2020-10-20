@@ -5137,7 +5137,7 @@ impl Game {
 
     pub fn file_bin_rewrite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.clear())
         {
@@ -5148,7 +5148,7 @@ impl Game {
 
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        if self.binary_files.delete((handle-1) as usize) {
+        if self.binary_files.delete(handle-1) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -5160,7 +5160,7 @@ impl Game {
 
     pub fn file_bin_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.tell())
         {
@@ -5171,7 +5171,7 @@ impl Game {
 
     pub fn file_bin_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.size())
         {
@@ -5182,7 +5182,7 @@ impl Game {
 
     pub fn file_bin_seek(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, pos) = expect_args!(args, [int, int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.seek(pos))
         {
@@ -5193,7 +5193,7 @@ impl Game {
 
     pub fn file_bin_read_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.read_byte())
         {
@@ -5204,7 +5204,7 @@ impl Game {
 
     pub fn file_bin_write_byte(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, byte) = expect_args!(args, [int, int])?;
-        match self.binary_files.get_mut((handle-1) as usize)
+        match self.binary_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.write_byte(byte as u8))
         {
@@ -5253,7 +5253,7 @@ impl Game {
         let c = self.text_files.capacity();
 
         // NB: .delete() MUST be called - beware the short-circuit evaluation here!
-        if self.text_files.delete((handle-1) as usize) || (1..=c).contains(&(handle as usize)) {
+        if self.text_files.delete(handle-1) || (1..=c).contains(&handle) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -5265,7 +5265,7 @@ impl Game {
 
     pub fn file_text_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.read_string())
         {
@@ -5276,7 +5276,7 @@ impl Game {
 
     pub fn file_text_read_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.read_real())
         {
@@ -5287,7 +5287,7 @@ impl Game {
 
     pub fn file_text_readln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.skip_line())
         {
@@ -5298,7 +5298,7 @@ impl Game {
 
     pub fn file_text_eof(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.is_eof())
         {
@@ -5309,7 +5309,7 @@ impl Game {
 
     pub fn file_text_eoln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.is_eoln())
         {
@@ -5320,7 +5320,7 @@ impl Game {
 
     pub fn file_text_write_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, text) = expect_args!(args, [int, bytes])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.write_string(text.as_ref()))
         {
@@ -5331,7 +5331,7 @@ impl Game {
 
     pub fn file_text_write_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (handle, num) = expect_args!(args, [int, real])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.write_real(num.into()))
         {
@@ -5342,7 +5342,7 @@ impl Game {
 
     pub fn file_text_writeln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut((handle-1) as usize)
+        match self.text_files.get_mut(handle-1)
             .map_or(Err(file::Error::InvalidFile(handle)),
                 |f| f.write_newline())
         {
@@ -9915,7 +9915,7 @@ impl Game {
 
     pub fn ds_stack_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.stacks.delete(id as usize) {
+        if self.stacks.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -9927,7 +9927,7 @@ impl Game {
 
     pub fn ds_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(stack) => {
                 stack.clear();
                 Ok(Default::default())
@@ -9941,14 +9941,14 @@ impl Game {
 
     pub fn ds_stack_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.stacks.get(src_id as usize) {
+        let src = match self.stacks.get(src_id) {
             Some(stack) => stack.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_stack_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(stack) => {
                 *stack = src;
                 Ok(Default::default())
@@ -9962,7 +9962,7 @@ impl Game {
 
     pub fn ds_stack_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id as usize) {
+        match self.stacks.get(id) {
             Some(stack) => Ok(stack.len().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_stack_size".into(),
@@ -9973,7 +9973,7 @@ impl Game {
 
     pub fn ds_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id as usize) {
+        match self.stacks.get(id) {
             Some(stack) => Ok(stack.is_empty().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_stack_empty".into(),
@@ -9984,7 +9984,7 @@ impl Game {
 
     pub fn ds_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(stack) => {
                 stack.push(val);
                 Ok(Default::default())
@@ -9998,7 +9998,7 @@ impl Game {
 
     pub fn ds_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(stack) => Ok(stack.pop().unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_stack_pop".into(),
@@ -10009,7 +10009,7 @@ impl Game {
 
     pub fn ds_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get(id as usize) {
+        match self.stacks.get(id) {
             Some(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_stack_top".into(),
@@ -10020,7 +10020,7 @@ impl Game {
 
     pub fn ds_stack_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(stack) => {
                 let mut output = "65000000".to_string();
                 output.push_str(&hex::encode_upper((stack.len() as u32).to_le_bytes()));
@@ -10036,7 +10036,7 @@ impl Game {
 
     pub fn ds_stack_read(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, hex_data) = expect_args!(args, [int, string])?;
-        match self.stacks.get_mut(id as usize) {
+        match self.stacks.get_mut(id) {
             Some(old_stack) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
@@ -10078,7 +10078,7 @@ impl Game {
 
     pub fn ds_queue_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.queues.delete(id as usize) {
+        if self.queues.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -10090,7 +10090,7 @@ impl Game {
 
     pub fn ds_queue_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get_mut(id as usize) {
+        match self.queues.get_mut(id) {
             Some(queue) => {
                 queue.clear();
                 Ok(Default::default())
@@ -10104,14 +10104,14 @@ impl Game {
 
     pub fn ds_queue_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.queues.get(src_id as usize) {
+        let src = match self.queues.get(src_id) {
             Some(queue) => queue.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_queue_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.queues.get_mut(id as usize) {
+        match self.queues.get_mut(id) {
             Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
@@ -10125,7 +10125,7 @@ impl Game {
 
     pub fn ds_queue_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id as usize) {
+        match self.queues.get(id) {
             Some(queue) => Ok(queue.len().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_queue_size".into(),
@@ -10136,7 +10136,7 @@ impl Game {
 
     pub fn ds_queue_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id as usize) {
+        match self.queues.get(id) {
             Some(queue) => Ok(queue.is_empty().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_queue_empty".into(),
@@ -10147,7 +10147,7 @@ impl Game {
 
     pub fn ds_queue_enqueue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.queues.get_mut(id as usize) {
+        match self.queues.get_mut(id) {
             Some(queue) => {
                 queue.push_back(val);
                 Ok(Default::default())
@@ -10161,7 +10161,7 @@ impl Game {
 
     pub fn ds_queue_dequeue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get_mut(id as usize) {
+        match self.queues.get_mut(id) {
             Some(queue) => Ok(queue.pop_front().unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_queue_dequeue".into(),
@@ -10172,7 +10172,7 @@ impl Game {
 
     pub fn ds_queue_head(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id as usize) {
+        match self.queues.get(id) {
             Some(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_queue_head".into(),
@@ -10183,7 +10183,7 @@ impl Game {
 
     pub fn ds_queue_tail(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.queues.get(id as usize) {
+        match self.queues.get(id) {
             Some(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_queue_tail".into(),
@@ -10209,7 +10209,7 @@ impl Game {
 
     pub fn ds_list_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.lists.delete(id as usize) {
+        if self.lists.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -10221,7 +10221,7 @@ impl Game {
 
     pub fn ds_list_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 list.clear();
                 Ok(Default::default())
@@ -10235,14 +10235,14 @@ impl Game {
 
     pub fn ds_list_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.lists.get(src_id as usize) {
+        let src = match self.lists.get(src_id) {
             Some(list) => list.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_list_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 *list = src;
                 Ok(Default::default())
@@ -10256,7 +10256,7 @@ impl Game {
 
     pub fn ds_list_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id as usize) {
+        match self.lists.get(id) {
             Some(list) => Ok(list.len().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_list_size".into(),
@@ -10267,7 +10267,7 @@ impl Game {
 
     pub fn ds_list_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get(id as usize) {
+        match self.lists.get(id) {
             Some(list) => Ok(list.is_empty().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_list_empty".into(),
@@ -10278,7 +10278,7 @@ impl Game {
 
     pub fn ds_list_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 list.push(val);
                 Ok(Default::default())
@@ -10292,7 +10292,7 @@ impl Game {
 
     pub fn ds_list_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 if index >= 0 && (index as usize) <= list.len() {
                     list.insert(index as usize, val);
@@ -10308,7 +10308,7 @@ impl Game {
 
     pub fn ds_list_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index, val) = expect_args!(args, [int, int, any])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list[index as usize] = val;
@@ -10324,7 +10324,7 @@ impl Game {
 
     pub fn ds_list_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index) = expect_args!(args, [int, int])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     list.remove(index as usize);
@@ -10340,7 +10340,7 @@ impl Game {
 
     pub fn ds_list_find_index(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.lists.get(id as usize) {
+        match self.lists.get(id) {
             Some(list) => Ok(list
                 .iter()
                 .enumerate()
@@ -10357,7 +10357,7 @@ impl Game {
 
     pub fn ds_list_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, index) = expect_args!(args, [int, int])?;
-        match self.lists.get(id as usize) {
+        match self.lists.get(id) {
             Some(list) => {
                 if index >= 0 && (index as usize) < list.len() {
                     Ok(list[index as usize].clone())
@@ -10374,7 +10374,7 @@ impl Game {
 
     pub fn ds_list_sort(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, asc) = expect_args!(args, [int, bool])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 let precision = self.ds_precision; // otherwise we get borrowing issues
                 if asc {
@@ -10393,7 +10393,7 @@ impl Game {
 
     pub fn ds_list_shuffle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 for _ in 1..list.len() {
                     let id1 = self.rand.next_int(list.len() as u32 - 1);
@@ -10411,7 +10411,7 @@ impl Game {
 
     pub fn ds_list_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(list) => {
                 let mut output = "2D010000".to_string();
                 output.push_str(&hex::encode_upper((list.len() as u32).to_le_bytes()));
@@ -10441,7 +10441,7 @@ impl Game {
             }
             Some(list)
         }
-        match self.lists.get_mut(id as usize) {
+        match self.lists.get_mut(id) {
             Some(old_list) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
@@ -10467,7 +10467,7 @@ impl Game {
 
     pub fn ds_map_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.maps.delete(id as usize) {
+        if self.maps.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -10479,7 +10479,7 @@ impl Game {
 
     pub fn ds_map_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 map.keys.clear();
                 map.values.clear();
@@ -10494,14 +10494,14 @@ impl Game {
 
     pub fn ds_map_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.maps.get(src_id as usize) {
+        let src = match self.maps.get(src_id) {
             Some(map) => map.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_map_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 *map = src;
                 Ok(Default::default())
@@ -10515,7 +10515,7 @@ impl Game {
 
     pub fn ds_map_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.keys.len().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_map_size".into(),
@@ -10526,7 +10526,7 @@ impl Game {
 
     pub fn ds_map_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.keys.is_empty().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_map_empty".into(),
@@ -10537,7 +10537,7 @@ impl Game {
 
     pub fn ds_map_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key, val) = expect_args!(args, [int, any, any])?;
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 let index = map.get_next_index(&key, self.ds_precision);
                 map.keys.insert(index, key);
@@ -10553,7 +10553,7 @@ impl Game {
 
     pub fn ds_map_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key, val) = expect_args!(args, [int, any, any])?;
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 if let Some(index) = map.get_index(&key, self.ds_precision) {
                     map.values[index] = val;
@@ -10569,7 +10569,7 @@ impl Game {
 
     pub fn ds_map_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 if let Some(index) = map.get_index(&key, self.ds_precision) {
                     map.keys.remove(index);
@@ -10586,7 +10586,7 @@ impl Game {
 
     pub fn ds_map_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
             None => Err(gml::Error::FunctionError(
                 "ds_map_exists".into(),
@@ -10597,7 +10597,7 @@ impl Game {
 
     pub fn ds_map_find_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
             None => Err(gml::Error::FunctionError(
                 "ds_map_find_value".into(),
@@ -10608,7 +10608,7 @@ impl Game {
 
     pub fn ds_map_find_previous(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => {
                 let index = map.get_index_unchecked(&key, self.ds_precision);
                 if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
@@ -10622,7 +10622,7 @@ impl Game {
 
     pub fn ds_map_find_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, key) = expect_args!(args, [int, any])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => {
                 let index = map.get_next_index(&key, self.ds_precision);
                 if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
@@ -10636,7 +10636,7 @@ impl Game {
 
     pub fn ds_map_find_first(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_map_find_first".into(),
@@ -10647,7 +10647,7 @@ impl Game {
 
     pub fn ds_map_find_last(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get(id as usize) {
+        match self.maps.get(id) {
             Some(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
             None => Err(gml::Error::FunctionError(
                 "ds_map_find_last".into(),
@@ -10658,7 +10658,7 @@ impl Game {
 
     pub fn ds_map_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(map) => {
                 let mut output = "91010000".to_string();
                 output.push_str(&hex::encode_upper((map.keys.len() as u32).to_le_bytes()));
@@ -10693,7 +10693,7 @@ impl Game {
             }
             Some(ds::Map { keys, values })
         }
-        match self.maps.get_mut(id as usize) {
+        match self.maps.get_mut(id) {
             Some(old_map) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
@@ -10719,7 +10719,7 @@ impl Game {
 
     pub fn ds_priority_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.priority_queues.delete(id as usize) {
+        if self.priority_queues.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -10731,7 +10731,7 @@ impl Game {
 
     pub fn ds_priority_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 pq.priorities.clear();
                 pq.values.clear();
@@ -10746,14 +10746,14 @@ impl Game {
 
     pub fn ds_priority_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src = match self.priority_queues.get(src_id as usize) {
+        let src = match self.priority_queues.get(src_id) {
             Some(queue) => queue.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_priority_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
@@ -10767,7 +10767,7 @@ impl Game {
 
     pub fn ds_priority_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id as usize) {
+        match self.priority_queues.get(id) {
             Some(pq) => Ok(pq.priorities.len().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_priority_size".into(),
@@ -10778,7 +10778,7 @@ impl Game {
 
     pub fn ds_priority_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id as usize) {
+        match self.priority_queues.get(id) {
             Some(pq) => Ok(pq.priorities.is_empty().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_priority_empty".into(),
@@ -10789,7 +10789,7 @@ impl Game {
 
     pub fn ds_priority_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val, prio) = expect_args!(args, [int, any, any])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 pq.priorities.push(prio);
                 pq.values.push(val);
@@ -10804,7 +10804,7 @@ impl Game {
 
     pub fn ds_priority_change_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val, prio) = expect_args!(args, [int, any, any])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
@@ -10821,7 +10821,7 @@ impl Game {
 
     pub fn ds_priority_find_priority(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.priority_queues.get(id as usize) {
+        match self.priority_queues.get(id) {
             Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
@@ -10839,7 +10839,7 @@ impl Game {
 
     pub fn ds_priority_delete_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 let precision = self.ds_precision;
                 if let Some(pos) = pq.values.iter().position(|x| ds::eq(x, &val, precision)) {
@@ -10857,7 +10857,7 @@ impl Game {
 
     pub fn ds_priority_delete_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 if let Some(min) = pq.min_id(self.ds_precision) {
                     pq.priorities.remove(min);
@@ -10875,7 +10875,7 @@ impl Game {
 
     pub fn ds_priority_find_min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id as usize) {
+        match self.priority_queues.get(id) {
             Some(pq) => {
                 if let Some(min) = pq.min_id(self.ds_precision) {
                     Ok(pq.values[min].clone())
@@ -10892,7 +10892,7 @@ impl Game {
 
     pub fn ds_priority_delete_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 if let Some(max) = pq.max_id(self.ds_precision) {
                     pq.priorities.remove(max);
@@ -10910,7 +10910,7 @@ impl Game {
 
     pub fn ds_priority_find_max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get(id as usize) {
+        match self.priority_queues.get(id) {
             Some(pq) => {
                 if let Some(max) = pq.max_id(self.ds_precision) {
                     Ok(pq.values[max].clone())
@@ -10927,7 +10927,7 @@ impl Game {
 
     pub fn ds_priority_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(pq) => {
                 let mut output = "F5010000".to_string();
                 output.push_str(&hex::encode_upper((pq.priorities.len() as u32).to_le_bytes()));
@@ -10962,7 +10962,7 @@ impl Game {
             }
             Some(ds::Priority { priorities, values })
         }
-        match self.priority_queues.get_mut(id as usize) {
+        match self.priority_queues.get_mut(id) {
             Some(old_pq) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {
@@ -10994,7 +10994,7 @@ impl Game {
 
     pub fn ds_grid_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.grids.delete(id as usize) {
+        if self.grids.delete(id) {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -11006,14 +11006,14 @@ impl Game {
 
     pub fn ds_grid_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, src_id) = expect_args!(args, [int, int])?;
-        let src_grid = match self.grids.get(src_id as usize) {
+        let src_grid = match self.grids.get(src_id) {
             Some(grid) => grid.clone(),
             None => return Err(gml::Error::FunctionError(
                 "ds_grid_copy".into(),
                 ds::Error::NonexistentStructure(src_id).into()
             )),
         };
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(grid) => {
                 *grid = src_grid;
                 Ok(Default::default())
@@ -11027,7 +11027,7 @@ impl Game {
 
     pub fn ds_grid_resize(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, width, height) = expect_args!(args, [int, int, int])?;
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(grid) => {
                 if width < 0 || height < 0 {
                     return Err(gml::Error::FunctionError(
@@ -11047,7 +11047,7 @@ impl Game {
 
     pub fn ds_grid_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get(id as usize) {
+        match self.grids.get(id) {
             Some(grid) => Ok(grid.width().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_grid_width".into(),
@@ -11058,7 +11058,7 @@ impl Game {
 
     pub fn ds_grid_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get(id as usize) {
+        match self.grids.get(id) {
             Some(grid) => Ok(grid.height().into()),
             None => Err(gml::Error::FunctionError(
                 "ds_grid_height".into(),
@@ -11069,7 +11069,7 @@ impl Game {
 
     pub fn ds_grid_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, val) = expect_args!(args, [int, any])?;
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(grid) => {
                 for x in 0..grid.width() {
                     for y in 0..grid.height() {
@@ -11087,7 +11087,7 @@ impl Game {
 
     pub fn ds_grid_set(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(grid) => {
                 if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
                     grid.set(x as usize, y as usize, val);
@@ -11158,7 +11158,7 @@ impl Game {
 
     pub fn ds_grid_get(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y) = expect_args!(args, [int, int, int])?;
-        match self.grids.get(id as usize) {
+        match self.grids.get(id) {
             Some(grid) => {
                 if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
                     Ok(grid.get(x as usize, y as usize).clone())
@@ -11250,7 +11250,7 @@ impl Game {
 
     pub fn ds_grid_write(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(grid) => {
                 let mut output = "59020000".to_string();
                 output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
@@ -11289,7 +11289,7 @@ impl Game {
             }
             Some(grid)
         }
-        match self.grids.get_mut(id as usize) {
+        match self.grids.get_mut(id) {
             Some(old_grid) => {
                 match hex::decode(hex_data.as_ref()) {
                     Ok(data) => {

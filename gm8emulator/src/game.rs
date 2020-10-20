@@ -60,6 +60,7 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    convert::TryFrom,
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -2429,10 +2430,10 @@ pub trait GetAsset<T> {
 
 impl<T> GetAsset<T> for Vec<Option<T>> {
     fn get_asset(&self, index: ID) -> Option<&T> {
-        self.get(index as usize)?.as_ref()
+        self.get(usize::try_from(index).ok()?)?.as_ref()
     }
 
     fn get_asset_mut(&mut self, index: ID) -> Option<&mut T> {
-        self.get_mut(index as usize)?.as_mut()
+        self.get_mut(usize::try_from(index).ok()?)?.as_mut()
     }
 }

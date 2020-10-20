@@ -1,6 +1,6 @@
 // This module implements the handle indices allocation as in the original GM.
 
-use std::{result, error};
+use std::{result, error, convert::{TryFrom, TryInto}};
 use serde::{Serialize, Deserialize};
 
 // TODO: Replace with 'const generics' when stabilized.
@@ -48,15 +48,15 @@ impl<T> HandleList<T> {
         Self ( Default::default() )
     }
 
-    pub fn get(&self, index: usize) -> Option<&T> {
-        self.0.get(index)?.as_ref()
+    pub fn get(&self, index: i32) -> Option<&T> {
+        self.0.get(usize::try_from(index).ok()?)?.as_ref()
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        self.0.get_mut(index)?.as_mut()
+    pub fn get_mut(&mut self, index: i32) -> Option<&mut T> {
+        self.0.get_mut(usize::try_from(index).ok()?)?.as_mut()
     }
 
-    pub fn put(&mut self, handle: T) -> usize {
+    pub fn put(&mut self, handle: T) -> i32 {
         self.add(handle).unwrap()
     }
 }
@@ -66,16 +66,16 @@ impl<T> HandleArray<T> {
         Self ( Default::default() )
     }
 
-    pub fn get(&self, index: usize) -> Option<&T> {
-        self.0.get(index)?.as_ref()
+    pub fn get(&self, index: i32) -> Option<&T> {
+        self.0.get(usize::try_from(index).ok()?)?.as_ref()
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        self.0.get_mut(index)?.as_mut()
+    pub fn get_mut(&mut self, index: i32) -> Option<&mut T> {
+        self.0.get_mut(usize::try_from(index).ok()?)?.as_mut()
     }
 
-    pub fn capacity(&self) -> usize {
-        self.0.len()
+    pub fn capacity(&self) -> i32 {
+        self.0.len().try_into().unwrap()
     }
 }
 
@@ -88,25 +88,25 @@ fn cvt<T>(i: InitResult<T>) -> Result<T> {
 }
 
 pub trait HandleManager<T>: private::HandleStorage<T> {
-    fn add(&mut self, handle: T) -> Option<usize> {
+    fn add(&mut self, handle: T) -> Option<i32> {
         self.add_from(|| Ok(handle)).ok()
     }
 
-    fn add_from<F>(&mut self, init_handle: F) -> Result<usize>
+    fn add_from<F>(&mut self, init_handle: F) -> Result<i32>
         where F: FnOnce() -> InitResult<T>,
     {
         for (index, slot) in self.iter_mut().enumerate() {
             if slot.is_none() {
                 slot.replace(cvt(init_handle())?);
-                return Ok(index);
+                return Ok(index.try_into().unwrap());
             }
         }
         self.push_from(init_handle)
     }
 
-    fn delete(&mut self, index: usize) -> bool {
-        self.iter_mut()
-            .nth(index)
+    fn delete(&mut self, index: i32) -> bool {
+        usize::try_from(index).ok()
+            .and_then(|x| self.iter_mut().nth(x))
             .and_then(|x| x.take())
             .is_some()
     }
@@ -120,7 +120,7 @@ mod private {
 
     pub trait HandleStorage<T> {
         fn iter_mut(&mut self) -> std::slice::IterMut<Option<T>>;
-        fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
+        fn push_from<F>(&mut self, init_handle: F) -> Result<i32>
             where F: FnOnce() -> InitResult<T>;
     }
 
@@ -129,12 +129,12 @@ mod private {
             self.0.iter_mut()
         }
 
-        fn push_from<F>(&mut self, init_handle: F) -> Result<usize>
+        fn push_from<F>(&mut self, init_handle: F) -> Result<i32>
             where F: FnOnce() -> InitResult<T>
         {
             // init will occur before push but there it's pretty legit
             self.0.push(cvt(init_handle())?.into());
-            Ok(self.0.len() - 1)
+            Ok((self.0.len() - 1).try_into().unwrap())
         }
     }
 
@@ -143,7 +143,7 @@ mod private {
             self.0.iter_mut()
         }
 
-        fn push_from<F>(&mut self, _init_handle: F) -> Result<usize>
+        fn push_from<F>(&mut self, _init_handle: F) -> Result<i32>
             where F: FnOnce() -> InitResult<T>
         {
             Err(Error::OutOfSlots)
