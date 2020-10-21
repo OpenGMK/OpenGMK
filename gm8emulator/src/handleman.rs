@@ -1,10 +1,13 @@
 // This module implements the handle indices allocation as in the original GM.
 
-use std::{result, error, convert::{TryFrom, TryInto}};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{
+    convert::{TryFrom, TryInto},
+    error, result,
+};
 
 // TODO: Replace with 'const generics' when stabilized.
-const ARRAY_SIZE: usize = 32;  // as limited in GM file API
+const ARRAY_SIZE: usize = 32; // as limited in GM file API
 
 // Required because handle initialization closures must be able to return any errors.
 // TODO: Do we also need "+ Send + Sync + 'static" for BoxedStdError?
@@ -38,14 +41,14 @@ impl error::Error for Error {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HandleList<T> (Vec<Option<T>>,);
+pub struct HandleList<T>(Vec<Option<T>>);
 
 #[derive(Debug)]
-pub struct HandleArray<T> ([Option<T>; ARRAY_SIZE],);
+pub struct HandleArray<T>([Option<T>; ARRAY_SIZE]);
 
 impl<T> HandleList<T> {
     pub fn new() -> Self {
-        Self ( Default::default() )
+        Self(Default::default())
     }
 
     pub fn get(&self, index: i32) -> Option<&T> {
@@ -63,7 +66,7 @@ impl<T> HandleList<T> {
 
 impl<T> HandleArray<T> {
     pub fn new() -> Self {
-        Self ( Default::default() )
+        Self(Default::default())
     }
 
     pub fn get(&self, index: i32) -> Option<&T> {
@@ -93,22 +96,20 @@ pub trait HandleManager<T>: private::HandleStorage<T> {
     }
 
     fn add_from<F>(&mut self, init_handle: F) -> Result<i32>
-        where F: FnOnce() -> InitResult<T>,
+    where
+        F: FnOnce() -> InitResult<T>,
     {
         for (index, slot) in self.iter_mut().enumerate() {
             if slot.is_none() {
                 slot.replace(cvt(init_handle())?);
-                return Ok(index.try_into().unwrap());
+                return Ok(index.try_into().unwrap())
             }
         }
         self.push_from(init_handle)
     }
 
     fn delete(&mut self, index: i32) -> bool {
-        usize::try_from(index).ok()
-            .and_then(|x| self.iter_mut().nth(x))
-            .and_then(|x| x.take())
-            .is_some()
+        usize::try_from(index).ok().and_then(|x| self.iter_mut().nth(x)).and_then(|x| x.take()).is_some()
     }
 }
 
@@ -121,7 +122,8 @@ mod private {
     pub trait HandleStorage<T> {
         fn iter_mut(&mut self) -> std::slice::IterMut<Option<T>>;
         fn push_from<F>(&mut self, init_handle: F) -> Result<i32>
-            where F: FnOnce() -> InitResult<T>;
+        where
+            F: FnOnce() -> InitResult<T>;
     }
 
     impl<T> HandleStorage<T> for HandleList<T> {
@@ -130,7 +132,8 @@ mod private {
         }
 
         fn push_from<F>(&mut self, init_handle: F) -> Result<i32>
-            where F: FnOnce() -> InitResult<T>
+        where
+            F: FnOnce() -> InitResult<T>,
         {
             // init will occur before push but there it's pretty legit
             self.0.push(cvt(init_handle())?.into());
@@ -144,7 +147,8 @@ mod private {
         }
 
         fn push_from<F>(&mut self, _init_handle: F) -> Result<i32>
-            where F: FnOnce() -> InitResult<T>
+        where
+            F: FnOnce() -> InitResult<T>,
         {
             Err(Error::OutOfSlots)
         }

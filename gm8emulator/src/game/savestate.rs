@@ -12,11 +12,7 @@ use crate::{
         view::View,
         Assets, Game, Replay, Version,
     },
-    gml::{
-        ds,
-        rand::Random,
-        Compiler,
-    },
+    gml::{ds, rand::Random, Compiler},
     handleman::HandleList,
     input::InputManager,
     instance::DummyFieldHolder,

@@ -8,14 +8,14 @@ use std::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct TextHandle(File,);
+pub struct TextHandle(File);
 #[derive(Debug)]
-pub struct BinaryHandle(File,);
+pub struct BinaryHandle(File);
 
 pub enum AccessMode {
     Read,
     Write,
-    Special,  // 'append' for text files, 'read-write' for binary
+    Special, // 'append' for text files, 'read-write' for binary
 }
 
 #[derive(Debug)]
@@ -88,14 +88,15 @@ impl TextHandle {
             AccessMode::Special => (false, true,  true ),
         };
 
-        Ok( Self ( OpenOptions::new()
-            .create(!read)
-            .read(read)
-            .write(write)
-            .append(append)
-            .truncate(write && !append)
-            .open(path)?
-        ) )
+        Ok(Self(
+            OpenOptions::new()
+                .create(!read)
+                .read(read)
+                .write(write)
+                .append(append)
+                .truncate(write && !append)
+                .open(path)?,
+        ))
     }
 
     pub fn read_real(&mut self) -> Result<f64> {
@@ -118,11 +119,7 @@ impl TextHandle {
     }
 
     pub fn write_real(&mut self, real: f64) -> Result<()> {
-        let text = if real.fract() == 0.0 {
-            format!(" {:.0}", real)
-        } else {
-            format!(" {:.6}", real)
-        };
+        let text = if real.fract() == 0.0 { format!(" {:.0}", real) } else { format!(" {:.6}", real) };
         self.0.write_all(text.as_bytes())?;
         Ok(())
     }
@@ -160,7 +157,7 @@ impl TextHandle {
 
 impl BinaryHandle {
     pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
-        Ok( Self ( Self::_open(path, mode)? ) )
+        Ok(Self(Self::_open(path, mode)?))
     }
 
     // Binary files are always created by GM if they doesn't exist, but in such
@@ -185,13 +182,8 @@ impl BinaryHandle {
         if !(read && write) {
             // We don't return on other errors (that is, not AlreadyExists) here
             // because the second call to .open() may give us a more exact one.
-            if let r @ Ok(_) = opts
-                .create_new(true)
-                .read(true)
-                .write(true)
-                .open(path)
-            {
-                return r;
+            if let r @ Ok(_) = opts.create_new(true).read(true).write(true).open(path) {
+                return r
             };
 
             opts.create_new(false);
@@ -200,7 +192,7 @@ impl BinaryHandle {
         // Note that .create() is necessary here not only for read-write case but
         // also to behave correctly if file was erased between .open() calls. Same
         // is also the reason why this opening attempt is secondary, not primary.
-        opts.create(write)  // not .create(true), read the initial comment why!
+        opts.create(write) // not .create(true), read the initial comment why!
             .read(read)
             .write(write)
             .open(path)
