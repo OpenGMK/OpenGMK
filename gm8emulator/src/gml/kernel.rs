@@ -2543,15 +2543,15 @@ impl Game {
 
     pub fn action_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        // TODO
         //unimplemented!("Called unimplemented kernel function action_sound")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn action_end_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        // TODO
         //unimplemented!("Called unimplemented kernel function action_end_sound")
+        // TODO
         Ok(Default::default())
     }
 
@@ -5060,6 +5060,7 @@ impl Game {
     pub fn transition_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function transition_define")
+        // TODO
         Ok(Default::default())
     }
 
@@ -6254,24 +6255,28 @@ impl Game {
     pub fn message_input_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function message_input_color")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_position")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_size")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_caption")
+        // TODO
         Ok(Default::default())
     }
 
@@ -6450,83 +6455,98 @@ impl Game {
     pub fn joystick_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_exists")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_direction")
+        // TODO
         Ok(101.into())
     }
 
     pub fn joystick_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_name")
+        // TODO
         Ok("".into())
     }
 
     pub fn joystick_axes(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_axes")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_buttons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_buttons")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_has_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
+        //unimplemented!("Called unimplemented kernel function joystick_has_pov")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_check_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function joystick_check_button")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_xpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_xpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_ypos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_ypos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_zpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_zpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_rpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_rpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_upos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_upos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_vpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_vpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_pov")
+        // TODO
         Ok((-1).into())
     }
 
@@ -11192,6 +11212,7 @@ impl Game {
     pub fn sound_global_volume(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function sound_global_volume")
+        // TODO
         Ok(Default::default())
     }
 
