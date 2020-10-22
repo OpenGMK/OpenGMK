@@ -2130,9 +2130,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function draw_surface_tiled")
     }
 
-    pub fn draw_surface_tiled_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_surface_tiled_ext")
+    pub fn draw_surface_tiled_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, int, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite_tiled(
+                &surf.atlas_ref,
+                x.into(),
+                y.into(),
+                xscale.into(),
+                yscale.into(),
+                colour,
+                alpha.into(),
+                Some(self.room_width.into()),
+                Some(self.room_height.into()),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
