@@ -62,8 +62,8 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
-pub fn rgb_to_hsv(color: i32) -> (i32, i32, i32) {
-    let (r, g, b) = (Real::from(color & 0xFF), Real::from((color >> 8) & 0xFF), Real::from((color >> 16) & 0xFF));
+pub fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
+    let (r, g, b) = (Real::from(colour & 0xFF), Real::from((colour >> 8) & 0xFF), Real::from((colour >> 16) & 0xFF));
 
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
@@ -106,7 +106,7 @@ impl Game {
 
     pub fn display_get_colordepth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.display_color().into())
+        Ok(self.window.display_colour().into())
     }
 
     pub fn display_get_frequency(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1451,7 +1451,7 @@ impl Game {
     }
 
     pub fn draw_background_part_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (bg_index, left, top, width, height, x, y, xscale, yscale, color, alpha) =
+        let (bg_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
@@ -1466,7 +1466,7 @@ impl Game {
                     xscale.into(),
                     yscale.into(),
                     0.0,
-                    color,
+                    colour,
                     alpha.into(),
                 );
             }
@@ -3109,7 +3109,7 @@ impl Game {
         pt.size_max = size_max;
         pt.size_incr = 0.into();
         pt.size_wiggle = 0.into();
-        pt.color = particle::ParticleColor::Two(col1, col2);
+        pt.colour = particle::ParticleColour::Two(col1, col2);
         Ok(Default::default())
     }
 
@@ -3131,8 +3131,8 @@ impl Game {
     pub fn action_parttype_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, changing, col1, col2, start_alpha, end_alpha) = expect_args!(args, [int, bool, int, int, real, real])?;
         let pt = self.particles.get_dnd_type_mut(id as usize);
-        pt.color =
-            if changing { particle::ParticleColor::Two(col1, col2) } else { particle::ParticleColor::Mix(col1, col2) };
+        pt.colour =
+            if changing { particle::ParticleColour::Two(col1, col2) } else { particle::ParticleColour::Mix(col1, col2) };
         pt.alpha1 = start_alpha;
         pt.alpha2 = (start_alpha + end_alpha) / Real::from(2.0);
         pt.alpha3 = end_alpha;
@@ -9256,7 +9256,7 @@ impl Game {
     pub fn part_type_color_mix(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Mix(c1, c2);
+            pt.colour = particle::ParticleColour::Mix(c1, c2);
         }
         Ok(Default::default())
     }
@@ -9264,7 +9264,7 @@ impl Game {
     pub fn part_type_color_rgb(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, rmin, rmax, gmin, gmax, bmin, bmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::RGB { rmin, rmax, gmin, gmax, bmin, bmax };
+            pt.colour = particle::ParticleColour::RGB { rmin, rmax, gmin, gmax, bmin, bmax };
         }
         Ok(Default::default())
     }
@@ -9272,7 +9272,7 @@ impl Game {
     pub fn part_type_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, hmin, hmax, smin, smax, vmin, vmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::HSV { hmin, hmax, smin, smax, vmin, vmax };
+            pt.colour = particle::ParticleColour::HSV { hmin, hmax, smin, smax, vmin, vmax };
         }
         Ok(Default::default())
     }
@@ -9280,7 +9280,7 @@ impl Game {
     pub fn part_type_color1(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, col) = expect_args!(args, [int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::One(col);
+            pt.colour = particle::ParticleColour::One(col);
         }
         Ok(Default::default())
     }
@@ -9288,7 +9288,7 @@ impl Game {
     pub fn part_type_color2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Two(c1, c2);
+            pt.colour = particle::ParticleColour::Two(c1, c2);
         }
         Ok(Default::default())
     }
@@ -9296,7 +9296,7 @@ impl Game {
     pub fn part_type_color3(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2, c3) = expect_args!(args, [int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Three(c1, c2, c3);
+            pt.colour = particle::ParticleColour::Three(c1, c2, c3);
         }
         Ok(Default::default())
     }
@@ -9431,8 +9431,8 @@ impl Game {
     }
 
     pub fn part_particles_create_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (id, x, y, parttype, color, number) = expect_args!(args, [int, real, real, int, int, int])?;
-        self.particles.system_create_particles(id, x, y, parttype, Some(color), number, &mut self.rand);
+        let (id, x, y, parttype, colour, number) = expect_args!(args, [int, real, real, int, int, int])?;
+        self.particles.system_create_particles(id, x, y, parttype, Some(colour), number, &mut self.rand);
         Ok(Default::default())
     }
 
@@ -9890,13 +9890,13 @@ impl Game {
     }
 
     pub fn effect_create_below(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, color) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, color, gml::TRUE.into()])
+        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
+        self.action_effect(context, &[kind, x, y, size, colour, gml::TRUE.into()])
     }
 
     pub fn effect_create_above(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, color) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, color, gml::FALSE.into()])
+        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
+        self.action_effect(context, &[kind, x, y, size, colour, gml::FALSE.into()])
     }
 
     pub fn effect_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {

@@ -466,14 +466,14 @@ impl WindowTrait for WindowImpl {
         }
     }
 
-    fn display_color(&self) -> i32 {
+    fn display_colour(&self) -> i32 {
         unsafe {
             let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
             let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
             if response != 0 {
                 device.dmBitsPerPel as i32
             } else {
-                panic!("Couldn't get screen color depth: EnumDisplaySettingsW(...) -> {}", response)
+                panic!("Couldn't get screen colour depth: EnumDisplaySettingsW(...) -> {}", response)
             }
         }
     }

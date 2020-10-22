@@ -95,7 +95,7 @@ pub trait WindowTrait {
     fn display_width(&self) -> i32;
     fn display_height(&self) -> i32;
     fn display_frequency(&self) -> i32;
-    fn display_color(&self) -> i32;
+    fn display_colour(&self) -> i32;
     fn disk_free(&self, drive: Option<char>) -> Option<u64>;
     fn disk_size(&self, drive: Option<char>) -> Option<u64>;
 }
@@ -203,8 +203,8 @@ impl Window {
         self.0.display_frequency()
     }
 
-    pub fn display_color(&self) -> i32 {
-        self.0.display_color()
+    pub fn display_colour(&self) -> i32 {
+        self.0.display_colour()
     }
 
     pub fn disk_free(&mut self, drive: Option<char>) -> Option<u64> {
