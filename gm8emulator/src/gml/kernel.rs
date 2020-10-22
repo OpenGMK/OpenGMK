@@ -6844,9 +6844,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn get_function_address(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function get_function_address")
+    pub fn get_function_address(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _name = expect_args!(args, [any])?;
+        // We're definitely not ABI compliant with the original GM (at least for now),
+        // and don't have any compatibility layer as well, so let it just return -1,
+        // as the GM implementation does for unknown function names.
+        Ok((-1).into())
     }
 
     pub fn external_define0(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
