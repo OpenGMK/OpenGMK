@@ -1476,9 +1476,50 @@ impl Game {
         }
     }
 
-    pub fn draw_background_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 15
-        unimplemented!("Called unimplemented kernel function draw_background_general")
+    pub fn draw_background_general(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            bg_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+        ) = expect_args!(args, [
+            int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+        ])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                self.renderer.draw_sprite_general(
+                    atlas_ref,
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
+                    col1,
+                    col2,
+                    col3,
+                    col4,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn draw_background_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
