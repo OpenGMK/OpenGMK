@@ -7,12 +7,12 @@ pub struct Colour {
 }
 
 impl Colour {
-    /// Constructs a new Color from RGB values.
+    /// Constructs a new Colour from RGB values.
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Colour {
         Colour { r, g, b, a }
     }
 
-    /// Creates a Color from an ABGR decimal value.
+    /// Creates a Colour from an ABGR decimal value.
     pub fn from_abgr_packed(val: u32) -> Colour {
         Colour {
             r: (val & 0xFF) as u8,
@@ -22,7 +22,7 @@ impl Colour {
         }
     }
 
-    /// Converts the color to an ABGR decimal value.
+    /// Converts the colour to an ABGR decimal value.
     pub fn as_decimal(self) -> u32 {
         (self.a as u32) << 24 | (self.b as u32) << 16 | (self.g as u32) << 8 | self.r as u32
     }

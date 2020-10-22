@@ -671,7 +671,7 @@ where
         let pos = exe.position() as usize;
         let mut data = io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
         let hdg = GameHelpDialog {
-            bg_color: data.read_u32_le()?.into(),
+            bg_colour: data.read_u32_le()?.into(),
             new_window: data.read_u32_le()? != 0,
             caption: data.read_pas_string()?,
             left: data.read_i32_le()?,
