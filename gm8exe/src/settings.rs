@@ -161,7 +161,7 @@ pub struct Settings {
 /// The help dialog box associated with a GM8 game
 #[derive(Debug)]
 pub struct GameHelpDialog {
-    pub bg_color: Colour,
+    pub bg_colour: Colour,
     pub new_window: bool,
     pub caption: PascalString,
     pub left: i32,

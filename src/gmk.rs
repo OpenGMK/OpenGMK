@@ -685,7 +685,7 @@ where
 {
     let mut result = writer.write_u32_le(800)?;
     let mut enc = ZlibWriter::new();
-    enc.write_u32_le(info.bg_color.into())?;
+    enc.write_u32_le(info.bg_colour.into())?;
     enc.write_u32_le(info.new_window as u32)?;
     enc.write_pas_string(&info.caption)?;
     enc.write_i32_le(info.left)?;
