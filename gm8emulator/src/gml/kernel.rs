@@ -2125,9 +2125,9 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_surface_tiled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_surface_tiled")
+    pub fn draw_surface_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [any, any, any])?;
+        self.draw_surface_tiled_ext(context, &[surf_id, x, y, 1.into(), 1.into(), 0xFFFFFF.into(), 1.into()])
     }
 
     pub fn draw_surface_tiled_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
