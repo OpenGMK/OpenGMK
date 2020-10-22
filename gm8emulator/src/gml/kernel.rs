@@ -62,8 +62,8 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
-pub fn rgb_to_hsv(color: i32) -> (i32, i32, i32) {
-    let (r, g, b) = (Real::from(color & 0xFF), Real::from((color >> 8) & 0xFF), Real::from((color >> 16) & 0xFF));
+pub fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
+    let (r, g, b) = (Real::from(colour & 0xFF), Real::from((colour >> 8) & 0xFF), Real::from((colour >> 16) & 0xFF));
 
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
@@ -94,19 +94,23 @@ pub fn rgb_to_hsv(color: i32) -> (i32, i32, i32) {
 }
 
 impl Game {
-    pub fn display_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.display_width().into())
     }
 
-    pub fn display_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.display_height().into())
     }
 
-    pub fn display_get_colordepth(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        Ok(self.window.display_color().into())
+    pub fn display_get_colordepth(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window.display_colour().into())
     }
 
-    pub fn display_get_frequency(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_frequency(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.display_frequency().into())
     }
 
@@ -273,19 +277,23 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_default")
     }
 
-    pub fn window_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.get_pos().0.into())
     }
 
-    pub fn window_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.get_pos().1.into())
     }
 
-    pub fn window_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.get_inner_size().0.into())
     }
 
-    pub fn window_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.window.get_inner_size().1.into())
     }
 
@@ -297,11 +305,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_set_region_size")
     }
 
-    pub fn window_get_region_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_region_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.unscaled_width.into())
     }
 
-    pub fn window_get_region_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_region_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.unscaled_height.into())
     }
 
@@ -327,20 +337,22 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn window_get_region_scale(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        let result = match self.scaling {
+    pub fn window_get_region_scale(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(match self.scaling {
             Scaling::Fixed(n) => n,
             Scaling::Aspect(n) => n,
             Scaling::Full => 0.0,
-        };
-        Ok(result.into())
+        }.into())
     }
 
-    pub fn window_mouse_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_mouse_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.input_manager.mouse_get_location().0.into())
     }
 
-    pub fn window_mouse_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_mouse_get_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.input_manager.mouse_get_location().1.into())
     }
 
@@ -391,18 +403,21 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn screen_redraw(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn screen_redraw(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.draw()?;
         Ok(Default::default())
     }
 
-    pub fn screen_refresh(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn screen_refresh(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         let (width, height) = self.window.get_inner_size();
         self.renderer.present(width, height, self.scaling);
         Ok(Default::default())
     }
 
-    pub fn screen_wait_vsync(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn screen_wait_vsync(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.renderer.wait_vsync();
         Ok(Default::default())
     }
@@ -878,7 +893,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn draw_primitive_end(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.renderer.draw_primitive_2d();
         Ok(Default::default())
     }
@@ -961,14 +977,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn texture_get_width(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // we don't pad textures to po2
-        Ok(1.into())
+    pub fn texture_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(1.into()) // we don't pad textures to power-of-2
     }
 
-    pub fn texture_get_height(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // see texture_get_width
-        Ok(1.into())
+    pub fn texture_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(1.into()) // see texture_get_width
     }
 
     pub fn texture_preload(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -1435,7 +1451,7 @@ impl Game {
     }
 
     pub fn draw_background_part_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (bg_index, left, top, width, height, x, y, xscale, yscale, color, alpha) =
+        let (bg_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
@@ -1450,7 +1466,7 @@ impl Game {
                     xscale.into(),
                     yscale.into(),
                     0.0,
-                    color,
+                    colour,
                     alpha.into(),
                 );
             }
@@ -1460,9 +1476,50 @@ impl Game {
         }
     }
 
-    pub fn draw_background_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 15
-        unimplemented!("Called unimplemented kernel function draw_background_general")
+    pub fn draw_background_general(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            bg_index,
+            left,
+            top,
+            width,
+            height,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+        ) = expect_args!(args, [
+            int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+        ])?;
+        if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
+            if let Some(atlas_ref) = &background.atlas_ref {
+                self.renderer.draw_sprite_general(
+                    atlas_ref,
+                    left.into(),
+                    top.into(),
+                    width.into(),
+                    height.into(),
+                    x.into(),
+                    y.into(),
+                    xscale.into(),
+                    yscale.into(),
+                    angle.into(),
+                    col1,
+                    col2,
+                    col3,
+                    col4,
+                    alpha.into(),
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+        }
     }
 
     pub fn draw_background_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1928,7 +1985,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn surface_reset_target(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn surface_reset_target(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         // reset viewport to top left of room because lol
         self.renderer.reset_target();
         self.surface_target = None;
@@ -2025,19 +2083,70 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_surface_general(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 15
-        unimplemented!("Called unimplemented kernel function draw_surface_general")
+    pub fn draw_surface_general(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            surf_id,
+            l,
+            t,
+            w,
+            h,
+            x,
+            y,
+            xscale,
+            yscale,
+            angle,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+        ) = expect_args!(args, [
+            int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+        ])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite_general(
+                &surf.atlas_ref,
+                l.into(),
+                t.into(),
+                w.into(),
+                h.into(),
+                x.into(),
+                y.into(),
+                xscale.into(),
+                yscale.into(),
+                angle.into(),
+                col1,
+                col2,
+                col3,
+                col4,
+                alpha.into(),
+            );
+        }
+        Ok(Default::default())
     }
 
-    pub fn draw_surface_tiled(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function draw_surface_tiled")
+    pub fn draw_surface_tiled(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [any, any, any])?;
+        self.draw_surface_tiled_ext(context, &[surf_id, x, y, 1.into(), 1.into(), 0xFFFFFF.into(), 1.into()])
     }
 
-    pub fn draw_surface_tiled_ext(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function draw_surface_tiled_ext")
+    pub fn draw_surface_tiled_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y, xscale, yscale, colour, alpha) =
+            expect_args!(args, [int, real, real, real, real, int, real])?;
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            self.renderer.draw_sprite_tiled(
+                &surf.atlas_ref,
+                x.into(),
+                y.into(),
+                xscale.into(),
+                yscale.into(),
+                colour,
+                alpha.into(),
+                Some(self.room_width.into()),
+                Some(self.room_height.into()),
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2526,15 +2635,15 @@ impl Game {
 
     pub fn action_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
-        // TODO
         //unimplemented!("Called unimplemented kernel function action_sound")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn action_end_sound(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        // TODO
         //unimplemented!("Called unimplemented kernel function action_end_sound")
+        // TODO
         Ok(Default::default())
     }
 
@@ -3092,7 +3201,7 @@ impl Game {
         pt.size_max = size_max;
         pt.size_incr = 0.into();
         pt.size_wiggle = 0.into();
-        pt.color = particle::ParticleColor::Two(col1, col2);
+        pt.colour = particle::ParticleColour::Two(col1, col2);
         Ok(Default::default())
     }
 
@@ -3114,8 +3223,8 @@ impl Game {
     pub fn action_parttype_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, changing, col1, col2, start_alpha, end_alpha) = expect_args!(args, [int, bool, int, int, real, real])?;
         let pt = self.particles.get_dnd_type_mut(id as usize);
-        pt.color =
-            if changing { particle::ParticleColor::Two(col1, col2) } else { particle::ParticleColor::Mix(col1, col2) };
+        pt.colour =
+            if changing { particle::ParticleColour::Two(col1, col2) } else { particle::ParticleColour::Mix(col1, col2) };
         pt.alpha1 = start_alpha;
         pt.alpha2 = (start_alpha + end_alpha) / Real::from(2.0);
         pt.alpha3 = end_alpha;
@@ -5012,17 +5121,20 @@ impl Game {
             .into())
     }
 
-    pub fn room_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn room_restart(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.scene_change = Some(SceneChange::Room(self.room_id));
         Ok(Default::default())
     }
 
-    pub fn game_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn game_end(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.scene_change = Some(SceneChange::End);
         Ok(Default::default())
     }
 
-    pub fn game_restart(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn game_restart(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.scene_change = Some(SceneChange::Restart);
         Ok(Default::default())
     }
@@ -5040,6 +5152,7 @@ impl Game {
     pub fn transition_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function transition_define")
+        // TODO
         Ok(Default::default())
     }
 
@@ -5205,7 +5318,7 @@ impl Game {
                     .and_then(|r| r.downcast_ref::<std::io::Error>())
                     .map_or(false, |s| s.kind() == std::io::ErrorKind::NotFound) =>
             {
-                Ok((-1.0).into())
+                Ok((-1).into())
             },
             Err(e) => Err(gml::Error::FunctionError("file_text_open_read".into(), e.to_string())),
         }
@@ -5524,7 +5637,8 @@ impl Game {
         }
     }
 
-    pub fn file_find_next(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn file_find_next(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         while let Some(p) = self.file_finder.as_mut().and_then(|ff| ff.next()) {
             if let Some(p) = p.to_str().and_then(|p| self.encode_str_maybe(p)) {
                 return Ok(Value::from(p.as_ref()))
@@ -5534,7 +5648,8 @@ impl Game {
         Ok(b"".as_ref().into())
     }
 
-    pub fn file_find_close(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn file_find_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.file_finder = None;
         Ok(Default::default())
     }
@@ -5698,7 +5813,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function execute_shell")
     }
 
-    pub fn parameter_count(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn parameter_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         // Gamemaker doesn't count parameter 0 (the game exe) as a "parameter"
         return Ok((self.parameters.len() - 1).into())
     }
@@ -5925,7 +6041,7 @@ impl Game {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
         };
-        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1.0).into())
+        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
     }
 
     pub fn disk_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5933,7 +6049,7 @@ impl Game {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
         };
-        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1.0).into())
+        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
     }
 
     pub fn splash_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6231,24 +6347,28 @@ impl Game {
     pub fn message_input_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function message_input_color")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_position")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_size(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_size")
+        // TODO
         Ok(Default::default())
     }
 
     pub fn message_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function message_caption")
+        // TODO
         Ok(Default::default())
     }
 
@@ -6427,83 +6547,98 @@ impl Game {
     pub fn joystick_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_exists")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_direction(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_direction")
+        // TODO
         Ok(101.into())
     }
 
     pub fn joystick_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_name")
+        // TODO
         Ok("".into())
     }
 
     pub fn joystick_axes(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_axes")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_buttons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_buttons")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_has_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
+        //unimplemented!("Called unimplemented kernel function joystick_has_pov")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_check_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         //unimplemented!("Called unimplemented kernel function joystick_check_button")
+        // TODO
         Ok(gml::FALSE.into())
     }
 
     pub fn joystick_xpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_xpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_ypos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_ypos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_zpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_zpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_rpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_rpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_upos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_upos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_vpos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_vpos")
+        // TODO
         Ok(0.into())
     }
 
     pub fn joystick_pov(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function joystick_pov")
+        // TODO
         Ok((-1).into())
     }
 
@@ -6521,18 +6656,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mouse_clear")
     }
 
-    pub fn io_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn io_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.process_window_events();
         self.input_manager.clear();
         Ok(Default::default())
     }
 
-    pub fn io_handle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn io_handle(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.process_window_events();
         Ok(Default::default())
     }
 
-    pub fn keyboard_wait(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn keyboard_wait(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         if self.play_type == PlayType::Normal {
             self.input_manager.key_set_lastkey(0);
             while self.input_manager.key_get_lastkey() == 0 {
@@ -6798,9 +6936,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn get_function_address(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function get_function_address")
+    pub fn get_function_address(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _name = expect_args!(args, [any])?;
+        // We're definitely not ABI compliant with the original GM (at least for now),
+        // and don't have any compatibility layer as well, so let it just return -1,
+        // as the GM implementation does for unknown function names.
+        Ok((-1).into())
     }
 
     pub fn external_define0(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -6952,7 +7093,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function set_program_priority")
     }
 
-    pub fn set_application_title(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn set_application_title(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let _title = expect_args!(args, [any])?;
         // In GM8, the game is made out of two windows. One is the one you see, and its caption is
         // managed by room_caption and (somewhat) window_set_caption. The other's caption is set by
         // set_application_title, and its caption only shows up in the taskbar and task manager.
@@ -7098,15 +7240,18 @@ impl Game {
         unimplemented!("Called unimplemented kernel function clipboard_get_text")
     }
 
-    pub fn date_current_datetime(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).into())
     }
 
-    pub fn date_current_date(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_date(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).date().into())
     }
 
-    pub fn date_current_time(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_time(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).time().into())
     }
 
@@ -7357,7 +7502,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.frames.len().into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7366,7 +7511,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7375,7 +7520,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7384,7 +7529,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_x.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7393,7 +7538,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_y.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7402,7 +7547,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_left.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7411,7 +7556,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_right.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7420,7 +7565,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_top.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7429,7 +7574,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_bottom.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -8533,7 +8678,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn path_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn path_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         let path_id = self.assets.paths.len();
         self.assets.paths.push(Some(Box::new(asset::Path {
             name: format!("__newpath{}", path_id).into(),
@@ -8836,7 +8982,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn object_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn object_add(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         let id = self.assets.objects.len() as i32;
         let children = Default::default();
         let object = Box::new(asset::Object {
@@ -9201,7 +9348,7 @@ impl Game {
     pub fn part_type_color_mix(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Mix(c1, c2);
+            pt.colour = particle::ParticleColour::Mix(c1, c2);
         }
         Ok(Default::default())
     }
@@ -9209,7 +9356,7 @@ impl Game {
     pub fn part_type_color_rgb(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, rmin, rmax, gmin, gmax, bmin, bmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::RGB { rmin, rmax, gmin, gmax, bmin, bmax };
+            pt.colour = particle::ParticleColour::RGB { rmin, rmax, gmin, gmax, bmin, bmax };
         }
         Ok(Default::default())
     }
@@ -9217,7 +9364,7 @@ impl Game {
     pub fn part_type_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, hmin, hmax, smin, smax, vmin, vmax) = expect_args!(args, [int, int, int, int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::HSV { hmin, hmax, smin, smax, vmin, vmax };
+            pt.colour = particle::ParticleColour::HSV { hmin, hmax, smin, smax, vmin, vmax };
         }
         Ok(Default::default())
     }
@@ -9225,7 +9372,7 @@ impl Game {
     pub fn part_type_color1(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, col) = expect_args!(args, [int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::One(col);
+            pt.colour = particle::ParticleColour::One(col);
         }
         Ok(Default::default())
     }
@@ -9233,7 +9380,7 @@ impl Game {
     pub fn part_type_color2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2) = expect_args!(args, [int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Two(c1, c2);
+            pt.colour = particle::ParticleColour::Two(c1, c2);
         }
         Ok(Default::default())
     }
@@ -9241,7 +9388,7 @@ impl Game {
     pub fn part_type_color3(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, c1, c2, c3) = expect_args!(args, [int, int, int, int])?;
         if let Some(pt) = self.particles.get_type_mut(id) {
-            pt.color = particle::ParticleColor::Three(c1, c2, c3);
+            pt.colour = particle::ParticleColour::Three(c1, c2, c3);
         }
         Ok(Default::default())
     }
@@ -9376,8 +9523,8 @@ impl Game {
     }
 
     pub fn part_particles_create_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (id, x, y, parttype, color, number) = expect_args!(args, [int, real, real, int, int, int])?;
-        self.particles.system_create_particles(id, x, y, parttype, Some(color), number, &mut self.rand);
+        let (id, x, y, parttype, colour, number) = expect_args!(args, [int, real, real, int, int, int])?;
+        self.particles.system_create_particles(id, x, y, parttype, Some(colour), number, &mut self.rand);
         Ok(Default::default())
     }
 
@@ -9835,13 +9982,13 @@ impl Game {
     }
 
     pub fn effect_create_below(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, color) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, color, gml::TRUE.into()])
+        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
+        self.action_effect(context, &[kind, x, y, size, colour, gml::TRUE.into()])
     }
 
     pub fn effect_create_above(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, color) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, color, gml::FALSE.into()])
+        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
+        self.action_effect(context, &[kind, x, y, size, colour, gml::FALSE.into()])
     }
 
     pub fn effect_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -11160,6 +11307,7 @@ impl Game {
     pub fn sound_global_volume(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function sound_global_volume")
+        // TODO
         Ok(Default::default())
     }
 
@@ -11323,12 +11471,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function MCI_command")
     }
 
-    pub fn d3d_start(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_start(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.renderer.set_3d(true);
         Ok(1.into())
     }
 
-    pub fn d3d_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_end(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.renderer.set_3d(false);
         Ok(1.into())
     }
@@ -11400,7 +11550,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_primitive_end(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_primitive_end(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.renderer.draw_primitive_3d();
         Ok(Default::default())
     }
@@ -11759,7 +11910,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_set_identity(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         #[rustfmt::skip]
         let model_matrix: [f32; 16] = [
             1.0, 0.0, 0.0, 0.0,
@@ -11969,16 +12121,19 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_stack_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         self.model_matrix_stack.clear();
         Ok(Default::default())
     }
 
-    pub fn d3d_transform_stack_empty(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_empty(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.model_matrix_stack.is_empty().into())
     }
 
-    pub fn d3d_transform_stack_push(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_push(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         if self.model_matrix_stack.len() <= 1000 {
             self.model_matrix_stack.push(self.renderer.get_model_matrix());
             Ok(true.into())
@@ -11987,7 +12142,8 @@ impl Game {
         }
     }
 
-    pub fn d3d_transform_stack_pop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_pop(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         if let Some(mat) = self.model_matrix_stack.pop() {
             self.renderer.set_model_matrix(mat);
             Ok(true.into())
@@ -11996,7 +12152,8 @@ impl Game {
         }
     }
 
-    pub fn d3d_transform_stack_top(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_top(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         if let Some(mat) = self.model_matrix_stack.last() {
             self.renderer.set_model_matrix(*mat);
             Ok(true.into())
@@ -12005,7 +12162,8 @@ impl Game {
         }
     }
 
-    pub fn d3d_transform_stack_discard(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_transform_stack_discard(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         Ok(self.model_matrix_stack.pop().is_some().into())
     }
 
@@ -12046,7 +12204,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn d3d_model_create(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
+    pub fn d3d_model_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
         let model = Default::default();
         if let Some(id) = self.models.iter().position(|x| x.is_none()) {
             self.models[id] = Some(model);
