@@ -5205,7 +5205,7 @@ impl Game {
                     .and_then(|r| r.downcast_ref::<std::io::Error>())
                     .map_or(false, |s| s.kind() == std::io::ErrorKind::NotFound) =>
             {
-                Ok((-1.0).into())
+                Ok((-1).into())
             },
             Err(e) => Err(gml::Error::FunctionError("file_text_open_read".into(), e.to_string())),
         }
@@ -5925,7 +5925,7 @@ impl Game {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
         };
-        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1.0).into())
+        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
     }
 
     pub fn disk_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5933,7 +5933,7 @@ impl Game {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
         };
-        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1.0).into())
+        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
     }
 
     pub fn splash_set_caption(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -7357,7 +7357,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.frames.len().into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7366,7 +7366,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.width.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7375,7 +7375,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.height.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7384,7 +7384,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_x.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7393,7 +7393,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.origin_y.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7402,7 +7402,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_left.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7411,7 +7411,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_right.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7420,7 +7420,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_top.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
@@ -7429,7 +7429,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
             Ok(sprite.bbox_bottom.into())
         } else {
-            Ok((-1.0).into())
+            Ok((-1).into())
         }
     }
 
