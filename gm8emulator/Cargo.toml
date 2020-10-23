@@ -36,8 +36,3 @@ features = ["commctrl", "errhandlingapi", "libloaderapi", "timeapi", "winbase", 
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"
 features = ["xlib"]
-
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 3
