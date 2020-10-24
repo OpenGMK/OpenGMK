@@ -1903,11 +1903,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_depth(&mut self, depth: f32) {
-        let new_depth = if self.using_3d { depth.max(-16000.0).min(16000.0) } else { 0.0 };
-        if self.depth != new_depth {
-            self.flush_queue();
-            self.depth = new_depth;
-        }
+        self.depth = if self.using_3d { depth.max(-16000.0).min(16000.0) } else { 0.0 };
     }
 
     fn get_depth_test(&self) -> bool {
