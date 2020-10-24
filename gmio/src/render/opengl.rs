@@ -1771,12 +1771,11 @@ impl RendererTrait for RendererImpl {
     /// Does anything that's queued to be done.
     fn flush_queue(&mut self) {
         // move the queue out of self to satisfy the borrow checker
-        let mut queue = Vec::new();
-        std::mem::swap(&mut queue, &mut self.vertex_queue);
+        let mut queue = std::mem::take(&mut self.vertex_queue);
         self.draw_buffer(self.current_atlas, self.queue_type, &queue);
         // clear it and put it back so we can reuse the memory
         queue.clear();
-        std::mem::swap(&mut queue, &mut self.vertex_queue);
+        self.vertex_queue = queue;
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
