@@ -978,12 +978,12 @@ impl Game {
     }
 
     pub fn texture_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
+        expect_args!(args, [int])?;
         Ok(1.into()) // we don't pad textures to power-of-2
     }
 
     pub fn texture_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
+        expect_args!(args, [int])?;
         Ok(1.into()) // see texture_get_width
     }
 
