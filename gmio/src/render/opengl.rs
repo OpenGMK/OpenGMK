@@ -53,6 +53,7 @@ pub struct RendererImpl {
     framebuffer_texture: GLuint,
     framebuffer_zbuf: GLuint,
     framebuffer_fbo: GLuint,
+    zbuf_format: GLint,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveShape,
@@ -306,6 +307,8 @@ impl RendererImpl {
                 imp.set_swap_interval(0);
             }
 
+            let zbuf_format = if options.zbuf_24 { gl::DEPTH_COMPONENT24 } else { gl::DEPTH_COMPONENT16 } as GLint;
+
             // Compile vertex shader
             let vertex_shader = gl.CreateShader(gl::VERTEX_SHADER);
             gl.ShaderSource(vertex_shader, 1, &(VERTEX_SHADER_SOURCE.as_ptr().cast()), ptr::null());
@@ -402,15 +405,15 @@ impl RendererImpl {
             gl.GenTextures(1, &mut framebuffer_zbuf);
             gl.BindTexture(gl::TEXTURE_2D, framebuffer_zbuf);
             gl.TexImage2D(
-                gl::TEXTURE_2D,             // target
-                0,                          // level
-                gl::DEPTH_COMPONENT24 as _, // internalformat
-                options.size.0 as _,        // width
-                options.size.1 as _,        // height
-                0,                          // border ("must be 0")
-                gl::DEPTH_COMPONENT,        // format
-                gl::FLOAT,                  // type
-                ptr::null(),                // data
+                gl::TEXTURE_2D,      // target
+                0,                   // level
+                zbuf_format,         // internalformat
+                options.size.0 as _, // width
+                options.size.1 as _, // height
+                0,                   // border ("must be 0")
+                gl::DEPTH_COMPONENT, // format
+                gl::FLOAT,           // type
+                ptr::null(),         // data
             );
             gl.GenFramebuffers(1, &mut framebuffer_fbo);
             gl.BindFramebuffer(gl::FRAMEBUFFER, framebuffer_fbo);
@@ -472,9 +475,13 @@ impl RendererImpl {
                 framebuffer_texture,
                 framebuffer_zbuf,
                 framebuffer_fbo,
+                zbuf_format,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveShape::Triangle,
+                queue_render_state: Default::default(),
+                next_render_state: Default::default(),
+                render_state_updated: false,
                 interpolate_pixels: options.interpolate_pixels,
                 texture_repeat: false,
                 circle_precision: 24,
@@ -993,15 +1000,15 @@ impl RendererTrait for RendererImpl {
                 self.gl.GenTextures(1, &mut zbuf_id);
                 self.gl.BindTexture(gl::TEXTURE_2D, zbuf_id);
                 self.gl.TexImage2D(
-                    gl::TEXTURE_2D,             // target
-                    0,                          // level
-                    gl::DEPTH_COMPONENT24 as _, // internalformat
-                    width as _,                 // width
-                    height as _,                // height
-                    0,                          // border ("must be 0")
-                    gl::DEPTH_COMPONENT,        // format
-                    gl::FLOAT,                  // type
-                    ptr::null(),                // data
+                    gl::TEXTURE_2D,      // target
+                    0,                   // level
+                    self.zbuf_format,    // internalformat
+                    width as _,          // width
+                    height as _,         // height
+                    0,                   // border ("must be 0")
+                    gl::DEPTH_COMPONENT, // format
+                    gl::FLOAT,           // type
+                    ptr::null(),         // data
                 );
                 self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, zbuf_id, 0);
                 match self.gl.GetError() {
@@ -1092,15 +1099,15 @@ impl RendererTrait for RendererImpl {
             self.gl.GenTextures(1, &mut self.framebuffer_zbuf);
             self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
             self.gl.TexImage2D(
-                gl::TEXTURE_2D,             // target
-                0,                          // level
-                gl::DEPTH_COMPONENT24 as _, // internalformat
-                width as _,                 // width
-                height as _,                // height
-                0,                          // border ("must be 0")
-                gl::DEPTH_COMPONENT,        // format
-                gl::FLOAT,                  // type
-                ptr::null(),                // data
+                gl::TEXTURE_2D,      // target
+                0,                   // level
+                self.zbuf_format,    // internalformat
+                width as _,          // width
+                height as _,         // height
+                0,                   // border ("must be 0")
+                gl::DEPTH_COMPONENT, // format
+                gl::FLOAT,           // type
+                ptr::null(),         // data
             );
             assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
@@ -1387,7 +1394,7 @@ impl RendererTrait for RendererImpl {
                         self.gl.TexImage2D(
                             gl::TEXTURE_2D,
                             0,
-                            gl::DEPTH_COMPONENT24 as _,
+                            self.zbuf_format,
                             tex.width,
                             tex.height,
                             0,

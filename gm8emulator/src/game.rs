@@ -439,6 +439,7 @@ impl Game {
             vsync: settings.vsync, // TODO: Overrideable
             interpolate_pixels: settings.interpolate_pixels,
             normalize_normals: gm_version == Version::GameMaker8_1,
+            zbuf_24: gm_version == Version::GameMaker8_1, // TODO: set to true if surface fix is found
         };
 
         let (width, height) = options.size;

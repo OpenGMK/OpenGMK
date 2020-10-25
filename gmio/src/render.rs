@@ -464,11 +464,18 @@ pub struct RendererOptions {
     pub vsync: bool,
     pub interpolate_pixels: bool,
     pub normalize_normals: bool,
+    pub zbuf_24: bool,
 }
 
 impl Default for RendererOptions {
     fn default() -> Self {
-        RendererOptions { size: (8, 8), vsync: true, interpolate_pixels: false, normalize_normals: false }
+        RendererOptions {
+            size: (8, 8),
+            vsync: true,
+            interpolate_pixels: false,
+            normalize_normals: false,
+            zbuf_24: false,
+        }
     }
 }
 
