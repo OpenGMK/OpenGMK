@@ -4599,14 +4599,26 @@ impl Game {
         }
     }
 
-    pub fn collision_circle(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function collision_circle")
+    pub fn collision_circle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, r, object_id, precise, exclude_self) = expect_args!(args, [real, real, real, int, bool, bool])?;
+        match self.find_instance_with(object_id, |handle| {
+            (!exclude_self || handle != context.this)
+                && self.check_collision_ellipse(handle, x - r, y - r, x + r, y + r, precise)
+        }) {
+            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
-    pub fn collision_ellipse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 7
-        unimplemented!("Called unimplemented kernel function collision_ellipse")
+    pub fn collision_ellipse(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, object_id, precise, exclude_self) =
+            expect_args!(args, [real, real, real, real, int, bool, bool])?;
+        match self.find_instance_with(object_id, |handle| {
+            (!exclude_self || handle != context.this) && self.check_collision_ellipse(handle, x1, y1, x2, y2, precise)
+        }) {
+            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            None => Ok(gml::NOONE.into()),
+        }
     }
 
     pub fn collision_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
