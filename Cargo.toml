@@ -6,3 +6,8 @@ members = ["gm8emulator", "control-panel", "dll-macros", "gmio", "shared"]
 # If you're making 32-bit builds of the emulator as well, you may find it useful to put dll-bridge in the members list
 # when you're building it. Make sure to remove it when making 64-bit builds though.
 exclude = ["dll-bridge"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
