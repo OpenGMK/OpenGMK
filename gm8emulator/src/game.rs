@@ -2223,6 +2223,131 @@ impl Game {
         }
     }
 
+    pub fn check_collision_ellipse(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let bbox_left: Real = inst.bbox_left.get().into();
+        let bbox_right: Real = inst.bbox_right.get().into();
+        let bbox_top: Real = inst.bbox_top.get().into();
+        let bbox_bottom: Real = inst.bbox_bottom.get().into();
+
+        let rect_left = x1.min(x2);
+        let rect_right = x1.max(x2);
+        let rect_top = y1.min(y2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if bbox_right + Real::from(1.0) <= rect_left
+            || rect_right < bbox_left
+            || bbox_bottom + Real::from(1.0) <= rect_top
+            || rect_bottom < bbox_top
+        {
+            return false
+        }
+
+        let rect_left = rect_left.round();
+        let rect_right = rect_right.round();
+        let rect_top = rect_top.round();
+        let rect_bottom = rect_bottom.round();
+
+        let ellipse_xcenter = Real::from(rect_right + rect_left) / 2.into();
+        let ellipse_ycenter = Real::from(rect_bottom + rect_top) / 2.into();
+        let ellipse_xrad = Real::from(rect_right - rect_left) / 2.into();
+        let ellipse_yrad = Real::from(rect_bottom - rect_top) / 2.into();
+
+        let point_in_ellipse = |x: Real, y: Real| {
+            let x_dist = (x - ellipse_xcenter) / ellipse_xrad;
+            let y_dist = (y - ellipse_ycenter) / ellipse_yrad;
+            x_dist * x_dist + y_dist * y_dist <= 1.into()
+        };
+
+        // The AABB passed, so if the ellipse's center isn't diagonally separated from the instance's bbox,
+        // that means the leftmost or rightmost or whatever point of the circle is inside the bbox, so we're colliding.
+        if (ellipse_xcenter < bbox_left || ellipse_xcenter > bbox_right)
+            && (ellipse_ycenter < bbox_top || ellipse_ycenter > bbox_bottom)
+        {
+            // If this isn't the case, there can only be collision if the closest corner is inside the ellipse.
+            if !point_in_ellipse(bbox_left.into(), bbox_top.into())
+                && !point_in_ellipse(bbox_left.into(), bbox_bottom.into())
+                && !point_in_ellipse(bbox_right.into(), bbox_top.into())
+                && !point_in_ellipse(bbox_right.into(), bbox_bottom.into())
+            {
+                return false
+            }
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            // Round everything, as GM does
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            // Get intersect rectangle
+            let intersect_top = inst.bbox_top.get().max(rect_top);
+            let intersect_bottom = inst.bbox_bottom.get().min(rect_bottom);
+            let intersect_left = inst.bbox_left.get().max(rect_left);
+            let intersect_right = inst.bbox_right.get().min(rect_right);
+
+            // Go through each pixel in the intersect
+            for intersect_y in intersect_top..=intersect_bottom {
+                for intersect_x in intersect_left..=intersect_right {
+                    // Check if point is in ellipse
+                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) {
+                        // Transform point to be relative to collider
+                        let mut x = Real::from(intersect_x) - inst_x.into();
+                        let mut y = Real::from(intersect_y) - inst_y.into();
+                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
+                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
+                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
+
+                        // And finally, look up this point in the collider
+                        if x >= collider.bbox_left as i32
+                            && y >= collider.bbox_top as i32
+                            && x <= collider.bbox_right as i32
+                            && y <= collider.bbox_bottom as i32
+                            && collider
+                                .data
+                                .get((y as usize * collider.width as usize) + x as usize)
+                                .copied()
+                                .unwrap_or(false)
+                        {
+                            return true
+                        }
+                    }
+                }
+            }
+
+            false
+        } else {
+            false
+        }
+    }
+
     pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.instance_list.get(inst);
