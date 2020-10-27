@@ -506,15 +506,15 @@ impl Game {
         Ok(self.draw_alpha.into())
     }
 
-    pub fn make_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn make_color(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
     }
 
-    pub fn make_color_rgb(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn make_color_rgb(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
     }
 
-    pub fn make_color_hsv(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn make_color_hsv(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (h, s, v) = expect_args!(args, [real, real, real])?;
         let h = h * Real::from(360.0) / Real::from(255.0);
         let s = s / Real::from(255.0);
@@ -540,37 +540,37 @@ impl Game {
         Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
-    pub fn color_get_red(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_red(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int]).map(|c| c % 256).map(Value::from)
     }
 
-    pub fn color_get_green(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_green(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int]).map(|c| (c / 256) % 256).map(Value::from)
     }
 
-    pub fn color_get_blue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_blue(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int]).map(|c| (c / 256 / 256) % 256).map(Value::from)
     }
 
-    pub fn color_get_hue(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_hue(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
         let (h, _, _) = rgb_to_hsv(c);
         Ok(h.into())
     }
 
-    pub fn color_get_saturation(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_saturation(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
         let (_, s, _) = rgb_to_hsv(c);
         Ok(s.into())
     }
 
-    pub fn color_get_value(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn color_get_value(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let c = expect_args!(args, [int])?;
         let (_, _, v) = rgb_to_hsv(c);
         Ok(v.into())
     }
 
-    pub fn merge_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn merge_color(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (c1, c2, amount) = expect_args!(args, [int, int, real])?;
         let r = Real::from(c1 & 255) * (Real::from(1) - amount) + Real::from(c2 & 255) * amount;
         let g = Real::from((c1 >> 8) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 8) & 255) * amount;
@@ -1111,19 +1111,19 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn string_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_width(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let string = expect_args!(args, [bytes])?;
         let (width, _) = self.get_string_size(string, None, None);
         Ok(width.into())
     }
 
-    pub fn string_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_height(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let string = expect_args!(args, [bytes])?;
         let (_, height) = self.get_string_size(string, None, None);
         Ok(height.into())
     }
 
-    pub fn string_width_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_width_ext(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (string, line_height, max_width) = expect_args!(args, [bytes, int, int])?;
         let (width, _) = self.get_string_size(
             string,
@@ -1133,7 +1133,7 @@ impl Game {
         Ok(width.into())
     }
 
-    pub fn string_height_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_height_ext(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (string, line_height, max_width) = expect_args!(args, [bytes, int, int])?;
         let (_, height) = self.get_string_size(
             string,
@@ -3793,14 +3793,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn is_real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn is_real(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         match expect_args!(args, [any])? {
             Value::Real(_) => Ok(gml::TRUE.into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
-    pub fn is_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn is_string(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         match expect_args!(args, [any])? {
             Value::Str(_) => Ok(gml::TRUE.into()),
             _ => Ok(gml::FALSE.into()),
@@ -3857,103 +3857,103 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn abs(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn abs(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.abs()))
     }
 
-    pub fn round(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn round(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| x.round().into())
     }
 
-    pub fn floor(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn floor(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.floor()))
     }
 
-    pub fn ceil(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn ceil(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.ceil()))
     }
 
-    pub fn sign(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn sign(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real])
             .map(|x| if x != 0.into() { Value::Real(x.into_inner().signum().into()) } else { 0.into() })
     }
 
-    pub fn frac(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn frac(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.fract()))
     }
 
-    pub fn sqrt(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn sqrt(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.sqrt() {
             n if !n.as_ref().is_nan() => Ok(Value::Real(n)),
             n => Err(gml::Error::FunctionError("sqrt".into(), format!("can't get square root of {}", n))),
         })
     }
 
-    pub fn sqr(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn sqr(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x * x))
     }
 
-    pub fn exp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn exp(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.exp()))
     }
 
-    pub fn ln(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn ln(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.ln()))
     }
 
-    pub fn log2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn log2(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.log2()))
     }
 
-    pub fn log10(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn log10(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.log10()))
     }
 
-    pub fn sin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn sin(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.sin()))
     }
 
-    pub fn cos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn cos(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.cos()))
     }
 
-    pub fn tan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn tan(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.tan()))
     }
 
-    pub fn arcsin(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn arcsin(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.arcsin()))
     }
 
-    pub fn arccos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn arccos(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.arccos()))
     }
 
-    pub fn arctan(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn arctan(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.arctan()))
     }
 
-    pub fn arctan2(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn arctan2(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(y, x)| Value::Real(y.arctan2(x)))
     }
 
-    pub fn degtorad(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn degtorad(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.to_radians()))
     }
 
-    pub fn radtodeg(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn radtodeg(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| Value::Real(x.to_degrees()))
     }
 
-    pub fn power(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn power(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(x, n)| Value::Real(x.into_inner().powf(n.into()).into()))
     }
 
-    pub fn logn(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn logn(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.logn(n)))
     }
 
-    pub fn min(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn min(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let mut min = match args.first() {
             Some(v) => v.clone(),
             None => return Ok(Default::default()),
@@ -3974,7 +3974,7 @@ impl Game {
         Ok(min)
     }
 
-    pub fn max(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn max(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let mut max = match args.first() {
             Some(v) => v.clone(),
             None => return Ok(Default::default()),
@@ -3993,15 +3993,15 @@ impl Game {
         Ok(max)
     }
 
-    pub fn min3(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn min3(&self, context: &Context, args: &[Value]) -> gml::Result<Value> {
         self.min(context, args)
     }
 
-    pub fn max3(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn max3(&self, context: &Context, args: &[Value]) -> gml::Result<Value> {
         self.max(context, args)
     }
 
-    pub fn mean(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn mean(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         if !args.is_empty() {
             Ok(Value::from(args.iter().cloned().map(Real::from).sum::<Real>() / Real::from(args.len() as f64)))
         } else {
@@ -4009,7 +4009,7 @@ impl Game {
         }
     }
 
-    pub fn median(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn median(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         Ok(args
             .iter()
             .cloned()
@@ -4038,16 +4038,16 @@ impl Game {
         }
     }
 
-    pub fn clamp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn clamp(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.max(lo).min(hi)))
     }
 
-    pub fn lerp(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn lerp(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (low, high, amount) = expect_args!(args, [real, real, real])?;
         Ok(Value::from(((high - low) * amount) + low))
     }
 
-    pub fn real(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn real(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).and_then(|v| match v {
             r @ Value::Real(_) => Ok(r),
             Value::Str(s) => match self.decode_str(s.as_ref()).trim() {
@@ -4060,11 +4060,11 @@ impl Game {
         })
     }
 
-    pub fn string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|v| v.repr().into())
     }
 
-    pub fn string_format(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_format(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (val, mut tot, mut dec) = expect_args!(args, [any, int, int])?;
         match val {
             Value::Str(_) => Ok(val),
@@ -4082,20 +4082,20 @@ impl Game {
         }
     }
 
-    pub fn chr(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn chr(&self, context: &Context, args: &[Value]) -> gml::Result<Value> {
         // TODO: use font to decode if not sprite font
         self.ansi_char(context, args)
     }
 
-    pub fn ansi_char(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn ansi_char(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [int]).map(|x| vec![x as u8].into())
     }
 
-    pub fn ord(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn ord(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes]).map(|s| s.as_ref().get(0).copied().map(f64::from).unwrap_or_default().into())
     }
 
-    pub fn string_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_length(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let string = expect_args!(args, [bytes])?;
         match self.gm_version {
             Version::GameMaker8_0 => Ok(Value::Real((string.as_ref().len() as f64).into())),
@@ -4103,11 +4103,11 @@ impl Game {
         }
     }
 
-    pub fn string_byte_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_byte_length(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes]).map(|s| Value::Real((s.as_ref().len() as f64).into()))
     }
 
-    pub fn string_byte_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_byte_at(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         // NOTE: The gamemaker 8 runner instead of defaulting to 0 just reads any memory address. LOL
         // We don't do this, unsurprisingly.
         expect_args!(args, [bytes, int]).map(|(s, ix)| {
@@ -4115,7 +4115,7 @@ impl Game {
         })
     }
 
-    pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_pos(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes, bytes]).map(|(query, main_string)| match self.gm_version {
             Version::GameMaker8_0 => {
                 let query = query.as_ref();
@@ -4138,7 +4138,7 @@ impl Game {
         })
     }
 
-    pub fn string_copy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_copy(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
         let start = (start as isize - 1).max(0) as usize;
         let len = len.max(0) as usize;
@@ -4159,7 +4159,7 @@ impl Game {
         Ok(Value::from(s.get(start..end).unwrap_or(b"")))
     }
 
-    pub fn string_char_at(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_char_at(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (string, pos) = expect_args!(args, [bytes, int])?;
         match self.gm_version {
             Version::GameMaker8_0 => {
@@ -4174,7 +4174,7 @@ impl Game {
         }
     }
 
-    pub fn string_delete(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_delete(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
         let start = (start as isize - 1).max(0) as usize;
         let len = len.max(0) as usize;
@@ -4195,7 +4195,7 @@ impl Game {
         Ok(s[..start].iter().chain(&s[end..]).copied().collect::<Vec<_>>().into())
     }
 
-    pub fn string_insert(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_insert(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         // string_insert doesn't care about UTF-8
         expect_args!(args, [bytes, bytes, int]).map(|(ss, s, ix)| {
             let ix = ((ix as isize - 1).max(0) as usize).min(s.as_ref().len());
@@ -4203,40 +4203,40 @@ impl Game {
         })
     }
 
-    pub fn string_lower(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_lower(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes]).map(|s| match self.gm_version {
             Version::GameMaker8_0 => Value::Str(s.as_ref().to_ascii_lowercase().into()),
             Version::GameMaker8_1 => Value::Str(self.decode_str(s.as_ref()).to_lowercase().into()),
         })
     }
 
-    pub fn string_upper(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_upper(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes]).map(|s| match self.gm_version {
             Version::GameMaker8_0 => Value::Str(s.as_ref().to_ascii_uppercase().into()),
             Version::GameMaker8_1 => Value::Str(self.decode_str(s.as_ref()).to_uppercase().into()),
         })
     }
 
-    pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_repeat(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [bytes, real]).map(|(s, n)| Value::Str(s.as_ref().repeat(n.into_inner() as usize).into()))
     }
 
-    pub fn string_letters(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_letters(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
             .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_alphabetic()).collect::<String>().into()))
     }
 
-    pub fn string_digits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_digits(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
             .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_digit()).collect::<String>().into()))
     }
 
-    pub fn string_lettersdigits(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_lettersdigits(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string])
             .map(|s| Value::Str(s.as_ref().chars().filter(|ch| ch.is_ascii_alphanumeric()).collect::<String>().into()))
     }
 
-    pub fn string_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_replace(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
         let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
         // could be faster but i'm feeling lazy
@@ -4252,7 +4252,7 @@ impl Game {
         Ok(s.into())
     }
 
-    pub fn string_replace_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_replace_all(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
         let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
         // could be faster but i'm feeling lazy
@@ -4273,12 +4273,12 @@ impl Game {
         Ok(out.into())
     }
 
-    pub fn string_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn string_count(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [string, string])
             .map(|(ss, s)| Value::Real(Real::from(s.as_ref().matches(ss.as_ref()).count() as f64)))
     }
 
-    pub fn dot_product(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn dot_product(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
         let l1 = Real::from(x1.into_inner().hypot(y1.into_inner()));
         let l2 = Real::from(x2.into_inner().hypot(y2.into_inner()));
@@ -4287,7 +4287,7 @@ impl Game {
         Ok((x1 * x2 + y1 * y2).into())
     }
 
-    pub fn dot_product_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn dot_product_3d(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
         let l1 = (x1 * x1 + y1 * y1 + z1 * z1).sqrt();
         let l2 = (x2 * x2 + y2 * y2 + z2 * z2).sqrt();
@@ -4296,7 +4296,7 @@ impl Game {
         Ok((x1 * x2 + y1 * y2 + z1 * z2).into())
     }
 
-    pub fn point_distance_3d(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn point_distance_3d(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2) = expect_args!(args, [real, real, real, real, real, real])?;
         let xdist = x2 - x1;
         let ydist = y2 - y1;
@@ -4304,24 +4304,24 @@ impl Game {
         Ok((xdist * xdist + ydist * ydist + zdist * zdist).sqrt().into())
     }
 
-    pub fn point_distance(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn point_distance(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
         let xdist = x2 - x1;
         let ydist = y2 - y1;
         Ok((xdist * xdist + ydist * ydist).sqrt().into())
     }
 
-    pub fn point_direction(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn point_direction(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [real, real, real, real])?;
         Ok((y1 - y2).arctan2(x2 - x1).to_degrees().rem_euclid(360.into()).into())
     }
 
-    pub fn lengthdir_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn lengthdir_x(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (len, dir) = expect_args!(args, [real, real])?;
         Ok((dir.to_radians().cos() * len).into())
     }
 
-    pub fn lengthdir_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn lengthdir_y(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (len, dir) = expect_args!(args, [real, real])?;
         Ok((dir.to_radians().sin() * -len).into())
     }
@@ -5633,7 +5633,7 @@ impl Game {
         unimplemented!("Called unimplemented kernel function YoYo_OpenURL_full")
     }
 
-    pub fn yoyo_getdomain(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn yoyo_getdomain(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, []);
         Ok(b"unknown".as_ref().into())
     }
@@ -6112,7 +6112,7 @@ impl Game {
         unimplemented!("Called unimplemented kernel function file_attributes")
     }
 
-    pub fn filename_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_name(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(name) = full_path.as_ref().rsplitn(2, '\\').next() {
             Ok(name.to_string().into())
@@ -6121,7 +6121,7 @@ impl Game {
         }
     }
 
-    pub fn filename_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_path(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(bs) = full_path.as_ref().rfind('\\') {
             Ok(full_path.as_ref()[..bs + 1].to_string().into())
@@ -6130,7 +6130,7 @@ impl Game {
         }
     }
 
-    pub fn filename_dir(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_dir(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(bs) = full_path.as_ref().rfind('\\') {
             Ok(full_path.as_ref()[..bs].to_string().into())
@@ -6139,13 +6139,13 @@ impl Game {
         }
     }
 
-    pub fn filename_drive(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_drive(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         let drive = full_path.as_ref().chars().take(2).collect::<String>();
         if !drive.starts_with(':') && drive.ends_with(':') { Ok(drive.into()) } else { Ok("".to_string().into()) }
     }
 
-    pub fn filename_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_ext(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let full_path = expect_args!(args, [string])?;
         if let Some(dot) = full_path.as_ref().rfind('.') {
             Ok(full_path.as_ref()[dot..].to_string().into())
@@ -6154,7 +6154,7 @@ impl Game {
         }
     }
 
-    pub fn filename_change_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn filename_change_ext(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let (full_path, new_ext) = expect_args!(args, [string, string])?;
         let mut new_path = full_path.as_ref().rsplitn(2, '.').last().unwrap_or(full_path.as_ref()).to_string();
         new_path.push_str(new_ext.as_ref());
@@ -7399,7 +7399,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn get_function_address(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn get_function_address(&self, _context: &Context, args: &[Value]) -> gml::Result<Value> {
         let _name = expect_args!(args, [any])?;
         // We're definitely not ABI compliant with the original GM (at least for now),
         // and don't have any compatibility layer as well, so let it just return -1,

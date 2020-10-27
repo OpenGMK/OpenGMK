@@ -18,11 +18,12 @@ pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
 
 use crate::game::Game;
-type KernelFunction = fn(&mut Game, &mut Context, &[Value]) -> Result<Value>;
-
 pub enum Function {
-    Runtime(KernelFunction), // accesses and/or changes the program state
-    Constant(KernelFunction), // only accesses the program state
+    // accesses and/or changes the program state
+    Runtime( fn(&mut Game, &mut Context, &[Value]) -> Result<Value> ),
+
+    // only accesses the program state
+    Constant( fn(&Game, &Context, &[Value]) -> Result<Value> ),
 }
 
 use serde::{Deserialize, Serialize};
