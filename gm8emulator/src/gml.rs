@@ -12,11 +12,18 @@ pub mod value;
 
 pub use compiler::Compiler;
 pub use context::Context;
-pub use mappings::Function;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
+
+use crate::game::Game;
+type KernelFunction = fn(&mut Game, &mut Context, &[Value]) -> Result<Value>;
+
+pub enum Function {
+    Runtime(KernelFunction), // accesses and/or changes the program state
+    Constant(KernelFunction), // only accesses the program state
+}
 
 use serde::{Deserialize, Serialize};
 

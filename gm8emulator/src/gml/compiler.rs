@@ -369,9 +369,8 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some((_, func, _)) = str::from_utf8(function.name)
-                    .ok()
-                    .and_then(|n1| mappings::FUNCTIONS.iter().find(|(n2, _, _)| &n1 == n2))
+                } else if let Some(function_id) = str::from_utf8(function.name).ok()
+                    .and_then(|n| mappings::FUNCTIONS.get_index(n))
                 {
                     Node::Function {
                         args: function
@@ -380,7 +379,7 @@ impl Compiler {
                             .map(|x| self.compile_ast_expr(&x, locals))
                             .collect::<Vec<_>>()
                             .into_boxed_slice(),
-                        function: *func,
+                        function_id,
                     }
                 } else {
                     Node::RuntimeError {

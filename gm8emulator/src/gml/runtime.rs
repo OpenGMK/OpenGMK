@@ -43,7 +43,7 @@ pub enum Instruction {
 pub enum Node {
     Literal { value: Value },
     Constant { constant_id: usize },
-    Function { args: Box<[Node]>, function: gml::Function },
+    Function { args: Box<[Node]>, function_id: usize },
     Script { args: Box<[Node]>, script_id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
@@ -249,7 +249,8 @@ impl fmt::Debug for Node {
                 Value::Str(s) => write!(f, "{:?}", s),
             },
             Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
-            Node::Function { args, function } => write!(f, "<function {:?}: {:?}>", function, args),
+            Node::Function { args, function_id } =>
+                write!(f, "<function {:?}: {:?}>", mappings::FUNCTIONS.index(*function_id).unwrap().0, args),
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
@@ -300,6 +301,13 @@ impl UnaryOperator {
 }
 
 impl Game {
+    pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        match mappings::FUNCTIONS.index(function_id).unwrap().1 {
+            gml::Function::Runtime(f) => f(self, context, args),
+            gml::Function::Constant(f) => f(self, context, args),
+        }
+    }
+
     pub fn execute(&mut self, instructions: &[Instruction], context: &mut Context) -> gml::Result<ReturnType> {
         for instruction in instructions.iter() {
             match self.exec_instruction(instruction, context)? {
@@ -568,12 +576,12 @@ impl Game {
                     Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
                 }
             },
-            Node::Function { args, function } => {
+            Node::Function { args, function_id } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
-                function.call(self, context, &arg_values[..args.len()])
+                self.invoke(*function_id, context, &arg_values[..args.len()])
             },
             Node::Script { args, script_id } => {
                 if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
