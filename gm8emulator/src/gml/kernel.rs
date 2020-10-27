@@ -7174,7 +7174,7 @@ impl Game {
 
     pub fn variable_global_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
-        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
+        self.variable_global_array_set(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
     pub fn variable_local_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7234,7 +7234,7 @@ impl Game {
 
     pub fn variable_local_array2_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (identifier, index1, index2, value) = expect_args!(args, [any, int, int, any])?;
-        self.variable_global_array_get(context, &[identifier, ((index1 * 32000) + index2).into(), value])
+        self.variable_local_array_set(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
     pub fn clipboard_has_text(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
