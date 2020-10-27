@@ -304,7 +304,8 @@ impl Game {
     pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         match mappings::FUNCTIONS.index(function_id).unwrap().1 {
             gml::Function::Runtime(f) => f(self, context, args),
-            gml::Function::Constant(f) => f(self, context, args),
+            gml::Function::Engine(f) => f(self, args),
+            gml::Function::Constant(f) => f(self, args),
         }
     }
 
