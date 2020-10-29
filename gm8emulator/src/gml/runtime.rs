@@ -306,6 +306,7 @@ impl Game {
             gml::Function::Runtime(f) => f(self, context, args),
             gml::Function::Engine(f) => f(self, args),
             gml::Function::Constant(f) => f(self, args),
+            gml::Function::Pure(f) => f(args),
         }
     }
 

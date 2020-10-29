@@ -27,6 +27,9 @@ pub enum Function {
 
     // only accesses the program state
     Constant( fn(&Game, &[Value]) -> Result<Value> ),
+
+    // neither uses nor modifies any program state
+    Pure( fn(&[Value]) -> Result<Value> ),
 }
 
 use serde::{Deserialize, Serialize};
