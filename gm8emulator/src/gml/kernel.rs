@@ -3747,45 +3747,18 @@ impl Game {
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, mut x, mut y, size, col, below) = expect_args!(args, [int, real, real, int, int, bool])?;
+        let (kind, mut x, mut y, size, colour, below) = expect_args!(args, [any, real, real, any, any, bool])?;
         if context.relative {
             let instance = self.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
-        let kind = match kind {
-            0 => particle::EffectType::Explosion,
-            1 => particle::EffectType::Ring,
-            2 => particle::EffectType::Ellipse,
-            3 => particle::EffectType::Firework,
-            4 => particle::EffectType::Smoke,
-            5 => particle::EffectType::SmokeUp,
-            6 => particle::EffectType::Star,
-            7 => particle::EffectType::Spark,
-            8 => particle::EffectType::Flare,
-            9 => particle::EffectType::Cloud,
-            10 => particle::EffectType::Rain,
-            11 => particle::EffectType::Snow,
-            _ => return Ok(Default::default()),
-        };
-        let size = match size {
-            0 => particle::EffectSize::Small,
-            2 => particle::EffectSize::Large,
-            _ => particle::EffectSize::Medium,
-        };
-        self.particles.create_effect(
-            kind,
-            x,
-            y,
-            size,
-            col,
-            below,
-            (Real::from(30) / self.room_speed.into()).max(1.into()),
-            self.room_width,
-            self.room_height,
-            &mut self.rand,
-        );
-        Ok(Default::default())
+
+        if below {
+            self.effect_create_below(&[kind, x.into(), y.into(), size, colour])
+        } else {
+            self.effect_create_above(&[kind, x.into(), y.into(), size, colour])
+        }
     }
 
     pub fn is_real(&self, args: &[Value]) -> gml::Result<Value> {
@@ -10460,14 +10433,78 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn effect_create_below(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, colour, gml::TRUE.into()])
+    pub fn effect_create_below(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (kind, x, y, size, colour) = expect_args!(args, [int, real, real, int, int])?;
+        let kind = match kind {
+            0 => particle::EffectType::Explosion,
+            1 => particle::EffectType::Ring,
+            2 => particle::EffectType::Ellipse,
+            3 => particle::EffectType::Firework,
+            4 => particle::EffectType::Smoke,
+            5 => particle::EffectType::SmokeUp,
+            6 => particle::EffectType::Star,
+            7 => particle::EffectType::Spark,
+            8 => particle::EffectType::Flare,
+            9 => particle::EffectType::Cloud,
+            10 => particle::EffectType::Rain,
+            11 => particle::EffectType::Snow,
+            _ => return Ok(Default::default()),
+        };
+        let size = match size {
+            0 => particle::EffectSize::Small,
+            2 => particle::EffectSize::Large,
+            _ => particle::EffectSize::Medium,
+        };
+        self.particles.create_effect(
+            kind,
+            x,
+            y,
+            size,
+            colour,
+            true,
+            (Real::from(30) / self.room_speed.into()).max(1.into()),
+            self.room_width,
+            self.room_height,
+            &mut self.rand,
+        );
+        Ok(Default::default())
     }
 
-    pub fn effect_create_above(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, x, y, size, colour) = expect_args!(args, [any, any, any, any, any])?;
-        self.action_effect(context, &[kind, x, y, size, colour, gml::FALSE.into()])
+    pub fn effect_create_above(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (kind, x, y, size, colour) = expect_args!(args, [int, real, real, int, int])?;
+        let kind = match kind {
+            0 => particle::EffectType::Explosion,
+            1 => particle::EffectType::Ring,
+            2 => particle::EffectType::Ellipse,
+            3 => particle::EffectType::Firework,
+            4 => particle::EffectType::Smoke,
+            5 => particle::EffectType::SmokeUp,
+            6 => particle::EffectType::Star,
+            7 => particle::EffectType::Spark,
+            8 => particle::EffectType::Flare,
+            9 => particle::EffectType::Cloud,
+            10 => particle::EffectType::Rain,
+            11 => particle::EffectType::Snow,
+            _ => return Ok(Default::default()),
+        };
+        let size = match size {
+            0 => particle::EffectSize::Small,
+            2 => particle::EffectSize::Large,
+            _ => particle::EffectSize::Medium,
+        };
+        self.particles.create_effect(
+            kind,
+            x,
+            y,
+            size,
+            colour,
+            false,
+            (Real::from(30) / self.room_speed.into()).max(1.into()),
+            self.room_width,
+            self.room_height,
+            &mut self.rand,
+        );
+        Ok(Default::default())
     }
 
     pub fn effect_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
