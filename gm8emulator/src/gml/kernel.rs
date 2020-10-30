@@ -7683,7 +7683,7 @@ impl Game {
                         sprite.origin_x,
                         sprite.origin_y,
                     )
-                    .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+                    .map_err(|e| gml::Error::FunctionError("sprite_add_from_screen".into(), e.into()))?,
             });
             Ok(Default::default())
         } else {
@@ -7787,7 +7787,7 @@ impl Game {
                 Ok(Default::default())
             } else {
                 Err(gml::Error::FunctionError(
-                    "sprite_create_from_surface".into(),
+                    "sprite_add_from_surface".into(),
                     format!("Surface {} does not exist", surf_id),
                 ))
             }
@@ -7877,7 +7877,7 @@ impl Game {
                         height,
                         atlas_ref: renderer
                             .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
-                            .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
+                            .map_err(|e| gml::Error::FunctionError("sprite_replace".into(), e.into()))?,
                     })
                 })
                 .collect::<gml::Result<_>>()?;
@@ -8219,7 +8219,7 @@ impl Game {
             let mut image = match file::load_image(fname.as_ref()) {
                 Ok(im) => im,
                 Err(e) => {
-                    eprintln!("Warning: background_add on {} failed: {}", fname, e);
+                    eprintln!("Warning: background_replace on {} failed: {}", fname, e);
                     return Ok((-1).into())
                 },
             };
