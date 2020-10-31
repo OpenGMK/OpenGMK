@@ -286,6 +286,7 @@ dependencies = [
  "rand",
  "rect_packer",
  "rust-ini",
+ "rusttype",
  "serde",
  "shared",
  "winapi",
