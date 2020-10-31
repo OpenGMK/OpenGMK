@@ -116,6 +116,7 @@ pub struct Game {
     pub grids: HandleList<ds::Grid>,
     pub ds_precision: Real,
 
+    pub default_font: Font,
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
     pub draw_font_id: ID,
     pub draw_colour: Colour,
@@ -461,6 +462,25 @@ impl Game {
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
         let particle_shapes = particle::load_shapes(&mut atlases);
+
+        let default_font = {
+            let data = if cfg!(windows) { std::fs::read(r"C:\Windows\Fonts\arial.ttf")? } else { panic!() };
+            let (chars, tallest_char_height) =
+                asset::font::create_chars_from_ttf(&data, 12.0, 0x20, 0x7f, &mut atlases)?;
+            Font {
+                name: b"default_font".as_ref().into(),
+                sys_name: b"Arial".as_ref().into(),
+                charset: 1,
+                size: 12,
+                bold: false,
+                italic: false,
+                first: 0x20,
+                last: 0x7f,
+                tallest_char_height,
+                chars,
+                own_graphics: true,
+            }
+        };
 
         let sprites = sprites
             .into_iter()
@@ -915,6 +935,7 @@ impl Game {
             priority_queues: HandleList::new(),
             grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
+            default_font: default_font.clone(),
             draw_font: None,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
