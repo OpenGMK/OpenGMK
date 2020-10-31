@@ -1,6 +1,9 @@
 use crate::{asset::Sprite, game::string::RCStr};
 use encoding_rs::Encoding;
-use gmio::render::{AtlasRef, Renderer};
+use gmio::{
+    atlas::AtlasBuilder,
+    render::{AtlasRef, Renderer},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -50,6 +53,43 @@ impl Font {
             _ => default,
         }
     }
+}
+
+pub fn create_chars_from_ttf(
+    data: &[u8],
+    scale: f32,
+    first: u8,
+    last: u8,
+    atlases: &mut AtlasBuilder,
+) -> Result<(Box<[Character]>, u32), String> {
+    // TODO: figure out runtime font loading
+    let font = rusttype::Font::try_from_bytes(data).ok_or("Couldn't load font")?;
+    let scale = rusttype::Scale::uniform(scale * 1.5);
+    let mut max_height = 0;
+    (first..=last)
+        .map(|i| {
+            // TODO: use the relevant encoding
+            let glyph = font.glyph(char::from(i)).scaled(scale).positioned(rusttype::Point { x: 0.0, y: 0.0 });
+            let (x, y, w, h) = match glyph.pixel_bounding_box() {
+                Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
+                None => (0, 0, 0, 0),
+            };
+            if h > max_height {
+                max_height = h;
+            }
+            let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
+            glyph.draw(|_, _, a| {
+                data.push(0xFF);
+                data.push(0xFF);
+                data.push(0xFF);
+                data.push((a * 255.0) as u8);
+            });
+            let atlas_ref = atlases.texture(w, h, x, y, data.into_boxed_slice()).ok_or("Couldn't pack font")?;
+            let hmetrics = glyph.unpositioned().h_metrics();
+            Ok(Character { offset: hmetrics.advance_width as _, distance: hmetrics.left_side_bearing as _, atlas_ref })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|v| (v.into_boxed_slice(), max_height as _))
 }
 
 pub fn create_chars_from_sprite(sprite: &Sprite, prop: bool, sep: i32, renderer: &Renderer) -> Box<[Character]> {
