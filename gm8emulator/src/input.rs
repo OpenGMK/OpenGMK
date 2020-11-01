@@ -168,8 +168,8 @@ impl InputManager {
     /// Clears a keypress from the input manager's internal state
     pub fn key_clear(&mut self, code: usize) {
         if code < KEY_COUNT {
-            self.kb_pressed.set(code, false);
             self.kb_held.set(code, false);
+            self.kb_pressed.set(code, false);
             self.kb_released.set(code, false);
         }
     }
@@ -183,7 +183,7 @@ impl InputManager {
         }
     }
 
-    /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
+    /// Checks if a key is currently held, similar to GM8's keyboard_check()
     pub fn key_check(&self, code: usize) -> bool {
         self.kb_held.get(code)
     }
@@ -193,7 +193,7 @@ impl InputManager {
         self.kb_pressed.get(code)
     }
 
-    /// Checks if a key was pressed on this frame, similar to GM8's keyboard_check_pressed()
+    /// Checks if a key was released on this frame, similar to GM8's keyboard_check_released()
     pub fn key_check_released(&self, code: usize) -> bool {
         self.kb_released.get(code)
     }
@@ -228,17 +228,17 @@ impl InputManager {
         self.kb_ralt
     }
 
-    /// Checks if any keyboard key is held
+    /// Checks if any keyboard key is currently held
     pub fn key_check_any(&self) -> bool {
         self.kb_held.any()
     }
 
-    /// Checks if any keyboard key was pressed
+    /// Checks if any keyboard key was pressed on this frame
     pub fn key_check_any_pressed(&self) -> bool {
         self.kb_pressed.any()
     }
 
-    /// Checks if any keyboard key was released
+    /// Checks if any keyboard key was released on this frame
     pub fn key_check_any_released(&self) -> bool {
         self.kb_released.any()
     }
@@ -272,7 +272,7 @@ impl InputManager {
         self.numlock
     }
 
-    /// Checks if the spoofed numlock is pressed
+    /// Updates the spoofed numlock state
     pub fn key_set_numlock(&mut self, value: bool) {
         self.numlock = value
     }
@@ -292,7 +292,7 @@ impl InputManager {
     }
 
     /// Updates the position of the mouse. Coordinates are relative to the top-left of the window
-    /// and are measured in absolute screen pixels, ie. not scaled to window size.
+    /// and are measured in absolute screen pixels, i.e. not scaled to window size.
     pub fn set_mouse_pos(&mut self, x: f64, y: f64) {
         self.mouse_x = x;
         self.mouse_y = y;
@@ -330,13 +330,13 @@ impl InputManager {
     }
 
     /// Gets the position of the mouse. Coordinates are relative to the top-left of the window
-    /// and are measured in absolute screen pixels, ie. not scaled to window size.
+    /// and are measured in absolute screen pixels, i.e. not scaled to window size.
     pub fn mouse_get_location(&self) -> (f64, f64) {
         (self.mouse_x, self.mouse_y)
     }
 
-    /// Gets the previousposition of the mouse. Coordinates are relative to the top-left of the window
-    /// and are measured in absolute screen pixels, ie. not scaled to window size. Will be 0, 0 on the first frame.
+    /// Gets the previous position of the mouse. Coordinates are relative to the top-left of the window
+    /// and are measured in absolute screen pixels, i.e. not scaled to window size. Will be (0, 0) on the first frame.
     pub fn mouse_get_previous_location(&self) -> (f64, f64) {
         (self.mouse_x_previous, self.mouse_y_previous)
     }
@@ -346,12 +346,12 @@ impl InputManager {
         self.mouse_held.get(button as usize)
     }
 
-    /// Checks if a mouse button is currently held
+    /// Checks if a mouse button was pressed on this frame
     pub fn mouse_check_pressed(&self, button: MouseButton) -> bool {
         self.mouse_pressed.get(button as usize)
     }
 
-    /// Checks if a mouse button is currently held
+    /// Checks if a mouse button was released on this frame
     pub fn mouse_check_released(&self, button: MouseButton) -> bool {
         self.mouse_released.get(button as usize)
     }
@@ -366,17 +366,17 @@ impl InputManager {
         self.mouse_scroll_down
     }
 
-    /// Checks if any mouse button is held
+    /// Checks if any mouse button is currently held
     pub fn mouse_check_any(&self) -> bool {
         self.mouse_held.any()
     }
 
-    /// Checks if any mouse button was pressed
+    /// Checks if any mouse button was pressed on this frame
     pub fn mouse_check_any_pressed(&self) -> bool {
         self.mouse_pressed.any()
     }
 
-    /// Checks if any mouse button is held
+    /// Checks if any mouse button was released on this frame
     pub fn mouse_check_any_released(&self) -> bool {
         self.mouse_released.any()
     }
