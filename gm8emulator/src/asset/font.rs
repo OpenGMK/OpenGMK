@@ -64,6 +64,7 @@ pub fn create_chars_from_ttf(
 ) -> Result<(Box<[Character]>, u32), String> {
     // TODO: figure out runtime font loading
     let font = rusttype::Font::try_from_bytes(data).ok_or("Couldn't load font")?;
+    let v_offset = (scale * 4.0 / 3.0) as i32;
     let scale = rusttype::Scale::uniform(scale * 1.5);
     let mut max_height = 0;
     (first..=last)
@@ -74,6 +75,7 @@ pub fn create_chars_from_ttf(
                 Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
                 None => (0, 0, 0, 0),
             };
+            let y = y - v_offset;
             if h > max_height {
                 max_height = h;
             }
