@@ -10,6 +10,7 @@ default-run = "gm8emulator"
 gl_generator = "0.14.0"
 
 [dependencies]
+ab_glyph = "0.2.6"
 bincode = "1.2"
 cfg-if = "0.1"
 chrono = "0.4"
@@ -26,7 +27,6 @@ memoffset = "0.5.3"
 rand = "0.7.2" # for seeding, not generating
 rect_packer = "0.2.1"
 rust-ini = "0.15.2"
-rusttype = "0.9"
 serde = { version = "1.0", features = ["derive", "rc"] }
 shared = { path = "../shared" }
 

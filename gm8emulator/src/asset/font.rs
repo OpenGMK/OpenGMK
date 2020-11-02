@@ -1,4 +1,5 @@
 use crate::{asset::Sprite, game::string::RCStr};
+use ab_glyph::{Font as _, ScaleFont};
 use encoding_rs::Encoding;
 use gmio::{
     atlas::AtlasBuilder,
@@ -63,32 +64,42 @@ pub fn create_chars_from_ttf(
     atlases: &mut AtlasBuilder,
 ) -> Result<(Box<[Character]>, u32), String> {
     // TODO: figure out runtime font loading
-    let font = rusttype::Font::try_from_bytes(data).ok_or("Couldn't load font")?;
+    let font = ab_glyph::FontRef::try_from_slice(data).map_err(|x| x.to_string())?.into_scaled(scale * 1.5);
     let v_offset = (scale * 4.0 / 3.0) as i32;
-    let scale = rusttype::Scale::uniform(scale * 1.5);
     let mut max_height = 0;
     (first..=last)
         .map(|i| {
             // TODO: use the relevant encoding
-            let glyph = font.glyph(char::from(i)).scaled(scale).positioned(rusttype::Point { x: 0.0, y: 0.0 });
-            let (x, y, w, h) = match glyph.pixel_bounding_box() {
-                Some(bbox) => (-bbox.min.x, -bbox.min.y, bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y),
-                None => (0, 0, 0, 0),
+            let glyph_id = font.glyph_id(char::from(i));
+            let (x, y, w, h, data) = match font.outline_glyph(font.scaled_glyph(char::from(i))) {
+                Some(glyph) => {
+                    let (x, y, w, h) = match glyph.px_bounds() {
+                        bbox => (
+                            -bbox.min.x.round() as i32,
+                            -bbox.min.y.round() as i32,
+                            (bbox.max.x - bbox.min.x).round() as i32,
+                            (bbox.max.y - bbox.min.y).round() as i32,
+                        ),
+                    };
+                    let y = y - v_offset;
+                    if h > max_height {
+                        max_height = h;
+                    }
+                    let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
+                    glyph.draw(|_, _, a| {
+                        data.push(0xFF);
+                        data.push(0xFF);
+                        data.push(0xFF);
+                        data.push((a * 255.0) as u8);
+                    });
+                    (x, y, w, h, data)
+                },
+                None => (0, 0, 0, 0, Vec::new()),
             };
-            let y = y - v_offset;
-            if h > max_height {
-                max_height = h;
-            }
-            let mut data: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
-            glyph.draw(|_, _, a| {
-                data.push(0xFF);
-                data.push(0xFF);
-                data.push(0xFF);
-                data.push((a * 255.0) as u8);
-            });
             let atlas_ref = atlases.texture(w, h, x, y, data.into_boxed_slice()).ok_or("Couldn't pack font")?;
-            let hmetrics = glyph.unpositioned().h_metrics();
-            Ok(Character { offset: hmetrics.advance_width as _, distance: hmetrics.left_side_bearing as _, atlas_ref })
+            let h_advance = font.h_advance(glyph_id);
+            let h_side_bearing = font.h_side_bearing(glyph_id);
+            Ok(Character { offset: h_advance.round() as _, distance: h_side_bearing.round() as _, atlas_ref })
         })
         .collect::<Result<Vec<_>, _>>()
         .map(|v| (v.into_boxed_slice(), max_height as _))
