@@ -463,25 +463,7 @@ impl Game {
 
         let particle_shapes = particle::load_shapes(&mut atlases);
 
-        let default_font = {
-            // TODO: alternative font for non-windows
-            let data = if cfg!(windows) { std::fs::read(r"C:\Windows\Fonts\arial.ttf")? } else { panic!() };
-            let (chars, tallest_char_height) =
-                asset::font::create_chars_from_ttf(&data, 12.0, 0x20, 0x7f, &mut atlases)?;
-            Font {
-                name: b"default_font".as_ref().into(),
-                sys_name: b"Arial".as_ref().into(),
-                charset: 1,
-                size: 12,
-                bold: false,
-                italic: false,
-                first: 0x20,
-                last: 0x7f,
-                tallest_char_height,
-                chars,
-                own_graphics: true,
-            }
-        };
+        let default_font = asset::font::load_default_font(&mut atlases)?;
 
         let sprites = sprites
             .into_iter()
