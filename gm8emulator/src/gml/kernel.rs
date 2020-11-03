@@ -7426,8 +7426,8 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.contains_key(var).into())
         } else {
-            let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(self.globals.fields.contains_key(&field_id).into())
+            Ok(self.compiler.find_field_id(identifier.as_ref()).map_or(false,
+                |i| self.globals.fields.contains_key(&i)).into())
         }
     }
 
@@ -7442,8 +7442,10 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
         } else {
-            let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(self.globals.fields.get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+            Ok(self.compiler.find_field_id(identifier.as_ref())
+                .and_then(|i| self.globals.fields.get(&i))
+                .and_then(|x| x.get(index))
+                .unwrap_or_default())
         }
     }
 
@@ -7487,9 +7489,8 @@ impl Game {
         if mappings::get_instance_variable_by_name(identifier.as_ref()).is_some() {
             Ok(gml::TRUE.into())
         } else {
-            let instance = self.instance_list.get(context.this);
-            let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(instance.fields.borrow().contains_key(&field_id).into())
+            Ok(self.compiler.find_field_id(identifier.as_ref()).map_or(false,
+                |i| self.instance_list.get(context.this).fields.borrow().contains_key(&i)).into())
         }
     }
 
@@ -7504,9 +7505,11 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             self.get_instance_var(context.this, var, index, context)
         } else {
-            let instance = self.instance_list.get(context.this);
-            let field_id = self.compiler.get_field_id(identifier.as_ref());
-            Ok(instance.fields.borrow().get(&field_id).and_then(|x| x.get(index)).unwrap_or_default())
+            let fields_ref = self.instance_list.get(context.this).fields.borrow();
+            Ok(self.compiler.find_field_id(identifier.as_ref())
+                .and_then(|i| fields_ref.get(&i))
+                .and_then(|x| x.get(index))
+                .unwrap_or_default())
         }
     }
 

@@ -410,9 +410,14 @@ impl Compiler {
         }
     }
 
+    /// Searches for the fieldname id.
+    pub fn find_field_id(&self, name: &[u8]) -> Option<usize> {
+        self.fields.iter().position(|x| x.as_ref() == name)
+    }
+
     /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
     pub fn get_field_id(&mut self, name: &[u8]) -> usize {
-        if let Some(i) = self.fields.iter().position(|x| x.as_ref() == name) {
+        if let Some(i) = self.find_field_id(name) {
             i
         } else {
             // Note: this isn't thread-safe. Add a mutex lock if you want it to be thread-safe.
