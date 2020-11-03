@@ -1719,7 +1719,7 @@ impl Game {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
-                "tile_set_position".into(),
+                "tile_set_region".into(),
                 format!("Tile with ID {} does not exist.", tile_id),
             ))
         }
@@ -1746,7 +1746,7 @@ impl Game {
             self.tile_list.get(handle).depth.set(depth);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::FunctionError("tile_set_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1779,7 +1779,7 @@ impl Game {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
-                "tile_set_background".into(),
+                "tile_set_alpha".into(),
                 format!("Tile with ID {} does not exist.", tile_id),
             ))
         }
