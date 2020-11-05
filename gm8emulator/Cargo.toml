@@ -10,7 +10,6 @@ default-run = "gm8emulator"
 gl_generator = "0.14.0"
 
 [dependencies]
-ab_glyph = "0.2.6"
 bincode = "1.2"
 cfg-if = "0.1"
 chrono = "0.4"
