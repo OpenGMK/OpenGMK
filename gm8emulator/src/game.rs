@@ -117,7 +117,6 @@ pub struct Game {
     pub ds_precision: Real,
 
     pub default_font: Font,
-    pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
     pub draw_font_id: ID,
     pub draw_colour: Colour,
     pub draw_alpha: Real,
@@ -919,7 +918,6 @@ impl Game {
             grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
             default_font: default_font.clone(),
-            draw_font: None,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
             draw_alpha: Real::from(1.0),
