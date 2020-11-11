@@ -343,7 +343,8 @@ impl Game {
             Scaling::Fixed(n) => n,
             Scaling::Aspect(n) => n,
             Scaling::Full => 0.0,
-        }.into())
+        }
+        .into())
     }
 
     pub fn window_mouse_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -1477,25 +1478,8 @@ impl Game {
     }
 
     pub fn draw_background_general(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (
-            bg_index,
-            left,
-            top,
-            width,
-            height,
-            x,
-            y,
-            xscale,
-            yscale,
-            angle,
-            col1,
-            col2,
-            col3,
-            col4,
-            alpha,
-        ) = expect_args!(args, [
-            int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
-        ])?;
+        let (bg_index, left, top, width, height, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, int, int, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
             if let Some(atlas_ref) = &background.atlas_ref {
                 self.renderer.draw_sprite_general(
@@ -1778,10 +1762,7 @@ impl Game {
             self.tile_list.get(handle).alpha.set(alpha);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_set_alpha".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::FunctionError("tile_set_alpha".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -2084,25 +2065,8 @@ impl Game {
     }
 
     pub fn draw_surface_general(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (
-            surf_id,
-            l,
-            t,
-            w,
-            h,
-            x,
-            y,
-            xscale,
-            yscale,
-            angle,
-            col1,
-            col2,
-            col3,
-            col4,
-            alpha,
-        ) = expect_args!(args, [
-            int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
-        ])?;
+        let (surf_id, l, t, w, h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, int, int, int, real])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.draw_sprite_general(
                 &surf.atlas_ref,
@@ -3223,8 +3187,11 @@ impl Game {
     pub fn action_parttype_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (id, changing, col1, col2, start_alpha, end_alpha) = expect_args!(args, [int, bool, int, int, real, real])?;
         let pt = self.particles.get_dnd_type_mut(id as usize);
-        pt.colour =
-            if changing { particle::ParticleColour::Two(col1, col2) } else { particle::ParticleColour::Mix(col1, col2) };
+        pt.colour = if changing {
+            particle::ParticleColour::Two(col1, col2)
+        } else {
+            particle::ParticleColour::Mix(col1, col2)
+        };
         pt.alpha1 = start_alpha;
         pt.alpha2 = (start_alpha + end_alpha) / Real::from(2.0);
         pt.alpha3 = end_alpha;
@@ -7520,11 +7487,7 @@ impl Game {
 
     pub fn sprite_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let sprite = expect_args!(args, [int])?;
-        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
-            Ok(sprite.width.into())
-        } else {
-            Ok((-1).into())
-        }
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite) { Ok(sprite.width.into()) } else { Ok((-1).into()) }
     }
 
     pub fn sprite_get_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
