@@ -1324,14 +1324,28 @@ impl Game {
                 if let Some(transition) = self.get_transition(transition_kind) {
                     let (width, height) = self.window.get_inner_size();
                     self.renderer.reset_target();
-                    let old_vsync = self.renderer.get_vsync();
-                    self.renderer.set_vsync(true);
+                    // Here, we see the limitations of GM8's vsync.
+                    // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets messy.
+                    // Instead of telling the display driver to use vsync like a sane program, GM8 manually waits for vsync
+                    // before drawing. It does this by calling WaitForVBlank(DDWAITVB_BLOCKBEGIN) from DirectDraw
+                    // (the only use of ddraw in the entire runner). According to experimentation, this function will wait until
+                    // the next vblank, unless a vblank just happened, in which case it returns instantly. There's usually enough
+                    // processing between vblanks that this isn't a problem, but when using builtin room transitions, the
+                    // processing is so lightweight it will skip frames. This means the builtin transitions will run too fast.
+                    // This would be hell to emulate, so let's just standardize the framerate and call it a day.
+                    // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
+                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
+                    let mut current_time = Instant::now();
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         self.renderer.present(width, height, self.scaling);
+                        let diff = current_time.elapsed();
+                        if let Some(dur) = FRAME_TIME.checked_sub(diff) {
+                            gml::datetime::sleep(dur);
+                        }
+                        current_time = Instant::now();
                     }
-                    self.renderer.set_vsync(old_vsync);
                 }
             }
             if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
