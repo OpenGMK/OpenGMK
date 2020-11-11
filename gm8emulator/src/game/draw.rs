@@ -203,10 +203,8 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        if self.surface_target.is_none() {
-            let (width, height) = self.window.get_inner_size();
-            self.renderer.present(width, height, self.scaling);
-        }
+        let (width, height) = self.window.get_inner_size();
+        self.renderer.present(width, height, self.scaling);
 
         // Reset viewport
         self.renderer.set_view(
@@ -256,33 +254,32 @@ impl Game {
 
         if self.show_room_colour {
             self.renderer.clear_view(self.room_colour, 1.0);
+        } else {
+            self.renderer.clear_zbuf();
         }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
             let instance = game.instance_list.get(idx);
             if instance.visible.get() {
+                game.renderer.set_depth(instance.depth.get().into_inner() as f32);
                 if game.custom_draw_objects.contains(&instance.object_index.get()) {
                     // Custom draw event
                     game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
                 } else {
                     // Default draw action
                     if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        let image_index =
-                            instance.image_index.get().floor().into_inner() as i32 % sprite.frames.len() as i32;
-                        let atlas_ref = match sprite.frames.get(image_index as usize) {
-                            Some(f1) => &f1.atlas_ref,
-                            None => return Ok(()), // sprite with 0 frames?
-                        };
-                        game.renderer.draw_sprite(
-                            atlas_ref,
-                            instance.x.get().into(),
-                            instance.y.get().into(),
-                            instance.image_xscale.get().into(),
-                            instance.image_yscale.get().into(),
-                            instance.image_angle.get().into(),
-                            instance.image_blend.get(),
-                            instance.image_alpha.get().into(),
-                        )
+                        if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
+                            game.renderer.draw_sprite(
+                                atlas_ref,
+                                instance.x.get().into(),
+                                instance.y.get().into(),
+                                instance.image_xscale.get().into(),
+                                instance.image_yscale.get().into(),
+                                instance.image_angle.get().into(),
+                                instance.image_blend.get(),
+                                instance.image_alpha.get().into(),
+                            )
+                        }
                     }
                     Ok(())
                 }
@@ -295,6 +292,7 @@ impl Game {
             let tile = game.tile_list.get(idx);
             if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
                 if let Some(atlas) = &background.atlas_ref {
+                    game.renderer.set_depth(tile.depth.get().into_inner() as f32);
                     game.renderer.draw_sprite_partial(
                         atlas,
                         tile.tile_x.get().into(),
@@ -314,10 +312,11 @@ impl Game {
         }
 
         fn draw_part_syst(game: &mut Game, id: i32) {
-            game.particles.draw_system(id, &mut game.renderer, &game.assets);
+            game.particles.draw_system(id, &mut game.renderer, &game.assets, true);
         }
 
         // draw backgrounds
+        self.renderer.set_depth(12000.0);
         for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
@@ -390,6 +389,7 @@ impl Game {
         }
 
         // draw foregrounds
+        self.renderer.set_depth(-12000.0);
         for background in self.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
@@ -405,6 +405,16 @@ impl Game {
                         if background.tile_vertical { Some((src_y + src_h).into()) } else { None },
                     );
                 }
+            }
+        }
+
+        self.renderer.set_depth(-13000.0);
+        if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
+            let (x, y) = self.get_mouse_in_room();
+            if let Some(atlas_ref) =
+                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+            {
+                self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }
         }
 

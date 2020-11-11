@@ -81,6 +81,7 @@ pub trait WindowTrait {
     fn get_inner_size(&self) -> (u32, u32);
     fn process_events<'a>(&'a mut self) -> slice::Iter<'a, Event>;
     fn resize(&mut self, width: u32, height: u32);
+    fn center(&mut self);
     fn get_pos(&self) -> (i32, i32);
     fn get_cursor(&self) -> Cursor;
     fn set_cursor(&mut self, cursor: Cursor);
@@ -91,6 +92,12 @@ pub trait WindowTrait {
     fn set_visible(&mut self, visible: bool);
     fn show_context_menu(&mut self, options: &[(String, usize)]);
     fn window_handle(&self) -> usize;
+    fn display_width(&self) -> i32;
+    fn display_height(&self) -> i32;
+    fn display_frequency(&self) -> i32;
+    fn display_colour(&self) -> i32;
+    fn disk_free(&self, drive: Option<char>) -> Option<u64>;
+    fn disk_size(&self, drive: Option<char>) -> Option<u64>;
 }
 
 impl Window {
@@ -129,6 +136,10 @@ impl Window {
         self.0.resize(width, height)
     }
 
+    pub fn center(&mut self) {
+        self.0.center()
+    }
+
     pub fn get_pos(&self) -> (i32, i32) {
         self.0.get_pos()
     }
@@ -153,7 +164,7 @@ impl Window {
         self.0.get_title()
     }
 
-    /// Gets the window caption.
+    /// Sets the window caption.
     pub fn set_title(&mut self, title: &str) {
         self.0.set_title(title)
     }
@@ -178,6 +189,30 @@ impl Window {
     /// This is not only here for Renderer, but there's a GML getter for this too...
     pub fn window_handle(&self) -> usize {
         self.0.window_handle()
+    }
+
+    pub fn display_width(&self) -> i32 {
+        self.0.display_width()
+    }
+
+    pub fn display_height(&self) -> i32 {
+        self.0.display_height()
+    }
+
+    pub fn display_frequency(&self) -> i32 {
+        self.0.display_frequency()
+    }
+
+    pub fn display_colour(&self) -> i32 {
+        self.0.display_colour()
+    }
+
+    pub fn disk_free(&mut self, drive: Option<char>) -> Option<u64> {
+        self.0.disk_free(drive)
+    }
+
+    pub fn disk_size(&mut self, drive: Option<char>) -> Option<u64> {
+        self.0.disk_size(drive)
     }
 }
 

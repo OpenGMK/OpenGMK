@@ -15,17 +15,17 @@ pub struct AtlasBuilder {
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 #[repr(C)]
 pub struct AtlasRef {
-    pub atlas_id: u32,
-    pub sprite_id: i32,
+    pub(crate) atlas_id: u32,
+    pub(crate) sprite_id: i32,
 
-    pub x: i32,
-    pub y: i32,
+    pub(crate) x: i32,
+    pub(crate) y: i32,
     pub w: i32,
     pub h: i32,
 
     // Normalized to 0-1 by texture width and height
-    pub origin_x: f32,
-    pub origin_y: f32,
+    pub(crate) origin_x: f32,
+    pub(crate) origin_y: f32,
 }
 
 impl AtlasBuilder {

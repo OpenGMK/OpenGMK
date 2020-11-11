@@ -239,7 +239,7 @@ impl PlatformImpl {
     }
 
     pub unsafe fn swap_buffers(&self) {
-        SwapBuffers(self.device);
+        wapi_call!(SwapBuffers(self.device)).unwrap();
     }
 
     pub unsafe fn set_swap_interval(&self, n: u32) -> bool {

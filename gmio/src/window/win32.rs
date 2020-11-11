@@ -8,6 +8,7 @@ use std::{
     mem,
     ops::Drop,
     os::windows::ffi::OsStrExt,
+    path::PathBuf,
     ptr, slice,
     sync::atomic::{self, AtomicU16, AtomicUsize},
 };
@@ -16,26 +17,30 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
+        ntdef::ULARGE_INTEGER,
         windef::{HBRUSH, HCURSOR, HWND, POINT, RECT},
         windowsx::{GET_X_LPARAM, GET_Y_LPARAM},
     },
     um::{
         commctrl::_TrackMouseEvent,
         errhandlingapi::GetLastError,
+        fileapi::GetDiskFreeSpaceExW,
+        wingdi::DEVMODEW,
         winnt::IMAGE_DOS_HEADER,
         winuser::{
             AdjustWindowRect, ClientToScreen, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow,
-            DispatchMessageW, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, InsertMenuA,
-            LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor, SetForegroundWindow,
-            SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu, TranslateMessage,
-            UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP,
-            IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS,
-            IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION,
-            MF_STRING, MSG, PM_REMOVE, SM_CXSCREEN, SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW,
-            TME_LEAVE, TPM_LEFTALIGN, TPM_TOPALIGN, TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN,
-            WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE,
-            WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION,
-            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+            DispatchMessageW, EnumDisplaySettingsW, GetCursorPos, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect,
+            InsertMenuA, LoadImageW, PeekMessageW, RegisterClassExW, ReleaseCapture, SetCapture, SetCursor,
+            SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, SetWindowTextW, ShowWindow, TrackPopupMenu,
+            TranslateMessage, UnregisterClassW, COLOR_BACKGROUND, CS_OWNDC, ENUM_CURRENT_SETTINGS,
+            GET_WHEEL_DELTA_WPARAM, GWLP_USERDATA, GWL_STYLE, HWND_TOP, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS,
+            IDC_HAND, IDC_IBEAM, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW,
+            IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_SHARED, MF_BYPOSITION, MF_STRING, MSG, PM_REMOVE, SM_CXSCREEN,
+            SM_CYSCREEN, SWP_NOMOVE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, TME_LEAVE, TPM_LEFTALIGN, TPM_TOPALIGN,
+            TRACKMOUSEEVENT, WM_CLOSE, WM_COMMAND, WM_ERASEBKGND, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
+            WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
+            WM_SETCURSOR, WM_SIZE, WM_SIZING, WNDCLASSEXW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP,
+            WS_SYSMENU, WS_THICKFRAME,
         },
     },
 };
@@ -178,8 +183,15 @@ unsafe fn load_cursor(cursor: Cursor) -> HCURSOR {
     LoadImageW(ptr::null_mut(), name, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED) as HCURSOR
 }
 
-fn window_title_wstr(title: &str) -> Vec<wchar_t> {
-    OsStr::new(title).encode_wide().chain(Some(0x00)).collect()
+fn make_wstr(input: impl AsRef<OsStr>) -> Vec<wchar_t> {
+    input.as_ref().encode_wide().chain(Some(0x00)).collect()
+}
+
+fn trim_drive(drive: Option<char>) -> PathBuf {
+    match drive {
+        Some(letter) => (letter.to_string() + r":\").into(),
+        None => std::env::current_dir().unwrap(),
+    }
 }
 
 impl WindowImpl {
@@ -196,7 +208,7 @@ impl WindowImpl {
         };
         let mut client_width = builder.size.0.min(c_int::max_value() as u32) as c_int;
         let mut client_height = builder.size.1.min(c_int::max_value() as u32) as c_int;
-        let title = window_title_wstr(&builder.title);
+        let title = make_wstr(&builder.title);
         unsafe {
             let (width, height, x_pos, y_pos) = {
                 match builder.style {
@@ -244,7 +256,7 @@ impl WindowImpl {
                 cursor: builder.cursor,
                 style: builder.style,
                 title: builder.title.to_owned(),
-                visible: false,
+                visible: true,
 
                 hwnd,
                 user_data,
@@ -313,16 +325,30 @@ impl WindowTrait for WindowImpl {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        // TODO: does gamemaker adjust the X/Y to make sense for the new window?
         if let Style::BorderlessFullscreen = self.style {
             return
         }
+
+        self.user_data.client_size = (width as i32, height as i32);
 
         let (border_x, border_y) = self.user_data.border_offset;
         let width = border_x + (width as i32).max(0);
         let height = border_y + (height as i32).max(0);
         unsafe {
-            SetWindowPos(self.hwnd, ptr::null_mut(), 0, 0, width, height, SWP_NOMOVE);
+            // GM8 centers the window on the primary display when it's resized
+            let (x, y) = center_coords_primary_monitor(width, height);
+            SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
+        }
+    }
+
+    fn center(&mut self) {
+        let (client_x, client_y) = self.user_data.client_size;
+        let (border_x, border_y) = self.user_data.border_offset;
+        let width = border_x + client_x;
+        let height = border_y + client_y;
+        unsafe {
+            let (x, y) = center_coords_primary_monitor(width, height);
+            SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
         }
     }
 
@@ -368,7 +394,7 @@ impl WindowTrait for WindowImpl {
     }
 
     fn set_title(&mut self, title: &str) {
-        let wide_title = window_title_wstr(title);
+        let wide_title = make_wstr(title);
         self.title = title.to_owned();
         unsafe {
             SetWindowTextW(self.hwnd, wide_title.as_ptr());
@@ -402,6 +428,72 @@ impl WindowTrait for WindowImpl {
 
     fn window_handle(&self) -> usize {
         self.hwnd as _
+    }
+
+    fn display_width(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmPelsWidth as i32
+            } else {
+                panic!("Couldn't get screen width: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
+
+    fn display_height(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmPelsHeight as i32
+            } else {
+                panic!("Couldn't get screen height: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
+
+    fn display_frequency(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmDisplayFrequency as i32
+            } else {
+                panic!("Couldn't get screen frequency: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
+
+    fn display_colour(&self) -> i32 {
+        unsafe {
+            let mut device = DEVMODEW { dmSize: mem::size_of::<DEVMODEW>() as _, ..mem::zeroed() };
+            let response = EnumDisplaySettingsW(ptr::null(), ENUM_CURRENT_SETTINGS, &mut device);
+            if response != 0 {
+                device.dmBitsPerPel as i32
+            } else {
+                panic!("Couldn't get screen colour depth: EnumDisplaySettingsW(...) -> {}", response)
+            }
+        }
+    }
+
+    fn disk_free(&self, drive: Option<char>) -> Option<u64> {
+        unsafe {
+            let mut free: ULARGE_INTEGER = mem::zeroed();
+            let wpath = make_wstr(trim_drive(drive));
+            let response = GetDiskFreeSpaceExW(wpath.as_ptr(), &mut free, ptr::null_mut(), ptr::null_mut());
+            if response != 0 { Some(*free.QuadPart()) } else { None }
+        }
+    }
+
+    fn disk_size(&self, drive: Option<char>) -> Option<u64> {
+        unsafe {
+            let mut size: ULARGE_INTEGER = mem::zeroed();
+            let wpath = make_wstr(trim_drive(drive));
+            let response = GetDiskFreeSpaceExW(wpath.as_ptr(), ptr::null_mut(), &mut size, ptr::null_mut());
+            if response != 0 { Some(*size.QuadPart()) } else { None }
+        }
     }
 }
 
@@ -535,7 +627,6 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam
             if let Some(window_data) = hwnd_windowdata(hwnd) {
                 let width = u32::from(LOWORD(lparam as DWORD));
                 let height = u32::from(HIWORD(lparam as DWORD));
-                println!("WM_SIZE @ w: {}, h: {}", width, height);
                 match window_data.events.last_mut() {
                     Some(Event::Resize(w, h)) => {
                         *w = width;

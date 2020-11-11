@@ -26,6 +26,14 @@ pub struct Frame {
     pub atlas_ref: AtlasRef,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct BoundingBox {
+    pub left: u32,
+    pub right: u32,
+    pub top: u32,
+    pub bottom: u32,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Collider {
     pub width: u32,
@@ -35,6 +43,12 @@ pub struct Collider {
     pub bbox_top: u32,
     pub bbox_bottom: u32,
     pub data: Box<[bool]>,
+}
+
+pub enum ColliderShape {
+    Rectangle,
+    Ellipse,
+    Diamond,
 }
 
 pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool) {
@@ -93,45 +107,56 @@ pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool) {
     }
 }
 
-/// Creates a collider from the given collision data and dimensions, calculating the bbox_left, right, top, and bottom
-/// values. The algorithm doesn't check more pixels than it needs to.
-fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
-    let mut bbox_left = width - 1;
-    let mut bbox_right = 0;
-    let mut bbox_top = height - 1;
-    let mut bbox_bottom = 0;
-    let coll = |x, y| data[(y * width + x) as usize];
+/// Calculates bounding box values for a given frame.
+/// The algorithm doesn't check more pixels than it needs to.
+fn make_bbox(coll: impl Fn(u32, u32) -> bool, frame_width: u32, frame_height: u32) -> BoundingBox {
+    let mut left = frame_width - 1;
+    let mut right = 0;
+    let mut top = frame_height - 1;
+    let mut bottom = 0;
     // Set bbox_left and bbox_top to the leftmost column with collision, and the highest pixel within that column.
-    for x in 0..width {
-        if let Some(y) = (0..height).find(|&y| coll(x, y)) {
-            bbox_left = x;
-            bbox_top = y;
+    for x in 0..frame_width {
+        if let Some(y) = (0..frame_height).find(|&y| coll(x, y)) {
+            left = x;
+            top = y;
             break
         }
     }
     // Set bbox_top to the highest pixel in the remaining columns, if there's one above the one we already found.
-    if let Some(y) = (0..bbox_top).find(|&y| ((bbox_left + 1)..width).any(|x| coll(x, y))) {
-        bbox_top = y;
+    if let Some(y) = (0..top).find(|&y| ((left + 1)..frame_width).any(|x| coll(x, y))) {
+        top = y;
     }
     // Set bbox_right and bbox_bottom to the rightmost column with collision, and the lowest pixel within that column,
     // ignoring the rows and columns which are known to be empty.
-    for x in (bbox_left..width).rev() {
-        if let Some(y) = (bbox_top..height).rfind(|&y| coll(x, y)) {
-            bbox_right = x;
-            bbox_bottom = y;
+    for x in (left..frame_width).rev() {
+        if let Some(y) = (top..frame_height).rfind(|&y| coll(x, y)) {
+            right = x;
+            bottom = y;
             break
         }
     }
     // Set bbox_bottom to the lowest pixel between bbox_left and bbox_right, if there's one below the one we found.
-    if let Some(y) = ((bbox_bottom + 1)..height).rev().find(|&y| (bbox_left..(bbox_right + 1)).any(|x| coll(x, y))) {
-        bbox_bottom = y;
+    if let Some(y) = ((bottom + 1)..frame_height).rev().find(|&y| (left..(right + 1)).any(|x| coll(x, y))) {
+        bottom = y;
     }
-    Collider { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data }
+    BoundingBox { left, right, top, bottom }
 }
 
-pub fn make_colliders(frames: &[RgbaImage], sepmasks: bool) -> Vec<Collider> {
-    // only supports precise colliders with 0 tolerance rn
-    let tolerance = 0;
+/// Creates a collider from the given collision data and dimensions, giving it an appropriate bounding box.
+fn complete_bbox(data: Box<[bool]>, width: u32, height: u32) -> Collider {
+    let bbox = make_bbox(|x, y| data[(y * width + x) as usize], width, height);
+    Collider {
+        width,
+        height,
+        bbox_left: bbox.left,
+        bbox_right: bbox.right,
+        bbox_top: bbox.top,
+        bbox_bottom: bbox.bottom,
+        data,
+    }
+}
+
+pub fn make_colliders_precise(frames: &[RgbaImage], tolerance: u8, sepmasks: bool) -> Vec<Collider> {
     let width = frames[0].width();
     let height = frames[0].height();
     if sepmasks {
@@ -161,6 +186,65 @@ pub fn make_colliders(frames: &[RgbaImage], sepmasks: bool) -> Vec<Collider> {
     }
 }
 
+pub fn make_colliders_shaped(
+    frames: &[RgbaImage],
+    tolerance: u8,
+    sepmasks: bool,
+    bbox: Option<BoundingBox>,
+    shape: Option<ColliderShape>,
+) -> Vec<Collider> {
+    let width = frames[0].width();
+    let height = frames[0].height();
+    let bbox_iterator: Box<dyn Iterator<Item = BoundingBox>> = if let Some(bbox) = bbox {
+        Box::new(std::iter::once(bbox))
+    } else {
+        let bbox_iterator = frames.iter().map(|f| make_bbox(|x, y| f.get_pixel(x, y)[3] > tolerance, width, height));
+        if sepmasks {
+            Box::new(bbox_iterator)
+        } else {
+            Box::new(std::iter::once(bbox_iterator.fold(
+                BoundingBox { left: width - 1, right: 0, top: height - 1, bottom: 0 },
+                |acc, new| BoundingBox {
+                    left: acc.left.min(new.left),
+                    right: acc.right.max(new.right),
+                    top: acc.top.min(new.top),
+                    bottom: acc.bottom.max(new.bottom),
+                },
+            )))
+        }
+    };
+    bbox_iterator
+        .map(|bbox| {
+            let mut data = vec![false; (width * height) as usize].into_boxed_slice();
+            match shape {
+                None => (),
+                Some(ColliderShape::Rectangle) => {
+                    for y in bbox.top..bbox.bottom + 1 {
+                        for x in bbox.left..bbox.right + 1 {
+                            data[(y * width + x) as usize] = true;
+                        }
+                    }
+                },
+                Some(ColliderShape::Ellipse) => {
+                    unimplemented!("sprite_collision_mask with disk shape is not yet implemented")
+                },
+                Some(ColliderShape::Diamond) => {
+                    unimplemented!("sprite_collision_mask with diamond shape is not yet implemented")
+                },
+            }
+            Collider {
+                width,
+                height,
+                bbox_left: bbox.left,
+                bbox_right: bbox.right,
+                bbox_top: bbox.top,
+                bbox_bottom: bbox.bottom,
+                data,
+            }
+        })
+        .collect()
+}
+
 // used for adding frames to sprites
 pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
     if input.dimensions() != (width, height) {
@@ -182,5 +266,26 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
             }
         }
         *input = RgbaImage::from_vec(width, height, output_vec).unwrap();
+    }
+}
+
+impl Sprite {
+    fn get_image_index(&self, image_index: Real) -> Option<usize> {
+        (image_index.floor().into_inner() as isize).checked_rem_euclid(self.frames.len() as isize).map(|x| x as usize)
+    }
+
+    pub fn get_frame(&self, image_index: Real) -> Option<&Frame> {
+        match self.get_image_index(image_index) {
+            Some(image_index) => self.frames.get(image_index),
+            None => None,
+        }
+    }
+
+    pub fn get_atlas_ref(&self, image_index: Real) -> Option<&AtlasRef> {
+        if let Some(image_index) = self.get_image_index(image_index) {
+            self.frames.get(image_index).map(|x| &x.atlas_ref)
+        } else {
+            None
+        }
     }
 }

@@ -2,8 +2,11 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
+pub mod includedfile;
+pub mod model;
 pub mod movement;
 pub mod particle;
+pub mod pathfinding;
 pub mod replay;
 pub mod savestate;
 pub mod string;
@@ -27,14 +30,8 @@ use crate::{
         trigger::{self, Trigger},
         Object, Script, Timeline,
     },
-    gml::{
-        self,
-        ds::{self, DataStructureManager},
-        ev,
-        file::FileManager,
-        rand::Random,
-        Compiler, Context,
-    },
+    gml::{self, ds, ev, file, rand::Random, Compiler, Context},
+    handleman::{HandleArray, HandleList},
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -48,6 +45,7 @@ use gmio::{
     render::{Renderer, RendererOptions, Scaling},
     window::{Window, WindowBuilder},
 };
+use includedfile::IncludedFile;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::{
@@ -59,6 +57,7 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    convert::TryFrom,
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -71,7 +70,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub file_manager: FileManager,
+    pub text_files: HandleArray<file::TextHandle>,
+    pub binary_files: HandleArray<file::BinaryHandle>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,
@@ -110,12 +110,12 @@ pub struct Game {
     pub globalvars: HashSet<usize>,
     pub game_start: bool,
 
-    pub stacks: DataStructureManager<ds::Stack>,
-    pub queues: DataStructureManager<ds::Queue>,
-    pub lists: DataStructureManager<ds::List>,
-    pub maps: DataStructureManager<ds::Map>,
-    pub priority_queues: DataStructureManager<ds::Priority>,
-    pub grids: DataStructureManager<ds::Grid>,
+    pub stacks: HandleList<ds::Stack>,
+    pub queues: HandleList<ds::Queue>,
+    pub lists: HandleList<ds::List>,
+    pub maps: HandleList<ds::Map>,
+    pub priority_queues: HandleList<ds::Priority>,
+    pub grids: HandleList<ds::Grid>,
     pub ds_precision: Real,
 
     pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
@@ -126,28 +126,41 @@ pub struct Game {
     pub draw_valign: draw::Valign,
     pub surfaces: Vec<Option<surface::Surface>>,
     pub surface_target: Option<i32>,
+    pub models: Vec<Option<model::Model>>,
+    pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
-
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
-    pub transition_kind: i32,  // default 0
-    pub transition_steps: i32, // default 80
-    pub score: i32,            // default 0
-    pub score_capt: RCStr,     // default "Score: "
-    pub score_capt_d: bool,    // display in caption?
-    pub lives: i32,            // default -1
-    pub lives_capt: RCStr,     // default "Lives: "
-    pub lives_capt_d: bool,    // display in caption?
-    pub health: Real,          // default 100.0
-    pub health_capt: RCStr,    // default "Health: "
-    pub health_capt_d: bool,   // display in caption?
+    pub potential_step_settings: pathfinding::PotentialStepSettings,
+
+    pub fps: u32,                 // initially 0
+    pub transition_kind: i32,     // default 0
+    pub transition_steps: i32,    // default 80
+    pub cursor_sprite: i32,       // default -1
+    pub cursor_sprite_frame: u32, // default 0
+    pub score: i32,               // default 0
+    pub score_capt: RCStr,        // default "Score: "
+    pub score_capt_d: bool,       // display in caption?
+    pub lives: i32,               // default -1
+    pub lives_capt: RCStr,        // default "Lives: "
+    pub lives_capt_d: bool,       // display in caption?
+    pub health: Real,             // default 100.0
+    pub health_capt: RCStr,       // default "Health: "
+    pub health_capt_d: bool,      // display in caption?
+
+    pub error_occurred: bool,
+    pub error_last: RCStr,
 
     pub game_id: i32,
     pub program_directory: RCStr,
+    pub temp_directory: RCStr,
+    pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
-    pub spoofed_time_nanos: Option<u128>,    // use this instead of real time if this is set
+    pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
+    pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
+    pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,
     pub encoding: &'static Encoding,
 
@@ -169,7 +182,7 @@ pub struct Game {
 }
 
 /// Enum indicating which GameMaker version a game was built with
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Version {
     GameMaker8_0,
     GameMaker8_1,
@@ -217,6 +230,7 @@ impl Game {
         file_path: PathBuf,
         spoofed_time_nanos: Option<u128>,
         game_arguments: Vec<String>,
+        temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
@@ -248,6 +262,7 @@ impl Game {
             constants,
             fonts,
             icon_data: _,
+            included_files,
             last_instance_id,
             last_tile_id,
             objects,
@@ -282,6 +297,94 @@ impl Game {
         let room1_speed = room1.speed;
         let room1_colour = room1.bg_colour.as_decimal().into();
         let room1_show_colour = room1.clear_screen;
+
+        let mut rand = Random::new();
+
+        // manual decode to avoid errors
+        let decode_str_maybe = |bytes: Vec<u8>| match gm_version {
+            Version::GameMaker8_0 => {
+                encoding.decode_without_bom_handling_and_without_replacement(&bytes).map(|x| x.into_owned())
+            },
+            Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
+        };
+
+        let temp_directory = match temp_dir {
+            Some(path) => path,
+            None => {
+                // read path from tempdir.txt or if that's not possible get std::env::temp_dir()
+                let mut dir = if let Some(path) =
+                    std::fs::read("tempdir.txt").ok().and_then(decode_str_maybe).map(|path| PathBuf::from(path))
+                {
+                    path
+                } else {
+                    std::env::temp_dir()
+                };
+                // closure to make a gm_ttt folder within a given path
+                let mut make_temp_dir = |path: &mut PathBuf| {
+                    let mut folder = "gm_ttt_".to_string();
+                    folder += &rand.next_int(99999).to_string();
+                    path.push(&folder);
+                    while path.exists() {
+                        path.pop();
+                        folder.truncate(7); // length of "gm_ttt_"
+                        folder += &rand.next_int(99999).to_string();
+                        path.push(&folder);
+                    }
+                    std::fs::create_dir_all(path)
+                };
+                // try making folders
+                if let Err(e) = make_temp_dir(&mut dir) {
+                    eprintln!("Could not create temp folder in {:?}: {}", dir, e);
+                    // GM8 would try C:\temp but let's skip that
+                    match std::env::current_dir().map(|x| {
+                        dir = x;
+                        make_temp_dir(&mut dir)
+                    }) {
+                        Ok(_) => eprintln!("Using game directory instead."),
+                        Err(e) => {
+                            eprintln!("Could not use game directory either: {}", e);
+                            eprintln!("Trying to run anyway. If this game uses the temp folder, it will likely crash.");
+                            dir = PathBuf::new();
+                        },
+                    }
+                }
+                dir
+            },
+        };
+
+        let included_files = included_files
+            .into_iter()
+            .map(|i| {
+                use gm8exe::asset::includedfile::ExportSetting;
+                let export_settings = match i.export_settings {
+                    ExportSetting::NoExport => includedfile::ExportSetting::NoExport,
+                    ExportSetting::TempFolder => includedfile::ExportSetting::TempFolder,
+                    ExportSetting::GameFolder => includedfile::ExportSetting::GameFolder,
+                    ExportSetting::CustomFolder(dir) => match decode_str_maybe(dir.0.to_vec()) {
+                        Some(s) => includedfile::ExportSetting::CustomFolder(s),
+                        None => {
+                            panic!("could not decode includedfile export directory {}", String::from_utf8_lossy(&dir.0))
+                        },
+                    },
+                };
+                let mut i = IncludedFile {
+                    name: match decode_str_maybe(i.file_name.0.to_vec()) {
+                        Some(s) => s,
+                        None => {
+                            panic!("could not decode includedfile name {}", String::from_utf8_lossy(&i.file_name.0))
+                        },
+                    },
+                    data: i.embedded_data,
+                    export_settings,
+                    overwrite: i.overwrite_file,
+                    free_after_export: i.free_memory,
+                    remove_at_end: i.remove_at_end,
+                };
+                i.export(temp_directory.clone(), program_directory.to_string().into())?;
+                Ok(i)
+            })
+            .collect::<Result<Vec<_>, std::io::Error>>()
+            .expect("failed to extract included files");
 
         // Set up a GML compiler
         let mut compiler = Compiler::new();
@@ -337,6 +440,8 @@ impl Game {
             size: (room1_width, room1_height),
             vsync: settings.vsync, // TODO: Overrideable
             interpolate_pixels: settings.interpolate_pixels,
+            normalize_normals: gm_version == Version::GameMaker8_1,
+            zbuf_24: gm_version == Version::GameMaker8_1, // TODO: set to true if surface fix is found
         };
 
         let (width, height) = options.size;
@@ -776,10 +881,11 @@ impl Game {
 
         let mut game = Self {
             compiler,
-            file_manager: FileManager::new(),
+            text_files: HandleArray::new(),
+            binary_files: HandleArray::new(),
             instance_list: InstanceList::new(),
             tile_list: TileList::new(),
-            rand: Random::new(),
+            rand,
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
@@ -805,12 +911,12 @@ impl Game {
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
             game_start: true,
-            stacks: DataStructureManager::new(),
-            queues: DataStructureManager::new(),
-            lists: DataStructureManager::new(),
-            maps: DataStructureManager::new(),
-            priority_queues: DataStructureManager::new(),
-            grids: DataStructureManager::new(),
+            stacks: HandleList::new(),
+            queues: HandleList::new(),
+            lists: HandleList::new(),
+            maps: HandleList::new(),
+            priority_queues: HandleList::new(),
+            grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
             draw_font: None,
             draw_font_id: -1,
@@ -820,13 +926,18 @@ impl Game {
             draw_valign: draw::Valign::Top,
             surfaces: Vec::new(),
             surface_target: None,
+            models: Vec::new(),
+            model_matrix_stack: Vec::new(),
             auto_draw: true,
             last_instance_id,
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
+            cursor_sprite: -1,
+            cursor_sprite_frame: 0,
             score: 0,
             score_capt: "Score: ".to_string().into(),
             lives: -1,
@@ -835,9 +946,14 @@ impl Game {
             health_capt: "Health: ".to_string().into(),
             game_id: game_id as i32,
             program_directory: program_directory.into(),
+            temp_directory: "".into(),
+            included_files,
             gm_version,
             open_ini: None,
+            open_file: None,
+            file_finder: None,
             spoofed_time_nanos,
+            fps: 0,
             parameters: game_arguments,
             encoding,
             caption: "".to_string().into(),
@@ -845,6 +961,8 @@ impl Game {
             score_capt_d: false,
             lives_capt_d: false,
             health_capt_d: false,
+            error_occurred: false,
+            error_last: "".to_string().into(),
             window,
             scaling,
             play_type: PlayType::Normal,
@@ -854,6 +972,8 @@ impl Game {
             unscaled_width: 0,
             unscaled_height: 0,
         };
+
+        game.temp_directory = game.encode_str_maybe(temp_directory.to_str().unwrap()).unwrap().into_owned().into();
 
         // Evaluate constants
         for c in &constants {
@@ -1015,10 +1135,16 @@ impl Game {
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
             let (width, height) = self.window.get_inner_size();
-            let old_surf =
-                surface::Surface { width, height, atlas_ref: self.renderer.create_surface(width as _, height as _)? };
-            let new_surf =
-                surface::Surface { width, height, atlas_ref: self.renderer.create_surface(width as _, height as _)? };
+            let old_surf = surface::Surface {
+                width,
+                height,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+            };
+            let new_surf = surface::Surface {
+                width,
+                height,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+            };
             self.renderer.set_target(&old_surf.atlas_ref);
             self.draw()?;
             self.renderer.set_target(&new_surf.atlas_ref);
@@ -1089,6 +1215,7 @@ impl Game {
         self.caption = room.caption;
         self.input_manager.clear_presses();
         self.particles.effect_clear();
+        self.cursor_sprite_frame = 0;
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
@@ -1412,6 +1539,7 @@ impl Game {
                 }
             }
         }
+        self.cursor_sprite_frame += 1;
 
         // Clear inputs for this frame
         self.input_manager.clear_presses();
@@ -1445,6 +1573,8 @@ impl Game {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut time_now = Instant::now();
+        let mut time_last = time_now;
+        let mut frame_counter = 0;
         loop {
             self.process_window_events();
 
@@ -1466,7 +1596,17 @@ impl Game {
             let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
+                self.fps = self.room_speed.into();
+            } else {
+                // gm8 just ignores any leftover time after a second has passed, so we do the same
+                if time_now.duration_since(time_last) >= Duration::from_secs(1) {
+                    time_last = time_now;
+                    self.fps = frame_counter;
+                    frame_counter = 0;
+                }
             }
+            frame_counter += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;
@@ -1527,7 +1667,7 @@ impl Game {
         // Wait for a Hello, then send an update
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => (),
+                Some(None) => std::thread::yield_now(),
                 Some(Some(m)) => match m {
                     Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
                         // Create or load savefile, depending if it exists
@@ -1571,10 +1711,11 @@ impl Game {
         let mut game_mousey = 0;
         let mut do_update_mouse = false;
         self.play_type = PlayType::Record;
+        let mut frame_counter = 0;
 
         loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => (),
+                Some(None) => self.renderer.wait_vsync(),
                 Some(Some(m)) => match m {
                     Message::Advance {
                         key_inputs,
@@ -1756,6 +1897,12 @@ impl Game {
                 }
             }
 
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if self.window.close_requested() {
                 break Ok(())
             }
@@ -1768,6 +1915,7 @@ impl Game {
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
         self.play_type = PlayType::Replay;
+        let mut frame_counter = 0;
 
         let mut time_now = std::time::Instant::now();
         loop {
@@ -1819,6 +1967,13 @@ impl Game {
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
             }
+
+            if frame_counter == self.room_speed {
+                self.fps = self.room_speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
+
             if let Some(time) = duration.checked_sub(diff) {
                 gml::datetime::sleep(time);
                 time_now += duration;
@@ -1939,13 +2094,11 @@ impl Game {
                 for intersect_x in intersect_left..=intersect_right {
                     // Cast the coordinates to doubles, rotate them around inst1, then scale them by inst1; then
                     // floor them, as GM8 does, to get integer coordinates on the collider relative to the instance.
-                    let mut x = Real::from(intersect_x);
-                    let mut y = Real::from(intersect_y);
-                    util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), x1.into(), y1.into(), sin1, cos1);
-                    let x = (Real::from(sprite1.origin_x) + ((x - Real::from(x1)) / inst1.image_xscale.get()).floor())
-                        .round();
-                    let y = (Real::from(sprite1.origin_y) + ((y - Real::from(y1)) / inst1.image_yscale.get()).floor())
-                        .round();
+                    let mut x = Real::from(intersect_x) - x1.into();
+                    let mut y = Real::from(intersect_y) - y1.into();
+                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin1, cos1);
+                    let x = (Real::from(sprite1.origin_x) + (x / inst1.image_xscale.get()).floor()).round();
+                    let y = (Real::from(sprite1.origin_y) + (y / inst1.image_yscale.get()).floor()).round();
 
                     // Now look in the collider map to figure out if instance 1 is touching this pixel
                     if x >= collider1.bbox_left as i32
@@ -1959,15 +2112,11 @@ impl Game {
                             .unwrap_or(false)
                     {
                         // Do all the exact same stuff for inst2 now
-                        let mut x = Real::from(intersect_x);
-                        let mut y = Real::from(intersect_y);
-                        util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), x2.into(), y2.into(), sin2, cos2);
-                        let x = (Real::from(sprite2.origin_x)
-                            + ((x - Real::from(x2)) / inst2.image_xscale.get()).floor())
-                        .round();
-                        let y = (Real::from(sprite2.origin_y)
-                            + ((y - Real::from(y2)) / inst2.image_yscale.get()).floor())
-                        .round();
+                        let mut x = Real::from(intersect_x) - x2.into();
+                        let mut y = Real::from(intersect_y) - y2.into();
+                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin2, cos2);
+                        let x = (Real::from(sprite2.origin_x) + (x / inst2.image_xscale.get()).floor()).round();
+                        let y = (Real::from(sprite2.origin_y) + (y / inst2.image_yscale.get()).floor()).round();
 
                         // And finally check if there was a hit here too. If so, we can return true immediately.
                         if x >= collider2.bbox_left as i32
@@ -2031,18 +2180,11 @@ impl Game {
 
             // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
-            let mut x = Real::from(x);
-            let mut y = Real::from(y);
-            util::rotate_around(
-                x.as_mut_ref(),
-                y.as_mut_ref(),
-                inst.x.get().into(),
-                inst.y.get().into(),
-                angle.sin().into(),
-                angle.cos().into(),
-            );
-            let x = (Real::from(sprite.origin_x) + ((x - inst.x.get()) / inst.image_xscale.get())).round();
-            let y = (Real::from(sprite.origin_y) + ((y - inst.y.get()) / inst.image_yscale.get())).round();
+            let mut x = Real::from(x) - inst.x.get();
+            let mut y = Real::from(y) - inst.y.get();
+            util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle.sin().into(), angle.cos().into());
+            let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round();
+            let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round();
 
             // And finally, look up this point in the collider
             x >= collider.bbox_left as i32
@@ -2113,15 +2255,11 @@ impl Game {
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
                     // Transform point to be relative to collider
-                    let mut x = Real::from(intersect_x);
-                    let mut y = Real::from(intersect_y);
-                    util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
-                    let x = (Real::from(sprite.origin_x)
-                        + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
-                    .round();
-                    let y = (Real::from(sprite.origin_y)
-                        + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
-                    .round();
+                    let mut x = Real::from(intersect_x) - inst_x.into();
+                    let mut y = Real::from(intersect_y) - inst_y.into();
+                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
+                    let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
+                    let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
 
                     // And finally, look up this point in the collider
                     if x >= collider.bbox_left as i32
@@ -2135,6 +2273,131 @@ impl Game {
                             .unwrap_or(false)
                     {
                         return true
+                    }
+                }
+            }
+
+            false
+        } else {
+            false
+        }
+    }
+
+    pub fn check_collision_ellipse(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
+        // Get sprite mask, update bbox
+        let inst = self.instance_list.get(inst);
+        let sprite = self
+            .assets
+            .sprites
+            .get_asset(if inst.mask_index.get() < 0 { inst.sprite_index.get() } else { inst.mask_index.get() })
+            .map(|x| x.as_ref());
+        inst.update_bbox(sprite);
+
+        let bbox_left: Real = inst.bbox_left.get().into();
+        let bbox_right: Real = inst.bbox_right.get().into();
+        let bbox_top: Real = inst.bbox_top.get().into();
+        let bbox_bottom: Real = inst.bbox_bottom.get().into();
+
+        let rect_left = x1.min(x2);
+        let rect_right = x1.max(x2);
+        let rect_top = y1.min(y2);
+        let rect_bottom = y1.max(y2);
+
+        // AABB with the rectangle
+        if bbox_right + Real::from(1.0) <= rect_left
+            || rect_right < bbox_left
+            || bbox_bottom + Real::from(1.0) <= rect_top
+            || rect_bottom < bbox_top
+        {
+            return false
+        }
+
+        let rect_left = rect_left.round();
+        let rect_right = rect_right.round();
+        let rect_top = rect_top.round();
+        let rect_bottom = rect_bottom.round();
+
+        let ellipse_xcenter = Real::from(rect_right + rect_left) / 2.into();
+        let ellipse_ycenter = Real::from(rect_bottom + rect_top) / 2.into();
+        let ellipse_xrad = Real::from(rect_right - rect_left) / 2.into();
+        let ellipse_yrad = Real::from(rect_bottom - rect_top) / 2.into();
+
+        let point_in_ellipse = |x: Real, y: Real| {
+            let x_dist = (x - ellipse_xcenter) / ellipse_xrad;
+            let y_dist = (y - ellipse_ycenter) / ellipse_yrad;
+            x_dist * x_dist + y_dist * y_dist <= 1.into()
+        };
+
+        // The AABB passed, so if the ellipse's center isn't diagonally separated from the instance's bbox,
+        // that means the leftmost or rightmost or whatever point of the circle is inside the bbox, so we're colliding.
+        if (ellipse_xcenter < bbox_left || ellipse_xcenter > bbox_right)
+            && (ellipse_ycenter < bbox_top || ellipse_ycenter > bbox_bottom)
+        {
+            // If this isn't the case, there can only be collision if the closest corner is inside the ellipse.
+            if !point_in_ellipse(bbox_left.into(), bbox_top.into())
+                && !point_in_ellipse(bbox_left.into(), bbox_bottom.into())
+                && !point_in_ellipse(bbox_right.into(), bbox_top.into())
+                && !point_in_ellipse(bbox_right.into(), bbox_bottom.into())
+            {
+                return false
+            }
+        }
+
+        // Stop now if precise collision is disabled
+        if !precise {
+            return true
+        }
+
+        // Can't collide if no sprite or no associated collider
+        if let Some(sprite) = sprite {
+            // Get collider
+            let collider = match if sprite.per_frame_colliders {
+                sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
+            } else {
+                sprite.colliders.first()
+            } {
+                Some(c) => c,
+                None => return false,
+            };
+
+            // Round everything, as GM does
+            let inst_x = inst.x.get().round();
+            let inst_y = inst.y.get().round();
+            let angle = inst.image_angle.get().to_radians();
+            let sin = angle.sin().into_inner();
+            let cos = angle.cos().into_inner();
+
+            // Get intersect rectangle
+            let intersect_top = inst.bbox_top.get().max(rect_top);
+            let intersect_bottom = inst.bbox_bottom.get().min(rect_bottom);
+            let intersect_left = inst.bbox_left.get().max(rect_left);
+            let intersect_right = inst.bbox_right.get().min(rect_right);
+
+            // Go through each pixel in the intersect
+            for intersect_y in intersect_top..=intersect_bottom {
+                for intersect_x in intersect_left..=intersect_right {
+                    // Check if point is in ellipse
+                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) {
+                        // Transform point to be relative to collider
+                        let mut x = Real::from(intersect_x) - inst_x.into();
+                        let mut y = Real::from(intersect_y) - inst_y.into();
+                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
+                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
+                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
+
+                        // And finally, look up this point in the collider
+                        if x >= collider.bbox_left as i32
+                            && y >= collider.bbox_top as i32
+                            && x <= collider.bbox_right as i32
+                            && y <= collider.bbox_bottom as i32
+                            && collider
+                                .data
+                                .get((y as usize * collider.width as usize) + x as usize)
+                                .copied()
+                                .unwrap_or(false)
+                        {
+                            return true
+                        }
                     }
                 }
             }
@@ -2246,11 +2509,11 @@ impl Game {
                 let (mut x, mut y) = get_point(i);
 
                 // Transform point to be relative to collider
-                util::rotate_around(x.as_mut_ref(), y.as_mut_ref(), inst_x.into(), inst_y.into(), sin, cos);
-                let x = (Real::from(sprite.origin_x) + ((x - Real::from(inst_x)) / inst.image_xscale.get()).floor())
-                    .round();
-                let y = (Real::from(sprite.origin_y) + ((y - Real::from(inst_y)) / inst.image_yscale.get()).floor())
-                    .round();
+                x -= inst_x.into();
+                y -= inst_y.into();
+                util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
+                let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
+                let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
 
                 // And finally, look up this point in the collider
                 if x >= collider.bbox_left as i32
@@ -2293,6 +2556,52 @@ impl Game {
         }
         None
     }
+
+    /// Finds an instance that matches the predicate.
+    /// `object_id` can be -3 for `all`, an object ID, or an instance ID.
+    /// The predicate should take an instance handle as an argument, and return true if it matches.
+    pub fn find_instance_with(&self, object_id: i32, pred: impl Fn(usize) -> bool) -> Option<usize> {
+        match object_id {
+            gml::ALL => {
+                let mut iter = self.instance_list.iter_by_insertion();
+                loop {
+                    match iter.next(&self.instance_list) {
+                        Some(handle) => {
+                            if pred(handle) {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
+                    }
+                }
+            },
+            _ if object_id < 0 => None,
+            object_id if object_id < 100000 => {
+                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
+                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    loop {
+                        match iter.next(&self.instance_list) {
+                            Some(handle) => {
+                                if pred(handle) {
+                                    break Some(handle)
+                                }
+                            },
+                            None => break None,
+                        }
+                    }
+                } else {
+                    None
+                }
+            },
+            instance_id => {
+                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
+                    if pred(handle) { Some(handle) } else { None }
+                } else {
+                    None
+                }
+            },
+        }
+    }
 }
 
 pub trait GetAsset<T> {
@@ -2302,24 +2611,10 @@ pub trait GetAsset<T> {
 
 impl<T> GetAsset<T> for Vec<Option<T>> {
     fn get_asset(&self, index: ID) -> Option<&T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get(usize::try_from(index).ok()?)?.as_ref()
     }
 
     fn get_asset_mut(&mut self, index: ID) -> Option<&mut T> {
-        if index < 0 {
-            None
-        } else {
-            match self.get_mut(index as usize) {
-                Some(Some(t)) => Some(t),
-                _ => None,
-            }
-        }
+        self.get_mut(usize::try_from(index).ok()?)?.as_mut()
     }
 }

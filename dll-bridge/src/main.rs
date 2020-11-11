@@ -135,7 +135,7 @@ fn main() -> io::Result<()> {
     let mut read_buffer = Vec::new();
     loop {
         match pipe.receive_message::<dll::Message>(&mut read_buffer)? {
-            Some(None) => (),
+            Some(None) => std::thread::yield_now(),
             Some(Some(m)) => match m {
                 dll::Message::Define { dll_name, fn_name, call_conv, res_type, arg_types } => {
                     pipe.send_message(externals.add_external(dll_name, fn_name, call_conv, res_type, arg_types))?;

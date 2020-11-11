@@ -56,7 +56,8 @@ impl Game {
         let mut run_event = false;
         if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
             // Calculate how much offset (0-1) we want to add to the instance's path position
-            let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0)) / path.length;
+            let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0))
+                / (path.length * instance.path_scale.get());
 
             // Work out what the new position should be
             let new_position = instance.path_position.get() + offset;
@@ -107,11 +108,9 @@ impl Game {
             point.x *= instance.path_scale.get();
             point.y *= instance.path_scale.get();
             let angle = instance.path_orientation.get().to_radians();
-            util::rotate_around(
+            util::rotate_around_center(
                 point.x.as_mut_ref(),
                 point.y.as_mut_ref(),
-                0.0,
-                0.0,
                 angle.sin().into(),
                 angle.cos().into(),
             );

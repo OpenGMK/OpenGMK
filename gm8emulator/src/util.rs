@@ -25,8 +25,14 @@ pub fn ieee_round(real: f64) -> i32 {
 pub fn rotate_around(x: &mut f64, y: &mut f64, center_x: f64, center_y: f64, sin: f64, cos: f64) {
     *x -= center_x;
     *y -= center_y;
-    let x_new = ((*x * cos) - (*y * sin)) + center_x;
-    let y_new = ((*x * sin) + (*y * cos)) + center_y;
+    rotate_around_center(x, y, sin, cos);
+    *x += center_x;
+    *y += center_y;
+}
+
+pub fn rotate_around_center(x: &mut f64, y: &mut f64, sin: f64, cos: f64) {
+    let x_new = (*x * cos) - (*y * sin);
+    let y_new = (*x * sin) + (*y * cos);
     *x = x_new;
     *y = y_new;
 }

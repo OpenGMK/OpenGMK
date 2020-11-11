@@ -16,6 +16,7 @@ chrono = "0.4"
 dll-macros = { path = "../dll-macros" }
 encoding_rs = "0.8.23"
 getopts = "0.2.21"
+glob = "0.3.0"
 gm8exe = { git = "https://github.com/OpenGM8/GM8Decompiler.git" }
 gmio = { path = "../gmio" }
 hex = "0.4.2"
@@ -35,8 +36,3 @@ features = ["commctrl", "errhandlingapi", "libloaderapi", "timeapi", "winbase", 
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"
 features = ["xlib"]
-
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 3

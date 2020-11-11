@@ -108,7 +108,7 @@ where
         S: Serialize,
     {
         let message = bincode::serialize(&s).expect("Failed to serialize message");
-        self.write(&(message.len() as u32).to_le_bytes())?;
+        self.write_all(&(message.len() as u32).to_le_bytes())?;
         self.write_all(&message)
     }
 
@@ -121,15 +121,37 @@ where
         match self.read(&mut len_buffer) {
             Ok(0) => Ok(None),
             Ok(len) => {
-                assert_eq!(len, 4);
+                // if we have any data at all, read the entire message
+                if len < 4 {
+                    // we somehow read some of the length but not all of it, so read the rest
+                    // can't use read_exact because that doesn't catch WouldBlock
+                    let mut buffer_pos = len;
+                    loop {
+                        match self.read(&mut len_buffer[buffer_pos..]) {
+                            Ok(len) => {
+                                buffer_pos += len;
+                                if buffer_pos >= 4 {
+                                    break
+                                }
+                            },
+                            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
+                            Err(e) => return Err(e),
+                        }
+                    }
+                }
+
                 read_buffer.resize_with(u32::from_le_bytes(len_buffer) as usize, Default::default);
+                let mut buffer_pos = 0;
                 loop {
-                    match self.read(read_buffer) {
+                    match self.read(&mut read_buffer[buffer_pos..]) {
                         Ok(0) => break Ok(None),
                         Ok(len) => {
-                            assert_eq!(len, read_buffer.len());
-                            let d: D = bincode::deserialize::<D>(read_buffer).expect("Failed to deserialize message");
-                            break Ok(Some(Some(d)))
+                            buffer_pos += len;
+                            if buffer_pos >= read_buffer.len() {
+                                let d: D =
+                                    bincode::deserialize::<D>(read_buffer).expect("Failed to deserialize message");
+                                break Ok(Some(Some(d)))
+                            }
                         },
                         Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
                         Err(e) => break Err(e),

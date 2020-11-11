@@ -1,26 +1,25 @@
 use crate::{gml::Value, math::Real};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections};
-pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataStructureManager<T> {
-    table: Vec<Option<T>>,
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Stack = Vec<Value>;
 pub type Queue = collections::VecDeque<Value>;
 pub type List = Vec<Value>;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Map {
     pub keys: Vec<Value>, // should be pre-sorted
     pub values: Vec<Value>,
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Priority {
     pub priorities: Vec<Value>,
     pub values: Vec<Value>,
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Grid {
     grid: Vec<Vec<Value>>,
@@ -36,46 +35,6 @@ impl From<Error> for String {
     fn from(e: Error) -> Self {
         match e {
             Error::NonexistentStructure(id) => format!("data structure with index {} does not exist", id),
-        }
-    }
-}
-
-impl<T> DataStructureManager<T> {
-    pub fn new() -> Self {
-        Self { table: Vec::new() }
-    }
-
-    pub fn add(&mut self, to_add: T) -> i32 {
-        if let Some((idx, entry)) = self.table.iter_mut().enumerate().find(|(_, v)| v.is_none()) {
-            *entry = Some(to_add);
-            idx as i32
-        } else {
-            self.table.push(Some(to_add));
-            self.table.len() as i32 - 1
-        }
-    }
-
-    pub fn get(&self, id: i32) -> Result<&T> {
-        match self.table.get(id as usize) {
-            Some(entry) => entry.as_ref().ok_or(Error::NonexistentStructure(id)),
-            None => Err(Error::NonexistentStructure(id)),
-        }
-    }
-
-    pub fn get_mut(&mut self, id: i32) -> Result<&mut T> {
-        match self.table.get_mut(id as usize) {
-            Some(entry) => entry.as_mut().ok_or(Error::NonexistentStructure(id)),
-            None => Err(Error::NonexistentStructure(id)),
-        }
-    }
-
-    pub fn destroy(&mut self, id: i32) -> Result<()> {
-        match self.table.get_mut(id as usize) {
-            Some(id) => {
-                *id = None;
-                Ok(())
-            },
-            None => Err(Error::NonexistentStructure(id)),
         }
     }
 }

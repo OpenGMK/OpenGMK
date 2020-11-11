@@ -105,8 +105,11 @@ impl Manager {
         }
     }
 
-    pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets) {
+    pub fn draw_system(&mut self, id: i32, renderer: &mut Renderer, assets: &Assets, set_depth: bool) {
         if let Some(ps) = self.systems.get_asset_mut(id) {
+            if set_depth {
+                renderer.set_depth(ps.depth.into_inner() as f32);
+            }
             ps.draw(renderer, assets, &self.types, &self.shapes);
         }
     }
@@ -117,12 +120,12 @@ impl Manager {
         x: Real,
         y: Real,
         ptype: i32,
-        color: Option<i32>,
+        colour: Option<i32>,
         number: i32,
         rand: &mut Random,
     ) {
         if let Some(ps) = self.systems.get_asset_mut(id) {
-            ps.create_particles(x, y, ptype, color, number, rand, &self.types);
+            ps.create_particles(x, y, ptype, colour, number, rand, &self.types);
         }
     }
 
@@ -848,7 +851,7 @@ pub struct ParticleType {
     pub ang_incr: Real,
     pub ang_wiggle: Real,
     pub ang_relative: bool,
-    pub color: ParticleColor,
+    pub colour: ParticleColour,
     pub alpha1: Real,
     pub alpha2: Real,
     pub alpha3: Real,
@@ -862,7 +865,7 @@ pub enum ParticleGraphic {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ParticleColor {
+pub enum ParticleColour {
     One(i32),
     Two(i32, i32),
     Three(i32, i32, i32),
@@ -871,7 +874,7 @@ pub enum ParticleColor {
     Mix(i32, i32),
 }
 
-fn color_lerp(c1: i32, c2: i32, lerp: Real) -> i32 {
+fn colour_lerp(c1: i32, c2: i32, lerp: Real) -> i32 {
     let c1_part = Real::from(1.0) - lerp;
     let c2_part = lerp;
     let (r1, r2) = (c1 & 0xff, c2 & 0xff);
@@ -895,7 +898,7 @@ pub struct Particle {
     speed: Real,
     direction: Real,
     image_angle: Real,
-    color: i32,
+    colour: i32,
     alpha: Real,
     size: Real,
     subimage: i32,
@@ -1091,7 +1094,7 @@ impl ParticleType {
             ang_relative: false,
             grav_amount: Real::from(0.0),
             grav_dir: Real::from(270.0),
-            color: ParticleColor::One(0xffffff),
+            colour: ParticleColour::One(0xffffff),
             alpha1: Real::from(1.0),
             alpha2: Real::from(1.0),
             alpha3: Real::from(1.0),
@@ -1177,13 +1180,13 @@ impl System {
         x: Real,
         y: Real,
         ptype: i32,
-        color: Option<i32>,
+        colour: Option<i32>,
         number: i32,
         rand: &mut Random,
         types: &dyn GetAsset<Box<ParticleType>>,
     ) {
         for _ in 0..number {
-            if let Some(particle) = Particle::new(ptype, x, y, rand, types, color) {
+            if let Some(particle) = Particle::new(ptype, x, y, rand, types, colour) {
                 self.particles.push(particle);
             }
         }
@@ -1224,14 +1227,14 @@ impl Particle {
         y: Real,
         rand: &mut Random,
         types: &dyn GetAsset<Box<ParticleType>>,
-        color_arg: Option<i32>,
+        colour_arg: Option<i32>,
     ) -> Option<Self> {
         if let Some(ptype) = types.get_asset(ptype_id) {
             let speed = Distribution::Linear.range(rand, ptype.speed_min.into(), ptype.speed_max.into()).into();
             let direction = Distribution::Linear.range(rand, ptype.dir_min.into(), ptype.dir_max.into()).into();
             let image_angle = Distribution::Linear.range(rand, ptype.ang_min.into(), ptype.ang_max.into()).into();
             let lifetime = Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round();
-            let color = Self::init_color(rand, &ptype.color); // do this despite color_arg for rng parity
+            let colour = Self::init_colour(rand, &ptype.colour); // do this despite colour_arg for rng parity
             let alpha = ptype.alpha1;
             let size = Distribution::Linear.range(rand, ptype.size_min.into(), ptype.size_max.into()).into();
             let mut subimage = 0;
@@ -1252,7 +1255,7 @@ impl Particle {
                 speed,
                 direction,
                 image_angle,
-                color: color_arg.unwrap_or(color),
+                colour: colour_arg.unwrap_or(colour),
                 alpha,
                 size,
                 subimage,
@@ -1263,18 +1266,18 @@ impl Particle {
         }
     }
 
-    fn init_color(rand: &mut Random, color_type: &ParticleColor) -> i32 {
-        match color_type {
-            ParticleColor::One(c) => *c,
-            ParticleColor::Two(c, _) => *c,
-            ParticleColor::Three(c, _, _) => *c,
-            ParticleColor::RGB { rmin, rmax, gmin, gmax, bmin, bmax } => {
+    fn init_colour(rand: &mut Random, colour_type: &ParticleColour) -> i32 {
+        match colour_type {
+            ParticleColour::One(c) => *c,
+            ParticleColour::Two(c, _) => *c,
+            ParticleColour::Three(c, _, _) => *c,
+            ParticleColour::RGB { rmin, rmax, gmin, gmax, bmin, bmax } => {
                 let r = Distribution::Linear.range(rand, (*rmin).into(), (*rmax).into()).round();
                 let g = Distribution::Linear.range(rand, (*gmin).into(), (*gmax).into()).round();
                 let b = Distribution::Linear.range(rand, (*bmin).into(), (*bmax).into()).round();
                 r | (g << 8) | (b << 16)
             },
-            ParticleColor::HSV { hmin, hmax, smin, smax, vmin, vmax } => {
+            ParticleColour::HSV { hmin, hmax, smin, smax, vmin, vmax } => {
                 let h = Distribution::Linear.range(rand, (*hmin).into(), (*hmax).into()).round();
                 let s = Distribution::Linear.range(rand, (*smin).into(), (*smax).into()).round();
                 let v = Distribution::Linear.range(rand, (*vmin).into(), (*vmax).into()).round();
@@ -1302,7 +1305,7 @@ impl Particle {
                 let out_b = ((b + m) * Real::from(255.0)).round();
                 out_r | (out_g << 8) | (out_b << 16)
             },
-            ParticleColor::Mix(c1, c2) => color_lerp(*c1, *c2, rand.next(1.0).into()),
+            ParticleColour::Mix(c1, c2) => colour_lerp(*c1, *c2, rand.next(1.0).into()),
         }
     }
 
@@ -1382,16 +1385,16 @@ impl Particle {
             if self.lifetime >= 1 {
                 halflife_elapsed = Real::from(self.timer * 2) / Real::from(self.lifetime);
             }
-            self.color = match ptype.color {
-                ParticleColor::Two(c1, c2) => color_lerp(c1, c2, halflife_elapsed / Real::from(2.0)),
-                ParticleColor::Three(c1, c2, c3) => {
+            self.colour = match ptype.colour {
+                ParticleColour::Two(c1, c2) => colour_lerp(c1, c2, halflife_elapsed / Real::from(2.0)),
+                ParticleColour::Three(c1, c2, c3) => {
                     if halflife_elapsed < Real::from(1.0) {
-                        color_lerp(c1, c2, halflife_elapsed)
+                        colour_lerp(c1, c2, halflife_elapsed)
                     } else {
-                        color_lerp(c2, c3, halflife_elapsed - Real::from(1.0))
+                        colour_lerp(c2, c3, halflife_elapsed - Real::from(1.0))
                     }
                 },
-                _ => self.color,
+                _ => self.colour,
             };
             if halflife_elapsed >= Real::from(1.0) {
                 self.alpha = (halflife_elapsed - Real::from(1.0)) * ptype.alpha3
@@ -1428,7 +1431,7 @@ impl Particle {
                     }
                 }
                 if let Some(sprite) = assets.sprites.get_asset(sprite) {
-                    sprite.frames.get((subimage % sprite.frames.len() as i32) as usize).map(|x| &x.atlas_ref)
+                    sprite.get_atlas_ref(Real::from(subimage % sprite.frames.len() as i32))
                 } else {
                     None
                 }
@@ -1458,7 +1461,7 @@ impl Particle {
                 (ptype.xscale * size).into(),
                 (ptype.yscale * size).into(),
                 angle.into(),
-                self.color.into(),
+                self.colour.into(),
                 self.alpha.into(),
             );
         }
@@ -1543,7 +1546,7 @@ impl Changer {
                                 particle.direction = new_part.direction;
                             },
                             ChangerKind::Shape => {
-                                particle.color = new_part.color;
+                                particle.colour = new_part.colour;
                                 particle.alpha = new_part.alpha;
                                 particle.size = new_part.size;
                                 particle.subimage = new_part.subimage;

@@ -991,7 +991,7 @@ impl Game {
                     .map(|x| x.into_owned().into())
                     .ok_or(gml::Error::BadDirectoryError(cwd.to_string()))
             },
-            InstanceVariable::TempDirectory => todo!("temp_directory getter"),
+            InstanceVariable::TempDirectory => Ok(self.temp_directory.clone().into()),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
             InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
             InstanceVariable::InstanceId => Ok(self.instance_list.instance_at(array_index as _).into()),
@@ -1108,14 +1108,14 @@ impl Game {
             InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar getter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string getter"),
-            InstanceVariable::CursorSprite => todo!("cursor_sprite getter"),
+            InstanceVariable::CursorSprite => Ok(self.cursor_sprite.into()),
             InstanceVariable::ShowScore => Ok(self.score_capt_d.into()),
             InstanceVariable::ShowLives => Ok(self.lives_capt_d.into()),
             InstanceVariable::ShowHealth => Ok(self.health_capt_d.into()),
             InstanceVariable::CaptionScore => Ok(self.score_capt.clone().into()),
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
-            InstanceVariable::Fps => Ok(self.room_speed.into()), // Yeah I know but it's fine
+            InstanceVariable::Fps => Ok(self.fps.into()),
             InstanceVariable::CurrentTime => {
                 // GM uses GetTickCount, which has a resolution of *roughly* 16ms.
                 if let Some(nanos) = self.spoofed_time_nanos {
@@ -1143,8 +1143,8 @@ impl Game {
             InstanceVariable::EventAction => Ok(context.event_action.into()),
             InstanceVariable::SecureMode => Ok(gml::FALSE.into()),
             InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
-            InstanceVariable::ErrorOccurred => todo!("error_occurred getter"),
-            InstanceVariable::ErrorLast => todo!("error_last getter"),
+            InstanceVariable::ErrorOccurred => Ok(self.error_occurred.into()),
+            InstanceVariable::ErrorLast => Ok(self.error_last.clone().into()),
             InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
             InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
             InstanceVariable::GamemakerVersion => Ok(match self.gm_version {
@@ -1221,8 +1221,13 @@ impl Game {
                 instance.image_index.set(value.into());
             },
             InstanceVariable::ImageSingle => {
-                instance.image_index.set(value.into());
-                instance.image_speed.set(Real::from(0.0));
+                let img = Real::from(value);
+                if img >= Real::from(0.0) {
+                    instance.image_index.set(img);
+                    instance.image_speed.set(Real::from(0.0));
+                } else {
+                    instance.image_speed.set(Real::from(1.0));
+                }
             },
             InstanceVariable::ImageXscale => {
                 let v: Real = value.into();
@@ -1460,15 +1465,15 @@ impl Game {
             },
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string setter"),
-            InstanceVariable::CursorSprite => todo!("cursor_sprite setter"),
+            InstanceVariable::CursorSprite => self.cursor_sprite = value.round(),
             InstanceVariable::ShowScore => self.score_capt_d = value.is_truthy(),
             InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
             InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
             InstanceVariable::CaptionLives => self.lives_capt = value.into(),
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
-            InstanceVariable::ErrorOccurred => todo!("error_occurred setter"),
-            InstanceVariable::ErrorLast => todo!("error_last setter"),
+            InstanceVariable::ErrorOccurred => self.error_occurred = value.is_truthy(),
+            InstanceVariable::ErrorLast => self.error_last = value.into(),
             _ => return Err(Error::ReadOnlyVariable(*var)),
         }
         Ok(())
