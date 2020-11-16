@@ -226,10 +226,31 @@ pub fn make_colliders_shaped(
                     }
                 },
                 Some(ColliderShape::Ellipse) => {
-                    unimplemented!("sprite_collision_mask with disk shape is not yet implemented")
+                    let xcenter = f64::from(bbox.right - bbox.left) / 2.0;
+                    let xrad = xcenter - f64::from(bbox.left) + 0.5; // GM8 adds 0.5, no idea why
+                    let ycenter = f64::from(bbox.bottom - bbox.top) / 2.0;
+                    let yrad = xcenter - f64::from(bbox.top) + 0.5;
+                    for y in bbox.top..bbox.bottom + 1 {
+                        for x in bbox.left..bbox.right + 1 {
+                            let x_scaled: f64 = (f64::from(x) - xcenter) / xrad;
+                            let y_scaled: f64 = (f64::from(y) - ycenter) / yrad;
+                            data[(y * width + x) as usize] = x_scaled * x_scaled + y_scaled * y_scaled < 1.0;
+                        }
+                    }
                 },
                 Some(ColliderShape::Diamond) => {
-                    unimplemented!("sprite_collision_mask with diamond shape is not yet implemented")
+                    let xcenter = f64::from(bbox.right - bbox.left) / 2.0;
+                    let xrad = xcenter - f64::from(bbox.left) + 0.5;
+                    let ycenter = f64::from(bbox.bottom - bbox.top) / 2.0;
+                    let yrad = xcenter - f64::from(bbox.top) + 0.5;
+                    for y in bbox.top..bbox.bottom + 1 {
+                        for x in bbox.left..bbox.right + 1 {
+                            let x_scaled: f64 = (f64::from(x) - xcenter) / xrad;
+                            let y_scaled: f64 = (f64::from(y) - ycenter) / yrad;
+                            // the IDE uses <= here (only for diamonds)
+                            data[(y * width + x) as usize] = x_scaled.abs() + y_scaled.abs() < 1.0;
+                        }
+                    }
                 },
             }
             Collider {
