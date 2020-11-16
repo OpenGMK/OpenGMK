@@ -450,7 +450,7 @@ where
                 // then [4..] will yield a 0-size slice at the very least.
                 match data.get(..4) {
                     Some(&[0, 0, 0, 0]) => Ok(None),
-                    Some(_) => Ok(Some(Box::new(deserializer(unsafe { data.get_unchecked(4..) })?))),
+                    Some(_) => Ok(Some(Box::new(deserializer(&data[4..])?))),
                     None => Err(ReaderError::AssetError(Error::MalformedData)),
                 }
             })
