@@ -7892,7 +7892,7 @@ impl Game {
         } else {
             return Err(gml::Error::FunctionError(
                 "sprite_delete".into(),
-                "Trying to delete non-existing background".into(),
+                "Trying to delete non-existing sprite".into(),
             ))
         }
         self.assets.sprites[sprite_id as usize] = None;
