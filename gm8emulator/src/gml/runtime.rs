@@ -305,6 +305,7 @@ impl Game {
         match mappings::FUNCTIONS.index(function_id).unwrap().1 {
             gml::Function::Runtime(f) => f(self, context, args),
             gml::Function::Engine(f) => f(self, args),
+            gml::Function::Volatile(f) => f(self, args),
             gml::Function::Constant(f) => f(self, args),
             gml::Function::Pure(f) => f(args),
         }

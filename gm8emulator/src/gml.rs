@@ -22,8 +22,11 @@ pub enum Function {
     // accesses and/or changes the program state, depending on the context
     Runtime( fn(&mut Game, &mut Context, &[Value]) -> Result<Value> ),
 
-    // accesses volatile state (OS etc.) and/or changes the program state
+    // accesses and/or changes the program state
     Engine( fn(&mut Game, &[Value]) -> Result<Value> ),
+
+    // depends on external state (OS, time etc.) or uses interior mutability
+    Volatile( fn(&Game, &[Value]) -> Result<Value> ),
 
     // only accesses the program state
     Constant( fn(&Game, &[Value]) -> Result<Value> ),

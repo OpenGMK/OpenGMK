@@ -212,11 +212,11 @@ impl Window {
         self.0.display_colour()
     }
 
-    pub fn disk_free(&mut self, drive: Option<char>) -> Option<u64> {
+    pub fn disk_free(&self, drive: Option<char>) -> Option<u64> {
         self.0.disk_free(drive)
     }
 
-    pub fn disk_size(&mut self, drive: Option<char>) -> Option<u64> {
+    pub fn disk_size(&self, drive: Option<char>) -> Option<u64> {
         self.0.disk_size(drive)
     }
 }

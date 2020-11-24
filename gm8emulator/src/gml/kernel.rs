@@ -99,22 +99,22 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
 }
 
 impl Game {
-    pub fn display_get_width(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.display_width().into())
     }
 
-    pub fn display_get_height(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.display_height().into())
     }
 
-    pub fn display_get_colordepth(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_colordepth(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.display_colour().into())
     }
 
-    pub fn display_get_frequency(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_frequency(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.display_frequency().into())
     }
@@ -139,7 +139,7 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_set_all")
     }
 
-    pub fn display_test_all(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn display_test_all(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
         unimplemented!("Called unimplemented kernel function display_test_all")
     }
@@ -148,12 +148,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_reset")
     }
 
-    pub fn display_mouse_get_x(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok((self.input_manager.mouse_get_location().0 + f64::from(self.window.get_pos().0)).into())
     }
 
-    pub fn display_mouse_get_y(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok((self.input_manager.mouse_get_location().1 + f64::from(self.window.get_pos().1)).into())
     }
@@ -305,22 +305,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_default")
     }
 
-    pub fn window_get_x(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.get_pos().0.into())
     }
 
-    pub fn window_get_y(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.get_pos().1.into())
     }
 
-    pub fn window_get_width(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.get_inner_size().0.into())
     }
 
-    pub fn window_get_height(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.window.get_inner_size().1.into())
     }
@@ -375,12 +375,12 @@ impl Game {
         .into())
     }
 
-    pub fn window_mouse_get_x(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.input_manager.mouse_get_location().0.into())
     }
 
-    pub fn window_mouse_get_y(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn window_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(self.input_manager.mouse_get_location().1.into())
     }
@@ -390,12 +390,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_mouse_set")
     }
 
-    pub fn window_view_mouse_get_x(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_view_mouse_get_x(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function window_view_mouse_get_x")
     }
 
-    pub fn window_view_mouse_get_y(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_view_mouse_get_y(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function window_view_mouse_get_y")
     }
@@ -405,12 +405,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_view_mouse_set")
     }
 
-    pub fn window_views_mouse_get_x(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_views_mouse_get_x(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function window_views_mouse_get_x")
     }
 
-    pub fn window_views_mouse_get_y(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn window_views_mouse_get_y(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function window_views_mouse_get_y")
     }
@@ -445,7 +445,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn screen_wait_vsync(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn screen_wait_vsync(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.renderer.wait_vsync();
         Ok(Default::default())
@@ -2775,7 +2775,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_if_sound(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn action_if_sound(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function action_if_sound")
     }
@@ -5847,14 +5847,14 @@ impl Game {
         }
     }
 
-    pub fn file_exists(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn file_exists(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
             Value::Str(s) => file::file_exists(&self.decode_str(s.as_ref())).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
-    pub fn file_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn file_delete(&self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
         match file::delete(filename.as_ref()) {
             Ok(()) => Ok(Default::default()),
@@ -5862,7 +5862,7 @@ impl Game {
         }
     }
 
-    pub fn file_rename(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn file_rename(&self, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
         if file::rename(from.as_ref(), to.as_ref()).is_err() {
             // Fail silently
@@ -5871,7 +5871,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn file_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn file_copy(&self, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
         if file::copy(from.as_ref(), to.as_ref()).is_err() {
             // Fail silently
@@ -5880,14 +5880,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn directory_exists(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn directory_exists(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
             Value::Str(s) => file::dir_exists(&self.decode_str(s.as_ref())).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
-    pub fn directory_create(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn directory_create(&self, args: &[Value]) -> gml::Result<Value> {
         let path = expect_args!(args, [string])?;
         match file::dir_create(path.as_ref()) {
             Ok(()) => Ok(Default::default()),
@@ -5963,7 +5963,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn file_attributes(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn file_attributes(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function file_attributes")
     }
@@ -6141,7 +6141,7 @@ impl Game {
         }
     }
 
-    pub fn environment_get_variable(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn environment_get_variable(&self, args: &[Value]) -> gml::Result<Value> {
         let name = expect_args!(args, [bytes])?;
         // get environment variable
         let env_os = std::env::var_os(self.decode_str(name.as_ref()).as_ref()).unwrap_or("".into());
@@ -6150,52 +6150,52 @@ impl Game {
         Ok(env.as_ref().into())
     }
 
-    pub fn registry_write_string(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_write_string(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function registry_write_string")
     }
 
-    pub fn registry_write_real(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_write_real(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function registry_write_real")
     }
 
-    pub fn registry_read_string(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_read_string(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function registry_read_string")
     }
 
-    pub fn registry_read_real(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_read_real(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function registry_read_real")
     }
 
-    pub fn registry_exists(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_exists(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function registry_exists")
     }
 
-    pub fn registry_write_string_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_write_string_ext(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
         unimplemented!("Called unimplemented kernel function registry_write_string_ext")
     }
 
-    pub fn registry_write_real_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_write_real_ext(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
         unimplemented!("Called unimplemented kernel function registry_write_real_ext")
     }
 
-    pub fn registry_read_string_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_read_string_ext(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function registry_read_string_ext")
     }
 
-    pub fn registry_read_real_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_read_real_ext(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function registry_read_real_ext")
     }
 
-    pub fn registry_exists_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn registry_exists_ext(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function registry_exists_ext")
     }
@@ -6349,7 +6349,7 @@ impl Game {
         }
     }
 
-    pub fn disk_free(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn disk_free(&self, args: &[Value]) -> gml::Result<Value> {
         let path = match args.get(0).clone() {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
@@ -6357,7 +6357,7 @@ impl Game {
         Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
     }
 
-    pub fn disk_size(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn disk_size(&self, args: &[Value]) -> gml::Result<Value> {
         let path = match args.get(0).clone() {
             Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
             _ => None,
@@ -6798,7 +6798,7 @@ impl Game {
         }
     }
 
-    pub fn keyboard_check_direct(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn keyboard_check_direct(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
         match key {
             k if k < 0 => Ok(gml::FALSE.into()),
@@ -7101,12 +7101,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mplay_data_mode")
     }
 
-    pub fn mplay_message_send(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn mplay_message_send(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
         unimplemented!("Called unimplemented kernel function mplay_message_send")
     }
 
-    pub fn mplay_message_send_guaranteed(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn mplay_message_send_guaranteed(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
         unimplemented!("Called unimplemented kernel function mplay_message_send_guaranteed")
     }
@@ -7402,7 +7402,7 @@ impl Game {
         return Ok(self.window.window_handle().into())
     }
 
-    pub fn show_debug_message(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn show_debug_message(&self, args: &[Value]) -> gml::Result<Value> {
         let message = expect_args!(args, [any])?;
         println!("{}", self.decode_str(message.repr().as_ref()));
         Ok(Default::default())
@@ -7548,7 +7548,7 @@ impl Game {
         self.variable_local_array_set(context, &[identifier, ((index1 * 32000) + index2).into(), value])
     }
 
-    pub fn clipboard_has_text(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn clipboard_has_text(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function clipboard_has_text")
     }
@@ -7558,22 +7558,22 @@ impl Game {
         unimplemented!("Called unimplemented kernel function clipboard_set_text")
     }
 
-    pub fn clipboard_get_text(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn clipboard_get_text(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function clipboard_get_text")
     }
 
-    pub fn date_current_datetime(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_datetime(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).into())
     }
 
-    pub fn date_current_date(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_date(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).date().into())
     }
 
-    pub fn date_current_time(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn date_current_time(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).time().into())
     }
@@ -7798,7 +7798,7 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_leap_year")
     }
 
-    pub fn date_is_today(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn date_is_today(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function date_is_today")
     }
@@ -11611,14 +11611,14 @@ impl Game {
         }
     }
 
-    pub fn sound_play(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn sound_play(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function sound_play")
         // TODO
         Ok(Default::default())
     }
 
-    pub fn sound_loop(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn sound_loop(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function sound_loop")
         // TODO
@@ -11639,7 +11639,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_isplaying(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn sound_isplaying(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         //unimplemented!("Called unimplemented kernel function sound_isplaying")
         // TODO
@@ -11742,97 +11742,97 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sound_3d_set_sound_cone")
     }
 
-    pub fn cd_init(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_init(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_init")
     }
 
-    pub fn cd_present(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_present(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_present")
     }
 
-    pub fn cd_number(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_number(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_number")
     }
 
-    pub fn cd_playing(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_playing(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_playing")
     }
 
-    pub fn cd_paused(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_paused(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_paused")
     }
 
-    pub fn cd_track(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_track(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_track")
     }
 
-    pub fn cd_length(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_length(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_length")
     }
 
-    pub fn cd_track_length(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_track_length(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function cd_track_length")
     }
 
-    pub fn cd_position(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_position(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_position")
     }
 
-    pub fn cd_track_position(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_track_position(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_track_position")
     }
 
-    pub fn cd_play(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_play(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 2
         unimplemented!("Called unimplemented kernel function cd_play")
     }
 
-    pub fn cd_stop(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_stop(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_stop")
     }
 
-    pub fn cd_pause(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_pause(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_pause")
     }
 
-    pub fn cd_resume(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_resume(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_resume")
     }
 
-    pub fn cd_set_position(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_set_position(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function cd_set_position")
     }
 
-    pub fn cd_set_track_position(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_set_track_position(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function cd_set_track_position")
     }
 
-    pub fn cd_open_door(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_open_door(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_open_door")
     }
 
-    pub fn cd_close_door(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn cd_close_door(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function cd_close_door")
     }
 
-    pub fn mci_command(&mut self, _args: &[Value]) -> gml::Result<Value> {
+    pub fn mci_command(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function MCI_command")
     }
