@@ -1347,6 +1347,13 @@ impl RendererTrait for RendererImpl {
                 *fbo_id = None;
             }
             self.fbo_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
+            for tex_id in self.zbuf_ids.iter_mut().skip(self.stock_atlas_count as usize) {
+                if let Some(tex_id) = tex_id.as_ref() {
+                    self.gl.DeleteTextures(1, tex_id);
+                }
+                *tex_id = None;
+            }
+            self.zbuf_ids.resize(self.stock_atlas_count as usize + textures.len(), None);
             for (i, tex) in textures.iter().enumerate() {
                 let i = i + self.stock_atlas_count as usize;
                 if let Some(tex) = tex.as_ref() {
