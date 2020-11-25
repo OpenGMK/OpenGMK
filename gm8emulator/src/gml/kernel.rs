@@ -2865,9 +2865,13 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_if_mouse")
     }
 
-    pub fn action_if_aligned(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_if_aligned")
+    pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (xsnap, ysnap) = expect_args!(args, [real, real])?;
+        let instance = self.instance_list.get(context.this);
+        Ok((
+            ((xsnap <= 0.into()) || (instance.x.get() % xsnap == 0.into())) &&
+            ((ysnap <= 0.into()) || (instance.y.get() % ysnap == 0.into()))
+        ).into())
     }
 
     pub fn action_execute_script(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
