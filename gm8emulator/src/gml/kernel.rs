@@ -12465,12 +12465,15 @@ impl Game {
                             closed,
                             steps,
                         } => {
+                            let x1 = match self.gm_version {
+                                Version::GameMaker8_0 => *x1,
+                                Version::GameMaker8_1 => x + *x1, // why is gm8 like this
+                            };
                             model::draw_cone(
                                 &mut self.renderer,
                                 atlas_ref,
                                 &mut primitive_draw,
-                                // yes, GM8 does this too. why is gm8 like this
-                                (x + *x1).into_inner(),
+                                x1.into_inner(),
                                 y1.into_inner(),
                                 z1.into_inner(),
                                 x2.into_inner(),
