@@ -17,7 +17,7 @@ use winapi::{
     shared::{
         basetsd::LONG_PTR,
         minwindef::{ATOM, DWORD, FALSE, HINSTANCE, HIWORD, LOWORD, LPARAM, LRESULT, TRUE, UINT, WPARAM},
-        ntdef::ULARGE_INTEGER,
+        ntdef::{ULARGE_INTEGER, WCHAR},
         windef::{HBRUSH, HCURSOR, HWND, POINT, RECT},
         windowsx::{GET_X_LPARAM, GET_Y_LPARAM},
     },
@@ -117,7 +117,12 @@ unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> Option<&'a mut WindowUserData> {
 
 unsafe fn register_window_class() -> Result<ATOM, DWORD> {
     // can we get utf16 literals in rust please? i mean this isn't EXACTLY utf16 but it'd work
-    static WINDOW_CLASS_WNAME: &[u8] = b"G\0M\08\0E\0m\0u\0l\0a\0t\0o\0r\0\0\0";
+    static WINDOW_CLASS_NAME: &[WCHAR] = &[
+        b'G' as WCHAR, b'M' as WCHAR, b'8' as WCHAR,
+        b'E' as WCHAR, b'm' as WCHAR, b'u' as WCHAR,
+        b'l' as WCHAR, b'a' as WCHAR, b't' as WCHAR, b'o' as WCHAR, b'r' as WCHAR,
+        0x00, // NULL
+    ];
 
     let class = WNDCLASSEXW {
         cbSize: mem::size_of::<WNDCLASSEXW>() as UINT,
@@ -127,7 +132,7 @@ unsafe fn register_window_class() -> Result<ATOM, DWORD> {
         hCursor: ptr::null_mut(),
         hbrBackground: COLOR_BACKGROUND as HBRUSH,
         lpszMenuName: ptr::null(),
-        lpszClassName: WINDOW_CLASS_WNAME.as_ptr() as *const wchar_t,
+        lpszClassName: WINDOW_CLASS_NAME.as_ptr(),
         hIconSm: ptr::null_mut(),
         hIcon: ptr::null_mut(),
 
