@@ -1121,7 +1121,7 @@ impl Game {
         expect_args!(args, [])?;
         let instance = self.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.sprite_index.get())) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.image_index.get())) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     instance.x.get().into(),
