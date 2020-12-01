@@ -11,6 +11,7 @@ pub mod replay;
 pub mod savestate;
 pub mod string;
 pub mod surface;
+pub mod transition;
 pub mod view;
 
 pub use background::Background;
@@ -102,6 +103,7 @@ pub struct Game {
     pub room_order: Box<[i32]>,
     pub room_speed: u32,
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
+    pub user_transitions: HashMap<i32, transition::UserTransition>,
 
     pub constants: Vec<gml::Value>,
     pub globals: DummyFieldHolder,
@@ -906,6 +908,7 @@ impl Game {
             room_order: room_order.into_boxed_slice(),
             room_speed: room1_speed,
             scene_change: None,
+            user_transitions: HashMap::new(),
             constants: Vec::with_capacity(constants.len()),
             globals: DummyFieldHolder::new(),
             globalvars: HashSet::new(),
@@ -1130,6 +1133,31 @@ impl Game {
         // Update this early so the other events run
         self.scene_change = None;
 
+        // Initialize room transition surface
+        let transition_kind = self.transition_kind;
+        let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
+            let (width, height) = self.window.get_inner_size();
+            let old_surf = surface::Surface {
+                width,
+                height,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+            };
+            let new_surf = surface::Surface {
+                width,
+                height,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+            };
+            self.renderer.set_target(&old_surf.atlas_ref);
+            self.draw()?;
+            self.renderer.set_target(&new_surf.atlas_ref);
+            let old_surf_id = self.surfaces.len() as i32;
+            self.surfaces.push(Some(old_surf));
+            self.surfaces.push(Some(new_surf));
+            (old_surf_id, old_surf_id + 1)
+        } else {
+            (-1, -1)
+        };
+
         // Run room end event for each instance
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list) {
@@ -1274,6 +1302,16 @@ impl Game {
 
         if let Some(change) = self.scene_change {
             self.scene_change = None;
+            // GM8 would have a memory leak here. We're not doing that.
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_old as usize] = None;
+            }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_new as usize] = None;
+            }
+
             if let SceneChange::Room(target) = change {
                 // A room change has been requested during this room change, so let's recurse...
                 self.load_room(target)
@@ -1282,10 +1320,45 @@ impl Game {
                 Ok(())
             }
         } else {
-            // Draw "frame 0" and then return
+            // Draw "frame 0", perform transition if applicable, and then return
             if self.auto_draw {
                 self.draw()?;
+                if let Some(transition) = self.get_transition(transition_kind) {
+                    let (width, height) = self.window.get_inner_size();
+                    self.renderer.reset_target();
+                    // Here, we see the limitations of GM8's vsync.
+                    // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets messy.
+                    // Instead of telling the display driver to use vsync like a sane program, GM8 manually waits for vsync
+                    // before drawing. It does this by calling WaitForVBlank(DDWAITVB_BLOCKBEGIN) from DirectDraw
+                    // (the only use of ddraw in the entire runner). According to experimentation, this function will wait until
+                    // the next vblank, unless a vblank just happened, in which case it returns instantly. There's usually enough
+                    // processing between vblanks that this isn't a problem, but when using builtin room transitions, the
+                    // processing is so lightweight it will skip frames. This means the builtin transitions will run too fast.
+                    // This would be hell to emulate, so let's just standardize the framerate and call it a day.
+                    // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
+                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
+                    let mut current_time = Instant::now();
+                    for i in 0..self.transition_steps + 1 {
+                        let progress = Real::from(i) / self.transition_steps.into();
+                        transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
+                        self.renderer.present(width, height, self.scaling);
+                        let diff = current_time.elapsed();
+                        if let Some(dur) = FRAME_TIME.checked_sub(diff) {
+                            gml::datetime::sleep(dur);
+                        }
+                        current_time = Instant::now();
+                    }
+                }
             }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_old as usize] = None;
+            }
+            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+                self.renderer.delete_sprite(surf.atlas_ref);
+                self.surfaces[trans_surf_new as usize] = None;
+            }
+            self.transition_kind = 0;
             Ok(())
         }
     }

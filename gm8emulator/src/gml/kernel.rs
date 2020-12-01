@@ -5,8 +5,8 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, model, particle, pathfinding, replay, string::RCStr, surface::Surface, view::View, Game,
-        GetAsset, PlayType, SceneChange, Version,
+        draw, external, model, particle, pathfinding, replay, string::RCStr, surface::Surface,
+        transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
         self,
@@ -2618,24 +2618,28 @@ impl Game {
     }
 
     pub fn action_another_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (room_id, _transition) = expect_args!(args, [int, int])?;
+        let (room_id, transition) = expect_args!(args, [int, int])?;
         self.scene_change = Some(SceneChange::Room(room_id));
+        self.transition_kind = transition;
         Ok(Default::default())
     }
 
     pub fn action_current_room(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
         self.scene_change = Some(SceneChange::Room(self.room_id));
+        self.transition_kind = transition;
         Ok(Default::default())
     }
 
     pub fn action_previous_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
+        self.transition_kind = transition;
         self.room_goto_previous(context, &[])
     }
 
     pub fn action_next_room(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let _transition = expect_args!(args, [int])?;
+        let transition = expect_args!(args, [int])?;
+        self.transition_kind = transition;
         self.room_goto_next(context, &[])
     }
 
@@ -5134,16 +5138,15 @@ impl Game {
         unimplemented!("Called unimplemented kernel function game_save")
     }
 
-    pub fn transition_define(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function transition_define")
-        // TODO
+    pub fn transition_define(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (id, script_name) = expect_args!(args, [int, bytes])?;
+        self.user_transitions.insert(id, UserTransition { script_name });
         Ok(Default::default())
     }
 
-    pub fn transition_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function transition_exists")
+    pub fn transition_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let transition_id = expect_args!(args, [int])?;
+        Ok(self.get_transition(transition_id).is_some().into())
     }
 
     pub fn sleep(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
