@@ -1000,9 +1000,10 @@ impl Game {
 
     pub fn draw_set_font(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let font_id = expect_args!(args, [int])?;
-        if self.draw_font_id != font_id {
-            self.draw_font = self.assets.fonts.get_asset(font_id).map(|x| x.as_ref().clone());
+        if self.assets.fonts.get_asset(font_id).is_some() {
             self.draw_font_id = font_id;
+        } else {
+            self.draw_font_id = -1;
         }
         Ok(Default::default())
     }
@@ -3413,9 +3414,10 @@ impl Game {
 
     pub fn action_font(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (font_id, align) = expect_args!(args, [int, int])?;
-        if self.draw_font_id != font_id {
-            self.draw_font = self.assets.fonts.get_asset(font_id).map(|x| x.as_ref().clone());
+        if self.assets.fonts.get_asset(font_id).is_some() {
             self.draw_font_id = font_id;
+        } else {
+            self.draw_font_id = -1;
         }
         self.draw_halign = match align {
             1 => draw::Halign::Middle,

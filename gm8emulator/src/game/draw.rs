@@ -423,7 +423,7 @@ impl Game {
 
     /// Splits the string into line-width pairs.
     fn split_string<'a>(&self, string: &'a str, max_width: Option<i32>) -> LineIterator<'a> {
-        let font = self.draw_font.as_ref().unwrap();
+        let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
         LineIterator { text: string, font: font.clone(), max_width, word_buf: String::new(), word_width: 0 }
     }
 
@@ -431,7 +431,7 @@ impl Game {
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
     pub fn get_string_size(&self, string: &str, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
-        let font = self.draw_font.as_ref().unwrap();
+        let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         // Figure out what the height of a line is if one wasn't specified
         let line_height = match line_height {
@@ -466,7 +466,7 @@ impl Game {
         yscale: Real,
         angle: Real,
     ) {
-        let font = self.draw_font.as_ref().unwrap();
+        let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         let sin = angle.to_radians().sin();
         let cos = angle.to_radians().cos();

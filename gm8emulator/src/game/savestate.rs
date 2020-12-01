@@ -1,5 +1,4 @@
 use crate::{
-    asset::font::Font,
     game::{
         background, draw,
         external::{DefineInfo, External},
@@ -77,7 +76,6 @@ pub struct SaveState {
     pub grids: HandleList<ds::Grid>,
     pub ds_precision: Real,
 
-    pub draw_font: Option<Font>,
     pub draw_font_id: ID,
     pub draw_colour: Colour,
     pub draw_alpha: Real,
@@ -188,7 +186,6 @@ impl SaveState {
             priority_queues: game.priority_queues.clone(),
             grids: game.grids.clone(),
             ds_precision: game.ds_precision.clone(),
-            draw_font: game.draw_font.clone(),
             draw_font_id: game.draw_font_id.clone(),
             draw_colour: game.draw_colour.clone(),
             draw_alpha: game.draw_alpha.clone(),
@@ -324,7 +321,6 @@ impl SaveState {
         game.priority_queues = self.priority_queues;
         game.grids = self.grids;
         game.ds_precision = self.ds_precision;
-        game.draw_font = self.draw_font;
         game.draw_font_id = self.draw_font_id;
         game.draw_colour = self.draw_colour;
         game.draw_alpha = self.draw_alpha;

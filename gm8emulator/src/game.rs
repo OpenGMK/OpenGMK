@@ -116,7 +116,7 @@ pub struct Game {
     pub grids: HandleList<ds::Grid>,
     pub ds_precision: Real,
 
-    pub draw_font: Option<Font>, // TODO: make this not an option when we have a default font
+    pub default_font: Font,
     pub draw_font_id: ID,
     pub draw_colour: Colour,
     pub draw_alpha: Real,
@@ -461,6 +461,8 @@ impl Game {
         //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
 
         let particle_shapes = particle::load_shapes(&mut atlases);
+
+        let default_font = asset::font::load_default_font(&mut atlases)?;
 
         let sprites = sprites
             .into_iter()
@@ -915,7 +917,7 @@ impl Game {
             priority_queues: HandleList::new(),
             grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
-            draw_font: None,
+            default_font,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
             draw_alpha: Real::from(1.0),
