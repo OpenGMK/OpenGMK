@@ -917,7 +917,7 @@ impl Game {
             priority_queues: HandleList::new(),
             grids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
-            default_font: default_font.clone(),
+            default_font,
             draw_font_id: -1,
             draw_colour: Colour::new(0.0, 0.0, 0.0),
             draw_alpha: Real::from(1.0),
