@@ -576,7 +576,7 @@ impl Game {
         {
             // Iter every instance of this object
             let mut iter1 = self.instance_list.iter_by_object(object as i32);
-            while let Some(instance) = iter1.next(&self.instance_list) {
+            'iter1: while let Some(instance) = iter1.next(&self.instance_list) {
                 // Go through all its collision target objects
                 for target_obj in target_list.borrow().iter().copied() {
                     // And iter every instance of the target object
@@ -584,8 +584,6 @@ impl Game {
                     while let Some(target) = iter2.next(&self.instance_list) {
                         // And finally, check if the two instances collide
                         if self.check_collision(instance, target) {
-                            //self.handle_collision(instance, target, target_obj as u32)?;
-                            //self.handle_collision(target, instance, object as u32)?;
 
                             // If either instance is solid, move both back to their previous positions
                             let inst1 = self.instance_list.get(instance);
@@ -623,6 +621,12 @@ impl Game {
                                     inst2.bbox_is_stale.set(true);
                                     inst2.path_position.set(inst2.path_positionprevious.get());
                                 }
+                            }
+
+                            // If inst1 doesn't exist anymore, we don't want to use it for any further collisions,
+                            // so skip using it for anything else
+                            if !inst1.is_active() {
+                                continue 'iter1
                             }
                         }
                     }
