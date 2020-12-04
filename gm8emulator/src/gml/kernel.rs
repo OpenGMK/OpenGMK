@@ -2116,6 +2116,9 @@ impl Game {
 
     pub fn surface_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, fname) = expect_args!(args, [int, string])?;
+        if Some(surf_id) == self.surface_target {
+            self.renderer.flush_queue();
+        }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             match file::save_image(fname.as_ref(), surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref))
             {
@@ -2129,6 +2132,9 @@ impl Game {
 
     pub fn surface_save_part(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, fname, x, y, w, h) = expect_args!(args, [int, string, int, int, int, int])?;
+        if Some(surf_id) == self.surface_target {
+            self.renderer.flush_queue();
+        }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             let x = x.max(0);
             let y = y.max(0);
