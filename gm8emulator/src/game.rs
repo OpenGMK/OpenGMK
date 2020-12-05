@@ -2611,7 +2611,7 @@ impl Game {
             },
             instance_id => {
                 if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if pred(handle) { Some(handle) } else { None }
+                    if self.instance_list.get(handle).is_active() && pred(handle) { Some(handle) } else { None }
                 } else {
                     None
                 }
