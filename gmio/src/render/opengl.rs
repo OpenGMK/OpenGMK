@@ -1035,6 +1035,9 @@ impl RendererTrait for RendererImpl {
         if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
             unsafe {
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
+                // set viewport here since set_view doesn't
+                self.gl.Viewport(atlas_ref.x, atlas_ref.y, atlas_ref.w, atlas_ref.h);
+                self.gl.Scissor(atlas_ref.x, atlas_ref.y, atlas_ref.w, atlas_ref.h);
                 assert_eq!(self.gl.GetError(), 0);
             }
             self.set_view(
@@ -1865,12 +1868,20 @@ impl RendererTrait for RendererImpl {
         port_w: i32,
         port_h: i32,
     ) {
-        // Set viewport (gl::Viewport, gl::Scissor)
-        if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
-            unsafe {
-                self.gl.Viewport(port_x, port_y, port_w, port_h);
-                self.gl.Scissor(port_x, port_y, port_w, port_h);
-                assert_eq!(self.gl.GetError(), 0);
+        // DX8's viewport function doesn't do anything if a surface is set as the draw target, so emulate that
+        let mut fb_current = 0;
+        unsafe {
+            self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_current);
+            assert_eq!(self.gl.GetError(), 0);
+        }
+        if fb_current == self.framebuffer_fbo as _ {
+            // Set viewport (gl::Viewport, gl::Scissor)
+            if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
+                unsafe {
+                    self.gl.Viewport(port_x, port_y, port_w, port_h);
+                    self.gl.Scissor(port_x, port_y, port_w, port_h);
+                    assert_eq!(self.gl.GetError(), 0);
+                }
             }
         }
         if self.using_3d && self.perspective {
