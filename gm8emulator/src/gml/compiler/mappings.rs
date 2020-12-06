@@ -217,8 +217,10 @@ pub mod constants {
     pub const OS_PSP: f64 = 3.0;
     pub const OS_WIN32: f64 = 0.0;
     pub const OTHER: f64 = -2.0;
-    pub const PI: f64 = // 3.141592653589793, but we use the exact bytes from GM8 to avoid any compiler-mangling
-        unsafe { std::mem::transmute(u64::from_le_bytes([0x18, 0x2D, 0x44, 0x54, 0xFB, 0x21, 0x09, 0x40])) };
+    pub const PI: f64 = unsafe {
+        // 3.141592653589793, but we use the exact bytes from GM8 to avoid any compiler-mangling
+        std::mem::transmute(u64::from_le_bytes([0x18, 0x2D, 0x44, 0x54, 0xFB, 0x21, 0x09, 0x40]))
+    };
     pub const PR_LINELIST: f64 = 2.0;
     pub const PR_LINESTRIP: f64 = 3.0;
     pub const PR_POINTLIST: f64 = 1.0;

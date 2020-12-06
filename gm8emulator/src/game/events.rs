@@ -584,7 +584,6 @@ impl Game {
                     while let Some(target) = iter2.next(&self.instance_list) {
                         // And finally, check if the two instances collide
                         if self.check_collision(instance, target) {
-
                             // If either instance is solid, move both back to their previous positions
                             let inst1 = self.instance_list.get(instance);
                             let inst2 = self.instance_list.get(target);

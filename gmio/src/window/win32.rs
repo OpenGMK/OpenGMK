@@ -118,9 +118,17 @@ unsafe fn hwnd_windowdata<'a>(hwnd: HWND) -> Option<&'a mut WindowUserData> {
 unsafe fn register_window_class() -> Result<ATOM, DWORD> {
     // can we get utf16 literals in rust please? i mean this isn't EXACTLY utf16 but it'd work
     static WINDOW_CLASS_NAME: &[WCHAR] = &[
-        b'G' as WCHAR, b'M' as WCHAR, b'8' as WCHAR,
-        b'E' as WCHAR, b'm' as WCHAR, b'u' as WCHAR,
-        b'l' as WCHAR, b'a' as WCHAR, b't' as WCHAR, b'o' as WCHAR, b'r' as WCHAR,
+        b'G' as WCHAR,
+        b'M' as WCHAR,
+        b'8' as WCHAR,
+        b'E' as WCHAR,
+        b'm' as WCHAR,
+        b'u' as WCHAR,
+        b'l' as WCHAR,
+        b'a' as WCHAR,
+        b't' as WCHAR,
+        b'o' as WCHAR,
+        b'r' as WCHAR,
         0x00, // NULL
     ];
 

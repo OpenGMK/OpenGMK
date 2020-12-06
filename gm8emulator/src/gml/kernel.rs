@@ -2870,10 +2870,9 @@ impl Game {
     pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (xsnap, ysnap) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
-        Ok((
-            ((xsnap <= 0.into()) || (instance.x.get() % xsnap == 0.into())) &&
-            ((ysnap <= 0.into()) || (instance.y.get() % ysnap == 0.into()))
-        ).into())
+        Ok((((xsnap <= 0.into()) || (instance.x.get() % xsnap == 0.into()))
+            && ((ysnap <= 0.into()) || (instance.y.get() % ysnap == 0.into())))
+        .into())
     }
 
     pub fn action_execute_script(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7887,10 +7886,7 @@ impl Game {
                 self.renderer.delete_sprite(frame.atlas_ref);
             }
         } else {
-            return Err(gml::Error::FunctionError(
-                "sprite_delete".into(),
-                "Trying to delete non-existing sprite".into(),
-            ))
+            return Err(gml::Error::FunctionError("sprite_delete".into(), "Trying to delete non-existing sprite".into()))
         }
         self.assets.sprites[sprite_id as usize] = None;
         Ok(Default::default())
