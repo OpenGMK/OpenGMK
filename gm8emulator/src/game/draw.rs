@@ -1,6 +1,6 @@
 use crate::{
-    asset::font,
-    game::{Game, GetAsset},
+    asset::{font, Font},
+    game::{string::RCStr, Game, GetAsset, Version},
     gml,
     math::Real,
 };
@@ -22,47 +22,48 @@ pub enum Valign {
 }
 
 struct LineIterator<'a> {
-    text: &'a str,
-    font: font::Font,
+    text: Vec<u8>,
+    pos: usize,
+    font: &'a font::Font,
     max_width: Option<i32>,
-    word_buf: String,
+    word_buf: Vec<u8>,
     word_width: i32,
 }
 
 impl<'a> LineIterator<'a> {
-    fn next(&mut self, font: &font::Font) -> Option<(String, i32)> {
-        if self.text.is_empty() {
+    fn next(&mut self) -> Option<(Vec<u8>, i32)> {
+        if self.pos >= self.text.len() {
             return None
         }
-        let mut line = String::new();
+        let mut line = Vec::new();
         let mut line_width = 0;
 
-        let mut iter = self.text.char_indices().peekable();
+        let mut iter = self.text[self.pos..].iter().copied().enumerate().peekable();
         while let Some((_, c)) = iter.next() {
             // First, process escape characters
             let c = match c {
-                '#' | '\r' | '\n' => {
+                b'#' | b'\r' | b'\n' => {
                     // '#' is a newline character, don't process it but start a new line instead
                     // Likewise CR, LF, and CRLF
-                    if c == '\r' && iter.peek().map(|t| t.1) == Some('\n') {
+                    if c == b'\r' && iter.peek().map(|t| t.1) == Some(b'\n') {
                         // CRLF only counts as one line break so consume the LF
                         iter.next();
                     }
-                    '\n'
+                    b'\n'
                 },
-                '\\' if iter.peek().map(|t| t.1) == Some('#') => {
+                b'\\' if iter.peek().map(|t| t.1) == Some(b'#') => {
                     // '\#' is an escaped newline character, treat it as '#'
                     iter.next();
-                    '#'
+                    b'#'
                 },
-                _ if font.get_char(u32::from(c)).is_some() => c, // Normal character
-                _ => ' ',                                        // Character is not in the font, replace with space
+                _ if self.font.get_char(u32::from(c)).is_some() => c, // Normal character
+                _ => b' ', // Character is not in the font, replace with space
             };
             // Next, insert the character into the word buffer
             match c {
-                '\n' => {
+                b'\n' => {
                     // Newline
-                    line.push_str(&self.word_buf);
+                    line.extend_from_slice(&self.word_buf);
                     line_width += self.word_width;
                     self.word_buf.clear();
                     self.word_width = 0;
@@ -70,13 +71,13 @@ impl<'a> LineIterator<'a> {
                 },
                 _ => {
                     // Normal character
-                    if let Some(character) = font.get_char(u32::from(c)) {
+                    if let Some(character) = self.font.get_char(u32::from(c)) {
                         self.word_buf.push(c);
                         self.word_width += character.offset;
                     } else {
                         // Space when it isn't in the font
-                        self.word_buf.push(' ');
-                        if let Some(character) = font.get_char(self.font.first) {
+                        self.word_buf.push(b' ');
+                        if let Some(character) = self.font.get_char(self.font.first) {
                             self.word_width += character.offset;
                         }
                     }
@@ -91,8 +92,8 @@ impl<'a> LineIterator<'a> {
             }
 
             // Push new word if applicable
-            if c == ' ' {
-                line.push_str(&self.word_buf);
+            if c == b' ' {
+                line.extend_from_slice(&self.word_buf);
                 line_width += self.word_width;
                 self.word_buf.clear();
                 self.word_width = 0;
@@ -100,12 +101,12 @@ impl<'a> LineIterator<'a> {
         }
 
         if let Some((pos, _)) = iter.peek() {
-            self.text = &self.text[*pos..];
+            self.pos += pos;
         } else {
             // Add the last word
-            line.push_str(&self.word_buf);
+            line.extend_from_slice(&self.word_buf);
             line_width += self.word_width;
-            self.text = "";
+            self.pos = self.text.len();
         }
 
         Some((line, line_width))
@@ -422,15 +423,40 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string<'a>(&self, string: &'a str, max_width: Option<i32>) -> LineIterator<'a> {
-        let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
-        LineIterator { text: string, font: font.clone(), max_width, word_buf: String::new(), word_width: 0 }
+    fn split_string<'a>(&self, string: RCStr, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
+        let encoded_text = match self.gm_version {
+            Version::GameMaker8_0 => string.as_ref().to_vec(),
+            Version::GameMaker8_1 => {
+                let encoding = font.get_encoding(self.encoding);
+                let string = string.decode_utf8();
+                let (encoded_text, _, bad) = encoding.encode(string.as_ref());
+                if bad {
+                    // semi-custom decoder because bad characters must be replaced with ? instead of html codes
+                    // and unfortunately encoding_rs doesn't have a nicer way of handling this
+                    let mut encoded_text = Vec::with_capacity(encoded_text.as_ref().len());
+                    let mut iter = string.char_indices().peekable();
+                    while let Some((pos, _)) = iter.next() {
+                        let slice = iter.peek().map(|(p, _)| &string[pos..*p]).unwrap_or(&string[pos..]);
+                        let (encoded_char, _, bad) = encoding.encode(slice);
+                        if bad {
+                            encoded_text.push(b'?');
+                        } else {
+                            encoded_text.extend_from_slice(encoded_char.as_ref());
+                        }
+                    }
+                    encoded_text
+                } else {
+                    encoded_text.into_owned()
+                }
+            },
+        };
+        LineIterator { text: encoded_text, pos: 0, font, max_width, word_buf: Vec::new(), word_width: 0 }
     }
 
     /// Gets width and height of a string using the current draw_font.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn get_string_size(&self, string: &str, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
+    pub fn get_string_size(&self, string: RCStr, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
         let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         // Figure out what the height of a line is if one wasn't specified
@@ -441,8 +467,8 @@ impl Game {
 
         let mut width = 0;
         let mut line_count = 0;
-        let mut iter = self.split_string(string, max_width);
-        while let Some((_, current_w)) = iter.next(&font) {
+        let mut iter = self.split_string(string, max_width, font);
+        while let Some((_, current_w)) = iter.next() {
             if width < current_w {
                 width = current_w;
             }
@@ -459,7 +485,7 @@ impl Game {
         &mut self,
         x: Real,
         y: Real,
-        string: &str,
+        string: RCStr,
         line_height: Option<i32>,
         max_width: Option<i32>,
         xscale: Real,
@@ -479,19 +505,19 @@ impl Game {
 
         let mut cursor_y = match self.draw_valign {
             Valign::Top => 0,
-            Valign::Middle => -(self.get_string_size(string, Some(line_height), max_width).1 / 2),
-            Valign::Bottom => -self.get_string_size(string, Some(line_height), max_width).1,
+            Valign::Middle => -(self.get_string_size(string.clone(), Some(line_height), max_width).1 / 2),
+            Valign::Bottom => -self.get_string_size(string.clone(), Some(line_height), max_width).1,
         };
 
-        let mut iter = self.split_string(string, max_width);
-        while let Some((line, width)) = iter.next(&font) {
+        let mut iter = self.split_string(string, max_width, font);
+        while let Some((line, width)) = iter.next() {
             let mut cursor_x = match self.draw_halign {
                 Halign::Left => 0,
                 Halign::Middle => -(width as i32 / 2),
                 Halign::Right => -width as i32,
             };
 
-            for c in line.chars() {
+            for c in line.iter().copied() {
                 let character = match font.get_char(u32::from(c)) {
                     Some(character) => character,
                     None => {

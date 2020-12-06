@@ -1027,21 +1027,21 @@ impl Game {
     }
 
     pub fn string_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let string = expect_args!(args, [string])?;
-        let (width, _) = self.get_string_size(string.as_ref(), None, None);
+        let string = expect_args!(args, [bytes])?;
+        let (width, _) = self.get_string_size(string, None, None);
         Ok(width.into())
     }
 
     pub fn string_height(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let string = expect_args!(args, [string])?;
-        let (_, height) = self.get_string_size(string.as_ref(), None, None);
+        let string = expect_args!(args, [bytes])?;
+        let (_, height) = self.get_string_size(string, None, None);
         Ok(height.into())
     }
 
     pub fn string_width_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
+        let (string, line_height, max_width) = expect_args!(args, [bytes, int, int])?;
         let (width, _) = self.get_string_size(
-            string.as_ref(),
+            string,
             if line_height < 0 { None } else { Some(line_height as _) },
             if max_width < 0 { None } else { Some(max_width as _) },
         );
@@ -1049,9 +1049,9 @@ impl Game {
     }
 
     pub fn string_height_ext(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (string, line_height, max_width) = expect_args!(args, [string, int, int])?;
+        let (string, line_height, max_width) = expect_args!(args, [bytes, int, int])?;
         let (_, height) = self.get_string_size(
-            string.as_ref(),
+            string,
             if line_height < 0 { None } else { Some(line_height as _) },
             if max_width < 0 { None } else { Some(max_width as _) },
         );
@@ -1060,7 +1060,7 @@ impl Game {
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, text) = expect_args!(args, [real, real, any])?;
-        self.draw_string(x, y, &self.decode_str(text.repr().as_ref()), None, None, 1.into(), 1.into(), 0.into());
+        self.draw_string(x, y, text.repr(), None, None, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
@@ -1069,22 +1069,13 @@ impl Game {
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(
-            x,
-            y,
-            &self.decode_str(text.repr().as_ref()),
-            line_height,
-            max_width,
-            1.into(),
-            1.into(),
-            0.into(),
-        );
+        self.draw_string(x, y, text.repr(), line_height, max_width, 1.into(), 1.into(), 0.into());
         Ok(Default::default())
     }
 
     pub fn draw_text_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, text, xscale, yscale, angle) = expect_args!(args, [real, real, any, real, real, real])?;
-        self.draw_string(x, y, &self.decode_str(text.repr().as_ref()), None, None, xscale, yscale, angle);
+        self.draw_string(x, y, text.repr(), None, None, xscale, yscale, angle);
         Ok(Default::default())
     }
 
@@ -1094,7 +1085,7 @@ impl Game {
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(x, y, &self.decode_str(text.repr().as_ref()), line_height, max_width, xscale, yscale, angle);
+        self.draw_string(x, y, text.repr(), line_height, max_width, xscale, yscale, angle);
         Ok(Default::default())
     }
 
