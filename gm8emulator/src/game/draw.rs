@@ -56,8 +56,8 @@ impl<'a> LineIterator<'a> {
                     iter.next();
                     b'#'
                 },
-                _ if self.font.get_char(u32::from(c)).is_some() => c, // Normal character
-                _ => b' ', // Character is not in the font, replace with space
+                _ if self.font.get_char(c).is_some() => c, // Normal character
+                _ => b' ',                                 // Character is not in the font, replace with space
             };
             // Next, insert the character into the word buffer
             match c {
@@ -71,7 +71,7 @@ impl<'a> LineIterator<'a> {
                 },
                 _ => {
                     // Normal character
-                    if let Some(character) = self.font.get_char(u32::from(c)) {
+                    if let Some(character) = self.font.get_char(c) {
                         self.word_buf.push(c);
                         self.word_width += character.offset;
                     } else {
@@ -518,7 +518,7 @@ impl Game {
             };
 
             for c in line.iter().copied() {
-                let character = match font.get_char(u32::from(c)) {
+                let character = match font.get_char(c) {
                     Some(character) => character,
                     None => {
                         // Space if it isn't in the font

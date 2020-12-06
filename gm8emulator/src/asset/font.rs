@@ -14,8 +14,8 @@ pub struct Font {
     pub size: u32,
     pub bold: bool,
     pub italic: bool,
-    pub first: u32,
-    pub last: u32,
+    pub first: u8,
+    pub last: u8,
     pub tallest_char_height: u32,
     pub chars: Box<[Character]>,
     pub own_graphics: bool, // Does this Font own the graphics associated with it?
@@ -29,7 +29,7 @@ pub struct Character {
 }
 
 impl Font {
-    pub fn get_char(&self, index: u32) -> Option<Character> {
+    pub fn get_char(&self, index: u8) -> Option<Character> {
         if let Some(index) = index.checked_sub(self.first) { self.chars.get(index as usize).copied() } else { None }
     }
 
