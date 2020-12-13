@@ -164,6 +164,8 @@ pub struct Game {
     pub parameters: Vec<String>,
     pub encoding: &'static Encoding,
 
+    pub esc_close_game: bool,
+
     // window caption
     pub caption: RCStr,
     pub caption_stale: bool,
@@ -959,6 +961,7 @@ impl Game {
             fps: 0,
             parameters: game_arguments,
             encoding,
+            esc_close_game: settings.esc_close_game,
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: false,
@@ -1380,6 +1383,11 @@ impl Game {
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
     pub fn frame(&mut self) -> gml::Result<()> {
+        if self.esc_close_game && self.input_manager.key_get_lastkey() == 0x1b {
+            self.scene_change = Some(SceneChange::End);
+            return Ok(())
+        }
+
         // Update xprevious and yprevious for all instances
         let mut iter = self.instance_list.iter_by_insertion();
         while let Some(instance) = iter.next(&self.instance_list).map(|x| self.instance_list.get(x)) {
