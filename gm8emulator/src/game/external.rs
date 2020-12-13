@@ -25,7 +25,8 @@ cfg_if! {
 }
 
 pub enum Call {
-    Dummy(dll::ValueType),
+    DummyNull(dll::ValueType),
+    DummyOne,
     DllCall(Box<dyn ExternalCall>),
 }
 
@@ -63,8 +64,9 @@ impl External {
             .to_string();
         dll_name_lower.make_ascii_lowercase();
         let call = match dll_name_lower.as_str() {
+            "gmfmodsimple.dll" if disable_sound && info.fn_name.as_ref() == b"FMODSoundAdd" => Call::DummyOne,
             "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
-                Call::Dummy(info.res_type)
+                Call::DummyNull(info.res_type)
             },
             _ => Call::DllCall(Box::new(platform::ExternalImpl::new(&info, encoding)?)),
         };
@@ -83,10 +85,11 @@ impl External {
 impl Call {
     fn call(&self, args: &[Value]) -> gml::Result<Value> {
         match self {
-            Call::Dummy(res_type) => match res_type {
+            Call::DummyNull(res_type) => match res_type {
                 dll::ValueType::Real => Ok(0.into()),
                 dll::ValueType::Str => Ok("".into()),
             },
+            Call::DummyOne => Ok(1.into()),
             Call::DllCall(call) => {
                 call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
             },
