@@ -5816,9 +5816,13 @@ impl Game {
         }
     }
 
-    pub fn environment_get_variable(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function environment_get_variable")
+    pub fn environment_get_variable(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let name = expect_args!(args, [bytes])?;
+        // get environment variable
+        let env_os = std::env::var_os(self.decode_str(name.as_ref()).as_ref()).unwrap_or("".into());
+        // convert to bytes, "" if impossible
+        let env = env_os.to_str().and_then(|s| self.encode_str_maybe(s)).unwrap_or(b"".as_ref().into());
+        Ok(env.as_ref().into())
     }
 
     pub fn registry_write_string(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
