@@ -232,6 +232,7 @@ impl Game {
         game_arguments: Vec<String>,
         temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
+        play_type: PlayType,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
         let mut file_path2 = file_path.clone();
@@ -967,7 +968,7 @@ impl Game {
             error_last: "".to_string().into(),
             window,
             scaling,
-            play_type: PlayType::Normal,
+            play_type,
             stored_events: VecDeque::new(),
 
             // load_room sets this

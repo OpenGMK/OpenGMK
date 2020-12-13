@@ -204,13 +204,22 @@ fn xmain() -> i32 {
 
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
-    let mut components = match game::Game::launch(assets, absolute_path, time_nanos, game_args, temp_dir, encoding) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("Failed to launch game: {}", e);
-            return EXIT_FAILURE
-        },
+    let play_type = if project_path.is_some() {
+        game::PlayType::Record
+    } else if replay.is_some() {
+        game::PlayType::Replay
+    } else {
+        game::PlayType::Normal
     };
+
+    let mut components =
+        match game::Game::launch(assets, absolute_path, time_nanos, game_args, temp_dir, encoding, play_type) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("Failed to launch game: {}", e);
+                return EXIT_FAILURE
+            },
+        };
 
     if let Err(err) = if let Some(path) = project_path {
         components.record(path, port)
