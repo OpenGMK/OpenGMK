@@ -147,7 +147,7 @@ fn split_colour(rgb: i32, alpha: f64) -> [f32; 4] {
         ((rgb & 0xFF) as f32) / 255.0,
         (((rgb >> 8) & 0xFF) as f32) / 255.0,
         (((rgb >> 16) & 0xFF) as f32) / 255.0,
-        alpha as f32,
+        alpha.max(0.0).min(1.0) as f32,
     ]
 }
 
