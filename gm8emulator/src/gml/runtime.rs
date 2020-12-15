@@ -478,9 +478,11 @@ impl Game {
             Instruction::With { target, body } => {
                 let old_this = context.this;
                 let old_other = context.other;
+
+                let target_id = i32::from(self.eval(target, context)?);
                 context.other = context.this;
 
-                match i32::from(self.eval(target, context)?) {
+                match target_id {
                     gml::SELF | gml::SELF2 => {
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.other = old_other;
