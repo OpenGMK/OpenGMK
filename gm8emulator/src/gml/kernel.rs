@@ -1141,11 +1141,11 @@ impl Game {
                     atlas_ref,
                     x.into(),
                     y.into(),
-                    instance.image_xscale.get().into(),
-                    instance.image_yscale.get().into(),
-                    instance.image_angle.get().into(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get().into(),
+                    1.0,
+                    1.0,
+                    0.0,
+                    0xffffff,
+                    1.0,
                 );
             }
             Ok(Default::default())
