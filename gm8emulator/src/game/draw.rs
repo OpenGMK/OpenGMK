@@ -291,23 +291,25 @@ impl Game {
 
         fn draw_tile(game: &mut Game, idx: usize) {
             let tile = game.tile_list.get(idx);
-            if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
-                if let Some(atlas) = &background.atlas_ref {
-                    game.renderer.set_depth(tile.depth.get().into_inner() as f32);
-                    game.renderer.draw_sprite_partial(
-                        atlas,
-                        tile.tile_x.get().into(),
-                        tile.tile_y.get().into(),
-                        tile.width.get().into(),
-                        tile.height.get().into(),
-                        tile.x.get().into(),
-                        tile.y.get().into(),
-                        tile.xscale.get().into(),
-                        tile.yscale.get().into(),
-                        0.0,
-                        tile.blend.get(),
-                        tile.alpha.get().into(),
-                    )
+            if tile.visible.get() {
+                if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
+                    if let Some(atlas) = &background.atlas_ref {
+                        game.renderer.set_depth(tile.depth.get().into_inner() as f32);
+                        game.renderer.draw_sprite_partial(
+                            atlas,
+                            tile.tile_x.get().into(),
+                            tile.tile_y.get().into(),
+                            tile.width.get().into(),
+                            tile.height.get().into(),
+                            tile.x.get().into(),
+                            tile.y.get().into(),
+                            tile.xscale.get().into(),
+                            tile.yscale.get().into(),
+                            0.0,
+                            tile.blend.get(),
+                            tile.alpha.get().into(),
+                        )
+                    }
                 }
             }
         }
