@@ -251,9 +251,10 @@ impl Game {
         Ok(u32::from(self.background_colour).into())
     }
 
-    pub fn window_set_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function window_set_position")
+    pub fn window_set_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [int, int])?;
+        self.window.set_pos(x, y);
+        Ok(Default::default())
     }
 
     pub fn window_set_size(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
