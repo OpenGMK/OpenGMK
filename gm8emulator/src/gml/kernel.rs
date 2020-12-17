@@ -1322,6 +1322,7 @@ impl Game {
                     col3,
                     col4,
                     alpha.into(),
+                    false,
                 );
             }
             Ok(Default::default())
@@ -1490,6 +1491,7 @@ impl Game {
                     col3,
                     col4,
                     alpha.into(),
+                    false,
                 );
             }
             Ok(Default::default())
@@ -2076,6 +2078,7 @@ impl Game {
                 col3,
                 col4,
                 alpha.into(),
+                false,
             );
         }
         Ok(Default::default())

@@ -1442,6 +1442,7 @@ impl RendererTrait for RendererImpl {
         col3: i32,
         col4: i32,
         alpha: f64,
+        use_origin: bool,
     ) {
         let atlas_ref = texture.clone();
 
@@ -1460,8 +1461,11 @@ impl RendererTrait for RendererImpl {
         let height: f64 = yscale * f64::from(part_h);
         // calculate pre-rotation corner offsets from sprite origin
         // incl. subtraction 0.5 from left and top (GM does this in an attempt to combat the DX half-pixel offset)
-        let left: f64 = -width * f64::from(atlas_ref.origin_x) - 0.5;
-        let top: f64 = -height * f64::from(atlas_ref.origin_y) - 0.5;
+        let (left, top): (f64, f64) = if use_origin {
+            (-width * f64::from(atlas_ref.origin_x) - 0.5, -height * f64::from(atlas_ref.origin_y) - 0.5)
+        } else {
+            (-0.5, -0.5)
+        };
         let right: f64 = left + width;
         let bottom: f64 = top + height;
 

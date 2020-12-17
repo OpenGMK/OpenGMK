@@ -214,6 +214,7 @@ pub trait RendererTrait {
             col,
             col,
             alpha,
+            true,
         );
     }
     fn draw_sprite_general(
@@ -233,6 +234,7 @@ pub trait RendererTrait {
         col3: i32,
         col4: i32,
         alpha: f64,
+        use_origin: bool,
     );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
@@ -321,7 +323,8 @@ pub trait RendererTrait {
         alpha: f64,
     ) {
         self.draw_sprite_general(
-            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, colour, colour, colour, colour, alpha,
+            texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, colour, colour, colour, colour,
+            alpha, false,
         )
     }
     fn draw_sprite_tiled(
@@ -556,9 +559,11 @@ impl Renderer {
         col3: i32,
         col4: i32,
         alpha: f64,
+        use_origin: bool,
     ) {
         self.0.draw_sprite_general(
             texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha,
+            use_origin,
         )
     }
 
