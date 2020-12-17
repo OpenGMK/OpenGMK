@@ -373,6 +373,16 @@ impl WindowTrait for WindowImpl {
         }
     }
 
+    fn set_pos(&mut self, x: i32, y: i32) {
+        let (client_x, client_y) = self.user_data.client_size;
+        let (border_x, border_y) = self.user_data.border_offset;
+        let width = border_x + client_x;
+        let height = border_y + client_y;
+        unsafe {
+            SetWindowPos(self.hwnd, ptr::null_mut(), x, y, width, height, 0);
+        }
+    }
+
     fn get_cursor(&self) -> Cursor {
         self.cursor
     }

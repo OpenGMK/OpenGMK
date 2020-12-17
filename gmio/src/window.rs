@@ -83,6 +83,7 @@ pub trait WindowTrait {
     fn resize(&mut self, width: u32, height: u32);
     fn center(&mut self);
     fn get_pos(&self) -> (i32, i32);
+    fn set_pos(&mut self, x: i32, y: i32);
     fn get_cursor(&self) -> Cursor;
     fn set_cursor(&mut self, cursor: Cursor);
     fn set_style(&mut self, style: Style);
@@ -142,6 +143,10 @@ impl Window {
 
     pub fn get_pos(&self) -> (i32, i32) {
         self.0.get_pos()
+    }
+
+    pub fn set_pos(&mut self, x: i32, y: i32) {
+        self.0.set_pos(x, y)
     }
 
     /// Gets the current window cursor.
