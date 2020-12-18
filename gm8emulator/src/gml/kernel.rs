@@ -179,24 +179,44 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_get_fullscreen")
     }
 
-    pub fn window_set_showborder(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_showborder")
+    pub fn window_set_showborder(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let show_border = expect_args!(args, [bool])?;
+        if show_border != self.window_border {
+            self.window_border = show_border;
+            if self.play_type != PlayType::Record {
+                self.window.set_style(match (show_border, self.window_icons) {
+                    (true, true) => window::Style::Regular,
+                    (true, false) => window::Style::Undecorated,
+                    (false, _) => window::Style::Borderless,
+                });
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn window_get_showborder(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_showborder")
+    pub fn window_get_showborder(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_border.into())
     }
 
-    pub fn window_set_showicons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_showicons")
+    pub fn window_set_showicons(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let show_icons = expect_args!(args, [bool])?;
+        if show_icons != self.window_icons {
+            self.window_icons = show_icons;
+            if self.play_type != PlayType::Record {
+                self.window.set_style(match (self.window_border, show_icons) {
+                    (true, true) => window::Style::Regular,
+                    (true, false) => window::Style::Undecorated,
+                    (false, _) => window::Style::Borderless,
+                });
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn window_get_showicons(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_showicons")
+    pub fn window_get_showicons(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_icons.into())
     }
 
     pub fn window_set_stayontop(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
