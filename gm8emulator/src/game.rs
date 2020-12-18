@@ -43,7 +43,7 @@ use gm8exe::asset::PascalString;
 use gmio::{
     atlas::AtlasBuilder,
     render::{Renderer, RendererOptions, Scaling},
-    window::{Window, WindowBuilder},
+    window::{self, Window, WindowBuilder},
 };
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
@@ -175,6 +175,8 @@ pub struct Game {
 
     // winit windowing
     pub window: Window,
+    pub window_border: bool,
+    pub window_icons: bool,
     // Scaling type
     pub scaling: Scaling,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
@@ -448,7 +450,17 @@ impl Game {
         };
 
         let (width, height) = options.size;
-        let wb = WindowBuilder::new().with_size(width, height);
+        let window_border = !settings.dont_draw_border;
+        let window_icons = !settings.dont_show_buttons;
+        let wb = WindowBuilder::new().with_size(width, height).with_style(if play_type == PlayType::Record {
+            window::Style::Regular
+        } else {
+            match (window_border, window_icons) {
+                (true, true) => window::Style::Regular,
+                (true, false) => window::Style::Undecorated,
+                (false, _) => window::Style::Borderless,
+            }
+        });
 
         // TODO: specific flags here (make wb mutable)
 
@@ -970,6 +982,8 @@ impl Game {
             error_occurred: false,
             error_last: "".to_string().into(),
             window,
+            window_border,
+            window_icons,
             scaling,
             play_type,
             stored_events: VecDeque::new(),
