@@ -143,14 +143,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_reset")
     }
 
-    pub fn display_mouse_get_x(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_mouse_get_x")
+    pub fn display_mouse_get_x(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok((self.input_manager.mouse_get_location().0 + f64::from(self.window.get_pos().0)).into())
     }
 
-    pub fn display_mouse_get_y(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function display_mouse_get_y")
+    pub fn display_mouse_get_y(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok((self.input_manager.mouse_get_location().1 + f64::from(self.window.get_pos().1)).into())
     }
 
     pub fn display_mouse_set(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
