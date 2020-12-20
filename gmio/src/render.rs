@@ -217,6 +217,41 @@ pub trait RendererTrait {
             true,
         );
     }
+
+    fn draw_sprite_colour(
+        &mut self,
+        tex: &AtlasRef,
+        x: f64,
+        y: f64,
+        xs: f64,
+        ys: f64,
+        ang: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    ) {
+        self.draw_sprite_general(
+            tex,
+            0.0,
+            0.0,
+            tex.w.into(),
+            tex.h.into(),
+            x,
+            y,
+            xs,
+            ys,
+            ang,
+            col1,
+            col2,
+            col3,
+            col4,
+            alpha,
+            true,
+        );
+    }
+
     fn draw_sprite_general(
         &mut self,
         texture: &AtlasRef,
@@ -540,6 +575,23 @@ impl Renderer {
         alpha: f64,
     ) {
         self.0.draw_sprite(texture, x, y, xscale, yscale, angle, colour, alpha)
+    }
+
+    pub fn draw_sprite_colour(
+        &mut self,
+        tex: &AtlasRef,
+        x: f64,
+        y: f64,
+        xs: f64,
+        ys: f64,
+        ang: f64,
+        col1: i32,
+        col2: i32,
+        col3: i32,
+        col4: i32,
+        alpha: f64,
+    ) {
+        self.0.draw_sprite_colour(tex, x, y, xs, ys, ang, col1, col2, col3, col4, alpha)
     }
 
     pub fn draw_sprite_general(
