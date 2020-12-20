@@ -493,6 +493,8 @@ impl Game {
         xscale: Real,
         yscale: Real,
         angle: Real,
+        colours: Option<(i32, i32, i32, i32)>,
+        alpha: Real,
     ) {
         let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
@@ -511,13 +513,20 @@ impl Game {
             Valign::Bottom => -self.get_string_size(string.clone(), Some(line_height), max_width).1,
         };
 
+        fn lerp_col(c1: i32, c2: i32, ratio: f64) -> i32 {
+            ((f64::from(c1 & 0xff) * (1.0 - ratio) + f64::from(c2 & 0xff) * ratio) as i32 & 0xff)
+                + ((f64::from(c1 & 0xff00) * (1.0 - ratio) + f64::from(c2 & 0xff00) * ratio) as i32 & 0xff00)
+                + ((f64::from(c1 & 0xff0000) * (1.0 - ratio) + f64::from(c2 & 0xff0000) * ratio) as i32 & 0xff0000)
+        }
+
         let mut iter = self.split_string(string, max_width, font);
         while let Some((line, width)) = iter.next() {
-            let mut cursor_x = match self.draw_halign {
+            let left_offset = match self.draw_halign {
                 Halign::Left => 0,
                 Halign::Middle => -(width as i32 / 2),
                 Halign::Right => -width as i32,
             };
+            let mut cursor_x = left_offset;
 
             for c in line.iter().copied() {
                 let character = match font.get_char(c) {
@@ -537,16 +546,31 @@ impl Game {
                 let (xdiff, ydiff) =
                     (xdiff * xscale * cos + ydiff * yscale * sin, ydiff * yscale * cos - xdiff * xscale * sin);
 
-                self.renderer.draw_sprite(
-                    &character.atlas_ref,
-                    (x + xdiff).into(),
-                    (y + ydiff).into(),
-                    xscale.into(),
-                    yscale.into(),
-                    angle.into(),
-                    u32::from(self.draw_colour) as i32,
-                    self.draw_alpha.into(),
-                );
+                match colours {
+                    Some((c1, c2, c3, c4)) => self.renderer.draw_sprite_colour(
+                        &character.atlas_ref,
+                        (x + xdiff).into(),
+                        (y + ydiff).into(),
+                        xscale.into(),
+                        yscale.into(),
+                        angle.into(),
+                        lerp_col(c1, c2, f64::from(cursor_x - left_offset) / f64::from(width)),
+                        lerp_col(c1, c2, f64::from(cursor_x - left_offset + character.offset) / f64::from(width)),
+                        lerp_col(c4, c3, f64::from(cursor_x - left_offset + character.offset) / f64::from(width)),
+                        lerp_col(c4, c3, f64::from(cursor_x - left_offset) / f64::from(width)),
+                        alpha.into(),
+                    ),
+                    None => self.renderer.draw_sprite(
+                        &character.atlas_ref,
+                        (x + xdiff).into(),
+                        (y + ydiff).into(),
+                        xscale.into(),
+                        yscale.into(),
+                        angle.into(),
+                        u32::from(self.draw_colour) as i32,
+                        alpha.into(),
+                    ),
+                }
 
                 cursor_x += character.offset as i32;
             }

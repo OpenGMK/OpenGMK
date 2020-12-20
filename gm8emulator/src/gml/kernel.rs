@@ -1081,7 +1081,7 @@ impl Game {
 
     pub fn draw_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, text) = expect_args!(args, [real, real, any])?;
-        self.draw_string(x, y, text.repr(), None, None, 1.into(), 1.into(), 0.into());
+        self.draw_string(x, y, text.repr(), None, None, 1.into(), 1.into(), 0.into(), None, self.draw_alpha.into());
         Ok(Default::default())
     }
 
@@ -1090,13 +1090,24 @@ impl Game {
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(x, y, text.repr(), line_height, max_width, 1.into(), 1.into(), 0.into());
+        self.draw_string(
+            x,
+            y,
+            text.repr(),
+            line_height,
+            max_width,
+            1.into(),
+            1.into(),
+            0.into(),
+            None,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
     pub fn draw_text_transformed(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, text, xscale, yscale, angle) = expect_args!(args, [real, real, any, real, real, real])?;
-        self.draw_string(x, y, text.repr(), None, None, xscale, yscale, angle);
+        self.draw_string(x, y, text.repr(), None, None, xscale, yscale, angle, None, self.draw_alpha.into());
         Ok(Default::default())
     }
 
@@ -1106,28 +1117,86 @@ impl Game {
         let line_height = if line_height < 0 { None } else { Some(line_height as _) };
         let max_width = if max_width < 0 { None } else { Some(max_width as _) };
 
-        self.draw_string(x, y, text.repr(), line_height, max_width, xscale, yscale, angle);
+        self.draw_string(
+            x,
+            y,
+            text.repr(),
+            line_height,
+            max_width,
+            xscale,
+            yscale,
+            angle,
+            None,
+            self.draw_alpha.into(),
+        );
         Ok(Default::default())
     }
 
-    pub fn draw_text_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function draw_text_color")
+    pub fn draw_text_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [real, real, any, int, int, int, int, real])?;
+        self.draw_string(
+            x,
+            y,
+            text.repr(),
+            None,
+            None,
+            1.into(),
+            1.into(),
+            0.into(),
+            Some((col1, col2, col3, col4)),
+            alpha,
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_text_transformed_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_text_transformed_color")
+    pub fn draw_text_transformed_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [real, real, any, real, real, real, int, int, int, int, real])?;
+        self.draw_string(x, y, text.repr(), None, None, xscale, yscale, angle, Some((col1, col2, col3, col4)), alpha);
+        Ok(Default::default())
     }
 
-    pub fn draw_text_ext_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 10
-        unimplemented!("Called unimplemented kernel function draw_text_ext_color")
+    pub fn draw_text_ext_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, line_height, max_width, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [real, real, any, int, int, int, int, int, int, real])?;
+        let line_height = if line_height < 0 { None } else { Some(line_height as _) };
+        let max_width = if max_width < 0 { None } else { Some(max_width as _) };
+
+        self.draw_string(
+            x,
+            y,
+            text.repr(),
+            line_height,
+            max_width,
+            1.into(),
+            1.into(),
+            0.into(),
+            Some((col1, col2, col3, col4)),
+            alpha,
+        );
+        Ok(Default::default())
     }
 
-    pub fn draw_text_ext_transformed_color(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 13
-        unimplemented!("Called unimplemented kernel function draw_text_ext_transformed_color")
+    pub fn draw_text_ext_transformed_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, text, line_height, max_width, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
+            expect_args!(args, [real, real, any, int, int, real, real, real, int, int, int, int, real])?;
+        let line_height = if line_height < 0 { None } else { Some(line_height as _) };
+        let max_width = if max_width < 0 { None } else { Some(max_width as _) };
+
+        self.draw_string(
+            x,
+            y,
+            text.repr(),
+            line_height,
+            max_width,
+            xscale,
+            yscale,
+            angle,
+            Some((col1, col2, col3, col4)),
+            alpha,
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
