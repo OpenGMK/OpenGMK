@@ -4359,7 +4359,9 @@ impl Game {
     pub fn motion_add(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
         let instance = self.instance_list.get(context.this);
-        instance.set_speed_direction(instance.speed.get() + speed, instance.direction.get() + direction);
+        let hspeed = direction.to_radians().cos() * speed;
+        let vspeed = -direction.to_radians().sin() * speed;
+        instance.set_hvspeed(instance.hspeed.get() + hspeed, instance.vspeed.get() + vspeed);
         Ok(Default::default())
     }
 
