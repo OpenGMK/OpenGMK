@@ -36,6 +36,9 @@ pub struct Room {
     /// Whether to clear the screen inbetween frames.
     pub clear_screen: bool,
 
+    /// Whether to fill the drawing region with window colour.
+    pub clear_region: bool,
+
     /// The GML source executed when the room is created,
     pub creation_code: PascalString,
 
@@ -109,7 +112,7 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
+    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
     where
         B: AsRef<[u8]>,
         Self: Sized,
@@ -118,8 +121,8 @@ impl Asset for Room {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
-            assert_ver(version, VERSION)?;
+            let entry_version = reader.read_u32_le()?;
+            assert_ver(entry_version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
@@ -130,7 +133,10 @@ impl Asset for Room {
         let speed = reader.read_u32_le()?;
         let persistent = reader.read_u32_le()? != 0;
         let bg_colour = reader.read_u32_le()?.into();
-        let clear_screen = reader.read_u32_le()? != 0;
+        let (clear_screen, clear_region) = match (version, reader.read_u32_le()?) {
+            (GameVersion::GameMaker8_0, x) => (x != 0, true),
+            (GameVersion::GameMaker8_1, x) => ((x & 0b01) != 0, (x & 0b10) == 0),
+        };
         let creation_code = reader.read_pas_string()?;
 
         let background_count = reader.read_u32_le()? as usize;
@@ -211,6 +217,7 @@ impl Asset for Room {
             persistent,
             bg_colour,
             clear_screen,
+            clear_region,
             creation_code,
             backgrounds,
             views_enabled,
@@ -232,7 +239,9 @@ impl Asset for Room {
         result += writer.write_u32_le(self.speed)?;
         result += writer.write_u32_le(self.persistent as u32)?;
         result += writer.write_u32_le(self.bg_colour.into())?;
-        result += writer.write_u32_le(self.clear_screen as u32)?;
+        result += writer.write_u32_le(
+            ((!self.clear_region as u32) << 1) | (self.clear_screen as u32)
+        )?;
         result += writer.write_pas_string(&self.creation_code)?;
 
         result += writer.write_u32_le(self.backgrounds.len() as u32)?;
