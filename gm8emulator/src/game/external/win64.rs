@@ -75,7 +75,7 @@ impl ExternalImpl {
             if BRIDGE.is_none() {
                 let mut bridge_path = std::env::current_exe().unwrap();
                 bridge_path.set_file_name("dll-bridge.exe");
-                assert!(bridge_path.is_file(), "dll-bridge.exe could not be found.");
+                assert!(bridge_path.is_file(), "dll-bridge.exe could not be found. Compile it separately and move it next to gm8emulator.exe.");
                 BRIDGE = Some(
                     Command::new(bridge_path)
                         .stdin(Stdio::piped())
