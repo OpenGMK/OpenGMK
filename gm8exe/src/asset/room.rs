@@ -230,9 +230,12 @@ impl Asset for Room {
         writer.write_u32::<LE>(self.speed)?;
         writer.write_u32::<LE>(self.persistent as u32)?;
         writer.write_u32::<LE>(self.bg_colour.into())?;
-        writer.write_u32::<LE>(
-            ((!self.clear_region as u32) << 1) | (self.clear_screen as u32)
-        )?;
+        match version {
+            GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen as u32)?,
+            GameVersion::GameMaker8_1 => writer.write_u32::<LE>(
+                ((!self.clear_region as u32) << 1) | (self.clear_screen as u32),
+            )?,
+        };
         writer.write_pas_string(&self.creation_code)?;
         writer.write_u32::<LE>(self.backgrounds.len() as u32)?;
         for background in &self.backgrounds {
