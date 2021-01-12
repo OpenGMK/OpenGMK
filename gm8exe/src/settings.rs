@@ -39,6 +39,9 @@ pub struct Settings {
     /// Disable screensavers and power saving actions
     pub disable_screensaver: bool,
 
+    /// Force Direct3D software vertex processing (GM 8.0 behaviour)
+    pub force_cpu_render: bool,
+
     /// Set the resolution of the screen
     pub set_resolution: bool,
 
