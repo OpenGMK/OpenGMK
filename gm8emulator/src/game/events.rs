@@ -336,8 +336,8 @@ impl Game {
             while let Some(&object_id) = holders.borrow().get(position) {
                 let mut iter = self.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.instance_list) {
-                    if self.check_collision_point(handle, mouse_x, mouse_y, true)
-                        && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
+                    if !self.check_collision_point(handle, mouse_x, mouse_y, true)
+                        && self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
                     {
                         self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
                     }
