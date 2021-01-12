@@ -75,7 +75,12 @@ where
     enc.write_u32_le(settings.resolution)?;
     enc.write_u32_le(settings.frequency)?;
     enc.write_u32_le(settings.dont_show_buttons as u32)?;
-    enc.write_u32_le(settings.vsync as u32)?;
+    match version {
+        GameVersion::GameMaker8_0 => enc.write_u32_le(settings.vsync as u32)?,
+        GameVersion::GameMaker8_1 => enc.write_u32_le(
+            ((settings.force_cpu_render as u32) << 7) | (settings.vsync as u32),
+        )?,
+    };
     enc.write_u32_le(settings.disable_screensaver as u32)?;
     enc.write_u32_le(settings.f4_fullscreen_toggle as u32)?;
     enc.write_u32_le(settings.f1_help_menu as u32)?;

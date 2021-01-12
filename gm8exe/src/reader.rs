@@ -221,7 +221,10 @@ where
         let resolution = cfg.read_u32_le()?;
         let frequency = cfg.read_u32_le()?;
         let dont_show_buttons = cfg.read_u32_le()? != 0;
-        let vsync = cfg.read_u32_le()? != 0;
+        let (vsync, force_cpu_render) = match (game_ver, cfg.read_u32_le()?) {
+            (GameVersion::GameMaker8_0, x) => (x != 0, true), // see 8.1.141 changelog
+            (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & (1 << 7)) != 0),
+        };
         let disable_screensaver = cfg.read_u32_le()? != 0;
         let f4_fullscreen_toggle = cfg.read_u32_le()? != 0;
         let f1_help_menu = cfg.read_u32_le()? != 0;
@@ -346,34 +349,35 @@ where
 
         Settings {
             fullscreen,
-            interpolate_pixels,
-            dont_draw_border,
-            display_cursor,
             scaling,
+            interpolate_pixels,
+            clear_colour,
             allow_resize,
             window_on_top,
-            clear_colour,
+            dont_draw_border,
+            dont_show_buttons,
+            display_cursor,
+            freeze_on_lose_focus,
+            disable_screensaver,
+            force_cpu_render,
             set_resolution,
             colour_depth,
             resolution,
             frequency,
-            dont_show_buttons,
             vsync,
-            disable_screensaver,
-            f4_fullscreen_toggle,
-            f1_help_menu,
             esc_close_game,
+            treat_close_as_esc,
+            f1_help_menu,
+            f4_fullscreen_toggle,
             f5_save_f6_load,
             f9_screenshot,
-            treat_close_as_esc,
             priority,
-            freeze_on_lose_focus,
-            loading_bar,
-            backdata,
-            frontdata,
             custom_load_image,
             transparent,
             translucency,
+            loading_bar,
+            backdata,
+            frontdata,
             scale_progress_bar,
             show_error_messages,
             log_errors,

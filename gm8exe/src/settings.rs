@@ -5,15 +5,6 @@ pub struct Settings {
     /// Start in full-screen mode
     pub fullscreen: bool,
 
-    /// Interpolate colors between pixels
-    pub interpolate_pixels: bool,
-
-    /// Don't draw a border in windowed mode
-    pub dont_draw_border: bool,
-
-    /// Display the cursor
-    pub display_cursor: bool,
-
     /// Scaling
     ///
     /// Fixed scale, in %.
@@ -21,14 +12,35 @@ pub struct Settings {
     /// Otherwise if it's `0`, Full scale.
     pub scaling: i32,
 
+    /// Interpolate colours between pixels
+    pub interpolate_pixels: bool,
+
+    /// Colour outside the room region (RGBA)
+    pub clear_colour: u32,
+
     /// Allow the player to resize the game window
     pub allow_resize: bool,
 
     /// Let the game window always stay on top
     pub window_on_top: bool,
 
-    /// Colour outside the room region (RGBA)
-    pub clear_colour: u32,
+    /// Don't draw a border in windowed mode
+    pub dont_draw_border: bool,
+
+    /// Don't show the buttons in the window captions
+    pub dont_show_buttons: bool,
+
+    /// Display the cursor
+    pub display_cursor: bool,
+
+    /// Freeze the game window when the window loses focus
+    pub freeze_on_lose_focus: bool,
+
+    /// Disable screensavers and power saving actions
+    pub disable_screensaver: bool,
+
+    /// Force Direct3D software vertex processing (GM 8.0 behaviour)
+    pub force_cpu_render: bool,
 
     /// Set the resolution of the screen
     pub set_resolution: bool,
@@ -74,14 +86,8 @@ pub struct Settings {
     /// 5 - 120Hz
     pub frequency: u32,
 
-    /// Don't show the buttons in the window captions
-    pub dont_show_buttons: bool,
-
     /// Use synchronization to avoid tearing
     pub vsync: bool,
-
-    /// Disable screensavers and power saving actions
-    pub disable_screensaver: bool,
 
     /// Let <Esc> end the game
     pub esc_close_game: bool,
@@ -111,8 +117,17 @@ pub struct Settings {
     ///
     pub priority: u32,
 
-    /// Freeze the game window when the window loses focus
-    pub freeze_on_lose_focus: bool,
+    /// Show your own image while loading (data)
+    pub custom_load_image: Option<Box<[u8]>>,
+
+    /// Sub-value of `custom_load_image`:
+    /// Make image partially translucent
+    pub transparent: bool,
+
+    /// Sub-value of `custom_load_image` + `transparent`
+    ///
+    /// Make translucent with alpha value: x
+    pub translucency: u32,
 
     /// 0 - No loading progress bar
     ///
@@ -126,18 +141,6 @@ pub struct Settings {
 
     /// Loading bar - (Custom) Front Image
     pub frontdata: Option<Box<[u8]>>,
-
-    /// Show your own image while loading (data)
-    pub custom_load_image: Option<Box<[u8]>>,
-
-    /// Sub-value of `custom_load_image`:
-    /// Make image partially translucent
-    pub transparent: bool,
-
-    /// Sub-value of `custom_load_image` + `transparent`
-    ///
-    /// Make translucent with alpha value: x
-    pub translucency: u32,
 
     /// Scale progress bar image
     pub scale_progress_bar: bool,
