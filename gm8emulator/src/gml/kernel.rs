@@ -7374,24 +7374,28 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_inc_week")
     }
 
-    pub fn date_inc_day(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function date_inc_day")
+    pub fn date_inc_day(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (datetime, amount) = expect_args!(args, [real, int])?;
+        Ok((datetime + Real::from(amount)).into())
     }
 
-    pub fn date_inc_hour(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function date_inc_hour")
+    pub fn date_inc_hour(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (datetime, amount) = expect_args!(args, [real, int])?;
+        Ok((datetime + Real::from(amount) / 24.into() * if datetime <= 0.into() { Real::from(-1) } else { 1.into() })
+            .into())
     }
 
-    pub fn date_inc_minute(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function date_inc_minute")
+    pub fn date_inc_minute(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (datetime, amount) = expect_args!(args, [real, int])?;
+        Ok((datetime + Real::from(amount) / 1440.into() * if datetime <= 0.into() { Real::from(-1) } else { 1.into() })
+            .into())
     }
 
-    pub fn date_inc_second(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function date_inc_second")
+    pub fn date_inc_second(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (datetime, amount) = expect_args!(args, [real, int])?;
+        Ok((datetime
+            + Real::from(amount) / 86400.into() * if datetime <= 0.into() { Real::from(-1) } else { 1.into() })
+        .into())
     }
 
     pub fn date_get_year(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
