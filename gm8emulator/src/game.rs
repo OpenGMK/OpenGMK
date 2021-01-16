@@ -2,6 +2,7 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
+pub mod gm_save;
 pub mod includedfile;
 pub mod model;
 pub mod movement;
