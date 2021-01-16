@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, model, particle, pathfinding, replay, string::RCStr, surface::Surface,
+        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, string::RCStr, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
@@ -5209,14 +5209,32 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn game_load(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function game_load")
+    pub fn game_load(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let fname = expect_args!(args, [string])?;
+        let mut file = std::fs::File::open(fname.as_ref())
+            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        let mut magnum = [0u8; 4];
+        file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        if magnum != [0x1d, 0x02, 0x00, 0x00] {
+            return Err(gml::Error::FunctionError("game_load".into(), "tried to load wrong version of save file".into()))
+        }
+        let save: GMSave = bincode::deserialize_from(file)
+            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_save".into(), e))?;
+        Ok(Default::default())
     }
 
-    pub fn game_save(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function game_save")
+    pub fn game_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let fname = expect_args!(args, [string])?;
+        let save = GMSave::from_game(self);
+        let mut file = std::fs::File::create(fname.as_ref())
+            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
+        // write magic number (0x21c in GM8)
+        file.write(&[0x1d, 0x02, 0x00, 0x00])
+            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
+        bincode::serialize_into(file, &save)
+            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
+        Ok(Default::default())
     }
 
     pub fn transition_define(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
