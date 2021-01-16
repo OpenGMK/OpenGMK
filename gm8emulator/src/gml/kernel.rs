@@ -5220,7 +5220,7 @@ impl Game {
         }
         let save: GMSave = bincode::deserialize_from(file)
             .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_save".into(), e))?;
+        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_load".into(), e))?;
         Ok(Default::default())
     }
 
