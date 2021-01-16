@@ -52,6 +52,15 @@ impl DateTime {
         }
     }
 
+    pub fn from_ymdhms(y: i32, mo: i32, d: i32, h: i32, mi: i32, s: i32) -> Option<Self> {
+        if y >= 0 && mo >= 0 && d >= 0 && h >= 0 && mi >= 0 && s >= 0 {
+            NaiveDate::from_ymd_opt(y, mo as u32, d as u32)
+                .and_then(|d| d.and_hms_opt(h as u32, mi as u32, s as u32).map(Self))
+        } else {
+            None
+        }
+    }
+
     pub fn year(&self) -> i32 {
         self.0.date().year()
     }
@@ -106,7 +115,8 @@ impl From<DateTime> for Real {
         // calculate the ipart and fpart separately for maybe better precision?
         let ipart = Real::from((dt.0 - epoch()).num_days() as f64);
         let fpart = Real::from((dt.time().0 - epoch()).num_milliseconds() as f64) / Real::from(86400000);
-        ipart + fpart
+        // the time part is the abs(fract()) of the datetime so that part increases backwards before the epoch
+        if dt.0 >= epoch() { ipart + fpart } else { ipart - 1.into() - fpart }
     }
 }
 
@@ -118,8 +128,9 @@ impl From<DateTime> for Value {
 
 impl From<Real> for DateTime {
     fn from(dt: Real) -> Self {
-        let days = chrono::Duration::days(dt.floor().round().into());
+        let days = chrono::Duration::days(dt.trunc().round().into());
         let ms = chrono::Duration::milliseconds((dt.fract() * Real::from(86400000)).floor().round().into());
-        Self(epoch() + days + ms)
+        // negate the time (see the inverse function for explanation)
+        Self(epoch() + days + if dt > 0.into() { ms } else { -ms })
     }
 }

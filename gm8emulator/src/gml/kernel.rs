@@ -7331,10 +7331,7 @@ impl Game {
     pub fn date_create_datetime(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         // todo: this may give different results than gm8 due to floating point error?
         let (year, month, day, hour, minute, second) = expect_args!(args, [int, int, int, int, int, int])?;
-        Ok(DateTime::from_ymd(year, month, day)
-            .and_then(|d| DateTime::from_hms(hour, minute, second).map(|t| Real::from(d) + t.into()))
-            .unwrap_or(0.into())
-            .into())
+        Ok(DateTime::from_ymdhms(year, month, day, hour, minute, second).map(Real::from).unwrap_or(0.into()).into())
     }
 
     pub fn date_create_date(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
