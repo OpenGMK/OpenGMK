@@ -463,6 +463,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn trunc(self) -> Self {
+        Self(self.0.trunc())
+    }
+
+    #[inline(always)]
     pub fn fract(self) -> Self {
         Self(self.0.fract())
     }
