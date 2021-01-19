@@ -1243,7 +1243,6 @@ impl RendererTrait for RendererImpl {
         window_w: u32,
         window_h: u32,
         scaling: Scaling,
-        clear_colour: Colour,
     ) {
         unsafe {
             // resize framebuffer
@@ -1278,7 +1277,7 @@ impl RendererTrait for RendererImpl {
         }
         self.vertex_queue.clear();
         self.present(window_w as _, window_h as _, scaling);
-        self.setup_frame(clear_colour);
+        self.set_view(0, 0, fb_w, fb_h, 0.0, 0, 0, fb_w, fb_h);
     }
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {

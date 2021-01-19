@@ -325,7 +325,6 @@ pub trait RendererTrait {
         window_w: u32,
         window_h: u32,
         scaling: Scaling,
-        clear_colour: Colour,
     );
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
@@ -866,9 +865,8 @@ impl Renderer {
         window_w: u32,
         window_h: u32,
         scaling: Scaling,
-        clear_colour: Colour,
     ) {
-        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling, clear_colour)
+        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {

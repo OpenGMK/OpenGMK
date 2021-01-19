@@ -264,7 +264,6 @@ impl SaveState {
             self.window_width as _,
             self.window_height as _,
             self.scaling,
-            game.background_colour,
         );
 
         let surfaces = self.surfaces;
