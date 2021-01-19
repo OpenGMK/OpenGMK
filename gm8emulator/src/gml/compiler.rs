@@ -263,12 +263,10 @@ impl Compiler {
                     Node::Literal { value: entry.clone() }
                 } else if let Some(constant_id) = self.user_constant_names.get(*string) {
                     Node::Constant { constant_id: *constant_id }
-                } else if let Some(f) = str::from_utf8(string)
-                    .ok()
-                    .and_then(|s1| mappings::CONSTANTS.iter().find(|(s2, _)| &s1 == s2))
-                    .map(|(_, v)| v)
+                } else if let Some(&v) = str::from_utf8(string).ok()
+                    .and_then(|n| mappings::CONSTANTS.get(n))
                 {
-                    Node::Literal { value: Value::Real(Real::from(*f)) }
+                    Node::Literal { value: Value::Real(Real::from(v)) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
