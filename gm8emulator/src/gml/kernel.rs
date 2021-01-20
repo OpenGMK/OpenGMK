@@ -1285,9 +1285,14 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < Real::from(0.0) {
+                self.instance_list.get(context.this).image_index.get()
+            } else {
+                image_index
+            };
             if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }
