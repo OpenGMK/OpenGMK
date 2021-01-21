@@ -61,35 +61,41 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
-pub fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
-    let (r, g, b) = (Real::from(colour & 0xFF), Real::from((colour >> 8) & 0xFF), Real::from((colour >> 16) & 0xFF));
+fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
+    let (r, g, b) = (
+        Real::from(0xFF & colour),
+        Real::from(0xFF & (colour >> 8)),
+        Real::from(0xFF & (colour >> 16)),
+    );
 
-    let max = r.max(g).max(b);
-    let min = r.min(g).min(b);
-    let diff = max - min;
+    let (min, max) = (
+        r.min(g).min(b),
+        r.max(g).max(b),
+    );
 
-    let mut h = (max + min) / Real::from(2.0);
-    let s;
-    let v = max;
+    let v = max.round();
+    let (h, s);
 
-    // Achromatic
     if max == min {
-        h = Real::from(0.0);
-        s = Real::from(0.0);
+        s = 0; // achromatic
+        h = 0; // actually undefined, so value can be any
     } else {
-        s = diff / max;
+        let x60 = Real::from(60);
+        let angle360 = Real::from(360);
+        let range255 = Real::from(255);
 
-        if max == r {
-            h = (Real::from(60) * ((g - b) / diff) + Real::from(360)) % Real::from(360)
-        }
-        if max == g {
-            h = (Real::from(60) * ((b - r) / diff) + Real::from(120)) % Real::from(360)
-        }
-        if max == b {
-            h = (Real::from(60) * ((r - g) / diff) + Real::from(240)) % Real::from(360)
-        }
+        let diff = max - min;
+        s = ((diff / max) * range255).round();
+
+        h = ((((
+            if max == g {x60 * ((b - r) / diff) + Real::from(120)} else
+            if max == b {x60 * ((r - g) / diff) + Real::from(240)} else
+            if max == r {x60 * ((g - b) / diff) + angle360}
+            else {unsafe { std::hint::unreachable_unchecked() }}
+        ) % angle360) / angle360) * range255).round();
     }
-    (((h / Real::from(360)) * Real::from(255)).round(), (s * Real::from(255)).round(), v.round())
+
+    (h, s, v)
 }
 
 impl Game {
