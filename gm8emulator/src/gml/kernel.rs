@@ -4921,49 +4921,34 @@ impl Game {
         if run_events {
             self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
         }
-        self.instance_list.mark_deleted(context.this);
-
-        // These variables get copied to the new instance
-        let old_instance = self.instance_list.get(context.this);
-        let fields = (*old_instance.fields.borrow()).clone();
-        let alarms = (*old_instance.alarms.borrow()).clone();
-        let x = old_instance.x.get();
-        let y = old_instance.y.get();
-        let gravity = old_instance.gravity.get();
-        let gravity_direction = old_instance.gravity_direction.get();
-        let hspeed = old_instance.hspeed.get();
-        let vspeed = old_instance.vspeed.get();
-        let speed = old_instance.speed.get();
-        let direction = old_instance.direction.get();
-        let friction = old_instance.friction.get();
-        let image_xscale = old_instance.image_xscale.get();
-        let image_yscale = old_instance.image_yscale.get();
-        let image_speed = old_instance.image_speed.get();
-        let image_angle = old_instance.image_angle.get();
-        let image_blend = old_instance.image_blend.get();
 
         let object = self
             .assets
             .objects
             .get_asset(object_id)
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
-        self.last_instance_id += 1;
-        let handle = self.instance_list.insert(Instance::new(self.last_instance_id, x, y, object_id, object));
-        let instance = self.instance_list.get(handle);
-        *instance.fields.borrow_mut() = fields;
-        *instance.alarms.borrow_mut() = alarms;
-        instance.gravity.set(gravity);
-        instance.gravity_direction.set(gravity_direction);
-        instance.hspeed.set(hspeed);
-        instance.vspeed.set(vspeed);
-        instance.speed.set(speed);
-        instance.direction.set(direction);
-        instance.friction.set(friction);
-        instance.image_xscale.set(image_xscale);
-        instance.image_yscale.set(image_yscale);
-        instance.image_speed.set(image_speed);
-        instance.image_angle.set(image_angle);
-        instance.image_blend.set(image_blend);
+        let new_instance = self.instance_list.get(context.this).clone();
+        new_instance.object_index.set(object_id);
+        new_instance.sprite_index.set(object.sprite_index);
+        new_instance.mask_index.set(object.mask_index);
+        new_instance.depth.set(Real::from(object.depth));
+        new_instance.solid.set(object.solid);
+        new_instance.visible.set(object.visible);
+        new_instance.persistent.set(object.persistent);
+        self.last_instance_id += 1; // This is incremented by GM8 but not used
+
+        let frame_count = if let Some(sprite) = self.assets.sprites.get_asset(object.sprite_index) {
+            sprite.frames.len() as f64
+        } else {
+            0.0
+        };
+        if frame_count <= new_instance.image_index.get().floor().into() {
+            new_instance.image_index.set(Real::from(0.0));
+        }
+        new_instance.bbox_is_stale.set(true);
+
+        self.instance_list.mark_deleted(context.this);
+        let handle = self.instance_list.insert(new_instance);
 
         if run_events {
             self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
