@@ -2963,7 +2963,12 @@ impl Game {
     }
 
     pub fn action_message(&mut self, args: &[Value]) -> gml::Result<Value> {
-        self.show_message(args)
+        self.show_message(&[
+            match expect_args!(args, [any])? {
+                v @ Value::Str(_) => v,
+                _ => "".into(),
+            }
+        ])
     }
 
     pub fn action_show_info(&mut self, _args: &[Value]) -> gml::Result<Value> {
