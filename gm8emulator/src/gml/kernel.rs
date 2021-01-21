@@ -4899,15 +4899,16 @@ impl Game {
 
     pub fn instance_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [real, real, int])?;
-        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
-            self.last_instance_id += 1;
-            let id = self.last_instance_id;
-            let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
-            self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
-            Ok(id.into())
-        } else {
-            Err(gml::Error::FunctionError("instance_create".into(), format!("Invalid object ID: {}", object_id)))
-        }
+        let object = self
+            .assets
+            .objects
+            .get_asset(object_id)
+            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
+        self.last_instance_id += 1;
+        let id = self.last_instance_id;
+        let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
+        self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
+        Ok(id.into())
     }
 
     pub fn instance_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
