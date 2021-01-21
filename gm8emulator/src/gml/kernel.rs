@@ -3088,9 +3088,13 @@ impl Game {
         self.place_meeting(context, &[x.into(), y.into(), object])
     }
 
-    pub fn action_if_question(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_question")
+    pub fn action_if_question(&mut self, args: &[Value]) -> gml::Result<Value> {
+        self.show_question(&[
+            match expect_args!(args, [any])? {
+                v @ Value::Str(_) => v,
+                _ => "".into(),
+            }
+        ])
     }
 
     pub fn action_if_dice(&mut self, args: &[Value]) -> gml::Result<Value> {
