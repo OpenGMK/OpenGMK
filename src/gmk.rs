@@ -428,7 +428,7 @@ where
     result += match version {
         GameVersion::GameMaker8_0 => writer.write_u32_le(font.range_start)?,
         GameVersion::GameMaker8_1 => writer.write_u32_le(
-            ((font.charset & 0xFF) << 24) | ((font.aa_level & 0xFF) << 16) | (font.range_start & 0xFFFF),
+            ((font.aa_level & 0xFF) << 24) | ((font.charset & 0xFF) << 16) | (font.range_start & 0xFFFF),
         )?,
     };
     result += writer.write_u32_le(font.range_end)?;

@@ -80,13 +80,13 @@ impl Asset for Font {
         let mut range_start = reader.read_u32_le()?;
         let range_end = reader.read_u32_le()?;
 
-        let (charset, aa_level) = match version {
+        let (aa_level, charset) = match version {
             GameVersion::GameMaker8_0 => (0, 0),
             GameVersion::GameMaker8_1 => {
-                let charset = (range_start & 0xFF000000) >> 24;
-                let aa_level = (range_start & 0x00FF0000) >> 16;
+                let aa_level = (range_start & 0xFF000000) >> 24;
+                let charset = (range_start & 0x00FF0000) >> 16;
                 range_start &= 0x0000FFFF;
-                (charset, aa_level)
+                (aa_level, charset)
             },
         };
 
