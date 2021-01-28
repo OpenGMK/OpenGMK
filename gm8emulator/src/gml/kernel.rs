@@ -2561,9 +2561,18 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_linear_step")
     }
 
-    pub fn action_potential_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_potential_step")
+    pub fn action_potential_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
+        let instance = self.instance_list.get(context.this);
+        let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
+        Ok(pathfinding::potential_step(x, y, step_size, &self.potential_step_settings, instance, || {
+            if checkall {
+                self.check_collision_any(context.this).is_some()
+            } else {
+                self.check_collision_solid(context.this).is_some()
+            }
+        })
+        .into())
     }
 
     pub fn action_kill_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2945,9 +2954,15 @@ impl Game {
         Ok((self.rand.next(bound.into()) < 1.0).into())
     }
 
-    pub fn action_if_mouse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_mouse")
+    pub fn action_if_mouse(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let button = expect_args!(args, [int])?;
+        let button_enum = match button {
+            1 => MouseButton::Left,
+            2 => MouseButton::Right,
+            3 => MouseButton::Middle,
+            _ => return Ok((self.input_manager.mouse_get_button() == 0).into()),
+        };
+        Ok((self.input_manager.mouse_check(button_enum) || self.input_manager.mouse_check_released(button_enum)).into())
     }
 
     pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3467,29 +3482,84 @@ impl Game {
         }
     }
 
-    pub fn action_draw_gradient_hor(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_gradient_hor")
+    pub fn action_draw_gradient_hor(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1, col2, col2, col1, false.into()])
     }
 
-    pub fn action_draw_gradient_vert(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_gradient_vert")
+    pub fn action_draw_gradient_vert(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1, col1, col2, col2, false.into()])
     }
 
-    pub fn action_draw_ellipse(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function action_draw_ellipse")
+    pub fn action_draw_ellipse(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, outline) = expect_args!(args, [any, any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_ellipse(context, &[x1, y1, x2, y2, outline])
     }
 
-    pub fn action_draw_ellipse_gradient(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_ellipse_gradient")
+    pub fn action_draw_ellipse_gradient(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, col1, col2, outline) = expect_args!(args, [any, any, any, any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_ellipse_color(context, &[x1, y1, x2, y2, col1, col2, false.into()])
     }
 
-    pub fn action_draw_line(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_draw_line")
+    pub fn action_draw_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2) = expect_args!(args, [any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_line(context, &[x1, y1, x2, y2])
     }
 
     pub fn action_draw_arrow(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
