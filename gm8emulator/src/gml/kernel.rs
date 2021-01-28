@@ -3416,6 +3416,12 @@ impl Game {
 
     pub fn action_draw_background(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, tiled) = expect_args!(args, [any, any, any, bool])?;
+        let (x, y) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
+        } else {
+            (x, y)
+        };
         if tiled {
             self.draw_background_tiled(context, &[bg_index, x, y])
         } else {
