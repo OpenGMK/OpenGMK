@@ -258,6 +258,14 @@ impl InstanceList {
             .unwrap_or_default()
     }
 
+    pub fn any_active(&self) -> bool {
+        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).next().is_some()
+    }
+
+    pub fn count_all_active(&self) -> usize {
+        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).count()
+    }
+
     pub fn count_all(&self) -> usize {
         self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive).count()
     }
