@@ -4722,25 +4722,46 @@ impl Game {
         Ok(handle.map(|h| self.instance_list.get(h).id.get()).unwrap_or(gml::NOONE).into())
     }
 
-    pub fn instance_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn instance_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
-        let exists = if obj <= 100000 {
-            self.instance_list.count(obj) != 0
-        } else {
-            self.instance_list.get_by_instid(obj).is_some()
+        let exists = match obj {
+            gml::SELF => self.instance_list.get(context.this).state.get() == InstanceState::Active,
+            gml::OTHER => self.instance_list.get(context.other).state.get() == InstanceState::Active,
+            gml::ALL => self.instance_list.any_active(),
+            obj if obj <= 100000 => self.instance_list.count(obj) != 0,
+            _ => self.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
     }
 
-    pub fn instance_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+    pub fn instance_number(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let object_id = expect_args!(args, [int])?;
-        if let Some(object) = self.assets.objects.get_asset(object_id) {
-            let ids = object.children.clone();
-            let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>();
-            Ok(count.into())
-        } else {
-            Ok(Default::default())
-        }
+        let number = match object_id {
+            gml::SELF => {
+                if self.instance_list.get(context.this).state.get() == InstanceState::Active {
+                    1
+                } else {
+                    0
+                }
+            },
+            gml::OTHER => {
+                if self.instance_list.get(context.other).state.get() == InstanceState::Active {
+                    1
+                } else {
+                    0
+                }
+            },
+            gml::ALL => self.instance_list.count_all_active(),
+            obj if obj <= 100000 => self.instance_list.count(obj) != 0,
+            _ => {
+                if self.instance_list.get_by_instid(obj).is_some() {
+                    1
+                } else {
+                    0
+                }
+            },
+        };
+        Ok(number.into())
     }
 
     pub fn instance_position(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
