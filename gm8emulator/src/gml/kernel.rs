@@ -3495,7 +3495,7 @@ impl Game {
         } else {
             (x1, y1, x2, y2)
         };
-        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1, col2, col2, col1, false.into()])
+        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1.clone(), col2.clone(), col2, col1, false.into()])
     }
 
     pub fn action_draw_gradient_vert(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3511,7 +3511,7 @@ impl Game {
         } else {
             (x1, y1, x2, y2)
         };
-        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1, col1, col2, col2, false.into()])
+        self.draw_rectangle_color(context, &[x1, y1, x2, y2, col1.clone(), col1, col2.clone(), col2, false.into()])
     }
 
     pub fn action_draw_ellipse(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3531,7 +3531,7 @@ impl Game {
     }
 
     pub fn action_draw_ellipse_gradient(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x1, y1, x2, y2, col1, col2, outline) = expect_args!(args, [any, any, any, any, any, any, any])?;
+        let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
             let instance = self.instance_list.get(context.this);
             (
