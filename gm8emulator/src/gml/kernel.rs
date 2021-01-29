@@ -741,9 +741,39 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_arrow(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_arrow")
+    pub fn draw_arrow(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, size) = expect_args!(args, [real, real, real, real, real])?;
+        let (x1, y1, x2, y2) = (x1.into_inner(), y1.into_inner(), x2.into_inner(), y2.into_inner());
+        let length = (x2 - x1).hypot(y2 - y1);
+        if length != 0.0 {
+            self.renderer.draw_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                None,
+                u32::from(self.draw_colour) as _,
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+            let size = size.into_inner().min(length);
+            let x_offset = (x2 - x1) * size / length;
+            let y_offset = (y2 - y1) * size / length;
+            self.renderer.draw_triangle(
+                (x2 - x_offset) - y_offset / 3.0,
+                (y2 - y_offset) + x_offset / 3.0,
+                x2,
+                y2,
+                (x2 - x_offset) + y_offset / 3.0,
+                (y2 - y_offset) - x_offset / 3.0,
+                u32::from(self.draw_colour) as _,
+                u32::from(self.draw_colour) as _,
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+                false,
+            );
+        }
+        Ok(Default::default())
     }
 
     pub fn draw_button(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -3562,9 +3592,20 @@ impl Game {
         self.draw_line(context, &[x1, y1, x2, y2])
     }
 
-    pub fn action_draw_arrow(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function action_draw_arrow")
+    pub fn action_draw_arrow(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, size) = expect_args!(args, [any, any, any, any, any])?;
+        let (x1, y1, x2, y2) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            (
+                (instance.x.get() + x1.into()).into(),
+                (instance.y.get() + y1.into()).into(),
+                (instance.x.get() + x2.into()).into(),
+                (instance.y.get() + y2.into()).into(),
+            )
+        } else {
+            (x1, y1, x2, y2)
+        };
+        self.draw_arrow(context, &[x1, y1, x2, y2, size])
     }
 
     pub fn action_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
