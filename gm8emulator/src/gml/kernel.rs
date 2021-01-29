@@ -2664,9 +2664,28 @@ impl Game {
         }
     }
 
-    pub fn action_create_object_random(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_create_object_random")
+    pub fn action_create_object_random(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (obj1, obj2, obj3, obj4, x, y) = expect_args!(args, [int, int, int, int, real, real])?;
+        let (x, y) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
+        } else {
+            (x, y)
+        };
+        let object_ids = [obj1, obj2, obj3, obj4];
+        if object_ids.iter().any(|&id| self.assets.objects.get_asset(id).is_some()) {
+            let (object_id, object) = loop {
+                let i = self.rand.next_int(3) as usize;
+                if let Some(object) = self.assets.objects.get_asset(object_ids[i]) {
+                    break (object_ids[i], object)
+                }
+            };
+            self.last_instance_id += 1;
+            let id = self.last_instance_id;
+            let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
+            self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
+        }
+        Ok(Default::default())
     }
 
     pub fn action_change_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
