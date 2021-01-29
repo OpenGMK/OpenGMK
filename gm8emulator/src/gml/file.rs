@@ -320,7 +320,7 @@ pub fn delete(path: &str) -> Result<()> {
 }
 
 pub fn load_image(path: &str) -> Result<RgbaImage> {
-    Ok(image::open(path)?.into_rgba())
+    Ok(image::open(path)?.into_rgba8())
 }
 
 pub fn load_animation(path: &str, imgnumb: usize) -> Result<Vec<RgbaImage>> {
