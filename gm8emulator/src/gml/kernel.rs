@@ -2673,9 +2673,15 @@ impl Game {
         self.instance_change(context, args)
     }
 
-    pub fn action_kill_position(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function action_kill_position")
+    pub fn action_kill_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [any, any])?;
+        let (x, y) = if context.relative {
+            let instance = self.instance_list.get(context.this);
+            ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
+        } else {
+            (x, y)
+        };
+        self.position_destroy(context, &[x, y])
     }
 
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5123,9 +5129,16 @@ impl Game {
         Ok(meeting.into())
     }
 
-    pub fn position_destroy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function position_destroy")
+    pub fn position_destroy(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y) = expect_args!(args, [int, int])?;
+        let mut iter = self.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.instance_list) {
+            if self.check_collision_point(handle, x, y, true) {
+                self.run_instance_event(gml::ev::DESTROY, 0, handle, handle, None)?;
+                self.instance_list.mark_deleted(handle);
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn position_change(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
