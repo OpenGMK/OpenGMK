@@ -766,13 +766,12 @@ impl Game {
             .into_iter()
             .map(|t| {
                 t.map(|b| {
-                    let creation_code = match compiler.compile(&b.creation_code.0) {
-                        Ok(c) => c,
-                        Err(e) => return Err(format!("Compiler error in room {} creation code: {}", b.name, e)),
-                    };
+                    let creation_code = compiler
+                        .compile(&b.creation_code.0)
+                        .map_err(|e| format!("Compiler error in room {} creation code: {}", b.name, e));
                     let width = b.width;
                     let height = b.height;
-                    Ok(Box::new(Room {
+                    Box::new(Room {
                         name: b.name.into(),
                         caption: b.caption.into(),
                         width,
@@ -781,7 +780,7 @@ impl Game {
                         persistent: b.persistent,
                         bg_colour: (b.bg_colour.r, b.bg_colour.g, b.bg_colour.b).into(),
                         clear_screen: b.clear_screen,
-                        creation_code: creation_code,
+                        creation_code,
                         backgrounds: b
                             .backgrounds
                             .into_iter()
@@ -844,24 +843,16 @@ impl Game {
                         instances: b
                             .instances
                             .into_iter()
-                            .map(|i| {
-                                Ok(room::Instance {
-                                    x: i.x,
-                                    y: i.y,
-                                    object: i.object,
-                                    id: i.id,
-                                    creation: match compiler.compile(&i.creation_code.0) {
-                                        Ok(c) => c,
-                                        Err(e) => {
-                                            return Err(format!(
-                                                "Compiler error in creation code of instance {}: {}",
-                                                i.id, e
-                                            ))
-                                        },
-                                    },
-                                })
+                            .map(|i| room::Instance {
+                                x: i.x,
+                                y: i.y,
+                                object: i.object,
+                                id: i.id,
+                                creation: compiler.compile(&i.creation_code.0).map_err(|e| {
+                                    format!("Compiler error in creation code of instance {}: {}", i.id, e)
+                                }),
                             })
-                            .collect::<Result<Vec<_>, _>>()?
+                            .collect::<Vec<_>>()
                             .into(),
                         tiles: b
                             .tiles
@@ -884,11 +875,10 @@ impl Game {
                             })
                             .collect::<Vec<_>>()
                             .into(),
-                    }))
+                    })
                 })
-                .transpose()
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Vec<_>>();
 
         // Make event holder lists
         let mut event_holders: [IndexMap<u32, Rc<RefCell<Vec<i32>>>>; 12] = Default::default();
@@ -1272,7 +1262,7 @@ impl Game {
         for (handle, instance) in &new_handles {
             if self.instance_list.get(*handle).is_active() {
                 // Run this instance's room creation code
-                self.execute(&instance.creation, &mut Context {
+                self.execute(&instance.creation.clone()?, &mut Context {
                     this: *handle,
                     other: *handle,
                     event_action: 0,
@@ -1303,7 +1293,7 @@ impl Game {
         // Run room creation code
         let dummy_instance =
             self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-        self.execute(&room.creation_code, &mut Context {
+        self.execute(&room.creation_code?, &mut Context {
             this: dummy_instance,
             other: dummy_instance,
             event_action: 0,

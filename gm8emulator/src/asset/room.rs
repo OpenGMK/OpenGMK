@@ -17,7 +17,7 @@ pub struct Room {
     pub persistent: bool,
     pub bg_colour: Colour,
     pub clear_screen: bool,
-    pub creation_code: Rc<[Instruction]>,
+    pub creation_code: Result<Rc<[Instruction]>, String>,
 
     pub backgrounds: Vec<Background>,
     pub views_enabled: bool,
@@ -33,5 +33,5 @@ pub struct Instance {
     pub y: i32,
     pub object: i32,
     pub id: ID,
-    pub creation: Rc<[Instruction]>,
+    pub creation: Result<Rc<[Instruction]>, String>,
 }
