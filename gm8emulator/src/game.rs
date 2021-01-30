@@ -615,6 +615,87 @@ impl Game {
             .collect::<Result<Vec<_>, ()>>()
             .expect("failed to pack fonts");
 
+        let paths = paths
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let mut path = Path {
+                        name: b.name.into(),
+                        points: b
+                            .points
+                            .into_iter()
+                            .map(|point| path::Point {
+                                x: Real::from(point.x),
+                                y: Real::from(point.y),
+                                speed: Real::from(point.speed),
+                            })
+                            .collect(),
+                        control_nodes: Default::default(),
+                        length: Default::default(),
+                        curve: b.connection as u32 == 1,
+                        closed: b.closed,
+                        precision: b.precision.min(8) as _, // ghetto clamp
+                        start: Default::default(),
+                        end: Default::default(),
+                    };
+                    path.update();
+                    Box::new(path)
+                })
+            })
+            .collect();
+
+        // Code compiling starts here. The order in which things are compiled is important for
+        // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
+
+        let triggers = triggers
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let condition = match compiler.compile(&b.condition.0) {
+                        Ok(s) => s,
+                        Err(e) => return Err(format!("Compiler error in trigger {}: {}", b.name, e)),
+                    };
+                    Ok(Box::new(Trigger { name: b.name.into(), condition, moment: b.moment.into() }))
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let scripts = scripts
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let compiled = match compiler.compile(&b.source.0) {
+                        Ok(s) => s,
+                        Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
+                    };
+                    Ok(Box::new(Script { name: b.name.into(), source: b.source.into(), compiled }))
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let timelines = timelines
+            .into_iter()
+            .map(|t| {
+                t.map(|b| {
+                    let mut moments: BTreeMap<i32, Rc<RefCell<Tree>>> = BTreeMap::new();
+                    for (moment, actions) in b.moments.iter() {
+                        match Tree::from_list(actions, &mut compiler) {
+                            Ok(t) => {
+                                moments.insert(*moment as i32, Rc::new(RefCell::new(t)));
+                            },
+                            Err(e) => {
+                                return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))
+                            },
+                        };
+                    }
+                    Ok(Box::new(Timeline { name: b.name.into(), moments: Rc::new(RefCell::new(moments)) }))
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let objects = {
             let mut object_parents: Vec<Option<i32>> = Vec::with_capacity(objects.len());
             let mut objects = objects
@@ -680,70 +761,6 @@ impl Game {
 
             objects
         };
-
-        let paths = paths
-            .into_iter()
-            .map(|t| {
-                t.map(|b| {
-                    let mut path = Path {
-                        name: b.name.into(),
-                        points: b
-                            .points
-                            .into_iter()
-                            .map(|point| path::Point {
-                                x: Real::from(point.x),
-                                y: Real::from(point.y),
-                                speed: Real::from(point.speed),
-                            })
-                            .collect(),
-                        control_nodes: Default::default(),
-                        length: Default::default(),
-                        curve: b.connection as u32 == 1,
-                        closed: b.closed,
-                        precision: b.precision.min(8) as _, // ghetto clamp
-                        start: Default::default(),
-                        end: Default::default(),
-                    };
-                    path.update();
-                    Box::new(path)
-                })
-            })
-            .collect();
-
-        let timelines = timelines
-            .into_iter()
-            .map(|t| {
-                t.map(|b| {
-                    let mut moments: BTreeMap<i32, Rc<RefCell<Tree>>> = BTreeMap::new();
-                    for (moment, actions) in b.moments.iter() {
-                        match Tree::from_list(actions, &mut compiler) {
-                            Ok(t) => {
-                                moments.insert(*moment as i32, Rc::new(RefCell::new(t)));
-                            },
-                            Err(e) => {
-                                return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))
-                            },
-                        };
-                    }
-                    Ok(Box::new(Timeline { name: b.name.into(), moments: Rc::new(RefCell::new(moments)) }))
-                })
-                .transpose()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let scripts = scripts
-            .into_iter()
-            .map(|t| {
-                t.map(|b| {
-                    let compiled = match compiler.compile(&b.source.0) {
-                        Ok(s) => s,
-                        Err(e) => return Err(format!("Compiler error in script {}: {}", b.name, e)),
-                    };
-                    Ok(Box::new(Script { name: b.name.into(), source: b.source.into(), compiled }))
-                })
-                .transpose()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
 
         let rooms = rooms
             .into_iter()
@@ -868,20 +885,6 @@ impl Game {
                             .collect::<Vec<_>>()
                             .into(),
                     }))
-                })
-                .transpose()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let triggers = triggers
-            .into_iter()
-            .map(|t| {
-                t.map(|b| {
-                    let condition = match compiler.compile(&b.condition.0) {
-                        Ok(s) => s,
-                        Err(e) => return Err(format!("Compiler error in trigger {}: {}", b.name, e)),
-                    };
-                    Ok(Box::new(Trigger { name: b.name.into(), condition, moment: b.moment.into() }))
                 })
                 .transpose()
             })
