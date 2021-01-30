@@ -37,6 +37,57 @@ macro_rules! shader_file {
     };
 }
 
+#[derive(Clone, PartialEq)]
+struct RenderState {
+    blend_mode: (BlendType, BlendType),
+    model_matrix: [f32; 16],
+    view_matrix: [f32; 16],
+    proj_matrix: [f32; 16],
+    interpolate_pixels: bool,
+    texture_repeat: bool,
+    depth_test: bool,
+    write_depth: bool,
+    culling: bool,
+    fog_enabled: bool,
+    fog: Fog,
+    gouraud: bool,
+    lighting: bool,
+    ambient_colour: [f32; 4],
+    lights_enabled: [bool; 8],
+    lights: [Light; 8],
+}
+
+impl Default for RenderState {
+    fn default() -> Self {
+        // Create identity matrix to initialize MVP matrices with
+        #[rustfmt::skip]
+            let identity_matrix: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        Self {
+            blend_mode: (BlendType::SrcAlpha, BlendType::InvSrcAlpha),
+            interpolate_pixels: false,
+            texture_repeat: false,
+            model_matrix: identity_matrix.clone(),
+            view_matrix: identity_matrix.clone(),
+            proj_matrix: identity_matrix.clone(),
+            depth_test: false,
+            write_depth: false,
+            culling: false,
+            fog_enabled: false,
+            fog: Fog { colour: 0, begin: 0.0, end: 0.0 },
+            lighting: false,
+            gouraud: true,
+            ambient_colour: [0.0; 4],
+            lights_enabled: [false; 8],
+            lights: [Light::Directional { direction: [0.0; 3], colour: 0 }; 8],
+        }
+    }
+}
+
 pub struct RendererImpl {
     imp: imp::PlatformImpl,
     gl: gl::Gl,
@@ -57,24 +108,15 @@ pub struct RendererImpl {
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveShape,
-    interpolate_pixels: bool,
-    texture_repeat: bool,
+    queue_render_state: RenderState,
+    next_render_state: RenderState,
+    render_state_updated: bool,
     circle_precision: i32,
     using_3d: bool,
-    depth_test: bool,
     perspective: bool,
     depth: f32,
-    fog: Option<Fog>,
-    lighting: bool,
-    gouraud: bool,
-    ambient_colour: i32,
-    lights: [(bool, Light); 8], // (enabled, light)
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
-
-    model_matrix: [f32; 16],
-    view_matrix: [f32; 16],
-    proj_matrix: [f32; 16],
 
     loc_tex: GLint,              // uniform sampler2D tex
     loc_model: GLint,            // uniform mat4 model
@@ -426,15 +468,6 @@ impl RendererImpl {
             );
             gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, framebuffer_zbuf, 0);
 
-            // Create identity matrix to initialize MVP matrices with
-            #[rustfmt::skip]
-            let identity_matrix: [f32; 16] = [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 1.0,
-            ];
-
             let loc_lights = {
                 let mut lights = Vec::with_capacity(8);
                 let mut enabled_name = *b"lights[0].enabled\0";
@@ -479,24 +512,18 @@ impl RendererImpl {
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveShape::Triangle,
-                interpolate_pixels: options.interpolate_pixels,
-                texture_repeat: false,
+                queue_render_state: RenderState {
+                    interpolate_pixels: options.interpolate_pixels,
+                    ..Default::default()
+                },
+                next_render_state: RenderState { interpolate_pixels: options.interpolate_pixels, ..Default::default() },
+                render_state_updated: false,
                 circle_precision: 24,
                 using_3d: false,
-                depth_test: false,
                 perspective: false,
                 depth: 0.0,
-                fog: None,
-                lighting: false,
-                gouraud: true,
-                ambient_colour: 0,
-                lights: [(false, Light::Directional { direction: [0.0; 3], colour: 0 }); 8],
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
-
-                model_matrix: identity_matrix.clone(),
-                view_matrix: identity_matrix.clone(),
-                proj_matrix: identity_matrix.clone(),
 
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
                 loc_model: gl.GetUniformLocation(program, b"model\0".as_ptr().cast()),
@@ -520,7 +547,7 @@ impl RendererImpl {
             };
 
             // default uniform values
-            renderer.gl.Uniform1i(renderer.loc_repeat, renderer.texture_repeat as _);
+            renderer.gl.Uniform1i(renderer.loc_repeat, false as _);
             renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
             renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
             renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
@@ -559,6 +586,114 @@ impl RendererImpl {
     }
 
     fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveShape) {
+        if self.render_state_updated && self.queue_render_state != self.next_render_state {
+            self.flush_queue();
+            let mut old_render_state = self.next_render_state.clone();
+            std::mem::swap(&mut old_render_state, &mut self.queue_render_state);
+            self.render_state_updated = false;
+            let RenderState {
+                blend_mode,
+                model_matrix,
+                view_matrix,
+                proj_matrix,
+                interpolate_pixels,
+                texture_repeat,
+                depth_test,
+                write_depth,
+                culling,
+                fog_enabled,
+                fog,
+                gouraud,
+                lighting,
+                ambient_colour,
+                lights_enabled,
+                lights,
+            } = self.next_render_state.clone();
+            unsafe {
+                if old_render_state.blend_mode != blend_mode {
+                    let (src, dst) = blend_mode;
+                    self.gl.BlendFunc(src.into(), dst.into());
+                }
+                if old_render_state.interpolate_pixels != interpolate_pixels {
+                    let filter_mode = if interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
+                    self.gl.Uniform1i(self.loc_lerp, interpolate_pixels as _); // for repeat
+                }
+                if old_render_state.depth_test != depth_test {
+                    self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
+                    if depth_test {
+                        self.gl.Enable(gl::DEPTH_TEST);
+                    } else {
+                        self.gl.Disable(gl::DEPTH_TEST);
+                    }
+                }
+                if old_render_state.culling != culling {
+                    if culling {
+                        self.gl.Enable(gl::CULL_FACE);
+                    } else {
+                        self.gl.Disable(gl::CULL_FACE);
+                    }
+                }
+                if old_render_state.write_depth != write_depth {
+                    self.gl.DepthMask(write_depth as _);
+                }
+                // everything after this is just uniforms, most of this can be made into a buffer and done all at once
+                {
+                    if old_render_state.model_matrix != model_matrix
+                        || old_render_state.view_matrix != view_matrix
+                        || old_render_state.proj_matrix != proj_matrix
+                    {
+                        self.update_matrix();
+                    }
+                    if old_render_state.texture_repeat != texture_repeat {
+                        self.gl.Uniform1i(self.loc_repeat, texture_repeat as _);
+                    }
+                    if old_render_state.fog_enabled != fog_enabled {
+                        self.gl.Uniform1i(self.loc_fog_enabled, fog_enabled as _);
+                    }
+                    if old_render_state.fog != fog {
+                        let col = split_colour(fog.colour, 1.0);
+                        self.gl.Uniform3fv(self.loc_fog_colour, 1, col.as_ptr());
+                        self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
+                        self.gl.Uniform1f(self.loc_fog_end, fog.end);
+                    }
+                    if old_render_state.gouraud != gouraud {
+                        self.gl.Uniform1i(self.loc_gouraud_shading, gouraud as _);
+                    }
+                    if old_render_state.lighting != lighting {
+                        self.gl.Uniform1i(self.loc_lighting_enabled, lighting as _);
+                    }
+                    if old_render_state.ambient_colour != ambient_colour {
+                        self.gl.Uniform3fv(self.loc_ambient_colour, 1, ambient_colour.as_ptr());
+                    }
+                    for i in 0..8 {
+                        if old_render_state.lights_enabled[i] != lights_enabled[i] {
+                            self.gl.Uniform1i(self.loc_lights[i].enabled, lights_enabled[i] as _);
+                        }
+                        if old_render_state.lights[i] != lights[i] {
+                            let loc_light = &mut self.loc_lights[i];
+                            match lights[i] {
+                                Light::Directional { direction, colour } => {
+                                    self.gl.Uniform1i(loc_light.is_point, false as _);
+                                    self.gl.Uniform3fv(loc_light.pos, 1, direction.as_ptr());
+                                    let col = split_colour(colour, 1.0);
+                                    self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                                },
+                                Light::Point { position, range, colour } => {
+                                    self.gl.Uniform1i(loc_light.is_point, true as _);
+                                    self.gl.Uniform3fv(loc_light.pos, 1, position.as_ptr());
+                                    self.gl.Uniform1f(loc_light.range, range);
+                                    let col = split_colour(colour, 1.0);
+                                    self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
+                                },
+                            }
+                        }
+                    }
+                }
+                assert_eq!(self.gl.GetError(), 0);
+            }
+        }
         if atlas_id != self.current_atlas || self.queue_type != queue_type {
             self.flush_queue();
             self.current_atlas = atlas_id;
@@ -584,10 +719,6 @@ impl RendererImpl {
             }
 
             self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_id as usize].unwrap());
-            let filter_mode = if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
-            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
-            self.gl.Uniform1i(self.loc_lerp, self.interpolate_pixels as _); // for repeat
 
             let mut commands_vbo: GLuint = 0;
             self.gl.GenBuffers(1, &mut commands_vbo);
@@ -663,7 +794,7 @@ impl RendererImpl {
     fn update_matrix(&mut self) {
         unsafe {
             // upload model matrix
-            self.gl.UniformMatrix4fv(self.loc_model, 1, gl::FALSE, self.model_matrix.as_ptr());
+            self.gl.UniformMatrix4fv(self.loc_model, 1, gl::FALSE, self.next_render_state.model_matrix.as_ptr());
             // get half-pixel length in clip space
             let mut viewport = [0; 4];
             self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
@@ -672,7 +803,7 @@ impl RendererImpl {
             // build viewproj matrix
             #[rustfmt::skip]
             let viewproj = mat4mult(
-                mat4mult(self.view_matrix, self.proj_matrix),
+                mat4mult(self.next_render_state.view_matrix, self.next_render_state.proj_matrix),
                 // flip vertically because GL textures are flipped vertically vs DX
                 // also GL's screen space is offset half a pixel vs DX so shift it
                 [
@@ -1750,39 +1881,28 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
-        self.flush_queue();
-        unsafe {
-            self.gl.BlendFunc(src.into(), dst.into());
-            assert_eq!(self.gl.GetError(), 0);
-        }
+        self.next_render_state.blend_mode = (src, dst);
+        self.render_state_updated = true;
     }
 
     fn get_pixel_interpolation(&self) -> bool {
-        self.interpolate_pixels
+        self.next_render_state.interpolate_pixels
     }
 
     fn set_pixel_interpolation(&mut self, lerping: bool) {
         // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
         // therefore, we need to apply the setting before every draw call
-        if self.interpolate_pixels != lerping {
-            self.flush_queue();
-            self.interpolate_pixels = lerping;
-        }
+        self.next_render_state.interpolate_pixels = lerping;
+        self.render_state_updated = true;
     }
 
     fn get_texture_repeat(&self) -> bool {
-        self.texture_repeat
+        self.next_render_state.texture_repeat
     }
 
     fn set_texture_repeat(&mut self, repeat: bool) {
-        if self.texture_repeat != repeat {
-            self.flush_queue();
-            self.texture_repeat = repeat;
-            unsafe {
-                self.gl.Uniform1i(self.loc_repeat, repeat as _);
-                assert_eq!(self.gl.GetError(), 0);
-            }
-        }
+        self.next_render_state.texture_repeat = repeat;
+        self.render_state_updated = true;
     }
 
     /// Does anything that's queued to be done.
@@ -1796,32 +1916,28 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_view_matrix(&mut self, view: [f32; 16]) {
-        self.flush_queue();
-        self.view_matrix = view;
-        self.update_matrix();
+        self.next_render_state.view_matrix = view;
+        self.render_state_updated = true;
     }
 
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]) {
-        self.flush_queue();
-        self.view_matrix = view;
-        self.proj_matrix = proj;
-        self.update_matrix();
+        self.next_render_state.view_matrix = view;
+        self.next_render_state.proj_matrix = proj;
+        self.render_state_updated = true;
     }
 
     fn get_model_matrix(&self) -> [f32; 16] {
-        self.model_matrix
+        self.next_render_state.model_matrix
     }
 
     fn set_model_matrix(&mut self, model: [f32; 16]) {
-        self.flush_queue();
-        self.model_matrix = model;
-        self.update_matrix();
+        self.next_render_state.model_matrix = model;
+        self.render_state_updated = true;
     }
 
     fn mult_model_matrix(&mut self, model: [f32; 16]) {
-        self.flush_queue();
-        self.model_matrix = mat4mult(self.model_matrix, model);
-        self.update_matrix();
+        self.next_render_state.model_matrix = mat4mult(self.next_render_state.model_matrix, model);
+        self.render_state_updated = true;
     }
 
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
@@ -1931,57 +2047,31 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_depth_test(&self) -> bool {
-        self.depth_test
+        self.next_render_state.depth_test
     }
 
     fn set_depth_test(&mut self, depth_test: bool) {
         let depth_test = depth_test && self.using_3d;
-        if self.depth_test != depth_test {
-            self.flush_queue();
-            self.depth_test = depth_test;
-            unsafe {
-                self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
-                if self.depth_test {
-                    self.gl.Enable(gl::DEPTH_TEST);
-                } else {
-                    self.gl.Disable(gl::DEPTH_TEST);
-                }
-            }
-        }
+        self.next_render_state.depth_test = depth_test;
+        self.render_state_updated = true;
     }
 
     fn get_write_depth(&self) -> bool {
-        let mut write_depth = gl::FALSE;
-        unsafe {
-            self.gl.GetBooleanv(gl::DEPTH_WRITEMASK, &mut write_depth);
-        }
-        write_depth != gl::FALSE
+        self.next_render_state.write_depth
     }
 
     fn set_write_depth(&mut self, write_depth: bool) {
-        if write_depth != self.get_write_depth() {
-            self.flush_queue();
-            unsafe {
-                self.gl.DepthMask(write_depth as _);
-            }
-        }
+        self.next_render_state.write_depth = write_depth;
+        self.render_state_updated = true;
     }
 
     fn get_culling(&self) -> bool {
-        unsafe { self.gl.IsEnabled(gl::CULL_FACE) != gl::FALSE }
+        self.next_render_state.culling
     }
 
     fn set_culling(&mut self, culling: bool) {
-        if culling != self.get_culling() {
-            self.flush_queue();
-            unsafe {
-                if culling {
-                    self.gl.Enable(gl::CULL_FACE);
-                } else {
-                    self.gl.Disable(gl::CULL_FACE);
-                }
-            }
-        }
+        self.next_render_state.culling = culling;
+        self.render_state_updated = true;
     }
 
     fn get_perspective(&self) -> bool {
@@ -1994,105 +2084,68 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_fog(&self) -> Option<Fog> {
-        self.fog.clone()
+        self.next_render_state.fog_enabled.then(|| self.next_render_state.fog.clone())
     }
 
     fn set_fog(&mut self, fog: Option<Fog>) {
-        if fog != self.fog {
-            self.flush_queue();
-            unsafe {
-                self.gl.Uniform1i(self.loc_fog_enabled, fog.is_some() as _);
-                if let Some(fog) = fog.as_ref() {
-                    let col = split_colour(fog.colour, 1.0);
-                    self.gl.Uniform3fv(self.loc_fog_colour, 1, col.as_ptr());
-                    self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
-                    self.gl.Uniform1f(self.loc_fog_end, fog.end);
-                }
-            }
-            self.fog = fog;
+        self.next_render_state.fog_enabled = fog.is_some();
+        if let Some(fog) = fog {
+            self.next_render_state.fog = fog;
         }
+        self.render_state_updated = true;
     }
 
     fn get_gouraud(&self) -> bool {
-        self.gouraud
+        self.next_render_state.gouraud
     }
 
     fn set_gouraud(&mut self, gouraud: bool) {
-        if self.gouraud != gouraud {
-            self.flush_queue();
-            self.gouraud = gouraud;
-            unsafe {
-                self.gl.Uniform1i(self.loc_gouraud_shading, gouraud as _);
-            }
-        }
+        self.next_render_state.gouraud = gouraud;
+        self.render_state_updated = true;
     }
 
     fn get_lighting_enabled(&self) -> bool {
-        self.lighting
+        self.next_render_state.lighting
     }
 
     fn set_lighting_enabled(&mut self, enabled: bool) {
-        if self.lighting != enabled {
-            self.flush_queue();
-            self.lighting = enabled;
-            unsafe {
-                self.gl.Uniform1i(self.loc_lighting_enabled, enabled as _);
-            }
-        }
+        self.next_render_state.lighting = enabled;
+        self.render_state_updated = true;
     }
 
     fn get_ambient_colour(&self) -> i32 {
-        self.ambient_colour
+        let col = &self.next_render_state.ambient_colour[0..3];
+        u32::from(Colour::from((f64::from(col[0]), col[1].into(), col[2].into()))) as _
     }
 
     fn set_ambient_colour(&mut self, colour: i32) {
-        if self.ambient_colour != colour {
-            self.flush_queue();
-            self.ambient_colour = colour;
-            unsafe {
-                let col = split_colour(colour, 1.0);
-                self.gl.Uniform3fv(self.loc_ambient_colour, 1, col.as_ptr());
-            }
-        }
+        self.next_render_state.ambient_colour = split_colour(colour, 1.0);
+        self.render_state_updated = true;
     }
 
     fn get_lights(&self) -> [(bool, Light); 8] {
-        self.lights
+        let mut iter =
+            self.next_render_state.lights_enabled.iter().copied().zip(self.next_render_state.lights.iter().cloned());
+        [
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+        ]
     }
 
     fn set_light_enabled(&mut self, id: usize, enabled: bool) {
-        if self.lights[id].0 != enabled {
-            self.flush_queue();
-            self.lights[id].0 = enabled;
-            unsafe {
-                self.gl.Uniform1i(self.loc_lights[id].enabled, enabled as _);
-            }
-        }
+        self.next_render_state.lights_enabled[id] = enabled;
+        self.render_state_updated = true;
     }
 
     fn set_light(&mut self, id: usize, light: Light) {
-        if self.lights[id].1 != light {
-            self.flush_queue();
-            unsafe {
-                let loc_light = &mut self.loc_lights[id];
-                match light {
-                    Light::Directional { direction, colour } => {
-                        self.gl.Uniform1i(loc_light.is_point, false as _);
-                        self.gl.Uniform3fv(loc_light.pos, 1, direction.as_ptr());
-                        let col = split_colour(colour, 1.0);
-                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
-                    },
-                    Light::Point { position, range, colour } => {
-                        self.gl.Uniform1i(loc_light.is_point, true as _);
-                        self.gl.Uniform3fv(loc_light.pos, 1, position.as_ptr());
-                        self.gl.Uniform1f(loc_light.range, range);
-                        let col = split_colour(colour, 1.0);
-                        self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
-                    },
-                }
-            }
-            self.lights[id].1 = light;
-        }
+        self.next_render_state.lights[id] = light;
+        self.render_state_updated = true;
     }
 
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
@@ -2162,7 +2215,7 @@ impl RendererTrait for RendererImpl {
                 w_x + w_w,
                 w_y + w_h,
                 gl::COLOR_BUFFER_BIT,
-                if self.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
+                if self.next_render_state.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
             );
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
 
