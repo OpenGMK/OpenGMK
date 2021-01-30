@@ -42,7 +42,7 @@ pub enum Light {
     Point { position: [f32; 3], range: f32, colour: i32 },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlendType {
     Zero,
     One,
