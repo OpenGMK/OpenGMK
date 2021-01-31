@@ -1386,6 +1386,7 @@ impl Game {
         // Clear some stored variables
         self.instance_list = InstanceList::new();
         self.globals = DummyFieldHolder::new();
+        self.game_start = true;
 
         // Go to first room
         self.load_room(self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?)
