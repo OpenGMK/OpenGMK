@@ -11,6 +11,7 @@ pub struct InputManager {
     kb_held: BoolMap,
     kb_pressed: BoolMap,
     kb_released: BoolMap,
+    kb_map: KeyMap,
     kb_key: u32,
     kb_lastkey: u32,
     kb_lshift: bool,
@@ -72,12 +73,46 @@ impl BoolMap {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct KeyMap(Vec<usize>);
+
+impl KeyMap {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self(Vec::with_capacity(cap))
+    }
+
+    pub fn get(&self, index: usize) -> usize {
+        self.0.get(index).copied().unwrap_or(index)
+    }
+
+    pub fn set(&mut self, index: usize, value: usize) {
+        match self.0.get_mut(index) {
+            Some(k) => *k = value,
+            None => {
+                for i in self.0.len()..index {
+                    self.0.push(i);
+                }
+                self.0.push(value);
+            },
+        }
+    }
+
+    pub fn unset_all(&mut self) {
+        self.0.iter_mut().enumerate().for_each(|(i, k)| *k = i);
+    }
+}
+
 impl InputManager {
     pub fn new() -> Self {
         Self {
             kb_held: BoolMap::with_capacity(KEY_COUNT),
             kb_pressed: BoolMap::with_capacity(KEY_COUNT),
             kb_released: BoolMap::with_capacity(KEY_COUNT),
+            kb_map: KeyMap::with_capacity(KEY_COUNT),
             kb_key: 0,
             kb_lastkey: 0,
             kb_lshift: false,
@@ -104,27 +139,29 @@ impl InputManager {
     /// Informs the input manager that a key has been pressed
     pub fn key_press(&mut self, key: Key) {
         // self.kb_handle_direct(key, true);
-        let code = key as usize;
-        if !self.kb_held.get(code) {
-            self.kb_held.set(code, true);
-            self.kb_pressed.set(code, true);
+        let code = self.key_get_map(key as usize);
+        if code < KEY_COUNT {
+            if !self.kb_held.get(code) {
+                self.kb_held.set(code, true);
+                self.kb_pressed.set(code, true);
+            }
+            self.kb_key = code as u32;
+            self.kb_lastkey = code as u32;
         }
-        self.kb_key = code as u32;
-        self.kb_lastkey = code as u32;
     }
 
     /// Informs the input manager that a key has been released
     pub fn key_release(&mut self, key: Key) {
         // self.kb_handle_direct(key, false);
-        let code = key as usize;
+        let code = self.key_get_map(key as usize);
         if code < KEY_COUNT {
             if self.kb_held.get(code) {
                 self.kb_held.set(code, false);
                 self.kb_released.set(code, true);
             }
-        }
-        if self.kb_key == code as u32 {
-            self.kb_key = 0;
+            if self.kb_key == code as u32 {
+                self.kb_key = 0;
+            }
         }
     }
 
@@ -229,6 +266,20 @@ impl InputManager {
     /// Checks if the spoofed numlock is pressed
     pub fn key_set_numlock(&mut self, value: bool) {
         self.numlock = value
+    }
+
+    pub fn key_get_map(&self, code: usize) -> usize {
+        self.kb_map.get(code)
+    }
+
+    pub fn key_set_map(&mut self, code: usize, value: usize) {
+        if code < 0x100 {
+            self.kb_map.set(code, value);
+        }
+    }
+
+    pub fn key_unmap_all(&mut self) {
+        self.kb_map.unset_all();
     }
 
     /// Updates the position of the mouse. Coordinates are relative to the top-left of the window
