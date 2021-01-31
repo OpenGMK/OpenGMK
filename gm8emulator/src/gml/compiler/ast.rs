@@ -1382,6 +1382,38 @@ mod tests {
     }
 
     #[test]
+    fn var_surprise_function() {
+        // var syntax - surprise function call after non-comma-separated var name list
+        assert_ast(
+            "var a instance_create instance_destroy ()",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a", b"instance_create"] })),
+                Expr::Function(Box::new(FunctionExpr { name: b"instance_destroy", params: vec![] })),
+            ]),
+        )
+    }
+
+    #[test]
+    fn var_surprise_constant() {
+        // var syntax - surprise constant after non-comma-separated var name list
+        assert_ast(
+            "var a b global.g = 0",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a", b"b"] })),
+                Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: Expr::LiteralIdentifier(b"global"),
+                        right: Expr::LiteralIdentifier(b"g"),
+                    })),
+                    right: Expr::LiteralReal(0.0),
+                })),
+            ]),
+        )
+    }
+
+    #[test]
     fn expression_literal_real() {
         // expression - single literal real
         assert_eq!(AST::expression(b"1").unwrap(), Expr::LiteralReal(1.0));
