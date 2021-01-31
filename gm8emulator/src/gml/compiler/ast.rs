@@ -293,21 +293,34 @@ impl<'a> AST<'a> {
                             vars.push(id);
 
                             loop {
+                                let mut peek_lex = lex.clone();
                                 // Check next token
-                                match lex.peek() {
+                                match peek_lex.next() {
                                     // If next token is a comma, skip it and expect another identifier after it
                                     Some(Token::Separator(Separator::Comma)) => {
                                         lex.next();
                                     },
 
-                                    // If next token is an identifier, it's another var name
-                                    Some(Token::Identifier(_)) => (),
+                                    // If next token is an identifier, it might be another var name...
+                                    Some(Token::Identifier(_)) => {
+                                        // ...but if the token after that is '(' or `.`, then it's actually the start
+                                        // of the next line, so stop reading var names here
+                                        let next = peek_lex.next();
+                                        if matches!(
+                                            next,
+                                            Some(Token::Separator(Separator::ParenLeft))
+                                                | Some(Token::Separator(Separator::Period))
+                                        ) {
+                                            break
+                                        }
+                                    },
 
                                     // Anything else (most likely a semicolon) means there are no more var names.
                                     _ => break,
                                 }
 
                                 // Read one identifier and store it as a var name
+                                // Alternatively, break if the next token is not a Token::Identifier
                                 if let Some(Token::Identifier(id)) = lex.peek() {
                                     vars.push(id);
                                     lex.next();
@@ -1366,6 +1379,38 @@ mod tests {
     fn var_invalid_comma() {
         // var syntax - invalid comma
         assert_ast("var, a;", None)
+    }
+
+    #[test]
+    fn var_surprise_function() {
+        // var syntax - surprise function call after non-comma-separated var name list
+        assert_ast(
+            "var a instance_create instance_destroy ()",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a", b"instance_create"] })),
+                Expr::Function(Box::new(FunctionExpr { name: b"instance_destroy", params: vec![] })),
+            ]),
+        )
+    }
+
+    #[test]
+    fn var_surprise_constant() {
+        // var syntax - surprise constant after non-comma-separated var name list
+        assert_ast(
+            "var a b global.g = 0",
+            Some(vec![
+                Expr::Var(Box::new(VarExpr { vars: vec![b"a", b"b"] })),
+                Expr::Binary(Box::new(BinaryExpr {
+                    op: Operator::Assign,
+                    left: Expr::Binary(Box::new(BinaryExpr {
+                        op: Operator::Deref,
+                        left: Expr::LiteralIdentifier(b"global"),
+                        right: Expr::LiteralIdentifier(b"g"),
+                    })),
+                    right: Expr::LiteralReal(0.0),
+                })),
+            ]),
+        )
     }
 
     #[test]

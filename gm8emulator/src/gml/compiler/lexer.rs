@@ -7,6 +7,7 @@ use std::{
     str, u64,
 };
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
     /// GML source code to return references to.
     src: &'a [u8],
