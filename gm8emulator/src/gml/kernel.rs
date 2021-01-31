@@ -5074,9 +5074,17 @@ impl Game {
         Ok(id.into())
     }
 
-    pub fn instance_copy(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_copy")
+    pub fn instance_copy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let run_event = expect_args!(args, [bool])?;
+        let new_instance = self.instance_list.get(context.this).clone();
+        self.last_instance_id += 1;
+        let id = self.last_instance_id;
+        new_instance.id.set(id);
+        let handle = self.instance_list.insert(new_instance);
+        if run_event {
+            self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
+        }
+        Ok(id.into())
     }
 
     pub fn instance_change(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
