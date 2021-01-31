@@ -8592,12 +8592,14 @@ impl Game {
 
     pub fn sound_discard(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_discard")
+        //unimplemented!("Called unimplemented kernel function sound_discard")
+        Ok(Default::default())
     }
 
     pub fn sound_restore(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_restore")
+        //unimplemented!("Called unimplemented kernel function sound_restore")
+        Ok(Default::default())
     }
 
     pub fn sound_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8607,7 +8609,8 @@ impl Game {
 
     pub fn sound_replace(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function sound_replace")
+        //unimplemented!("Called unimplemented kernel function sound_replace")
+        Ok(Default::default())
     }
 
     pub fn sound_delete(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -11544,7 +11547,8 @@ impl Game {
 
     pub fn sound_fade(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sound_fade")
+        //unimplemented!("Called unimplemented kernel function sound_fade")
+        Ok(Default::default())
     }
 
     pub fn sound_pan(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -11554,7 +11558,8 @@ impl Game {
 
     pub fn sound_background_tempo(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_background_tempo")
+        //unimplemented!("Called unimplemented kernel function sound_background_tempo")
+        Ok(Default::default())
     }
 
     pub fn sound_global_volume(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
