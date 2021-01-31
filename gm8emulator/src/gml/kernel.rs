@@ -6692,19 +6692,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function keyboard_key_release")
     }
 
-    pub fn keyboard_set_map(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function keyboard_set_map")
+    pub fn keyboard_set_map(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (real, mapped) = expect_args!(args, [int, int])?;
+        self.input_manager.key_set_map(real as usize, mapped as usize);
+        Ok(Default::default())
     }
 
-    pub fn keyboard_get_map(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_get_map")
+    pub fn keyboard_get_map(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let key = expect_args!(args, [int])?;
+        Ok((self.input_manager.key_get_map(key as usize) as i32).into())
     }
 
-    pub fn keyboard_unset_map(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function keyboard_unset_map")
+    pub fn keyboard_unset_map(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.input_manager.key_unmap_all();
+        Ok(Default::default())
     }
 
     pub fn keyboard_check(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
