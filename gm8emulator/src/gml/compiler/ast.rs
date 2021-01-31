@@ -293,21 +293,34 @@ impl<'a> AST<'a> {
                             vars.push(id);
 
                             loop {
+                                let mut peek_lex = lex.clone();
                                 // Check next token
-                                match lex.peek() {
+                                match peek_lex.next() {
                                     // If next token is a comma, skip it and expect another identifier after it
                                     Some(Token::Separator(Separator::Comma)) => {
                                         lex.next();
                                     },
 
-                                    // If next token is an identifier, it's another var name
-                                    Some(Token::Identifier(_)) => (),
+                                    // If next token is an identifier, it might be another var name...
+                                    Some(Token::Identifier(_)) => {
+                                        // ...but if the token after that is '(' or `.`, then it's actually the start
+                                        // of the next line, so stop reading var names here
+                                        let next = peek_lex.next();
+                                        if matches!(
+                                            next,
+                                            Some(Token::Separator(Separator::ParenLeft))
+                                                | Some(Token::Separator(Separator::Period))
+                                        ) {
+                                            break
+                                        }
+                                    },
 
                                     // Anything else (most likely a semicolon) means there are no more var names.
                                     _ => break,
                                 }
 
                                 // Read one identifier and store it as a var name
+                                // Alternatively, break if the next token is not a Token::Identifier
                                 if let Some(Token::Identifier(id)) = lex.peek() {
                                     vars.push(id);
                                     lex.next();
