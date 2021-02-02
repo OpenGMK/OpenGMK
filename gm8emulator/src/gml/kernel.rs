@@ -8562,8 +8562,10 @@ impl Game {
     }
 
     pub fn sound_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_exists")
+        // TODO: uncomment this when there are sounds
+        //let sound = expect_args!(args, [int])?;
+        //Ok(self.assets.sounds.get_asset(sound).is_some().into())
+        todo!()
     }
 
     pub fn sound_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8615,9 +8617,9 @@ impl Game {
         self.font_get_name(context, args)
     }
 
-    pub fn font_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_exists")
+    pub fn font_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let font = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(font).is_some().into())
     }
 
     pub fn font_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9035,9 +9037,9 @@ impl Game {
         self.timeline_get_name(context, args)
     }
 
-    pub fn timeline_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function timeline_exists")
+    pub fn timeline_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let timeline = expect_args!(args, [int])?;
+        Ok(self.assets.timelines.get_asset(timeline).is_some().into())
     }
 
     pub fn timeline_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9075,12 +9077,8 @@ impl Game {
     }
 
     pub fn object_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let object_id = expect_args!(args, [int])?;
-        if let Some(Some(_)) = self.assets.objects.get(object_id as usize) {
-            Ok(gml::TRUE.into())
-        } else {
-            Ok(gml::FALSE.into())
-        }
+        let object = expect_args!(args, [int])?;
+        Ok(self.assets.objects.get_asset(object).is_some().into())
     }
 
     pub fn object_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
