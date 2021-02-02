@@ -7747,12 +7747,8 @@ impl Game {
     }
 
     pub fn sprite_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let sprite = expect_args!(args, [int])?;
-        if let Some(sprite) = self.assets.sprites.get_asset(sprite) {
-            Ok(sprite.name.clone().into())
-        } else {
-            Ok("<undefined>".into())
-        }
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.sprites.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn sprite_get_number(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -8286,12 +8282,8 @@ impl Game {
     }
 
     pub fn background_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let background_id = expect_args!(args, [int])?;
-        if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
-            Ok(background.name.clone().into())
-        } else {
-            Ok("<undefined>".into())
-        }
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.backgrounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn background_get_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -8565,9 +8557,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_name")
+    pub fn sound_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.sound_get_name(context, args)
     }
 
     pub fn sound_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8576,8 +8567,10 @@ impl Game {
     }
 
     pub fn sound_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_name")
+        // TODO: uncomment this when there are sounds
+        //let asset_id = expect_args!(args, [int])?;
+        //Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
+        todo!()
     }
 
     pub fn sound_get_kind(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8618,9 +8611,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sound_delete")
     }
 
-    pub fn font_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_name")
+    pub fn font_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.font_get_name(context, args)
     }
 
     pub fn font_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8628,9 +8620,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function font_exists")
     }
 
-    pub fn font_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_name")
+    pub fn font_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn font_get_fontname(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -8742,8 +8734,8 @@ impl Game {
     }
 
     pub fn script_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let script_id = expect_args!(args, [int])?;
-        Ok(self.assets.scripts.get_asset(script_id).map(|s| s.name.clone().into()).unwrap_or("<undefined>".into()))
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.scripts.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn script_get_text(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -8783,9 +8775,8 @@ impl Game {
         }
     }
 
-    pub fn path_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_name")
+    pub fn path_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.path_get_name(context, args)
     }
 
     pub fn path_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -8794,11 +8785,8 @@ impl Game {
     }
 
     pub fn path_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let path_id = expect_args!(args, [int])?;
-        match self.assets.paths.get_asset(path_id) {
-            Some(path) => Ok(Value::Str(path.name.clone())),
-            None => Ok("<undefined>".to_string().into()),
-        }
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.paths.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn path_get_length(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9043,9 +9031,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_shift")
     }
 
-    pub fn timeline_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function timeline_name")
+    pub fn timeline_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.timeline_get_name(context, args)
     }
 
     pub fn timeline_exists(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -9053,9 +9040,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function timeline_exists")
     }
 
-    pub fn timeline_get_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function timeline_get_name")
+    pub fn timeline_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.timelines.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn timeline_add(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -9083,9 +9070,8 @@ impl Game {
         unimplemented!("Called unimplemented kernel function timeline_moment_add")
     }
 
-    pub fn object_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function object_name")
+    pub fn object_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.object_get_name(context, args)
     }
 
     pub fn object_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9098,12 +9084,8 @@ impl Game {
     }
 
     pub fn object_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let object_id = expect_args!(args, [int])?;
-        if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
-            Ok(Value::Str(object.name.clone()))
-        } else {
-            Ok("<undefined>".to_string().into())
-        }
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.objects.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn object_get_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9294,9 +9276,8 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn room_name(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_name")
+    pub fn room_name(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        self.room_get_name(context, args)
     }
 
     pub fn room_exists(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -9305,12 +9286,8 @@ impl Game {
     }
 
     pub fn room_get_name(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let room_id = expect_args!(args, [int])?;
-        if let Some(room) = self.assets.rooms.get_asset(room_id) {
-            Ok(room.name.clone().into())
-        } else {
-            Ok("<undefined>".to_string().into())
-        }
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.rooms.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn room_set_width(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
