@@ -809,9 +809,25 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function draw_path")
+    pub fn draw_path(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path, x, y, absolute) = expect_args!(args, [int, real, real, bool])?;
+        let path = self.assets.paths.get_asset(path).ok_or(gml::Error::NonexistentAsset(asset::Type::Path, path))?;
+        let (x_offset, y_offset) = if absolute { (0.into(), 0.into()) } else { (x - path.start.x, y - path.start.y) };
+
+        for (node1, node2) in path.control_nodes.windows(2).map(|x| (x[0], x[1])) {
+            self.renderer.draw_line(
+                f64::from(node1.point.x + x_offset),
+                f64::from(node1.point.y + y_offset),
+                f64::from(node2.point.x + x_offset),
+                f64::from(node2.point.y + y_offset),
+                None,
+                u32::from(self.draw_colour) as _,
+                u32::from(self.draw_colour) as _,
+                self.draw_alpha.into(),
+            );
+        }
+
+        Ok(Default::default())
     }
 
     pub fn draw_point_color(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
