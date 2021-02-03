@@ -37,24 +37,63 @@ macro_rules! shader_file {
     };
 }
 
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u32)]
+enum GLBool {
+    False = 0,
+    True = 1,
+}
+
+impl From<GLBool> for bool {
+    fn from(b: GLBool) -> Self {
+        match b {
+            GLBool::False => false,
+            GLBool::True => true,
+        }
+    }
+}
+
+impl From<bool> for GLBool {
+    fn from(b: bool) -> Self {
+        if b { GLBool::True } else { GLBool::False }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(C)]
+struct GLLight {
+    pos: [f32; 4],
+    colour: [f32; 4],
+    enabled: GLBool,
+    is_point: GLBool,
+    range: f32,
+    padding: u32, // must pad to size of vec4
+}
+
 #[derive(Clone, PartialEq)]
+#[repr(C)]
 struct RenderState {
-    blend_mode: (BlendType, BlendType),
+    // vertex shader
     model_matrix: [f32; 16],
+    viewproj_matrix: [f32; 16],
+    lights: [GLLight; 8],
+    ambient_colour: [f32; 4],
+    lighting: GLBool,
+    gouraud: GLBool,
+    // frag shader
+    texture_repeat: GLBool,
+    interpolate_pixels: GLBool,
+    depth_test: GLBool,
+    fog_enabled: GLBool,
+    fog_begin: f32,
+    fog_end: f32,
+    fog_colour: [f32; 4],
+    // other stuff
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
-    interpolate_pixels: bool,
-    texture_repeat: bool,
-    depth_test: bool,
+    blend_mode: (BlendType, BlendType),
     write_depth: bool,
     culling: bool,
-    fog_enabled: bool,
-    fog: Fog,
-    gouraud: bool,
-    lighting: bool,
-    ambient_colour: [f32; 4],
-    lights_enabled: [bool; 8],
-    lights: [Light; 8],
 }
 
 impl Default for RenderState {
@@ -69,21 +108,30 @@ impl Default for RenderState {
         ];
         Self {
             blend_mode: (BlendType::SrcAlpha, BlendType::InvSrcAlpha),
-            interpolate_pixels: false,
-            texture_repeat: false,
+            interpolate_pixels: GLBool::False,
+            texture_repeat: GLBool::False,
             model_matrix: identity_matrix.clone(),
             view_matrix: identity_matrix.clone(),
             proj_matrix: identity_matrix.clone(),
-            depth_test: false,
+            depth_test: false.into(),
             write_depth: false,
             culling: false,
-            fog_enabled: false,
-            fog: Fog { colour: 0, begin: 0.0, end: 0.0 },
-            lighting: false,
-            gouraud: true,
+            fog_enabled: GLBool::False,
+            fog_begin: 0.0,
+            fog_end: 0.0,
+            lighting: GLBool::False,
+            gouraud: GLBool::True,
             ambient_colour: [0.0; 4],
-            lights_enabled: [false; 8],
-            lights: [Light::Directional { direction: [0.0; 3], colour: 0 }; 8],
+            lights: [GLLight {
+                pos: [0.0; 4],
+                colour: [0.0; 4],
+                enabled: GLBool::False,
+                is_point: GLBool::False,
+                range: 0.0,
+                padding: 0,
+            }; 8],
+            viewproj_matrix: identity_matrix.clone(),
+            fog_colour: [0.0; 4],
         }
     }
 }
@@ -118,21 +166,9 @@ pub struct RendererImpl {
     primitive_2d: PrimitiveBuilder,
     primitive_3d: PrimitiveBuilder,
 
-    loc_tex: GLint,              // uniform sampler2D tex
-    loc_model: GLint,            // uniform mat4 model
-    loc_proj: GLint,             // uniform mat4 projection
-    loc_repeat: GLint,           // uniform bool repeat
-    loc_lerp: GLint,             // uniform bool lerp
-    loc_alpha_test: GLint,       // uniform bool alpha_test
-    loc_fog_enabled: GLint,      // uniform bool fog_enabled
-    loc_fog_colour: GLint,       // uniform vec4 fog_colour
-    loc_fog_begin: GLint,        // uniform float fog_begin
-    loc_fog_end: GLint,          // uniform float fog_end
-    loc_lighting_enabled: GLint, // uniform bool lighting_enabled
-    loc_gouraud_shading: GLint,  // uniform bool gouraud_shading
-    loc_ambient_colour: GLint,   // uniform vec3 ambient_colour
-    loc_gm81_normalize: GLint,   // uniform bool gm81_normalize
-    loc_lights: Vec<LightUniform>,
+    loc_gm81_normalize: GLint, // uniform bool gm81_normalize
+    loc_tex: GLint,            // uniform sampler2D tex
+    buf_state: GLuint,         // uniform RenderState state
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -468,29 +504,15 @@ impl RendererImpl {
             );
             gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, framebuffer_zbuf, 0);
 
-            let loc_lights = {
-                let mut lights = Vec::with_capacity(8);
-                let mut enabled_name = *b"lights[0].enabled\0";
-                let mut is_point_name = *b"lights[0].is_point\0";
-                let mut pos_name = *b"lights[0].pos\0";
-                let mut col_name = *b"lights[0].colour\0";
-                let mut range_name = *b"lights[0].range\0";
-                for i in b'0'..b'8' {
-                    enabled_name[7] = i;
-                    is_point_name[7] = i;
-                    pos_name[7] = i;
-                    col_name[7] = i;
-                    range_name[7] = i;
-                    lights.push(LightUniform {
-                        enabled: gl.GetUniformLocation(program, enabled_name.as_ptr().cast()),
-                        is_point: gl.GetUniformLocation(program, is_point_name.as_ptr().cast()),
-                        pos: gl.GetUniformLocation(program, pos_name.as_ptr().cast()),
-                        colour: gl.GetUniformLocation(program, col_name.as_ptr().cast()),
-                        range: gl.GetUniformLocation(program, range_name.as_ptr().cast()),
-                    });
-                }
-                lights
-            };
+            // setup uniform buffer for render state
+            let loc_state = 1;
+            let ind = gl.GetUniformBlockIndex(program, b"RenderState\0".as_ptr().cast());
+            assert_ne!(ind, gl::INVALID_INDEX);
+            gl.UniformBlockBinding(program, ind, loc_state);
+            let mut buf_state: GLuint = 0;
+            gl.GenBuffers(1, &mut buf_state);
+            gl.BindBufferBase(gl::UNIFORM_BUFFER, loc_state, buf_state);
+            assert_eq!(gl.GetError(), 0);
 
             // Create Renderer
             let mut renderer = Self {
@@ -513,10 +535,13 @@ impl RendererImpl {
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveShape::Triangle,
                 queue_render_state: RenderState {
-                    interpolate_pixels: options.interpolate_pixels,
+                    interpolate_pixels: options.interpolate_pixels.into(),
                     ..Default::default()
                 },
-                next_render_state: RenderState { interpolate_pixels: options.interpolate_pixels, ..Default::default() },
+                next_render_state: RenderState {
+                    interpolate_pixels: options.interpolate_pixels.into(),
+                    ..Default::default()
+                },
                 render_state_updated: false,
                 circle_precision: 24,
                 using_3d: false,
@@ -525,38 +550,25 @@ impl RendererImpl {
                 primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
                 primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
 
-                loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
-                loc_model: gl.GetUniformLocation(program, b"model\0".as_ptr().cast()),
-                loc_proj: gl.GetUniformLocation(program, b"projection\0".as_ptr().cast()),
-                loc_repeat: gl.GetUniformLocation(program, b"repeat\0".as_ptr().cast()),
-                loc_lerp: gl.GetUniformLocation(program, b"lerp\0".as_ptr().cast()),
-                loc_alpha_test: gl.GetUniformLocation(program, b"alpha_test\0".as_ptr().cast()),
-
-                loc_fog_enabled: gl.GetUniformLocation(program, b"fog_enabled\0".as_ptr().cast()),
-                loc_fog_colour: gl.GetUniformLocation(program, b"fog_colour\0".as_ptr().cast()),
-                loc_fog_begin: gl.GetUniformLocation(program, b"fog_begin\0".as_ptr().cast()),
-                loc_fog_end: gl.GetUniformLocation(program, b"fog_end\0".as_ptr().cast()),
-
-                loc_lighting_enabled: gl.GetUniformLocation(program, b"lighting_enabled\0".as_ptr().cast()),
-                loc_gouraud_shading: gl.GetUniformLocation(program, b"gouraud_shading\0".as_ptr().cast()),
-                loc_ambient_colour: gl.GetUniformLocation(program, b"ambient_colour\0".as_ptr().cast()),
                 loc_gm81_normalize: gl.GetUniformLocation(program, b"gm81_normalize\0".as_ptr().cast()),
-                loc_lights,
+                loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
+                buf_state,
 
                 gl,
             };
+            assert_eq!(renderer.gl.GetError(), 0);
 
             // default uniform values
-            renderer.gl.Uniform1i(renderer.loc_repeat, false as _);
-            renderer.gl.Uniform1i(renderer.loc_alpha_test, false as _);
-            renderer.gl.Uniform1i(renderer.loc_fog_enabled, false as _);
-            renderer.gl.Uniform1i(renderer.loc_lighting_enabled, false as _);
-            renderer.gl.Uniform1i(renderer.loc_gouraud_shading, true as _);
             renderer.gl.Uniform1i(renderer.loc_gm81_normalize, options.normalize_normals as _);
-            renderer.gl.Uniform3f(renderer.loc_ambient_colour, 0.0, 0.0, 0.0);
-            for light in renderer.loc_lights.iter() {
-                renderer.gl.Uniform1i(light.enabled, false as _);
-            }
+            renderer.gl.BindBuffer(gl::UNIFORM_BUFFER, renderer.buf_state);
+            // TODO: remove magic number
+            renderer.gl.BufferData(
+                gl::UNIFORM_BUFFER,
+                576,
+                (&renderer.queue_render_state as *const RenderState).cast(),
+                gl::STATIC_DRAW,
+            );
+            assert_eq!(renderer.gl.GetError(), 0);
 
             // Start first frame
             renderer.setup_frame(clear_colour);
@@ -579,35 +591,25 @@ impl RendererImpl {
             // set view
             self.set_view(0, 0, width, height, 0.0, 0, 0, width, height);
             // clear screen
-            self.gl.ClearColor(clear_colour.r as f32, clear_colour.g as f32, clear_colour.b as f32, 1.0);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-            assert_eq!(self.gl.GetError(), 0);
+            self.clear_view(clear_colour, 1.0);
         }
     }
 
-    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveShape) {
+    fn update_render_state(&mut self) {
+        self.flush_queue();
         if self.render_state_updated && self.queue_render_state != self.next_render_state {
-            self.flush_queue();
             let mut old_render_state = self.next_render_state.clone();
             std::mem::swap(&mut old_render_state, &mut self.queue_render_state);
             self.render_state_updated = false;
             let RenderState {
                 blend_mode,
-                model_matrix,
                 view_matrix,
                 proj_matrix,
                 interpolate_pixels,
-                texture_repeat,
                 depth_test,
                 write_depth,
                 culling,
-                fog_enabled,
-                fog,
-                gouraud,
-                lighting,
-                ambient_colour,
-                lights_enabled,
-                lights,
+                ..
             } = self.next_render_state.clone();
             unsafe {
                 if old_render_state.blend_mode != blend_mode {
@@ -615,14 +617,12 @@ impl RendererImpl {
                     self.gl.BlendFunc(src.into(), dst.into());
                 }
                 if old_render_state.interpolate_pixels != interpolate_pixels {
-                    let filter_mode = if interpolate_pixels { gl::LINEAR } else { gl::NEAREST };
+                    let filter_mode = if interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST };
                     self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
                     self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
-                    self.gl.Uniform1i(self.loc_lerp, interpolate_pixels as _); // for repeat
                 }
                 if old_render_state.depth_test != depth_test {
-                    self.gl.Uniform1i(self.loc_alpha_test, depth_test as _);
-                    if depth_test {
+                    if depth_test.into() {
                         self.gl.Enable(gl::DEPTH_TEST);
                     } else {
                         self.gl.Disable(gl::DEPTH_TEST);
@@ -638,62 +638,25 @@ impl RendererImpl {
                 if old_render_state.write_depth != write_depth {
                     self.gl.DepthMask(write_depth as _);
                 }
-                // everything after this is just uniforms, most of this can be made into a buffer and done all at once
-                {
-                    if old_render_state.model_matrix != model_matrix
-                        || old_render_state.view_matrix != view_matrix
-                        || old_render_state.proj_matrix != proj_matrix
-                    {
-                        self.update_matrix();
-                    }
-                    if old_render_state.texture_repeat != texture_repeat {
-                        self.gl.Uniform1i(self.loc_repeat, texture_repeat as _);
-                    }
-                    if old_render_state.fog_enabled != fog_enabled {
-                        self.gl.Uniform1i(self.loc_fog_enabled, fog_enabled as _);
-                    }
-                    if old_render_state.fog != fog {
-                        let col = split_colour(fog.colour, 1.0);
-                        self.gl.Uniform3fv(self.loc_fog_colour, 1, col.as_ptr());
-                        self.gl.Uniform1f(self.loc_fog_begin, fog.begin);
-                        self.gl.Uniform1f(self.loc_fog_end, fog.end);
-                    }
-                    if old_render_state.gouraud != gouraud {
-                        self.gl.Uniform1i(self.loc_gouraud_shading, gouraud as _);
-                    }
-                    if old_render_state.lighting != lighting {
-                        self.gl.Uniform1i(self.loc_lighting_enabled, lighting as _);
-                    }
-                    if old_render_state.ambient_colour != ambient_colour {
-                        self.gl.Uniform3fv(self.loc_ambient_colour, 1, ambient_colour.as_ptr());
-                    }
-                    for i in 0..8 {
-                        if old_render_state.lights_enabled[i] != lights_enabled[i] {
-                            self.gl.Uniform1i(self.loc_lights[i].enabled, lights_enabled[i] as _);
-                        }
-                        if old_render_state.lights[i] != lights[i] {
-                            let loc_light = &mut self.loc_lights[i];
-                            match lights[i] {
-                                Light::Directional { direction, colour } => {
-                                    self.gl.Uniform1i(loc_light.is_point, false as _);
-                                    self.gl.Uniform3fv(loc_light.pos, 1, direction.as_ptr());
-                                    let col = split_colour(colour, 1.0);
-                                    self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
-                                },
-                                Light::Point { position, range, colour } => {
-                                    self.gl.Uniform1i(loc_light.is_point, true as _);
-                                    self.gl.Uniform3fv(loc_light.pos, 1, position.as_ptr());
-                                    self.gl.Uniform1f(loc_light.range, range);
-                                    let col = split_colour(colour, 1.0);
-                                    self.gl.Uniform3fv(loc_light.colour, 1, col.as_ptr());
-                                },
-                            }
-                        }
-                    }
+                if old_render_state.view_matrix != view_matrix || old_render_state.proj_matrix != proj_matrix {
+                    self.update_matrix();
                 }
+
+                self.gl.BindBuffer(gl::UNIFORM_BUFFER, self.buf_state);
+                // TODO: remove magic number
+                self.gl.BufferData(
+                    gl::UNIFORM_BUFFER,
+                    576,
+                    (&self.queue_render_state as *const RenderState).cast(),
+                    gl::STATIC_DRAW,
+                );
                 assert_eq!(self.gl.GetError(), 0);
             }
         }
+    }
+
+    fn setup_queue(&mut self, atlas_id: u32, queue_type: PrimitiveShape) {
+        self.update_render_state();
         if atlas_id != self.current_atlas || self.queue_type != queue_type {
             self.flush_queue();
             self.current_atlas = atlas_id;
@@ -793,8 +756,6 @@ impl RendererImpl {
 
     fn update_matrix(&mut self) {
         unsafe {
-            // upload model matrix
-            self.gl.UniformMatrix4fv(self.loc_model, 1, gl::FALSE, self.next_render_state.model_matrix.as_ptr());
             // get half-pixel length in clip space
             let mut viewport = [0; 4];
             self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
@@ -813,8 +774,7 @@ impl RendererImpl {
                     offset_x as f32, offset_y as f32, 0.0, 1.0,
                 ],
             );
-            self.gl.UniformMatrix4fv(self.loc_proj, 1, gl::FALSE, viewproj.as_ptr());
-            assert_eq!(self.gl.GetError(), 0);
+            self.next_render_state.viewproj_matrix = viewproj;
         }
     }
 }
@@ -1886,22 +1846,22 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_pixel_interpolation(&self) -> bool {
-        self.next_render_state.interpolate_pixels
+        self.next_render_state.interpolate_pixels.into()
     }
 
     fn set_pixel_interpolation(&mut self, lerping: bool) {
         // in DX (and therefore GM) this is set per texture unit, but in GL it's per texture
         // therefore, we need to apply the setting before every draw call
-        self.next_render_state.interpolate_pixels = lerping;
+        self.next_render_state.interpolate_pixels = lerping.into();
         self.render_state_updated = true;
     }
 
     fn get_texture_repeat(&self) -> bool {
-        self.next_render_state.texture_repeat
+        self.next_render_state.texture_repeat.into()
     }
 
     fn set_texture_repeat(&mut self, repeat: bool) {
-        self.next_render_state.texture_repeat = repeat;
+        self.next_render_state.texture_repeat = repeat.into();
         self.render_state_updated = true;
     }
 
@@ -2008,10 +1968,11 @@ impl RendererTrait for RendererImpl {
         } else {
             self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
         }
+        self.update_render_state();
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
-        self.flush_queue();
+        self.update_render_state();
         unsafe {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -2047,12 +2008,12 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_depth_test(&self) -> bool {
-        self.next_render_state.depth_test
+        self.next_render_state.depth_test.into()
     }
 
     fn set_depth_test(&mut self, depth_test: bool) {
         let depth_test = depth_test && self.using_3d;
-        self.next_render_state.depth_test = depth_test;
+        self.next_render_state.depth_test = depth_test.into();
         self.render_state_updated = true;
     }
 
@@ -2084,32 +2045,39 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_fog(&self) -> Option<Fog> {
-        self.next_render_state.fog_enabled.then(|| self.next_render_state.fog.clone())
+        let c = self.next_render_state.fog_colour;
+        bool::from(self.next_render_state.fog_enabled).then(|| Fog {
+            colour: u32::from(Colour::from((f64::from(c[0]), c[1].into(), c[2].into()))) as i32,
+            begin: self.next_render_state.fog_begin,
+            end: self.next_render_state.fog_end,
+        })
     }
 
     fn set_fog(&mut self, fog: Option<Fog>) {
-        self.next_render_state.fog_enabled = fog.is_some();
+        self.next_render_state.fog_enabled = fog.is_some().into();
         if let Some(fog) = fog {
-            self.next_render_state.fog = fog;
+            self.next_render_state.fog_colour = split_colour(fog.colour, 1.0);
+            self.next_render_state.fog_begin = fog.begin;
+            self.next_render_state.fog_end = fog.end;
         }
         self.render_state_updated = true;
     }
 
     fn get_gouraud(&self) -> bool {
-        self.next_render_state.gouraud
+        self.next_render_state.gouraud.into()
     }
 
     fn set_gouraud(&mut self, gouraud: bool) {
-        self.next_render_state.gouraud = gouraud;
+        self.next_render_state.gouraud = gouraud.into();
         self.render_state_updated = true;
     }
 
     fn get_lighting_enabled(&self) -> bool {
-        self.next_render_state.lighting
+        self.next_render_state.lighting.into()
     }
 
     fn set_lighting_enabled(&mut self, enabled: bool) {
-        self.next_render_state.lighting = enabled;
+        self.next_render_state.lighting = enabled.into();
         self.render_state_updated = true;
     }
 
@@ -2124,8 +2092,19 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_lights(&self) -> [(bool, Light); 8] {
-        let mut iter =
-            self.next_render_state.lights_enabled.iter().copied().zip(self.next_render_state.lights.iter().cloned());
+        let mut iter = self.next_render_state.lights.iter().map(|l| {
+            let position = [l.pos[0], l.pos[1], l.pos[2]];
+            let colour =
+                u32::from(Colour::from((f64::from(l.colour[0]), l.colour[1].into(), l.colour[2].into()))) as i32;
+            (
+                l.enabled.into(),
+                if l.is_point.into() {
+                    Light::Point { position, range: l.range, colour }
+                } else {
+                    Light::Directional { direction: position, colour }
+                },
+            )
+        });
         [
             iter.next().unwrap(),
             iter.next().unwrap(),
@@ -2139,12 +2118,22 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_light_enabled(&mut self, id: usize, enabled: bool) {
-        self.next_render_state.lights_enabled[id] = enabled;
+        self.next_render_state.lights[id].enabled = enabled.into();
         self.render_state_updated = true;
     }
 
     fn set_light(&mut self, id: usize, light: Light) {
-        self.next_render_state.lights[id] = light;
+        match light {
+            Light::Directional { direction, colour } => {
+                self.next_render_state.lights[id].pos[0..3].copy_from_slice(&direction);
+                self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
+            },
+            Light::Point { position, range, colour } => {
+                self.next_render_state.lights[id].pos[0..3].copy_from_slice(&position);
+                self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
+                self.next_render_state.lights[id].range = range;
+            },
+        }
         self.render_state_updated = true;
     }
 
@@ -2215,7 +2204,7 @@ impl RendererTrait for RendererImpl {
                 w_x + w_w,
                 w_y + w_h,
                 gl::COLOR_BUFFER_BIT,
-                if self.next_render_state.interpolate_pixels { gl::LINEAR } else { gl::NEAREST },
+                if self.next_render_state.interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST },
             );
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
 

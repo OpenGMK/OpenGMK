@@ -1,26 +1,32 @@
 #version 330 core
 
-struct Light {
+layout(std140) struct Light {
+    vec4 pos; // padded vec3
+    vec4 colour; // padded vec3
     bool enabled;
     bool is_point;
-    vec3 pos;
-    vec3 colour;
     float range;
 };
 
-uniform mat4 model;
-uniform mat4 projection;
+layout(std140) uniform RenderState {
+    // vertex shader
+    mat4 model;
+    mat4 viewproj;
+    Light lights[8];
+    vec4 ambient_colour; // padded vec3
+    bool lighting_enabled;
+    bool gouraud_shading;
+    // frag shader
+    bool repeat;
+    bool lerp; // only used if repeat is on
+    bool alpha_test;
+    bool fog_enabled;
+    float fog_begin;
+    float fog_end;
+    vec4 fog_colour; // padded vec3
+};
 
-uniform bool lighting_enabled;
-uniform bool gouraud_shading;
-uniform bool gm81_normalize;
-uniform vec3 ambient_colour;
-uniform Light lights[8];
-uniform bool light_enabled[8];
-uniform bool light_is_point[8];
-uniform vec3 light_pos[8];
-uniform vec3 light_colour[8];
-uniform float light_range[8];
+uniform bool gm81_normalize; // this will never change so we don't need to include it in the state
 
 layout (location = 0) in vec3 pos;
 layout (location = 1) in vec4 blend;
@@ -48,8 +54,8 @@ void main() {
         }
         for (int i = 0; i < 8; i++) {
             if (lights[i].enabled) {
-                vec3 this_light_col = lights[i].colour;
-                vec3 ray = lights[i].pos;
+                vec3 this_light_col = lights[i].colour.rgb;
+                vec3 ray = lights[i].pos.xyz;
                 if (lights[i].is_point) {
                     ray = world_pos.xyz - ray;
                     float dist = length(ray);
@@ -64,12 +70,12 @@ void main() {
         }
         if (gouraud_shading) {
             frag_blend.rgb *= light_col;
-            frag_blend.rgb += ambient_colour;
+            frag_blend.rgb += ambient_colour.rgb;
         } else {
             frag_blend_flat.rgb *= light_col;
-            frag_blend_flat.rgb += ambient_colour;
+            frag_blend_flat.rgb += ambient_colour.rgb;
         }
     }
-    gl_Position = projection * world_pos;
+    gl_Position = viewproj * world_pos;
     fog_z = gl_Position.z;
 }
