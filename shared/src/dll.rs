@@ -13,6 +13,16 @@ pub enum ValueType {
     Str,
 }
 
+#[cfg(all(target_os = "windows", target_arch = "x86"))]
+impl From<ValueType> for libffi::middle::Type {
+    fn from(t: ValueType) -> Self {
+        match t {
+            ValueType::Real => Self::f64(),
+            ValueType::Str => Self::pointer(),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(f64),
