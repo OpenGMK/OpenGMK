@@ -1,16 +1,15 @@
 #![cfg(all(target_os = "windows", target_arch = "x86"))]
 
 use super::{CallConv, DefineInfo, ExternalCall};
-use crate::gml;
-use dll_macros::external_call;
+use crate::{game::string::RCStr, gml};
 use encoding_rs::Encoding;
-use shared::dll;
+use shared::{
+    dll,
+    dll::{Value, ValueType},
+};
 use std::{
     ffi::{CStr, OsStr},
-    os::{
-        raw::{c_char, c_void},
-        windows::ffi::OsStrExt,
-    },
+    os::{raw::c_char, windows::ffi::OsStrExt},
 };
 use winapi::{
     shared::minwindef::HMODULE,
@@ -27,19 +26,17 @@ impl From<*const c_char> for gml::Value {
     }
 }
 
-impl From<gml::Value> for dll::Value {
-    fn from(v: gml::Value) -> Self {
-        match v {
-            gml::Value::Real(x) => dll::Value::Real(x.into()),
-            gml::Value::Str(s) => s.as_ref().into(),
-        }
+fn to_dll_value(value: gml::Value, type_: &ValueType) -> dll::Value {
+    match type_ {
+        ValueType::Real => f64::from(value).into(),
+        ValueType::Str => RCStr::from(value).as_ref().into(),
     }
 }
 
 pub struct ExternalImpl {
     dll_handle: HMODULE,
-    call: *const c_void,
-    call_conv: CallConv,
+    codeptr: libffi::middle::CodePtr,
+    cif: libffi::middle::Cif,
     res_type: dll::ValueType,
     arg_types: Vec<dll::ValueType>,
 }
@@ -69,32 +66,41 @@ impl ExternalImpl {
             if os_fn_name == "FMODinit\0" {
                 dll::apply_fmod_hack(dll_name.as_ref(), dll_handle.cast())?;
             }
-            Ok(Self {
-                dll_handle,
-                call: fun.cast(),
-                call_conv: info.call_conv,
-                res_type: info.res_type,
-                arg_types: info.arg_types.clone(),
-            })
+            let codeptr = libffi::middle::CodePtr::from_ptr(fun.cast());
+            fn cnv(t: ValueType) -> libffi::middle::Type {
+                match t {
+                    ValueType::Real => libffi::middle::Type::f64(),
+                    ValueType::Str => libffi::middle::Type::pointer(),
+                }
+            }
+            let cif = libffi::middle::Builder::new()
+                .args(info.arg_types.iter().copied().map(cnv))
+                .res(cnv(info.res_type))
+                .abi(match info.call_conv {
+                    CallConv::Cdecl => 2,   // FFI_MS_CDECL
+                    CallConv::Stdcall => 5, // FFI_STDCALL
+                })
+                .into_cif();
+            Ok(Self { dll_handle, codeptr, cif, res_type: info.res_type, arg_types: info.arg_types.clone() })
         }
     }
 }
 
 impl ExternalCall for ExternalImpl {
     fn call(&self, args: &[gml::Value]) -> Result<gml::Value, String> {
-        let args = args.iter().map(|v| dll::Value::from(v.clone())).collect::<Vec<_>>();
+        let args = args.iter().zip(&self.arg_types).map(|(v, t)| to_dll_value(v.clone(), t)).collect::<Vec<_>>();
+        let arg_ptrs = args
+            .iter()
+            .map(|v| match v {
+                Value::Real(x) => libffi::middle::Arg::new(x),
+                Value::Str(s) => libffi::middle::Arg::new(&s.as_ptr()),
+            })
+            .collect::<Vec<_>>();
         unsafe {
-            Ok(external_call!(
-                self.call,
-                args,
-                self.call_conv,
-                self.res_type,
-                self.arg_types.as_slice(),
-                CallConv::Cdecl,
-                CallConv::Stdcall,
-                dll::ValueType::Real,
-                dll::ValueType::Str
-            ))
+            Ok(match self.res_type {
+                ValueType::Real => self.cif.call::<f64>(self.codeptr, &arg_ptrs).into(),
+                ValueType::Str => self.cif.call::<*const c_char>(self.codeptr, &arg_ptrs).into(),
+            })
         }
     }
 }
