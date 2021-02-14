@@ -33,6 +33,9 @@ shared = { path = "../shared" }
 version = "0.3"
 features = ["commctrl", "errhandlingapi", "libloaderapi", "timeapi", "winbase", "windowsx", "wingdi", "winuser"]
 
+[target.'cfg(all(target_os = "windows", target_arch = "x86"))'.dependencies]
+libffi = "1.0.0"
+
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"
 features = ["xlib"]
