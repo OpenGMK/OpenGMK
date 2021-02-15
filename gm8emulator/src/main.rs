@@ -1,4 +1,4 @@
-#![feature(asm, seek_convenience)]
+#![feature(asm, seek_convenience, seek_stream_len)]
 #![allow(dead_code)] // Shut up.
 
 mod action;
