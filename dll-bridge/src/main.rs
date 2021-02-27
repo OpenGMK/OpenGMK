@@ -5,26 +5,11 @@
 #[cfg(not(all(target_os = "windows", target_arch = "x86")))]
 compile_error!("dll-bridge cannot be built for a target other than windows 32-bit");
 
-use dll_macros::external_call;
 use shared::{
     dll::{self, CallConv, DefineResult},
     message::MessageStream,
 };
-use std::{
-    ffi::OsStr,
-    io::{self, Read, Write},
-    os::{
-        raw::{c_char, c_void},
-        windows::ffi::OsStrExt,
-    },
-};
-use winapi::{
-    shared::minwindef::HMODULE,
-    um::{
-        errhandlingapi::GetLastError,
-        libloaderapi::{FreeLibrary, GetProcAddress, LoadLibraryW},
-    },
-};
+use std::io::{self, Read, Write};
 
 struct Pipe {
     stdin: io::Stdin,
@@ -47,15 +32,7 @@ impl Write for Pipe {
     }
 }
 
-struct External {
-    dll_handle: HMODULE,
-    call: *const c_void,
-    call_conv: CallConv,
-    res_type: dll::ValueType,
-    arg_types: Vec<dll::ValueType>,
-}
-
-struct ExternalList(Vec<Option<External>>);
+struct ExternalList(Vec<Option<dll::External>>);
 
 impl ExternalList {
     fn new() -> Self {
@@ -65,66 +42,22 @@ impl ExternalList {
     fn add_external(
         &mut self,
         dll_name: String,
-        mut fn_name: String,
+        fn_name: String,
         call_conv: CallConv,
         res_type: dll::ValueType,
         arg_types: Vec<dll::ValueType>,
     ) -> DefineResult {
-        let mut os_dll_name = OsStr::new(&dll_name).encode_wide().collect::<Vec<_>>();
-        os_dll_name.push(0);
-        fn_name.push('\0');
-        unsafe {
-            let dll_handle = LoadLibraryW(os_dll_name.as_ptr());
-            if dll_handle.is_null() {
-                return Err(format!("Failed to load DLL {}! (Code: {:#X})", dll_name, GetLastError()))
-            }
-            let fun = GetProcAddress(dll_handle, fn_name.as_ptr() as *const c_char);
-            if fun.is_null() {
-                FreeLibrary(dll_handle);
-                return Err(format!(
-                    "Failed to load function {} in DLL {}! (Code: {:#X})",
-                    fn_name,
-                    dll_name,
-                    GetLastError()
-                ))
-            }
-            // the fmod hack function is win32 only and therefore produces a second error on non-win32 builds
-            // so let's add another cfg check here just to suppress that
-            #[cfg(all(target_os = "windows", target_arch = "x86"))]
-            if fn_name == "FMODinit\0" {
-                dll::apply_fmod_hack(&dll_name, dll_handle.cast())?;
-            }
-            let external_id = self.0.len();
-            self.0.push(Some(External { dll_handle, call: fun.cast(), call_conv, res_type, arg_types }));
-            return Ok(external_id as u32)
-        }
+        let external_id = self.0.len();
+        self.0.push(Some(dll::External::new(&dll_name, fn_name, call_conv, res_type, &arg_types)?));
+        return Ok(external_id as u32)
     }
 
     fn call_external(&self, id: u32, args: Vec<dll::Value>) -> dll::Value {
         let external = self.0[id as usize].as_ref().unwrap();
-        unsafe {
-            external_call!(
-                external.call,
-                args,
-                external.call_conv,
-                external.res_type,
-                external.arg_types.as_slice(),
-                CallConv::Cdecl,
-                CallConv::Stdcall,
-                dll::ValueType::Real,
-                dll::ValueType::Str
-            )
-        }
+        external.call(&args)
     }
 
     fn free_external(&mut self, id: u32) {
-        if let Some(Some(external)) = self.0.get(id as usize) {
-            unsafe {
-                if FreeLibrary(external.dll_handle) == 0 {
-                    eprintln!("Error freeing DLL (code: {:#X})", GetLastError());
-                }
-            }
-        }
         self.0[id as usize] = None;
     }
 }

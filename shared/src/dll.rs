@@ -1,5 +1,10 @@
+mod win32;
+
 use serde::{Deserialize, Serialize};
 use std::{ffi::CStr, os::raw::c_char};
+
+#[cfg(all(target_os = "windows", target_arch = "x86"))]
+pub use win32::*;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum CallConv {
@@ -28,8 +33,8 @@ impl From<Value> for f64 {
     }
 }
 
-impl From<Value> for *const c_char {
-    fn from(v: Value) -> Self {
+impl From<&Value> for *const c_char {
+    fn from(v: &Value) -> Self {
         unsafe {
             match v {
                 Value::Real(_) => b"\0\0\0\0\0".as_ptr().offset(4).cast(),
@@ -84,22 +89,3 @@ pub enum Message {
 }
 
 pub type DefineResult = Result<u32, String>;
-
-// evil hack to make fmod not crash, call when loading FMODinit
-#[cfg(all(target_os = "windows", target_arch = "x86"))]
-pub unsafe fn apply_fmod_hack(filename: &str, handle: *mut u8) -> Result<(), String> {
-    let file_data = std::fs::read(filename).map_err(|e| format!("Couldn't load FMOD DLL to hash: {}", e))?;
-    let file_hash = crc::crc32::checksum_ieee(&file_data);
-    if file_hash == 0xC39E3B94 {
-        eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
-        // i think this is a pointer to some sort of struct containing GM8 handles ripped from the main image
-        // if it's null it tries to extract them, which obviously doesn't work with the emulator
-        // so make it not null : )
-        handle.add(0x852d0).write(1);
-    } else {
-        eprintln!("WARNING: Unknown version of GMFMODSimple detected with hash {:#X}", file_hash);
-        eprintln!("GMFMODSimple requires a hack to work, and we weren't able to apply it.");
-        eprintln!("The game is likely to crash.");
-    }
-    Ok(())
-}
