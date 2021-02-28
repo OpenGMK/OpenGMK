@@ -1,4 +1,4 @@
-use super::{DefineInfo, ExternalCall};
+use super::DefineInfo;
 use crate::gml;
 use encoding_rs::Encoding;
 use shared::{dll, message::MessageStream};
@@ -8,8 +8,8 @@ use std::{
     thread,
 };
 
-impl From<&gml::Value> for dll::Value {
-    fn from(v: &gml::Value) -> Self {
+impl From<gml::Value> for dll::Value {
+    fn from(v: gml::Value) -> Self {
         match v {
             gml::Value::Real(x) => dll::Value::Real(x.into_inner()),
             gml::Value::Str(s) => s.as_ref().into(),
@@ -108,12 +108,10 @@ impl ExternalImpl {
             }
         }
     }
-}
 
-impl ExternalCall for ExternalImpl {
-    fn call(&self, args: &[gml::Value]) -> Result<gml::Value, String> {
+    pub fn call<I: Iterator<Item = gml::Value>>(&self, args: I) -> Result<gml::Value, String> {
         let mut pipe = make_pipe()?;
-        pipe.send_message(dll::Message::Call { func_id: self.0, args: args.iter().map(|x| x.into()).collect() })
+        pipe.send_message(dll::Message::Call { func_id: self.0, args: args.map(|x| x.into()).collect() })
             .map_err(|e| e.to_string())?;
         pipe.flush().map_err(|e| e.to_string())?;
         // I can't figure out how to extract this into a function without getting lifetime errors
