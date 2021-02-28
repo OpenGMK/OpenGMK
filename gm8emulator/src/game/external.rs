@@ -75,7 +75,7 @@ impl External {
 
     pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
         if args.len() != self.info.arg_types.len() {
-            Err(gml::Error::WrongArgumentCount(self.info.arg_types.len(), args.len()))
+            Ok(Default::default())
         } else {
             self.call.call(args)
         }
