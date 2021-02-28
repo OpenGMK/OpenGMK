@@ -83,6 +83,10 @@ impl External {
 
     pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
         if args.len() != self.info.arg_types.len() {
+            eprintln!(
+                "Warning: call to external function {} from {} with an invalid argument count was ignored",
+                self.info.fn_name, self.info.dll_name
+            );
             Ok(Default::default())
         } else {
             let args = args.iter().zip(&self.info.arg_types).map(|(v, t)| match t {
