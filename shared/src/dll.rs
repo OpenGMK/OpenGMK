@@ -75,7 +75,7 @@ impl From<*const c_char> for Value {
     fn from(s: *const c_char) -> Self {
         let bytes = unsafe { CStr::from_ptr(s).to_bytes_with_nul() };
         let mut buf = Vec::with_capacity(4 + bytes.len());
-        buf.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&(bytes.len() as u32 - 1).to_le_bytes());
         buf.extend_from_slice(bytes);
         Value::Str(buf)
     }
