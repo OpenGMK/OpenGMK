@@ -242,9 +242,7 @@ impl InstanceList {
     }
 
     pub fn get(&self, idx: usize) -> &Instance {
-        self.chunks
-            .get(idx)
-            .unwrap_or_else(|| panic!("Invalid instance handle to InstanceList::get(): {}", idx))
+        self.chunks.get(idx).unwrap_or_else(|| panic!("Invalid instance handle to InstanceList::get(): {}", idx))
     }
 
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
