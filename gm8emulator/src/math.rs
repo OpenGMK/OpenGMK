@@ -1,5 +1,4 @@
 use crate::util;
-use cfg_if::cfg_if;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -15,104 +14,96 @@ pub struct Real(f64);
 /// The lenience between values when compared.
 const CMP_EPSILON: f64 = 1e-13;
 
-// Platform-specific implementation of the arithmetic. Should provide:
-// Add, Sub, Mul, Div, sin, cos, tan, round64
-cfg_if! {
-    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
+impl Real {
+    #[inline(always)]
+    pub fn sin(self) -> Self {
+        Self(self.0.sin())
+    }
 
-        impl Real {
+    #[inline(always)]
+    pub fn cos(self) -> Self {
+        Self(self.0.cos())
+    }
 
-            #[inline(always)]
-            pub fn sin(self) -> Self {
-                Self(self.0.sin())
-            }
+    #[inline(always)]
+    pub fn tan(self) -> Self {
+        Self(self.0.tan())
+    }
 
-            #[inline(always)]
-            pub fn cos(self) -> Self {
-                Self(self.0.cos())
-            }
+    pub fn arcsin(self) -> Self {
+        Self(self.0.asin())
+    }
 
-            #[inline(always)]
-            pub fn tan(self) -> Self {
-                Self(self.0.tan())
-            }
+    pub fn arccos(self) -> Self {
+        Self(self.0.acos())
+    }
 
-            pub fn arcsin(self) -> Self {
-                Self(self.0.asin())
-            }
+    pub fn arctan(self) -> Self {
+        Self(self.0.atan())
+    }
 
-            pub fn arccos(self) -> Self {
-                Self(self.0.acos())
-            }
+    pub fn arctan2(self, other: Real) -> Self {
+        Self(self.0.atan2(other.0))
+    }
 
-            pub fn arctan(self) -> Self {
-                Self(self.0.atan())
-            }
+    pub fn exp(self) -> Self {
+        Self(self.0.exp())
+    }
 
-            pub fn arctan2(self, other: Real) -> Self {
-                Self(self.0.atan2(other.0))
-            }
+    pub fn ln(self) -> Self {
+        Self(self.0.ln())
+    }
 
-            pub fn exp(self) -> Self {
-                Self(self.0.exp())
-            }
+    pub fn log2(self) -> Self {
+        Self(self.0.log2())
+    }
 
-            pub fn ln(self) -> Self {
-                Self(self.0.ln())
-            }
+    pub fn log10(self) -> Self {
+        Self(self.0.log10())
+    }
 
-            pub fn log2(self) -> Self {
-                Self(self.0.log2())
-            }
+    pub fn logn(self, other: Real) -> Self {
+        Self(self.0.log(other.0))
+    }
 
-            pub fn log10(self) -> Self {
-                Self(self.0.log10())
-            }
+    pub fn sqrt(self) -> Self {
+        Self(self.0.sqrt())
+    }
+}
 
-            pub fn logn(self, other: Real) -> Self {
-                Self(self.0.log(other.0))
-            }
+impl Add for Real {
+    type Output = Self;
 
-            pub fn sqrt(self) -> Self {
-                Self(self.0.sqrt())
-            }
-        }
+    #[inline(always)]
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
 
-        impl Add for Real {
-            type Output = Self;
+impl Sub for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn add(self, other: Self) -> Self {
-                Self(self.0 + other.0)
-            }
-        }
+    #[inline(always)]
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
 
-        impl Sub for Real {
-            type Output = Self;
+impl Mul for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn sub(self, other: Self) -> Self {
-                Self(self.0 - other.0)
-            }
-        }
+    #[inline(always)]
+    fn mul(self, other: Self) -> Self {
+        Self(self.0 * other.0)
+    }
+}
 
-        impl Mul for Real {
-            type Output = Self;
+impl Div for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn mul(self, other: Self) -> Self {
-                Self(self.0 * other.0)
-            }
-        }
-
-        impl Div for Real {
-            type Output = Self;
-
-            #[inline(always)]
-            fn div(self, other: Self) -> Self {
-                Self(self.0 / other.0)
-            }
-        }
+    #[inline(always)]
+    fn div(self, other: Self) -> Self {
+        Self(self.0 / other.0)
     }
 }
 
