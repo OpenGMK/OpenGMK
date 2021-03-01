@@ -59,15 +59,9 @@ impl External {
                 dll::apply_fmod_hack(dll_name.as_ref(), dll_handle.cast())?;
             }
             let codeptr = libffi::middle::CodePtr::from_ptr(fun.cast());
-            fn cnv(t: ValueType) -> libffi::middle::Type {
-                match t {
-                    ValueType::Real => libffi::middle::Type::f64(),
-                    ValueType::Str => libffi::middle::Type::pointer(),
-                }
-            }
             let cif = libffi::middle::Builder::new()
-                .args(arg_types.iter().copied().map(cnv))
-                .res(cnv(res_type))
+                .args(arg_types.iter().copied().map(|x| x.into()))
+                .res(res_type.into())
                 .abi(match call_conv {
                     CallConv::Cdecl => 2,   // FFI_MS_CDECL
                     CallConv::Stdcall => 5, // FFI_STDCALL
