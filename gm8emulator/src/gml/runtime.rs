@@ -111,7 +111,7 @@ pub struct VariableAccessor {
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.
-/// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
+/// Variables with 0D arrays, and ones with no array accessor, implicitly refer to `x[0]`.
 /// Anything beyond a 2D array results in a runtime error.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ArrayAccessor {
