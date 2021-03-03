@@ -1830,14 +1830,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {
-        let mut src: GLint = 0;
-        let mut dst: GLint = 0;
-        unsafe {
-            self.gl.GetIntegerv(gl::BLEND_SRC_RGB, &mut src);
-            self.gl.GetIntegerv(gl::BLEND_DST_RGB, &mut dst);
-            assert_eq!(self.gl.GetError(), 0);
-        }
-        ((src as GLenum).into(), (dst as GLenum).into())
+        self.next_render_state.blend_mode
     }
 
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType) {
