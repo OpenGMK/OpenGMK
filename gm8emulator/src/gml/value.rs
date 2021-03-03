@@ -42,10 +42,10 @@ macro_rules! gml_cmp_impl {
 
 macro_rules! invalid_op {
     ($op: ident, $value: expr) => {
-        Err(gml::Error::InvalidOperandsUnary(gml::compiler::token::Operator::$op, $value))
+        Err(gml::Error::InvalidOperandsUnary(gml_parser::token::Operator::$op, $value))
     };
     ($op: ident, $left: expr, $right: expr) => {
-        Err(gml::Error::InvalidOperandsBinary(gml::compiler::token::Operator::$op, $left, $right))
+        Err(gml::Error::InvalidOperandsBinary(gml_parser::token::Operator::$op, $left, $right))
     };
 }
 

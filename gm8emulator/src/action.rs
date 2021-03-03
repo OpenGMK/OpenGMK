@@ -2,7 +2,8 @@ use crate::{
     game::Game,
     gml::{
         self,
-        compiler::{mappings, Compiler},
+        compiler::Compiler,
+        mappings,
         runtime::{Instruction, Node},
         Context, Value,
     },
