@@ -4,13 +4,15 @@ pub mod datetime;
 pub mod ds;
 pub mod file;
 pub mod kernel;
+pub mod mappings;
 pub mod network;
 pub mod rand;
 pub mod runtime;
 pub mod value;
 
-pub use compiler::{mappings::Function, Compiler};
+pub use compiler::Compiler;
 pub use context::Context;
+pub use mappings::Function;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;

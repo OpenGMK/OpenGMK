@@ -1,9 +1,5 @@
-pub mod ast;
-pub mod lexer;
-pub mod mappings;
-pub mod token;
-
 use super::{
+    mappings,
     runtime::{
         ArrayAccessor, BinaryOperator, FieldAccessor, InstanceIdentifier, Instruction, Node, ReturnType, UnaryOperator,
         VariableAccessor,
@@ -11,9 +7,9 @@ use super::{
     Value,
 };
 use crate::{gml, math::Real};
+use gml_parser::{ast, token::Operator};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc, str};
-use token::Operator;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Compiler {

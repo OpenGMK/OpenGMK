@@ -10,9 +10,8 @@ use crate::{
     },
     gml::{
         self,
-        compiler::mappings,
         datetime::{self, DateTime},
-        ds, file, network, Context, Value,
+        ds, file, mappings, network, Context, Value,
     },
     handleman::HandleManager,
     instance::{DummyFieldHolder, Field, Instance, InstanceState},

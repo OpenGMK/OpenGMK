@@ -295,6 +295,7 @@ dependencies = [
  "glob",
  "gm8exe",
  "gmio",
+ "gml-parser",
  "hex",
  "image",
  "indexmap",
@@ -330,6 +331,13 @@ dependencies = [
  "shared",
  "winapi",
  "x11",
+]
+
+[[package]]
+name = "gml-parser"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-use super::token::{Keyword, Operator, Separator, Token};
+use crate::token::{Keyword, Operator, Separator, Token};
 
 use std::{
     iter::{Copied, Enumerate, Peekable},

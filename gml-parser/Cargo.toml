@@ -1,0 +1,12 @@
+[package]
+name = "gml-parser"
+version = "0.1.0"
+authors = ["The OpenGM8 Project Developers"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = []
+runner-serde-derives = ["serde"]
