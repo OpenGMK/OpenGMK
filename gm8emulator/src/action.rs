@@ -8,7 +8,7 @@ use crate::{
         Context, Value,
     },
 };
-use gm8exe::asset::etc::CodeAction;
+use gm8exe::asset::CodeAction;
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc, str};
 
