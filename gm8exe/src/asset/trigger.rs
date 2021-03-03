@@ -1,12 +1,11 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{
     fmt::{self, Display},
-    io::{self, Seek, SeekFrom},
+    io::{self, SeekFrom},
 };
 
 pub const VERSION: u32 = 800;
@@ -58,14 +57,9 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
@@ -73,22 +67,18 @@ impl Asset for Trigger {
 
         let name = reader.read_pas_string()?;
         let condition = reader.read_pas_string()?;
-        let moment = TriggerKind::from(reader.read_u32_le()?);
+        let moment = TriggerKind::from(reader.read_u32::<LE>()?);
         let constant_name = reader.read_pas_string()?;
 
         Ok(Trigger { name, condition, moment, constant_name })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_u32_le(VERSION as u32)?;
-        result += writer.write_pas_string(&self.name)?;
-        result += writer.write_pas_string(&self.condition)?;
-        result += writer.write_u32_le(self.moment as u32)?;
-        result += writer.write_pas_string(&self.constant_name)?;
-
-        Ok(result)
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_pas_string(&self.name)?;
+        writer.write_pas_string(&self.condition)?;
+        writer.write_u32::<LE>(self.moment as u32)?;
+        writer.write_pas_string(&self.constant_name)?;
+        Ok(())
     }
 }

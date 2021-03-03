@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 530;
 
@@ -53,51 +52,43 @@ impl From<u32> for ConnectionKind {
 }
 
 impl Asset for Path {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let connection = ConnectionKind::from(reader.read_u32_le()?);
+        let connection = ConnectionKind::from(reader.read_u32::<LE>()?);
 
-        let closed = reader.read_u32_le()? != 0;
-        let precision = reader.read_u32_le()?;
+        let closed = reader.read_u32::<LE>()? != 0;
+        let precision = reader.read_u32::<LE>()?;
 
-        let point_count = reader.read_u32_le()? as usize;
+        let point_count = reader.read_u32::<LE>()? as usize;
         let mut points = Vec::with_capacity(point_count);
         for _ in 0..point_count {
-            points.push(Point { x: reader.read_f64_le()?, y: reader.read_f64_le()?, speed: reader.read_f64_le()? });
+            points.push(Point { x: reader.read_f64::<LE>()?, y: reader.read_f64::<LE>()?, speed: reader.read_f64::<LE>()? });
         }
 
         Ok(Path { name, connection, precision, closed, points })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_u32_le(self.connection as u32)?;
-        result += writer.write_u32_le(self.closed as u32)?;
-        result += writer.write_u32_le(self.precision as u32)?;
-        result += writer.write_u32_le(self.points.len() as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.connection as u32)?;
+        writer.write_u32::<LE>(self.closed as u32)?;
+        writer.write_u32::<LE>(self.precision as u32)?;
+        // TODO: add debug assertions for these lengths everywhere, for real
+        writer.write_u32::<LE>(self.points.len() as u32)?;
         for point in self.points.iter() {
-            result += writer.write_f64_le(point.x)?;
-            result += writer.write_f64_le(point.y)?;
-            result += writer.write_f64_le(point.speed)?;
+            writer.write_f64::<LE>(point.x)?;
+            writer.write_f64::<LE>(point.y)?;
+            writer.write_f64::<LE>(point.speed)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }

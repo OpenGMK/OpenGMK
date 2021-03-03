@@ -1,9 +1,8 @@
 use crate::{
-    asset::{assert_ver, AssetDataError, PascalString, ReadPascalString},
+    asset::{assert_ver, Error, PascalString, ReadPascalString},
     reader::inflate,
 };
-
-use minio::ReadPrimitives;
+use byteorder::{LE, ReadBytesExt};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 700;
@@ -117,9 +116,9 @@ impl From<u32> for CallingConvention {
 }
 
 impl Extension {
-    pub fn read(reader: &mut io::Cursor<&mut [u8]>, strict: bool) -> Result<Self, AssetDataError> {
+    pub fn read(reader: &mut io::Cursor<&mut [u8]>, strict: bool) -> Result<Self, Error> {
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
@@ -128,26 +127,26 @@ impl Extension {
         let name = reader.read_pas_string()?;
         let folder_name = reader.read_pas_string()?;
 
-        let file_count = reader.read_u32_le()? as usize;
+        let file_count = reader.read_u32::<LE>()? as usize;
         let mut files = Vec::with_capacity(file_count);
         for _ in 0..file_count {
             if strict {
-                let version = reader.read_u32_le()?;
+                let version = reader.read_u32::<LE>()?;
                 assert_ver(version, VERSION)?;
             } else {
                 reader.seek(SeekFrom::Current(4))?;
             }
 
             let name = reader.read_pas_string()?;
-            let kind = FileKind::from(reader.read_u32_le()?);
+            let kind = FileKind::from(reader.read_u32::<LE>()?);
             let initializer = reader.read_pas_string()?;
             let finalizer = reader.read_pas_string()?;
 
-            let function_count = reader.read_u32_le()? as usize;
+            let function_count = reader.read_u32::<LE>()? as usize;
             let mut functions = Vec::with_capacity(function_count);
             for _ in 0..function_count {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
@@ -155,25 +154,25 @@ impl Extension {
 
                 let name = reader.read_pas_string()?;
                 let external_name = reader.read_pas_string()?;
-                let convention: CallingConvention = reader.read_u32_le()?.into();
+                let convention: CallingConvention = reader.read_u32::<LE>()?.into();
 
-                let id = reader.read_u32_le()?;
+                let id = reader.read_u32::<LE>()?;
 
-                let arg_count = reader.read_i32_le()?;
+                let arg_count = reader.read_i32::<LE>()?;
                 let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
                 for val in arg_types.iter_mut() {
-                    *val = reader.read_u32_le()?.into();
+                    *val = reader.read_u32::<LE>()?.into();
                 }
-                let return_type: FunctionValueKind = reader.read_u32_le()?.into();
+                let return_type: FunctionValueKind = reader.read_u32::<LE>()?.into();
 
                 functions.push(FileFunction { name, external_name, convention, id, arg_count, arg_types, return_type });
             }
 
-            let const_count = reader.read_u32_le()? as usize;
+            let const_count = reader.read_u32::<LE>()? as usize;
             let mut consts = Vec::with_capacity(const_count);
             for _ in 0..const_count {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
@@ -185,8 +184,8 @@ impl Extension {
             files.push(File { name, kind, initializer, finalizer, functions, consts, contents: Box::new([]) });
         }
 
-        let contents_len = reader.read_u32_le()? as usize - 4;
-        let seed1_raw = reader.read_u32_le()?;
+        let contents_len = reader.read_u32::<LE>()? as usize - 4;
+        let seed1_raw = reader.read_u32::<LE>()?;
         let data_pos = reader.position() as usize;
         reader.seek(SeekFrom::Current(contents_len as _))?;
 
@@ -233,14 +232,14 @@ impl Extension {
             // write file chunks
             for file in &mut files {
                 if file.kind != FileKind::ActionLibrary {
-                    let len = reader.read_u32_le()? as usize;
+                    let len = reader.read_u32::<LE>()? as usize;
                     let pos = reader.position() as usize;
 
                     reader.seek(SeekFrom::Current(len as i64))?; // pre-check for next get
                     file.contents =
                         match inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())) {
                             Ok(x) => x.into_boxed_slice(),
-                            Err(_) => return Err(AssetDataError::MalformedData),
+                            Err(_) => return Err(Error::MalformedData),
                         };
                 }
             }

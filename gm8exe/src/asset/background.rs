@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString, ReadChunk},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
 
 pub const VERSION1: u32 = 710;
 pub const VERSION2: u32 = 800;
@@ -26,59 +25,45 @@ pub struct Background {
 }
 
 impl Asset for Background {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version1 = reader.read_u32_le()?;
-            let version2 = reader.read_u32_le()?;
+            let version1 = reader.read_u32::<LE>()?;
+            let version2 = reader.read_u32::<LE>()?;
             assert_ver(version1, VERSION1)?;
             assert_ver(version2, VERSION2)?;
         } else {
-            reader.seek(SeekFrom::Current(8))?;
+            reader.seek(SeekFrom::Current(8))?; // TODO: sizeof u32
         }
 
-        let width = reader.read_u32_le()?;
-        let height = reader.read_u32_le()?;
+        let width = reader.read_u32::<LE>()?;
+        let height = reader.read_u32::<LE>()?;
         if width > 0 && height > 0 {
-            let data_len = reader.read_u32_le()?;
+            let len = reader.read_u32::<LE>()? as usize;
 
             // sanity check
-            if data_len != (width * height * 4) {
-                return Err(AssetDataError::MalformedData);
+            if len != (width as usize * height as usize * 4) {
+                return Err(Error::MalformedData);
             }
 
-            let pos = reader.position() as usize;
-            let len = data_len as usize;
-            let buf = match reader.into_inner().get(pos..pos + len) {
-                Some(b) => b.to_vec(),
-                None => return Err(AssetDataError::MalformedData),
-            };
-
-            Ok(Background { name, width, height, data: Some(buf.into_boxed_slice()) })
+            let data = Some(reader.read_chunk(len)?.into_boxed_slice());
+            Ok(Background { name, width, height, data })
         } else {
             Ok(Background { name, width: 0, height: 0, data: None })
         }
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION1 as u32)?;
-        result += writer.write_u32_le(VERSION2 as u32)?;
-        result += writer.write_u32_le(self.width as u32)?;
-        result += writer.write_u32_le(self.height as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION1 as u32)?;
+        writer.write_u32::<LE>(VERSION2 as u32)?;
+        writer.write_u32::<LE>(self.width as u32)?;
+        writer.write_u32::<LE>(self.height as u32)?;
         if let Some(pixeldata) = &self.data {
-            result += writer.write_u32_le(pixeldata.len() as u32)?;
-            result += writer.write_all(&pixeldata).map(|()| pixeldata.len())?;
+            writer.write_u32::<LE>(pixeldata.len() as u32)?; // TODO: safety. also grep for casts
+            writer.write_all(&pixeldata)?;
         }
-        Ok(result)
+        Ok(())
     }
 }

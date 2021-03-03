@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 430;
 pub const VERSION_EVENT: u32 = 400;
@@ -47,59 +46,54 @@ pub struct Object {
 }
 
 impl Asset for Object {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let sprite_index = reader.read_u32_le()? as i32;
-        let solid = reader.read_u32_le()? != 0;
-        let visible = reader.read_u32_le()? != 0;
-        let depth = reader.read_u32_le()? as i32;
-        let persistent = reader.read_u32_le()? != 0;
-        let parent_index = reader.read_u32_le()? as i32;
-        let mask_index = reader.read_u32_le()? as i32;
+        let sprite_index = reader.read_u32::<LE>()? as i32;
+        let solid = reader.read_u32::<LE>()? != 0;
+        let visible = reader.read_u32::<LE>()? != 0;
+        let depth = reader.read_u32::<LE>()? as i32;
+        let persistent = reader.read_u32::<LE>()? != 0;
+        let parent_index = reader.read_u32::<LE>()? as i32;
+        let mask_index = reader.read_u32::<LE>()? as i32;
 
         // This is always 11. I don't know what to do if this isn't 11.
         // We'll probably never know, because it's always 11.
         // We might as well load it instead of hard-coding it everywhere just for clarity,
         // and for easier damage control if this ever becomes a problem.
         // Oh, also, it's 0..=n so the number is actually 11 instead of 12 because there are 12 lists. Yeah.
-        let event_list_count = reader.read_u32_le()?;
+        let event_list_count = reader.read_u32::<LE>()?;
         if event_list_count != 11 {
-            return Err(AssetDataError::MalformedData);
+            return Err(Error::MalformedData);
         }
         let mut events = Vec::with_capacity((event_list_count + 1) as usize);
 
         for _ in 0..=event_list_count {
             let mut sub_event_list: Vec<(u32, Vec<CodeAction>)> = Vec::new();
             loop {
-                let index = reader.read_i32_le()?;
+                let index = reader.read_i32::<LE>()?;
                 if index == -1 {
                     break;
                 }
 
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_EVENT)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let action_count = reader.read_u32_le()?;
+                let action_count = reader.read_u32::<LE>()?;
                 let mut actions: Vec<CodeAction> = Vec::with_capacity(action_count as usize);
                 for _ in 0..action_count {
-                    actions.push(CodeAction::from_cur(&mut reader, strict)?);
+                    actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
                 }
                 sub_event_list.push((index as u32, actions));
             }
@@ -109,32 +103,28 @@ impl Asset for Object {
         Ok(Object { name, sprite_index, solid, visible, depth, persistent, parent_index, mask_index, events })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_u32_le(self.sprite_index as u32)?;
-        result += writer.write_u32_le(self.solid as u32)?;
-        result += writer.write_u32_le(self.visible as u32)?;
-        result += writer.write_u32_le(self.depth as u32)?;
-        result += writer.write_u32_le(self.persistent as u32)?;
-        result += writer.write_u32_le(self.parent_index as u32)?;
-        result += writer.write_u32_le(self.mask_index as u32)?;
-
-        result += writer.write_u32_le((self.events.len() - 1) as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.sprite_index as u32)?;
+        writer.write_u32::<LE>(self.solid as u32)?;
+        writer.write_u32::<LE>(self.visible as u32)?;
+        writer.write_u32::<LE>(self.depth as u32)?;
+        writer.write_u32::<LE>(self.persistent as u32)?;
+        writer.write_u32::<LE>(self.parent_index as u32)?;
+        writer.write_u32::<LE>(self.mask_index as u32)?;
+        writer.write_u32::<LE>((self.events.len() - 1) as u32)?; // TODO: checks! cast checks too!
         for sub_list in self.events.iter() {
             for (sub, actions) in sub_list.iter() {
-                result += writer.write_u32_le(*sub)?;
-                result += writer.write_u32_le(VERSION_EVENT as u32)?;
-                result += writer.write_u32_le(actions.len() as u32)?;
+                writer.write_u32::<LE>(*sub)?;
+                writer.write_u32::<LE>(VERSION_EVENT as u32)?;
+                writer.write_u32::<LE>(actions.len() as u32)?;
                 for action in actions.iter() {
-                    result += action.write_to(writer)?;
+                    action.serialize_exe(&mut writer, version)?;
                 }
             }
-            result += writer.write_i32_le(-1_i32)?;
+            writer.write_i32::<LE>(-1)?; // TODO: what's this again
         }
-        Ok(result)
+        Ok(())
     }
 }

@@ -1,28 +1,22 @@
-use crate::{
-    asset::*,
-    gamedata::{self, gm80},
-    rsrc,
-    settings::{GameHelpDialog, Settings},
-    GameAssets, GameVersion,
-};
+use crate::{asset::*, gamedata::{self, gm80}, rsrc, settings::{GameHelpDialog, Settings}, GameAssets, GameVersion, AssetList};
+use byteorder::{LE, ReadBytesExt};
 use flate2::bufread::ZlibDecoder;
-use minio::ReadPrimitives;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
-    error::Error,
     fmt::{self, Display},
     io::{self, Read, Seek, SeekFrom},
 };
+use std::io::Cursor;
 
 #[derive(Debug)]
 pub enum ReaderError {
-    AssetError(AssetDataError),
+    AssetError(Error),
     InvalidExeHeader,
     IO(io::Error),
     PartialUPXPacking,
     UnknownFormat,
 }
-impl Error for ReaderError {}
+impl std::error::Error for ReaderError {}
 impl Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
@@ -47,7 +41,7 @@ macro_rules! from_err {
     };
 }
 
-from_err!(ReaderError, AssetDataError, AssetError);
+from_err!(ReaderError, Error, AssetError);
 from_err!(ReaderError, io::Error, IO);
 
 /// Helper function for inflating zlib data.
@@ -88,7 +82,7 @@ where
     }
     // Dword at 0x3C indicates the start of the PE header
     exe.set_position(0x3C);
-    let pe_header_loc = exe.read_u32_le()? as usize;
+    let pe_header_loc = exe.read_u32::<LE>()? as usize;
     // PE header must begin with PE\0\0, then 0x14C which means i386.
     match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
         Some(b"PE\0\0\x4C\x01") => (),
@@ -96,10 +90,10 @@ where
     }
     // Read number of sections
     exe.set_position((pe_header_loc + 6) as u64);
-    let section_count = exe.read_u16_le()?;
+    let section_count = exe.read_u16::<LE>()?;
     // Read length of optional header
     exe.seek(SeekFrom::Current(12))?;
-    let optional_len = exe.read_u16_le()?;
+    let optional_len = exe.read_u16::<LE>()?;
     // Skip over PE characteristics (2 bytes) + optional header
     exe.seek(SeekFrom::Current((optional_len as i64) + 2))?;
 
@@ -114,10 +108,10 @@ where
         let mut sect_name = [0u8; 8];
         exe.read_exact(&mut sect_name)?;
 
-        let virtual_size = exe.read_u32_le()?;
-        let virtual_address = exe.read_u32_le()?;
-        let disk_size = exe.read_u32_le()?;
-        let disk_address = exe.read_u32_le()?;
+        let virtual_size = exe.read_u32::<LE>()?;
+        let virtual_address = exe.read_u32::<LE>()?;
+        let disk_size = exe.read_u32::<LE>()?;
+        let disk_address = exe.read_u32::<LE>()?;
         exe.seek(SeekFrom::Current(16))?;
 
         // See if this is a section we want to do something with
@@ -176,7 +170,7 @@ where
                 if got == expected {
                     Ok(())
                 } else {
-                    Err(ReaderError::AssetError(AssetDataError::VersionError { expected, got }))
+                    Err(ReaderError::AssetError(Error::VersionError { expected, got }))
                 }
             } else {
                 Ok(())
@@ -185,7 +179,7 @@ where
     }
 
     // Game Settings
-    let settings_len = exe.read_u32_le()? as usize;
+    let settings_len = exe.read_u32::<LE>()? as usize;
     let pos = exe.position() as usize;
     exe.seek(SeekFrom::Current(settings_len as i64))?;
     let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?;
@@ -194,8 +188,8 @@ where
 
     let settings = {
         fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<[u8]>>, ReaderError> {
-            if cfg.read_u32_le()? != 0 {
-                let len = cfg.read_u32_le()? as usize;
+            if cfg.read_u32::<LE>()? != 0 {
+                let len = cfg.read_u32::<LE>()? as usize;
                 let pos = cfg.position() as usize;
                 cfg.seek(SeekFrom::Current(len as i64))?;
                 Ok(Some(
@@ -208,43 +202,43 @@ where
 
         let mut cfg = io::Cursor::new(settings_chunk);
 
-        let fullscreen = cfg.read_u32_le()? != 0;
-        let interpolate_pixels = cfg.read_u32_le()? != 0;
-        let dont_draw_border = cfg.read_u32_le()? != 0;
-        let display_cursor = cfg.read_u32_le()? != 0;
-        let scaling = cfg.read_i32_le()?;
-        let allow_resize = cfg.read_u32_le()? != 0;
-        let window_on_top = cfg.read_u32_le()? != 0;
-        let clear_colour = cfg.read_u32_le()?;
-        let set_resolution = cfg.read_u32_le()? != 0;
-        let colour_depth = cfg.read_u32_le()?;
-        let resolution = cfg.read_u32_le()?;
-        let frequency = cfg.read_u32_le()?;
-        let dont_show_buttons = cfg.read_u32_le()? != 0;
-        let (vsync, force_cpu_render) = match (game_ver, cfg.read_u32_le()?) {
+        let fullscreen = cfg.read_u32::<LE>()? != 0;
+        let interpolate_pixels = cfg.read_u32::<LE>()? != 0;
+        let dont_draw_border = cfg.read_u32::<LE>()? != 0;
+        let display_cursor = cfg.read_u32::<LE>()? != 0;
+        let scaling = cfg.read_i32::<LE>()?;
+        let allow_resize = cfg.read_u32::<LE>()? != 0;
+        let window_on_top = cfg.read_u32::<LE>()? != 0;
+        let clear_colour = cfg.read_u32::<LE>()?;
+        let set_resolution = cfg.read_u32::<LE>()? != 0;
+        let colour_depth = cfg.read_u32::<LE>()?;
+        let resolution = cfg.read_u32::<LE>()?;
+        let frequency = cfg.read_u32::<LE>()?;
+        let dont_show_buttons = cfg.read_u32::<LE>()? != 0;
+        let (vsync, force_cpu_render) = match (game_ver, cfg.read_u32::<LE>()?) {
             (GameVersion::GameMaker8_0, x) => (x != 0, true), // see 8.1.141 changelog
             (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & (1 << 7)) != 0),
         };
-        let disable_screensaver = cfg.read_u32_le()? != 0;
-        let f4_fullscreen_toggle = cfg.read_u32_le()? != 0;
-        let f1_help_menu = cfg.read_u32_le()? != 0;
-        let esc_close_game = cfg.read_u32_le()? != 0;
-        let f5_save_f6_load = cfg.read_u32_le()? != 0;
-        let f9_screenshot = cfg.read_u32_le()? != 0;
-        let treat_close_as_esc = cfg.read_u32_le()? != 0;
-        let priority = cfg.read_u32_le()?;
-        let freeze_on_lose_focus = cfg.read_u32_le()? != 0;
-        let loading_bar = cfg.read_u32_le()?;
+        let disable_screensaver = cfg.read_u32::<LE>()? != 0;
+        let f4_fullscreen_toggle = cfg.read_u32::<LE>()? != 0;
+        let f1_help_menu = cfg.read_u32::<LE>()? != 0;
+        let esc_close_game = cfg.read_u32::<LE>()? != 0;
+        let f5_save_f6_load = cfg.read_u32::<LE>()? != 0;
+        let f9_screenshot = cfg.read_u32::<LE>()? != 0;
+        let treat_close_as_esc = cfg.read_u32::<LE>()? != 0;
+        let priority = cfg.read_u32::<LE>()?;
+        let freeze_on_lose_focus = cfg.read_u32::<LE>()? != 0;
+        let loading_bar = cfg.read_u32::<LE>()?;
         let (backdata, frontdata) =
             if loading_bar != 0 { (read_data_maybe(&mut cfg)?, read_data_maybe(&mut cfg)?) } else { (None, None) };
         let custom_load_image = read_data_maybe(&mut cfg)?;
-        let transparent = cfg.read_u32_le()? != 0;
-        let translucency = cfg.read_u32_le()?;
-        let scale_progress_bar = cfg.read_u32_le()? != 0;
-        let show_error_messages = cfg.read_u32_le()? != 0;
-        let log_errors = cfg.read_u32_le()? != 0;
-        let always_abort = cfg.read_u32_le()? != 0;
-        let (zero_uninitialized_vars, error_on_uninitialized_args) = match (game_ver, cfg.read_u32_le()?) {
+        let transparent = cfg.read_u32::<LE>()? != 0;
+        let translucency = cfg.read_u32::<LE>()?;
+        let scale_progress_bar = cfg.read_u32::<LE>()? != 0;
+        let show_error_messages = cfg.read_u32::<LE>()? != 0;
+        let log_errors = cfg.read_u32::<LE>()? != 0;
+        let always_abort = cfg.read_u32::<LE>()? != 0;
+        let (zero_uninitialized_vars, error_on_uninitialized_args) = match (game_ver, cfg.read_u32::<LE>()?) {
             (GameVersion::GameMaker8_0, x) => (x != 0, true),
             (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
         };
@@ -395,12 +389,12 @@ where
         log!(logger, "Skipping embedded DLL '{}'", dllname);
     } else {
         // otherwise, skip dll name string
-        let dllname_len = exe.read_u32_le()? as i64;
+        let dllname_len = exe.read_u32::<LE>()? as i64;
         exe.seek(SeekFrom::Current(dllname_len))?;
     }
 
     // skip or dump embedded dll data chunk
-    let dll_len = exe.read_u32_le()? as i64;
+    let dll_len = exe.read_u32::<LE>()? as i64;
     let mut dx_dll = vec![0u8; dll_len as usize];
     exe.read_exact(&mut dx_dll)?;
 
@@ -408,24 +402,24 @@ where
     gm80::decrypt(&mut exe, logger)?;
 
     // Garbage field - random bytes
-    let garbage_dwords = exe.read_u32_le()?;
+    let garbage_dwords = exe.read_u32::<LE>()?;
     exe.seek(SeekFrom::Current((garbage_dwords * 4) as i64))?;
     log!(logger, "Skipped {} garbage DWORDs", garbage_dwords);
 
     // GM8 Pro flag, game ID
-    let pro_flag: bool = exe.read_u32_le()? != 0;
-    let game_id = exe.read_u32_le()?;
+    let pro_flag: bool = exe.read_u32::<LE>()? != 0;
+    let game_id = exe.read_u32::<LE>()?;
     log!(logger, "Pro flag: {}", pro_flag);
     log!(logger, "Game ID: {}", game_id);
 
     // 16 random bytes...
-    let guid = [exe.read_u32_le()?, exe.read_u32_le()?, exe.read_u32_le()?, exe.read_u32_le()?];
+    let guid = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
 
     fn get_asset_refs<'a>(src: &mut io::Cursor<&'a [u8]>) -> io::Result<Vec<&'a [u8]>> {
-        let count = src.read_u32_le()? as usize;
+        let count = src.read_u32::<LE>()? as usize;
         let mut refs = Vec::with_capacity(count);
         for _ in 0..count {
-            let len = src.read_u32_le()? as usize;
+            let len = src.read_u32::<LE>()? as usize;
             let pos = src.position() as usize;
             src.seek(SeekFrom::Current(len as i64))?;
             let data = src.get_ref();
@@ -438,39 +432,55 @@ where
         src: &mut io::Cursor<&[u8]>,
         deserializer: F,
         multithread: bool,
-    ) -> Result<Vec<Option<Box<T>>>, ReaderError>
+    ) -> Result<AssetList<T>, ReaderError>
     where
         T: Send,
-        F: Fn(&[u8]) -> Result<T, AssetDataError> + Sync,
+        F: Fn(&[u8]) -> Result<T, Error> + Sync,
     {
-        let to_asset = |ch| {
-            inflate(&ch).and_then(|data| {
-                // If the first u32 is 0 then the underlying data doesn't exist (is a None asset).
+        let to_asset = |data: &[u8]| {
+            // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
+            // This will short circuit on length, but it checks against this literal to make sure.
+            if data == &[0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
+                return Ok(None);
+            }
+
+            inflate(data).and_then(|data| {
+                // If the first u32 is 0 then it's a deleted asset, and is None.
+                // Safety: If there are at least 4 bytes (data.get(..4) -> Some)
+                // then [4..] will yield a 0-size slice at the very least.
                 match data.get(..4) {
                     Some(&[0, 0, 0, 0]) => Ok(None),
-                    // If there are at least 4 bytes (Some) then [4..] will yield a 0-size slice.
-                    Some(_) => Ok(Some(Box::new(deserializer(data.get(4..).unwrap_or_else(|| unreachable!()))?))),
-                    None => Err(ReaderError::AssetError(AssetDataError::MalformedData)),
+                    Some(_) => Ok(Some(Box::new(deserializer(&data[4..])?))),
+                    None => Err(ReaderError::AssetError(Error::MalformedData)),
                 }
             })
         };
 
         if multithread {
-            get_asset_refs(src)?.par_iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.par_iter().copied().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         } else {
-            get_asset_refs(src)?.iter().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
+            get_asset_refs(src)?.iter().copied().map(to_asset).collect::<Result<Vec<_>, ReaderError>>()
         }
     }
 
-    // stuff to pass to asset deserializers
-    let a_strict = strict;
-    let a_version = game_ver;
+    #[inline]
+    fn get_assets_ex<T>(
+        src: &mut io::Cursor<&[u8]>,
+        version: GameVersion,
+        strict: bool,
+        multithread: bool,
+    ) -> Result<AssetList<T>, ReaderError>
+        where
+            T: Asset + Send,
+    {
+        get_assets(src, |data| <T as Asset>::deserialize_exe(Cursor::new(data), version, strict), multithread)
+    }
 
-    assert_ver!("extensions header", 700, exe.read_u32_le()?)?;
-    let extension_count = exe.read_u32_le()? as usize;
+    assert_ver!("extensions header", 700, exe.read_u32::<LE>()?)?;
+    let extension_count = exe.read_u32::<LE>()? as usize;
     let mut extensions = Vec::with_capacity(extension_count);
     for _ in 0..extension_count {
-        let ext = Extension::read(&mut exe, a_strict)?;
+        let ext = Extension::read(&mut exe, strict)?;
         log!(logger, "+ Added extension '{}' (files: {})", ext.name, ext.files.len());
         extensions.push(ext);
     }
@@ -481,8 +491,8 @@ where
     exe.set_position(prev_pos);
 
     // Triggers
-    assert_ver!("triggers header", 800, exe.read_u32_le()?)?;
-    let triggers = get_assets(&mut exe, |data| Trigger::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("triggers header", 800, exe.read_u32::<LE>()?)?;
+    let triggers: AssetList<Trigger> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         triggers.iter().flatten().for_each(|trigger| {
             log!(
@@ -496,8 +506,8 @@ where
     }
 
     // Constants
-    assert_ver!("constants header", 800, exe.read_u32_le()?)?;
-    let constant_count = exe.read_u32_le()? as usize;
+    assert_ver!("constants header", 800, exe.read_u32::<LE>()?)?;
+    let constant_count = exe.read_u32::<LE>()? as usize;
     let mut constants = Vec::with_capacity(constant_count);
     for _ in 0..constant_count {
         let name = exe.read_pas_string()?;
@@ -507,8 +517,8 @@ where
     }
 
     // Sounds
-    assert_ver!("sounds header", 800, exe.read_u32_le()?)?;
-    let sounds = get_assets(&mut exe, |data| Sound::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("sounds header", 800, exe.read_u32::<LE>()?)?;
+    let sounds: AssetList<Sound> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         sounds.iter().flatten().for_each(|sound| {
             log!(logger, " + Added sound '{}' ({})", sound.name, sound.source);
@@ -516,8 +526,8 @@ where
     }
 
     // Sprites
-    assert_ver!("sprites header", 800, exe.read_u32_le()?)?;
-    let sprites = get_assets(&mut exe, |data| Sprite::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("sprites header", 800, exe.read_u32::<LE>()?)?;
+    let sprites: AssetList<Sprite> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         sprites.iter().flatten().for_each(|sprite| {
             let framecount = sprite.frames.len();
@@ -538,8 +548,8 @@ where
     }
 
     // Backgrounds
-    assert_ver!("backgrounds header", 800, exe.read_u32_le()?)?;
-    let backgrounds = get_assets(&mut exe, |data| Background::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("backgrounds header", 800, exe.read_u32::<LE>()?)?;
+    let backgrounds: AssetList<Background> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         backgrounds.iter().flatten().for_each(|background| {
             log!(logger, " + Added background '{}' ({}x{})", background.name, background.width, background.height);
@@ -547,8 +557,8 @@ where
     }
 
     // Paths
-    assert_ver!("paths header", 800, exe.read_u32_le()?)?;
-    let paths = get_assets(&mut exe, |data| Path::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("paths header", 800, exe.read_u32::<LE>()?)?;
+    let paths: AssetList<Path> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         use crate::asset::path::ConnectionKind;
 
@@ -570,8 +580,8 @@ where
     }
 
     // Scripts
-    assert_ver!("scripts header", 800, exe.read_u32_le()?)?;
-    let scripts = get_assets(&mut exe, |data| Script::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("scripts header", 800, exe.read_u32::<LE>()?)?;
+    let scripts: AssetList<Script> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         scripts.iter().flatten().for_each(|script| {
             log!(logger, " + Added script '{}'", script.name);
@@ -579,8 +589,8 @@ where
     }
 
     // Fonts
-    assert_ver!("fonts header", 800, exe.read_u32_le()?)?;
-    let fonts = get_assets(&mut exe, |data| Font::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("fonts header", 800, exe.read_u32::<LE>()?)?;
+    let fonts: AssetList<Font> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         fonts.iter().flatten().for_each(|font| {
             log!(
@@ -596,8 +606,8 @@ where
     }
 
     // Timelines
-    assert_ver!("timelines header", 800, exe.read_u32_le()?)?;
-    let timelines = get_assets(&mut exe, |data| Timeline::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("timelines header", 800, exe.read_u32::<LE>()?)?;
+    let timelines: AssetList<Timeline> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         timelines.iter().flatten().for_each(|timeline| {
             log!(logger, " + Added timeline '{}' (moments: {})", timeline.name, timeline.moments.len());
@@ -605,8 +615,8 @@ where
     }
 
     // Objects
-    assert_ver!("objects header", 800, exe.read_u32_le()?)?;
-    let objects = get_assets(&mut exe, |data| Object::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("objects header", 800, exe.read_u32::<LE>()?)?;
+    let objects: AssetList<Object> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         objects.iter().flatten().for_each(|object| {
             log!(
@@ -622,8 +632,8 @@ where
     }
 
     // Rooms
-    assert_ver!("rooms header", 800, exe.read_u32_le()?)?;
-    let rooms = get_assets(&mut exe, |data| Room::deserialize(data, a_strict, a_version), multithread)?;
+    assert_ver!("rooms header", 800, exe.read_u32::<LE>()?)?;
+    let rooms: AssetList<Room> = get_assets_ex(&mut exe, game_ver, strict, multithread)?;
     if logger.is_some() {
         rooms.iter().flatten().for_each(|room| {
             log!(
@@ -638,20 +648,21 @@ where
         });
     }
 
-    let last_instance_id = exe.read_i32_le()?;
-    let last_tile_id = exe.read_i32_le()?;
+    let last_instance_id = exe.read_i32::<LE>()?;
+    let last_tile_id = exe.read_i32::<LE>()?;
 
     // Included Files
-    assert_ver!("included files header", 800, exe.read_u32_le()?)?;
+    assert_ver!("included files header", 800, exe.read_u32::<LE>()?)?;
+    // TODO: how was this different from the others? why is it not using get_assets?
     let included_files = get_asset_refs(&mut exe)?
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| IncludedFile::deserialize(data, a_strict, a_version).map_err(|e| e.into()))
+            inflate(chunk).and_then(|data| IncludedFile::deserialize_exe(Cursor::new(data), game_ver, strict).map_err(|e| e.into()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
-        use crate::asset::includedfile::ExportSetting;
+        use crate::asset::included_file::ExportSetting;
         for file in &included_files {
             log!(
                 logger,
@@ -669,23 +680,23 @@ where
     }
 
     // Help Dialog
-    assert_ver!("help dialog", 800, exe.read_u32_le()?)?;
+    assert_ver!("help dialog", 800, exe.read_u32::<LE>()?)?;
     let help_dialog = {
-        let len = exe.read_u32_le()? as usize;
+        let len = exe.read_u32::<LE>()? as usize;
         let pos = exe.position() as usize;
         let mut data = io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
         let hdg = GameHelpDialog {
-            bg_colour: data.read_u32_le()?.into(),
-            new_window: data.read_u32_le()? != 0,
+            bg_colour: data.read_u32::<LE>()?.into(),
+            new_window: data.read_u32::<LE>()? != 0,
             caption: data.read_pas_string()?,
-            left: data.read_i32_le()?,
-            top: data.read_i32_le()?,
-            width: data.read_u32_le()?,
-            height: data.read_u32_le()?,
-            border: data.read_u32_le()? != 0,
-            resizable: data.read_u32_le()? != 0,
-            window_on_top: data.read_u32_le()? != 0,
-            freeze_game: data.read_u32_le()? != 0,
+            left: data.read_i32::<LE>()?,
+            top: data.read_i32::<LE>()?,
+            width: data.read_u32::<LE>()?,
+            height: data.read_u32::<LE>()?,
+            border: data.read_u32::<LE>()? != 0,
+            resizable: data.read_u32::<LE>()? != 0,
+            window_on_top: data.read_u32::<LE>()? != 0,
+            freeze_game: data.read_u32::<LE>()? != 0,
             info: data.read_pas_string()?,
         };
         log!(logger, " + Help Dialog: {:#?}", hdg);
@@ -694,8 +705,8 @@ where
     };
 
     // Action library initialization code. These are GML strings which get run at game start, in order.
-    assert_ver!("action library initialization code header", 500, exe.read_u32_le()?)?;
-    let str_count = exe.read_u32_le()? as usize;
+    assert_ver!("action library initialization code header", 500, exe.read_u32::<LE>()?)?;
+    let str_count = exe.read_u32::<LE>()? as usize;
     let mut library_init_strings = Vec::with_capacity(str_count);
     for _ in 0..str_count {
         library_init_strings.push(exe.read_pas_string()?);
@@ -703,12 +714,12 @@ where
     log!(logger, " + Read {} action library initialization strings", str_count);
 
     // Room Order
-    assert_ver!("room order lookup", 700, exe.read_u32_le()?)?;
+    assert_ver!("room order lookup", 700, exe.read_u32::<LE>()?)?;
     let room_order = {
-        let ro_count = exe.read_u32_le()? as usize;
+        let ro_count = exe.read_u32::<LE>()? as usize;
         let mut room_order = Vec::with_capacity(ro_count);
         for _ in 0..ro_count {
-            room_order.push(exe.read_i32_le()?);
+            room_order.push(exe.read_i32::<LE>()?);
         }
         log!(logger, " + Added Room Order LUT: {:?}", room_order);
 

@@ -1,10 +1,10 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -58,27 +58,22 @@ pub struct Font {
 }
 
 impl Asset for Font {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let ver = reader.read_u32_le()?;
+            let ver = reader.read_u32::<LE>()?;
             assert_ver(ver, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
         let sys_name = reader.read_pas_string()?;
-        let size = reader.read_u32_le()?;
-        let bold = reader.read_u32_le()? != 0;
-        let italic = reader.read_u32_le()? != 0;
-        let mut range_start = reader.read_u32_le()?;
-        let range_end = reader.read_u32_le()?;
+        let size = reader.read_u32::<LE>()?;
+        let bold = reader.read_u32::<LE>()? != 0;
+        let italic = reader.read_u32::<LE>()? != 0;
+        let mut range_start = reader.read_u32::<LE>()?;
+        let range_end = reader.read_u32::<LE>()?;
 
         let (aa_level, charset) = match version {
             GameVersion::GameMaker8_0 => (0, 0),
@@ -92,17 +87,12 @@ impl Asset for Font {
 
         let mut dmap = [0u32; 0x600];
         for val in dmap.iter_mut() {
-            *val = reader.read_u32_le()?;
+            *val = reader.read_u32::<LE>()?;
         }
-        let map_width = reader.read_u32_le()?;
-        let map_height = reader.read_u32_le()?;
-        let len = reader.read_u32_le()? as usize;
-
-        let pos = reader.position() as usize;
-        let pixel_map = match reader.into_inner().get(pos..pos + len) {
-            Some(b) => b.to_vec().into_boxed_slice(),
-            None => return Err(AssetDataError::MalformedData),
-        };
+        let map_width = reader.read_u32::<LE>()?;
+        let map_height = reader.read_u32::<LE>()?;
+        let len = reader.read_u32::<LE>()? as usize;
+        let pixel_map = reader.read_chunk(len)?.into_boxed_slice();
 
         Ok(Font {
             name,
@@ -121,23 +111,20 @@ impl Asset for Font {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_pas_string(&self.sys_name)?;
-        result += writer.write_u32_le(self.size)?;
-        result += writer.write_u32_le(self.bold as u32)?;
-        result += writer.write_u32_le(self.italic as u32)?;
-        result += writer.write_u32_le(self.range_start)?;
-        result += writer.write_u32_le(self.range_end)?;
-        result += writer.write_u32_le(self.map_width)?;
-        result += writer.write_u32_le(self.map_height)?;
-        result += writer.write_u32_le(self.pixel_map.len() as u32)?;
-        result += writer.write_all(&self.pixel_map).map(|()| self.pixel_map.len())?;
-
-        Ok(result)
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_pas_string(&self.sys_name)?;
+        writer.write_u32::<LE>(self.size)?;
+        writer.write_u32::<LE>(self.bold as u32)?;
+        writer.write_u32::<LE>(self.italic as u32)?;
+        // TODO: Missing info! Uh-oh! GM81 bits you know what it is
+        writer.write_u32::<LE>(self.range_start)?;
+        writer.write_u32::<LE>(self.range_end)?;
+        writer.write_u32::<LE>(self.map_width)?;
+        writer.write_u32::<LE>(self.map_height)?;
+        writer.write_u32::<LE>(self.pixel_map.len() as u32)?; // TODO: len as u32
+        writer.write_all(&self.pixel_map)?;
+        Ok(())
     }
 }

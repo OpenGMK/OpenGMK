@@ -16,7 +16,7 @@ where
     F: Copy + Fn(&str),
 {
     // helper fn for logging antidec settings
-    let log_antidec = |data: antidec::AntidecMetadata| {
+    let log_antidec = |data: antidec::Metadata| {
         log!(
             logger,
             "exe_load_offset:0x{:X} header_start:0x{:X} xor_mask:0x{:X} add_mask:0x{:X} sub_mask:0x{:X}",

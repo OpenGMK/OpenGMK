@@ -1,9 +1,9 @@
-use chrono::{Datelike, Local};
 use std::{env, error::Error, process::Command};
+use time::OffsetDateTime;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // build date
-    let time = Local::now();
+    let time = OffsetDateTime::now_utc();
     println!("cargo:rustc-env=BUILD_DATE={}/{}/{}", time.year(), time.month(), time.day());
 
     // git hash

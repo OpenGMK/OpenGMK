@@ -1,10 +1,10 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -49,15 +49,9 @@ pub enum ExportSetting {
 }
 
 impl Asset for IncludedFile {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
-
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
@@ -66,21 +60,18 @@ impl Asset for IncludedFile {
         let file_name = reader.read_pas_string()?;
         let source_path = reader.read_pas_string()?;
 
-        let data_exists = reader.read_u32_le()? != 0;
-        let source_length = reader.read_u32_le()? as usize;
-        let stored_in_gmk = reader.read_u32_le()? != 0;
+        let data_exists = reader.read_u32::<LE>()? != 0;
+        let source_length = reader.read_u32::<LE>()? as usize;
+        let stored_in_gmk = reader.read_u32::<LE>()? != 0;
 
         let embedded_data = if stored_in_gmk && data_exists {
-            // TODO: this should be minio::read_buffer? Does that function exist yet?
-            let len = reader.read_u32_le()? as usize;
-            let pos = reader.position() as usize;
-            reader.seek(SeekFrom::Current(len as i64))?;
-            Some(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()).to_vec().into_boxed_slice())
+            let len = reader.read_u32::<LE>()? as usize;
+            Some(reader.read_chunk(len)?.into_boxed_slice())
         } else {
             None
         };
 
-        let export_flag = reader.read_u32_le()?;
+        let export_flag = reader.read_u32::<LE>()?;
         let custom_folder_path = reader.read_pas_string()?; // always present
         let export_settings = match export_flag {
             0 => ExportSetting::NoExport,
@@ -89,9 +80,9 @@ impl Asset for IncludedFile {
             _ => ExportSetting::CustomFolder(custom_folder_path),
         };
 
-        let overwrite_file = reader.read_u32_le()? != 0;
-        let free_memory = reader.read_u32_le()? != 0;
-        let remove_at_end = reader.read_u32_le()? != 0;
+        let overwrite_file = reader.read_u32::<LE>()? != 0;
+        let free_memory = reader.read_u32::<LE>()? != 0;
+        let remove_at_end = reader.read_u32::<LE>()? != 0;
 
         Ok(IncludedFile {
             file_name,
@@ -107,43 +98,40 @@ impl Asset for IncludedFile {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_u32_le(VERSION)?;
-        result += writer.write_pas_string(&self.file_name)?;
-        result += writer.write_pas_string(&self.source_path)?;
-        result += writer.write_u32_le(self.data_exists as u32)?;
-        result += writer.write_u32_le(self.source_length as u32)?;
-        result += writer.write_u32_le(self.stored_in_gmk as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_pas_string(&self.file_name)?;
+        writer.write_pas_string(&self.source_path)?;
+        writer.write_u32::<LE>(self.data_exists as u32)?;
+        writer.write_u32::<LE>(self.source_length as u32)?;
+        writer.write_u32::<LE>(self.stored_in_gmk as u32)?;
         if let Some(data) = &self.embedded_data {
-            result += writer.write_u32_le(data.len() as u32)?;
+            writer.write_u32::<LE>(data.len() as u32)?;
             // TODO: minio.write_buffer?
             writer.write_all(data)?;
-            result += data.len();
+            data.len();
         }
         match &self.export_settings {
             ExportSetting::NoExport => {
-                result += writer.write_u32_le(0)?;
-                result += writer.write_pas_string(&"".into())?;
+                writer.write_u32::<LE>(0)?;
+                writer.write_pas_string(&"".into())?;
             },
             ExportSetting::TempFolder => {
-                result += writer.write_u32_le(1)?;
-                result += writer.write_pas_string(&"".into())?;
+                writer.write_u32::<LE>(1)?;
+                writer.write_pas_string(&"".into())?;
             },
             ExportSetting::GameFolder => {
-                result += writer.write_u32_le(2)?;
-                result += writer.write_pas_string(&"".into())?;
+                writer.write_u32::<LE>(2)?;
+                writer.write_pas_string(&"".into())?;
             },
             ExportSetting::CustomFolder(folder) => {
-                result += writer.write_u32_le(3)?;
-                result += writer.write_pas_string(folder)?;
+                writer.write_u32::<LE>(3)?;
+                writer.write_pas_string(folder)?;
             },
         }
-        result += writer.write_u32_le(self.overwrite_file as u32)?;
-        result += writer.write_u32_le(self.free_memory as u32)?;
-        result += writer.write_u32_le(self.remove_at_end as u32)?;
-        Ok(result)
+        writer.write_u32::<LE>(self.overwrite_file as u32)?;
+        writer.write_u32::<LE>(self.free_memory as u32)?;
+        writer.write_u32::<LE>(self.remove_at_end as u32)?;
+        Ok(())
     }
 }

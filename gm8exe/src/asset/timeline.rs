@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, etc::CodeAction, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 500;
 pub const VERSION_MOMENT: u32 = 400;
@@ -18,38 +17,33 @@ pub struct Timeline {
 }
 
 impl Asset for Timeline {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let moment_count = reader.read_u32_le()? as usize;
+        let moment_count = reader.read_u32::<LE>()? as usize;
         let mut moments = Vec::with_capacity(moment_count);
         for _ in 0..moment_count {
-            let moment_index = reader.read_u32_le()?;
+            let moment_index = reader.read_u32::<LE>()?;
 
             if strict {
-                let version = reader.read_u32_le()?;
+                let version = reader.read_u32::<LE>()?;
                 assert_ver(version, VERSION_MOMENT)?;
             } else {
                 reader.seek(SeekFrom::Current(4))?;
             }
 
-            let action_count = reader.read_u32_le()? as usize;
+            let action_count = reader.read_u32::<LE>()? as usize;
 
             let mut actions = Vec::with_capacity(action_count);
             for _ in 0..action_count {
-                actions.push(CodeAction::from_cur(&mut reader, strict)?);
+                actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
             }
 
             moments.push((moment_index, actions));
@@ -58,21 +52,18 @@ impl Asset for Timeline {
         Ok(Timeline { name, moments })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_u32_le(self.moments.len() as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_u32::<LE>(self.moments.len() as u32)?;
         for (moment_index, actions) in &self.moments {
-            result += writer.write_u32_le(*moment_index)?;
-            result += writer.write_u32_le(VERSION_MOMENT as u32)?;
-            result += writer.write_u32_le(actions.len() as u32)?;
+            writer.write_u32::<LE>(*moment_index)?;
+            writer.write_u32::<LE>(VERSION_MOMENT as u32)?;
+            writer.write_u32::<LE>(actions.len() as u32)?;
             for action in actions {
-                result += action.write_to(writer)?;
+                action.serialize_exe(&mut writer, version)?;
             }
         }
-        Ok(result)
+        Ok(())
     }
 }

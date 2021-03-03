@@ -1,8 +1,9 @@
 pub mod background;
+pub mod code_action;
 pub mod constant;
 pub mod extension;
 pub mod font;
-pub mod includedfile;
+pub mod included_file;
 pub mod object;
 pub mod path;
 pub mod room;
@@ -12,14 +13,13 @@ pub mod sprite;
 pub mod timeline;
 pub mod trigger;
 
-pub mod etc;
-
 pub use self::{
     background::Background,
+    code_action::CodeAction,
     constant::Constant,
     extension::Extension,
     font::Font,
-    includedfile::IncludedFile,
+    included_file::IncludedFile,
     object::Object,
     path::Path,
     room::Room,
@@ -31,61 +31,55 @@ pub use self::{
 };
 
 use crate::GameVersion;
-use std::{
-    error::Error,
-    fmt::{self, Display},
-    io,
-};
+use std::{fmt::{self, Display}, io};
+use byteorder::LE;
 
-pub trait Asset {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized;
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write;
+pub trait Asset: Sized {
+    /// Deserializes the asset from the format used in game executables.
+    fn deserialize_exe(reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error>;
+    /// Serializes the asset to the format used in game executables.
+    fn serialize_exe(&self, writer: impl io::Write, version: GameVersion) -> io::Result<()>;
 }
 
 #[derive(Debug)]
-pub enum AssetDataError {
+pub enum Error {
     IO(io::Error),
     MalformedData,
     VersionError { expected: u32, got: u32 },
 }
 
-impl Error for AssetDataError {}
-impl Display for AssetDataError {
+impl std::error::Error for Error {}
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
-            AssetDataError::IO(err) => format!("io error: {}", err),
-            AssetDataError::VersionError { expected, got } => format!(
+            Error::IO(err) => format!("io error: {}", err),
+            Error::VersionError { expected, got } => format!(
                 "version error: expected {} ({}), found {} ({})",
                 *expected,
                 *expected as f32 / 100.0,
                 *got,
                 *got as f32 / 100.0
             ),
-            AssetDataError::MalformedData => "malformed data while reading".into(),
+            Error::MalformedData => "malformed data while reading".into(),
         })
     }
 }
 
-impl From<io::Error> for AssetDataError {
+impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        AssetDataError::IO(err)
+        Error::IO(err)
     }
 }
 
-impl From<(u32, u32)> for AssetDataError {
+impl From<(u32, u32)> for Error {
     fn from(version_error: (u32, u32)) -> Self {
-        AssetDataError::VersionError { expected: version_error.0, got: version_error.1 }
+        Error::VersionError { expected: version_error.0, got: version_error.1 }
     }
 }
 
 #[inline(always)]
-fn assert_ver(got: u32, expected: u32) -> Result<(), AssetDataError> {
-    if got != expected { Err(AssetDataError::VersionError { expected, got }) } else { Ok(()) }
+fn assert_ver(got: u32, expected: u32) -> Result<(), Error> {
+    if got != expected { Err(Error::VersionError { expected, got }) } else { Ok(()) }
 }
 
 #[derive(Debug, Default)]
@@ -103,21 +97,33 @@ impl From<&str> for PascalString {
     }
 }
 
+/// Helper trait to read big blocks of raw data.
+pub trait ReadChunk: io::Read {
+    fn read_chunk(&mut self, len: usize) -> io::Result<Vec<u8>> {
+        // safety: read_exact specifies to expect buf to be uninitialized and never read from it
+        let mut buf = Vec::with_capacity(len);
+        unsafe { buf.set_len(len) };
+        self.read_exact(&mut buf[..])?;
+        Ok(buf)
+    }
+}
+impl<R> ReadChunk for R where R: io::Read {}
+
 // pascal-string extension for easy use
-pub trait ReadPascalString: io::Read + minio::ReadPrimitives + minio::ReadStrings {
+pub trait ReadPascalString: byteorder::ReadBytesExt + io::Read + ReadChunk {
     fn read_pas_string(&mut self) -> io::Result<PascalString> {
-        let len = self.read_u32_le()? as usize;
-        let mut buf = vec![0u8; len];
-        self.read_exact(&mut buf)?;
+        let len = self.read_u32::<LE>()? as usize;
+        let buf = self.read_chunk(len)?;
         Ok(PascalString(buf.into_boxed_slice()))
     }
 }
+impl<R> ReadPascalString for R where R: byteorder::ReadBytesExt + io::Read + ReadChunk {}
 
-pub trait WritePascalString: io::Write + minio::WritePrimitives {
-    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<usize> {
-        self.write_u32_le(s.0.len() as u32).and_then(|x| self.write_all(s.0.as_ref()).map(|()| s.0.len() + x))
+pub trait WritePascalString: byteorder::WriteBytesExt + io::Write {
+    fn write_pas_string(&mut self, s: &PascalString) -> io::Result<()> {
+        self.write_u32::<LE>(s.0.len() as u32)?;
+        self.write_all(&s.0)?;
+        Ok(())
     }
 }
-
-impl<R> ReadPascalString for R where R: io::Read {}
-impl<W> WritePascalString for W where W: io::Write {}
+impl<W> WritePascalString for W where W: byteorder::WriteBytesExt + io::Write {}

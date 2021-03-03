@@ -1,13 +1,10 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::{
-    convert::TryInto,
-    io::{self, Seek, SeekFrom},
-};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
+use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -64,82 +61,60 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize<B>(bytes: B, strict: bool, _version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let version = reader.read_u32_le()?;
+            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
-        let origin_x = reader.read_i32_le()?;
-        let origin_y = reader.read_i32_le()?;
-        let frame_count = reader.read_u32_le()?;
+        let origin_x = reader.read_i32::<LE>()?;
+        let origin_y = reader.read_i32::<LE>()?;
+        let frame_count = reader.read_u32::<LE>()?;
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
             let mut frames = Vec::with_capacity(frame_count as usize);
             for _ in 0..frame_count {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_FRAME)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let frame_width = reader.read_u32_le()?;
-                let frame_height = reader.read_u32_le()?;
+                let frame_width = reader.read_u32::<LE>()?;
+                let frame_height = reader.read_u32::<LE>()?;
 
-                let pixeldata_len = reader.read_u32_le()? as usize;
-
-                // read pixeldata
-                let pos = reader.position() as usize;
-                reader.seek(SeekFrom::Current(pixeldata_len as i64))?;
-                let data = match reader.get_mut().get(pos..pos + pixeldata_len) {
-                    Some(b) => b.to_vec().into_boxed_slice(),
-                    None => return Err(AssetDataError::MalformedData),
-                };
+                let len = reader.read_u32::<LE>()? as usize;
+                let data = reader.read_chunk(len)?.into_boxed_slice();
 
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
 
-            fn read_collision<T>(reader: &mut io::Cursor<T>, strict: bool) -> Result<CollisionMap, AssetDataError>
-            where
-                T: AsRef<[u8]>,
-            {
+            fn read_collision(mut reader: impl io::Read + io::Seek, strict: bool) -> Result<CollisionMap, Error> {
                 if strict {
-                    let version = reader.read_u32_le()?;
+                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_COLLISION)?;
                 } else {
                     reader.seek(SeekFrom::Current(4))?;
                 }
 
-                let width = reader.read_u32_le()?;
-                let height = reader.read_u32_le()?;
-                let bbox_left = reader.read_u32_le()?;
-                let bbox_right = reader.read_u32_le()?;
-                let bbox_bottom = reader.read_u32_le()?;
-                let bbox_top = reader.read_u32_le()?;
+                let width = reader.read_u32::<LE>()?;
+                let height = reader.read_u32::<LE>()?;
+                let bbox_left = reader.read_u32::<LE>()?;
+                let bbox_right = reader.read_u32::<LE>()?;
+                let bbox_bottom = reader.read_u32::<LE>()?;
+                let bbox_top = reader.read_u32::<LE>()?;
 
-                let mask_size = width as usize * height as usize;
-                let pos = reader.position() as usize;
-                reader.seek(SeekFrom::Current(4 * mask_size as i64))?;
-                let mask: Vec<bool> = match reader.get_ref().as_ref().get(pos..pos + (4 * mask_size)) {
-                    Some(b) => b
-                        .chunks_exact(4)
-                        .map(|ch| {
-                            // until we get const generics we need to do this to get an exact array.
-                            // panic is unreachable and is optimized out.
-                            u32::from_le_bytes(*<&[u8] as TryInto<&[u8; 4]>>::try_into(ch).unwrap()) != 0
-                        })
-                        .collect(),
-                    None => return Err(AssetDataError::MalformedData),
-                };
+                // safety: all uninitialized memory is written to
+                // TODO: Maybe there's a function to Vec<u8> -> Vec<u32> ?
+                let pixel_count = width as usize * height as usize;
+                let mut mask_data = Vec::with_capacity(pixel_count);
+                unsafe { mask_data.set_len(pixel_count) };
+                reader.read_u32_into::<LE>(&mut mask_data[..])?;
+                let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
 
                 Ok(CollisionMap {
                     width,
@@ -148,12 +123,12 @@ impl Asset for Sprite {
                     bbox_right,
                     bbox_bottom,
                     bbox_top,
-                    data: mask.into_boxed_slice(),
+                    data,
                 })
             }
 
             let mut colliders: Vec<CollisionMap>;
-            let per_frame_colliders = reader.read_u32_le()? != 0;
+            let per_frame_colliders = reader.read_u32::<LE>()? != 0;
             if per_frame_colliders {
                 colliders = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
@@ -170,42 +145,37 @@ impl Asset for Sprite {
         Ok(Sprite { name, origin_x, origin_y, frames, colliders, per_frame_colliders })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION as u32)?;
-        result += writer.write_i32_le(self.origin_x)?;
-        result += writer.write_i32_le(self.origin_y)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_i32::<LE>(self.origin_x)?;
+        writer.write_i32::<LE>(self.origin_y)?;
         if !self.frames.is_empty() {
-            result += writer.write_u32_le(self.frames.len() as u32)?;
+            writer.write_u32::<LE>(self.frames.len() as u32)?; // TODO: len as u32
             for frame in self.frames.iter() {
-                result += writer.write_u32_le(VERSION_FRAME)?;
-                result += writer.write_u32_le(frame.width)?;
-                result += writer.write_u32_le(frame.height)?;
-                result += writer.write_u32_le(frame.data.len() as u32)?;
-
+                writer.write_u32::<LE>(VERSION_FRAME)?;
+                writer.write_u32::<LE>(frame.width)?;
+                writer.write_u32::<LE>(frame.height)?;
+                writer.write_u32::<LE>(frame.data.len() as u32)?;
                 let pixeldata = frame.data.clone();
-                result += writer.write_all(&pixeldata).map(|()| pixeldata.len())?;
+                writer.write_all(&pixeldata)?;
             }
-            result += writer.write_u32_le(self.per_frame_colliders as u32)?;
+            writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
             for collider in self.colliders.iter() {
-                result += writer.write_u32_le(VERSION_COLLISION)?;
-                result += writer.write_u32_le(collider.width)?;
-                result += writer.write_u32_le(collider.height)?;
-                result += writer.write_u32_le(collider.bbox_left)?;
-                result += writer.write_u32_le(collider.bbox_right)?;
-                result += writer.write_u32_le(collider.bbox_bottom)?;
-                result += writer.write_u32_le(collider.bbox_top)?;
+                writer.write_u32::<LE>(VERSION_COLLISION)?;
+                writer.write_u32::<LE>(collider.width)?;
+                writer.write_u32::<LE>(collider.height)?;
+                writer.write_u32::<LE>(collider.bbox_left)?;
+                writer.write_u32::<LE>(collider.bbox_right)?;
+                writer.write_u32::<LE>(collider.bbox_bottom)?;
+                writer.write_u32::<LE>(collider.bbox_top)?;
                 for pixel in &*collider.data {
-                    result += writer.write_u32_le(*pixel as u32)?;
+                    writer.write_u32::<LE>(*pixel as u32)?;
                 }
             }
         } else {
-            result += writer.write_u32_le(0)?;
+            writer.write_u32::<LE>(0)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }

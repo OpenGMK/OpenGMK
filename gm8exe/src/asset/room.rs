@@ -1,12 +1,11 @@
 use crate::{
-    asset::{assert_ver, Asset, AssetDataError, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     colour::Colour,
     def::ID,
     GameVersion,
 };
-
-use minio::{ReadPrimitives, WritePrimitives};
-use std::io::{self, Seek, SeekFrom};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 541;
 
@@ -112,99 +111,94 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize<B>(bytes: B, strict: bool, version: GameVersion) -> Result<Self, AssetDataError>
-    where
-        B: AsRef<[u8]>,
-        Self: Sized,
-    {
-        let mut reader = io::Cursor::new(bytes.as_ref());
+    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
-            let entry_version = reader.read_u32_le()?;
+            let entry_version = reader.read_u32::<LE>()?;
             assert_ver(entry_version, VERSION)?;
         } else {
             reader.seek(SeekFrom::Current(4))?;
         }
 
         let caption = reader.read_pas_string()?;
-        let width = reader.read_u32_le()?;
-        let height = reader.read_u32_le()?;
-        let speed = reader.read_u32_le()?;
-        let persistent = reader.read_u32_le()? != 0;
-        let bg_colour = reader.read_u32_le()?.into();
-        let (clear_screen, clear_region) = match (version, reader.read_u32_le()?) {
+        let width = reader.read_u32::<LE>()?;
+        let height = reader.read_u32::<LE>()?;
+        let speed = reader.read_u32::<LE>()?;
+        let persistent = reader.read_u32::<LE>()? != 0;
+        let bg_colour = reader.read_u32::<LE>()?.into();
+        let (clear_screen, clear_region) = match (version, reader.read_u32::<LE>()?) {
             (GameVersion::GameMaker8_0, x) => (x != 0, true),
             (GameVersion::GameMaker8_1, x) => ((x & 0b01) != 0, (x & 0b10) == 0),
         };
         let creation_code = reader.read_pas_string()?;
 
-        let background_count = reader.read_u32_le()? as usize;
+        let background_count = reader.read_u32::<LE>()? as usize;
         let mut backgrounds = Vec::with_capacity(background_count);
         for _ in 0..background_count {
             backgrounds.push(Background {
-                visible_on_start: reader.read_u32_le()? != 0,
-                is_foreground: reader.read_u32_le()? != 0,
-                source_bg: reader.read_i32_le()?,
-                xoffset: reader.read_i32_le()?,
-                yoffset: reader.read_i32_le()?,
-                tile_horz: reader.read_u32_le()? != 0,
-                tile_vert: reader.read_u32_le()? != 0,
-                hspeed: reader.read_i32_le()?,
-                vspeed: reader.read_i32_le()?,
-                stretch: reader.read_u32_le()? != 0,
+                visible_on_start: reader.read_u32::<LE>()? != 0,
+                is_foreground: reader.read_u32::<LE>()? != 0,
+                source_bg: reader.read_i32::<LE>()?,
+                xoffset: reader.read_i32::<LE>()?,
+                yoffset: reader.read_i32::<LE>()?,
+                tile_horz: reader.read_u32::<LE>()? != 0,
+                tile_vert: reader.read_u32::<LE>()? != 0,
+                hspeed: reader.read_i32::<LE>()?,
+                vspeed: reader.read_i32::<LE>()?,
+                stretch: reader.read_u32::<LE>()? != 0,
             });
         }
 
-        let views_enabled = reader.read_u32_le()? != 0;
-        let view_count = reader.read_u32_le()? as usize;
+        let views_enabled = reader.read_u32::<LE>()? != 0;
+        let view_count = reader.read_u32::<LE>()? as usize;
         let mut views = Vec::with_capacity(view_count);
         for _ in 0..view_count {
             views.push(View {
-                visible: reader.read_u32_le()? != 0,
-                source_x: reader.read_i32_le()?,
-                source_y: reader.read_i32_le()?,
-                source_w: reader.read_u32_le()?,
-                source_h: reader.read_u32_le()?,
-                port_x: reader.read_i32_le()?,
-                port_y: reader.read_i32_le()?,
-                port_w: reader.read_u32_le()?,
-                port_h: reader.read_u32_le()?,
+                visible: reader.read_u32::<LE>()? != 0,
+                source_x: reader.read_i32::<LE>()?,
+                source_y: reader.read_i32::<LE>()?,
+                source_w: reader.read_u32::<LE>()?,
+                source_h: reader.read_u32::<LE>()?,
+                port_x: reader.read_i32::<LE>()?,
+                port_y: reader.read_i32::<LE>()?,
+                port_w: reader.read_u32::<LE>()?,
+                port_h: reader.read_u32::<LE>()?,
                 following: ViewFollowData {
-                    hborder: reader.read_i32_le()?,
-                    vborder: reader.read_i32_le()?,
-                    hspeed: reader.read_i32_le()?,
-                    vspeed: reader.read_i32_le()?,
-                    target: reader.read_i32_le()?,
+                    hborder: reader.read_i32::<LE>()?,
+                    vborder: reader.read_i32::<LE>()?,
+                    hspeed: reader.read_i32::<LE>()?,
+                    vspeed: reader.read_i32::<LE>()?,
+                    target: reader.read_i32::<LE>()?,
                 },
             });
         }
 
-        let instance_count = reader.read_u32_le()? as usize;
+        let instance_count = reader.read_u32::<LE>()? as usize;
         let mut instances = Vec::with_capacity(instance_count);
         for _ in 0..instance_count {
             instances.push(self::Instance {
-                x: reader.read_i32_le()?,
-                y: reader.read_i32_le()?,
-                object: reader.read_i32_le()?,
-                id: reader.read_i32_le()?,
+                x: reader.read_i32::<LE>()?,
+                y: reader.read_i32::<LE>()?,
+                object: reader.read_i32::<LE>()?,
+                id: reader.read_i32::<LE>()?,
                 creation_code: reader.read_pas_string()?,
             });
         }
 
-        let tile_count = reader.read_u32_le()? as usize;
+        let tile_count = reader.read_u32::<LE>()? as usize;
         let mut tiles = Vec::with_capacity(tile_count);
         for _ in 0..tile_count {
             tiles.push(self::Tile {
-                x: reader.read_i32_le()?,
-                y: reader.read_i32_le()?,
-                source_bg: reader.read_i32_le()?,
-                tile_x: reader.read_u32_le()?,
-                tile_y: reader.read_u32_le()?,
-                width: reader.read_u32_le()?,
-                height: reader.read_u32_le()?,
-                depth: reader.read_i32_le()?,
-                id: reader.read_i32_le()?,
+                x: reader.read_i32::<LE>()?,
+                y: reader.read_i32::<LE>()?,
+                source_bg: reader.read_i32::<LE>()?,
+                tile_x: reader.read_u32::<LE>()?,
+                tile_y: reader.read_u32::<LE>()?,
+                width: reader.read_u32::<LE>()?,
+                height: reader.read_u32::<LE>()?,
+                depth: reader.read_i32::<LE>()?,
+                id: reader.read_i32::<LE>()?,
             });
         }
 
@@ -227,78 +221,73 @@ impl Asset for Room {
         })
     }
 
-    fn serialize<W>(&self, writer: &mut W) -> io::Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut result = writer.write_pas_string(&self.name)?;
-        result += writer.write_u32_le(VERSION)?;
-        result += writer.write_pas_string(&self.caption)?;
-        result += writer.write_u32_le(self.width)?;
-        result += writer.write_u32_le(self.height)?;
-        result += writer.write_u32_le(self.speed)?;
-        result += writer.write_u32_le(self.persistent as u32)?;
-        result += writer.write_u32_le(self.bg_colour.into())?;
-        result += writer.write_u32_le(
-            ((!self.clear_region as u32) << 1) | (self.clear_screen as u32)
-        )?;
-        result += writer.write_pas_string(&self.creation_code)?;
-
-        result += writer.write_u32_le(self.backgrounds.len() as u32)?;
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
+        writer.write_pas_string(&self.name)?;
+        writer.write_u32::<LE>(VERSION)?;
+        writer.write_pas_string(&self.caption)?;
+        writer.write_u32::<LE>(self.width)?;
+        writer.write_u32::<LE>(self.height)?;
+        writer.write_u32::<LE>(self.speed)?;
+        writer.write_u32::<LE>(self.persistent as u32)?;
+        writer.write_u32::<LE>(self.bg_colour.into())?;
+        match version {
+            GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen as u32)?,
+            GameVersion::GameMaker8_1 => writer.write_u32::<LE>(
+                ((!self.clear_region as u32) << 1) | (self.clear_screen as u32),
+            )?,
+        };
+        writer.write_pas_string(&self.creation_code)?;
+        writer.write_u32::<LE>(self.backgrounds.len() as u32)?;
         for background in &self.backgrounds {
-            result += writer.write_u32_le(background.visible_on_start as u32)?;
-            result += writer.write_u32_le(background.is_foreground as u32)?;
-            result += writer.write_i32_le(background.source_bg)?;
-            result += writer.write_i32_le(background.xoffset)?;
-            result += writer.write_i32_le(background.yoffset)?;
-            result += writer.write_u32_le(background.tile_horz as u32)?;
-            result += writer.write_u32_le(background.tile_vert as u32)?;
-            result += writer.write_i32_le(background.hspeed)?;
-            result += writer.write_i32_le(background.vspeed)?;
-            result += writer.write_u32_le(background.stretch as u32)?;
+            writer.write_u32::<LE>(background.visible_on_start as u32)?;
+            writer.write_u32::<LE>(background.is_foreground as u32)?;
+            writer.write_i32::<LE>(background.source_bg)?;
+            writer.write_i32::<LE>(background.xoffset)?;
+            writer.write_i32::<LE>(background.yoffset)?;
+            writer.write_u32::<LE>(background.tile_horz as u32)?;
+            writer.write_u32::<LE>(background.tile_vert as u32)?;
+            writer.write_i32::<LE>(background.hspeed)?;
+            writer.write_i32::<LE>(background.vspeed)?;
+            writer.write_u32::<LE>(background.stretch as u32)?;
         }
-
-        result += writer.write_u32_le(self.views_enabled as u32)?;
-        result += writer.write_u32_le(self.views.len() as u32)?;
+        writer.write_u32::<LE>(self.views_enabled as u32)?;
+        writer.write_u32::<LE>(self.views.len() as u32)?;
         for view in &self.views {
-            result += writer.write_u32_le(view.visible as u32)?;
-            result += writer.write_i32_le(view.source_x)?;
-            result += writer.write_i32_le(view.source_y)?;
-            result += writer.write_u32_le(view.source_w)?;
-            result += writer.write_u32_le(view.source_h)?;
-            result += writer.write_i32_le(view.port_x)?;
-            result += writer.write_i32_le(view.port_y)?;
-            result += writer.write_u32_le(view.port_w)?;
-            result += writer.write_u32_le(view.port_h)?;
-            result += writer.write_i32_le(view.following.hborder)?;
-            result += writer.write_i32_le(view.following.vborder)?;
-            result += writer.write_i32_le(view.following.hspeed)?;
-            result += writer.write_i32_le(view.following.vspeed)?;
-            result += writer.write_i32_le(view.following.target)?;
+            writer.write_u32::<LE>(view.visible as u32)?;
+            writer.write_i32::<LE>(view.source_x)?;
+            writer.write_i32::<LE>(view.source_y)?;
+            writer.write_u32::<LE>(view.source_w)?;
+            writer.write_u32::<LE>(view.source_h)?;
+            writer.write_i32::<LE>(view.port_x)?;
+            writer.write_i32::<LE>(view.port_y)?;
+            writer.write_u32::<LE>(view.port_w)?;
+            writer.write_u32::<LE>(view.port_h)?;
+            writer.write_i32::<LE>(view.following.hborder)?;
+            writer.write_i32::<LE>(view.following.vborder)?;
+            writer.write_i32::<LE>(view.following.hspeed)?;
+            writer.write_i32::<LE>(view.following.vspeed)?;
+            writer.write_i32::<LE>(view.following.target)?;
         }
-
-        result += writer.write_u32_le(self.instances.len() as u32)?;
+        writer.write_u32::<LE>(self.instances.len() as u32)?; // TODO: srsly grep for 'len as u32'
         for instance in &self.instances {
-            result += writer.write_i32_le(instance.x)?;
-            result += writer.write_i32_le(instance.y)?;
-            result += writer.write_i32_le(instance.object)?;
-            result += writer.write_i32_le(instance.id)?;
-            result += writer.write_pas_string(&instance.creation_code)?;
+            writer.write_i32::<LE>(instance.x)?;
+            writer.write_i32::<LE>(instance.y)?;
+            writer.write_i32::<LE>(instance.object)?;
+            writer.write_i32::<LE>(instance.id)?;
+            writer.write_pas_string(&instance.creation_code)?;
         }
-
-        result += writer.write_u32_le(self.tiles.len() as u32)?;
+        writer.write_u32::<LE>(self.tiles.len() as u32)?;
         for tile in &self.tiles {
-            result += writer.write_i32_le(tile.x)?;
-            result += writer.write_i32_le(tile.y)?;
-            result += writer.write_i32_le(tile.source_bg)?;
-            result += writer.write_u32_le(tile.tile_x)?;
-            result += writer.write_u32_le(tile.tile_y)?;
-            result += writer.write_u32_le(tile.width)?;
-            result += writer.write_u32_le(tile.height)?;
-            result += writer.write_i32_le(tile.depth)?;
-            result += writer.write_i32_le(tile.id)?;
+            writer.write_i32::<LE>(tile.x)?;
+            writer.write_i32::<LE>(tile.y)?;
+            writer.write_i32::<LE>(tile.source_bg)?;
+            writer.write_u32::<LE>(tile.tile_x)?;
+            writer.write_u32::<LE>(tile.tile_y)?;
+            writer.write_u32::<LE>(tile.width)?;
+            writer.write_u32::<LE>(tile.height)?;
+            writer.write_i32::<LE>(tile.depth)?;
+            writer.write_i32::<LE>(tile.id)?;
         }
-
-        Ok(result)
+        Ok(())
     }
 }
