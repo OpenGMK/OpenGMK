@@ -1,4 +1,4 @@
-use cfg_if::cfg_if;
+use crate::util;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -14,309 +14,96 @@ pub struct Real(f64);
 /// The lenience between values when compared.
 const CMP_EPSILON: f64 = 1e-13;
 
-// Platform-specific implementation of the arithmetic. Should provide:
-// Add, Sub, Mul, Div, sin, cos, tan, round64
-cfg_if! {
-    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
-        macro_rules! fpu_unary_op {
-            ($code: literal, $op: expr) => {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        concat!(
-                            "fld qword ptr [{1}]
-                            ", $code, "
-                            fstp qword ptr [{1}]
-                            movsd {0}, [{1}]"
-                        ),
-                        lateout(xmm_reg) out,
-                        in(reg) &mut $op,
-                    }
-                    out.into()
-                }
-            };
-        }
+impl Real {
+    #[inline(always)]
+    pub fn sin(self) -> Self {
+        Self(self.0.sin())
+    }
 
-        macro_rules! fpu_binary_op {
-            ($code: literal, $op1: expr, $op2: expr) => {{
-                let out: f64;
-                unsafe {
-                    asm! {
-                        concat!(
-                            "fld qword ptr [{0}]
-                            fld qword ptr [{1}]
-                            ", $code, " st, st(1)
-                            fstp qword ptr [{0}]
-                            movsd {2}, qword ptr [{0}]",
-                        ),
-                        in(reg) &mut $op1,
-                        in(reg) &$op2,
-                        lateout(xmm_reg) out,
-                    }
-                }
-                out.into()
-            }};
-        }
+    #[inline(always)]
+    pub fn cos(self) -> Self {
+        Self(self.0.cos())
+    }
 
-        impl Real {
-            #[inline(always)]
-            #[cfg(target_arch = "x86_64")]
-            pub fn round64(mut self) -> i64 {
-                unsafe {
-                    let out: i64;
-                    asm! {
-                        "fld qword ptr [{1}]
-                        fistp qword ptr [{1}]
-                        mov {0}, qword ptr [{1}]",
-                        lateout(reg) out,
-                        in(reg) &mut self,
-                    }
-                    out
-                }
-            }
+    #[inline(always)]
+    pub fn tan(self) -> Self {
+        Self(self.0.tan())
+    }
 
-            #[inline(always)]
-            #[cfg(target_arch = "x86")]
-            pub fn round64(mut self) -> i64 {
-                unsafe {
-                    let out: i64;
-                    // OPTIMIZE: Using an SSE register here probably isn't the fastest?
-                    // How the fuck do I specify "stack value"?
-                    asm! {
-                        "fld qword ptr [{1}]
-                        fistp qword ptr [{1}]
-                        movsd {0}, [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out
-                }
-            }
+    pub fn arcsin(self) -> Self {
+        Self(self.0.asin())
+    }
 
-            #[inline(always)]
-            pub fn sin(mut self) -> Self {
-                fpu_unary_op!("fsin", self)
-            }
+    pub fn arccos(self) -> Self {
+        Self(self.0.acos())
+    }
 
-            #[inline(always)]
-            pub fn cos(mut self) -> Self {
-                fpu_unary_op!("fcos", self)
-            }
+    pub fn arctan(self) -> Self {
+        Self(self.0.atan())
+    }
 
-            #[inline(always)]
-            pub fn tan(mut self) -> Self {
-                fpu_unary_op!(
-                    "fptan
-                    fstp st(0)",
-                    self
-                )
-            }
+    pub fn arctan2(self, other: Real) -> Self {
+        Self(self.0.atan2(other.0))
+    }
 
-            pub fn arcsin(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld qword ptr [{1}]
-                        fld1
-                        fadd st(0),st(1)
-                        fld1
-                        fsub st(0),st(2)
-                        fmulp
-                        fsqrt
-                        fpatan
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+    pub fn exp(self) -> Self {
+        Self(self.0.exp())
+    }
 
-            pub fn arccos(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld1
-                        fld qword ptr [{1}]
-                        fsub st(1),st(0)
-                        fld1
-                        faddp
-                        fmulp
-                        fsqrt
-                        fld qword ptr [{1}]
-                        fpatan
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+    pub fn ln(self) -> Self {
+        Self(self.0.ln())
+    }
 
-            pub fn arctan(mut self) -> Self {
-                fpu_unary_op!(
-                    "fld1
-                    fpatan",
-                    self
-                )
-            }
+    pub fn log2(self) -> Self {
+        Self(self.0.log2())
+    }
 
-            pub fn arctan2(mut self, mut other: Real) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld qword ptr [{1}]
-                        fld qword ptr [{2}]
-                        fpatan
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                        in(reg) &mut other,
-                    }
-                    out.into()
-                }
-            }
+    pub fn log10(self) -> Self {
+        Self(self.0.log10())
+    }
 
-            pub fn exp(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld qword ptr [{1}]
-                        fldl2e
-                        fmulp
-                        fld st(0)
-                        frndint
-                        fsub st(1),st(0)
-                        fxch
-                        f2xm1
-                        fld1
-                        faddp
-                        fscale
-                        fstp qword ptr [{1}]
-                        fstp st(0)
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+    pub fn logn(self, other: Real) -> Self {
+        Self(self.0.log(other.0))
+    }
 
-            pub fn ln(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fldln2
-                        fld qword ptr [{1}]
-                        fyl2x
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+    pub fn sqrt(self) -> Self {
+        Self(self.0.sqrt())
+    }
+}
 
-            pub fn log2(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld1
-                        fld qword ptr [{1}]
-                        fyl2x
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+impl Add for Real {
+    type Output = Self;
 
-            pub fn log10(mut self) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fldlg2
-                        fld qword ptr [{1}]
-                        fyl2x
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                    }
-                    out.into()
-                }
-            }
+    #[inline(always)]
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
 
-            pub fn logn(mut self, mut other: Real) -> Self {
-                unsafe {
-                    let out: f64;
-                    asm! {
-                        "fld1
-                        fld qword ptr [{1}]
-                        fyl2x
-                        fld1
-                        fld qword ptr [{2}]
-                        fyl2x
-                        fdivp
-                        fstp qword ptr [{1}]
-                        movsd {0}, qword ptr [{1}]",
-                        lateout(xmm_reg) out,
-                        in(reg) &mut self,
-                        in(reg) &mut other,
-                    }
-                    out.into()
-                }
-            }
+impl Sub for Real {
+    type Output = Self;
 
-            pub fn sqrt(mut self) -> Self {
-                fpu_unary_op!(
-                    "fsqrt",
-                    self
-                )
-            }
-        }
+    #[inline(always)]
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
 
-        impl Add for Real {
-            type Output = Self;
+impl Mul for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn add(mut self, other: Self) -> Self {
-                fpu_binary_op!("faddp", self, other)
-            }
-        }
+    #[inline(always)]
+    fn mul(self, other: Self) -> Self {
+        Self(self.0 * other.0)
+    }
+}
 
-        impl Sub for Real {
-            type Output = Self;
+impl Div for Real {
+    type Output = Self;
 
-            #[inline(always)]
-            fn sub(mut self, other: Self) -> Self {
-                fpu_binary_op!("fsubp", self, other)
-            }
-        }
-
-        impl Mul for Real {
-            type Output = Self;
-
-            #[inline(always)]
-            fn mul(mut self, other: Self) -> Self {
-                fpu_binary_op!("fmulp", self, other)
-            }
-        }
-
-        impl Div for Real {
-            type Output = Self;
-
-            #[inline(always)]
-            fn div(mut self, other: Self) -> Self {
-                fpu_binary_op!("fdivp", self, other)
-            }
-        }
+    #[inline(always)]
+    fn div(self, other: Self) -> Self {
+        Self(self.0 / other.0)
     }
 }
 
@@ -449,7 +236,7 @@ impl Real {
 
     #[inline(always)]
     pub fn round(self) -> i32 {
-        (self.round64() & u32::max_value() as i64) as i32
+        util::ieee_round(self.0)
     }
 
     #[inline(always)]
@@ -473,41 +260,13 @@ impl Real {
     }
 
     #[inline(always)]
-    pub fn to_radians(mut self) -> Self {
-        let conversion_bytes: [u8; 10] = [0xAE, 0xC8, 0xE9, 0x94, 0x12, 0x35, 0xFA, 0x8E, 0xF9, 0x3F];
-        unsafe {
-            let out: f64;
-            asm! {
-                "fld qword ptr [{1}]
-                fld tbyte ptr [{2}]
-                fmulp
-                fstp qword ptr [{1}]
-                movsd {0}, qword ptr [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-                in(reg) &conversion_bytes,
-            }
-            out.into()
-        }
+    pub fn to_radians(self) -> Self {
+        Self(self.0.to_radians())
     }
 
     #[inline(always)]
-    pub fn to_degrees(mut self) -> Self {
-        let conversion_bytes: [u8; 10] = [0xC3, 0xBD, 0x0F, 0x1E, 0xD3, 0xE0, 0x2E, 0xE5, 0x04, 0x40];
-        unsafe {
-            let out: f64;
-            asm! {
-                "fld qword ptr [{1}]
-                fld tbyte ptr [{2}]
-                fmulp
-                fstp qword ptr [{1}]
-                movsd {0}, qword ptr [{1}]",
-                lateout(xmm_reg) out,
-                in(reg) &mut self,
-                in(reg) &conversion_bytes,
-            }
-            out.into()
-        }
+    pub fn to_degrees(self) -> Self {
+        Self(self.0.to_degrees())
     }
 
     #[inline(always)]

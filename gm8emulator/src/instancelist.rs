@@ -242,9 +242,7 @@ impl InstanceList {
     }
 
     pub fn get(&self, idx: usize) -> &Instance {
-        self.chunks
-            .get(idx)
-            .unwrap_or_else(|| panic!(format!("Invalid instance handle to InstanceList::get(): {}", idx)))
+        self.chunks.get(idx).unwrap_or_else(|| panic!("Invalid instance handle to InstanceList::get(): {}", idx))
     }
 
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
@@ -439,7 +437,7 @@ impl TileList {
     }
 
     pub fn get(&self, idx: usize) -> &Tile {
-        self.chunks.get(idx).unwrap_or_else(|| panic!(format!("Invalid instance handle to TileList::get(): {}", idx)))
+        self.chunks.get(idx).unwrap_or_else(|| panic!("Invalid instance handle to TileList::get(): {}", idx))
     }
 
     pub fn get_by_tileid(&self, tile_id: ID) -> Option<usize> {
@@ -530,7 +528,7 @@ where
     {
         struct InstanceVisitor<T> {
             phantom: std::marker::PhantomData<T>,
-        };
+        }
 
         impl<'v, T> Visitor<'v> for InstanceVisitor<T>
         where

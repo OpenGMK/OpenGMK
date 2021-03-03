@@ -1,4 +1,4 @@
-use super::token::{Keyword, Operator, Separator, Token};
+use crate::token::{Keyword, Operator, Separator, Token};
 
 use std::{
     iter::{Copied, Enumerate, Peekable},
@@ -7,6 +7,7 @@ use std::{
     str, u64,
 };
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
     /// GML source code to return references to.
     src: &'a [u8],

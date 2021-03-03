@@ -1,5 +1,5 @@
 [workspace]
-members = ["gm8emulator", "control-panel", "dll-macros", "gmio", "shared"]
+members = ["gm8emulator", "gml-parser", "control-panel", "gmio", "shared"]
 # dll-bridge must be built as 32-bit, but is only needed for 64-bit builds of the emulator.
 # Cargo doesn't support different binaries targeting different architectures in one build,
 # so dll-bridge must be built separately.

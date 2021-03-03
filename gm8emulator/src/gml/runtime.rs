@@ -3,13 +3,14 @@ use crate::{
     game::{Game, GetAsset, SceneChange, Version},
     gml::{
         self,
-        compiler::{mappings, mappings::constants as gml_constants, token::Operator},
         datetime::DateTime,
+        mappings::{self, constants as gml_constants},
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
     math::Real,
 };
+use gml_parser::token::Operator;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{self, Display},
@@ -110,7 +111,7 @@ pub struct VariableAccessor {
 }
 
 /// Represents an array accessor, which can be either 1D or 2D.
-/// Variables with 0D arrays, and ones with no array accessor, implicitly refer to [0].
+/// Variables with 0D arrays, and ones with no array accessor, implicitly refer to `x[0]`.
 /// Anything beyond a 2D array results in a runtime error.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ArrayAccessor {
@@ -185,7 +186,7 @@ impl Display for Error {
             Self::ReadOnlyVariable(v) => write!(
                 f,
                 "read-only variable {}",
-                gml::compiler::mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| v == x).map(|(x, _)| x).unwrap()
+                gml::mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| v == x).map(|(x, _)| x).unwrap()
             ),
             Self::UnknownFunction(fname) => write!(f, "unknown function \"{}\"", fname),
             Self::UnexpectedASTExpr(expr) => write!(f, "unexpected AST expr {}", expr),

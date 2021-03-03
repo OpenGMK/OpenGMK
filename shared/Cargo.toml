@@ -8,5 +8,7 @@ edition = "2018"
 bincode = "1.2"
 serde = { version = "1.0", features = ["derive"] }
 
-[target.'cfg(all(target_os = "windows", target_arch = "x86"))'.dependencies.crc]
-version = "1.8"
+[target.'cfg(all(target_os = "windows", target_arch = "x86"))'.dependencies]
+crc = "1.8"
+libffi = "1.0.0"
+winapi = { version = "0.3", features = [ "errhandlingapi", "libloaderapi"] }
