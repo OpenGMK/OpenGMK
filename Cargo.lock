@@ -161,6 +161,7 @@ dependencies = [
  "flate2",
  "getopts",
  "gm8exe",
+ "gml-parser",
  "rayon",
  "time",
 ]
@@ -173,6 +174,11 @@ dependencies = [
  "flate2",
  "rayon",
 ]
+
+[[package]]
+name = "gml-parser"
+version = "0.1.0"
+source = "git+https://github.com/OpenGM8/GM8Emulator.git#1477ebfa4e19c7e5cb042ecfbddf4b9ba71969e3"
 
 [[package]]
 name = "hermit-abi"
