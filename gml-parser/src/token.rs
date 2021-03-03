@@ -1,4 +1,6 @@
+#[cfg(feature = "runner-serde-derives")]
 use serde::{Deserialize, Serialize};
+
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,7 +38,8 @@ pub enum Keyword {
     Exit,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "runner-serde-derives", derive(Serialize, Deserialize))]
 pub enum Operator {
     /// `+` Add or unary positive (redundant)
     Add,
