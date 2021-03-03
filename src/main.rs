@@ -8,6 +8,7 @@ use std::{
 pub mod collision;
 pub mod deobfuscate;
 pub mod gmk;
+pub mod mappings;
 pub mod zlib;
 
 static INFO_STRING: &str = concat!(
