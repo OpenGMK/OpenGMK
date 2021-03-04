@@ -6,7 +6,6 @@ use gml_parser::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
     io::Write,
 };
 
@@ -21,7 +20,7 @@ struct Deobfuscator<'a> {
     assets: &'a mut GameAssets,
     fields: Vec<Box<[u8]>>,
     constants: HashMap<&'static [u8], f64>,
-    vars: HashSet<&'static str>,
+    vars: HashSet<&'static [u8]>,
 }
 
 struct ExprWriter<'de, 'src, 'dest> {
@@ -131,7 +130,13 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
         }
 
         match ex {
-            ast::Expr::LiteralIdentifier(expr) => (),
+            ast::Expr::LiteralIdentifier(expr) => {
+                if self.deobf.vars.get(expr).is_some() || self.deobf.constants.get(expr).is_some() {
+                    self.output.extend_from_slice(expr);
+                } else {
+                    self.write_field(expr);
+                }
+            },
             ast::Expr::LiteralReal(real) => {
                 let _ = write!(self.output, "{}", real);
             },
@@ -143,7 +148,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
             },
             ast::Expr::Unary(expr) => {
                 let op = op_to_str(expr.op);
-                self.output.extend_from_slice(op.as_bytes());
+                self.output.extend_from_slice(op);
                 let prev_state = self.is_gml_expr;
                 self.is_gml_expr = true;
                 let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
@@ -176,17 +181,59 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                         }
                         self.output.push(b']');
                     } else if expr.op == Operator::Deref {
-                        // TODO: Unfuck object id literals
-                        let simple = self.deobf.simplify(&expr.left);
-                        if let Some(obj_id) = simple.and_then(|x| {
-                            self.deobf.assets.objects.iter()
-                                .enumerate()
-                                .filter_map(|(i, o)| o.as_ref().map(|v| (i, v)))
-                                .find(|(i, _)| (*i as f64 - x).abs() <= 1e-14)
-                                .map(|(i, _)| i)
-                        }) {
-                            // i think the epsilon thing is right?       ^
-                            // process that here yeah
+                        // Deref operator - lots of special cases here
+                        // If LHS can be simplified,
+                        if let Some(simple) = self.deobf.simplify(&expr.left) {
+                            // If the simplified number is the ID of an object,
+                            let simple_int = simple as i32;
+                            if simple_int >= 0 && self.deobf.assets.objects.get(simple_int as usize).is_some() && simple.fract() == 0.0 {
+                                // Write eg "object123"
+                                let _ = write!(self.output, "object{}", simple_int);
+                            } else if simple.fract() == 0.0 {
+                                // Special cases for certain keywords, otherwise just write eg "(123)"
+                                match simple_int {
+                                    -1 => self.output.extend_from_slice(b"self"),
+                                    -2 => self.output.extend_from_slice(b"other"),
+                                    -5 => self.output.extend_from_slice(b"global"),
+                                    -7 => self.output.extend_from_slice(b"local"),
+                                    i => write!(self.output, "({})", simple_int),
+                                }
+                            } else {
+                                // Write the whole LHS expression normally
+                                self.output.push(b'(');
+                                self.process_expr(&expr.left);
+                                self.output.push(b')');
+                            }
+                        } else {
+                            // Write the whole LHS expression normally
+                            self.output.push(b'(');
+                            self.process_expr(&expr.left);
+                            self.output.push(b')');
+                        }
+
+                        self.output.push(b'.');
+                        self.process_expr(&expr.right);
+                    } else {
+                        // TODO: there are some binary expressions we don't want to bubble-wrap here
+                        // For example, if !is_assign and expr.left is a deref binary or index binary
+                        // this will wrap it - but we don't want that
+                        let is_assign = matches!(expr.op, Operator::Assign | Operator::AssignAdd | Operator::AssignSubtract | Operator::AssignMultiply | Operator::AssignDivide | Operator::AssignBitwiseAnd | Operator::AssignBitwiseOr | Operator::AssignBitwiseXor);
+                        if !is_assign && matches!(expr.left, ast::Expr::Binary(_)) {
+                            self.output.push(b'(');
+                            self.process_expr(&expr.left);
+                            self.output.push(b')');
+                        } else {
+                            self.process_expr(&expr.left);
+                        }
+                        self.output.push(b' ');
+                        self.output.extend_from_slice(op_to_str(expr.op));
+                        self.output.push(b' ');
+                        if !is_assign && matches!(expr.right, ast::Expr::Binary(_)) {
+                            self.output.push(b'(');
+                            self.process_expr(&expr.right);
+                            self.output.push(b')');
+                        } else {
+                            self.process_expr(&expr.right);
                         }
                     }
                 }
@@ -409,39 +456,39 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
     }
 }
 
-fn op_to_str(op: Operator) -> &'static str {
+fn op_to_str(op: Operator) -> &'static [u8] {
     match op {
-        Operator::Add => "+",
-        Operator::Subtract => "-",
-        Operator::Multiply => "*",
-        Operator::Divide => "/",
-        Operator::IntDivide => "div",
-        Operator::BitwiseAnd => "&",
-        Operator::BitwiseOr => "|",
-        Operator::BitwiseXor => "^",
-        Operator::Assign => "=",
-        Operator::Not => "!",
-        Operator::LessThan => "<",
-        Operator::GreaterThan => ">",
-        Operator::AssignAdd => "+=",
-        Operator::AssignSubtract => "-=",
-        Operator::AssignMultiply => "*=",
-        Operator::AssignDivide => "/=",
-        Operator::AssignBitwiseAnd => "&=",
-        Operator::AssignBitwiseOr => "|=",
-        Operator::AssignBitwiseXor => "^=",
-        Operator::Equal => "==",
-        Operator::NotEqual => "!=",
-        Operator::LessThanOrEqual => "<=",
-        Operator::GreaterThanOrEqual => ">=",
-        Operator::Modulo => "mod",
-        Operator::And => "&&",
-        Operator::Or => "||",
-        Operator::Xor => "^^",
-        Operator::BinaryShiftLeft => "<<",
-        Operator::BinaryShiftRight => ">>",
-        Operator::Complement => "~",
-        Operator::Deref => ".",
+        Operator::Add => b"+",
+        Operator::Subtract => b"-",
+        Operator::Multiply => b"*",
+        Operator::Divide => b"/",
+        Operator::IntDivide => b"div",
+        Operator::BitwiseAnd => b"&",
+        Operator::BitwiseOr => b"|",
+        Operator::BitwiseXor => b"^",
+        Operator::Assign => b"=",
+        Operator::Not => b"!",
+        Operator::LessThan => b"<",
+        Operator::GreaterThan => b">",
+        Operator::AssignAdd => b"+=",
+        Operator::AssignSubtract => b"-=",
+        Operator::AssignMultiply => b"*=",
+        Operator::AssignDivide => b"/=",
+        Operator::AssignBitwiseAnd => b"&=",
+        Operator::AssignBitwiseOr => b"|=",
+        Operator::AssignBitwiseXor => b"^=",
+        Operator::Equal => b"==",
+        Operator::NotEqual => b"!=",
+        Operator::LessThanOrEqual => b"<=",
+        Operator::GreaterThanOrEqual => b">=",
+        Operator::Modulo => b"mod",
+        Operator::And => b"&&",
+        Operator::Or => b"||",
+        Operator::Xor => b"^^",
+        Operator::BinaryShiftLeft => b"<<",
+        Operator::BinaryShiftRight => b">>",
+        Operator::Complement => b"~",
+        Operator::Deref => b".",
         Operator::Index => panic!("index op passed to op_to_str"),
     }
 }
