@@ -268,8 +268,11 @@ impl<'a> AST<'a> {
 
     pub fn expression(source: &'a [u8]) -> Result<Expr<'a>, Error> {
         let mut lex = Lexer::new(source).peekable();
-        let expr = AST::read_binary_tree(&mut lex, None, false)?;
-        Ok(expr)
+        if lex.peek().is_some() {
+            AST::read_binary_tree(&mut lex, None, false)
+        } else {
+            Ok(Expr::LiteralReal(0.0))
+        }
     }
 
     fn read_line(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
