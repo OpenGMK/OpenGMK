@@ -391,9 +391,19 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
             },
             ast::Expr::With(expr) => {
                 vec_extend!("with (");
-                // TODO: Deobfuscate target name / value
                 self.is_gml_expr = true;
-                self.process_expr(&expr.target);
+                if let Some(simple) = self.deobf.simplify(&expr.target) {
+                    let simple_int = simple as i32;
+                    if simple_int >= 0 && self.deobf.assets.objects.get(simple_int as usize).is_some() && simple.fract() == 0.0 {
+                        let _ = write!(self.output, "object{}", simple_int);
+                    } else if simple.fract() == 0.0 {
+                        let _ = write!(self.output, "{}", simple_int);
+                    } else {
+                        self.process_expr(&expr.target);
+                    }
+                } else {
+                    self.process_expr(&expr.target);
+                }
                 self.is_gml_expr = false;
                 vec_extend!(") ");
                 self.write_expr_grouped(&expr.body, true);
