@@ -92,11 +92,7 @@ impl<'a> Deobfuscator<'a> {
         match expr {
             ast::Expr::LiteralIdentifier(ident) => {
                 // We don't want to simplify pi.
-                if ident == b"pi" {
-                    None
-                } else {
-                    self.constants.get(ident).copied()
-                }
+                if ident == b"pi" { None } else { self.constants.get(ident).copied() }
             },
             ast::Expr::LiteralReal(real) => Some(*real),
             ast::Expr::Unary(unary) => {
@@ -113,7 +109,7 @@ impl<'a> Deobfuscator<'a> {
                 match binary.op {
                     Operator::Add => Some(left + right),
                     Operator::Subtract => Some(left - right),
-                    _ => None,
+                    _ => None, // rest are unsupported
                 }
             },
             _ => None,
@@ -123,7 +119,7 @@ impl<'a> Deobfuscator<'a> {
 
 impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
     pub fn process_expr(&mut self, ex: &'_ ast::Expr) {
-        macro_rules! vec_extend {
+        macro_rules! push_str {
             ($lit: literal) => {
                 self.output.extend_from_slice(($lit).as_bytes());
             };
@@ -153,11 +149,11 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                 self.is_gml_expr = true;
                 let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
                 if is_child_binary {
-                    vec_extend!("(");
+                    push_str!("(");
                 }
                 self.process_expr(&expr.child);
                 if is_child_binary {
-                    vec_extend!(")");
+                    push_str!(")");
                 }
                 self.is_gml_expr = prev_state;
             },
@@ -173,7 +169,9 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                         self.output.push(b'[');
                         if let ast::Expr::Group(group) = &expr.right {
                             for (i, expr) in group.iter().enumerate() {
-                                if i != 0 { vec_extend!(", "); }
+                                if i != 0 {
+                                    push_str!(", ");
+                                }
                                 self.process_expr(expr);
                             }
                         } else {
@@ -186,7 +184,10 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                         if let Some(simple) = self.deobf.simplify(&expr.left) {
                             // If the simplified number is the ID of an object,
                             let simple_int = simple as i32;
-                            if simple_int >= 0 && self.deobf.assets.objects.get(simple_int as usize).is_some() && simple.fract() == 0.0 {
+                            if simple_int >= 0
+                                && self.deobf.assets.objects.get(simple_int as usize).is_some()
+                                && simple.fract() == 0.0
+                            {
                                 // Write eg "object123"
                                 let _ = write!(self.output, "object{}", simple_int);
                             } else if simple.fract() == 0.0 {
@@ -196,7 +197,9 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                                     -2 => self.output.extend_from_slice(b"other"),
                                     -5 => self.output.extend_from_slice(b"global"),
                                     -7 => self.output.extend_from_slice(b"local"),
-                                    i => { let _ = write!(self.output, "({})", i); },
+                                    i => {
+                                        let _ = write!(self.output, "({})", i);
+                                    },
                                 }
                             } else {
                                 // Write the whole LHS expression normally
@@ -217,7 +220,17 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                         // TODO: there are some binary expressions we don't want to bubble-wrap here
                         // For example, if !is_assign and expr.left is a deref binary or index binary
                         // this will wrap it - but we don't want that
-                        let is_assign = matches!(expr.op, Operator::Assign | Operator::AssignAdd | Operator::AssignSubtract | Operator::AssignMultiply | Operator::AssignDivide | Operator::AssignBitwiseAnd | Operator::AssignBitwiseOr | Operator::AssignBitwiseXor);
+                        let is_assign = matches!(
+                            expr.op,
+                            Operator::Assign
+                                | Operator::AssignAdd
+                                | Operator::AssignSubtract
+                                | Operator::AssignMultiply
+                                | Operator::AssignDivide
+                                | Operator::AssignBitwiseAnd
+                                | Operator::AssignBitwiseOr
+                                | Operator::AssignBitwiseXor
+                        );
                         if !is_assign && matches!(expr.left, ast::Expr::Binary(_)) {
                             self.output.push(b'(');
                             self.process_expr(&expr.left);
@@ -239,17 +252,17 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                 }
                 self.is_gml_expr = prev_state;
                 if !self.is_gml_expr {
-                    vec_extend!(";\r\n");
+                    push_str!(";\r\n");
                 }
             },
             ast::Expr::DoUntil(expr) => {
-                vec_extend!("do ");
+                push_str!("do ");
                 self.write_expr_grouped(&expr.body, false);
-                vec_extend!("until (");
+                push_str!("until (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.cond);
                 self.is_gml_expr = false;
-                vec_extend!(");\r\n");
+                push_str!(");\r\n");
             },
             ast::Expr::For(expr) => {
                 fn remove_truncate(x: &mut Vec<u8>, pat: &[u8]) {
@@ -258,16 +271,16 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                     }
                 }
 
-                vec_extend!("for (");
+                push_str!("for (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.start);
                 remove_truncate(&mut self.output, b"\r\n");
                 self.process_expr(&expr.cond);
-                vec_extend!("; ");
+                push_str!("; ");
                 self.process_expr(&expr.step);
                 remove_truncate(&mut self.output, b"\r\n");
                 remove_truncate(&mut self.output, b";");
-                vec_extend!(") ");
+                push_str!(") ");
                 self.is_gml_expr = false;
                 self.write_expr_grouped(&expr.body, true);
             },
@@ -291,19 +304,19 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                 self.is_gml_expr = true;
                 for (i, param) in expr.params.iter().enumerate() {
                     if i != 0 {
-                        vec_extend!(", ");
+                        push_str!(", ");
                     }
                     self.process_expr(param);
                 }
                 self.is_gml_expr = prev_expr_state;
                 if self.is_gml_expr {
-                    vec_extend!(")");
+                    push_str!(")");
                 } else {
-                    vec_extend!(");\r\n");
+                    push_str!(");\r\n");
                 }
             },
             ast::Expr::Group(exprs) => {
-                vec_extend!("{\r\n");
+                push_str!("{\r\n");
                 self.indent += 1;
                 let mut is_case = false;
                 for expr in exprs {
@@ -330,71 +343,74 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                     self.output.push(b'}');
                     self.group_skip_newline = false;
                 } else {
-                    vec_extend!("}\r\n");
+                    push_str!("}\r\n");
                 }
             },
             ast::Expr::If(expr) => {
-                vec_extend!("if (");
+                push_str!("if (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.cond);
                 self.is_gml_expr = false;
-                vec_extend!(") ");
+                push_str!(") ");
 
                 self.write_expr_grouped(&expr.body, false);
 
                 if let Some(expr_else) = &expr.else_body {
-                    vec_extend!(" else ");
+                    push_str!(" else ");
                     self.process_expr(expr_else);
                 } else {
-                    vec_extend!("\r\n");
+                    push_str!("\r\n");
                 }
             },
             ast::Expr::Repeat(expr) => {
-                vec_extend!("repeat (");
+                push_str!("repeat (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.count);
                 self.is_gml_expr = false;
-                vec_extend!(") ");
+                push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
             },
             ast::Expr::Switch(expr) => {
-                vec_extend!("switch (");
+                push_str!("switch (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.input);
                 self.is_gml_expr = false;
-                vec_extend!(") ");
+                push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
             },
             ast::Expr::Var(expr) => {
                 if expr.vars.len() > 0 {
-                    vec_extend!("var ");
+                    push_str!("var ");
                     for (i, name) in expr.vars.iter().enumerate() {
                         if i != 0 {
-                            vec_extend!(", ");
+                            push_str!(", ");
                         }
                         self.write_field(name);
                     }
-                    vec_extend!(";\r\n");
+                    push_str!(";\r\n");
                 }
             },
             ast::Expr::GlobalVar(expr) => {
                 if expr.vars.len() > 0 {
-                    vec_extend!("globalvar ");
+                    push_str!("globalvar ");
                     for (i, name) in expr.vars.iter().enumerate() {
                         if i != 0 {
-                            vec_extend!(", ");
+                            push_str!(", ");
                         }
                         self.write_field(name);
                     }
-                    vec_extend!(";\r\n");
+                    push_str!(";\r\n");
                 }
             },
             ast::Expr::With(expr) => {
-                vec_extend!("with (");
+                push_str!("with (");
                 self.is_gml_expr = true;
                 if let Some(simple) = self.deobf.simplify(&expr.target) {
                     let simple_int = simple as i32;
-                    if simple_int >= 0 && self.deobf.assets.objects.get(simple_int as usize).is_some() && simple.fract() == 0.0 {
+                    if simple_int >= 0
+                        && self.deobf.assets.objects.get(simple_int as usize).is_some()
+                        && simple.fract() == 0.0
+                    {
                         let _ = write!(self.output, "object{}", simple_int);
                     } else if simple.fract() == 0.0 {
                         let _ = write!(self.output, "{}", simple_int);
@@ -405,34 +421,34 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                     self.process_expr(&expr.target);
                 }
                 self.is_gml_expr = false;
-                vec_extend!(") ");
+                push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
             },
             ast::Expr::While(expr) => {
-                vec_extend!("while (");
+                push_str!("while (");
                 self.is_gml_expr = true;
                 self.process_expr(&expr.cond);
                 self.is_gml_expr = false;
-                vec_extend!(") ");
+                push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
             },
             ast::Expr::Case(expr) => {
-                vec_extend!("case ");
+                push_str!("case ");
                 self.is_gml_expr = true;
                 self.process_expr(expr);
                 self.is_gml_expr = false;
-                vec_extend!(":\r\n");
+                push_str!(":\r\n");
             },
-            ast::Expr::Default => vec_extend!("default:\r\n"),
-            ast::Expr::Continue => vec_extend!("continue;\r\n"),
-            ast::Expr::Break => vec_extend!("break;\r\n"),
-            ast::Expr::Exit => vec_extend!("exit;\r\n"),
+            ast::Expr::Default => push_str!("default:\r\n"),
+            ast::Expr::Continue => push_str!("continue;\r\n"),
+            ast::Expr::Break => push_str!("break;\r\n"),
+            ast::Expr::Exit => push_str!("exit;\r\n"),
             ast::Expr::Return(expr) => {
-                vec_extend!("return ");
+                push_str!("return ");
                 self.is_gml_expr = true;
                 self.process_expr(expr);
                 self.is_gml_expr = false;
-                vec_extend!(";\r\n");
+                push_str!(";\r\n");
             },
         }
     }
