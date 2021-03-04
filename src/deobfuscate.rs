@@ -196,7 +196,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                                     -2 => self.output.extend_from_slice(b"other"),
                                     -5 => self.output.extend_from_slice(b"global"),
                                     -7 => self.output.extend_from_slice(b"local"),
-                                    i => write!(self.output, "({})", simple_int),
+                                    i => { let _ = write!(self.output, "({})", i); },
                                 }
                             } else {
                                 // Write the whole LHS expression normally
