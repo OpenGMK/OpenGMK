@@ -812,8 +812,8 @@ const KERNEL_VARS: &[&str] = &[
     "async_load",
 ];
 
-pub fn make_constants_map() -> HashMap<&'static str, f64> {
-    CONSTANTS.iter().copied().collect()
+pub fn make_constants_map() -> HashMap<&'static [u8], f64> {
+    CONSTANTS.iter().map(|(s, v)| (s.as_bytes(), *v)).collect()
 }
 
 pub fn make_kernel_vars_lut() -> HashSet<&'static str> {
