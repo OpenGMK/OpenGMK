@@ -361,7 +361,7 @@ impl Game {
         let included_files = included_files
             .into_iter()
             .map(|i| {
-                use gm8exe::asset::includedfile::ExportSetting;
+                use gm8exe::asset::included_file::ExportSetting;
                 let export_settings = match i.export_settings {
                     ExportSetting::NoExport => includedfile::ExportSetting::NoExport,
                     ExportSetting::TempFolder => includedfile::ExportSetting::TempFolder,

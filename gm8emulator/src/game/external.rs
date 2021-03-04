@@ -17,7 +17,7 @@ cfg_if! {
     if
     #[cfg(all(target_os = "windows", target_arch = "x86"))] {
         use win32 as platform;
-    } else if #[cfg(all(target_os = "windows", target_arch = "x86_64"))] {
+    } else if #[cfg(target_os = "windows")] {
         use win64 as platform;
     } else {
         use dummy as platform;
