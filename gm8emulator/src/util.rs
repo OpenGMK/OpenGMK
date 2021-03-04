@@ -10,7 +10,7 @@ pub use bgra2rgba as rgba2bgra;
 /// The default way to round as defined by IEEE 754 - nearest, ties to even.
 pub fn ieee_round(real: f64) -> i32 {
     let floor = real.floor();
-    let floori = floor as i32;
+    let floori = floor as i64 as i32;
     let diff = real - floor;
     if diff < 0.5 {
         floori
