@@ -125,14 +125,10 @@ impl<'a> Deobfuscator<'a> {
     pub fn get_asset_by_name(&self, name: &[u8]) -> Option<(&'static [u8], usize)> {
         fn find_asset<'a, T>(
             ty: &'static str,
-            assets: &'a gm8exe::AssetList<T>,
+            assets: &'a [Option<Box<T>>],
             mut f: impl FnMut(&'a T) -> bool,
         ) -> Option<(&'static [u8], usize)> {
-            if let Some(i) = assets.into_iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false)) {
-                Some((ty.as_bytes(), i))
-            } else {
-                None
-            }
+            assets.iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false)).map(|i| (ty.as_bytes(), i))
         }
 
         None.or_else(|| find_asset("object", &self.assets.objects, |x| &*x.name.0 == name))
@@ -414,7 +410,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                 self.write_expr_grouped(&expr.body, true);
             },
             ast::Expr::Var(expr) => {
-                if expr.vars.len() > 0 {
+                if !expr.vars.is_empty() {
                     push_str!("var ");
                     for (i, name) in expr.vars.iter().enumerate() {
                         if i != 0 {
@@ -426,7 +422,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                 }
             },
             ast::Expr::GlobalVar(expr) => {
-                if expr.vars.len() > 0 {
+                if !expr.vars.is_empty() {
                     push_str!("globalvar ");
                     for (i, name) in expr.vars.iter().enumerate() {
                         if i != 0 {
