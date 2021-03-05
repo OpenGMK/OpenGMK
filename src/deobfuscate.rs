@@ -91,8 +91,14 @@ impl<'a> Deobfuscator<'a> {
     pub fn simplify(&mut self, expr: &ast::Expr) -> Option<f64> {
         match expr {
             ast::Expr::LiteralIdentifier(ident) => {
-                // We don't want to simplify pi.
-                if ident == b"pi" { None } else { self.constants.get(ident).copied() }
+                if let Some((_, index)) = self.get_asset_by_name(ident) {
+                    Some(index as f64)
+                } else if ident == b"pi" {
+                    // We don't want to simplify pi.
+                    None
+                } else {
+                    self.constants.get(ident).copied()
+                }
             },
             ast::Expr::LiteralReal(real) => Some(*real),
             ast::Expr::Unary(unary) => {
@@ -115,6 +121,32 @@ impl<'a> Deobfuscator<'a> {
             _ => None,
         }
     }
+
+    pub fn get_asset_by_name(&self, name: &[u8]) -> Option<(&'static [u8], usize)> {
+        fn find_asset<'a, T>(
+            ty: &'static str,
+            assets: &'a gm8exe::AssetList<T>,
+            mut f: impl FnMut(&'a T) -> bool,
+        ) -> Option<(&'static [u8], usize)> {
+            if let Some(i) = assets.into_iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false)) {
+                Some((ty.as_bytes(), i))
+            } else {
+                None
+            }
+        }
+
+        None.or_else(|| find_asset("object", &self.assets.objects, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("sprite", &self.assets.sprites, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("sound", &self.assets.sounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("background", &self.assets.backgrounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("path", &self.assets.paths, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("font", &self.assets.fonts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("timeline", &self.assets.timelines, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("script", &self.assets.scripts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("room", &self.assets.rooms, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("trigger", &self.assets.triggers, |x| &*x.constant_name.0 == name))
+            .or_else(|| self.assets.constants.iter().position(|x| &*x.name.0 == name).map(|i| ("constant".as_bytes(), i)))
+    }
 }
 
 impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
@@ -127,7 +159,10 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
 
         match ex {
             ast::Expr::LiteralIdentifier(expr) => {
-                if self.deobf.vars.get(expr).is_some() || self.deobf.constants.get(expr).is_some() {
+                if let Some((ty, index)) = self.deobf.get_asset_by_name(expr) {
+                    self.output.extend_from_slice(ty);
+                    let _ = write!(self.output, "{}", index);
+                } else if self.deobf.vars.get(expr).is_some() || self.deobf.constants.get(expr).is_some() {
                     self.output.extend_from_slice(expr);
                 } else {
                     self.write_field(expr);
