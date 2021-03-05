@@ -278,6 +278,10 @@ fn decompile(
         },
     };
 
+    if deobfuscate {
+        deobfuscate::process(&mut assets);
+    }
+
     let mut gmk = fs::File::create(&out_path)
         .map_err(|e| format!("Failed to create output file '{}': {}", out_path.display(), e))?;
 
