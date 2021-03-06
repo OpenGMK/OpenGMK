@@ -230,7 +230,11 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                 if i != 0 {
                                     push_str!(", ");
                                 }
-                                self.process_expr(expr);
+                                if let Some(simple) = self.deobf.simplify(expr, &self.assets) {
+                                    self.process_expr(&ast::Expr::LiteralReal(simple));
+                                } else {
+                                    self.process_expr(expr);
+                                }
                             }
                         } else {
                             panic!("index rhs wasn't a group");
