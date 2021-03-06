@@ -1,5 +1,5 @@
 use crate::mappings;
-use gm8exe::GameAssets;
+use gm8exe::{asset::PascalString, GameAssets};
 use gml_parser::{
     ast::{self, AST},
     token::Operator,
@@ -7,6 +7,7 @@ use gml_parser::{
 use std::{
     collections::{HashMap, HashSet},
     io::Write,
+    mem,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -16,18 +17,18 @@ pub enum Mode {
     Auto,
 }
 
-struct Deobfuscator<'a> {
-    assets: &'a mut GameAssets,
+struct DeobfState {
     fields: Vec<Box<[u8]>>,
     constants: HashMap<&'static [u8], f64>,
     vars: HashSet<&'static [u8]>,
 }
 
-struct ExprWriter<'de, 'src, 'dest> {
-    deobf: &'de mut Deobfuscator<'src>,
+struct ExprWriter<'a, 'b, 'c> {
+    assets: &'a GameAssets,
+    deobf: &'b mut DeobfState,
     indent: usize,
     indent_str: String,
-    output: &'dest mut Vec<u8>,
+    output: &'c mut Vec<u8>,
 
     is_gml_expr: bool,        // whether we're in a gml expr
     group_skip_newline: bool, // this too
@@ -36,15 +37,36 @@ struct ExprWriter<'de, 'src, 'dest> {
 pub fn process<'a>(assets: &'a mut GameAssets) {
     let constants = mappings::make_constants_map();
     let vars = mappings::make_kernel_vars_lut();
-    let deobfuscator = Deobfuscator { assets, fields: Vec::new(), constants, vars };
+    let mut deobfuscator = DeobfState { fields: Vec::new(), constants, vars };
+
+    for i in 0..assets.scripts.len() {
+        let script = match &assets.scripts[i] {
+            Some(x) => x,
+            None => continue,
+        };
+        match deobfuscator.process_gml(&script.name.0, &assets) {
+            Ok(res) => {
+                assets.scripts[i].as_mut().unwrap().name = PascalString(res.into());
+            },
+            Err(err) => {
+                eprintln!(
+                    "[Warning] Failed to deobfuscate script {} ({}): {}",
+                    i,
+                    std::str::from_utf8(&script.name.0).unwrap_or("<INVALID UTF-8>"),
+                    err,
+                )
+            },
+        }
+    }
 }
 
-impl<'a> Deobfuscator<'a> {
-    pub fn process_gml(&mut self, input: &'a [u8]) -> Result<Vec<u8>, ast::Error> {
+impl DeobfState {
+    pub fn process_gml(&mut self, input: &[u8], assets: &GameAssets) -> Result<Vec<u8>, ast::Error> {
         let mut output = Vec::new();
         let ast = AST::new(input)?;
 
         let mut writer = ExprWriter {
+            assets,
             deobf: self,
             indent: 0,
             indent_str: "    ".into(),
@@ -61,10 +83,11 @@ impl<'a> Deobfuscator<'a> {
         Ok(output)
     }
 
-    pub fn process_expression(&mut self, input: &'a [u8]) -> Result<Vec<u8>, ast::Error> {
+    pub fn process_expression(&mut self, input: &[u8], assets: &GameAssets) -> Result<Vec<u8>, ast::Error> {
         let mut output = Vec::new();
         let expr = AST::expression(input)?;
         let mut writer = ExprWriter {
+            assets,
             deobf: self,
             indent: 0,
             indent_str: "    ".into(),
@@ -88,10 +111,10 @@ impl<'a> Deobfuscator<'a> {
         }
     }
 
-    pub fn simplify(&mut self, expr: &ast::Expr) -> Option<f64> {
+    pub fn simplify(&mut self, expr: &ast::Expr, assets: &GameAssets) -> Option<f64> {
         match expr {
             ast::Expr::LiteralIdentifier(ident) => {
-                if let Some((_, index)) = self.get_asset_by_name(ident) {
+                if let Some((_, index)) = self.get_asset_by_name(ident, assets) {
                     Some(index as f64)
                 } else if ident == b"pi" {
                     // We don't want to simplify pi.
@@ -102,7 +125,7 @@ impl<'a> Deobfuscator<'a> {
             },
             ast::Expr::LiteralReal(real) => Some(*real),
             ast::Expr::Unary(unary) => {
-                let child = self.simplify(&unary.child)?;
+                let child = self.simplify(&unary.child, assets)?;
                 match unary.op {
                     Operator::Add => Some(child),
                     Operator::Subtract => Some(-child),
@@ -110,8 +133,8 @@ impl<'a> Deobfuscator<'a> {
                 }
             },
             ast::Expr::Binary(binary) => {
-                let left = self.simplify(&binary.left)?;
-                let right = self.simplify(&binary.right)?;
+                let left = self.simplify(&binary.left, assets)?;
+                let right = self.simplify(&binary.right, assets)?;
                 match binary.op {
                     Operator::Add => Some(left + right),
                     Operator::Subtract => Some(left - right),
@@ -122,7 +145,7 @@ impl<'a> Deobfuscator<'a> {
         }
     }
 
-    pub fn get_asset_by_name(&self, name: &[u8]) -> Option<(&'static [u8], usize)> {
+    pub fn get_asset_by_name(&self, name: &[u8], assets: &GameAssets) -> Option<(&'static [u8], usize)> {
         fn find_asset<'a, T>(
             ty: &'static str,
             assets: &'a [Option<Box<T>>],
@@ -131,21 +154,21 @@ impl<'a> Deobfuscator<'a> {
             assets.iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false)).map(|i| (ty.as_bytes(), i))
         }
 
-        None.or_else(|| find_asset("object", &self.assets.objects, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("sprite", &self.assets.sprites, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("sound", &self.assets.sounds, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("background", &self.assets.backgrounds, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("path", &self.assets.paths, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("font", &self.assets.fonts, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("timeline", &self.assets.timelines, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("script", &self.assets.scripts, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("room", &self.assets.rooms, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("trigger", &self.assets.triggers, |x| &*x.constant_name.0 == name))
-            .or_else(|| self.assets.constants.iter().position(|x| &*x.name.0 == name).map(|i| ("constant".as_bytes(), i)))
+        None.or_else(|| find_asset("object", &assets.objects, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("sprite", &assets.sprites, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("sound", &assets.sounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("background", &assets.backgrounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("path", &assets.paths, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("font", &assets.fonts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("timeline", &assets.timelines, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("script", &assets.scripts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("room", &assets.rooms, |x| &*x.name.0 == name))
+            .or_else(|| find_asset("trigger", &assets.triggers, |x| &*x.constant_name.0 == name))
+            .or_else(|| assets.constants.iter().position(|x| &*x.name.0 == name).map(|i| ("constant".as_bytes(), i)))
     }
 }
 
-impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
+impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
     pub fn process_expr(&mut self, ex: &'_ ast::Expr) {
         macro_rules! push_str {
             ($lit: literal) => {
@@ -155,7 +178,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
 
         match ex {
             ast::Expr::LiteralIdentifier(expr) => {
-                if let Some((ty, index)) = self.deobf.get_asset_by_name(expr) {
+                if let Some((ty, index)) = self.deobf.get_asset_by_name(expr, self.assets) {
                     self.output.extend_from_slice(ty);
                     let _ = write!(self.output, "{}", index);
                 } else if self.deobf.vars.get(expr).is_some() || self.deobf.constants.get(expr).is_some() {
@@ -191,7 +214,7 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
             ast::Expr::Binary(expr) => {
                 let prev_state = self.is_gml_expr;
                 self.is_gml_expr = true;
-                if let Some(simple) = self.deobf.simplify(ex) {
+                if let Some(simple) = self.deobf.simplify(ex, self.assets) {
                     self.process_expr(&ast::Expr::LiteralReal(simple));
                 } else {
                     if expr.op == Operator::Index {
@@ -212,11 +235,11 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
                     } else if expr.op == Operator::Deref {
                         // Deref operator - lots of special cases here
                         // If LHS can be simplified,
-                        if let Some(simple) = self.deobf.simplify(&expr.left) {
+                        if let Some(simple) = self.deobf.simplify(&expr.left, self.assets) {
                             // If the simplified number is the ID of an object,
                             let simple_int = simple as i32;
                             if simple_int >= 0
-                                && self.deobf.assets.objects.get(simple_int as usize).is_some()
+                                && self.assets.objects.get(simple_int as usize).is_some()
                                 && simple.fract() == 0.0
                             {
                                 // Write eg "object123"
@@ -317,7 +340,6 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
             },
             ast::Expr::Function(expr) => {
                 if let Some(idx) = self
-                    .deobf
                     .assets
                     .scripts
                     .iter()
@@ -436,10 +458,10 @@ impl<'de, 'src, 'dest> ExprWriter<'de, 'src, 'dest> {
             ast::Expr::With(expr) => {
                 push_str!("with (");
                 self.is_gml_expr = true;
-                if let Some(simple) = self.deobf.simplify(&expr.target) {
+                if let Some(simple) = self.deobf.simplify(&expr.target, self.assets) {
                     let simple_int = simple as i32;
                     if simple_int >= 0
-                        && self.deobf.assets.objects.get(simple_int as usize).is_some()
+                        && self.assets.objects.get(simple_int as usize).is_some()
                         && simple.fract() == 0.0
                     {
                         let _ = write!(self.output, "object{}", simple_int);
