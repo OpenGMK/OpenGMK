@@ -38,6 +38,7 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
     let vars = mappings::make_kernel_vars_lut();
     let mut deobfuscator = DeobfState { fields: Vec::new(), constants, vars };
 
+    // Deobfuscate scripts
     for i in 0..assets.scripts.len() {
         let script = match &assets.scripts[i] {
             Some(x) => x,
@@ -55,6 +56,43 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
                     err,
                 )
             },
+        }
+    }
+
+    // Deobfuscate rooms (creation code + instance creation code)
+    for i in 0..assets.rooms.len() {
+        let room = match &assets.rooms[i] {
+            Some(x) => x,
+            None => continue,
+        };
+        match deobfuscator.process_gml(&room.creation_code.0, &assets) {
+            Ok(res) => {
+                assets.rooms[i].as_mut().unwrap().creation_code = PascalString(res.into());
+            },
+            Err(err) => {
+                eprintln!(
+                    "[Warning] Failed to deobfuscate creation code for room {} ({}): {}",
+                    i,
+                    std::str::from_utf8(&room.name.0).unwrap_or("<INVALID UTF-8>"),
+                    err,
+                )
+            },
+        }
+        for j in 0..assets.rooms[i].as_ref().unwrap().instances.len() {
+            match deobfuscator.process_gml(&assets.rooms[i].as_ref().unwrap().instances[j].creation_code.0, &assets) {
+                Ok(res) => {
+                    assets.rooms[i].as_mut().unwrap().instances[j].creation_code = PascalString(res.into());
+                },
+                Err(err) => {
+                    eprintln!(
+                        "[Warning] Failed to deobfuscate creation code for instance {} in room {} ({}): {}",
+                        assets.rooms[i].as_ref().unwrap().instances[i].id,
+                        i,
+                        std::str::from_utf8(&assets.rooms[i].as_ref().unwrap().name.0).unwrap_or("<INVALID UTF-8>"),
+                        err,
+                    )
+                },
+            }
         }
     }
 
