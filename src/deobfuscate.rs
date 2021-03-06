@@ -30,7 +30,7 @@ struct ExprWriter<'a, 'b, 'c> {
     output: &'c mut Vec<u8>,
 
     is_gml_expr: bool,        // whether we're in a gml expr
-    group_skip_newline: bool, // this too
+    group_skip_newline: bool, // overrides writing a newline after a group
 }
 
 pub fn process<'a>(assets: &'a mut GameAssets) {
