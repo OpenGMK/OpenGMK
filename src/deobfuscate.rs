@@ -374,6 +374,8 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 }
             },
             ast::Expr::Group(exprs) => {
+                let skip_newline = self.group_skip_newline;
+                self.group_skip_newline = false;
                 push_str!("{\r\n");
                 self.indent += 1;
                 let mut is_case = false;
@@ -397,9 +399,9 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     self.indent -= 2;
                 }
                 self.indent -= 1;
-                if self.group_skip_newline {
+                self.write_indent();
+                if skip_newline {
                     self.output.push(b'}');
-                    self.group_skip_newline = false;
                 } else {
                     push_str!("}\r\n");
                 }
