@@ -505,7 +505,11 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
 
                 if let Some(expr_else) = &expr.else_body {
                     push_str!(" else ");
-                    self.process_expr(expr_else);
+                    if matches!(expr_else, ast::Expr::If(_)) {
+                        self.process_expr(expr_else);
+                    } else {
+                        self.write_expr_grouped(expr_else, true);
+                    }
                 } else {
                     push_str!("\r\n");
                 }
