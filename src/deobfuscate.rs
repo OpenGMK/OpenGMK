@@ -333,6 +333,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = true;
                 self.process_expr(&expr.start);
                 remove_truncate(&mut self.output, b"\r\n");
+                push_str!("; ");
                 self.process_expr(&expr.cond);
                 push_str!("; ");
                 self.process_expr(&expr.step);
