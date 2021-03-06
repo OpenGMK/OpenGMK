@@ -519,7 +519,7 @@ impl<'a> AST<'a> {
                 while lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
                     lex.next();
                 }
-                Ok(None)
+                Ok(Some(Expr::Group(vec![])))
             },
             Some(_) => Self::read_line(lex),
             None => Ok(None),
