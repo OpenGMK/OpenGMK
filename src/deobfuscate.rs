@@ -118,7 +118,7 @@ impl DeobfState {
     pub fn simplify(&mut self, expr: &ast::Expr, assets: &GameAssets) -> Option<f64> {
         match expr {
             ast::Expr::LiteralIdentifier(ident) => {
-                if let Some((_, index)) = self.get_asset_by_name(ident, assets) {
+                if let Some(index) = self.get_asset_index(ident, assets) {
                     Some(index as f64)
                 } else if ident == b"pi" {
                     // We don't want to simplify pi.
@@ -149,26 +149,22 @@ impl DeobfState {
         }
     }
 
-    pub fn get_asset_by_name(&self, name: &[u8], assets: &GameAssets) -> Option<(&'static [u8], usize)> {
-        fn find_asset<'a, T>(
-            ty: &'static str,
-            assets: &'a [Option<Box<T>>],
-            mut f: impl FnMut(&'a T) -> bool,
-        ) -> Option<(&'static [u8], usize)> {
-            assets.iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false)).map(|i| (ty.as_bytes(), i))
+    pub fn get_asset_index(&self, name: &[u8], assets: &GameAssets) -> Option<usize> {
+        fn find_asset<'a, T>(assets: &'a [Option<Box<T>>], mut f: impl FnMut(&'a T) -> bool) -> Option<usize> {
+            assets.iter().position(|x| x.as_ref().map(|b| f(b.as_ref())).unwrap_or(false))
         }
 
-        None.or_else(|| find_asset("object", &assets.objects, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("sprite", &assets.sprites, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("sound", &assets.sounds, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("background", &assets.backgrounds, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("path", &assets.paths, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("font", &assets.fonts, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("timeline", &assets.timelines, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("script", &assets.scripts, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("room", &assets.rooms, |x| &*x.name.0 == name))
-            .or_else(|| find_asset("trigger", &assets.triggers, |x| &*x.constant_name.0 == name))
-            .or_else(|| assets.constants.iter().position(|x| &*x.name.0 == name).map(|i| ("constant".as_bytes(), i)))
+        None.or_else(|| find_asset(&assets.objects, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.sprites, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.sounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.backgrounds, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.paths, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.fonts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.timelines, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.scripts, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.rooms, |x| &*x.name.0 == name))
+            .or_else(|| find_asset(&assets.triggers, |x| &*x.constant_name.0 == name))
+            .or_else(|| assets.constants.iter().position(|x| &*x.name.0 == name))
     }
 }
 
@@ -180,12 +176,17 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
             };
         }
 
+        fn write_wrapped(writer: &mut ExprWriter, expr: &ast::Expr) {
+            writer.output.push(b'(');
+            writer.process_expr(expr);
+            writer.output.push(b')');
+        }
+
         match ex {
             ast::Expr::LiteralIdentifier(expr) => {
-                if let Some((ty, index)) = self.deobf.get_asset_by_name(expr, self.assets) {
-                    self.output.extend_from_slice(ty);
-                    let _ = write!(self.output, "{}", index);
-                } else if self.deobf.vars.get(expr).is_some() || self.deobf.constants.get(expr).is_some() {
+                if let Some(simple) = self.deobf.simplify(&ast::Expr::LiteralIdentifier(expr), self.assets) {
+                    let _ = write!(self.output, "{}", simple);
+                } else if self.deobf.vars.get(expr).is_some() {
                     self.output.extend_from_slice(expr);
                 } else {
                     self.write_field(expr);
@@ -207,11 +208,9 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = true;
                 let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
                 if is_child_binary {
-                    push_str!("(");
-                }
-                self.process_expr(&expr.child);
-                if is_child_binary {
-                    push_str!(")");
+                    write_wrapped(self, &expr.child);
+                } else {
+                    self.process_expr(&expr.child);
                 }
                 self.is_gml_expr = prev_state;
             },
@@ -265,23 +264,53 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                 }
                             } else {
                                 // Write the whole LHS expression normally
-                                self.output.push(b'(');
-                                self.process_expr(&expr.left);
-                                self.output.push(b')');
+                                write_wrapped(self, &expr.left);
                             }
                         } else {
-                            // Write the whole LHS expression normally
-                            self.output.push(b'(');
-                            self.process_expr(&expr.left);
-                            self.output.push(b')');
+                            // Write the LHS expression normally, wrapping it only if necessary
+                            match &expr.left {
+                                ast::Expr::LiteralIdentifier(_) => {
+                                    self.process_expr(&expr.left);
+                                },
+                                ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
+                                    self.process_expr(&expr.left);
+                                },
+                                _ => {
+                                    write_wrapped(self, &expr.left);
+                                },
+                            }
                         }
 
                         self.output.push(b'.');
                         self.process_expr(&expr.right);
                     } else {
-                        // TODO: there are some binary expressions we don't want to bubble-wrap here
-                        // For example, if !is_assign and expr.left is a deref binary or index binary
-                        // this will wrap it - but we don't want that
+                        // This is a "normal" binary expression with an operator between two things
+                        // Helper fn: write one side of the expr, deciding whether to paren-wrap it or not
+                        fn write_side(writer: &mut ExprWriter, expr: &ast::Expr, can_wrap: bool) {
+                            if let Some(simple) = writer.deobf.simplify(expr, writer.assets) {
+                                writer.process_expr(&ast::Expr::LiteralReal(simple));
+                            } else {
+                                if can_wrap {
+                                    match expr {
+                                        ast::Expr::LiteralIdentifier(_)
+                                        | ast::Expr::LiteralReal(_)
+                                        | ast::Expr::LiteralString(_)
+                                        | ast::Expr::Unary(_) => {
+                                            writer.process_expr(expr);
+                                        },
+                                        ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
+                                            writer.process_expr(expr);
+                                        },
+                                        _ => {
+                                            write_wrapped(writer, expr);
+                                        },
+                                    }
+                                } else {
+                                    writer.process_expr(expr);
+                                }
+                            }
+                        }
+
                         let is_assign = matches!(
                             expr.op,
                             Operator::Assign
@@ -293,23 +322,11 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                 | Operator::AssignBitwiseOr
                                 | Operator::AssignBitwiseXor
                         );
-                        if !is_assign && matches!(expr.left, ast::Expr::Binary(_)) {
-                            self.output.push(b'(');
-                            self.process_expr(&expr.left);
-                            self.output.push(b')');
-                        } else {
-                            self.process_expr(&expr.left);
-                        }
+                        write_side(self, &expr.left, !is_assign);
                         self.output.push(b' ');
                         self.output.extend_from_slice(op_to_str(expr.op));
                         self.output.push(b' ');
-                        if !is_assign && matches!(expr.right, ast::Expr::Binary(_)) {
-                            self.output.push(b'(');
-                            self.process_expr(&expr.right);
-                            self.output.push(b')');
-                        } else {
-                            self.process_expr(&expr.right);
-                        }
+                        write_side(self, &expr.right, !is_assign);
                     }
                 }
                 self.is_gml_expr = prev_state;
