@@ -1,5 +1,5 @@
 use crate::mappings;
-use gm8exe::{asset::PascalString, GameAssets};
+use gm8exe::{asset::{CodeAction, PascalString}, GameAssets};
 use gml_parser::{
     ast::{self, AST},
     token::Operator,
@@ -37,16 +37,49 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
     let constants = mappings::make_constants_map();
     let vars = mappings::make_kernel_vars_lut();
     let mut deobfuscator = DeobfState { fields: Vec::new(), constants, vars };
+    let assets2 = unsafe { std::mem::transmute::<_, &'static mut GameAssets>(&mut *assets) };
+
+    // Helper function for CodeActions
+    fn process_action(action: &mut CodeAction, deobfuscator: &mut DeobfState, assets: &GameAssets) -> Result<(), ast::Error> {
+        match action.action_kind {
+            0 => {
+                // "normal"
+                if action.execution_type == 2 {
+                    // "code"
+                    action.fn_code = PascalString(deobfuscator.process_gml(&action.fn_code.0, assets)?.into());
+                }
+
+                for (expression, ty) in action.param_strings.iter_mut().zip(action.param_types.iter().copied()) {
+                    if ty == 0 {
+                        *expression = PascalString(deobfuscator.process_expression(&expression.0, assets)?.into());
+                    }
+                }
+            },
+            5 => {
+                // "repeat"
+                action.param_strings[0] = PascalString(deobfuscator.process_expression(&action.param_strings[0].0, assets)?.into());
+            },
+            6 => {
+                // "variable"
+                for i in 0..=1 {
+                    action.param_strings[i] = PascalString(deobfuscator.process_expression(&action.param_strings[i].0, assets)?.into());
+                }
+            },
+            7 => {
+                // "code"
+                action.param_strings[0] = PascalString(deobfuscator.process_gml(&action.param_strings[0].0, assets)?.into());
+            },
+            _ => (),
+        }
+
+        Ok(())
+    }
 
     // Deobfuscate scripts
-    for i in 0..assets.scripts.len() {
-        let script = match &assets.scripts[i] {
-            Some(x) => x,
-            None => continue,
-        };
-        match deobfuscator.process_gml(&script.source.0, &assets) {
+    for (i, script) in assets.scripts.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+        match deobfuscator.process_gml(&script.source.0, assets2) {
             Ok(res) => {
-                assets.scripts[i].as_mut().unwrap().source = PascalString(res.into());
+                script.source = PascalString(res.into());
             },
             Err(err) => {
                 eprintln!(
@@ -59,15 +92,50 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
         }
     }
 
+    // Deobfuscate timelines
+    for (i, timeline) in assets.timelines.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+        for (j, moment) in timeline.moments.iter_mut() {
+            for (k, action) in moment.iter_mut().enumerate() {
+                if let Err(err) = process_action(action, &mut deobfuscator, assets2) {
+                    eprintln!(
+                        "[Warning] Failed to deobfuscate timeline {} ({}) moment {} action {}: {}",
+                        i,
+                        std::str::from_utf8(&timeline.name.0).unwrap_or("<INVALID UTF-8>"),
+                        j,
+                        k,
+                        err,
+                    )
+                }
+            }
+        }
+    }
+
+    // Deobfuscate objects
+    for (i, object) in assets.objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+        for (e1, events) in object.events.iter_mut().enumerate() {
+            for (e2, actions) in events.iter_mut() {
+                for (j, action) in actions.iter_mut().enumerate() {
+                    if let Err(err) = process_action(action, &mut deobfuscator, assets2) {
+                        eprintln!(
+                            "[Warning] Failed to deobfuscate object {} ({}) event {},{} action {}: {}",
+                            i,
+                            std::str::from_utf8(&object.name.0).unwrap_or("<INVALID UTF-8>"),
+                            e1,
+                            e2,
+                            j,
+                            err,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     // Deobfuscate rooms (creation code + instance creation code)
-    for i in 0..assets.rooms.len() {
-        let room = match &assets.rooms[i] {
-            Some(x) => x,
-            None => continue,
-        };
-        match deobfuscator.process_gml(&room.creation_code.0, &assets) {
+    for (i, room) in assets.rooms.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+        match deobfuscator.process_gml(&room.creation_code.0, assets2) {
             Ok(res) => {
-                assets.rooms[i].as_mut().unwrap().creation_code = PascalString(res.into());
+                room.creation_code = PascalString(res.into());
             },
             Err(err) => {
                 eprintln!(
@@ -78,21 +146,55 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
                 )
             },
         }
-        for j in 0..assets.rooms[i].as_ref().unwrap().instances.len() {
-            match deobfuscator.process_gml(&assets.rooms[i].as_ref().unwrap().instances[j].creation_code.0, &assets) {
+        for instance in room.instances.iter_mut() {
+            match deobfuscator.process_gml(&instance.creation_code.0, assets2) {
                 Ok(res) => {
-                    assets.rooms[i].as_mut().unwrap().instances[j].creation_code = PascalString(res.into());
+                    instance.creation_code = PascalString(res.into());
                 },
                 Err(err) => {
                     eprintln!(
                         "[Warning] Failed to deobfuscate creation code for instance {} in room {} ({}): {}",
-                        assets.rooms[i].as_ref().unwrap().instances[i].id,
+                        instance.id,
                         i,
-                        std::str::from_utf8(&assets.rooms[i].as_ref().unwrap().name.0).unwrap_or("<INVALID UTF-8>"),
+                        std::str::from_utf8(&room.name.0).unwrap_or("<INVALID UTF-8>"),
                         err,
                     )
                 },
             }
+        }
+    }
+
+    // Deobfuscate triggers
+    for (i, trigger) in assets.triggers.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
+        match deobfuscator.process_expression(&trigger.condition.0, assets2) {
+            Ok(res) => {
+                trigger.condition = PascalString(res.into());
+            },
+            Err(err) => {
+                eprintln!(
+                    "[Warning] Failed to deobfuscate condition for trigger {} ({}): {}",
+                    i,
+                    std::str::from_utf8(&trigger.name.0).unwrap_or("<INVALID UTF-8>"),
+                    err,
+                )
+            },
+        }
+    }
+
+    // Deobfuscate constants
+    for (i, constant) in assets.constants.iter_mut().enumerate() {
+        match deobfuscator.process_expression(&constant.expression.0, assets2) {
+            Ok(res) => {
+                constant.expression = PascalString(res.into());
+            },
+            Err(err) => {
+                eprintln!(
+                    "[Warning] Failed to deobfuscate condition for constant {} ({}): {}",
+                    i,
+                    std::str::from_utf8(&constant.name.0).unwrap_or("<INVALID UTF-8>"),
+                    err,
+                )
+            },
         }
     }
 
