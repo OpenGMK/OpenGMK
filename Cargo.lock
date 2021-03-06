@@ -172,7 +172,7 @@ dependencies = [
 [[package]]
 name = "gml-parser"
 version = "0.1.0"
-source = "git+https://github.com/OpenGM8/GM8Emulator.git#b55e14085f6d017d8a6db9bf23f4098cad5b5cf1"
+source = "git+https://github.com/OpenGM8/GM8Emulator.git#0d18d33a49c0cb099eebe578b16f628a67062b22"
 
 [[package]]
 name = "hermit-abi"
