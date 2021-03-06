@@ -384,7 +384,6 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                         if is_case {
                             self.indent -= 1;
                         } else {
-                            self.indent += 1;
                             is_case = true;
                         }
                         self.write_indent();
@@ -396,7 +395,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     }
                 }
                 if is_case {
-                    self.indent -= 2;
+                    self.indent -= 1;
                 }
                 self.indent -= 1;
                 self.write_indent();
