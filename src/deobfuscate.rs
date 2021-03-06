@@ -254,7 +254,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
             ast::Expr::LiteralIdentifier(expr) => {
                 if let Some(simple) = self.deobf.simplify(&ast::Expr::LiteralIdentifier(expr), self.assets) {
                     let _ = write!(self.output, "{}", simple);
-                } else if self.deobf.vars.get(expr).is_some() {
+                } else if self.deobf.vars.get(expr).is_some() || expr == b"pi" {
                     self.output.extend_from_slice(expr);
                 } else {
                     self.write_field(expr);
