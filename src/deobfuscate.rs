@@ -7,7 +7,6 @@ use gml_parser::{
 use std::{
     collections::{HashMap, HashSet},
     io::Write,
-    mem,
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -44,9 +43,9 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
             Some(x) => x,
             None => continue,
         };
-        match deobfuscator.process_gml(&script.name.0, &assets) {
+        match deobfuscator.process_gml(&script.source.0, &assets) {
             Ok(res) => {
-                assets.scripts[i].as_mut().unwrap().name = PascalString(res.into());
+                assets.scripts[i].as_mut().unwrap().source = PascalString(res.into());
             },
             Err(err) => {
                 eprintln!(
@@ -57,6 +56,11 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
                 )
             },
         }
+    }
+
+    // Mass rename assets
+    for (i, script) in assets.scripts.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        script.name = PascalString(format!("script{}", i).into_bytes().into());
     }
 }
 
