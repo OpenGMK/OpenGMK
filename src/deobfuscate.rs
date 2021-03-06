@@ -59,8 +59,38 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
     }
 
     // Mass rename assets
+    for (i, sprite) in assets.sprites.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        sprite.name = PascalString(format!("sprite{}", i).into_bytes().into());
+    }
+    for (i, sound) in assets.sounds.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        sound.name = PascalString(format!("sound{}", i).into_bytes().into());
+    }
+    for (i, background) in assets.backgrounds.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        background.name = PascalString(format!("background{}", i).into_bytes().into());
+    }
+    for (i, path) in assets.paths.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        path.name = PascalString(format!("path{}", i).into_bytes().into());
+    }
     for (i, script) in assets.scripts.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
         script.name = PascalString(format!("script{}", i).into_bytes().into());
+    }
+    for (i, font) in assets.fonts.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        font.name = PascalString(format!("font{}", i).into_bytes().into());
+    }
+    for (i, timeline) in assets.timelines.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        timeline.name = PascalString(format!("timeline{}", i).into_bytes().into());
+    }
+    for (i, object) in assets.objects.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        object.name = PascalString(format!("object{}", i).into_bytes().into());
+    }
+    for (i, room) in assets.rooms.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        room.name = PascalString(format!("room{}", i).into_bytes().into());
+    }
+    for (i, trigger) in assets.triggers.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        trigger.constant_name = PascalString(format!("trigger{}", i).into_bytes().into());
+    }
+    for (i, constant) in assets.constants.iter_mut().enumerate() {
+        constant.name = PascalString(format!("constant{}", i).into_bytes().into());
     }
 }
 
