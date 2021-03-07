@@ -200,6 +200,10 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
 
     // Mass rename assets
     for (i, sprite) in assets.sprites.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
+        if sprite.frames.is_empty() {
+            sprite.colliders.clear();
+            sprite.per_frame_colliders = true;
+        }
         sprite.name = PascalString(format!("sprite{}", i).into_bytes().into());
     }
     for (i, sound) in assets.sounds.iter_mut().enumerate().filter_map(|(i, o)| o.as_mut().map(|x| (i, x))) {
@@ -469,7 +473,8 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                         ast::Expr::LiteralIdentifier(_)
                                         | ast::Expr::LiteralReal(_)
                                         | ast::Expr::LiteralString(_)
-                                        | ast::Expr::Unary(_) => {
+                                        | ast::Expr::Unary(_)
+                                        | ast::Expr::Function(_) => {
                                             writer.process_expr(expr);
                                         },
                                         ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
