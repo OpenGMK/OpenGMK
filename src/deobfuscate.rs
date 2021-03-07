@@ -383,11 +383,9 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 if let Some(simple) = self.deobf.simplify(&expr.child, self.assets) {
                     self.process_expr(&ast::Expr::LiteralReal(simple));
                 } else {
-                    let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
-                    if is_child_binary {
-                        write_wrapped(self, &expr.child);
-                    } else {
-                        self.process_expr(&expr.child);
+                    match &expr.child {
+                        ast::Expr::Binary(b) if !matches!(b.op, Operator::Deref | Operator::Index) => write_wrapped(self, &expr.child),
+                        _ => self.process_expr(&expr.child),
                     }
                 }
                 self.is_gml_expr = prev_state;
