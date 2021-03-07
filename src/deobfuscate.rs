@@ -376,7 +376,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.output.extend_from_slice(op);
                 let prev_state = self.is_gml_expr;
                 self.is_gml_expr = true;
-                if let Some(simple) = self.deobf.simplify(ex, self.assets) {
+                if let Some(simple) = self.deobf.simplify(&expr.child, self.assets) {
                     self.process_expr(&ast::Expr::LiteralReal(simple));
                 } else {
                     let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
