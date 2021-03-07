@@ -376,11 +376,15 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.output.extend_from_slice(op);
                 let prev_state = self.is_gml_expr;
                 self.is_gml_expr = true;
-                let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
-                if is_child_binary {
-                    write_wrapped(self, &expr.child);
+                if let Some(simple) = self.deobf.simplify(ex, self.assets) {
+                    self.process_expr(&ast::Expr::LiteralReal(simple));
                 } else {
-                    self.process_expr(&expr.child);
+                    let is_child_binary = matches!(expr.child, ast::Expr::Binary(_));
+                    if is_child_binary {
+                        write_wrapped(self, &expr.child);
+                    } else {
+                        self.process_expr(&expr.child);
+                    }
                 }
                 self.is_gml_expr = prev_state;
             },
