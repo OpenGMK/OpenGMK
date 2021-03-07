@@ -7843,9 +7843,13 @@ impl Game {
         }
     }
 
-    pub fn sprite_set_offset(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sprite_set_offset")
+    pub fn sprite_set_offset(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite, x, y) = expect_args!(args, [int, int, int])?;
+        if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite) {
+            sprite.origin_x = x;
+            sprite.origin_y = y;
+        }
+        Ok(Default::default())
     }
 
     pub fn sprite_set_alpha_from_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
