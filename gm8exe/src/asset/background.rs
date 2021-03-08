@@ -1,8 +1,8 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString, ReadChunk},
+    asset::{assert_ver, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
 
 pub const VERSION1: u32 = 710;
@@ -25,7 +25,11 @@ pub struct Background {
 }
 
 impl Asset for Background {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {

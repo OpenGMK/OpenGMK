@@ -2,7 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 530;
@@ -52,7 +52,11 @@ impl From<u32> for ConnectionKind {
 }
 
 impl Asset for Path {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -70,7 +74,11 @@ impl Asset for Path {
         let point_count = reader.read_u32::<LE>()? as usize;
         let mut points = Vec::with_capacity(point_count);
         for _ in 0..point_count {
-            points.push(Point { x: reader.read_f64::<LE>()?, y: reader.read_f64::<LE>()?, speed: reader.read_f64::<LE>()? });
+            points.push(Point {
+                x: reader.read_f64::<LE>()?,
+                y: reader.read_f64::<LE>()?,
+                speed: reader.read_f64::<LE>()?,
+            });
         }
 
         Ok(Path { name, connection, precision, closed, points })

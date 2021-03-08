@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
-use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -61,7 +60,11 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -116,15 +119,7 @@ impl Asset for Sprite {
                 reader.read_u32_into::<LE>(&mut mask_data[..])?;
                 let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
 
-                Ok(CollisionMap {
-                    width,
-                    height,
-                    bbox_left,
-                    bbox_right,
-                    bbox_bottom,
-                    bbox_top,
-                    data,
-                })
+                Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_bottom, bbox_top, data })
             }
 
             let mut colliders: Vec<CollisionMap>;

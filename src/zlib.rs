@@ -1,8 +1,10 @@
-use flate2::{Compression, write::ZlibEncoder};
+use flate2::{write::ZlibEncoder, Compression};
 
-use std::io::{self, Write};
 use byteorder::{WriteBytesExt, LE};
-use std::convert::TryInto;
+use std::{
+    convert::TryInto,
+    io::{self, Write},
+};
 
 /// Takes some data and writes the compressed data to the cursor in GM8 format.
 pub struct ZlibWriter {

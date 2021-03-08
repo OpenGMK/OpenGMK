@@ -6,7 +6,9 @@ use std::{
 };
 
 pub mod collision;
+pub mod deobfuscate;
 pub mod gmk;
+pub mod mappings;
 pub mod zlib;
 
 static INFO_STRING: &str = concat!(
@@ -35,6 +37,7 @@ fn main() {
         .optflag("v", "verbose", "enable verbose logging for decompilation")
         .optflag("t", "singlethread", "decompile gamedata synchronously")
         .optflag("P", "preserve", "preserve broken events instead of trying to fix them")
+        .optopt("d", "deobfuscate", "set deobfuscation mode (default is auto-detect)", "on/off/auto")
         .optopt("o", "output", "specify output filename", "FILE");
 
     if !msys2 {
@@ -115,6 +118,15 @@ fn main() {
     let lazy = matches.opt_present("l");
     let singlethread = matches.opt_present("t");
     let verbose = matches.opt_present("v");
+    let deobfuscate = match matches.opt_str("d").as_ref().map(String::as_str) {
+        Some("on") => deobfuscate::Mode::On,
+        Some("off") => deobfuscate::Mode::Off,
+        Some("auto") | None => deobfuscate::Mode::Auto,
+        Some(x) => {
+            eprintln!("Invalid deobfuscator setting: {} (valid settings are specify on/off/auto)", x);
+            process::exit(1);
+        },
+    };
     let out_path = matches.opt_str("o");
     let preserve = matches.opt_present("P");
     // no_pause extracted before help
@@ -126,6 +138,11 @@ fn main() {
     }
     if verbose {
         println!("Verbose logging ON: verbose console output enabled");
+    }
+    match deobfuscate {
+        deobfuscate::Mode::On => println!("Deobfuscation ON: will standardise GML code"),
+        deobfuscate::Mode::Off => println!("Deobfuscation OFF: will ignore obfuscation"),
+        _ => (),
     }
     if singlethread {
         println!("Single-threaded mode ON: process will not start new threads (slow)");
@@ -148,7 +165,7 @@ fn main() {
     }
 
     // allow decompile to handle the rest of main
-    if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose, !preserve) {
+    if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose, deobfuscate, !preserve) {
         eprintln!("Error parsing gamedata:\n{}", e);
         press_any_key();
         process::exit(1);
@@ -163,6 +180,7 @@ fn decompile(
     strict: bool,
     multithread: bool,
     verbose: bool,
+    deobf_mode: deobfuscate::Mode,
     fix_events: bool,
 ) -> Result<(), String> {
     // slurp in file contents
@@ -174,6 +192,26 @@ fn decompile(
         .map_err(|e| format!("Reader error: {}", e))?;
 
     println!("Successfully parsed game!");
+
+    //Do we want to deobfuscate, yes or no?
+    let deobfuscate = match deobf_mode {
+        deobfuscate::Mode::On => true,
+        deobfuscate::Mode::Off => false,
+        deobfuscate::Mode::Auto => {
+            assets.backgrounds.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.fonts.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.objects.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.paths.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.rooms.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.sounds.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.sprites.iter().flatten().any(|s| s.name.0.is_empty())
+                || assets.timelines.iter().flatten().any(|s| s.name.0.is_empty())
+        },
+    };
+    if deobf_mode == deobfuscate::Mode::Auto && deobfuscate {
+        println!("Note: GMK looks obfuscated, so de-obfuscation has been enabled by default");
+        println!(" -- you can turn this off with '-d off'");
+    }
 
     fn fix_event(ev: &mut gm8exe::asset::CodeAction) {
         // So far the only broken event type I know of is custom Execute Code actions.
@@ -239,6 +277,10 @@ fn decompile(
             path
         },
     };
+
+    if deobfuscate {
+        deobfuscate::process(&mut assets);
+    }
 
     let mut gmk = fs::File::create(&out_path)
         .map_err(|e| format!("Failed to create output file '{}': {}", out_path.display(), e))?;

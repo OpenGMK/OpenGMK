@@ -1,5 +1,5 @@
 use crate::reader::PESection;
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, Seek, SeekFrom};
 
 /// A windows icon from the .rsrc header

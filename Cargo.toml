@@ -13,6 +13,7 @@ byteorder = "1"
 flate2 = { version = "1.0", features = ["zlib-ng-compat"], default-features = false }
 getopts = "0.2.21"
 gm8exe = { path = "gm8exe" }
+gml-parser = { git = "https://github.com/OpenGM8/GM8Emulator.git" }
 rayon = "1.2"
 
 [profile.release]
