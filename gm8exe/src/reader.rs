@@ -1,12 +1,17 @@
-use crate::{asset::*, gamedata::{self, gm80}, rsrc, settings::{GameHelpDialog, Settings}, GameAssets, GameVersion, AssetList};
-use byteorder::{LE, ReadBytesExt};
+use crate::{
+    asset::*,
+    gamedata::{self, gm80},
+    rsrc,
+    settings::{GameHelpDialog, Settings},
+    AssetList, GameAssets, GameVersion,
+};
+use byteorder::{ReadBytesExt, LE};
 use flate2::bufread::ZlibDecoder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fmt::{self, Display},
-    io::{self, Read, Seek, SeekFrom},
+    io::{self, Cursor, Read, Seek, SeekFrom},
 };
-use std::io::Cursor;
 
 #[derive(Debug)]
 pub enum ReaderError {
@@ -470,8 +475,8 @@ where
         strict: bool,
         multithread: bool,
     ) -> Result<AssetList<T>, ReaderError>
-        where
-            T: Asset + Send,
+    where
+        T: Asset + Send,
     {
         get_assets(src, |data| <T as Asset>::deserialize_exe(Cursor::new(data), version, strict), multithread)
     }
@@ -658,7 +663,9 @@ where
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| IncludedFile::deserialize_exe(Cursor::new(data), game_ver, strict).map_err(|e| e.into()))
+            inflate(chunk).and_then(|data| {
+                IncludedFile::deserialize_exe(Cursor::new(data), game_ver, strict).map_err(|e| e.into())
+            })
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {

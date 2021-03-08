@@ -2,7 +2,7 @@ use crate::{
     asset::{assert_ver, Error, PascalString, ReadPascalString},
     reader::inflate,
 };
-use byteorder::{LE, ReadBytesExt};
+use byteorder::{ReadBytesExt, LE};
 use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 700;

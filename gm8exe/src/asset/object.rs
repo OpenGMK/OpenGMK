@@ -1,8 +1,8 @@
 use crate::{
-    asset::{assert_ver, CodeAction, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, CodeAction, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 430;
@@ -46,7 +46,11 @@ pub struct Object {
 }
 
 impl Asset for Object {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {

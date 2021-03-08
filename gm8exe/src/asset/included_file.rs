@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
-use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -49,7 +48,11 @@ pub enum ExportSetting {
 }
 
 impl Asset for IncludedFile {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;

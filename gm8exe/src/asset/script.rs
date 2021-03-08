@@ -2,7 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 800;
@@ -16,7 +16,11 @@ pub struct Script {
 }
 
 impl Asset for Script {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {

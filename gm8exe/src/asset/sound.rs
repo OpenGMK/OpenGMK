@@ -1,10 +1,9 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
-use crate::asset::ReadChunk;
 
 pub const VERSION: u32 = 800;
 
@@ -82,7 +81,11 @@ impl From<u32> for SoundKind {
 }
 
 impl Asset for Sound {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -115,17 +118,7 @@ impl Asset for Sound {
         let pan = reader.read_f64::<LE>()?;
         let preload = reader.read_u32::<LE>()? != 0;
 
-        Ok(Sound {
-            name,
-            source,
-            extension,
-            kind,
-            data,
-            volume,
-            pan,
-            preload,
-            fx,
-        })
+        Ok(Sound { name, source, extension, kind, data, volume, pan, preload, fx })
     }
 
     fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {

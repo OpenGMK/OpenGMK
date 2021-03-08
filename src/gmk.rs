@@ -1,14 +1,13 @@
 use crate::{collision, zlib::ZlibWriter};
+use byteorder::{WriteBytesExt, LE};
 use flate2::{write::ZlibEncoder, Compression};
 use gm8exe::{
     asset::{self, included_file::ExportSetting, PascalString, WritePascalString},
     settings::{GameHelpDialog, Settings},
     GameAssets, GameVersion,
 };
-use std::convert::TryInto;
 use rayon::prelude::*;
-use std::{io, u32};
-use byteorder::{WriteBytesExt, LE};
+use std::{convert::TryInto, io, u32};
 
 pub trait WriteBuffer: io::Write {
     fn write_buffer(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -45,12 +44,7 @@ where
 }
 
 // Writes a settings block to GMK
-pub fn write_settings<W>(
-    writer: &mut W,
-    settings: &Settings,
-    ico_file: &[u8],
-    version: GameVersion,
-) -> io::Result<()>
+pub fn write_settings<W>(writer: &mut W, settings: &Settings, ico_file: &[u8], version: GameVersion) -> io::Result<()>
 where
     W: io::Write,
 {
@@ -71,9 +65,9 @@ where
     enc.write_u32::<LE>(settings.dont_show_buttons as u32)?;
     match version {
         GameVersion::GameMaker8_0 => enc.write_u32::<LE>(settings.vsync as u32)?,
-        GameVersion::GameMaker8_1 => enc.write_u32::<LE>(
-            ((settings.force_cpu_render as u32) << 7) | (settings.vsync as u32),
-        )?,
+        GameVersion::GameMaker8_1 => {
+            enc.write_u32::<LE>(((settings.force_cpu_render as u32) << 7) | (settings.vsync as u32))?
+        },
     };
     enc.write_u32::<LE>(settings.disable_screensaver as u32)?;
     enc.write_u32::<LE>(settings.f4_fullscreen_toggle as u32)?;
@@ -185,8 +179,7 @@ where
     writer.write_u32::<LE>(list.len() as u32)?;
 
     if multithread {
-        list
-            .par_iter()
+        list.par_iter()
             .map(|asset| {
                 let mut enc = ZlibEncoder::new(Vec::new(), Compression::default());
                 match asset {
@@ -682,7 +675,7 @@ where
     W: io::Write,
 {
     writer.write_u32::<LE>(800)?; // TODO: why is this hardcoded?? come on adam
-                                    // maybe others are too ?
+    // maybe others are too ?
     let mut enc = ZlibWriter::new();
     enc.write_u32::<LE>(info.bg_colour.into())?;
     enc.write_u32::<LE>(info.new_window as u32)?;

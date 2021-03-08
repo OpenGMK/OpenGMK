@@ -4,7 +4,7 @@ use crate::{
     def::ID,
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
 
 pub const VERSION: u32 = 541;
@@ -111,7 +111,11 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -232,9 +236,9 @@ impl Asset for Room {
         writer.write_u32::<LE>(self.bg_colour.into())?;
         match version {
             GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen as u32)?,
-            GameVersion::GameMaker8_1 => writer.write_u32::<LE>(
-                ((!self.clear_region as u32) << 1) | (self.clear_screen as u32),
-            )?,
+            GameVersion::GameMaker8_1 => {
+                writer.write_u32::<LE>(((!self.clear_region as u32) << 1) | (self.clear_screen as u32))?
+            },
         };
         writer.write_pas_string(&self.creation_code)?;
         writer.write_u32::<LE>(self.backgrounds.len() as u32)?;

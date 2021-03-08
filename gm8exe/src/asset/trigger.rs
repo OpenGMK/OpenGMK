@@ -2,7 +2,7 @@ use crate::{
     asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     GameVersion,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::{
     fmt::{self, Display},
     io::{self, SeekFrom},
@@ -57,7 +57,11 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;

@@ -1,7 +1,10 @@
-use crate::{asset::{assert_ver, Error, PascalString, ReadPascalString, WritePascalString}, def::ID, GameVersion};
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use crate::{
+    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    def::ID,
+    GameVersion,
+};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, SeekFrom};
-use crate::asset::Asset;
 
 pub const VERSION: u32 = 440;
 pub const PARAM_COUNT: usize = 8;
@@ -52,7 +55,11 @@ pub struct CodeAction {
 }
 
 impl Asset for CodeAction {
-    fn deserialize_exe(mut reader: impl io::Read + io::Seek, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(
+        mut reader: impl io::Read + io::Seek,
+        _version: GameVersion,
+        strict: bool,
+    ) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;

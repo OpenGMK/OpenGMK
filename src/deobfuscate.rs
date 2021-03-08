@@ -1,5 +1,8 @@
 use crate::mappings;
-use gm8exe::{asset::{CodeAction, PascalString}, GameAssets};
+use gm8exe::{
+    asset::{CodeAction, PascalString},
+    GameAssets,
+};
 use gml_parser::{
     ast::{self, AST},
     token::Operator,
@@ -40,7 +43,11 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
     let assets2 = unsafe { std::mem::transmute::<_, &'static mut GameAssets>(&mut *assets) };
 
     // Helper function for CodeActions
-    fn process_action(action: &mut CodeAction, deobfuscator: &mut DeobfState, assets: &GameAssets) -> Result<(), ast::Error> {
+    fn process_action(
+        action: &mut CodeAction,
+        deobfuscator: &mut DeobfState,
+        assets: &GameAssets,
+    ) -> Result<(), ast::Error> {
         match action.action_kind {
             0 => {
                 // "normal"
@@ -57,17 +64,20 @@ pub fn process<'a>(assets: &'a mut GameAssets) {
             },
             5 => {
                 // "repeat"
-                action.param_strings[0] = PascalString(deobfuscator.process_expression(&action.param_strings[0].0, assets)?.into());
+                action.param_strings[0] =
+                    PascalString(deobfuscator.process_expression(&action.param_strings[0].0, assets)?.into());
             },
             6 => {
                 // "variable"
                 for i in 0..=1 {
-                    action.param_strings[i] = PascalString(deobfuscator.process_expression(&action.param_strings[i].0, assets)?.into());
+                    action.param_strings[i] =
+                        PascalString(deobfuscator.process_expression(&action.param_strings[i].0, assets)?.into());
                 }
             },
             7 => {
                 // "code"
-                action.param_strings[0] = PascalString(deobfuscator.process_gml(&action.param_strings[0].0, assets)?.into());
+                action.param_strings[0] =
+                    PascalString(deobfuscator.process_gml(&action.param_strings[0].0, assets)?.into());
             },
             _ => (),
         }
@@ -384,7 +394,9 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     self.process_expr(&ast::Expr::LiteralReal(simple));
                 } else {
                     match &expr.child {
-                        ast::Expr::Binary(b) if !matches!(b.op, Operator::Deref | Operator::Index) => write_wrapped(self, &expr.child),
+                        ast::Expr::Binary(b) if !matches!(b.op, Operator::Deref | Operator::Index) => {
+                            write_wrapped(self, &expr.child)
+                        },
                         _ => self.process_expr(&expr.child),
                     }
                 }
