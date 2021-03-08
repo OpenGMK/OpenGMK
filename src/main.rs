@@ -22,29 +22,47 @@ static INFO_STRING: &str = concat!(
     env!("GIT_HASH"),
 );
 
+// Know to "press any key" but only if double-clicked in WinExplorer or whatever.
+#[cfg(windows)]
+fn is_cmd(argv_0: &str) -> bool {
+    let is_argv0_absolute = Path::new(argv_0).is_absolute();
+    let is_msys2 = env::var("MSYSTEM").is_ok();
+
+    is_argv0_absolute && !is_msys2
+}
+#[cfg(windows)]
+fn pause() {
+    extern "C" {
+        fn _getch() -> std::os::raw::c_int;
+    }
+    println!("\nTip: To decompile a game, click and drag it on top of the executable.");
+    println!("<< Press Any Key >>");
+    let _ = unsafe { _getch() };
+}
+#[cfg(not(windows))]
+fn is_cmd(_argv_0: &str) -> bool {
+    false
+}
+#[cfg(not(windows))]
+fn pause() {}
+
 fn main() {
     println!("{}", INFO_STRING);
 
     let args: Vec<String> = env::args().collect();
     assert!(!args.is_empty());
     let process_path = args[0].as_str();
-    let msys2 = env::var("MSYSTEM").is_ok();
+    let should_pause = is_cmd(process_path);
 
     // set up getopts to parse our command line args
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "print this help message")
         .optflag("l", "lazy", "disable various data integrity checks")
         .optflag("v", "verbose", "enable verbose logging for decompilation")
-        .optflag("t", "singlethread", "decompile gamedata synchronously")
-        .optflag("P", "preserve", "preserve broken events instead of trying to fix them")
-        .optopt("d", "deobfuscate", "set deobfuscation mode (default is auto-detect)", "on/off/auto")
+        .optopt("d", "deobfuscate", "set deobfuscation mode auto/on/off (default=auto)", "")
+        .optflag("p", "preserve", "preserve broken events (instead of trying to fix them)")
+        .optflag("s", "singlethread", "decompile gamedata synchronously (lower RAM usage)")
         .optopt("o", "output", "specify output filename", "FILE");
-
-    if !msys2 {
-        opts.optflag("p", "no-pause", "do not wait for a keypress after running / help (cmd)");
-    } else {
-        opts.optflag("p", "no-pause", ""); // ignored, omitted from usage string
-    }
 
     // parse command line arguments
     let matches = match opts.parse(&args[1..]) {
@@ -58,49 +76,31 @@ fn main() {
                 OptionDuplicated(opt) => eprintln!("Duplicated option: {}", opt),
                 UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
             }
+            if should_pause {
+                pause();
+            }
             process::exit(1);
         },
     };
 
-    // We extract this flag early for usage in the below function -
-    let no_pause = matches.opt_present("p");
-
-    // Since windows is stupid and pops up a terminal instead of handling terminals
-    // like every other system does, we add a pause at the end in case you aren't
-    // running it from a terminal already.
-    #[cfg(target_os = "windows")]
-    let press_any_key = || {
-        if !no_pause {
-            // msys2 or derivatives (git bash for example) lock up on getch
-            // however if you're using it you know what you're doing and don't need a `pause`
-            if !msys2 {
-                extern "C" {
-                    fn _getch() -> std::os::raw::c_int;
-                }
-                println!("\n< Press Any Key >");
-                let _ = unsafe { _getch() };
-            }
-        }
-    };
-
-    // Not needed on good operating systems.
-    #[cfg(not(target_os = "windows"))]
-    let press_any_key = || ();
-
     // print help message if requested OR no input files
     if matches.opt_present("h") || matches.free.is_empty() {
+        // If the getopts2 usage generator didn't suck this much,
+        // I wouldn't have to resort to this.
+        // TODO: Get a better argument parser in general.
         println!(
-            concat!(
-                "Usage: {} FILENAME [options]\n",
-                "{}\n\n", // usage string
-                "Tip: to decompile a game, click and drag it on top of the executable.",
-            ),
-            process_path,
-            opts.usage_with_format(|iter| iter.fold(String::new(), |acc, s| {
-                if msys2 && s.contains("no-pause") { acc } else { acc + "\n" + &s }
-            })),
+            "Usage: {} FILENAME [options]
+
+Options:
+    -h, --help                print this help message
+    -l, --lazy                disable various data integrity checks
+    -v, --verbose             enable verbose logging for decompilation
+    -d, --deobfuscate <mode>  set deobfuscation mode auto/on/off (defaults to auto)
+    -p, --preserve            preserve broken events (instead of trying to fix them)
+    -s, --singlethread        decompile gamedata synchronously (lower RAM usage)
+    -o, --output <file>       specify output filename",
+            process_path
         );
-        press_any_key();
         process::exit(0); // once the user RTFM they can run it again
     }
 
@@ -110,25 +110,28 @@ fn main() {
             concat!("Unexpected input: {}\n", "Tip: Only one input gamefile is expected at a time!",),
             matches.free[1]
         );
+        if should_pause {
+            pause();
+        }
         process::exit(1);
     }
 
     // extract flags & input path
     let input = &matches.free[0];
     let lazy = matches.opt_present("l");
-    let singlethread = matches.opt_present("t");
+    let singlethread = matches.opt_present("s");
     let verbose = matches.opt_present("v");
     let deobfuscate = match matches.opt_str("d").as_deref() {
         Some("on") => deobfuscate::Mode::On,
         Some("off") => deobfuscate::Mode::Off,
         Some("auto") | None => deobfuscate::Mode::Auto,
         Some(x) => {
-            eprintln!("Invalid deobfuscator setting: {} (valid settings are specify on/off/auto)", x);
+            eprintln!("Invalid deobfuscator setting: {} (valid settings are on/off/auto)", x);
             process::exit(1);
         },
     };
     let out_path = matches.opt_str("o");
-    let preserve = matches.opt_present("P");
+    let preserve = matches.opt_present("p");
     // no_pause extracted before help
 
     // print flags for confirmation
@@ -147,9 +150,6 @@ fn main() {
     if singlethread {
         println!("Single-threaded mode ON: process will not start new threads (slow)");
     }
-    if no_pause {
-        println!("No-pause ON: program will not pause after completing");
-    }
     if let Some(path) = &out_path {
         println!("Specified output path: {}", path);
     }
@@ -167,11 +167,12 @@ fn main() {
     // allow decompile to handle the rest of main
     if let Err(e) = decompile(input_path, out_path, !lazy, !singlethread, verbose, deobfuscate, !preserve) {
         eprintln!("Error parsing gamedata:\n{}", e);
-        press_any_key();
         process::exit(1);
     }
 
-    press_any_key();
+    if should_pause {
+        pause();
+    }
 }
 
 fn decompile(
