@@ -36,7 +36,7 @@ struct ExprWriter<'a, 'b, 'c> {
     group_skip_newline: bool, // overrides writing a newline after a group
 }
 
-pub fn process<'a>(assets: &'a mut GameAssets) {
+pub fn process(assets: &mut GameAssets) {
     let constants = mappings::make_constants_map();
     let vars = mappings::make_kernel_vars_lut();
     let mut deobfuscator = DeobfState { fields: Vec::new(), constants, vars };
@@ -407,116 +407,112 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = true;
                 if let Some(simple) = self.deobf.simplify(ex, self.assets) {
                     self.process_expr(&ast::Expr::LiteralReal(simple));
-                } else {
-                    if expr.op == Operator::Index {
-                        // array indexing
-                        self.process_expr(&expr.left);
-                        self.output.push(b'[');
-                        if let ast::Expr::Group(group) = &expr.right {
-                            for (i, expr) in group.iter().enumerate() {
-                                if i != 0 {
-                                    push_str!(", ");
-                                }
-                                if let Some(simple) = self.deobf.simplify(expr, &self.assets) {
-                                    self.process_expr(&ast::Expr::LiteralReal(simple));
-                                } else {
-                                    self.process_expr(expr);
-                                }
+                } else if expr.op == Operator::Index {
+                    // array indexing
+                    self.process_expr(&expr.left);
+                    self.output.push(b'[');
+                    if let ast::Expr::Group(group) = &expr.right {
+                        for (i, expr) in group.iter().enumerate() {
+                            if i != 0 {
+                                push_str!(", ");
                             }
-                        } else {
-                            panic!("index rhs wasn't a group");
-                        }
-                        self.output.push(b']');
-                    } else if expr.op == Operator::Deref {
-                        // Deref operator - lots of special cases here
-                        // If LHS can be simplified,
-                        if let Some(simple) = self.deobf.simplify(&expr.left, self.assets) {
-                            // If the simplified number is the ID of an object,
-                            let simple_int = simple as i32;
-                            if simple_int >= 0
-                                && self.assets.objects.get(simple_int as usize).is_some()
-                                && simple.fract() == 0.0
-                            {
-                                // Write eg "object123"
-                                let _ = write!(self.output, "object{}", simple_int);
-                            } else if simple.fract() == 0.0 {
-                                // Special cases for certain keywords, otherwise just write eg "(123)"
-                                match simple_int {
-                                    -1 => self.output.extend_from_slice(b"self"),
-                                    -2 => self.output.extend_from_slice(b"other"),
-                                    -5 => self.output.extend_from_slice(b"global"),
-                                    -7 => self.output.extend_from_slice(b"local"),
-                                    i => {
-                                        let _ = write!(self.output, "({})", i);
-                                    },
-                                }
+                            if let Some(simple) = self.deobf.simplify(expr, &self.assets) {
+                                self.process_expr(&ast::Expr::LiteralReal(simple));
                             } else {
-                                // Write the whole LHS expression normally
-                                write_wrapped(self, &expr.left);
+                                self.process_expr(expr);
+                            }
+                        }
+                    } else {
+                        panic!("index rhs wasn't a group");
+                    }
+                    self.output.push(b']');
+                } else if expr.op == Operator::Deref {
+                    // Deref operator - lots of special cases here
+                    // If LHS can be simplified,
+                    if let Some(simple) = self.deobf.simplify(&expr.left, self.assets) {
+                        // If the simplified number is the ID of an object,
+                        let simple_int = simple as i32;
+                        if simple_int >= 0
+                            && self.assets.objects.get(simple_int as usize).is_some()
+                            && simple.fract() == 0.0
+                        {
+                            // Write eg "object123"
+                            let _ = write!(self.output, "object{}", simple_int);
+                        } else if simple.fract() == 0.0 {
+                            // Special cases for certain keywords, otherwise just write eg "(123)"
+                            match simple_int {
+                                -1 => self.output.extend_from_slice(b"self"),
+                                -2 => self.output.extend_from_slice(b"other"),
+                                -5 => self.output.extend_from_slice(b"global"),
+                                -7 => self.output.extend_from_slice(b"local"),
+                                i => {
+                                    let _ = write!(self.output, "({})", i);
+                                },
                             }
                         } else {
-                            // Write the LHS expression normally, wrapping it only if necessary
-                            match &expr.left {
-                                ast::Expr::LiteralIdentifier(_) => {
-                                    self.process_expr(&expr.left);
+                            // Write the whole LHS expression normally
+                            write_wrapped(self, &expr.left);
+                        }
+                    } else {
+                        // Write the LHS expression normally, wrapping it only if necessary
+                        match &expr.left {
+                            ast::Expr::LiteralIdentifier(_) => {
+                                self.process_expr(&expr.left);
+                            },
+                            ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
+                                self.process_expr(&expr.left);
+                            },
+                            _ => {
+                                write_wrapped(self, &expr.left);
+                            },
+                        }
+                    }
+
+                    self.output.push(b'.');
+                    self.process_expr(&expr.right);
+                } else {
+                    // This is a "normal" binary expression with an operator between two things
+                    // Helper fn: write one side of the expr, deciding whether to paren-wrap it or not
+                    fn write_side(writer: &mut ExprWriter, expr: &ast::Expr, can_wrap: bool) {
+                        if let Some(simple) = writer.deobf.simplify(expr, writer.assets) {
+                            writer.process_expr(&ast::Expr::LiteralReal(simple));
+                        } else if can_wrap {
+                            match expr {
+                                ast::Expr::LiteralIdentifier(_)
+                                | ast::Expr::LiteralReal(_)
+                                | ast::Expr::LiteralString(_)
+                                | ast::Expr::Unary(_)
+                                | ast::Expr::Function(_) => {
+                                    writer.process_expr(expr);
                                 },
                                 ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
-                                    self.process_expr(&expr.left);
+                                    writer.process_expr(expr);
                                 },
                                 _ => {
-                                    write_wrapped(self, &expr.left);
+                                    write_wrapped(writer, expr);
                                 },
                             }
+                        } else {
+                            writer.process_expr(expr);
                         }
-
-                        self.output.push(b'.');
-                        self.process_expr(&expr.right);
-                    } else {
-                        // This is a "normal" binary expression with an operator between two things
-                        // Helper fn: write one side of the expr, deciding whether to paren-wrap it or not
-                        fn write_side(writer: &mut ExprWriter, expr: &ast::Expr, can_wrap: bool) {
-                            if let Some(simple) = writer.deobf.simplify(expr, writer.assets) {
-                                writer.process_expr(&ast::Expr::LiteralReal(simple));
-                            } else {
-                                if can_wrap {
-                                    match expr {
-                                        ast::Expr::LiteralIdentifier(_)
-                                        | ast::Expr::LiteralReal(_)
-                                        | ast::Expr::LiteralString(_)
-                                        | ast::Expr::Unary(_)
-                                        | ast::Expr::Function(_) => {
-                                            writer.process_expr(expr);
-                                        },
-                                        ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
-                                            writer.process_expr(expr);
-                                        },
-                                        _ => {
-                                            write_wrapped(writer, expr);
-                                        },
-                                    }
-                                } else {
-                                    writer.process_expr(expr);
-                                }
-                            }
-                        }
-
-                        let is_assign = matches!(
-                            expr.op,
-                            Operator::Assign
-                                | Operator::AssignAdd
-                                | Operator::AssignSubtract
-                                | Operator::AssignMultiply
-                                | Operator::AssignDivide
-                                | Operator::AssignBitwiseAnd
-                                | Operator::AssignBitwiseOr
-                                | Operator::AssignBitwiseXor
-                        );
-                        write_side(self, &expr.left, !is_assign);
-                        self.output.push(b' ');
-                        self.output.extend_from_slice(op_to_str(expr.op));
-                        self.output.push(b' ');
-                        write_side(self, &expr.right, !is_assign);
                     }
+
+                    let is_assign = matches!(
+                        expr.op,
+                        Operator::Assign
+                            | Operator::AssignAdd
+                            | Operator::AssignSubtract
+                            | Operator::AssignMultiply
+                            | Operator::AssignDivide
+                            | Operator::AssignBitwiseAnd
+                            | Operator::AssignBitwiseOr
+                            | Operator::AssignBitwiseXor
+                    );
+                    write_side(self, &expr.left, !is_assign);
+                    self.output.push(b' ');
+                    self.output.extend_from_slice(op_to_str(expr.op));
+                    self.output.push(b' ');
+                    write_side(self, &expr.right, !is_assign);
                 }
                 self.is_gml_expr = prev_state;
                 if !self.is_gml_expr {

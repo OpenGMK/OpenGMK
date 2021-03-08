@@ -118,7 +118,7 @@ impl Asset for Sound {
         let pan = reader.read_f64::<LE>()?;
         let preload = reader.read_u32::<LE>()? != 0;
 
-        Ok(Sound { name, source, extension, kind, data, volume, pan, preload, fx })
+        Ok(Sound { name, source, extension, data, kind, volume, pan, preload, fx })
     }
 
     fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {

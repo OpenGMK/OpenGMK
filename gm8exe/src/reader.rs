@@ -156,10 +156,7 @@ where
     // Decide if UPX is in use based on PE section names
     // This is None if there is no UPX, obviously, otherwise it's (max_size, offset_on_disk)
     let upx_data: Option<(u32, u32)> = match upx0_virtual_len {
-        Some(len0) => match upx1_data {
-            Some((len1, offset)) => Some((len0 + len1, offset)),
-            None => None,
-        },
+        Some(len0) => upx1_data.map(|(len1, offset)| (len0 + len1, offset)),
         None => None,
     };
 
@@ -445,7 +442,7 @@ where
         let to_asset = |data: &[u8]| {
             // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
             // This will short circuit on length, but it checks against this literal to make sure.
-            if data == &[0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
+            if data == [0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
                 return Ok(None);
             }
 

@@ -119,7 +119,7 @@ impl Asset for Sprite {
                 reader.read_u32_into::<LE>(&mut mask_data[..])?;
                 let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
 
-                Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_bottom, bbox_top, data })
+                Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data })
             }
 
             let mut colliders: Vec<CollisionMap>;

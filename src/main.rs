@@ -118,7 +118,7 @@ fn main() {
     let lazy = matches.opt_present("l");
     let singlethread = matches.opt_present("t");
     let verbose = matches.opt_present("v");
-    let deobfuscate = match matches.opt_str("d").as_ref().map(String::as_str) {
+    let deobfuscate = match matches.opt_str("d").as_deref() {
         Some("on") => deobfuscate::Mode::On,
         Some("off") => deobfuscate::Mode::Off,
         Some("auto") | None => deobfuscate::Mode::Auto,

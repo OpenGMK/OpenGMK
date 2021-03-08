@@ -18,7 +18,7 @@ pub struct Metadata {
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
 pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
-    if exe.get_ref().len() < (0x144AC0 as usize) + 4 {
+    if exe.get_ref().len() < 0x144AC0usize + 4 {
         return Ok(None);
     }
 
@@ -58,7 +58,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> 
 /// If so, returns the relevant vars to decrypt the data stream (AntidecMetadata struct)
 pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
-    if exe.get_ref().len() < 0x1F0C53 as usize {
+    if exe.get_ref().len() < 0x1F0C53usize {
         return Ok(None);
     }
 
