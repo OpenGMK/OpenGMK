@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -60,11 +60,7 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        _version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -127,10 +123,10 @@ impl Asset for Sprite {
             if per_frame_colliders {
                 colliders = Vec::with_capacity(frame_count as usize);
                 for _ in 0..frame_count {
-                    colliders.push(read_collision(&mut reader, strict)?);
+                    colliders.push(read_collision(&mut *reader, strict)?);
                 }
             } else {
-                colliders = vec![read_collision(&mut reader, strict)?];
+                colliders = vec![read_collision(reader, strict)?];
             }
             (frames, colliders, per_frame_colliders)
         } else {

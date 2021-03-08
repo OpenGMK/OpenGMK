@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION1: u32 = 710;
 pub const VERSION2: u32 = 800;
@@ -25,11 +25,7 @@ pub struct Background {
 }
 
 impl Asset for Background {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        _version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {

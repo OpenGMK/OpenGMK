@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 430;
 pub const VERSION_EVENT: u32 = 400;
@@ -46,11 +46,7 @@ pub struct Object {
 }
 
 impl Asset for Object {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -97,7 +93,7 @@ impl Asset for Object {
                 let action_count = reader.read_u32::<LE>()?;
                 let mut actions: Vec<CodeAction> = Vec::with_capacity(action_count as usize);
                 for _ in 0..action_count {
-                    actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
+                    actions.push(CodeAction::deserialize_exe(reader, version, strict)?);
                 }
                 sub_event_list.push((index as u32, actions));
             }

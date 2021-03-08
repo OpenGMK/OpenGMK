@@ -4,8 +4,8 @@ use crate::{
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::{
-    fmt::{self, Display},
-    io::{self, SeekFrom},
+    fmt,
+    io::{self, Seek, SeekFrom},
 };
 
 pub const VERSION: u32 = 800;
@@ -34,7 +34,7 @@ pub enum TriggerKind {
     EndStep = 2,
 }
 
-impl Display for TriggerKind {
+impl fmt::Display for TriggerKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TriggerKind::Step => write!(f, "step"),
@@ -57,11 +57,7 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        _version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;

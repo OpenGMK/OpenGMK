@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 800;
 
@@ -81,11 +81,7 @@ impl From<u32> for SoundKind {
 }
 
 impl Asset for Sound {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        _version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {

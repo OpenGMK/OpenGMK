@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 500;
 pub const VERSION_MOMENT: u32 = 400;
@@ -17,11 +17,7 @@ pub struct Timeline {
 }
 
 impl Asset for Timeline {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
         if strict {
@@ -47,7 +43,7 @@ impl Asset for Timeline {
 
             let mut actions = Vec::with_capacity(action_count);
             for _ in 0..action_count {
-                actions.push(CodeAction::deserialize_exe(&mut reader, version, strict)?);
+                actions.push(CodeAction::deserialize_exe(&mut *reader, version, strict)?);
             }
 
             moments.push((moment_index, actions));

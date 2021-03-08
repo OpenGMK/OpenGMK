@@ -4,7 +4,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 
 pub const VERSION: u32 = 440;
 pub const PARAM_COUNT: usize = 8;
@@ -55,11 +55,7 @@ pub struct CodeAction {
 }
 
 impl Asset for CodeAction {
-    fn deserialize_exe(
-        mut reader: impl io::Read + io::Seek,
-        _version: GameVersion,
-        strict: bool,
-    ) -> Result<Self, Error> {
+    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         if strict {
             let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;

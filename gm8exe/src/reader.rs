@@ -475,7 +475,7 @@ where
     where
         T: Asset + Send,
     {
-        get_assets(src, |data| <T as Asset>::deserialize_exe(Cursor::new(data), version, strict), multithread)
+        get_assets(src, |data| <T as Asset>::deserialize_exe(&mut Cursor::new(data), version, strict), multithread)
     }
 
     assert_ver!("extensions header", 700, exe.read_u32::<LE>()?)?;
@@ -661,7 +661,7 @@ where
         .map(|chunk| {
             // AssetDataError -> ReaderError
             inflate(chunk).and_then(|data| {
-                IncludedFile::deserialize_exe(Cursor::new(data), game_ver, strict).map_err(|e| e.into())
+                IncludedFile::deserialize_exe(&mut Cursor::new(data.as_slice()), game_ver, strict).map_err(|e| e.into())
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
