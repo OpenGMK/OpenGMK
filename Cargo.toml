@@ -1,6 +1,6 @@
 [package]
 name = "gm8decompiler"
-version = "2.0.6"
+version = "2.1.0"
 authors = ["Adamcake", "Floogle", "viri"]
 license = "GPL-2.0-only"
 edition = "2018"
