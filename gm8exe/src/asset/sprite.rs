@@ -92,7 +92,7 @@ impl Asset for Sprite {
                 frames.push(Frame { width: frame_width, height: frame_height, data });
             }
 
-            fn read_collision(mut reader: impl io::Read + io::Seek, strict: bool) -> Result<CollisionMap, Error> {
+            fn read_collision(reader: &mut io::Cursor<&[u8]>, strict: bool) -> Result<CollisionMap, Error> {
                 if strict {
                     let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_COLLISION)?;
@@ -107,13 +107,19 @@ impl Asset for Sprite {
                 let bbox_bottom = reader.read_u32::<LE>()?;
                 let bbox_top = reader.read_u32::<LE>()?;
 
-                // safety: all uninitialized memory is written to
-                // TODO: Maybe there's a function to Vec<u8> -> Vec<u32> ?
                 let pixel_count = width as usize * height as usize;
-                let mut mask_data = Vec::with_capacity(pixel_count);
-                unsafe { mask_data.set_len(pixel_count) };
-                reader.read_u32_into::<LE>(&mut mask_data[..])?;
-                let data = mask_data.iter().map(|&dword| dword != 0).collect::<Vec<_>>().into_boxed_slice();
+                let chunk_size = pixel_count * 4;
+                let position = reader.position() as usize;
+                reader.seek(SeekFrom::Current(chunk_size as i64))?;
+                let mask_src = &reader.get_ref()[position..position + chunk_size];
+
+                // SAFETY: All of it is overwritten regardless.
+                let mut data = Vec::with_capacity(pixel_count);
+                unsafe { data.set_len(pixel_count) };
+                for (src, dest) in mask_src.iter().step_by(4).zip(data.iter_mut()) {
+                    *dest = *src != 0;
+                }
+                let data = data.into_boxed_slice(); // TODO: needless
 
                 Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data })
             }
