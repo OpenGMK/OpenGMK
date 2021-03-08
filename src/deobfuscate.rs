@@ -1,3 +1,9 @@
+// Deobfuscates games processed with Schreib's GM Obfuscator.
+//
+// This entire file is manually writing an AST back to GML,
+// and is really disgusting - read at your own risk.
+// You have been warned.
+
 use crate::mappings;
 use gm8exe::{
     asset::{CodeAction, PascalString},
