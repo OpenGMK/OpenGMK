@@ -118,16 +118,12 @@ impl Asset for Sprite {
                 Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data })
             }
 
-            let mut colliders: Vec<CollisionMap>;
             let per_frame_colliders = reader.read_u32::<LE>()? != 0;
-            if per_frame_colliders {
-                colliders = Vec::with_capacity(frame_count as usize);
-                for _ in 0..frame_count {
-                    colliders.push(read_collision(&mut *reader, strict)?);
-                }
+            let colliders: Vec<CollisionMap> = if per_frame_colliders {
+                (0..frame_count).map(|_| read_collision(&mut *reader, strict)).collect::<Result<_, _>>()?
             } else {
-                colliders = vec![read_collision(reader, strict)?];
-            }
+                vec![read_collision(reader, strict)?]
+            };
             (frames, colliders, per_frame_colliders)
         } else {
             (Vec::new(), Vec::new(), false)
