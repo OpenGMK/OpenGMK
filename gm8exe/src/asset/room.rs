@@ -134,73 +134,77 @@ impl Asset for Room {
         let creation_code = reader.read_pas_string()?;
 
         let background_count = reader.read_u32::<LE>()? as usize;
-        let mut backgrounds = Vec::with_capacity(background_count);
-        for _ in 0..background_count {
-            backgrounds.push(Background {
-                visible_on_start: reader.read_u32::<LE>()? != 0,
-                is_foreground: reader.read_u32::<LE>()? != 0,
-                source_bg: reader.read_i32::<LE>()?,
-                xoffset: reader.read_i32::<LE>()?,
-                yoffset: reader.read_i32::<LE>()?,
-                tile_horz: reader.read_u32::<LE>()? != 0,
-                tile_vert: reader.read_u32::<LE>()? != 0,
-                hspeed: reader.read_i32::<LE>()?,
-                vspeed: reader.read_i32::<LE>()?,
-                stretch: reader.read_u32::<LE>()? != 0,
-            });
-        }
+        let backgrounds = (0..background_count)
+            .map(|_| {
+                Ok(Background {
+                    visible_on_start: reader.read_u32::<LE>()? != 0,
+                    is_foreground: reader.read_u32::<LE>()? != 0,
+                    source_bg: reader.read_i32::<LE>()?,
+                    xoffset: reader.read_i32::<LE>()?,
+                    yoffset: reader.read_i32::<LE>()?,
+                    tile_horz: reader.read_u32::<LE>()? != 0,
+                    tile_vert: reader.read_u32::<LE>()? != 0,
+                    hspeed: reader.read_i32::<LE>()?,
+                    vspeed: reader.read_i32::<LE>()?,
+                    stretch: reader.read_u32::<LE>()? != 0,
+                })
+            })
+            .collect::<io::Result<_>>()?;
 
         let views_enabled = reader.read_u32::<LE>()? != 0;
         let view_count = reader.read_u32::<LE>()? as usize;
-        let mut views = Vec::with_capacity(view_count);
-        for _ in 0..view_count {
-            views.push(View {
-                visible: reader.read_u32::<LE>()? != 0,
-                source_x: reader.read_i32::<LE>()?,
-                source_y: reader.read_i32::<LE>()?,
-                source_w: reader.read_u32::<LE>()?,
-                source_h: reader.read_u32::<LE>()?,
-                port_x: reader.read_i32::<LE>()?,
-                port_y: reader.read_i32::<LE>()?,
-                port_w: reader.read_u32::<LE>()?,
-                port_h: reader.read_u32::<LE>()?,
-                following: ViewFollowData {
-                    hborder: reader.read_i32::<LE>()?,
-                    vborder: reader.read_i32::<LE>()?,
-                    hspeed: reader.read_i32::<LE>()?,
-                    vspeed: reader.read_i32::<LE>()?,
-                    target: reader.read_i32::<LE>()?,
-                },
-            });
-        }
+        let views = (0..view_count)
+            .map(|_| {
+                Ok(View {
+                    visible: reader.read_u32::<LE>()? != 0,
+                    source_x: reader.read_i32::<LE>()?,
+                    source_y: reader.read_i32::<LE>()?,
+                    source_w: reader.read_u32::<LE>()?,
+                    source_h: reader.read_u32::<LE>()?,
+                    port_x: reader.read_i32::<LE>()?,
+                    port_y: reader.read_i32::<LE>()?,
+                    port_w: reader.read_u32::<LE>()?,
+                    port_h: reader.read_u32::<LE>()?,
+                    following: ViewFollowData {
+                        hborder: reader.read_i32::<LE>()?,
+                        vborder: reader.read_i32::<LE>()?,
+                        hspeed: reader.read_i32::<LE>()?,
+                        vspeed: reader.read_i32::<LE>()?,
+                        target: reader.read_i32::<LE>()?,
+                    },
+                })
+            })
+            .collect::<io::Result<_>>()?;
 
         let instance_count = reader.read_u32::<LE>()? as usize;
-        let mut instances = Vec::with_capacity(instance_count);
-        for _ in 0..instance_count {
-            instances.push(self::Instance {
-                x: reader.read_i32::<LE>()?,
-                y: reader.read_i32::<LE>()?,
-                object: reader.read_i32::<LE>()?,
-                id: reader.read_i32::<LE>()?,
-                creation_code: reader.read_pas_string()?,
-            });
-        }
+        let instances = (0..instance_count)
+            .map(|_| {
+                Ok(self::Instance {
+                    x: reader.read_i32::<LE>()?,
+                    y: reader.read_i32::<LE>()?,
+                    object: reader.read_i32::<LE>()?,
+                    id: reader.read_i32::<LE>()?,
+                    creation_code: reader.read_pas_string()?,
+                })
+            })
+            .collect::<io::Result<_>>()?;
 
         let tile_count = reader.read_u32::<LE>()? as usize;
-        let mut tiles = Vec::with_capacity(tile_count);
-        for _ in 0..tile_count {
-            tiles.push(self::Tile {
-                x: reader.read_i32::<LE>()?,
-                y: reader.read_i32::<LE>()?,
-                source_bg: reader.read_i32::<LE>()?,
-                tile_x: reader.read_u32::<LE>()?,
-                tile_y: reader.read_u32::<LE>()?,
-                width: reader.read_u32::<LE>()?,
-                height: reader.read_u32::<LE>()?,
-                depth: reader.read_i32::<LE>()?,
-                id: reader.read_i32::<LE>()?,
-            });
-        }
+        let tiles = (0..tile_count)
+            .map(|_| {
+                Ok(self::Tile {
+                    x: reader.read_i32::<LE>()?,
+                    y: reader.read_i32::<LE>()?,
+                    source_bg: reader.read_i32::<LE>()?,
+                    tile_x: reader.read_u32::<LE>()?,
+                    tile_y: reader.read_u32::<LE>()?,
+                    width: reader.read_u32::<LE>()?,
+                    height: reader.read_u32::<LE>()?,
+                    depth: reader.read_i32::<LE>()?,
+                    id: reader.read_i32::<LE>()?,
+                })
+            })
+            .collect::<io::Result<_>>()?;
 
         Ok(Room {
             name,

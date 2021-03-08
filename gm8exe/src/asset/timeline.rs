@@ -28,26 +28,26 @@ impl Asset for Timeline {
         }
 
         let moment_count = reader.read_u32::<LE>()? as usize;
-        let mut moments = Vec::with_capacity(moment_count);
-        for _ in 0..moment_count {
-            let moment_index = reader.read_u32::<LE>()?;
+        let moments = (0..moment_count)
+            .map(|_| {
+                let moment_index = reader.read_u32::<LE>()?;
 
-            if strict {
-                let version = reader.read_u32::<LE>()?;
-                assert_ver(version, VERSION_MOMENT)?;
-            } else {
-                reader.seek(SeekFrom::Current(4))?;
-            }
+                if strict {
+                    let version = reader.read_u32::<LE>()?;
+                    assert_ver(version, VERSION_MOMENT)?;
+                } else {
+                    reader.seek(SeekFrom::Current(4))?;
+                }
 
-            let action_count = reader.read_u32::<LE>()? as usize;
+                let action_count = reader.read_u32::<LE>()? as usize;
 
-            let mut actions = Vec::with_capacity(action_count);
-            for _ in 0..action_count {
-                actions.push(CodeAction::deserialize_exe(&mut *reader, version, strict)?);
-            }
+                let actions = (0..action_count)
+                    .map(|_| CodeAction::deserialize_exe(&mut *reader, version, strict))
+                    .collect::<Result<_, _>>()?;
 
-            moments.push((moment_index, actions));
-        }
+                Ok((moment_index, actions))
+            })
+            .collect::<Result<_, Error>>()?;
 
         Ok(Timeline { name, moments })
     }

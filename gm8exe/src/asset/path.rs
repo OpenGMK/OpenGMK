@@ -68,14 +68,11 @@ impl Asset for Path {
         let precision = reader.read_u32::<LE>()?;
 
         let point_count = reader.read_u32::<LE>()? as usize;
-        let mut points = Vec::with_capacity(point_count);
-        for _ in 0..point_count {
-            points.push(Point {
-                x: reader.read_f64::<LE>()?,
-                y: reader.read_f64::<LE>()?,
-                speed: reader.read_f64::<LE>()?,
-            });
-        }
+        let points = (0..point_count)
+            .map(|_| {
+                Ok(Point { x: reader.read_f64::<LE>()?, y: reader.read_f64::<LE>()?, speed: reader.read_f64::<LE>()? })
+            })
+            .collect::<io::Result<_>>()?;
 
         Ok(Path { name, connection, precision, closed, points })
     }

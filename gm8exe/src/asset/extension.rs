@@ -128,23 +128,8 @@ impl Extension {
         let folder_name = reader.read_pas_string()?;
 
         let file_count = reader.read_u32::<LE>()? as usize;
-        let mut files = Vec::with_capacity(file_count);
-        for _ in 0..file_count {
-            if strict {
-                let version = reader.read_u32::<LE>()?;
-                assert_ver(version, VERSION)?;
-            } else {
-                reader.seek(SeekFrom::Current(4))?;
-            }
-
-            let name = reader.read_pas_string()?;
-            let kind = FileKind::from(reader.read_u32::<LE>()?);
-            let initializer = reader.read_pas_string()?;
-            let finalizer = reader.read_pas_string()?;
-
-            let function_count = reader.read_u32::<LE>()? as usize;
-            let mut functions = Vec::with_capacity(function_count);
-            for _ in 0..function_count {
+        let mut files: Vec<File> = (0..file_count)
+            .map(|_| {
                 if strict {
                     let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION)?;
@@ -153,36 +138,54 @@ impl Extension {
                 }
 
                 let name = reader.read_pas_string()?;
-                let external_name = reader.read_pas_string()?;
-                let convention: CallingConvention = reader.read_u32::<LE>()?.into();
+                let kind = FileKind::from(reader.read_u32::<LE>()?);
+                let initializer = reader.read_pas_string()?;
+                let finalizer = reader.read_pas_string()?;
 
-                let id = reader.read_u32::<LE>()?;
+                let function_count = reader.read_u32::<LE>()? as usize;
+                let functions = (0..function_count)
+                    .map(|_| {
+                        if strict {
+                            let version = reader.read_u32::<LE>()?;
+                            assert_ver(version, VERSION)?;
+                        } else {
+                            reader.seek(SeekFrom::Current(4))?;
+                        }
 
-                let arg_count = reader.read_i32::<LE>()?;
-                let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
-                for val in arg_types.iter_mut() {
-                    *val = reader.read_u32::<LE>()?.into();
-                }
-                let return_type: FunctionValueKind = reader.read_u32::<LE>()?.into();
+                        let name = reader.read_pas_string()?;
+                        let external_name = reader.read_pas_string()?;
+                        let convention: CallingConvention = reader.read_u32::<LE>()?.into();
 
-                functions.push(FileFunction { name, external_name, convention, id, arg_count, arg_types, return_type });
-            }
+                        let id = reader.read_u32::<LE>()?;
 
-            let const_count = reader.read_u32::<LE>()? as usize;
-            let mut consts = Vec::with_capacity(const_count);
-            for _ in 0..const_count {
-                if strict {
-                    let version = reader.read_u32::<LE>()?;
-                    assert_ver(version, VERSION)?;
-                } else {
-                    reader.seek(SeekFrom::Current(4))?;
-                }
+                        let arg_count = reader.read_i32::<LE>()?;
+                        let mut arg_types = [FunctionValueKind::GMReal; ARG_MAX];
+                        for val in arg_types.iter_mut() {
+                            *val = reader.read_u32::<LE>()?.into();
+                        }
+                        let return_type: FunctionValueKind = reader.read_u32::<LE>()?.into();
 
-                consts.push(FileConst { name: reader.read_pas_string()?, value: reader.read_pas_string()? });
-            }
+                        Ok(FileFunction { name, external_name, convention, id, arg_count, arg_types, return_type })
+                    })
+                    .collect::<Result<_, Error>>()?;
 
-            files.push(File { name, kind, initializer, finalizer, functions, consts, contents: Box::new([]) });
-        }
+                let const_count = reader.read_u32::<LE>()? as usize;
+                let consts = (0..const_count)
+                    .map(|_| {
+                        if strict {
+                            let version = reader.read_u32::<LE>()?;
+                            assert_ver(version, VERSION)?;
+                        } else {
+                            reader.seek(SeekFrom::Current(4))?;
+                        }
+
+                        Ok(FileConst { name: reader.read_pas_string()?, value: reader.read_pas_string()? })
+                    })
+                    .collect::<Result<_, Error>>()?;
+
+                Ok(File { name, kind, initializer, finalizer, functions, consts, contents: Box::new([]) })
+            })
+            .collect::<Result<_, Error>>()?;
 
         let contents_len = reader.read_u32::<LE>()? as usize - 4;
         let seed1_raw = reader.read_u32::<LE>()?;

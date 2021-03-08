@@ -74,23 +74,24 @@ impl Asset for Sprite {
         let origin_y = reader.read_i32::<LE>()?;
         let frame_count = reader.read_u32::<LE>()?;
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
-            let mut frames = Vec::with_capacity(frame_count as usize);
-            for _ in 0..frame_count {
-                if strict {
-                    let version = reader.read_u32::<LE>()?;
-                    assert_ver(version, VERSION_FRAME)?;
-                } else {
-                    reader.seek(SeekFrom::Current(4))?;
-                }
+            let frames = (0..frame_count)
+                .map(|_| {
+                    if strict {
+                        let version = reader.read_u32::<LE>()?;
+                        assert_ver(version, VERSION_FRAME)?;
+                    } else {
+                        reader.seek(SeekFrom::Current(4))?;
+                    }
 
-                let frame_width = reader.read_u32::<LE>()?;
-                let frame_height = reader.read_u32::<LE>()?;
+                    let frame_width = reader.read_u32::<LE>()?;
+                    let frame_height = reader.read_u32::<LE>()?;
 
-                let len = reader.read_u32::<LE>()? as usize;
-                let data = reader.read_chunk(len)?.into_boxed_slice();
+                    let len = reader.read_u32::<LE>()? as usize;
+                    let data = reader.read_chunk(len)?.into_boxed_slice();
 
-                frames.push(Frame { width: frame_width, height: frame_height, data });
-            }
+                    Ok(Frame { width: frame_width, height: frame_height, data })
+                })
+                .collect::<Result<_, Error>>()?;
 
             fn read_collision(reader: &mut io::Cursor<&[u8]>, strict: bool) -> Result<CollisionMap, Error> {
                 if strict {

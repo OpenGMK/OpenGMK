@@ -91,10 +91,9 @@ impl Asset for Object {
                 }
 
                 let action_count = reader.read_u32::<LE>()?;
-                let mut actions: Vec<CodeAction> = Vec::with_capacity(action_count as usize);
-                for _ in 0..action_count {
-                    actions.push(CodeAction::deserialize_exe(reader, version, strict)?);
-                }
+                let actions = (0..action_count)
+                    .map(|_| CodeAction::deserialize_exe(reader, version, strict))
+                    .collect::<Result<_, _>>()?;
                 sub_event_list.push((index as u32, actions));
             }
             events.push(sub_event_list);
