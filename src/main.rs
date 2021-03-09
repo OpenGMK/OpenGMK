@@ -31,11 +31,13 @@ fn is_cmd(argv_0: &str) -> bool {
     is_argv0_absolute && !is_msys2
 }
 #[cfg(windows)]
-fn pause() {
+fn pause(tip: bool) {
     extern "C" {
         fn _getch() -> std::os::raw::c_int;
     }
-    println!("\nTip: To decompile a game, click and drag it on top of the executable.");
+    if tip {
+        println!("\nTip: To decompile a game, click and drag it on top of the executable.");
+    }
     println!("<< Press Any Key >>");
     let _ = unsafe { _getch() };
 }
@@ -44,7 +46,7 @@ fn is_cmd(_argv_0: &str) -> bool {
     false
 }
 #[cfg(not(windows))]
-fn pause() {}
+fn pause(_tip: bool) {}
 
 fn main() {
     println!("{}", INFO_STRING);
@@ -77,7 +79,7 @@ fn main() {
                 UnexpectedArgument(arg) => eprintln!("Unexpected argument: {}", arg),
             }
             if should_pause {
-                pause();
+                pause(true);
             }
             process::exit(1);
         },
@@ -101,6 +103,9 @@ Options:
     -o, --output <file>       specify output filename",
             process_path
         );
+        if should_pause {
+            pause(true);
+        }
         process::exit(0); // once the user RTFM they can run it again
     }
 
@@ -111,7 +116,7 @@ Options:
             matches.free[1]
         );
         if should_pause {
-            pause();
+            pause(true);
         }
         process::exit(1);
     }
@@ -171,7 +176,7 @@ Options:
     }
 
     if should_pause {
-        pause();
+        pause(false);
     }
 }
 
