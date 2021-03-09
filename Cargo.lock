@@ -149,7 +149,7 @@ dependencies = [
 
 [[package]]
 name = "gm8decompiler"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "byteorder",
  "flate2",
