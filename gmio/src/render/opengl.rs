@@ -1824,7 +1824,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
         // TODO: bench this method vs copying the buffer onto the draw queue
-        self.flush_queue();
+        self.update_render_state();
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Triangle, &buf.tris);
