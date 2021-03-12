@@ -640,6 +640,8 @@ impl RendererImpl {
                 }
                 if old_render_state.view_matrix != view_matrix || old_render_state.proj_matrix != proj_matrix {
                     self.update_matrix();
+                    // very stupid workaround i need to do better at some point
+                    self.queue_render_state.viewproj_matrix = self.next_render_state.viewproj_matrix;
                 }
 
                 self.gl.BindBuffer(gl::UNIFORM_BUFFER, self.buf_state);
@@ -775,7 +777,6 @@ impl RendererImpl {
                 ],
             );
             self.next_render_state.viewproj_matrix = viewproj;
-            self.render_state_updated = true;
         }
     }
 }
