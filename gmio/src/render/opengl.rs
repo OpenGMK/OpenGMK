@@ -1896,9 +1896,6 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_projection_ortho(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
-        // Draw anything that was meant to be drawn with the old view first
-        self.flush_queue();
-
         #[rustfmt::skip]
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
@@ -1914,8 +1911,6 @@ impl RendererTrait for RendererImpl {
     }
 
     fn set_projection_perspective(&mut self, x: f64, y: f64, w: f64, h: f64, angle: f64) {
-        self.flush_queue();
-
         #[rustfmt::skip]
         let proj_matrix: [f32; 16] = {
             // Squish to screen, flip vertically, and constrain z to range 1 - 32000
@@ -1942,6 +1937,7 @@ impl RendererTrait for RendererImpl {
         port_w: i32,
         port_h: i32,
     ) {
+        self.flush_queue();
         // DX8's viewport function doesn't do anything if a surface is set as the draw target, so emulate that
         let mut fb_current = 0;
         unsafe {
@@ -1963,7 +1959,6 @@ impl RendererTrait for RendererImpl {
         } else {
             self.set_projection_ortho(src_x.into(), src_y.into(), src_w.into(), src_h.into(), src_angle);
         }
-        self.update_render_state();
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
