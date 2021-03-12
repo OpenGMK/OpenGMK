@@ -775,6 +775,7 @@ impl RendererImpl {
                 ],
             );
             self.next_render_state.viewproj_matrix = viewproj;
+            self.render_state_updated = true;
         }
     }
 }
