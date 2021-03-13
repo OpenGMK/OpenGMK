@@ -587,6 +587,7 @@ impl RendererImpl {
 
             // default uniform values
             renderer.gl.Uniform1i(renderer.loc_gm81_normalize, options.normalize_normals as _);
+            renderer.gl.Uniform1i(renderer.loc_tex, 0 as _);
             renderer.gl.BindBuffer(gl::UNIFORM_BUFFER, renderer.buf_state);
             renderer.gl.BufferData(
                 gl::UNIFORM_BUFFER,
@@ -716,8 +717,6 @@ impl RendererImpl {
                 gl::STATIC_DRAW,
             );
             assert_eq!(self.gl.GetError(), 0);
-
-            self.gl.Uniform1i(self.loc_tex, 0 as _);
 
             // layout (location = 0) in vec3 pos;
             // layout (location = 1) in vec4 blend;
