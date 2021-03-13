@@ -350,7 +350,7 @@ impl<'a> AST<'a> {
                     },
 
                     Keyword::Do => {
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'do' keyword".to_string()))?;
                         expect_token!(lex.next(), Keyword(Keyword::Until));
                         let cond = AST::read_binary_tree(lex, None, false)?;
@@ -362,12 +362,12 @@ impl<'a> AST<'a> {
                         if lex.peek() == Some(&Token::Separator(Separator::Then)) {
                             lex.next();
                         }
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'if' condition".to_string()))?;
                         let else_body = if lex.peek() == Some(&Token::Keyword(Keyword::Else)) {
                             lex.next(); // consume 'else'
                             Some(
-                                AST::read_line(lex)?
+                                AST::read_group(lex)?
                                     .ok_or_else(|| Error::new("Unexpected EOF after 'else' keyword".to_string()))?,
                             )
                         } else {
@@ -393,14 +393,14 @@ impl<'a> AST<'a> {
                             lex.next();
                         }
                         expect_token!(lex.next(), Separator(Separator::ParenRight));
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'for' params".to_string()))?;
                         Ok(Some(Expr::For(Box::new(ForExpr { start, cond, step, body }))))
                     },
 
                     Keyword::Repeat => {
                         let count = AST::read_binary_tree(lex, None, false)?;
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'repeat' condition".to_string()))?;
                         Ok(Some(Expr::Repeat(Box::new(RepeatExpr { count, body }))))
                     },
@@ -414,7 +414,7 @@ impl<'a> AST<'a> {
 
                     Keyword::With => {
                         let target = AST::read_binary_tree(lex, None, false)?;
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'with' condition".to_string()))?;
                         Ok(Some(Expr::With(Box::new(WithExpr { target, body }))))
                     },
@@ -424,7 +424,7 @@ impl<'a> AST<'a> {
                         if lex.peek() == Some(&Token::Keyword(Keyword::Do)) {
                             lex.next();
                         }
-                        let body = AST::read_line(lex)?
+                        let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'while' condition".to_string()))?;
                         Ok(Some(Expr::While(Box::new(WhileExpr { cond, body }))))
                     },
@@ -460,7 +460,7 @@ impl<'a> AST<'a> {
                 // This is determined by what type of token immediately follows it.
                 let next_token = match lex.peek() {
                     Some(t) => t,
-                    None => return Err(Error::new(format!("Stray identifier at EOF: {:?}", id))),
+                    None => return Err(Error::new(format!("Stray identifier at EOF: {:?}", String::from_utf8_lossy(id)))),
                 };
                 match next_token {
                     Token::Separator(ref sep) if *sep == Separator::ParenLeft => {
@@ -511,6 +511,19 @@ impl<'a> AST<'a> {
         }
 
         ret
+    }
+
+    fn read_group(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
+        match lex.peek() {
+            Some(Token::Separator(Separator::Semicolon)) => {
+                while lex.peek() == Some(&Token::Separator(Separator::Semicolon)) {
+                    lex.next();
+                }
+                Ok(Some(Expr::Group(vec![])))
+            },
+            Some(_) => Self::read_line(lex),
+            None => Ok(None),
+        }
     }
 
     fn read_binary_tree(

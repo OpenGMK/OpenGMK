@@ -115,16 +115,20 @@ impl Drop for External {
 pub unsafe fn apply_fmod_hack(filename: &str, handle: *mut u8) -> Result<(), String> {
     let file_data = std::fs::read(filename).map_err(|e| format!("Couldn't load FMOD DLL to hash: {}", e))?;
     let file_hash = crc::crc32::checksum_ieee(&file_data);
-    if file_hash == 0xC39E3B94 {
-        eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
-        // i think this is a pointer to some sort of struct containing GM8 handles ripped from the main image
-        // if it's null it tries to extract them, which obviously doesn't work with the emulator
-        // so make it not null : )
-        handle.add(0x852d0).write(1);
-    } else {
-        eprintln!("WARNING: Unknown version of GMFMODSimple detected with hash {:#X}", file_hash);
-        eprintln!("GMFMODSimple requires a hack to work, and we weren't able to apply it.");
-        eprintln!("The game is likely to crash.");
+    match file_hash {
+        0xC39E3B94 => {
+            eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
+            // i think this is a pointer to some sort of struct containing GM8 handles ripped from the main image
+            // if it's null it tries to extract them, which obviously doesn't work with the emulator
+            // so make it not null : )
+            handle.add(0x852d0).write(1);
+        },
+        0xB2FEC528 => (), // grix's fork v4.46, it doesn't have any runner hacks so it's safe
+        _ => {
+            eprintln!("WARNING: Unknown version of GMFMODSimple detected with hash {:#X}", file_hash);
+            eprintln!("GMFMODSimple requires a hack to work, and we weren't able to apply it.");
+            eprintln!("The game is likely to crash.");
+        },
     }
     Ok(())
 }
