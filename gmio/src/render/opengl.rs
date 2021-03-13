@@ -622,10 +622,10 @@ impl RendererImpl {
     }
 
     /// Updates the renderer state.
-    /// Call this before doing any drawing. If you're not gonna be drawing, flush_queue() suffices.
+    /// Call this before doing any drawing.
     fn update_render_state(&mut self) {
-        self.flush_queue();
         if self.render_state_updated && self.queue_render_state != self.next_render_state {
+            self.flush_queue();
             // update the viewproj matrix before doing any cloning
             if self.queue_render_state.view_matrix != self.next_render_state.view_matrix
                 || self.queue_render_state.proj_matrix != self.queue_render_state.proj_matrix
@@ -1822,6 +1822,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer) {
         // TODO: bench this method vs copying the buffer onto the draw queue
+        self.flush_queue();
         self.update_render_state();
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
