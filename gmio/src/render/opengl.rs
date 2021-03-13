@@ -636,17 +636,14 @@ impl RendererImpl {
             let mut old_render_state = self.next_render_state.clone();
             std::mem::swap(&mut old_render_state, &mut self.queue_render_state);
             self.render_state_updated = false;
-            let RenderState { blend_mode, interpolate_pixels, depth_test, write_depth, culling, .. } =
-                self.next_render_state.clone();
+            let blend_mode = self.next_render_state.blend_mode;
+            let depth_test = self.next_render_state.depth_test;
+            let write_depth = self.next_render_state.write_depth;
+            let culling = self.next_render_state.culling;
             unsafe {
                 if old_render_state.blend_mode != blend_mode {
                     let (src, dst) = blend_mode;
                     self.gl.BlendFunc(src.into(), dst.into());
-                }
-                if old_render_state.interpolate_pixels != interpolate_pixels {
-                    let filter_mode = if interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST };
-                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
-                    self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
                 }
                 if old_render_state.depth_test != depth_test {
                     if depth_test.into() {
@@ -705,6 +702,9 @@ impl RendererImpl {
             }
 
             self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_id as usize].unwrap());
+            let filter_mode = if self.queue_render_state.interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST };
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
 
             let mut commands_vbo: GLuint = 0;
             self.gl.GenBuffers(1, &mut commands_vbo);
