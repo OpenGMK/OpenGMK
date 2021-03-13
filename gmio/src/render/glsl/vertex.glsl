@@ -1,6 +1,6 @@
 #version 330 core
 
-layout(std140) struct Light {
+struct Light {
     vec4 pos; // padded vec3
     vec4 colour; // padded vec3
     bool enabled;
