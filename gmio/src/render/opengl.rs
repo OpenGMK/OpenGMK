@@ -136,6 +136,31 @@ impl Default for RenderState {
     }
 }
 
+impl RenderState {
+    fn update_matrix(&mut self, gl: &gl::Gl) {
+        let mut viewport = [0; 4];
+        unsafe {
+            gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+        }
+        let offset_x = 1.0 / f64::from(viewport[2]);
+        let offset_y = 1.0 / f64::from(viewport[3]);
+        // build viewproj matrix
+        #[rustfmt::skip]
+            let viewproj = mat4mult(
+            mat4mult(self.view_matrix, self.proj_matrix),
+            // flip vertically because GL textures are flipped vertically vs DX
+            // also GL's screen space is offset half a pixel vs DX so shift it
+            [
+                1.0,             0.0,             0.0, 0.0,
+                0.0,             -1.0,            0.0, 0.0,
+                0.0,             0.0,             1.0, 0.0,
+                offset_x as f32, offset_y as f32, 0.0, 1.0,
+            ],
+        );
+        self.viewproj_matrix = viewproj;
+    }
+}
+
 pub struct RendererImpl {
     imp: imp::PlatformImpl,
     gl: gl::Gl,
@@ -600,19 +625,18 @@ impl RendererImpl {
     fn update_render_state(&mut self) {
         self.flush_queue();
         if self.render_state_updated && self.queue_render_state != self.next_render_state {
+            // update the viewproj matrix before doing any cloning
+            if self.queue_render_state.view_matrix != self.next_render_state.view_matrix
+                || self.queue_render_state.proj_matrix != self.queue_render_state.proj_matrix
+            {
+                self.next_render_state.update_matrix(&self.gl);
+            }
+
             let mut old_render_state = self.next_render_state.clone();
             std::mem::swap(&mut old_render_state, &mut self.queue_render_state);
             self.render_state_updated = false;
-            let RenderState {
-                blend_mode,
-                view_matrix,
-                proj_matrix,
-                interpolate_pixels,
-                depth_test,
-                write_depth,
-                culling,
-                ..
-            } = self.next_render_state.clone();
+            let RenderState { blend_mode, interpolate_pixels, depth_test, write_depth, culling, .. } =
+                self.next_render_state.clone();
             unsafe {
                 if old_render_state.blend_mode != blend_mode {
                     let (src, dst) = blend_mode;
@@ -639,11 +663,6 @@ impl RendererImpl {
                 }
                 if old_render_state.write_depth != write_depth {
                     self.gl.DepthMask(write_depth as _);
-                }
-                if old_render_state.view_matrix != view_matrix || old_render_state.proj_matrix != proj_matrix {
-                    self.update_matrix();
-                    // very stupid workaround i need to do better at some point
-                    self.queue_render_state.viewproj_matrix = self.next_render_state.viewproj_matrix;
                 }
 
                 self.gl.BindBuffer(gl::UNIFORM_BUFFER, self.buf_state);
@@ -755,30 +774,6 @@ impl RendererImpl {
 
             self.gl.DeleteBuffers(1, &commands_vbo);
             assert_eq!(self.gl.GetError(), 0);
-        }
-    }
-
-    fn update_matrix(&mut self) {
-        unsafe {
-            // get half-pixel length in clip space
-            let mut viewport = [0; 4];
-            self.gl.GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
-            let offset_x = 1.0 / f64::from(viewport[2]);
-            let offset_y = 1.0 / f64::from(viewport[3]);
-            // build viewproj matrix
-            #[rustfmt::skip]
-            let viewproj = mat4mult(
-                mat4mult(self.next_render_state.view_matrix, self.next_render_state.proj_matrix),
-                // flip vertically because GL textures are flipped vertically vs DX
-                // also GL's screen space is offset half a pixel vs DX so shift it
-                [
-                    1.0,             0.0,             0.0, 0.0,
-                    0.0,             -1.0,            0.0, 0.0,
-                    0.0,             0.0,             1.0, 0.0,
-                    offset_x as f32, offset_y as f32, 0.0, 1.0,
-                ],
-            );
-            self.next_render_state.viewproj_matrix = viewproj;
         }
     }
 }
