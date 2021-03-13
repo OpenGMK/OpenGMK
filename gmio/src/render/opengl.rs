@@ -595,6 +595,8 @@ impl RendererImpl {
         }
     }
 
+    /// Updates the renderer state.
+    /// Call this before doing any drawing. If you're not gonna be drawing, flush_queue() suffices.
     fn update_render_state(&mut self) {
         self.flush_queue();
         if self.render_state_updated && self.queue_render_state != self.next_render_state {
@@ -1962,7 +1964,7 @@ impl RendererTrait for RendererImpl {
     }
 
     fn clear_view(&mut self, colour: Colour, alpha: f64) {
-        self.update_render_state();
+        self.flush_queue();
         unsafe {
             self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
             self.gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
