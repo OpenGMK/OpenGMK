@@ -88,7 +88,8 @@ struct RenderState {
     fog_begin: f32,
     fog_end: f32,
     fog_colour: [f32; 4],
-    // other stuff
+    // end of shader stuff
+    end_of_uniform: (),
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
     blend_mode: (BlendType, BlendType),
@@ -132,6 +133,7 @@ impl Default for RenderState {
             }; 8],
             viewproj_matrix: identity_matrix.clone(),
             fog_colour: [0.0; 4],
+            end_of_uniform: (),
         }
     }
 }
@@ -586,10 +588,9 @@ impl RendererImpl {
             // default uniform values
             renderer.gl.Uniform1i(renderer.loc_gm81_normalize, options.normalize_normals as _);
             renderer.gl.BindBuffer(gl::UNIFORM_BUFFER, renderer.buf_state);
-            // TODO: remove magic number
             renderer.gl.BufferData(
                 gl::UNIFORM_BUFFER,
-                576,
+                offset_of!(RenderState, end_of_uniform) as _,
                 (&renderer.queue_render_state as *const RenderState).cast(),
                 gl::STATIC_DRAW,
             );
@@ -666,10 +667,9 @@ impl RendererImpl {
                 }
 
                 self.gl.BindBuffer(gl::UNIFORM_BUFFER, self.buf_state);
-                // TODO: remove magic number
                 self.gl.BufferData(
                     gl::UNIFORM_BUFFER,
-                    576,
+                    offset_of!(RenderState, end_of_uniform) as _,
                     (&self.queue_render_state as *const RenderState).cast(),
                     gl::STATIC_DRAW,
                 );
