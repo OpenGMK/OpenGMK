@@ -2112,10 +2112,12 @@ impl RendererTrait for RendererImpl {
     fn set_light(&mut self, id: usize, light: Light) {
         match light {
             Light::Directional { direction, colour } => {
+                self.next_render_state.lights[id].is_point = false.into();
                 self.next_render_state.lights[id].pos[0..3].copy_from_slice(&direction);
                 self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
             },
             Light::Point { position, range, colour } => {
+                self.next_render_state.lights[id].is_point = true.into();
                 self.next_render_state.lights[id].pos[0..3].copy_from_slice(&position);
                 self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
                 self.next_render_state.lights[id].range = range;
