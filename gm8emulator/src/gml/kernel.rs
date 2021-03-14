@@ -448,7 +448,8 @@ impl Game {
         self.renderer.flush_queue();
         let (width, height) = (self.unscaled_width, self.unscaled_height);
         let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
-        match file::save_image(fname.as_ref(), width, height, rgba) {
+        let image = RgbaImage::from_vec(width, height, rgba.into()).unwrap();
+        match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.to_string())),
         }
@@ -462,7 +463,8 @@ impl Game {
         let h = h.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
         let rgba = self.renderer.get_pixels(x, y, w, h);
-        match file::save_image(fname.as_ref(), w as _, h as _, rgba) {
+        let image = RgbaImage::from_vec(w as _, h as _, rgba.into()).unwrap();
+        match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.to_string())),
         }
@@ -2239,8 +2241,10 @@ impl Game {
             self.renderer.flush_queue();
         }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
-            match file::save_image(fname.as_ref(), surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref))
-            {
+            let image =
+                RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref).into())
+                    .unwrap();
+            match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.to_string())),
             }
@@ -2259,12 +2263,10 @@ impl Game {
             let y = y.max(0);
             let w = w.min(surf.width as i32 - x);
             let h = h.min(surf.height as i32 - y);
-            match file::save_image(
-                fname.as_ref(),
-                w as _,
-                h as _,
-                self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h),
-            ) {
+            let image =
+                RgbaImage::from_vec(w as _, h as _, self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h).into())
+                    .unwrap();
+            match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.to_string())),
             }
@@ -8204,9 +8206,8 @@ impl Game {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
-                    frame.width,
-                    frame.height,
-                    self.renderer.dump_sprite(&frame.atlas_ref),
+                    RgbaImage::from_vec(frame.width, frame.height, self.renderer.dump_sprite(&frame.atlas_ref).into())
+                        .unwrap(),
                 ) {
                     return Err(gml::Error::FunctionError("sprite_save".into(), e.to_string()))
                 }
@@ -8565,9 +8566,12 @@ impl Game {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
-                    background.width,
-                    background.height,
-                    self.renderer.dump_sprite(atlas_ref),
+                    RgbaImage::from_vec(
+                        background.width,
+                        background.height,
+                        self.renderer.dump_sprite(atlas_ref).into(),
+                    )
+                    .unwrap(),
                 ) {
                     return Err(gml::Error::FunctionError("background_save".into(), e.to_string()))
                 }

@@ -352,8 +352,7 @@ pub fn load_animation(path: &str, imgnumb: usize) -> Result<Vec<RgbaImage>> {
     }
 }
 
-pub fn save_image<P: AsRef<Path>>(path: P, width: u32, height: u32, data: Box<[u8]>) -> Result<()> {
-    let image = RgbaImage::from_vec(width, height, data.into_vec()).unwrap();
+pub fn save_image<P: AsRef<Path>>(path: P, image: RgbaImage) -> Result<()> {
     // save to png if the filename is .png otherwise bmp regardless of filename
     if path.as_ref().extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("png")).unwrap_or(false) {
         image.save_with_format(path, ImageFormat::Png)?;
