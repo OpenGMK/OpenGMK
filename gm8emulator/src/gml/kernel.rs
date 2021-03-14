@@ -448,7 +448,8 @@ impl Game {
         self.renderer.flush_queue();
         let (width, height) = (self.unscaled_width, self.unscaled_height);
         let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
-        let image = RgbaImage::from_vec(width, height, rgba.into()).unwrap();
+        let mut image = RgbaImage::from_vec(width, height, rgba.into()).unwrap();
+        asset::sprite::process_image(&mut image, false, false, true);
         match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.to_string())),
@@ -463,7 +464,8 @@ impl Game {
         let h = h.min(self.unscaled_height as i32 - y);
         self.renderer.flush_queue();
         let rgba = self.renderer.get_pixels(x, y, w, h);
-        let image = RgbaImage::from_vec(w as _, h as _, rgba.into()).unwrap();
+        let mut image = RgbaImage::from_vec(w as _, h as _, rgba.into()).unwrap();
+        asset::sprite::process_image(&mut image, false, false, true);
         match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.to_string())),
@@ -2241,9 +2243,10 @@ impl Game {
             self.renderer.flush_queue();
         }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
-            let image =
+            let mut image =
                 RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref).into())
                     .unwrap();
+            asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.to_string())),
@@ -2263,9 +2266,10 @@ impl Game {
             let y = y.max(0);
             let w = w.min(surf.width as i32 - x);
             let h = h.min(surf.height as i32 - y);
-            let image =
+            let mut image =
                 RgbaImage::from_vec(w as _, h as _, self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h).into())
                     .unwrap();
+            asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.to_string())),
@@ -7861,7 +7865,11 @@ impl Game {
 
     pub fn sprite_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, width, height, removeback, smooth, origin_x, origin_y) =
-            expect_args!(args, [int, int, int, int, bool, bool, int, int])?;
+            expect_args!(args, [int, int, int, int, int, bool, int, int])?;
+        let (removeback, fill_transparent) = match self.gm_version {
+            Version::GameMaker8_0 => (removeback != 0, true),
+            Version::GameMaker8_1 => (removeback == 1, removeback != 2),
+        };
         // i know we're downloading the thing and reuploading it instead of doing it all in one go
         // but we need the pixel data to make the colliders
         let x = x.max(0);
@@ -7871,7 +7879,7 @@ impl Game {
         self.renderer.flush_queue();
         let rgba = self.renderer.get_pixels(x, y, width, height);
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-        asset::sprite::process_image(&mut image, removeback, smooth);
+        asset::sprite::process_image(&mut image, removeback, smooth, fill_transparent);
         let colliders = asset::sprite::make_colliders_precise(std::slice::from_ref(&image), 0, false);
         let frames = vec![asset::sprite::Frame {
             width: width as _,
@@ -7911,7 +7919,7 @@ impl Game {
             self.renderer.flush_queue();
             let rgba = self.renderer.get_pixels(x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-            asset::sprite::process_image(&mut image, removeback, smooth);
+            asset::sprite::process_image(&mut image, removeback, smooth, true);
             asset::sprite::scale(&mut image, sprite.width, sprite.height);
             // generate collision
             let mut images = Vec::with_capacity(sprite.frames.len() + 1);
@@ -7952,7 +7960,7 @@ impl Game {
 
     pub fn sprite_create_from_surface(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, x, y, width, height, removeback, smooth, origin_x, origin_y) =
-            expect_args!(args, [int, int, int, int, int, bool, bool, int, int])?;
+            expect_args!(args, [int, int, int, int, int, int, bool, int, int])?;
         if self.surface_target == Some(surf_id) {
             self.renderer.flush_queue();
         }
@@ -7961,9 +7969,13 @@ impl Game {
             let y = y.max(0);
             let width = width.min(surf.width as i32 - x);
             let height = height.min(surf.height as i32 - y);
+            let (removeback, fill_transparent) = match self.gm_version {
+                Version::GameMaker8_0 => (removeback != 0, true),
+                Version::GameMaker8_1 => (removeback == 1, removeback != 2),
+            };
             let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-            asset::sprite::process_image(&mut image, removeback, smooth);
+            asset::sprite::process_image(&mut image, removeback, smooth, fill_transparent);
             let colliders = asset::sprite::make_colliders_precise(std::slice::from_ref(&image), 0, false);
             let frames = vec![asset::sprite::Frame {
                 width: width as _,
@@ -8009,7 +8021,7 @@ impl Game {
                 let height = height.min(surf.height as i32 - y);
                 let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
                 let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-                asset::sprite::process_image(&mut image, removeback, smooth);
+                asset::sprite::process_image(&mut image, removeback, smooth, true);
                 asset::sprite::scale(&mut image, sprite.width, sprite.height);
                 // generate collision
                 let mut images = Vec::with_capacity(sprite.frames.len() + 1);
@@ -8067,7 +8079,7 @@ impl Game {
             },
         };
         for image in images.iter_mut() {
-            asset::sprite::process_image(image, removeback, smooth);
+            asset::sprite::process_image(image, removeback, smooth, true);
         }
         let (width, height) = images[0].dimensions();
         // make colliders
@@ -8121,7 +8133,7 @@ impl Game {
                 },
             };
             for image in images.iter_mut() {
-                asset::sprite::process_image(image, removeback, smooth);
+                asset::sprite::process_image(image, removeback, smooth, true);
             }
             let (width, height) = images[0].dimensions();
             // make colliders
@@ -8365,7 +8377,7 @@ impl Game {
         self.renderer.flush_queue();
         let rgba = self.renderer.get_pixels(x, y, width, height);
         let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-        asset::sprite::process_image(&mut image, removeback, smooth);
+        asset::sprite::process_image(&mut image, removeback, smooth, true);
         let background_id = self.assets.backgrounds.len();
         self.assets.backgrounds.push(Some(Box::new(asset::Background {
             name: format!("__newbackground{}", background_id).into(),
@@ -8393,7 +8405,7 @@ impl Game {
             let height = height.min(surf.height as i32 - y);
             let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
-            asset::sprite::process_image(&mut image, removeback, smooth);
+            asset::sprite::process_image(&mut image, removeback, smooth, true);
             let background_id = self.assets.backgrounds.len();
             self.assets.backgrounds.push(Some(Box::new(asset::Background {
                 name: format!("__newbackground{}", background_id).into(),
@@ -8444,7 +8456,7 @@ impl Game {
                 return Ok((-1).into())
             },
         };
-        asset::sprite::process_image(&mut image, removeback, smooth);
+        asset::sprite::process_image(&mut image, removeback, smooth, true);
         let width = image.width();
         let height = image.height();
         let atlas_ref = self
@@ -8474,7 +8486,7 @@ impl Game {
                     return Ok((-1).into())
                 },
             };
-            asset::sprite::process_image(&mut image, removeback, smooth);
+            asset::sprite::process_image(&mut image, removeback, smooth, true);
             let width = image.width();
             let height = image.height();
             let atlas_ref = self

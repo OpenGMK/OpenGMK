@@ -51,7 +51,15 @@ pub enum ColliderShape {
     Diamond,
 }
 
-pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool) {
+pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool, fill_transparent: bool) {
+    if fill_transparent {
+        // if the image is completely transparent, make it completely opaque
+        if image.pixels().all(|p| p[3] == 0) {
+            for px in image.pixels_mut() {
+                px[3] = 255;
+            }
+        }
+    }
     if removeback {
         // remove background colour
         let bottom_left = image.get_pixel(0, image.height() - 1).to_rgb();
