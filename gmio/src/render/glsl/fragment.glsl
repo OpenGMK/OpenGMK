@@ -22,10 +22,12 @@ void main() {
     vec2 sprite_coord;
     vec4 tex_col;
     // get colour from texture
+    // keep in mind: the center of a pixel is where its colour is in full; we get the top-left as input
     if (repeat) {
-        // fract(x) is equivalent to mod(x, 1.0) and is always positive
+        // get coordinate on sprite but wrapped around (note that fract(x) is equivalent to mod(x, 1.0) and is always positive)
         sprite_coord = fract(frag_tex_coord) * frag_atlas_xywh.zw;
         if (lerp) {
+            // get the exact colour of each of the four pixels this coordinate is near, and mix them
             vec2 floor_coord = floor(sprite_coord - 0.5);
             
             vec2 topleft = (frag_atlas_xywh.xy + mod(floor_coord + 0.5, frag_atlas_xywh.zw)) / tex_size;
@@ -41,9 +43,12 @@ void main() {
             vec4 mix_bot = mix(sampleBL, sampleBR, factor.x);
             tex_col = mix(mix_top, mix_bot, factor.y);
         } else {
+            // we've already done the wrapping, so clamp to center of edge pixels
+            sprite_coord = clamp(sprite_coord, vec2(0.5), frag_atlas_xywh.zw - 0.5);
             tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
         }
     } else {
+        // clamp to center of edge pixels
         sprite_coord = clamp(frag_tex_coord * frag_atlas_xywh.zw, vec2(0.5), frag_atlas_xywh.zw - 0.5);
         tex_col = texture(tex, (frag_atlas_xywh.xy + sprite_coord) / tex_size);
     }
