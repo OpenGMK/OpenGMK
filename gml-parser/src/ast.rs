@@ -268,11 +268,7 @@ impl<'a> AST<'a> {
 
     pub fn expression(source: &'a [u8]) -> Result<Expr<'a>, Error> {
         let mut lex = Lexer::new(source).peekable();
-        if lex.peek().is_some() {
-            AST::read_binary_tree(&mut lex, None, false)
-        } else {
-            Ok(Expr::LiteralReal(0.0))
-        }
+        if lex.peek().is_some() { AST::read_binary_tree(&mut lex, None, false) } else { Ok(Expr::LiteralReal(0.0)) }
     }
 
     fn read_line(lex: &mut Peekable<Lexer<'a>>) -> Result<Option<Expr<'a>>, Error> {
@@ -460,7 +456,9 @@ impl<'a> AST<'a> {
                 // This is determined by what type of token immediately follows it.
                 let next_token = match lex.peek() {
                     Some(t) => t,
-                    None => return Err(Error::new(format!("Stray identifier at EOF: {:?}", String::from_utf8_lossy(id)))),
+                    None => {
+                        return Err(Error::new(format!("Stray identifier at EOF: {:?}", String::from_utf8_lossy(id))))
+                    },
                 };
                 match next_token {
                     Token::Separator(ref sep) if *sep == Separator::ParenLeft => {
