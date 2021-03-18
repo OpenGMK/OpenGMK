@@ -1,4 +1,4 @@
-use image::{gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
+use image::{codecs::gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufReader, Read, Seek, SeekFrom, Write},
