@@ -42,20 +42,20 @@ pub struct ControlPanel {
     pub game_mouse_pos: (f64, f64),
     pub client_mouse_pos: (i32, i32),
 
-    advance_button_normal: AtlasRef,
-    big_save_button_normal: AtlasRef,
-    key_button_l_neutral: AtlasRef,
-    key_button_l_held: AtlasRef,
-    key_button_r_neutral: AtlasRef,
-    key_button_r_neutral2: AtlasRef,
-    key_button_r_neutral3: AtlasRef,
-    key_button_r_held: AtlasRef,
-    key_button_r_held2: AtlasRef,
-    key_button_r_held3: AtlasRef,
-    mouse_pos_normal: AtlasRef,
-    save_button_active: AtlasRef,
-    save_button_inactive: AtlasRef,
-    button_outline: AtlasRef,
+    advance_button_normal: Sprite,
+    big_save_button_normal: Sprite,
+    key_button_l_neutral: Sprite,
+    key_button_l_held: Sprite,
+    key_button_r_neutral: Sprite,
+    key_button_r_neutral2: Sprite,
+    key_button_r_neutral3: Sprite,
+    key_button_r_held: Sprite,
+    key_button_r_held2: Sprite,
+    key_button_r_held3: Sprite,
+    mouse_pos_normal: Sprite,
+    save_button_active: Sprite,
+    save_button_inactive: Sprite,
+    button_outline: Sprite,
 
     menu_context: Option<MenuContext>,
 
@@ -83,7 +83,7 @@ pub struct KeyButton {
     pub y: i32,
     pub key: input::Key,
     pub state: ButtonState,
-    pub label: AtlasRef,
+    pub label: Sprite,
 }
 
 #[derive(Clone, Copy)]
@@ -741,7 +741,7 @@ impl ControlPanel {
         draw_text(&mut self.renderer, &self.frame_count.to_string(), 4.0, 32.0, &self.font, 0, 1.0);
 
         self.renderer.draw_sprite(
-            &self.advance_button_normal,
+            &self.advance_button_normal.atlas_ref,
             self.advance_button.x.into(),
             self.advance_button.y.into(),
             1.0,
@@ -753,7 +753,7 @@ impl ControlPanel {
 
         for button in self.key_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
-            let atlas_ref_l = match button.state {
+            let sprite_l = match button.state {
                 ButtonState::Neutral
                 | ButtonState::NeutralWillPress
                 | ButtonState::NeutralWillPR
@@ -763,7 +763,7 @@ impl ControlPanel {
                 | ButtonState::HeldWillRP
                 | ButtonState::HeldWillRPR => &self.key_button_l_held,
             };
-            let atlas_ref_r = match button.state {
+            let sprite_r = match button.state {
                 ButtonState::Neutral | ButtonState::HeldWillRelease => &self.key_button_r_neutral,
                 ButtonState::Held | ButtonState::NeutralWillPress => &self.key_button_r_held,
                 ButtonState::NeutralWillPR => &self.key_button_r_held2,
@@ -771,10 +771,19 @@ impl ControlPanel {
                 ButtonState::HeldWillRP => &self.key_button_r_neutral2,
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
-            self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
             self.renderer.draw_sprite(
-                atlas_ref_r,
-                f64::from(button.x + atlas_ref_l.w),
+                &sprite_l.atlas_ref,
+                button.x as _,
+                button.y as _,
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
+            self.renderer.draw_sprite(
+                &sprite_r.atlas_ref,
+                f64::from(button.x + sprite_l.w),
                 f64::from(button.y),
                 1.0,
                 1.0,
@@ -783,7 +792,7 @@ impl ControlPanel {
                 alpha,
             );
             self.renderer.draw_sprite(
-                &button.label,
+                &button.label.atlas_ref,
                 f64::from(button.x),
                 f64::from(button.y),
                 1.0,
@@ -793,7 +802,7 @@ impl ControlPanel {
                 alpha,
             );
             self.renderer.draw_sprite(
-                &self.button_outline,
+                &self.button_outline.atlas_ref,
                 f64::from(button.x),
                 f64::from(button.y),
                 1.0,
@@ -806,7 +815,7 @@ impl ControlPanel {
 
         for button in self.mouse_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.6 };
-            let atlas_ref_l = match button.state {
+            let sprite_l = match button.state {
                 ButtonState::Neutral
                 | ButtonState::NeutralWillPress
                 | ButtonState::NeutralWillPR
@@ -816,7 +825,7 @@ impl ControlPanel {
                 | ButtonState::HeldWillRP
                 | ButtonState::HeldWillRPR => &self.key_button_l_held,
             };
-            let atlas_ref_r = match button.state {
+            let sprite_r = match button.state {
                 ButtonState::Neutral | ButtonState::HeldWillRelease => &self.key_button_r_neutral,
                 ButtonState::Held | ButtonState::NeutralWillPress => &self.key_button_r_held,
                 ButtonState::NeutralWillPR => &self.key_button_r_held2,
@@ -824,10 +833,9 @@ impl ControlPanel {
                 ButtonState::HeldWillRP => &self.key_button_r_neutral2,
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
             };
-            self.renderer.draw_sprite(atlas_ref_l, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
             self.renderer.draw_sprite(
-                atlas_ref_r,
-                (button.x + atlas_ref_l.w) as _,
+                &sprite_l.atlas_ref,
+                button.x as _,
                 button.y as _,
                 1.0,
                 1.0,
@@ -836,7 +844,17 @@ impl ControlPanel {
                 alpha,
             );
             self.renderer.draw_sprite(
-                &self.button_outline,
+                &sprite_r.atlas_ref,
+                (button.x + sprite_l.w) as _,
+                button.y as _,
+                1.0,
+                1.0,
+                0.0,
+                0xFFFFFF,
+                alpha,
+            );
+            self.renderer.draw_sprite(
+                &self.button_outline.atlas_ref,
                 f64::from(button.x),
                 f64::from(button.y),
                 1.0,
@@ -848,7 +866,7 @@ impl ControlPanel {
         }
 
         self.renderer.draw_sprite(
-            &self.mouse_pos_normal,
+            &self.mouse_pos_normal.atlas_ref,
             self.mouse_position_button.x as _,
             self.mouse_position_button.y as _,
             1.0,
@@ -859,7 +877,7 @@ impl ControlPanel {
         );
 
         self.renderer.draw_sprite(
-            &self.big_save_button_normal,
+            &self.big_save_button_normal.atlas_ref,
             self.big_save_button.x.into(),
             self.big_save_button.y.into(),
             1.0,
@@ -880,8 +898,8 @@ impl ControlPanel {
 
         for button in self.save_buttons.iter() {
             let alpha = if button.contains_point(self.mouse_x, self.mouse_y) { 1.0 } else { 0.75 };
-            let atlas_ref = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
-            self.renderer.draw_sprite(atlas_ref, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
+            let sprite = if button.exists { &self.save_button_active } else { &self.save_button_inactive };
+            self.renderer.draw_sprite(&sprite.atlas_ref, button.x as _, button.y as _, 1.0, 1.0, 0.0, 0xFFFFFF, alpha);
             draw_text(
                 &mut self.renderer,
                 &button.name,
@@ -1022,7 +1040,7 @@ impl ControlPanel {
     }
 
     // Little helper function, input MUST be a BMP file in 32-bit RGBA format. Best used with include_bytes!()
-    fn upload_bmp(atlases: &mut AtlasBuilder, bmp: &[u8]) -> AtlasRef {
+    fn upload_bmp(atlases: &mut AtlasBuilder, bmp: &[u8]) -> Sprite {
         fn read_u32(data: &[u8], pos: usize) -> u32 {
             let bytes = &data[pos..pos + 4];
             u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
@@ -1036,10 +1054,21 @@ impl ControlPanel {
         for bytes in rgba.rchunks_exact((w * 4) as usize) {
             corrected_rgba.extend_from_slice(bytes);
         }
-        atlases
-            .texture(w as _, h as _, 0, 0, corrected_rgba.into_boxed_slice())
-            .expect("Failed to pack a texture for control panel")
+        Sprite {
+            atlas_ref: atlases
+                .texture(w as _, h as _, 0, 0, corrected_rgba.into_boxed_slice())
+                .expect("Failed to pack a texture for control panel"),
+            w: w as _,
+            h: h as _,
+        }
     }
+}
+
+#[derive(Clone, Copy)]
+pub struct Sprite {
+    atlas_ref: AtlasRef,
+    w: i32,
+    h: i32,
 }
 
 fn draw_text(renderer: &mut Renderer, text: &str, mut x: f64, y: f64, font: &Font, colour: i32, alpha: f64) {
