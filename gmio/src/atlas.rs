@@ -20,8 +20,8 @@ pub struct AtlasRef {
 
     pub(crate) x: i32,
     pub(crate) y: i32,
-    pub w: i32,
-    pub h: i32,
+    pub(crate) w: i32,
+    pub(crate) h: i32,
 
     // Normalized to 0-1 by texture width and height
     pub(crate) origin_x: f32,
