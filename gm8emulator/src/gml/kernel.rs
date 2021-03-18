@@ -5397,6 +5397,7 @@ impl Game {
     pub fn game_load(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
         let mut file = std::fs::File::open(fname.as_ref())
+            .map(std::io::BufReader::new)
             .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
         let mut magnum = [0u8; 4];
         file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
@@ -5413,12 +5414,14 @@ impl Game {
         let fname = expect_args!(args, [string])?;
         let save = GMSave::from_game(self);
         let mut file = std::fs::File::create(fname.as_ref())
+            .map(std::io::BufWriter::new)
             .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
         // write magic number (0x21c in GM8)
         file.write(&[0x1d, 0x02, 0x00, 0x00])
             .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
-        bincode::serialize_into(file, &save)
+        bincode::serialize_into(&mut file, &save)
             .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
+        file.flush().map_err(|e| gml::Error::FunctionError("game_save".into(), e.to_string()))?;
         Ok(Default::default())
     }
 
@@ -12517,7 +12520,7 @@ impl Game {
     pub fn d3d_model_load(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (model_id, fname) = expect_args!(args, [int, string])?;
         fn load_model(fname: &str) -> Result<model::Model, Box<dyn std::error::Error>> {
-            let mut file = std::fs::File::open(fname)?;
+            let mut file = std::io::BufReader::new(std::fs::File::open(fname)?);
             let version = file::read_real(&mut file)?;
             if version != 100.0 {
                 return Err("invalid version".into())
@@ -12635,7 +12638,7 @@ impl Game {
     pub fn d3d_model_save(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (model_id, fname) = expect_args!(args, [int, string])?;
         fn save_model(model: &model::Model, fname: &str) -> std::io::Result<()> {
-            let mut file = std::fs::File::create(fname)?;
+            let mut file = std::io::BufWriter::new(std::fs::File::create(fname)?);
             writeln!(&mut file, "100\r\n{}\r", model.commands.len())?;
             for cmd in &model.commands {
                 let (cmd, args) = cmd.to_line();
@@ -12645,6 +12648,7 @@ impl Game {
                 }
                 writeln!(&mut file, "\r")?;
             }
+            file.flush()?;
             Ok(())
         }
         if let Some(model) = self.models.get_asset(model_id) {
