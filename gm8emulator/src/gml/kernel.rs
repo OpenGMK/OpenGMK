@@ -5751,8 +5751,13 @@ impl Game {
 
     pub fn file_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.open_file.take();
-        Ok(Default::default())
+        match self.open_file.take() {
+            Some(mut f) => match f.flush() {
+                Ok(()) => Ok(Default::default()),
+                Err(e) => Err(gml::Error::FunctionError("file_close".into(), e.to_string())),
+            },
+            None => Ok(Default::default()),
+        }
     }
 
     pub fn file_read_string(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
