@@ -5616,6 +5616,12 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         let c = self.text_files.capacity();
 
+        // flush buffer if possible
+        self.text_files
+            .get_mut(handle - 1)
+            .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
+            .map_err(|e| gml::Error::FunctionError("file_text_close".into(), e.to_string()))?;
+
         // NB: .delete() MUST be called - beware the short-circuit evaluation here!
         if self.text_files.delete(handle - 1) || (1..=c).contains(&handle) {
             Ok(Default::default())

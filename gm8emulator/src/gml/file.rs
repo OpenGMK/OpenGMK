@@ -1,14 +1,17 @@
 use image::{codecs::gif::GifDecoder, AnimationDecoder, ImageError, ImageFormat, Pixel, RgbaImage};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufReader, Read, Seek, SeekFrom, Write},
+    io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct TextHandle(File);
+pub enum TextHandle {
+    Read(BufReader<File>),
+    Write(BufWriter<File>),
+}
 #[derive(Debug)]
 pub struct BinaryHandle(File);
 
@@ -22,6 +25,8 @@ pub enum AccessMode {
 pub enum Error {
     LegacyFileUnopened,
     InvalidFile(i32),
+    CantRead,
+    CantWrite,
     IOError(io::Error),
     ImageError(ImageError),
 }
@@ -43,6 +48,8 @@ impl std::fmt::Display for Error {
         match self {
             Self::LegacyFileUnopened => write!(f, "file is not opened"),
             Self::InvalidFile(handle) => write!(f, "invalid file handle {}", handle),
+            Self::CantRead => write!(f, "file is not open for reading"),
+            Self::CantWrite => write!(f, "file is not open for writing"),
             Self::IOError(err) => write!(f, "io error: {}", err),
             Self::ImageError(err) => write!(f, "image error: {}", err),
         }
@@ -51,7 +58,7 @@ impl std::fmt::Display for Error {
 
 // Helper functions
 
-fn read_until<P>(file: &mut File, mut end_pred: P) -> io::Result<Vec<u8>>
+fn read_until<P>(file: impl Read, mut end_pred: P) -> io::Result<Vec<u8>>
 where
     P: FnMut(u8) -> bool,
 {
@@ -67,7 +74,7 @@ where
 }
 
 // Returns Ok(false) on EOF
-fn skip_until<P>(file: &mut File, end_pred: P) -> io::Result<bool>
+fn skip_until<P>(file: impl Read, end_pred: P) -> io::Result<bool>
 where
     P: Fn(u8) -> bool,
 {
@@ -88,31 +95,49 @@ impl TextHandle {
             AccessMode::Special => (false, true,  true ),
         };
 
-        Ok(Self(
-            OpenOptions::new()
-                .create(!read)
-                .read(read)
-                .write(write)
-                .append(append)
-                .truncate(write && !append)
-                .open(path)?,
-        ))
+        let file = OpenOptions::new()
+            .create(!read)
+            .read(read)
+            .write(write)
+            .append(append)
+            .truncate(write && !append)
+            .open(path)?;
+
+        Ok(match mode {
+            AccessMode::Read => TextHandle::Read(BufReader::new(file)),
+            AccessMode::Write | AccessMode::Special => TextHandle::Write(BufWriter::new(file)),
+        })
+    }
+
+    fn get_reader(&mut self) -> Result<&mut BufReader<File>> {
+        match self {
+            Self::Read(f) => Ok(f),
+            _ => Err(Error::CantRead),
+        }
+    }
+
+    fn get_writer(&mut self) -> Result<&mut BufWriter<File>> {
+        match self {
+            Self::Write(f) => Ok(f),
+            _ => Err(Error::CantWrite),
+        }
     }
 
     pub fn read_real(&mut self) -> Result<f64> {
-        Ok(read_real(&mut self.0)?)
+        Ok(read_real(self.get_reader()?)?)
     }
 
     pub fn read_string(&mut self) -> Result<Vec<u8>> {
-        let mut bytes = read_until(&mut self.0, |c| c == 0x0a)?;
+        let mut f = self.get_reader()?;
+        let mut bytes = read_until(&mut f, |c| c == 0x0a)?;
         if bytes.last() == Some(&0x0a) {
             // LF
             bytes.pop();
-            self.0.seek(SeekFrom::Current(-1))?;
+            f.seek(SeekFrom::Current(-1))?;
             if bytes.last() == Some(&0x0d) {
                 // CR
                 bytes.pop();
-                self.0.seek(SeekFrom::Current(-1))?;
+                f.seek(SeekFrom::Current(-1))?;
             }
         }
         Ok(bytes)
@@ -120,38 +145,47 @@ impl TextHandle {
 
     pub fn write_real(&mut self, real: f64) -> Result<()> {
         let text = if real.fract() == 0.0 { format!(" {:.0}", real) } else { format!(" {:.6}", real) };
-        self.0.write_all(text.as_bytes())?;
+        self.get_writer()?.write_all(text.as_bytes())?;
         Ok(())
     }
 
     pub fn write_string(&mut self, text: &[u8]) -> Result<()> {
-        self.0.write_all(text)?;
+        self.get_writer()?.write_all(text)?;
         Ok(())
     }
 
     pub fn write_newline(&mut self) -> Result<()> {
-        self.0.write_all(b"\r\n")?;
+        self.get_writer()?.write_all(b"\r\n")?;
         Ok(())
     }
 
     pub fn skip_line(&mut self) -> Result<()> {
-        Ok(skip_line(&mut self.0)?)
+        Ok(skip_line(&mut self.get_reader()?)?)
     }
 
     pub fn is_eof(&mut self) -> Result<bool> {
+        let f = self.get_reader()?;
         let mut buf: [u8; 1] = [0];
-        let last_pos = self.0.stream_position()?;
-        let bytes_read = self.0.read(&mut buf)?;
-        self.0.seek(SeekFrom::Start(last_pos))?;
+        let last_pos = f.stream_position()?;
+        let bytes_read = f.read(&mut buf)?;
+        f.seek(SeekFrom::Start(last_pos))?;
         Ok(bytes_read == 0)
     }
 
     pub fn is_eoln(&mut self) -> Result<bool> {
+        let f = self.get_reader()?;
         let mut buf: [u8; 2] = [0, 0];
-        let last_pos = self.0.stream_position()?;
-        let bytes_read = self.0.read(&mut buf)?;
-        self.0.seek(SeekFrom::Start(last_pos))?;
+        let last_pos = f.stream_position()?;
+        let bytes_read = f.read(&mut buf)?;
+        f.seek(SeekFrom::Start(last_pos))?;
         Ok(bytes_read == 0 || (buf[0] == 0x0d && buf[1] == 0x0a))
+    }
+
+    pub fn flush(&mut self) -> Result<()> {
+        match self {
+            Self::Read(_) => Ok(()),
+            Self::Write(f) => f.flush().map_err(|e| e.into()),
+        }
     }
 }
 
@@ -229,11 +263,11 @@ impl BinaryHandle {
     }
 }
 
-pub fn read_real(f: &mut File) -> io::Result<f64> {
+pub fn read_real(mut f: impl Read + Seek) -> io::Result<f64> {
     // Read digits and at most one period or comma, plus one extra character
     let mut period_seen = false;
     let mut nonspace_seen = false;
-    let mut bytes = read_until(f, |b| {
+    let mut bytes = read_until(&mut f, |b| {
         // If you read spaces or dashes at the start, skip them
         if b == 0x20 || b == 0x2d {
             return nonspace_seen
@@ -282,7 +316,7 @@ pub fn read_real(f: &mut File) -> io::Result<f64> {
     text.parse().or(Ok(0.0))
 }
 
-pub fn skip_line(f: &mut File) -> io::Result<()> {
+pub fn skip_line(f: impl Read) -> io::Result<()> {
     skip_until(f, |c| c == 0x0a)?;
     Ok(())
 }
