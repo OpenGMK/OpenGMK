@@ -5531,6 +5531,13 @@ impl Game {
 
     pub fn file_bin_close(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
+
+        // flush buffer if possible
+        self.binary_files
+            .get_mut(handle - 1)
+            .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
+            .map_err(|e| gml::Error::FunctionError("file_bin_close".into(), e.to_string()))?;
+
         if self.binary_files.delete(handle - 1) {
             Ok(Default::default())
         } else {

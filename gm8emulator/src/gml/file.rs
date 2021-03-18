@@ -300,6 +300,15 @@ impl BinaryHandle {
     pub fn size(&mut self) -> Result<u64> {
         Ok(self.get_seeker().stream_len()?)
     }
+
+    pub fn flush(&mut self) -> Result<()> {
+        match self {
+            Self::Read(_) => Ok(()),
+            Self::Write(f) => f.flush(),
+            Self::ReadWrite(f) => f.flush(),
+        }
+        .map_err(|e| e.into())
+    }
 }
 
 pub fn read_real(mut f: impl Read + Seek) -> io::Result<f64> {
