@@ -12,7 +12,7 @@ pub use crate::atlas::AtlasRef;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Scaling {
-    /// Fixed scale, with a multiplier. The multiplier always be strictly positive.
+    /// Fixed scale, with a multiplier. The multiplier must always be strictly positive.
     Fixed(f64),
     /// Scale with window, but preserve aspect ratio.
     /// The f64 must be strictly negative and has no meaning, but can still be accessed with window_get_region_scale().
