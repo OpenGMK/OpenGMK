@@ -13,8 +13,13 @@ pub enum TextHandle {
     Write(BufWriter<File>),
 }
 #[derive(Debug)]
-pub struct BinaryHandle(File);
+pub enum BinaryHandle {
+    Read(BufReader<File>),
+    Write(BufWriter<File>),
+    ReadWrite(File),
+}
 
+#[derive(Clone, Copy, Debug)]
 pub enum AccessMode {
     Read,
     Write,
@@ -191,7 +196,12 @@ impl TextHandle {
 
 impl BinaryHandle {
     pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
-        Ok(Self(Self::_open(path, mode)?))
+        let file = Self::_open(path, mode)?;
+        match mode {
+            AccessMode::Read => Ok(Self::Read(BufReader::new(file))),
+            AccessMode::Write => Ok(Self::Write(BufWriter::new(file))),
+            AccessMode::Special => Ok(Self::ReadWrite(file)),
+        }
     }
 
     // Binary files are always created by GM if they doesn't exist, but in such
@@ -232,34 +242,63 @@ impl BinaryHandle {
             .open(path)
     }
 
+    fn get_reader(&mut self) -> Result<&mut dyn Read> {
+        match self {
+            Self::Read(f) => Ok(f),
+            Self::Write(_) => Err(Error::CantRead),
+            Self::ReadWrite(f) => Ok(f),
+        }
+    }
+
+    fn get_writer(&mut self) -> Result<&mut dyn Write> {
+        match self {
+            Self::Read(_) => Err(Error::CantWrite),
+            Self::Write(f) => Ok(f),
+            Self::ReadWrite(f) => Ok(f),
+        }
+    }
+
+    fn get_seeker(&mut self) -> &mut dyn Seek {
+        match self {
+            Self::Read(f) => f,
+            Self::Write(f) => f,
+            Self::ReadWrite(f) => f,
+        }
+    }
+
     pub fn clear(&mut self) -> Result<()> {
-        self.0.seek(SeekFrom::Start(0))?;
-        self.0.set_len(0)?;
+        let f = match self {
+            Self::Read(_) => return Err(Error::CantWrite),
+            Self::Write(f) => f.get_mut(),
+            Self::ReadWrite(f) => f,
+        };
+        f.seek(SeekFrom::Start(0))?;
+        f.set_len(0)?;
         Ok(())
     }
 
     pub fn read_byte(&mut self) -> Result<u8> {
         let mut buf: [u8; 1] = [0];
-        self.0.read_exact(&mut buf)?;
+        self.get_reader()?.read_exact(&mut buf)?;
         Ok(buf[0])
     }
 
     pub fn write_byte(&mut self, byte: u8) -> Result<()> {
-        self.0.write_all(&[byte])?;
+        self.get_writer()?.write_all(&[byte])?;
         Ok(())
     }
 
     pub fn tell(&mut self) -> Result<u64> {
-        Ok(self.0.stream_position()?)
+        Ok(self.get_seeker().stream_position()?)
     }
 
     pub fn seek(&mut self, pos: i32) -> Result<()> {
-        self.0.seek(SeekFrom::Start(pos as u64))?;
+        self.get_seeker().seek(SeekFrom::Start(pos as u64))?;
         Ok(())
     }
 
     pub fn size(&mut self) -> Result<u64> {
-        Ok(self.0.stream_len()?)
+        Ok(self.get_seeker().stream_len()?)
     }
 }
 
