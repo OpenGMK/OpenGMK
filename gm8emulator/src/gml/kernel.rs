@@ -2607,9 +2607,18 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_linear_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function action_linear_step")
+    pub fn action_linear_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
+        let instance = self.instance_list.get(context.this);
+        let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
+        Ok(pathfinding::linear_step(x, y, step_size, instance, || {
+            if checkall {
+                self.check_collision_any(context.this).is_some()
+            } else {
+                self.check_collision_solid(context.this).is_some()
+            }
+        })
+        .into())
     }
 
     pub fn action_potential_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4672,9 +4681,16 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn mp_linear_step(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function mp_linear_step")
+    pub fn mp_linear_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
+        Ok(pathfinding::linear_step(x, y, step_size, self.instance_list.get(context.this), || {
+            if checkall {
+                self.check_collision_any(context.this).is_some()
+            } else {
+                self.check_collision_solid(context.this).is_some()
+            }
+        })
+        .into())
     }
 
     pub fn mp_linear_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4682,9 +4698,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mp_linear_path")
     }
 
-    pub fn mp_linear_step_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function mp_linear_step_object")
+    pub fn mp_linear_step_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (x, y, step_size, obj) = expect_args!(args, [real, real, real, int])?;
+        Ok(pathfinding::linear_step(x, y, step_size, self.instance_list.get(context.this), || match obj {
+            gml::SELF => false,
+            gml::OTHER => self.check_collision(context.this, context.other),
+            obj => self.find_instance_with(obj, |handle| self.check_collision(context.this, handle)).is_some(),
+        })
+        .into())
     }
 
     pub fn mp_linear_path_object(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
