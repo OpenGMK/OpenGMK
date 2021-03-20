@@ -20,6 +20,8 @@ impl Default for PotentialStepSettings {
     }
 }
 
+/// Performs a step straight towards the given destination, stopping when a wall is reached.
+/// Returns true if the goal was reached, and false otherwise.
 pub fn linear_step(x: Real, y: Real, step_size: Real, instance: &Instance, coll: impl Fn() -> bool) -> bool {
     let old_x = instance.x.get();
     let old_y = instance.y.get();
@@ -47,6 +49,8 @@ pub fn linear_step(x: Real, y: Real, step_size: Real, instance: &Instance, coll:
     distance <= step_size.into()
 }
 
+/// Performs a step towards the given destination. When a wall is reached, it will try to go around it.
+/// Returns true if the goal was reached, and false otherwise.
 pub fn potential_step(
     x: Real,
     y: Real,
