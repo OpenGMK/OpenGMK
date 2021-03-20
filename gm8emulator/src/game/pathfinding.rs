@@ -20,6 +20,33 @@ impl Default for PotentialStepSettings {
     }
 }
 
+pub fn linear_step(x: Real, y: Real, step_size: Real, instance: &Instance, coll: impl Fn() -> bool) -> bool {
+    let old_x = instance.x.get();
+    let old_y = instance.y.get();
+    if old_x == x && old_y == y {
+        return true
+    }
+    let xdist = x - old_x;
+    let ydist = y - old_y;
+    let distance = xdist.into_inner().hypot(ydist.into());
+    let (new_x, new_y) = if distance <= step_size.into() {
+        (x, y)
+    } else {
+        (old_x + step_size * xdist / distance.into(), old_y + step_size * ydist / distance.into())
+    };
+    instance.x.set(new_x);
+    instance.y.set(new_y);
+    instance.bbox_is_stale.set(true);
+    if coll() {
+        instance.x.set(old_x);
+        instance.y.set(old_y);
+        instance.bbox_is_stale.set(true);
+    } else {
+        instance.set_direction(-ydist.arctan2(xdist).to_degrees());
+    }
+    distance <= step_size.into()
+}
+
 pub fn potential_step(
     x: Real,
     y: Real,
