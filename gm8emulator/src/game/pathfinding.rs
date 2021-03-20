@@ -1,4 +1,8 @@
-use crate::{instance::Instance, math::Real};
+use crate::{
+    asset::path::{Path, Point},
+    instance::Instance,
+    math::Real,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -123,4 +127,29 @@ pub fn potential_step(
         }
         res
     }
+}
+
+#[derive(PartialEq, Eq)]
+pub enum PathGenResult {
+    Done,
+    Failed,
+    NotDone,
+}
+
+pub fn make_path(inst: &Instance, path: &mut Path, func: impl Fn(&Instance) -> PathGenResult) -> bool {
+    let (old_x, old_y, old_direction) = (inst.x.get(), inst.y.get(), inst.direction.get());
+    path.curve = false;
+    path.closed = false;
+    path.points.clear();
+    let mut result = PathGenResult::NotDone;
+    while result == PathGenResult::NotDone {
+        result = func(inst);
+        path.points.push(Point { x: inst.x.get(), y: inst.y.get(), speed: 100.into() });
+    }
+    path.update();
+    inst.x.set(old_x);
+    inst.y.set(old_y);
+    inst.set_direction(old_direction);
+    inst.bbox_is_stale.set(true);
+    result == PathGenResult::Done
 }

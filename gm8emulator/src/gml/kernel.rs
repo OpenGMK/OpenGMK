@@ -4693,9 +4693,33 @@ impl Game {
         .into())
     }
 
-    pub fn mp_linear_path(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function mp_linear_path")
+    pub fn mp_linear_path(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (path_id, xg, yg, step_size, checkall) = expect_args!(args, [int, real, real, real, bool])?;
+        // i apologize for this code
+        if self.assets.paths.get_asset_mut(path_id).is_some() {
+            let mut path = self.assets.paths[path_id as usize].take().unwrap();
+            let inst = self.instance_list.get(context.this);
+            pathfinding::make_path(inst, &mut path, |inst| {
+                let (old_x, old_y) = (inst.x.get(), inst.y.get());
+                if pathfinding::linear_step(xg, yg, step_size, inst, || {
+                    if checkall {
+                        self.check_collision_any(context.this).is_some()
+                    } else {
+                        self.check_collision_solid(context.this).is_some()
+                    }
+                }) {
+                    pathfinding::PathGenResult::Done
+                } else if inst.x.get() == old_x && inst.y.get() == old_y {
+                    pathfinding::PathGenResult::Failed
+                } else {
+                    pathfinding::PathGenResult::NotDone
+                }
+            });
+            self.assets.paths[path_id as usize] = Some(path);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Path, path_id))
+        }
     }
 
     pub fn mp_linear_step_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
