@@ -1,13 +1,32 @@
 #version 330 core
 
-uniform sampler2D tex;
-uniform bool repeat;
-uniform bool lerp; // only used if repeat is on
-uniform bool alpha_test;
-uniform bool fog_enabled;
-uniform vec3 fog_colour;
-uniform float fog_begin;
-uniform float fog_end;
+struct Light {
+    vec4 pos; // padded vec3
+    vec4 colour; // padded vec3
+    bool enabled;
+    bool is_point;
+    float range;
+};
+
+layout(std140) uniform RenderState {
+    // vertex shader
+    mat4 model;
+    mat4 viewproj;
+    Light lights[8];
+    vec4 ambient_colour; // padded vec3
+    bool lighting_enabled;
+    bool gouraud_shading;
+    // frag shader
+    bool repeat;
+    bool lerp; // only used if repeat is on
+    bool alpha_test;
+    bool fog_enabled;
+    float fog_begin;
+    float fog_end;
+    vec4 fog_colour; // padded vec3
+};
+
+uniform sampler2D tex; // can't put this in the state because it's opaque
 
 in vec2 frag_tex_coord;
 in vec4 frag_atlas_xywh;
@@ -56,7 +75,7 @@ void main() {
     // apply fog
     if (fog_enabled) {
         float f = clamp((fog_end - fog_z) / (fog_end - fog_begin), 0, 1);
-        colour.rgb = (1-f) * fog_colour + f * colour.rgb;
+        colour.rgb = (1-f) * fog_colour.rgb + f * colour.rgb;
     }
     // alpha test
     if (alpha_test && colour.a <= 0) {
