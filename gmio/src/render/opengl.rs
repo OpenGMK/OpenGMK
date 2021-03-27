@@ -180,6 +180,7 @@ pub struct RendererImpl {
     framebuffer_zbuf: GLuint,
     framebuffer_fbo: GLuint,
     zbuf_format: GLint,
+    zbuf_trashed: bool,
     white_pixel: AtlasRef,
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveShape,
@@ -558,6 +559,7 @@ impl RendererImpl {
                 framebuffer_zbuf,
                 framebuffer_fbo,
                 zbuf_format,
+                zbuf_trashed: false,
                 white_pixel: Default::default(),
                 vertex_queue: Vec::with_capacity(1536),
                 queue_type: PrimitiveShape::Triangle,
@@ -1156,6 +1158,32 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
             self.set_view(0, 0, fb_width, fb_height, 0.0, 0, 0, fb_width, fb_height);
         }
+    }
+
+    fn set_zbuf_trashed(&mut self, trashed: bool) {
+        if trashed != self.zbuf_trashed {
+            self.flush_queue();
+            self.zbuf_trashed = trashed;
+            unsafe {
+                let mut prev_fbo = 0;
+                self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+                assert_eq!(self.gl.GetError(), 0);
+                self.gl.FramebufferTexture2D(
+                    gl::READ_FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    if trashed { 0 } else { self.framebuffer_zbuf },
+                    0,
+                );
+                assert_eq!(self.gl.GetError(), 0);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
+            }
+        }
+    }
+
+    fn get_zbuf_trashed(&self) -> bool {
+        self.zbuf_trashed
     }
 
     fn resize_framebuffer(&mut self, width: u32, height: u32) {

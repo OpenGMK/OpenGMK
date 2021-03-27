@@ -335,6 +335,9 @@ pub trait RendererTrait {
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
 
+    fn set_zbuf_trashed(&mut self, trashed: bool);
+    fn get_zbuf_trashed(&self) -> bool;
+
     fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32;
     fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef>;
 
@@ -892,6 +895,14 @@ impl Renderer {
 
     pub fn reset_target(&mut self) {
         self.0.reset_target()
+    }
+
+    pub fn set_zbuf_trashed(&mut self, trashed: bool) {
+        self.0.set_zbuf_trashed(trashed)
+    }
+
+    pub fn get_zbuf_trashed(&self) -> bool {
+        self.0.get_zbuf_trashed()
     }
 
     pub fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
