@@ -2095,6 +2095,27 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.set_target(&surf.atlas_ref);
             self.surface_target = Some(surf_id);
+            if self.surface_fix && self.views_enabled {
+                let view = &self.views[self.view_current];
+                // would probably be good to make this its own method in the renderer
+                if self.renderer.get_3d() && self.renderer.get_perspective() {
+                    self.renderer.set_projection_perspective(
+                        view.source_x.into(),
+                        view.source_y.into(),
+                        surf.width.into(),
+                        surf.height.into(),
+                        view.angle.into(),
+                    );
+                } else {
+                    self.renderer.set_projection_ortho(
+                        view.source_x.into(),
+                        view.source_y.into(),
+                        surf.width.into(),
+                        surf.height.into(),
+                        view.angle.into(),
+                    );
+                }
+            }
         }
         Ok(Default::default())
     }
@@ -2104,6 +2125,20 @@ impl Game {
         // reset viewport to top left of room because lol
         self.renderer.reset_target();
         self.surface_target = None;
+        if self.surface_fix && self.views_enabled {
+            let view = &self.views[self.view_current];
+            self.renderer.set_view(
+                view.source_x,
+                view.source_y,
+                view.source_w as _,
+                view.source_h as _,
+                view.angle.into(),
+                view.port_x,
+                view.port_y,
+                view.port_w as _,
+                view.port_h as _,
+            );
+        }
         Ok(Default::default())
     }
 
