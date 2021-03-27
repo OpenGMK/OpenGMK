@@ -607,12 +607,21 @@ impl Game {
 
     pub fn draw_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let col = expect_args!(args, [int])?;
-        self.renderer.clear_view((col as u32).into(), 1.0);
+        if self.gm_version == Version::GameMaker8_0 && !self.surface_fix {
+            self.renderer.clear_view_no_zbuf((col as u32).into(), 1.0);
+        } else {
+            self.renderer.clear_view((col as u32).into(), 1.0);
+        }
         Ok(Default::default())
     }
 
     pub fn draw_clear_alpha(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (col, alpha) = expect_args!(args, [int, real])?;
+        if self.gm_version == Version::GameMaker8_0 && !self.surface_fix {
+            self.renderer.clear_view_no_zbuf((col as u32).into(), alpha.into());
+        } else {
+            self.renderer.clear_view((col as u32).into(), alpha.into());
+        }
         self.renderer.clear_view((col as u32).into(), alpha.into());
         Ok(Default::default())
     }
