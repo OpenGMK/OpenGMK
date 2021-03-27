@@ -87,6 +87,7 @@ pub struct Game {
     pub show_room_colour: bool,
 
     pub externals: Vec<Option<external::External>>,
+    pub surface_fix: bool,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -901,6 +902,7 @@ impl Game {
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
+            surface_fix: false,
             room_colour: room1_colour,
             show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
