@@ -105,6 +105,7 @@ pub struct SaveState {
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
     pub primitive_3d: PrimitiveBuilder,
+    pub zbuf_trashed: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -218,6 +219,7 @@ impl SaveState {
             circle_precision: game.renderer.get_circle_precision(),
             primitive_2d: game.renderer.get_primitive_2d(),
             primitive_3d: game.renderer.get_primitive_3d(),
+            zbuf_trashed: game.renderer.get_zbuf_trashed(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             potential_step_settings: game.potential_step_settings.clone(),
@@ -355,6 +357,7 @@ impl SaveState {
         game.renderer.set_circle_precision(self.circle_precision);
         game.renderer.set_primitive_2d(self.primitive_2d);
         game.renderer.set_primitive_3d(self.primitive_3d);
+        game.renderer.set_zbuf_trashed(self.zbuf_trashed);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.potential_step_settings = self.potential_step_settings;
