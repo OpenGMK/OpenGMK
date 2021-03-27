@@ -469,6 +469,7 @@ pub trait RendererTrait {
     fn extend_buffers(&self, buf: &mut VertexBuffer);
     fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
+    fn clear_view_no_zbuf(&mut self, colour: Colour, alpha: f64);
     fn clear_zbuf(&mut self);
 
     fn get_3d(&self) -> bool;
@@ -939,6 +940,10 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn clear_view_no_zbuf(&mut self, colour: Colour, alpha: f64) {
+        self.0.clear_view_no_zbuf(colour, alpha)
     }
 
     pub fn clear_zbuf(&mut self) {

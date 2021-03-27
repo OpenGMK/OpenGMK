@@ -1967,6 +1967,15 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn clear_view_no_zbuf(&mut self, colour: Colour, alpha: f64) {
+        self.flush_queue();
+        unsafe {
+            self.gl.ClearColor(colour.r as f32, colour.g as f32, colour.b as f32, alpha as f32);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            assert_eq!(self.gl.GetError(), 0);
+        }
+    }
+
     fn clear_zbuf(&mut self) {
         if self.using_3d {
             self.flush_queue();
