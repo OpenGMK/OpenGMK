@@ -1476,7 +1476,10 @@ impl Game {
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string setter"),
             InstanceVariable::CursorSprite => self.cursor_sprite = value.round(),
-            InstanceVariable::ShowScore => self.score_capt_d = value.is_truthy(),
+            InstanceVariable::ShowScore => {
+                self.has_set_show_score = true;
+                self.score_capt_d = value.is_truthy()
+            },
             InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
             InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),

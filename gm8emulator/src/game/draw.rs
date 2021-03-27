@@ -221,10 +221,11 @@ impl Game {
         );
 
         // Apply room caption
-        if self.score_capt_d || self.lives_capt_d {
+        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
+        if show_score || self.lives_capt_d {
             let mut caption = self.decode_str(self.caption.as_ref()).into_owned();
             // write!() on a String never panics
-            if self.score_capt_d {
+            if show_score {
                 write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
             }
             if self.lives_capt_d {

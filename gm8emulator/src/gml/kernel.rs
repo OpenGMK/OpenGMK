@@ -3316,6 +3316,7 @@ impl Game {
         let (sc_show, sc_cap, lv_show, lv_cap, hl_show, hl_cap) =
             expect_args!(args, [bool, bytes, bool, bytes, bool, bytes])?;
 
+        self.has_set_show_score = true;
         self.score_capt_d = sc_show;
         self.lives_capt_d = lv_show;
         self.health_capt_d = hl_show;
