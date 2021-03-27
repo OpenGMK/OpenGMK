@@ -143,6 +143,7 @@ pub struct Game {
     pub score: i32,               // default 0
     pub score_capt: RCStr,        // default "Score: "
     pub score_capt_d: bool,       // display in caption?
+    pub has_set_show_score: bool, // if false, score displays if > 0
     pub lives: i32,               // default -1
     pub lives_capt: RCStr,        // default "Lives: "
     pub lives_capt_d: bool,       // display in caption?
@@ -971,6 +972,7 @@ impl Game {
             caption: "".to_string().into(),
             caption_stale: false,
             score_capt_d: true,
+            has_set_show_score: false,
             lives_capt_d: false,
             health_capt_d: false,
             error_occurred: false,
