@@ -1357,8 +1357,19 @@ impl Game {
                     // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
                     const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
                     let mut current_time = Instant::now();
+                    let perspective = self.renderer.get_perspective();
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
+                        if self.surface_fix {
+                            self.renderer.set_perspective(false);
+                            self.renderer.set_projection_ortho(
+                                0.0,
+                                0.0,
+                                self.unscaled_width.into(),
+                                self.unscaled_height.into(),
+                                0.0,
+                            );
+                        }
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         self.renderer.present(width, height, self.scaling);
                         let diff = current_time.elapsed();
@@ -1366,6 +1377,9 @@ impl Game {
                             gml::datetime::sleep(dur);
                         }
                         current_time = Instant::now();
+                    }
+                    if self.surface_fix {
+                        self.renderer.set_perspective(perspective);
                     }
                 }
             }
