@@ -2034,10 +2034,11 @@ impl Game {
 
     pub fn surface_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (w, h) = expect_args!(args, [int, int])?;
+        let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
         let surf = Surface {
             width: w as _,
             height: h as _,
-            atlas_ref: match self.renderer.create_surface(w, h, true) {
+            atlas_ref: match self.renderer.create_surface(w, h, make_zbuf) {
                 Ok(atl_ref) => atl_ref,
                 Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
             },

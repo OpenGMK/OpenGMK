@@ -1153,15 +1153,16 @@ impl Game {
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
             let (width, height) = self.window.get_inner_size();
+            let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
                 width,
                 height,
-                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             let new_surf = surface::Surface {
                 width,
                 height,
-                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             self.renderer.set_target(&old_surf.atlas_ref);
             self.draw()?;
