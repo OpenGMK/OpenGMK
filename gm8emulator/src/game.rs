@@ -970,7 +970,7 @@ impl Game {
             esc_close_game: settings.esc_close_game,
             caption: "".to_string().into(),
             caption_stale: false,
-            score_capt_d: false,
+            score_capt_d: true,
             lives_capt_d: false,
             health_capt_d: false,
             error_occurred: false,
