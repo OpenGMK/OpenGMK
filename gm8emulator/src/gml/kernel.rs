@@ -2125,6 +2125,9 @@ impl Game {
         // reset viewport to top left of room because lol
         self.renderer.reset_target();
         self.surface_target = None;
+        if self.gm_version == Version::GameMaker8_0 {
+            self.renderer.set_zbuf_trashed(!self.surface_fix);
+        }
         if self.surface_fix && self.views_enabled {
             let view = &self.views[self.view_current];
             self.renderer.set_view(
