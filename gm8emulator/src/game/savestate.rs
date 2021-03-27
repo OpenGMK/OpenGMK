@@ -52,6 +52,7 @@ pub struct SaveState {
     pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
+    pub surface_fix: bool,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -171,6 +172,7 @@ impl SaveState {
             sprite_count: game.renderer.get_sprite_count(),
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
+            surface_fix: game.surface_fix.clone(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -295,6 +297,8 @@ impl SaveState {
                 })
             })
             .collect();
+
+        game.surface_fix = self.surface_fix;
 
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
