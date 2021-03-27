@@ -117,6 +117,7 @@ pub struct SaveState {
     pub score: i32,
     pub score_capt: RCStr,
     pub score_capt_d: bool,
+    pub has_set_show_score: bool,
     pub lives: i32,
     pub lives_capt: RCStr,
     pub lives_capt_d: bool,
@@ -225,6 +226,7 @@ impl SaveState {
             score: game.score.clone(),
             score_capt: game.score_capt.clone(),
             score_capt_d: game.score_capt_d.clone(),
+            has_set_show_score: game.has_set_show_score.clone(),
             lives: game.lives.clone(),
             lives_capt: game.lives_capt.clone(),
             lives_capt_d: game.lives_capt_d.clone(),
@@ -359,6 +361,7 @@ impl SaveState {
         game.score = self.score;
         game.score_capt = self.score_capt;
         game.score_capt_d = self.score_capt_d;
+        game.has_set_show_score = self.has_set_show_score;
         game.lives = self.lives;
         game.lives_capt = self.lives_capt;
         game.lives_capt_d = self.lives_capt_d;
