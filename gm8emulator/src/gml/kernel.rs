@@ -4937,7 +4937,13 @@ impl Game {
             gml::SELF => self.instance_list.get(context.this).state.get() == InstanceState::Active,
             gml::OTHER => self.instance_list.get(context.other).state.get() == InstanceState::Active,
             gml::ALL => self.instance_list.any_active(),
-            obj if obj <= 100000 => self.instance_list.count(obj) != 0,
+            obj if obj <= 100000 => {
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    object.children.borrow().iter().any(|&obj| self.instance_list.count(obj) != 0)
+                } else {
+                    false
+                }
+            },
             _ => self.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
@@ -4961,7 +4967,13 @@ impl Game {
                 }
             },
             gml::ALL => self.instance_list.count_all_active(),
-            obj if obj <= 100000 => self.instance_list.count(obj),
+            obj if obj <= 100000 => {
+                if let Some(object) = self.assets.objects.get_asset(obj) {
+                    object.children.borrow().iter().map(|&obj| self.instance_list.count(obj)).sum()
+                } else {
+                    0
+                }
+            },
             inst_id => {
                 if self.instance_list.get_by_instid(inst_id).is_some() {
                     1
