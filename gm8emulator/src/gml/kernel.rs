@@ -7008,9 +7008,13 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn mouse_clear(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mouse_clear")
+    pub fn mouse_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let button = expect_args!(args, [int])?;
+        self.process_window_events();
+        if button > 0 {
+            self.input_manager.mouse_clear(button as usize);
+        }
+        Ok(Default::default())
     }
 
     pub fn io_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
