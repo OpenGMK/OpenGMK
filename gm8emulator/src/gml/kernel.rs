@@ -7941,9 +7941,38 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sprite_set_alpha_from_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_set_alpha_from_sprite")
+    pub fn sprite_set_alpha_from_sprite(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if let Some(src) = self.assets.sprites.get_asset(src_id) {
+            let src_frames = src.frames.clone();
+            if let Some(dst) = self.assets.sprites.get_asset_mut(dst_id) {
+                for (dst_frame, src_frame) in dst.frames.iter_mut().zip(src_frames.iter().cycle()) {
+                    let src_data = self.renderer.dump_sprite(&src_frame.atlas_ref);
+                    let mut dst_data = self.renderer.dump_sprite(&dst_frame.atlas_ref);
+                    // TODO: delete sprite when this is safe for sprite fonts
+                    // self.renderer.delete_sprite(dst_frame.atlas_ref);
+                    for (dst_row, src_row) in dst_data
+                        .chunks_mut(dst_frame.width as usize * 4)
+                        .zip(src_data.chunks(src_frame.width as usize * 4))
+                    {
+                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                            dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
+                        }
+                    }
+                    dst_frame.atlas_ref = self
+                        .renderer
+                        .upload_sprite(
+                            dst_data,
+                            dst_frame.width as _,
+                            dst_frame.height as _,
+                            dst.origin_x,
+                            dst.origin_y,
+                        )
+                        .map_err(|e| gml::Error::FunctionError("sprite_set_alpha_from_sprite".into(), e))?;
+                }
+            }
+        }
+        Ok(Default::default())
     }
 
     pub fn sprite_create_from_screen(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
