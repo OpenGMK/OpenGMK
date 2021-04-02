@@ -8448,7 +8448,7 @@ impl Game {
             self.renderer.delete_sprite(*atlas_ref);
             for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
                 for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
-                    dst_col[3] = src_col[3];
+                    dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
                 }
             }
             *atlas_ref = self
