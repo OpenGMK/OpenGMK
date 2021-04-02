@@ -4160,15 +4160,40 @@ impl Game {
     }
 
     pub fn string_replace(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string, string, string])
-            .map(|(s, x, y)| Value::Str(s.as_ref().replacen(x.as_ref(), y.as_ref(), 1).into()))
+        let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
+        let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
+        // could be faster but i'm feeling lazy
+        for i in 0..s.as_ref().len() {
+            if s[i..].starts_with(sub.as_ref()) {
+                let mut out = Vec::with_capacity(s.len() + rep.len() - sub.len());
+                out.extend_from_slice(&s[..i]);
+                out.extend_from_slice(rep);
+                out.extend_from_slice(&s[i + sub.len()..]);
+                return Ok(out.into())
+            }
+        }
+        Ok(s.into())
     }
 
     pub fn string_replace_all(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string, string, string])
-            .map(|(s, x, y)| Value::Str(s.as_ref().replace(x.as_ref(), y.as_ref()).into()))
+        let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
+        let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
+        // could be faster but i'm feeling lazy
+        let mut out = Vec::new();
+        let mut section_start = 0;
+        let mut i = 0;
+        while i < s.len() {
+            if s[i..].starts_with(sub) {
+                out.extend_from_slice(&s[section_start..i]);
+                section_start = i + sub.len();
+                out.extend_from_slice(rep);
+                i += sub.len();
+            } else {
+                i += 1;
+            }
+        }
+        out.extend_from_slice(&s[section_start..]);
+        Ok(out.into())
     }
 
     pub fn string_count(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
