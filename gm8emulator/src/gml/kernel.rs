@@ -4201,9 +4201,9 @@ impl Game {
         while i < s.len() {
             if s[i..].starts_with(sub) {
                 out.extend_from_slice(&s[section_start..i]);
-                section_start = i + sub.len();
                 out.extend_from_slice(rep);
                 i += sub.len();
+                section_start = i;
             } else {
                 i += 1;
             }
