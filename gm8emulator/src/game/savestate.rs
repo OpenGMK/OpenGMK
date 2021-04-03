@@ -254,7 +254,9 @@ impl SaveState {
     }
 
     pub fn load_into(self, game: &mut Game) -> Replay {
-        game.window.resize(self.window_width, self.window_height);
+        if game.window.get_inner_size() != (self.window_width, self.window_height) {
+            game.window.resize(self.window_width, self.window_height);
+        }
 
         game.renderer.upload_dynamic_textures(&self.textures);
 
