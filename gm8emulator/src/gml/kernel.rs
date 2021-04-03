@@ -4057,9 +4057,25 @@ impl Game {
     }
 
     pub fn string_pos(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string, string]).map(|(ss, s)| {
-            Value::Real(Real::from(s.as_ref().find(ss.as_ref()).map(|p| p + 1).unwrap_or_default() as f64))
+        expect_args!(args, [bytes, bytes]).map(|(query, main_string)| match self.gm_version {
+            Version::GameMaker8_0 => {
+                let query = query.as_ref();
+                Value::Real(Real::from(
+                    main_string
+                        .as_ref()
+                        .windows(query.len())
+                        .position(|x| x == query)
+                        .map(|p| p + 1)
+                        .unwrap_or_default() as f64,
+                ))
+            },
+            Version::GameMaker8_1 => {
+                let query = self.decode_str(query.as_ref());
+                let main_string = self.decode_str(main_string.as_ref());
+                Value::Real(Real::from(
+                    main_string.as_ref().find(query.as_ref()).map(|p| p + 1).unwrap_or_default() as f64
+                ))
+            },
         })
     }
 
