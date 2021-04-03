@@ -5574,9 +5574,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function YoYo_OpenURL_full")
     }
 
-    pub fn yoyo_getdomain(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function YoYo_GetDomain")
+    pub fn yoyo_getdomain(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, []);
+        Ok(b"unknown".as_ref().into())
     }
 
     pub fn yoyo_gettimer(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
