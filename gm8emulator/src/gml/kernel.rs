@@ -4145,15 +4145,17 @@ impl Game {
     }
 
     pub fn string_lower(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string])
-            .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_lowercase()).collect::<String>().into()))
+        expect_args!(args, [bytes]).map(|s| match self.gm_version {
+            Version::GameMaker8_0 => Value::Str(s.as_ref().to_ascii_lowercase().into()),
+            Version::GameMaker8_1 => Value::Str(self.decode_str(s.as_ref()).to_lowercase().into()),
+        })
     }
 
     pub fn string_upper(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        // TODO: bytes-ify
-        expect_args!(args, [string])
-            .map(|s| Value::Str(s.as_ref().chars().map(|ch| ch.to_ascii_uppercase()).collect::<String>().into()))
+        expect_args!(args, [bytes]).map(|s| match self.gm_version {
+            Version::GameMaker8_0 => Value::Str(s.as_ref().to_ascii_uppercase().into()),
+            Version::GameMaker8_1 => Value::Str(self.decode_str(s.as_ref()).to_uppercase().into()),
+        })
     }
 
     pub fn string_repeat(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
