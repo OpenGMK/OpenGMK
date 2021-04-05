@@ -52,6 +52,7 @@ pub struct SaveState {
     pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
+    pub surface_fix: bool,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -104,6 +105,7 @@ pub struct SaveState {
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
     pub primitive_3d: PrimitiveBuilder,
+    pub zbuf_trashed: bool,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -171,6 +173,7 @@ impl SaveState {
             sprite_count: game.renderer.get_sprite_count(),
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
+            surface_fix: game.surface_fix.clone(),
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
             views_enabled: game.views_enabled.clone(),
@@ -216,6 +219,7 @@ impl SaveState {
             circle_precision: game.renderer.get_circle_precision(),
             primitive_2d: game.renderer.get_primitive_2d(),
             primitive_3d: game.renderer.get_primitive_3d(),
+            zbuf_trashed: game.renderer.get_zbuf_trashed(),
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             potential_step_settings: game.potential_step_settings.clone(),
@@ -298,6 +302,8 @@ impl SaveState {
             })
             .collect();
 
+        game.surface_fix = self.surface_fix;
+
         game.compiler = self.compiler;
         game.instance_list = self.instance_list;
         game.tile_list = self.tile_list;
@@ -353,6 +359,7 @@ impl SaveState {
         game.renderer.set_circle_precision(self.circle_precision);
         game.renderer.set_primitive_2d(self.primitive_2d);
         game.renderer.set_primitive_3d(self.primitive_3d);
+        game.renderer.set_zbuf_trashed(self.zbuf_trashed);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.potential_step_settings = self.potential_step_settings;

@@ -607,12 +607,21 @@ impl Game {
 
     pub fn draw_clear(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let col = expect_args!(args, [int])?;
-        self.renderer.clear_view((col as u32).into(), 1.0);
+        if self.gm_version == Version::GameMaker8_0 && !self.surface_fix {
+            self.renderer.clear_view_no_zbuf((col as u32).into(), 1.0);
+        } else {
+            self.renderer.clear_view((col as u32).into(), 1.0);
+        }
         Ok(Default::default())
     }
 
     pub fn draw_clear_alpha(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (col, alpha) = expect_args!(args, [int, real])?;
+        if self.gm_version == Version::GameMaker8_0 && !self.surface_fix {
+            self.renderer.clear_view_no_zbuf((col as u32).into(), alpha.into());
+        } else {
+            self.renderer.clear_view((col as u32).into(), alpha.into());
+        }
         self.renderer.clear_view((col as u32).into(), alpha.into());
         Ok(Default::default())
     }
@@ -2025,10 +2034,11 @@ impl Game {
 
     pub fn surface_create(&mut self, _context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (w, h) = expect_args!(args, [int, int])?;
+        let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
         let surf = Surface {
             width: w as _,
             height: h as _,
-            atlas_ref: match self.renderer.create_surface(w, h, true) {
+            atlas_ref: match self.renderer.create_surface(w, h, make_zbuf) {
                 Ok(atl_ref) => atl_ref,
                 Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
             },
@@ -2085,6 +2095,27 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.set_target(&surf.atlas_ref);
             self.surface_target = Some(surf_id);
+            if self.surface_fix && self.views_enabled {
+                let view = &self.views[self.view_current];
+                // would probably be good to make this its own method in the renderer
+                if self.renderer.get_3d() && self.renderer.get_perspective() {
+                    self.renderer.set_projection_perspective(
+                        view.source_x.into(),
+                        view.source_y.into(),
+                        surf.width.into(),
+                        surf.height.into(),
+                        view.angle.into(),
+                    );
+                } else {
+                    self.renderer.set_projection_ortho(
+                        view.source_x.into(),
+                        view.source_y.into(),
+                        surf.width.into(),
+                        surf.height.into(),
+                        view.angle.into(),
+                    );
+                }
+            }
         }
         Ok(Default::default())
     }
@@ -2094,6 +2125,23 @@ impl Game {
         // reset viewport to top left of room because lol
         self.renderer.reset_target();
         self.surface_target = None;
+        if self.gm_version == Version::GameMaker8_0 {
+            self.renderer.set_zbuf_trashed(!self.surface_fix);
+        }
+        if self.surface_fix && self.views_enabled {
+            let view = &self.views[self.view_current];
+            self.renderer.set_view(
+                view.source_x,
+                view.source_y,
+                view.source_w as _,
+                view.source_h as _,
+                view.angle.into(),
+                view.port_x,
+                view.port_y,
+                view.port_w as _,
+                view.port_h as _,
+            );
+        }
         Ok(Default::default())
     }
 

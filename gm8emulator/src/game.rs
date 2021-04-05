@@ -87,6 +87,7 @@ pub struct Game {
     pub show_room_colour: bool,
 
     pub externals: Vec<Option<external::External>>,
+    pub surface_fix: bool,
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
@@ -901,6 +902,7 @@ impl Game {
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
             externals: Vec::new(),
+            surface_fix: false,
             room_colour: room1_colour,
             show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
@@ -1151,15 +1153,16 @@ impl Game {
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
             let (width, height) = self.window.get_inner_size();
+            let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
                 width,
                 height,
-                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             let new_surf = surface::Surface {
                 width,
                 height,
-                atlas_ref: self.renderer.create_surface(width as _, height as _, true)?,
+                atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             self.renderer.set_target(&old_surf.atlas_ref);
             self.draw()?;
@@ -1355,8 +1358,19 @@ impl Game {
                     // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
                     const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
                     let mut current_time = Instant::now();
+                    let perspective = self.renderer.get_perspective();
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
+                        if self.surface_fix {
+                            self.renderer.set_perspective(false);
+                            self.renderer.set_projection_ortho(
+                                0.0,
+                                0.0,
+                                self.unscaled_width.into(),
+                                self.unscaled_height.into(),
+                                0.0,
+                            );
+                        }
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         self.renderer.present(width, height, self.scaling);
                         let diff = current_time.elapsed();
@@ -1364,6 +1378,9 @@ impl Game {
                             gml::datetime::sleep(dur);
                         }
                         current_time = Instant::now();
+                    }
+                    if self.surface_fix {
+                        self.renderer.set_perspective(perspective);
                     }
                 }
             }

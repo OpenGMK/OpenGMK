@@ -335,6 +335,9 @@ pub trait RendererTrait {
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
 
+    fn set_zbuf_trashed(&mut self, trashed: bool);
+    fn get_zbuf_trashed(&self) -> bool;
+
     fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32;
     fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef>;
 
@@ -469,6 +472,7 @@ pub trait RendererTrait {
     fn extend_buffers(&self, buf: &mut VertexBuffer);
     fn draw_buffers(&mut self, atlas_ref: Option<AtlasRef>, buf: &VertexBuffer);
     fn clear_view(&mut self, colour: Colour, alpha: f64);
+    fn clear_view_no_zbuf(&mut self, colour: Colour, alpha: f64);
     fn clear_zbuf(&mut self);
 
     fn get_3d(&self) -> bool;
@@ -893,6 +897,14 @@ impl Renderer {
         self.0.reset_target()
     }
 
+    pub fn set_zbuf_trashed(&mut self, trashed: bool) {
+        self.0.set_zbuf_trashed(trashed)
+    }
+
+    pub fn get_zbuf_trashed(&self) -> bool {
+        self.0.get_zbuf_trashed()
+    }
+
     pub fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
         self.0.get_texture_id(atl_ref)
     }
@@ -939,6 +951,10 @@ impl Renderer {
 
     pub fn clear_view(&mut self, colour: Colour, alpha: f64) {
         self.0.clear_view(colour, alpha)
+    }
+
+    pub fn clear_view_no_zbuf(&mut self, colour: Colour, alpha: f64) {
+        self.0.clear_view_no_zbuf(colour, alpha)
     }
 
     pub fn clear_zbuf(&mut self) {
