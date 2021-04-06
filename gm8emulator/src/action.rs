@@ -79,7 +79,7 @@ pub enum Body {
 
 #[derive(Serialize, Deserialize)]
 pub enum GmlBody {
-    Function(gml::Function),
+    Function(usize),
     Code(Rc<[Instruction]>),
 }
 
@@ -92,8 +92,8 @@ pub enum ReturnType {
 impl std::fmt::Debug for GmlBody {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
-            GmlBody::Function(_) => write!(f, "Body::Function(..)"),
-            GmlBody::Code(c) => write!(f, "Body::Code({:?})", c),
+            GmlBody::Function(fn_id) => write!(f, "Body::Function({:?})", mappings::FUNCTIONS.index(*fn_id).unwrap().0),
+            GmlBody::Code(code) => write!(f, "Body::Code({:?})", code),
         }
     }
 }
@@ -148,9 +148,8 @@ impl Tree {
                         // For the FUNCTION execution type, a kernel function name is provided in the action's fn_name.
                         // This is compiled to a function pointer.
                         execution_type::FUNCTION => {
-                            if let Some((_, f_ptr, _)) = str::from_utf8(&action.fn_name.0)
-                                .ok()
-                                .and_then(|fn_name| mappings::FUNCTIONS.iter().find(|(n, _, _)| n == &fn_name))
+                            if let Some(fn_id) = str::from_utf8(&action.fn_name.0).ok()
+                                .and_then(|n| mappings::FUNCTIONS.get_index(n))
                             {
                                 output.push(Action {
                                     index: i,
@@ -164,7 +163,7 @@ impl Tree {
                                             &action.param_types,
                                             action.param_count,
                                         )?,
-                                        body: GmlBody::Function(*f_ptr),
+                                        body: GmlBody::Function(fn_id),
                                         if_else,
                                     },
                                 });
@@ -370,7 +369,9 @@ impl Game {
                             }
 
                             returned_value = match gml_body {
-                                GmlBody::Function(f) => f.call(self, &mut context, &arg_values[..args.len()])?,
+                                GmlBody::Function(f) => {
+                                    self.invoke(*f, &mut context, &arg_values[..args.len()])?
+                                },
                                 GmlBody::Code(code) => {
                                     context.arguments = arg_values;
                                     context.argument_count = args.len();
@@ -395,7 +396,7 @@ impl Game {
 
                                     returned_value = match gml_body {
                                         GmlBody::Function(f) => {
-                                            f.call(self, &mut context, &arg_values[..args.len()])?
+                                            self.invoke(*f, &mut context, &arg_values[..args.len()])?
                                         },
                                         GmlBody::Code(code) => {
                                             context.arguments = arg_values;

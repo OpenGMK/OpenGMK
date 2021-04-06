@@ -263,12 +263,10 @@ impl Compiler {
                     Node::Literal { value: entry.clone() }
                 } else if let Some(constant_id) = self.user_constant_names.get(*string) {
                     Node::Constant { constant_id: *constant_id }
-                } else if let Some(f) = str::from_utf8(string)
-                    .ok()
-                    .and_then(|s1| mappings::CONSTANTS.iter().find(|(s2, _)| &s1 == s2))
-                    .map(|(_, v)| v)
+                } else if let Some(&v) = str::from_utf8(string).ok()
+                    .and_then(|n| mappings::CONSTANTS.get(n))
                 {
-                    Node::Literal { value: Value::Real(Real::from(*f)) }
+                    Node::Literal { value: Value::Real(Real::from(v)) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
@@ -369,9 +367,8 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some((_, func, _)) = str::from_utf8(function.name)
-                    .ok()
-                    .and_then(|n1| mappings::FUNCTIONS.iter().find(|(n2, _, _)| &n1 == n2))
+                } else if let Some(function_id) = str::from_utf8(function.name).ok()
+                    .and_then(|n| mappings::FUNCTIONS.get_index(n))
                 {
                     Node::Function {
                         args: function
@@ -380,7 +377,7 @@ impl Compiler {
                             .map(|x| self.compile_ast_expr(&x, locals))
                             .collect::<Vec<_>>()
                             .into_boxed_slice(),
-                        function: *func,
+                        function_id,
                     }
                 } else {
                     Node::RuntimeError {
@@ -411,9 +408,14 @@ impl Compiler {
         }
     }
 
+    /// Searches for the fieldname id.
+    pub fn find_field_id(&self, name: &[u8]) -> Option<usize> {
+        self.fields.iter().position(|x| x.as_ref() == name)
+    }
+
     /// Gets the unique id of a fieldname, registering one if it doesn't already exist.
     pub fn get_field_id(&mut self, name: &[u8]) -> usize {
-        if let Some(i) = self.fields.iter().position(|x| x.as_ref() == name) {
+        if let Some(i) = self.find_field_id(name) {
             i
         } else {
             // Note: this isn't thread-safe. Add a mutex lock if you want it to be thread-safe.

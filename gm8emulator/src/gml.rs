@@ -12,11 +12,28 @@ pub mod value;
 
 pub use compiler::Compiler;
 pub use context::Context;
-pub use mappings::Function;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
+
+use crate::game::Game;
+pub enum Function {
+    // accesses and/or changes the program state, depending on the context
+    Runtime( fn(&mut Game, &mut Context, &[Value]) -> Result<Value> ),
+
+    // accesses and/or changes the program state
+    Engine( fn(&mut Game, &[Value]) -> Result<Value> ),
+
+    // depends on external state (OS, time etc.) or uses interior mutability
+    Volatile( fn(&Game, &[Value]) -> Result<Value> ),
+
+    // only accesses the program state
+    Constant( fn(&Game, &[Value]) -> Result<Value> ),
+
+    // neither uses nor modifies any program state
+    Pure( fn(&[Value]) -> Result<Value> ),
+}
 
 use serde::{Deserialize, Serialize};
 
