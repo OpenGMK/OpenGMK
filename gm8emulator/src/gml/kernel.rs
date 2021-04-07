@@ -5490,7 +5490,7 @@ impl Game {
     }
 
     pub fn yoyo_getdomain(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, []);
+        expect_args!(args, [])?;
         Ok(b"unknown".as_ref().into())
     }
 
