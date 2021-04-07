@@ -4,7 +4,7 @@ mod win64;
 
 use crate::{
     game::string::RCStr,
-    gml::{self, Value},
+    gml::{self, Function, Value},
 };
 use cfg_if::cfg_if;
 use encoding_rs::Encoding;
@@ -28,6 +28,7 @@ pub enum Call {
     DummyNull(dll::ValueType),
     DummyOne,
     DllCall(platform::ExternalImpl),
+    Emulated(Function),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -81,6 +82,13 @@ impl External {
         Ok(Self { call, info })
     }
 
+    pub fn get_function(&self) -> Option<Function> {
+        match self.call {
+            Call::Emulated(f) => Some(f),
+            _ => None,
+        }
+    }
+
     pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
         if args.len() != self.info.arg_types.len() {
             eprintln!(
@@ -109,6 +117,7 @@ impl Call {
             Call::DllCall(call) => {
                 call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
             },
+            _ => unimplemented!(),
         }
     }
 }

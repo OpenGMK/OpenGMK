@@ -7227,11 +7227,15 @@ impl Game {
         }
     }
 
-    pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn external_call(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
             if let Some(external) = self.externals.get_asset(id) {
-                return external.call(&args[1..])
+                if let Some(f) = external.get_function() {
+                    return f.invoke(self, context, args)
+                } else {
+                    return external.call(&args[1..])
+                }
             }
         }
         Ok(Default::default())
