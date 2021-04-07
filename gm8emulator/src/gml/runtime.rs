@@ -303,13 +303,7 @@ impl UnaryOperator {
 
 impl Game {
     pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        match mappings::FUNCTIONS.index(function_id).unwrap().1 {
-            gml::Function::Runtime(f) => f(self, context, args),
-            gml::Function::Engine(f) => f(self, args),
-            gml::Function::Volatile(f) => f(self, args),
-            gml::Function::Constant(f) => f(self, args),
-            gml::Function::Pure(f) => f(args),
-        }
+        mappings::FUNCTIONS.index(function_id).unwrap().1.invoke(self, context, args)
     }
 
     pub fn execute(&mut self, instructions: &[Instruction], context: &mut Context) -> gml::Result<ReturnType> {

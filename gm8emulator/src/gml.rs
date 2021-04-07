@@ -18,6 +18,7 @@ pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
 
 use crate::game::Game;
+#[derive(Clone, Copy)]
 pub enum Function {
     // accesses and/or changes the program state, depending on the context
     Runtime(fn(&mut Game, &mut Context, &[Value]) -> Result<Value>),
@@ -33,6 +34,18 @@ pub enum Function {
 
     // neither uses nor modifies any program state
     Pure(fn(&[Value]) -> Result<Value>),
+}
+
+impl Function {
+    fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
+        match self {
+            Self::Runtime(f) => f(game, context, args),
+            Self::Engine(f) => f(game, args),
+            Self::Volatile(f) => f(game, args),
+            Self::Constant(f) => f(game, args),
+            Self::Pure(f) => f(args),
+        }
+    }
 }
 
 use serde::{Deserialize, Serialize};
