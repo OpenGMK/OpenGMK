@@ -1,4 +1,5 @@
 mod dummy;
+mod surface_fix;
 mod win32;
 mod win64;
 
@@ -10,6 +11,7 @@ use cfg_if::cfg_if;
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 use shared::dll;
+use std::str;
 
 pub use shared::dll::{CallConv, ValueType as DLLValueType};
 
@@ -76,6 +78,17 @@ impl External {
             "gmfmodsimple.dll" if disable_sound && info.fn_name.as_ref() == b"FMODSoundAdd" => Call::DummyOne,
             "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
                 Call::DummyNull(info.res_type)
+            },
+            "surfacefix.dll" => {
+                if let Some(&f) = str::from_utf8(info.fn_name.as_ref()).ok().and_then(|n| surface_fix::FUNCTIONS.get(n))
+                {
+                    Call::Emulated(f)
+                } else {
+                    unimplemented!(
+                        "loaded nonexistent SurfaceFix function {}",
+                        String::from_utf8_lossy(info.fn_name.as_ref())
+                    )
+                }
             },
             _ => Call::DllCall(platform::ExternalImpl::new(&info, encoding)?),
         };
