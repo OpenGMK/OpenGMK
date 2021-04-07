@@ -20,19 +20,19 @@ pub use runtime::Error;
 use crate::game::Game;
 pub enum Function {
     // accesses and/or changes the program state, depending on the context
-    Runtime( fn(&mut Game, &mut Context, &[Value]) -> Result<Value> ),
+    Runtime(fn(&mut Game, &mut Context, &[Value]) -> Result<Value>),
 
     // accesses and/or changes the program state
-    Engine( fn(&mut Game, &[Value]) -> Result<Value> ),
+    Engine(fn(&mut Game, &[Value]) -> Result<Value>),
 
     // depends on external state (OS, time etc.) or uses interior mutability
-    Volatile( fn(&Game, &[Value]) -> Result<Value> ),
+    Volatile(fn(&Game, &[Value]) -> Result<Value>),
 
     // only accesses the program state
-    Constant( fn(&Game, &[Value]) -> Result<Value> ),
+    Constant(fn(&Game, &[Value]) -> Result<Value>),
 
     // neither uses nor modifies any program state
-    Pure( fn(&[Value]) -> Result<Value> ),
+    Pure(fn(&[Value]) -> Result<Value>),
 }
 
 use serde::{Deserialize, Serialize};

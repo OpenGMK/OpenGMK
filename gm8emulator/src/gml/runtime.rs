@@ -249,8 +249,9 @@ impl fmt::Debug for Node {
                 Value::Str(s) => write!(f, "{:?}", s),
             },
             Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
-            Node::Function { args, function_id } =>
-                write!(f, "<function {:?}: {:?}>", mappings::FUNCTIONS.index(*function_id).unwrap().0, args),
+            Node::Function { args, function_id } => {
+                write!(f, "<function {:?}: {:?}>", mappings::FUNCTIONS.index(*function_id).unwrap().0, args)
+            },
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),

@@ -62,16 +62,9 @@ macro_rules! expect_args {
 }
 
 fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
-    let (r, g, b) = (
-        Real::from(0xFF & colour),
-        Real::from(0xFF & (colour >> 8)),
-        Real::from(0xFF & (colour >> 16)),
-    );
+    let (r, g, b) = (Real::from(0xFF & colour), Real::from(0xFF & (colour >> 8)), Real::from(0xFF & (colour >> 16)));
 
-    let (min, max) = (
-        r.min(g).min(b),
-        r.max(g).max(b),
-    );
+    let (min, max) = (r.min(g).min(b), r.max(g).max(b));
 
     let v = max.round();
     let (h, s);
@@ -87,12 +80,18 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
         let diff = max - min;
         s = ((diff / max) * range255).round();
 
-        h = ((((
-            if max == g {x60 * ((b - r) / diff) + Real::from(120)} else
-            if max == b {x60 * ((r - g) / diff) + Real::from(240)} else
-            if max == r {x60 * ((g - b) / diff) + angle360}
-            else {unsafe { std::hint::unreachable_unchecked() }}
-        ) % angle360) / angle360) * range255).round();
+        h = ((((if max == g {
+            x60 * ((b - r) / diff) + Real::from(120)
+        } else if max == b {
+            x60 * ((r - g) / diff) + Real::from(240)
+        } else if max == r {
+            x60 * ((g - b) / diff) + angle360
+        } else {
+            unsafe { std::hint::unreachable_unchecked() }
+        }) % angle360)
+            / angle360)
+            * range255)
+            .round();
     }
 
     (h, s, v)
@@ -2202,16 +2201,7 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             let xscale = w / surf.width.into();
             let yscale = h / surf.height.into();
-            self.draw_surface_ext(&[
-                surf_id.into(),
-                x,
-                y,
-                xscale.into(),
-                yscale.into(),
-                0.into(),
-                colour,
-                alpha,
-            ])
+            self.draw_surface_ext(&[surf_id.into(), x, y, xscale.into(), yscale.into(), 0.into(), colour, alpha])
         } else {
             Ok(Default::default())
         }
@@ -2893,13 +2883,12 @@ impl Game {
     }
 
     pub fn action_message(&mut self, args: &[Value]) -> gml::Result<Value> {
-        self.show_message(&[
-            match expect_args!(args, [any])? {
-                v @ Value::Str(_) => v,
-                _ => "".into(),
-            }
-        ])
+        self.show_message(&[match expect_args!(args, [any])? {
+            v @ Value::Str(_) => v,
+            _ => "".into(),
+        }])
     }
+
     pub fn action_splash_text(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function action_splash_text")
@@ -2985,12 +2974,10 @@ impl Game {
     }
 
     pub fn action_if_question(&mut self, args: &[Value]) -> gml::Result<Value> {
-        self.show_question(&[
-            match expect_args!(args, [any])? {
-                v @ Value::Str(_) => v,
-                _ => "".into(),
-            }
-        ])
+        self.show_question(&[match expect_args!(args, [any])? {
+            v @ Value::Str(_) => v,
+            _ => "".into(),
+        }])
     }
 
     pub fn action_if_dice(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -3443,11 +3430,7 @@ impl Game {
         } else {
             (x, y)
         };
-        if tiled {
-            self.draw_background_tiled(&[bg_index, x, y])
-        } else {
-            self.draw_background(&[bg_index, x, y])
-        }
+        if tiled { self.draw_background_tiled(&[bg_index, x, y]) } else { self.draw_background(&[bg_index, x, y]) }
     }
 
     pub fn action_draw_text(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -7429,8 +7412,11 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.contains_key(var).into())
         } else {
-            Ok(self.compiler.find_field_id(identifier.as_ref()).map_or(false,
-                |i| self.globals.fields.contains_key(&i)).into())
+            Ok(self
+                .compiler
+                .find_field_id(identifier.as_ref())
+                .map_or(false, |i| self.globals.fields.contains_key(&i))
+                .into())
         }
     }
 
@@ -7445,7 +7431,9 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             Ok(self.globals.vars.get(var).and_then(|x| x.get(index)).unwrap_or_default())
         } else {
-            Ok(self.compiler.find_field_id(identifier.as_ref())
+            Ok(self
+                .compiler
+                .find_field_id(identifier.as_ref())
                 .and_then(|i| self.globals.fields.get(&i))
                 .and_then(|x| x.get(index))
                 .unwrap_or_default())
@@ -7492,8 +7480,11 @@ impl Game {
         if mappings::get_instance_variable_by_name(identifier.as_ref()).is_some() {
             Ok(gml::TRUE.into())
         } else {
-            Ok(self.compiler.find_field_id(identifier.as_ref()).map_or(false,
-                |i| self.instance_list.get(context.this).fields.borrow().contains_key(&i)).into())
+            Ok(self
+                .compiler
+                .find_field_id(identifier.as_ref())
+                .map_or(false, |i| self.instance_list.get(context.this).fields.borrow().contains_key(&i))
+                .into())
         }
     }
 
@@ -7509,7 +7500,9 @@ impl Game {
             self.get_instance_var(context.this, var, index, context)
         } else {
             let fields_ref = self.instance_list.get(context.this).fields.borrow();
-            Ok(self.compiler.find_field_id(identifier.as_ref())
+            Ok(self
+                .compiler
+                .find_field_id(identifier.as_ref())
                 .and_then(|i| fields_ref.get(&i))
                 .and_then(|x| x.get(index))
                 .unwrap_or_default())

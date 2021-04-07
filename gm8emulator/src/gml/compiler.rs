@@ -263,9 +263,7 @@ impl Compiler {
                     Node::Literal { value: entry.clone() }
                 } else if let Some(constant_id) = self.user_constant_names.get(*string) {
                     Node::Constant { constant_id: *constant_id }
-                } else if let Some(&v) = str::from_utf8(string).ok()
-                    .and_then(|n| mappings::CONSTANTS.get(n))
-                {
+                } else if let Some(&v) = str::from_utf8(string).ok().and_then(|n| mappings::CONSTANTS.get(n)) {
                     Node::Literal { value: Value::Real(Real::from(v)) }
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
@@ -367,8 +365,8 @@ impl Compiler {
                             .into_boxed_slice(),
                         script_id,
                     }
-                } else if let Some(function_id) = str::from_utf8(function.name).ok()
-                    .and_then(|n| mappings::FUNCTIONS.get_index(n))
+                } else if let Some(function_id) =
+                    str::from_utf8(function.name).ok().and_then(|n| mappings::FUNCTIONS.get_index(n))
                 {
                     Node::Function {
                         args: function

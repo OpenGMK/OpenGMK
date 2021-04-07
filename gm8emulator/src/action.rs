@@ -148,8 +148,8 @@ impl Tree {
                         // For the FUNCTION execution type, a kernel function name is provided in the action's fn_name.
                         // This is compiled to a function pointer.
                         execution_type::FUNCTION => {
-                            if let Some(fn_id) = str::from_utf8(&action.fn_name.0).ok()
-                                .and_then(|n| mappings::FUNCTIONS.get_index(n))
+                            if let Some(fn_id) =
+                                str::from_utf8(&action.fn_name.0).ok().and_then(|n| mappings::FUNCTIONS.get_index(n))
                             {
                                 output.push(Action {
                                     index: i,
@@ -369,9 +369,7 @@ impl Game {
                             }
 
                             returned_value = match gml_body {
-                                GmlBody::Function(f) => {
-                                    self.invoke(*f, &mut context, &arg_values[..args.len()])?
-                                },
+                                GmlBody::Function(f) => self.invoke(*f, &mut context, &arg_values[..args.len()])?,
                                 GmlBody::Code(code) => {
                                     context.arguments = arg_values;
                                     context.argument_count = args.len();

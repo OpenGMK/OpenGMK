@@ -1,8 +1,8 @@
-use phf::{phf_map, phf_ordered_map};
 use crate::{
     game::Game,
-    gml::{Function, InstanceVariable}
+    gml::{Function, InstanceVariable},
 };
+use phf::{phf_map, phf_ordered_map};
 
 pub mod constants {
     pub const ANSI_CHARSET: f64 = 0.0f64;
