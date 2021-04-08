@@ -2060,9 +2060,10 @@ impl Game {
         }
     }
 
-    pub fn surface_create_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function surface_create_ext")
+    pub fn surface_create_ext(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any])?;
+        Ok((-1).into())
     }
 
     pub fn surface_free(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -5447,64 +5448,74 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn yoyo_getplatform(_args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function YoYo_GetPlatform")
+    pub fn yoyo_getplatform(args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(gml::GM81_OS_TYPE.into())
     }
 
-    pub fn yoyo_getdevice(_args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function YoYo_GetDevice")
+    pub fn yoyo_getdevice(args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(gml::GM81_OS_DEVICE.into())
     }
 
-    pub fn yoyo_openurl(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function YoYo_OpenURL")
+    pub fn yoyo_openurl(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_openurl_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function YoYo_OpenURL_ext")
+    pub fn yoyo_openurl_ext(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_openurl_full(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function YoYo_OpenURL_full")
+    pub fn yoyo_openurl_full(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any, any])?;
+        Ok(Default::default())
     }
 
     pub fn yoyo_getdomain(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
         expect_args!(args, [])?;
         Ok(b"unknown".as_ref().into())
     }
 
-    pub fn yoyo_gettimer(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function YoYo_GetTimer")
+    pub fn yoyo_gettimer(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_addvirtualkey(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function YoYo_AddVirtualKey")
+    pub fn yoyo_addvirtualkey(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any, any, any, any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_deletevirtualkey(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function YoYo_DeleteVirtualKey")
+    pub fn yoyo_deletevirtualkey(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_showvirtualkey(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function YoYo_ShowVirtualKey")
+    pub fn yoyo_showvirtualkey(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_hidevirtualkey(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function YoYo_HideVirtualKey")
+    pub fn yoyo_hidevirtualkey(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn yoyo_enablealphablend(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function YoYo_EnableAlphaBlend")
+    pub fn yoyo_enablealphablend(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let alphablend = expect_args!(args, [bool])?;
+        self.renderer.set_alpha_blending(alphablend);
+        Ok(Default::default())
     }
 
     pub fn file_bin_open(&mut self, args: &[Value]) -> gml::Result<Value> {

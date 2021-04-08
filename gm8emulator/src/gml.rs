@@ -61,6 +61,10 @@ pub const GLOBAL: i32 = -5;
 pub const UNSPECIFIED: i32 = -6; // see "Runner Errors" page in GM:Studio docs
 pub const LOCAL: i32 = -7;
 
+// TODO: Replace these with actual system info. Defaults to what 8.1 returns.
+pub const GM81_OS_TYPE: f64 = mappings::constants::OS_WIN32;
+pub const GM81_OS_DEVICE: f64 = mappings::constants::DEVICE_IOS_IPHONE;
+
 pub mod ev {
     pub const CREATE: usize = 0;
     pub const DESTROY: usize = 1;

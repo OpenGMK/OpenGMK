@@ -92,6 +92,7 @@ struct RenderState {
     end_of_uniform: (),
     view_matrix: [f32; 16],
     proj_matrix: [f32; 16],
+    alpha_blending: bool,
     blend_mode: (BlendType, BlendType),
     write_depth: bool,
     culling: bool,
@@ -108,6 +109,7 @@ impl Default for RenderState {
             0.0, 0.0, 0.0, 1.0,
         ];
         Self {
+            alpha_blending: true,
             blend_mode: (BlendType::SrcAlpha, BlendType::InvSrcAlpha),
             interpolate_pixels: GLBool::False,
             texture_repeat: GLBool::False,
@@ -639,11 +641,19 @@ impl RendererImpl {
             let mut old_render_state = self.next_render_state.clone();
             std::mem::swap(&mut old_render_state, &mut self.queue_render_state);
             self.render_state_updated = false;
+            let alpha_blending = self.next_render_state.alpha_blending;
             let blend_mode = self.next_render_state.blend_mode;
             let depth_test = self.next_render_state.depth_test;
             let write_depth = self.next_render_state.write_depth;
             let culling = self.next_render_state.culling;
             unsafe {
+                if old_render_state.alpha_blending != alpha_blending {
+                    if alpha_blending.into() {
+                        self.gl.Enable(gl::BLEND);
+                    } else {
+                        self.gl.Disable(gl::BLEND);
+                    }
+                }
                 if old_render_state.blend_mode != blend_mode {
                     let (src, dst) = blend_mode;
                     self.gl.BlendFunc(src.into(), dst.into());
@@ -1854,6 +1864,15 @@ impl RendererTrait for RendererImpl {
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
         self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Triangle, &buf.tris);
+    }
+
+    fn get_alpha_blending(&self) -> bool {
+        self.next_render_state.alpha_blending
+    }
+
+    fn set_alpha_blending(&mut self, alphablend: bool) {
+        self.next_render_state.alpha_blending = alphablend;
+        self.render_state_updated = true;
     }
 
     fn get_blend_mode(&self) -> (BlendType, BlendType) {

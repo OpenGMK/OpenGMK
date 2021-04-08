@@ -4,7 +4,7 @@ use crate::{
     gml::{
         self,
         datetime::DateTime,
-        mappings::{self, constants as gml_constants},
+        mappings,
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
@@ -1161,8 +1161,8 @@ impl Game {
                 Version::GameMaker8_0 => 800f64.into(),
                 Version::GameMaker8_1 => 810f64.into(),
             }),
-            InstanceVariable::OsType => Ok(gml_constants::OS_WIN32.into()), // not on other OSes...
-            InstanceVariable::OsDevice => Ok(gml_constants::DEVICE_IOS_IPHONE.into()), // default
+            InstanceVariable::OsType => Ok(gml::GM81_OS_TYPE.into()),
+            InstanceVariable::OsDevice => Ok(gml::GM81_OS_DEVICE.into()),
 
             // all undocumented, unimplemented and return -1. not even the editor recognizes them
             InstanceVariable::OsBrowser => Ok((-1f64).into()),

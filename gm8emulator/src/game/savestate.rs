@@ -45,6 +45,7 @@ pub struct SaveState {
     pub room_colour: Colour,
     pub show_room_colour: bool,
     pub textures: Vec<Option<SavedTexture>>,
+    pub alpha_blending: bool,
     pub blend_mode: (BlendType, BlendType),
     pub interpolate_pixels: bool,
     pub texture_repeat: bool,
@@ -167,6 +168,7 @@ impl SaveState {
             room_colour: game.room_colour,
             show_room_colour: game.show_room_colour,
             textures: game.renderer.dump_dynamic_textures(),
+            alpha_blending: game.renderer.get_alpha_blending(),
             blend_mode: game.renderer.get_blend_mode(),
             interpolate_pixels: game.renderer.get_pixel_interpolation(),
             texture_repeat: game.renderer.get_texture_repeat(),
@@ -281,6 +283,7 @@ impl SaveState {
             game.renderer.reset_target();
         }
         game.renderer.set_model_matrix(self.model_matrix);
+        game.renderer.set_alpha_blending(self.alpha_blending);
         game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
         game.renderer.set_pixel_interpolation(self.interpolate_pixels);
         game.renderer.set_texture_repeat(self.texture_repeat);

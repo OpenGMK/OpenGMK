@@ -307,6 +307,8 @@ pub trait RendererTrait {
             origin_y: 0.0,
         })
     }
+    fn get_alpha_blending(&self) -> bool;
+    fn set_alpha_blending(&mut self, alphablend: bool);
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
     fn get_pixel_interpolation(&self) -> bool;
@@ -919,6 +921,14 @@ impl Renderer {
 
     pub fn set_sprite_count(&mut self, sprite_count: i32) {
         self.0.set_sprite_count(sprite_count)
+    }
+
+    pub fn get_alpha_blending(&self) -> bool {
+        self.0.get_alpha_blending()
+    }
+
+    pub fn set_alpha_blending(&mut self, alphablend: bool) {
+        self.0.set_alpha_blending(alphablend)
     }
 
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
