@@ -608,7 +608,7 @@ impl Compiler {
         let node = self.compile_ast_expr(expression, locals);
         if let Node::Literal { value: v @ Value::Real(_) } = &node {
             match v.round() {
-                gml::SELF | gml::SELF2 => InstanceIdentifier::Own,
+                gml::SELF | gml::UNSPECIFIED => InstanceIdentifier::Own,
                 gml::OTHER => InstanceIdentifier::Other,
                 gml::GLOBAL => InstanceIdentifier::Global,
                 gml::LOCAL => InstanceIdentifier::Local,

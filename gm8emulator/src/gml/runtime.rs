@@ -490,7 +490,7 @@ impl Game {
                 context.other = context.this;
 
                 match target_id {
-                    gml::SELF | gml::SELF2 => {
+                    gml::SELF | gml::UNSPECIFIED => {
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.other = old_other;
                             return Ok(ReturnType::Exit)
@@ -1570,7 +1570,7 @@ impl Game {
             InstanceIdentifier::Expression(node) => {
                 let value = self.eval(node, context).map(i32::from)?;
                 match value {
-                    gml::SELF | gml::SELF2 => Ok(Target::Single(Some(context.this))),
+                    gml::SELF | gml::UNSPECIFIED => Ok(Target::Single(Some(context.this))),
                     gml::OTHER => Ok(Target::Single(Some(context.other))),
                     gml::ALL => Ok(Target::All),
                     gml::NOONE => Ok(Target::Single(None)),

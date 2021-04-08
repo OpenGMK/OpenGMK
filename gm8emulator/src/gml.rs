@@ -58,7 +58,7 @@ pub const OTHER: i32 = -2;
 pub const ALL: i32 = -3;
 pub const NOONE: i32 = -4;
 pub const GLOBAL: i32 = -5;
-pub const SELF2: i32 = -6; // For some reason, although the value of `self` is -1, -6 is also treated as self.
+pub const UNSPECIFIED: i32 = -6; // see "Runner Errors" page in GM:Studio docs
 pub const LOCAL: i32 = -7;
 
 pub mod ev {
