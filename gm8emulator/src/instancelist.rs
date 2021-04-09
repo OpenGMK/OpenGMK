@@ -10,24 +10,19 @@ use serde::{
 };
 use shared::types::ID;
 use std::{
-    alloc,
     cell::RefCell,
     collections::{HashMap, HashSet},
-    fmt, ptr,
+    fmt,
     rc::Rc,
 };
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
 
-/// Typedef to not have to write `[Option<T>; CHUNK_SIZE]` everywhere.
-/// Array of CHUNK_SIZE with either vacant or occupied (T) slots.
-type ChunkArray<T> = [Option<T>; CHUNK_SIZE];
-
 /// Slab-like fixed size memory chunk with standard vacant/occupied system.
 #[derive(Clone)]
 struct Chunk<T> {
-    slots: Box<ChunkArray<T>>,
+    slots: Box<[Option<T>; CHUNK_SIZE]>,
     vacant: usize,
 }
 
@@ -39,17 +34,11 @@ static CHUNKS_PREALLOCATED: usize = 8;
 struct ChunkList<T>(Vec<Chunk<T>>);
 
 impl<T> Chunk<T> {
+    // TODO: This is somewhat annoying. See the similar comment in 'handleman'.
+    const NONE_INIT: Option<T> = None;
     pub fn new() -> Self {
         Self {
-            slots: unsafe {
-                // manual alloc since T isn't Copy... but it's all None anyway
-                let memory = alloc::alloc(alloc::Layout::new::<ChunkArray<T>>()) as *mut ChunkArray<T>;
-                let mut slots = Box::from_raw(memory);
-
-                // initialize memory, using ptr::write to avoid Drop running on uninitialized memory
-                slots.iter_mut().for_each(|slot| ptr::write(slot, None));
-                slots
-            },
+            slots: Box::new([Self::NONE_INIT; CHUNK_SIZE]),
             vacant: CHUNK_SIZE,
         }
     }
