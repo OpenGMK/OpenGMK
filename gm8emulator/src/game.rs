@@ -71,8 +71,8 @@ use string::RCStr;
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
-    pub text_files: HandleArray<file::TextHandle>,
-    pub binary_files: HandleArray<file::BinaryHandle>,
+    pub text_files: HandleArray<file::TextHandle, 32>,
+    pub binary_files: HandleArray<file::BinaryHandle, 32>,
     pub instance_list: InstanceList,
     pub tile_list: TileList,
     pub rand: Random,

@@ -6,9 +6,6 @@ use std::{
     error, result,
 };
 
-// TODO: Replace with 'const generics' when stabilized.
-const ARRAY_SIZE: usize = 32; // as limited in GM file API
-
 // Required because handle initialization closures must be able to return any errors.
 // TODO: Do we also need "+ Send + Sync + 'static" for BoxedStdError?
 type BoxedStdError = Box<dyn error::Error>;
@@ -44,7 +41,7 @@ impl error::Error for Error {
 pub struct HandleList<T>(Vec<Option<T>>);
 
 #[derive(Debug)]
-pub struct HandleArray<T>([Option<T>; ARRAY_SIZE]);
+pub struct HandleArray<T, const LEN: usize>([Option<T>; LEN]);
 
 impl<T> HandleList<T> {
     pub fn new() -> Self {
@@ -64,9 +61,13 @@ impl<T> HandleList<T> {
     }
 }
 
-impl<T> HandleArray<T> {
+impl<T, const LEN: usize> HandleArray<T, LEN> {
+    // TODO: This is somewhat annoying.
+    // https://github.com/rust-lang/rust/issues/44796
+    // https://stackoverflow.com/a/66776497
+    const NONE_INIT: Option<T> = None;
     pub fn new() -> Self {
-        Self(Default::default())
+        Self([Self::NONE_INIT; LEN])
     }
 
     pub fn get(&self, index: i32) -> Option<&T> {
@@ -78,7 +79,7 @@ impl<T> HandleArray<T> {
     }
 
     pub fn capacity(&self) -> i32 {
-        self.0.len().try_into().unwrap()
+        LEN.try_into().unwrap()
     }
 }
 
@@ -114,7 +115,7 @@ pub trait HandleManager<T>: private::HandleStorage<T> {
 }
 
 impl<T> HandleManager<T> for HandleList<T> {}
-impl<T> HandleManager<T> for HandleArray<T> {}
+impl<T, const LEN: usize> HandleManager<T> for HandleArray<T, LEN> {}
 
 mod private {
     use super::*;
@@ -141,7 +142,7 @@ mod private {
         }
     }
 
-    impl<T> HandleStorage<T> for HandleArray<T> {
+    impl<T, const LEN: usize> HandleStorage<T> for HandleArray<T, LEN> {
         fn iter_mut(&mut self) -> std::slice::IterMut<Option<T>> {
             self.0.iter_mut()
         }
