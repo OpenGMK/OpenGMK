@@ -1,0 +1,11 @@
+[package]
+name = "gm8exe"
+version = "0.1.0"
+authors = ["Adamcake", "viri"]
+license = "GPL-2.0-only"
+edition = "2018"
+
+[dependencies]
+byteorder = "1"
+flate2 = { version = "1.0", features = ["rust_backend"] }
+rayon = "1.2.0"
