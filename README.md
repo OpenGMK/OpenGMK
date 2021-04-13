@@ -1,5 +1,3 @@
-<!-- [![Build Status (Travis-CI)](https://travis-ci.com/OpenGM8/GM8Emulator.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Emulator) -->
-[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/5kad3dbn2q1jqs5i?svg=true)](https://ci.appveyor.com/project/viri/gm8emulator)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Discord](https://discordapp.com/api/guilds/730417804368412686/widget.png?style=shield)](http://gmemu.com/discord)
 
