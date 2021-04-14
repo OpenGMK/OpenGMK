@@ -10,6 +10,9 @@ use winapi::{
     um::{
         errhandlingapi::GetLastError,
         libloaderapi::{FreeLibrary, GetProcAddress, LoadLibraryW},
+        memoryapi::VirtualProtect,
+        processthreadsapi::{FlushInstructionCache, GetCurrentProcess},
+        winnt::PAGE_READWRITE,
     },
 };
 
@@ -116,12 +119,25 @@ pub unsafe fn apply_fmod_hack(filename: &str, handle: *mut u8) -> Result<(), Str
     let file_data = std::fs::read(filename).map_err(|e| format!("Couldn't load FMOD DLL to hash: {}", e))?;
     let file_hash = crc::crc32::checksum_ieee(&file_data);
     match file_hash {
-        0xC39E3B94 => {
+        0xC39E3B94 => { // the usual one
             eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
             // i think this is a pointer to some sort of struct containing GM8 handles ripped from the main image
             // if it's null it tries to extract them, which obviously doesn't work with the emulator
             // so make it not null : )
             handle.add(0x852d0).write(1);
+        },
+        0xD914E241 => { // the 2009 build
+            eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
+            // it tries to get the address for ds_list_add but this will access violate
+            // so inject a RET instruction into the start of its GetProcAddress function
+            // not to be confused with win32's GetProcAddress
+            // because we're injecting into executable space, we need to mess with memory permissions
+            let target_byte = handle.add(0xe440);
+            let mut old_protect = 0;
+            VirtualProtect(target_byte.cast(), 1, PAGE_READWRITE, &mut old_protect);
+            target_byte.write(0xc3);
+            VirtualProtect(target_byte.cast(), 1, old_protect, &mut old_protect);
+            FlushInstructionCache(GetCurrentProcess(), target_byte.cast(), 1);
         },
         0xB2FEC528 => (), // grix's fork v4.46, it doesn't have any runner hacks so it's safe
         _ => {
