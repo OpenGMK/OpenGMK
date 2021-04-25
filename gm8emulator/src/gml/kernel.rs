@@ -8376,14 +8376,16 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sprite_set_cache_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_set_cache_size")
+    pub fn sprite_set_cache_size(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any])?;
+        Ok(Default::default())
     }
 
-    pub fn sprite_set_cache_size_ext(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sprite_set_cache_size_ext")
+    pub fn sprite_set_cache_size_ext(args: &[Value]) -> gml::Result<Value> {
+        // Special GM 8.1 function, has effect only in the original HTML5 runner.
+        expect_args!(args, [any, any, any])?;
+        Ok(Default::default())
     }
 
     pub fn background_exists(&self, args: &[Value]) -> gml::Result<Value> {
