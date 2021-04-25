@@ -52,6 +52,7 @@ pub struct ControlPanel {
     key_button_r_held: Sprite,
     key_button_r_held2: Sprite,
     key_button_r_held3: Sprite,
+    key_button_r_cactus: Sprite,
     mouse_pos_normal: Sprite,
     save_button_active: Sprite,
     save_button_inactive: Sprite,
@@ -128,6 +129,7 @@ pub enum ButtonState {
     NeutralWillPress,
     NeutralWillPR,
     NeutralWillPRP,
+    NeutralWillCactus,
     Held,
     HeldWillRelease,
     HeldWillRP,
@@ -202,6 +204,7 @@ impl ControlPanel {
         let key_button_r_held = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld.bmp"));
         let key_button_r_held2 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld2.bmp"));
         let key_button_r_held3 = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRHeld3.bmp"));
+        let key_button_r_cactus = Self::upload_bmp(&mut atlases, include_bytes!("images/KeyBtnRCactus.bmp"));
         let mouse_pos_normal = Self::upload_bmp(&mut atlases, include_bytes!("images/mouse_pointer.bmp"));
         let save_button_active = Self::upload_bmp(&mut atlases, include_bytes!("images/save_active.bmp"));
         let save_button_inactive = Self::upload_bmp(&mut atlases, include_bytes!("images/save_inactive.bmp"));
@@ -323,6 +326,7 @@ impl ControlPanel {
             key_button_r_held,
             key_button_r_held2,
             key_button_r_held3,
+            key_button_r_cactus,
             mouse_pos_normal,
             save_button_active,
             save_button_inactive,
@@ -374,7 +378,8 @@ impl ControlPanel {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
                                 ButtonState::NeutralWillPress
                                 | ButtonState::NeutralWillPR
-                                | ButtonState::NeutralWillPRP => ButtonState::Neutral,
+                                | ButtonState::NeutralWillPRP
+                                | ButtonState::NeutralWillCactus => ButtonState::Neutral,
                                 ButtonState::Held => ButtonState::HeldWillRelease,
                                 ButtonState::HeldWillRelease | ButtonState::HeldWillRP | ButtonState::HeldWillRPR => {
                                     ButtonState::Held
@@ -389,7 +394,8 @@ impl ControlPanel {
                                 ButtonState::Neutral => ButtonState::NeutralWillPress,
                                 ButtonState::NeutralWillPress
                                 | ButtonState::NeutralWillPR
-                                | ButtonState::NeutralWillPRP => ButtonState::Neutral,
+                                | ButtonState::NeutralWillPRP
+                                | ButtonState::NeutralWillCactus => ButtonState::Neutral,
                                 ButtonState::Held => ButtonState::HeldWillRelease,
                                 ButtonState::HeldWillRelease | ButtonState::HeldWillRP | ButtonState::HeldWillRPR => {
                                     ButtonState::Held
@@ -431,27 +437,28 @@ impl ControlPanel {
                 Event::MouseButtonUp(input::MouseButton::Right) => {
                     for button in self.key_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
-                            let options = match button.state {
+                            match button.state {
                                 ButtonState::Neutral
                                 | ButtonState::NeutralWillPress
                                 | ButtonState::NeutralWillPR
-                                | ButtonState::NeutralWillPRP => [
+                                | ButtonState::NeutralWillPRP
+                                | ButtonState::NeutralWillCactus => self.window.show_context_menu(&[
+                                    ("Cactus-Release\0".into(), 4),
                                     ("Press-Release-Press\0".into(), 3),
                                     ("Press-Release\0".into(), 2),
                                     ("Press\0".into(), 1),
                                     ("Reset\0".into(), 0),
-                                ],
+                                ]),
                                 ButtonState::Held
                                 | ButtonState::HeldWillRelease
                                 | ButtonState::HeldWillRP
-                                | ButtonState::HeldWillRPR => [
-                                    ("Release-Press-Release\0".into(), 7),
-                                    ("Release-Press\0".into(), 6),
-                                    ("Release\0".into(), 5),
-                                    ("Reset\0".into(), 4),
-                                ],
+                                | ButtonState::HeldWillRPR => self.window.show_context_menu(&[
+                                    ("Release-Press-Release\0".into(), 8),
+                                    ("Release-Press\0".into(), 7),
+                                    ("Release\0".into(), 6),
+                                    ("Reset\0".into(), 5),
+                                ]),
                             };
-                            self.window.show_context_menu(&options);
                             self.menu_context = Some(MenuContext::KeyButton(button.key));
                             break 'evloop
                         }
@@ -459,27 +466,28 @@ impl ControlPanel {
 
                     for button in self.mouse_buttons.iter_mut() {
                         if button.contains_point(self.mouse_x, self.mouse_y) {
-                            let options = match button.state {
+                            match button.state {
                                 ButtonState::Neutral
                                 | ButtonState::NeutralWillPress
                                 | ButtonState::NeutralWillPR
-                                | ButtonState::NeutralWillPRP => [
+                                | ButtonState::NeutralWillPRP
+                                | ButtonState::NeutralWillCactus => self.window.show_context_menu(&[
+                                    ("Cactus-Release\0".into(), 4),
                                     ("Press-Release-Press\0".into(), 3),
                                     ("Press-Release\0".into(), 2),
                                     ("Press\0".into(), 1),
                                     ("Reset\0".into(), 0),
-                                ],
+                                ]),
                                 ButtonState::Held
                                 | ButtonState::HeldWillRelease
                                 | ButtonState::HeldWillRP
-                                | ButtonState::HeldWillRPR => [
-                                    ("Release-Press-Release\0".into(), 7),
-                                    ("Release-Press\0".into(), 6),
-                                    ("Release\0".into(), 5),
-                                    ("Reset\0".into(), 4),
-                                ],
+                                | ButtonState::HeldWillRPR => self.window.show_context_menu(&[
+                                    ("Release-Press-Release\0".into(), 8),
+                                    ("Release-Press\0".into(), 7),
+                                    ("Release\0".into(), 6),
+                                    ("Reset\0".into(), 5),
+                                ]),
                             };
-                            self.window.show_context_menu(&options);
                             self.menu_context = Some(MenuContext::MouseButton(button.button));
                             break 'evloop
                         }
@@ -508,10 +516,11 @@ impl ControlPanel {
                                 1 => ButtonState::NeutralWillPress,
                                 2 => ButtonState::NeutralWillPR,
                                 3 => ButtonState::NeutralWillPRP,
-                                4 => ButtonState::Held,
-                                5 => ButtonState::HeldWillRelease,
-                                6 => ButtonState::HeldWillRP,
-                                7 => ButtonState::HeldWillRPR,
+                                4 => ButtonState::NeutralWillCactus,
+                                5 => ButtonState::Held,
+                                6 => ButtonState::HeldWillRelease,
+                                7 => ButtonState::HeldWillRP,
+                                8 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
 
@@ -528,10 +537,11 @@ impl ControlPanel {
                                 1 => ButtonState::NeutralWillPress,
                                 2 => ButtonState::NeutralWillPR,
                                 3 => ButtonState::NeutralWillPRP,
-                                4 => ButtonState::Held,
-                                5 => ButtonState::HeldWillRelease,
-                                6 => ButtonState::HeldWillRP,
-                                7 => ButtonState::HeldWillRPR,
+                                4 => ButtonState::NeutralWillCactus,
+                                5 => ButtonState::Held,
+                                6 => ButtonState::HeldWillRelease,
+                                7 => ButtonState::HeldWillRP,
+                                8 => ButtonState::HeldWillRPR,
                                 _ => continue,
                             };
 
@@ -640,6 +650,7 @@ impl ControlPanel {
                     key_inputs.push((key.key, true));
                     key_inputs.push((key.key, false));
                 },
+                ButtonState::NeutralWillCactus => key_inputs.push((key.key, false)),
             }
         }
 
@@ -670,6 +681,7 @@ impl ControlPanel {
                     mouse_inputs.push((button.button, true));
                     mouse_inputs.push((button.button, false));
                 },
+                ButtonState::NeutralWillCactus => mouse_inputs.push((button.button, false)),
             }
         }
 
@@ -757,7 +769,8 @@ impl ControlPanel {
                 ButtonState::Neutral
                 | ButtonState::NeutralWillPress
                 | ButtonState::NeutralWillPR
-                | ButtonState::NeutralWillPRP => &self.key_button_l_neutral,
+                | ButtonState::NeutralWillPRP
+                | ButtonState::NeutralWillCactus => &self.key_button_l_neutral,
                 ButtonState::Held
                 | ButtonState::HeldWillRelease
                 | ButtonState::HeldWillRP
@@ -770,6 +783,7 @@ impl ControlPanel {
                 ButtonState::NeutralWillPRP => &self.key_button_r_held3,
                 ButtonState::HeldWillRP => &self.key_button_r_neutral2,
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
+                ButtonState::NeutralWillCactus => &self.key_button_r_cactus,
             };
             self.renderer.draw_sprite(
                 &sprite_l.atlas_ref,
@@ -820,6 +834,7 @@ impl ControlPanel {
                 | ButtonState::NeutralWillPress
                 | ButtonState::NeutralWillPR
                 | ButtonState::NeutralWillPRP => &self.key_button_l_neutral,
+                | ButtonState::NeutralWillCactus => &self.key_button_l_neutral,
                 ButtonState::Held
                 | ButtonState::HeldWillRelease
                 | ButtonState::HeldWillRP
@@ -832,6 +847,7 @@ impl ControlPanel {
                 ButtonState::NeutralWillPRP => &self.key_button_r_held3,
                 ButtonState::HeldWillRP => &self.key_button_r_neutral2,
                 ButtonState::HeldWillRPR => &self.key_button_r_neutral3,
+                ButtonState::NeutralWillCactus => &self.key_button_r_cactus,
             };
             self.renderer.draw_sprite(
                 &sprite_l.atlas_ref,
