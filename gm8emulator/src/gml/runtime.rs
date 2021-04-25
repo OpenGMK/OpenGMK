@@ -4,7 +4,7 @@ use crate::{
     gml::{
         self,
         datetime::DateTime,
-        mappings,
+        mappings::{self, constants as gml_constants},
         Context, InstanceVariable, Value,
     },
     instance::{DummyFieldHolder, Field},
@@ -1154,8 +1154,7 @@ impl Game {
             InstanceVariable::DebugMode => Ok(gml::FALSE.into()),
             InstanceVariable::ErrorOccurred => Ok(self.error_occurred.into()),
             InstanceVariable::ErrorLast => Ok(self.error_last.clone().into()),
-            InstanceVariable::GamemakerRegistered => Ok(gml::TRUE.into()), // yeah!
-            InstanceVariable::GamemakerPro => Ok(gml::TRUE.into()),        // identical to registered
+            InstanceVariable::GamemakerStandard => Ok(gml::TRUE.into()), // yeah!
             InstanceVariable::GamemakerVersion => Ok(match self.gm_version {
                 // the docs claim these range from 800-809, 810-819. they don't.
                 Version::GameMaker8_0 => 800f64.into(),
@@ -1163,13 +1162,10 @@ impl Game {
             }),
             InstanceVariable::OsType => Ok(gml::GM81_OS_TYPE.into()),
             InstanceVariable::OsDevice => Ok(gml::GM81_OS_DEVICE.into()),
-
-            // all undocumented, unimplemented and return -1. not even the editor recognizes them
-            InstanceVariable::OsBrowser => Ok((-1f64).into()),
             InstanceVariable::OsVersion => Ok((-1f64).into()),
+            InstanceVariable::OsBrowser => Ok(gml_constants::BROWSER_NOT_A_BROWSER.into()),
             InstanceVariable::BrowserWidth => Ok((-1f64).into()),
             InstanceVariable::BrowserHeight => Ok((-1f64).into()),
-
             InstanceVariable::DisplayAa => Ok(14f64.into()), // bitfield - 2x/4x/8x AA is 14
             InstanceVariable::AsyncLoad => Ok((-1f64).into()),
         }

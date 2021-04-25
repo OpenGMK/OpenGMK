@@ -40,6 +40,14 @@ pub mod constants {
     pub const BM_SRC_COLOR: f64 = 3.0;
     pub const BM_SUBTRACT: f64 = 3.0;
     pub const BM_ZERO: f64 = 1.0;
+    pub const BROWSER_CHROME: f64 = 3.0;
+    pub const BROWSER_FIREFOX: f64 = 2.0;
+    pub const BROWSER_IE: f64 = 1.0;
+    pub const BROWSER_NOT_A_BROWSER: f64 = -1.0;
+    pub const BROWSER_OPERA: f64 = 6.0;
+    pub const BROWSER_SAFARI: f64 = 4.0;
+    pub const BROWSER_SAFARI_MOBILE: f64 = 5.0;
+    pub const BROWSER_UNKNOWN: f64 = 0.0;
     pub const BUTTON_TYPE: f64 = 1.0;
     pub const C_AQUA: f64 = 16776960.0;
     pub const C_BLACK: f64 = 0.0;
@@ -85,6 +93,7 @@ pub mod constants {
     pub const DEVICE_IOS_IPAD: f64 = 2.0;
     pub const DEVICE_IOS_IPHONE: f64 = 0.0;
     pub const DEVICE_IOS_IPHONE_RETINA: f64 = 1.0;
+    pub const DEVICE_IOS_UNKNOWN: f64 = -1.0;
     pub const DLL_CDECL: f64 = 0.0;
     pub const DLL_STDCALL: f64 = 1.0;
     pub const EF_CLOUD: f64 = 9.0;
@@ -204,6 +213,7 @@ pub mod constants {
     pub const FA_VOLUMEID: f64 = 8.0;
     pub const FALSE: f64 = 0.0;
     pub const GLOBAL: f64 = -5.0;
+    pub const INPUT_TYPE: f64 = 2.0;
     pub const LOCAL: f64 = -7.0;
     pub const MB_ANY: f64 = -1.0;
     pub const MB_LEFT: f64 = 1.0;
@@ -213,9 +223,12 @@ pub mod constants {
     pub const NOONE: f64 = -4.0;
     pub const OS_ANDROID: f64 = 5.0;
     pub const OS_IOS: f64 = 4.0;
+    pub const OS_LINUX: f64 = 6.0;
     pub const OS_MACOSX: f64 = 2.0;
     pub const OS_PSP: f64 = 3.0;
+    pub const OS_UNKNOWN: f64 = -1.0;
     pub const OS_WIN32: f64 = 0.0;
+    pub const OS_WIN64: f64 = 1.0;
     pub const OTHER: f64 = -2.0;
     pub const PI: f64 = unsafe {
         // 3.141592653589793, but we use the exact bytes from GM8 to avoid any compiler-mangling
@@ -364,6 +377,14 @@ pub const CONSTANTS: phf::Map<&'static str, f64> = phf_map! {
     "bm_src_color" => constants::BM_SRC_COLOR,
     "bm_subtract" => constants::BM_SUBTRACT,
     "bm_zero" => constants::BM_ZERO,
+    "browser_chrome" => constants::BROWSER_CHROME,
+    "browser_firefox" => constants::BROWSER_FIREFOX,
+    "browser_ie" => constants::BROWSER_IE,
+    "browser_not_a_browser" => constants::BROWSER_NOT_A_BROWSER,
+    "browser_opera" => constants::BROWSER_OPERA,
+    "browser_safari" => constants::BROWSER_SAFARI,
+    "browser_safari_mobile" => constants::BROWSER_SAFARI_MOBILE,
+    "browser_unknown" => constants::BROWSER_UNKNOWN,
     "button_type" => constants::BUTTON_TYPE,
     "c_aqua" => constants::C_AQUA,
     "c_black" => constants::C_BLACK,
@@ -386,6 +407,7 @@ pub const CONSTANTS: phf::Map<&'static str, f64> = phf_map! {
     "c_yellow" => constants::C_YELLOW,
     "cr_appstart" => constants::CR_APPSTART,
     "cr_arrow" => constants::CR_ARROW,
+    "cr_arrrow" => constants::CR_ARROW, // a mistake from GM 5.0
     "cr_beam" => constants::CR_BEAM,
     "cr_cross" => constants::CR_CROSS,
     "cr_default" => constants::CR_DEFAULT,
@@ -409,6 +431,7 @@ pub const CONSTANTS: phf::Map<&'static str, f64> = phf_map! {
     "device_ios_ipad" => constants::DEVICE_IOS_IPAD,
     "device_ios_iphone" => constants::DEVICE_IOS_IPHONE,
     "device_ios_iphone_retina" => constants::DEVICE_IOS_IPHONE_RETINA,
+    "device_ios_unknown" => constants::DEVICE_IOS_UNKNOWN,
     "dll_cdecl" => constants::DLL_CDECL,
     "dll_stdcall" => constants::DLL_STDCALL,
     "ef_cloud" => constants::EF_CLOUD,
@@ -528,6 +551,7 @@ pub const CONSTANTS: phf::Map<&'static str, f64> = phf_map! {
     "fa_volumeid" => constants::FA_VOLUMEID,
     "false" => constants::FALSE,
     "global" => constants::GLOBAL,
+    "input_type" => constants::INPUT_TYPE,
     "local" => constants::LOCAL,
     "mb_any" => constants::MB_ANY,
     "mb_left" => constants::MB_LEFT,
@@ -537,9 +561,12 @@ pub const CONSTANTS: phf::Map<&'static str, f64> = phf_map! {
     "noone" => constants::NOONE,
     "os_android" => constants::OS_ANDROID,
     "os_ios" => constants::OS_IOS,
+    "os_linux" => constants::OS_LINUX,
     "os_macosx" => constants::OS_MACOSX,
     "os_psp" => constants::OS_PSP,
+    "os_unknown" => constants::OS_UNKNOWN,
     "os_win32" => constants::OS_WIN32,
+    "os_win64" => constants::OS_WIN64,
     "other" => constants::OTHER,
     "pi" => constants::PI,
     "pr_linelist" => constants::PR_LINELIST,
@@ -805,13 +832,13 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("debug_mode", InstanceVariable::DebugMode),
     ("error_occurred", InstanceVariable::ErrorOccurred),
     ("error_last", InstanceVariable::ErrorLast),
-    ("gamemaker_registered", InstanceVariable::GamemakerRegistered),
-    ("gamemaker_pro", InstanceVariable::GamemakerPro),
+    ("gamemaker_registered", InstanceVariable::GamemakerStandard),
+    ("gamemaker_pro", InstanceVariable::GamemakerStandard),
     ("gamemaker_version", InstanceVariable::GamemakerVersion),
     ("os_type", InstanceVariable::OsType),
     ("os_device", InstanceVariable::OsDevice),
-    ("os_browser", InstanceVariable::OsBrowser),
     ("os_version", InstanceVariable::OsVersion),
+    ("os_browser", InstanceVariable::OsBrowser),
     ("browser_width", InstanceVariable::BrowserWidth),
     ("browser_height", InstanceVariable::BrowserHeight),
     ("display_aa", InstanceVariable::DisplayAa),
