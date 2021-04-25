@@ -1828,6 +1828,17 @@ impl Game {
                         }
                         self.stored_events.clear();
 
+                        // Fake frame limiter stuff (don't actually frame-limit in record mode)
+                        if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                            *t += Duration::new(0, 1_000_000_000u32 / self.room_speed).as_nanos();
+                        }
+            
+                        if frame_counter == self.room_speed {
+                            self.fps = self.room_speed;
+                            frame_counter = 0;
+                        }
+                        frame_counter += 1;
+
                         // Send an update
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
@@ -1953,12 +1964,6 @@ impl Game {
                     _ => (),
                 }
             }
-
-            if frame_counter == self.room_speed {
-                self.fps = self.room_speed;
-                frame_counter = 0;
-            }
-            frame_counter += 1;
 
             if self.window.close_requested() {
                 break Ok(())
