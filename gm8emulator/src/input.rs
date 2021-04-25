@@ -155,10 +155,8 @@ impl InputManager {
         // self.kb_handle_direct(key, false);
         let code = self.key_get_map(key as usize);
         if code < KEY_COUNT {
-            if self.kb_held.get(code) {
-                self.kb_held.set(code, false);
-                self.kb_released.set(code, true);
-            }
+            self.kb_held.set(code, false);
+            self.kb_released.set(code, true);
             if self.kb_key == code as u32 {
                 self.kb_key = 0;
             }
@@ -312,10 +310,8 @@ impl InputManager {
     /// Informs the input manager that a mouse button has been released
     pub fn mouse_release(&mut self, button: MouseButton) {
         let code = button as usize;
-        if self.mouse_held.get(code) {
-            self.mouse_released.set(code, true);
-            self.mouse_held.set(code, false);
-        }
+        self.mouse_released.set(code, true);
+        self.mouse_held.set(code, false);
         self.mouse_button = 0;
     }
 
