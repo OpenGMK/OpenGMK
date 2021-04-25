@@ -235,7 +235,6 @@ impl Game {
     pub fn launch(
         assets: gm8exe::GameAssets,
         file_path: PathBuf,
-        spoofed_time_nanos: Option<u128>,
         game_arguments: Vec<String>,
         temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
@@ -966,7 +965,7 @@ impl Game {
             open_ini: None,
             open_file: None,
             file_finder: None,
-            spoofed_time_nanos,
+            spoofed_time_nanos: None,
             fps: 0,
             parameters: game_arguments,
             encoding,
@@ -1021,7 +1020,6 @@ impl Game {
         game.globals.vars.clear();
         game.globalvars.clear();
 
-        game.load_room(room1_id)?;
         game.window.set_visible(true);
 
         Ok(game)
@@ -1628,6 +1626,8 @@ impl Game {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.load_room(self.room_id)?;
+
         let mut time_now = Instant::now();
         let mut time_last = time_now;
         let mut frame_counter = 0;
@@ -1731,11 +1731,13 @@ impl Game {
                         std::fs::create_dir_all(&path)?;
                         path.push(&filename);
                         if path.exists() {
-                            println!("{} exists, loading workspace", filename);
+                            println!("Project '{}' exists, loading workspace", filename);
                             let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
                             replay = state.load_into(self);
                         } else {
-                            println!("{} doesn't exist, creating workspace", filename);
+                            println!("Project '{}' doesn't exist, so loading game at entry point", filename);
+                            self.load_room(self.room_id)?;
+                            println!("Creating new workspace...");
                             let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
                             File::create(&path)?.write_all(&bytes)?;
                         }
@@ -1766,7 +1768,6 @@ impl Game {
         let mut game_mousex = 0;
         let mut game_mousey = 0;
         let mut do_update_mouse = false;
-        self.play_type = PlayType::Record;
         let mut frame_counter = 0;
 
         loop {
@@ -1970,8 +1971,9 @@ impl Game {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
-        self.play_type = PlayType::Replay;
         let mut frame_counter = 0;
+
+        self.load_room(self.room_id)?;
 
         let mut time_now = std::time::Instant::now();
         loop {

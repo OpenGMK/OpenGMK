@@ -193,15 +193,6 @@ fn xmain() -> i32 {
         },
     };
 
-    let time_nanos = if spoof_time {
-        let datetime = chrono::Local::now().naive_local();
-        let secs = datetime.timestamp() as u128;
-        let nanos = datetime.timestamp_subsec_nanos() as u128;
-        Some(secs * 1_000_000_000 + nanos)
-    } else {
-        None
-    };
-
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
     let play_type = if project_path.is_some() {
@@ -212,16 +203,21 @@ fn xmain() -> i32 {
         game::PlayType::Normal
     };
 
-    let mut components =
-        match game::Game::launch(assets, absolute_path, time_nanos, game_args, temp_dir, encoding, play_type) {
-            Ok(g) => g,
-            Err(e) => {
-                eprintln!("Failed to launch game: {}", e);
-                return EXIT_FAILURE
-            },
-        };
+    let mut components = match game::Game::launch(assets, absolute_path, game_args, temp_dir, encoding, play_type) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("Failed to launch game: {}", e);
+            return EXIT_FAILURE
+        },
+    };
+
+    let datetime = chrono::Local::now().naive_local();
+    let secs = datetime.timestamp() as u128;
+    let nanos = datetime.timestamp_subsec_nanos() as u128;
+    let time_now = secs * 1_000_000_000 + nanos;
 
     if let Err(err) = if let Some(path) = project_path {
+        components.spoofed_time_nanos = Some(time_now);
         components.record(path, port)
     } else {
         // cache temp_dir and included files because the other functions take ownership
@@ -236,7 +232,12 @@ fn xmain() -> i32 {
             .filter(|i| i.remove_at_end)
             .map(|i| PathBuf::from(components.decode_str(i.name.as_ref()).into_owned()))
             .collect::<Vec<_>>();
-        let result = if let Some(replay) = replay { components.replay(replay) } else { components.run() };
+        let result = if let Some(replay) = replay {
+            components.replay(replay)
+        } else {
+            components.spoofed_time_nanos = if spoof_time { Some(time_now) } else { None };
+            components.run()
+        };
         for file in files_to_delete.into_iter() {
             std::fs::remove_file(file).ok();
         }
