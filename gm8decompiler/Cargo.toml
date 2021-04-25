@@ -1,0 +1,17 @@
+[package]
+name = "gm8decompiler"
+version = "2.1.1"
+authors = ["The OpenGMK Project Developers"]
+license = "GPL-2.0-only"
+edition = "2018"
+
+[build-dependencies]
+time = { version = "0.2", features = ["std"], default-features = false }
+
+[dependencies]
+byteorder = "1"
+flate2 = { version = "1.0", features = ["zlib-ng-compat"], default-features = false }
+getopts = "0.2.21"
+gm8exe = { path = "../gm8exe" }
+gml-parser = { path = "../gml-parser" }
+rayon = "1.2"

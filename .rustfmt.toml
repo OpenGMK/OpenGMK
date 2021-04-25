@@ -15,7 +15,7 @@ match_block_trailing_comma = true
 merge_derives = false
 
 # Very non-intrusive.
-merge_imports = true
+imports_granularity = "Crate"
 
 # Reformat all lines to LF (\n) in case they aren't for whatever reason.
 newline_style = "Unix"

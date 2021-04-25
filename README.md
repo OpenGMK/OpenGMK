@@ -1,5 +1,3 @@
-<!-- [![Build Status (Travis-CI)](https://travis-ci.com/OpenGM8/GM8Emulator.svg?branch=master)](https://travis-ci.com/OpenGM8/GM8Emulator) -->
-[![Build Status (AppVeyor)](https://ci.appveyor.com/api/projects/status/5kad3dbn2q1jqs5i?svg=true)](https://ci.appveyor.com/project/viri/gm8emulator)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Discord](https://discordapp.com/api/guilds/730417804368412686/widget.png?style=shield)](http://gmemu.com/discord)
 
@@ -22,7 +20,7 @@ After installing, if you cannot access Rust commands like "rustup" or "rustc", m
 
 `Set path=”%USERPROFILE%\.cargo\bin”`
 
-After cloning the GM8Emulator repository, set up Rust in your CLI by typing the following:
+After cloning the OpenGMK repository, set up Rust in your CLI by typing the following:
 
 - `rustup self update`
 - `rustup update`
@@ -52,7 +50,7 @@ Run the following commands in your CLI in `target/release`, replacing anything i
 
 **Loading a game gives "failed to load 'filename' - unknown format, could not identify file"**
 
-> GM8Emulator works on GM8 games. It’s possible the game you are trying to load is a GMStudio game, which it does not support.
+> GM8Emulator works on GM8 games. It’s possible the game you are trying to load is a GM:Studio game, which it does not support.
 
 
 **Loading a game or during a game, I got "thread 'main panicked at...'**
