@@ -12,6 +12,9 @@ pub struct Replay {
     // RNG seed to use at the beginning of this replay.
     pub start_seed: i32,
 
+    // Special list of stored events used during startup (before frame 0)
+    pub startup_events: Vec<Event>,
+
     // List of frames in this replay.
     frames: Vec<Frame>,
 }
@@ -52,7 +55,7 @@ pub enum Input {
 
 impl Replay {
     pub fn new(start_time: u128, start_seed: i32) -> Self {
-        Self { start_time, start_seed, frames: Vec::new() }
+        Self { start_time, start_seed, startup_events: Vec::new(), frames: Vec::new() }
     }
 
     // Adds a new frame of input to the end of the replay.

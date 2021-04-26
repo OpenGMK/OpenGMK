@@ -1737,6 +1737,11 @@ impl Game {
                         } else {
                             println!("Project '{}' doesn't exist, so loading game at entry point", filename);
                             self.load_room(self.room_id)?;
+                            for ev in self.stored_events.iter() {
+                                replay.startup_events.push(ev.clone());
+                            }
+                            self.stored_events.clear();
+
                             println!("Creating new workspace...");
                             let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
                             File::create(&path)?.write_all(&bytes)?;
@@ -1978,6 +1983,9 @@ impl Game {
         self.spoofed_time_nanos = Some(replay.start_time);
         let mut frame_counter = 0;
 
+        for ev in replay.startup_events.iter() {
+            self.stored_events.push_back(ev.clone());
+        }
         self.load_room(self.room_id)?;
 
         let mut time_now = std::time::Instant::now();
