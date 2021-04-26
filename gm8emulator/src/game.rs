@@ -1837,7 +1837,7 @@ impl Game {
                         if let Some(t) = self.spoofed_time_nanos.as_mut() {
                             *t += Duration::new(0, 1_000_000_000u32 / self.room_speed).as_nanos();
                         }
-            
+
                         if frame_counter == self.room_speed {
                             self.fps = self.room_speed;
                             frame_counter = 0;
@@ -1993,7 +1993,15 @@ impl Game {
             self.window.process_events();
             self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
-                self.stored_events.clear();
+                if !self.stored_events.is_empty() {
+                    return Err(format!(
+                        "ERROR: {} stored events remaining at beginning of frame {}; aborting",
+                        self.stored_events.len(),
+                        frame_count,
+                    )
+                    .into())
+                }
+
                 for ev in frame.events.iter() {
                     self.stored_events.push_back(ev.clone());
                 }
