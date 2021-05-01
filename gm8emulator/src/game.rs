@@ -1375,7 +1375,7 @@ impl Game {
                         if let Some(dur) = FRAME_TIME.checked_sub(diff) {
                             gml::datetime::sleep(dur);
                         }
-                        current_time = Instant::now();
+                        current_time += FRAME_TIME;
                     }
                     if self.surface_fix {
                         self.renderer.set_perspective(perspective);
