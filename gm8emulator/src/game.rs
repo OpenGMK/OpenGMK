@@ -1375,6 +1375,9 @@ impl Game {
                         if let Some(dur) = FRAME_TIME.checked_sub(diff) {
                             gml::datetime::sleep(dur);
                         }
+                        if let Some(t) = &mut self.spoofed_time_nanos {
+                            *t += FRAME_TIME.as_nanos();
+                        }
                         current_time += FRAME_TIME;
                     }
                     if self.surface_fix {
