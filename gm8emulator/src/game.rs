@@ -506,12 +506,13 @@ impl Game {
                     FileKind::DynamicLibrary => {
                         // DLL - save this to disk then define all the externals in it
                         temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
+
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.into_iter() {
                             extension_functions.push(
                                 ExtensionFunction::Dll(external::External::new(
                                     external::DefineInfo {
-                                        dll_name: dll_name.clone(),
+                                        dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
                                         fn_name: RCStr::from(function.name),
                                         call_conv: match function.convention {
                                             CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
