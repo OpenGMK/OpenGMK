@@ -86,7 +86,7 @@ pub struct Game {
     pub room_colour: Colour,
     pub show_room_colour: bool,
 
-    pub extension_functions: Vec<ExtensionFunction>,
+    pub extension_functions: Vec<Option<ExtensionFunction>>,
     pub externals: Vec<Option<external::External>>,
     pub surface_fix: bool,
 
@@ -450,6 +450,17 @@ impl Game {
         // Register user constants
         constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
 
+        // Register extension function names
+        let mut i = 0;
+        for extension in extensions.iter() {
+            for file in extension.files.iter() {
+                for function in file.functions.iter() {
+                    compiler.register_extension_function(function.name.0.as_ref().into(), i);
+                    i += 1;
+                }
+            }
+        }
+
         // Set up a Renderer
         let options = RendererOptions {
             size: (room1_width, room1_height),
@@ -508,7 +519,6 @@ impl Game {
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.into_iter() {
-                            let boxed_fn_name = function.name.0.clone();
                             match external::External::new(
                                 external::DefineInfo {
                                     dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
@@ -536,11 +546,8 @@ impl Game {
                                     Version::GameMaker8_1 => encoding_rs::UTF_8,
                                 },
                             ) {
-                                Ok(external) => {
-                                    compiler.register_extension_function(boxed_fn_name, extension_functions.len());
-                                    extension_functions.push(ExtensionFunction::Dll(external));
-                                },
-                                Err(e) => println!("WARNING: in extension {}: {}", extension.name, e),
+                                Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
+                                Err(_) => extension_functions.push(None),
                             }
                         }
                         temp_directory.pop();
@@ -568,10 +575,9 @@ impl Game {
                                     } else {
                                         &file.contents[start..]
                                     };
-                                    compiler.register_extension_function(function_name.into(), extension_functions.len());
-                                    extension_functions.push(ExtensionFunction::Gml(compiler.compile(fn_code)?));
+                                    extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
                                 },
-                                None => println!("WARNING: function {} not found in {} in extension {}", String::from_utf8_lossy(function_name), file.name, extension.name),
+                                None => extension_functions.push(None),
                             }
                         }
                     },

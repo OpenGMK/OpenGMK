@@ -137,6 +137,7 @@ pub enum InstanceIdentifier {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Error {
     EndOfRoomOrder,
+    ExtensionFunctionNotLoaded(usize),
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
     InvalidUnaryOperator(Operator),
@@ -167,6 +168,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::EndOfRoomOrder => write!(f, "end of room order reached"),
+            Self::ExtensionFunctionNotLoaded(id) => write!(f, "extension function {} not loaded", id),
             Self::InvalidOperandsUnary(op, x) => {
                 write!(f, "invalid operands {} to {} operator ({1}{})", x.ty_str(), op, x)
             },
@@ -618,8 +620,8 @@ impl Game {
                 }
 
                 match &self.extension_functions[*id] {
-                    ExtensionFunction::Dll(external) => external.call(&arg_values[..args.len()]),
-                    ExtensionFunction::Gml(gml) => {
+                    Some(ExtensionFunction::Dll(external)) => external.call(&arg_values[..args.len()]),
+                    Some(ExtensionFunction::Gml(gml)) => {
                         let mut new_context = Context {
                             this: context.this,
                             other: context.other,
@@ -638,6 +640,7 @@ impl Game {
                         self.execute(&instructions, &mut new_context)?;
                         Ok(new_context.return_value)
                     },
+                    None => Err(Error::ExtensionFunctionNotLoaded(*id)),
                 }
             },
             Node::Field { accessor } => {
