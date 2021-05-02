@@ -509,31 +509,36 @@ impl Game {
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.into_iter() {
-                            extension_functions.push(
-                                ExtensionFunction::Dll(external::External::new(
-                                    external::DefineInfo {
-                                        dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
-                                        fn_name: RCStr::from(function.name),
-                                        call_conv: match function.convention {
-                                            CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
-                                            _ => shared::dll::CallConv::Stdcall,
-                                        },
-                                        res_type: match function.return_type {
-                                            FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                            FunctionValueKind::GMString => shared::dll::ValueType::Str,
-                                        },
-                                        arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
-                                            FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                            FunctionValueKind::GMString => shared::dll::ValueType::Str,
-                                        }).collect::<Vec<_>>(),
+                            let boxed_fn_name = function.name.0.clone();
+                            match external::External::new(
+                                external::DefineInfo {
+                                    dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
+                                    fn_name: RCStr::from(function.name),
+                                    call_conv: match function.convention {
+                                        CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
+                                        _ => shared::dll::CallConv::Stdcall,
                                     },
-                                    play_type == PlayType::Record,
-                                    match gm_version {
-                                        Version::GameMaker8_0 => encoding,
-                                        Version::GameMaker8_1 => encoding_rs::UTF_8,
+                                    res_type: match function.return_type {
+                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
                                     },
-                                )?
-                            ));
+                                    arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
+                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                    }).collect::<Vec<_>>(),
+                                },
+                                play_type == PlayType::Record,
+                                match gm_version {
+                                    Version::GameMaker8_0 => encoding,
+                                    Version::GameMaker8_1 => encoding_rs::UTF_8,
+                                },
+                            ) {
+                                Ok(external) => {
+                                    compiler.register_extension_function(boxed_fn_name, extension_functions.len());
+                                    extension_functions.push(ExtensionFunction::Dll(external));
+                                },
+                                Err(e) => println!("WARNING: in extension {}: {}", extension.name, e),
+                            }
                         }
                         temp_directory.pop();
                     },
@@ -560,6 +565,7 @@ impl Game {
                                     } else {
                                         &file.contents[start..]
                                     };
+                                    compiler.register_extension_function(function_name.into(), extension_functions.len());
                                     extension_functions.push(ExtensionFunction::Gml(compiler.compile(fn_code)?));
                                 },
                                 None => println!("WARNING: function {} not found in {} in extension {}", String::from_utf8_lossy(function_name), dll_name, extension.name),
