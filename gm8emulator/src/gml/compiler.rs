@@ -22,6 +22,9 @@ pub struct Compiler {
     /// Table of script names to IDs
     script_names: HashMap<Box<[u8]>, usize>,
 
+    /// Table of extension function names
+    extension_fn_names: HashMap<Box<[u8]>, usize>,
+
     /// Lookup table of unique field names
     fields: Vec<Box<[u8]>>,
 }
@@ -33,6 +36,7 @@ impl Compiler {
             constants: HashMap::new(),
             user_constant_names: HashMap::new(),
             script_names: HashMap::new(),
+            extension_fn_names: HashMap::new(),
             fields: Vec::new(),
         }
     }
@@ -45,6 +49,11 @@ impl Compiler {
     /// Reserve space to register at least the given number of script names.
     pub fn reserve_scripts(&mut self, size: usize) {
         self.script_names.reserve(size)
+    }
+
+    /// Reserve space to register at least the given number of ExtensionFunction names.
+    pub fn reserve_extension_functions(&mut self, size: usize) {
+        self.extension_fn_names.reserve(size)
     }
 
     /// Reserve space to register at least the given number of user-defined constants.
@@ -64,6 +73,12 @@ impl Compiler {
         self.script_names.entry(name).or_insert(index);
     }
 
+    /// Register an ExtensionFunction and its index.
+    pub fn register_extension_function(&mut self, name: Box<[u8]>, index: usize) {
+        self.extension_fn_names.entry(name).or_insert(index);
+    }
+
+    /// Register a user constant and its index.
     pub fn register_user_constant(&mut self, name: Box<[u8]>, index: usize) {
         self.user_constant_names.insert(name, index);
     }
@@ -355,28 +370,16 @@ impl Compiler {
             },
 
             ast::Expr::Function(function) => {
+                let args = function.params.iter().map(|x| self.compile_ast_expr(&x, locals)).collect::<Vec<_>>().into_boxed_slice();
+
                 if let Some(script_id) = self.get_script_id(function.name) {
-                    Node::Script {
-                        args: function
-                            .params
-                            .iter()
-                            .map(|x| self.compile_ast_expr(&x, locals))
-                            .collect::<Vec<_>>()
-                            .into_boxed_slice(),
-                        script_id,
-                    }
+                    Node::Script { args, script_id }
+                } else if let Some(id) = self.extension_fn_names.get(function.name).copied() {
+                    Node::ExtensionFunction { args, id }
                 } else if let Some(function_id) =
                     str::from_utf8(function.name).ok().and_then(|n| mappings::FUNCTIONS.get_index(n))
                 {
-                    Node::Function {
-                        args: function
-                            .params
-                            .iter()
-                            .map(|x| self.compile_ast_expr(&x, locals))
-                            .collect::<Vec<_>>()
-                            .into_boxed_slice(),
-                        function_id,
-                    }
+                    Node::Function { args, function_id }
                 } else {
                     Node::RuntimeError {
                         error: gml::Error::UnknownFunction(String::from_utf8_lossy(function.name).into()),
