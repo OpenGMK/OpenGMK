@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{Game, GetAsset, SceneChange, Version},
+    game::{ExtensionFunction, Game, GetAsset, SceneChange, Version},
     gml::{
         self,
         datetime::DateTime,
@@ -45,6 +45,7 @@ pub enum Node {
     Constant { constant_id: usize },
     Function { args: Box<[Node]>, function_id: usize },
     Script { args: Box<[Node]>, script_id: usize },
+    ExtensionFunction { args: Box<[Node]>, id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
     Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator },
@@ -253,6 +254,7 @@ impl fmt::Debug for Node {
                 write!(f, "<function {:?}: {:?}>", mappings::FUNCTIONS.index(*function_id).unwrap().0, args)
             },
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
+            Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
             Node::Binary { left, right, operator } => write!(f, "<binary {:?}: {:?}, {:?}>", operator, left, right),
@@ -607,6 +609,35 @@ impl Game {
                     Ok(new_context.return_value)
                 } else {
                     Err(Error::NonexistentAsset(asset::Type::Script, *script_id as i32))
+                }
+            },
+            Node::ExtensionFunction { args, id } => {
+                let mut arg_values: [Value; 16] = Default::default();
+                for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                    *dest = self.eval(src, context)?;
+                }
+
+                match &self.extension_functions[*id] {
+                    ExtensionFunction::Dll(external) => external.call(&arg_values[..args.len()]),
+                    ExtensionFunction::Gml(gml) => {
+                        let mut new_context = Context {
+                            this: context.this,
+                            other: context.other,
+                            event_action: context.event_action,
+                            relative: context.relative,
+                            event_type: context.event_type,
+                            event_number: context.event_number,
+                            event_object: context.event_object,
+                            arguments: arg_values,
+                            argument_count: args.len(),
+                            locals: DummyFieldHolder::new(),
+                            return_value: Default::default(),
+                        };
+
+                        let instructions = gml.clone();
+                        self.execute(&instructions, &mut new_context)?;
+                        Ok(new_context.return_value)
+                    },
                 }
             },
             Node::Field { accessor } => {
