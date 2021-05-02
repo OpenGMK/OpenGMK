@@ -500,11 +500,10 @@ impl Game {
             std::fs::create_dir_all(&temp_directory)?;
 
             for file in extension.files.into_iter() {
-                let dll_name = RCStr::from(file.name);
-
                 match file.kind {
                     FileKind::DynamicLibrary => {
                         // DLL - save this to disk then define all the externals in it
+                        let dll_name = RCStr::from(file.name);
                         temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
@@ -568,14 +567,14 @@ impl Game {
                                     compiler.register_extension_function(function_name.into(), extension_functions.len());
                                     extension_functions.push(ExtensionFunction::Gml(compiler.compile(fn_code)?));
                                 },
-                                None => println!("WARNING: function {} not found in {} in extension {}", String::from_utf8_lossy(function_name), dll_name, extension.name),
+                                None => println!("WARNING: function {} not found in {} in extension {}", String::from_utf8_lossy(function_name), file.name, extension.name),
                             }
                         }
                     },
                     FileKind::ActionLibrary => (), // Lib - don't think we need to do anything with this
                     FileKind::Other => {
                         // Other - just save this to disk
-                        temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
+                        temp_directory.push(&*String::from_utf8_lossy(file.name.0.as_ref()));
                         let mut f = File::create(&temp_directory)?;
                         f.write_all(&file.contents)?;
                         temp_directory.pop();
