@@ -512,7 +512,11 @@ impl Game {
                             match external::External::new(
                                 external::DefineInfo {
                                     dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
-                                    fn_name: RCStr::from(function.name),
+                                    fn_name: RCStr::from(if function.external_name.0.len() == 0 {
+                                        function.name
+                                    } else {
+                                        function.external_name
+                                    }),
                                     call_conv: match function.convention {
                                         CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
                                         _ => shared::dll::CallConv::Stdcall,
