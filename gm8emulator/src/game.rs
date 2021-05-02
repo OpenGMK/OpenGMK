@@ -559,8 +559,8 @@ impl Game {
                                 .map(|x| x + define_string.len() + function_name.len())
                             {
                                 Some(start) => {
-                                    let fn_code = if let Some(end) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
-                                        &file.contents[start..end]
+                                    let fn_code = if let Some(len) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
+                                        &file.contents[start..(start + len)]
                                     } else {
                                         &file.contents[start..]
                                     };
