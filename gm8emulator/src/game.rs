@@ -87,6 +87,9 @@ pub struct Game {
     pub show_room_colour: bool,
 
     pub extension_functions: Vec<Option<ExtensionFunction>>,
+    pub extension_initializers: Vec<usize>,
+    pub extension_finalizers: Vec<usize>,
+
     pub externals: Vec<Option<external::External>>,
     pub surface_fix: bool,
 
@@ -452,10 +455,18 @@ impl Game {
 
         // Register extension function names
         let mut i = 0;
+        let mut extension_initializers = Vec::new();
+        let mut extension_finalizers = Vec::new();
         for extension in extensions.iter() {
             for file in extension.files.iter() {
                 for function in file.functions.iter() {
                     compiler.register_extension_function(function.name.0.as_ref().into(), i);
+                    if function.name.0 == file.initializer.0 {
+                        extension_initializers.push(i);
+                    }
+                    if function.name.0 == file.finalizer.0 {
+                        extension_finalizers.push(i);
+                    }
                     i += 1;
                 }
             }
@@ -1013,6 +1024,8 @@ impl Game {
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
             extension_functions,
+            extension_initializers,
+            extension_finalizers,
             externals: Vec::new(),
             surface_fix: false,
             room_colour: room1_colour,
