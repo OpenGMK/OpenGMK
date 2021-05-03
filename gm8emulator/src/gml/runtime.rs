@@ -7,7 +7,7 @@ use crate::{
         mappings::{self, constants as gml_constants},
         Context, InstanceVariable, Value,
     },
-    instance::{DummyFieldHolder, Field},
+    instance::Field,
     math::Real,
 };
 use gml_parser::token::Operator;
@@ -594,19 +594,7 @@ impl Game {
                         *dest = self.eval(src, context)?;
                     }
 
-                    let mut new_context = Context {
-                        this: context.this,
-                        other: context.other,
-                        event_action: context.event_action,
-                        relative: context.relative,
-                        event_type: context.event_type,
-                        event_number: context.event_number,
-                        event_object: context.event_object,
-                        arguments: arg_values,
-                        argument_count: args.len(),
-                        locals: DummyFieldHolder::new(),
-                        return_value: Default::default(),
-                    };
+                    let mut new_context = Context::copy_with_args(context, arg_values, args.len());
                     self.execute(&instructions, &mut new_context)?;
                     Ok(new_context.return_value)
                 } else {
@@ -622,20 +610,7 @@ impl Game {
                 match &self.extension_functions[*id] {
                     Some(ExtensionFunction::Dll(external)) => external.call(&arg_values[..args.len()]),
                     Some(ExtensionFunction::Gml(gml)) => {
-                        let mut new_context = Context {
-                            this: context.this,
-                            other: context.other,
-                            event_action: context.event_action,
-                            relative: context.relative,
-                            event_type: context.event_type,
-                            event_number: context.event_number,
-                            event_object: context.event_object,
-                            arguments: arg_values,
-                            argument_count: args.len(),
-                            locals: DummyFieldHolder::new(),
-                            return_value: Default::default(),
-                        };
-
+                        let mut new_context = Context::copy_with_args(context, arg_values, args.len());
                         let instructions = gml.clone();
                         self.execute(&instructions, &mut new_context)?;
                         Ok(new_context.return_value)

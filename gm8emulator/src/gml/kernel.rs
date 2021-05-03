@@ -14,7 +14,7 @@ use crate::{
         ds, file, mappings, network, Context, Value,
     },
     handleman::HandleManager,
-    instance::{DummyFieldHolder, Field, Instance, InstanceState},
+    instance::{Field, Instance, InstanceState},
     math::Real,
     tile::Tile,
 };
@@ -3010,15 +3010,7 @@ impl Game {
         if let Some(script) = self.assets.scripts.get_asset(script_id) {
             let instructions = script.compiled.clone();
 
-            let mut new_context = Context {
-                this: context.this,
-                other: context.other,
-                event_action: context.event_action,
-                relative: context.relative,
-                event_type: context.event_type,
-                event_number: context.event_number,
-                event_object: context.event_object,
-                arguments: [
+            let mut new_context = Context::copy_with_args(context, [
                     arg1,
                     arg2,
                     arg3,
@@ -3035,11 +3027,7 @@ impl Game {
                     Default::default(),
                     Default::default(),
                     Default::default(),
-                ],
-                argument_count: 5,
-                locals: DummyFieldHolder::new(),
-                return_value: Default::default(),
-            };
+                ], 5);
             self.execute(&instructions, &mut new_context)?;
             Ok(new_context.return_value)
         } else {
@@ -7356,12 +7344,8 @@ impl Game {
                     for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
                         *dest = src.clone();
                     }
-                    let mut new_context = Context {
-                        arguments: new_args,
-                        locals: DummyFieldHolder::new(),
-                        return_value: Default::default(),
-                        ..*context
-                    };
+                    // Note: GM8 does not update the argument_count here to new_args.len() as it should
+                    let mut new_context = Context::copy_with_args(context, new_args, context.argument_count);
                     self.execute(&instrs, &mut new_context)?;
                     Ok(new_context.return_value)
                 },
@@ -8853,19 +8837,7 @@ impl Game {
                 for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
                     *dest = src.clone();
                 }
-                let mut new_context = Context {
-                    this: context.this,
-                    other: context.other,
-                    event_action: context.event_action,
-                    relative: context.relative,
-                    event_type: context.event_type,
-                    event_number: context.event_number,
-                    event_object: context.event_object,
-                    arguments: new_args,
-                    argument_count: args.len() - 1,
-                    locals: DummyFieldHolder::new(),
-                    return_value: Default::default(),
-                };
+                let mut new_context = Context::copy_with_args(context, new_args, args.len() - 1);
                 self.execute(&instructions, &mut new_context)?;
                 Ok(new_context.return_value)
             } else {
