@@ -86,6 +86,7 @@ pub struct Game {
     pub room_colour: Colour,
     pub show_room_colour: bool,
 
+    pub library_init_strings: Vec<Box<[u8]>>,
     pub extension_functions: Vec<Option<ExtensionFunction>>,
     pub extension_initializers: Vec<usize>,
     pub extension_finalizers: Vec<usize>,
@@ -283,6 +284,7 @@ impl Game {
             included_files,
             last_instance_id,
             last_tile_id,
+            library_init_strings,
             objects,
             paths,
             room_order,
@@ -1023,6 +1025,7 @@ impl Game {
             rand,
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
+            library_init_strings: library_init_strings.into_iter().map(|x| x.0).collect(),
             extension_functions,
             extension_initializers,
             extension_finalizers,
@@ -1735,6 +1738,14 @@ impl Game {
 
     /// Starts the game, loading the first room. Does not need to be called immediately before loading a savestate.
     pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Library initialization code
+        for i in 0..self.library_init_strings.len() {
+            let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let instructions = self.compiler.compile(&self.library_init_strings[i])?;
+            self.execute(&instructions, &mut Context::with_single_instance(dummy_instance))?;
+            self.instance_list.remove_dummy(dummy_instance);
+        }
+
         // Extension initializers
         for i in 0..self.extension_initializers.len() {
             let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
