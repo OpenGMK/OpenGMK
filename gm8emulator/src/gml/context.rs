@@ -1,6 +1,7 @@
 use crate::{gml::Value, instance::DummyFieldHolder};
 use shared::types::ID;
 
+#[derive(Default)]
 pub struct Context {
     /// InstanceList handle to the "self" instance
     pub this: usize,
@@ -38,4 +39,29 @@ pub struct Context {
 
     /// Return value from this execution - should be initialized to zero as it won't necessarily be written
     pub return_value: Value,
+}
+
+impl Context {
+    /// Creates a default context with a given instance handle as both the `self` and `other` parameters.
+    #[inline(always)]
+    pub fn with_single_instance(handle: usize) -> Self {
+        Self {
+            this: handle,
+            other: handle,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new context with some given arguments and a default `locals` map,
+    /// and all other values copied from another context.
+    #[inline(always)]
+    pub fn copy_with_args(context: &Self, arguments: [Value; 16], argument_count: usize) -> Self {
+        Self {
+            arguments,
+            argument_count,
+            locals: DummyFieldHolder::new(),
+            return_value: Default::default(),
+            ..*context
+        }
+    }
 }
