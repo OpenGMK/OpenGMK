@@ -1742,7 +1742,7 @@ impl Game {
     pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
             Some(ExtensionFunction::Dll(external)) => {
-                external.call(&[])
+                external.call(&context.arguments[..context.argument_count])
             },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
