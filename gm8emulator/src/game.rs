@@ -1754,8 +1754,13 @@ impl Game {
         }
     }
 
+    /// Starts the game, loading the first room. Does not need to be called immediately before loading a savestate.
+    pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.load_room(self.room_id)
+    }
+
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.load_room(self.room_id)?;
+        self.init()?;
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -1865,7 +1870,7 @@ impl Game {
                             replay = state.load_into(self);
                         } else {
                             println!("Project '{}' doesn't exist, so loading game at entry point", filename);
-                            self.load_room(self.room_id)?;
+                            self.init()?;
                             for ev in self.stored_events.iter() {
                                 replay.startup_events.push(ev.clone());
                             }
@@ -2115,7 +2120,7 @@ impl Game {
         for ev in replay.startup_events.iter() {
             self.stored_events.push_back(ev.clone());
         }
-        self.load_room(self.room_id)?;
+        self.init()?;
 
         let mut time_now = std::time::Instant::now();
         loop {
