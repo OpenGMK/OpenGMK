@@ -9475,14 +9475,31 @@ impl Game {
         unimplemented!("Called unimplemented kernel function room_assign")
     }
 
-    pub fn room_instance_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function room_instance_add")
+    pub fn room_instance_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, x, y, object) = expect_args!(args, [int, int, int, int])?;
+        self.last_instance_id += 1;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.instances.push(asset::room::Instance {
+                x,
+                y,
+                object,
+                id: self.last_instance_id,
+                creation: Ok(std::rc::Rc::new([])),
+            });
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+        }
     }
 
-    pub fn room_instance_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_instance_clear")
+    pub fn room_instance_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let room_id = expect_args!(args, [int])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.instances.clear();
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+        }
     }
 
     pub fn room_tile_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
