@@ -31,7 +31,7 @@ use crate::{
         trigger::{self, Trigger},
         Object, Script, Timeline,
     },
-    gml::{self, ds, ev, file, rand::Random, Compiler, Context},
+    gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
     input::InputManager,
     instance::{DummyFieldHolder, Instance, InstanceState},
@@ -40,7 +40,7 @@ use crate::{
     tile, util,
 };
 use encoding_rs::Encoding;
-use gm8exe::asset::PascalString;
+use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
 use gmio::{
     atlas::AtlasBuilder,
     render::{Renderer, RendererOptions, Scaling},
@@ -85,6 +85,10 @@ pub struct Game {
     pub background_colour: Colour,
     pub room_colour: Colour,
     pub show_room_colour: bool,
+
+    pub extension_functions: Vec<Option<ExtensionFunction>>,
+    pub extension_initializers: Vec<usize>,
+    pub extension_finalizers: Vec<usize>,
 
     pub externals: Vec<Option<external::External>>,
     pub surface_fix: bool,
@@ -211,6 +215,12 @@ pub enum SceneChange {
     End,      // End the game
 }
 
+/// A function defined in an extension, which could either be a DLL external or some compiled GML
+pub enum ExtensionFunction {
+    Dll(external::External),
+    Gml(Rc<[Instruction]>),
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Assets {
     pub backgrounds: Vec<Option<Box<asset::Background>>>,
@@ -267,6 +277,7 @@ impl Game {
             game_id,
             backgrounds,
             constants,
+            extensions,
             fonts,
             icon_data: _,
             included_files,
@@ -315,7 +326,7 @@ impl Game {
             Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
         };
 
-        let temp_directory = match temp_dir {
+        let mut temp_directory = match temp_dir {
             Some(path) => path,
             None => {
                 // read path from tempdir.txt or if that's not possible get std::env::temp_dir()
@@ -442,6 +453,25 @@ impl Game {
         // Register user constants
         constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
 
+        // Register extension function names
+        let mut i = 0;
+        let mut extension_initializers = Vec::new();
+        let mut extension_finalizers = Vec::new();
+        for extension in extensions.iter() {
+            for file in extension.files.iter() {
+                for function in file.functions.iter() {
+                    compiler.register_extension_function(function.name.0.as_ref().into(), i);
+                    if function.name.0 == file.initializer.0 {
+                        extension_initializers.push(i);
+                    }
+                    if function.name.0 == file.finalizer.0 {
+                        extension_finalizers.push(i);
+                    }
+                    i += 1;
+                }
+            }
+        }
+
         // Set up a Renderer
         let options = RendererOptions {
             size: (room1_width, room1_height),
@@ -482,6 +512,102 @@ impl Game {
         let particle_shapes = particle::load_shapes(&mut atlases);
 
         let default_font = asset::font::load_default_font(&mut atlases)?;
+
+        // Code compiling starts here. The order in which things are compiled is important for
+        // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
+
+        let mut extension_functions = Vec::with_capacity(extensions.iter().map(|x| x.files.iter().map(|f| f.functions.len()).sum::<usize>()).sum::<usize>());
+        for extension in extensions.into_iter() {
+            temp_directory.push(&*String::from_utf8_lossy(extension.folder_name.0.as_ref()));
+            std::fs::create_dir_all(&temp_directory)?;
+
+            for file in extension.files.into_iter() {
+                match file.kind {
+                    FileKind::DynamicLibrary => {
+                        // DLL - save this to disk then define all the externals in it
+                        let dll_name = RCStr::from(file.name);
+                        temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
+
+                        File::create(&temp_directory)?.write_all(&file.contents)?;
+                        for function in file.functions.into_iter() {
+                            match external::External::new(
+                                external::DefineInfo {
+                                    dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
+                                    fn_name: RCStr::from(if function.external_name.0.len() == 0 {
+                                        function.name
+                                    } else {
+                                        function.external_name
+                                    }),
+                                    call_conv: match function.convention {
+                                        CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
+                                        _ => shared::dll::CallConv::Stdcall,
+                                    },
+                                    res_type: match function.return_type {
+                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                    },
+                                    arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
+                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                    }).collect::<Vec<_>>(),
+                                },
+                                play_type == PlayType::Record,
+                                match gm_version {
+                                    Version::GameMaker8_0 => encoding,
+                                    Version::GameMaker8_1 => encoding_rs::UTF_8,
+                                },
+                            ) {
+                                Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
+                                Err(_) => extension_functions.push(None),
+                            }
+                        }
+                        temp_directory.pop();
+                    },
+                    FileKind::GmlScript => {
+                        // GML - compile, then set up all the functions defined in it
+                        // Note: GameMaker does a lazy search for #define to look for function definitions,
+                        // not caring if the #define is in the middle of a string or comment, so we do the same here
+                        for function in file.functions.into_iter() {
+                            let define_string = "#define ".as_bytes();
+                            let function_name = if function.external_name.0.len() == 0 {
+                                function.name.0.as_ref()
+                            } else {
+                                function.external_name.0.as_ref()
+                            };
+
+                            let len = define_string.len() + function_name.len() + 1;
+                            match file.contents.as_ref()
+                                .windows(len)
+                                .position(|x| {
+                                    &x[..define_string.len()] == define_string && &x[define_string.len()..(len - 1)] == function_name && (x[len - 1] == 10 || x[len - 1] == 13)
+                                })
+                                .map(|x| x + len)
+                            {
+                                Some(start) => {
+                                    let fn_code = if let Some(len) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
+                                        &file.contents[start..(start + len)]
+                                    } else {
+                                        &file.contents[start..]
+                                    };
+                                    extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
+                                },
+                                None => extension_functions.push(None),
+                            }
+                        }
+                    },
+                    FileKind::ActionLibrary => (), // Lib - don't think we need to do anything with this
+                    FileKind::Other => {
+                        // Other - just save this to disk
+                        temp_directory.push(&*String::from_utf8_lossy(file.name.0.as_ref()));
+                        let mut f = File::create(&temp_directory)?;
+                        f.write_all(&file.contents)?;
+                        temp_directory.pop();
+                    },
+                }
+            }
+
+            temp_directory.pop();
+        }
 
         let sprites = sprites
             .into_iter()
@@ -644,9 +770,6 @@ impl Game {
                 })
             })
             .collect();
-
-        // Code compiling starts here. The order in which things are compiled is important for
-        // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
 
         let triggers = triggers
             .into_iter()
@@ -900,6 +1023,9 @@ impl Game {
             rand,
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
+            extension_functions,
+            extension_initializers,
+            extension_finalizers,
             externals: Vec::new(),
             surface_fix: false,
             room_colour: room1_colour,
@@ -1628,8 +1754,13 @@ impl Game {
         }
     }
 
+    /// Starts the game, loading the first room. Does not need to be called immediately before loading a savestate.
+    pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.load_room(self.room_id)
+    }
+
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.load_room(self.room_id)?;
+        self.init()?;
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -1739,7 +1870,7 @@ impl Game {
                             replay = state.load_into(self);
                         } else {
                             println!("Project '{}' doesn't exist, so loading game at entry point", filename);
-                            self.load_room(self.room_id)?;
+                            self.init()?;
                             for ev in self.stored_events.iter() {
                                 replay.startup_events.push(ev.clone());
                             }
@@ -1989,7 +2120,7 @@ impl Game {
         for ev in replay.startup_events.iter() {
             self.stored_events.push_back(ev.clone());
         }
-        self.load_room(self.room_id)?;
+        self.init()?;
 
         let mut time_now = std::time::Instant::now();
         loop {
