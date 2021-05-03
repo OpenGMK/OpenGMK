@@ -455,21 +455,26 @@ impl Game {
         // Register user constants
         constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
 
-        // Register extension function names
-        let mut i = 0;
+        // Register extension function names and constants
+        let mut fn_index = 0;
+        let mut const_index = constants.len();
         let mut extension_initializers = Vec::new();
         let mut extension_finalizers = Vec::new();
         for extension in extensions.iter() {
             for file in extension.files.iter() {
                 for function in file.functions.iter() {
-                    compiler.register_extension_function(function.name.0.as_ref().into(), i);
+                    compiler.register_extension_function(function.name.0.as_ref().into(), fn_index);
                     if function.name.0 == file.initializer.0 {
-                        extension_initializers.push(i);
+                        extension_initializers.push(fn_index);
                     }
                     if function.name.0 == file.finalizer.0 {
-                        extension_finalizers.push(i);
+                        extension_finalizers.push(fn_index);
                     }
-                    i += 1;
+                    fn_index += 1;
+                }
+                for constant in file.consts.iter() {
+                    compiler.register_user_constant(constant.name.0.clone(), const_index);
+                    const_index += 1;
                 }
             }
         }
@@ -519,27 +524,27 @@ impl Game {
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
 
         let mut extension_functions = Vec::with_capacity(extensions.iter().map(|x| x.files.iter().map(|f| f.functions.len()).sum::<usize>()).sum::<usize>());
-        for extension in extensions.into_iter() {
+        for extension in extensions.iter() {
             temp_directory.push(&*String::from_utf8_lossy(extension.folder_name.0.as_ref()));
             std::fs::create_dir_all(&temp_directory)?;
 
-            for file in extension.files.into_iter() {
+            for file in extension.files.iter() {
                 match file.kind {
                     FileKind::DynamicLibrary => {
                         // DLL - save this to disk then define all the externals in it
-                        let dll_name = RCStr::from(file.name);
+                        let dll_name = RCStr::from(file.name.0.clone().as_ref());
                         temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
-                        for function in file.functions.into_iter() {
+                        for function in file.functions.iter() {
                             match external::External::new(
                                 external::DefineInfo {
                                     dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
                                     fn_name: RCStr::from(if function.external_name.0.len() == 0 {
-                                        function.name
+                                        function.name.0.clone()
                                     } else {
-                                        function.external_name
-                                    }),
+                                        function.external_name.0.clone()
+                                    }.as_ref()),
                                     call_conv: match function.convention {
                                         CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
                                         _ => shared::dll::CallConv::Stdcall,
@@ -569,7 +574,7 @@ impl Game {
                         // GML - compile, then set up all the functions defined in it
                         // Note: GameMaker does a lazy search for #define to look for function definitions,
                         // not caring if the #define is in the middle of a string or comment, so we do the same here
-                        for function in file.functions.into_iter() {
+                        for function in file.functions.iter() {
                             let define_string = "#define ".as_bytes();
                             let function_name = if function.external_name.0.len() == 0 {
                                 function.name.0.as_ref()
@@ -1122,6 +1127,18 @@ impl Game {
         game.temp_directory = game.encode_str_maybe(temp_directory.to_str().unwrap()).unwrap().into_owned().into();
 
         // Evaluate constants
+        for extension in extensions {
+            for file in extension.files {
+                for constant in file.consts {
+                    let expr = game.compiler.compile_expression(&constant.value.0)?;
+                    let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+                    let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
+                    game.constants.push(value);
+                    game.instance_list.remove_dummy(dummy_instance);
+                }
+            }
+        }
+
         for c in &constants {
             let expr = game.compiler.compile_expression(&c.expression.0)?;
             let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
