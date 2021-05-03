@@ -7344,7 +7344,7 @@ impl Game {
                     for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
                         *dest = src.clone();
                     }
-                    // Note: GM8 does not update the argument_count here to new_args.len() as it should
+                    // Note: GM8 does not update the argument_count here to (args.len() - 1) as it should
                     let mut new_context = Context::copy_with_args(context, new_args, context.argument_count);
                     self.execute(&instrs, &mut new_context)?;
                     Ok(new_context.return_value)
