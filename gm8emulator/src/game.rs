@@ -564,10 +564,13 @@ impl Game {
                                 function.external_name.0.as_ref()
                             };
 
+                            let len = define_string.len() + function_name.len() + 1;
                             match file.contents.as_ref()
-                                .windows(define_string.len() + function_name.len())
-                                .position(|x| &x[..define_string.len()] == define_string && &x[define_string.len()..] == function_name)
-                                .map(|x| x + define_string.len() + function_name.len())
+                                .windows(len)
+                                .position(|x| {
+                                    &x[..define_string.len()] == define_string && &x[define_string.len()..(len - 1)] == function_name && (x[len - 1] == 10 || x[len - 1] == 13)
+                                })
+                                .map(|x| x + len)
                             {
                                 Some(start) => {
                                     let fn_code = if let Some(len) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
