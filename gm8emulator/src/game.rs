@@ -1121,22 +1121,8 @@ impl Game {
         // Evaluate constants
         for c in &constants {
             let expr = game.compiler.compile_expression(&c.expression.0)?;
-            let dummy_instance = game
-                .instance_list
-                .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
-            let value = game.eval(&expr, &mut Context {
-                this: dummy_instance,
-                other: dummy_instance,
-                event_action: 0,
-                relative: false,
-                event_type: 0,
-                event_number: 0,
-                event_object: 0,
-                arguments: Default::default(),
-                argument_count: 0,
-                locals: Default::default(),
-                return_value: Default::default(),
-            })?;
+            let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
             game.constants.push(value);
             game.instance_list.remove_dummy(dummy_instance);
         }
@@ -1391,19 +1377,9 @@ impl Game {
         for (handle, instance) in &new_handles {
             if self.instance_list.get(*handle).is_active() {
                 // Run this instance's room creation code
-                self.execute(&instance.creation.clone()?, &mut Context {
-                    this: *handle,
-                    other: *handle,
-                    event_action: 0,
-                    relative: false,
-                    event_type: 11, // GM8 does this for some reason
-                    event_number: 0,
-                    event_object: instance.object,
-                    arguments: Default::default(),
-                    argument_count: 0,
-                    locals: Default::default(),
-                    return_value: Default::default(),
-                })?;
+                let mut new_context = Context::with_single_instance(*handle);
+                new_context.event_object = instance.object;
+                self.execute(&instance.creation.clone()?, &mut new_context)?;
 
                 // Run create event for this instance
                 self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
@@ -1420,21 +1396,9 @@ impl Game {
         }
 
         // Run room creation code
-        let dummy_instance =
-            self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-        self.execute(&room.creation_code?, &mut Context {
-            this: dummy_instance,
-            other: dummy_instance,
-            event_action: 0,
-            relative: false,
-            event_type: 11,
-            event_number: 0,
-            event_object: 0,
-            arguments: Default::default(),
-            argument_count: 0,
-            locals: Default::default(),
-            return_value: Default::default(),
-        })?;
+        let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+        let mut new_context = Context::with_single_instance(dummy_instance);
+        self.execute(&room.creation_code?, &mut new_context)?;
         self.instance_list.remove_dummy(dummy_instance);
 
         // Run room start event for each instance

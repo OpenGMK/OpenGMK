@@ -342,10 +342,7 @@ impl Game {
                         event_type,
                         event_number,
                         event_object: as_object,
-                        arguments: Default::default(),
-                        argument_count: 0,
-                        locals: Default::default(),
-                        return_value: Default::default(),
+                        ..Default::default()
                     };
 
                     /*
@@ -426,10 +423,7 @@ impl Game {
                         event_type,
                         event_number,
                         event_object: as_object,
-                        arguments: Default::default(),
-                        argument_count: 0,
-                        locals: Default::default(),
-                        return_value: Default::default(),
+                        ..Default::default()
                     };
                     let mut count = i32::from(self.eval(count, &mut context)?);
                     while count > 0 {

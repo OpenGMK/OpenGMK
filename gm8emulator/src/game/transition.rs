@@ -256,11 +256,6 @@ impl Game {
                         game.execute(&instructions, &mut Context {
                             this: dummy_instance,
                             other: dummy_instance,
-                            event_action: 0,
-                            relative: false,
-                            event_type: 11,
-                            event_number: 0,
-                            event_object: 0,
                             arguments: [
                                 surf_old.into(),
                                 surf_new.into(),
@@ -280,8 +275,7 @@ impl Game {
                                 Default::default(),
                             ],
                             argument_count: 5,
-                            locals: Default::default(),
-                            return_value: Default::default(),
+                            ..Default::default()
                         })?;
                         game.instance_list.remove_dummy(dummy_instance);
                     }
