@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{ExtensionFunction, Game, GetAsset, SceneChange, Version},
+    game::{Game, GetAsset, SceneChange, Version},
     gml::{
         self,
         datetime::DateTime,
@@ -607,16 +607,7 @@ impl Game {
                     *dest = self.eval(src, context)?;
                 }
 
-                match &self.extension_functions[*id] {
-                    Some(ExtensionFunction::Dll(external)) => external.call(&arg_values[..args.len()]),
-                    Some(ExtensionFunction::Gml(gml)) => {
-                        let mut new_context = Context::copy_with_args(context, arg_values, args.len());
-                        let instructions = gml.clone();
-                        self.execute(&instructions, &mut new_context)?;
-                        Ok(new_context.return_value)
-                    },
-                    None => Err(Error::ExtensionFunctionNotLoaded(*id)),
-                }
+                self.run_extension_function(*id, Context::copy_with_args(context, arg_values, args.len()))
             },
             Node::Field { accessor } => {
                 let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;

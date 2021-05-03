@@ -1718,8 +1718,31 @@ impl Game {
         }
     }
 
+    /// Runs an ExtensionFunction by its ID
+    pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
+        match &self.extension_functions[id] {
+            Some(ExtensionFunction::Dll(external)) => {
+                external.call(&[])
+            },
+            Some(ExtensionFunction::Gml(gml)) => {
+                let instructions = gml.clone();
+                self.execute(&instructions, &mut context)?;
+                Ok(context.return_value)
+            },
+            None => Err(gml::Error::ExtensionFunctionNotLoaded(id)),
+        }
+    }
+
     /// Starts the game, loading the first room. Does not need to be called immediately before loading a savestate.
     pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Extension initializers
+        for i in 0..self.extension_initializers.len() {
+            let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            self.run_extension_function(self.extension_initializers[i], Context::with_single_instance(dummy_instance))?;
+            self.instance_list.remove_dummy(dummy_instance);
+        }
+
+        // Load first room
         self.load_room(self.room_id)
     }
 
