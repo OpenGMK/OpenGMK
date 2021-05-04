@@ -34,7 +34,6 @@ pub struct Context {
     pub argument_count: usize,
 
     /// Local variables specific to this context
-    /// TODO: replace this with a dummy field-holder object? Global behaves the same way.
     pub locals: DummyFieldHolder,
 
     /// Return value from this execution - should be initialized to zero as it won't necessarily be written
