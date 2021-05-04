@@ -9,6 +9,9 @@ default-run = "gm8emulator"
 [build-dependencies]
 gl_generator = "0.14.0"
 
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
 [dependencies]
 bincode = "1.2"
 cfg-if = "0.1"

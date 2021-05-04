@@ -1,3 +1,5 @@
+extern crate winres;
+
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 use std::{
     env,
@@ -72,6 +74,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             "GLX_EXT_swap_control",
         ])
         .write_bindings(GlobalGenerator, &mut file)?;
+    }
+    
+    // icon
+    if cfg!(target_os = "windows") {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("../assets/logo/opengmk.ico");
+        res.compile().unwrap();
     }
 
     Ok(())
