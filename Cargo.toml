@@ -1,3 +1,5 @@
+cargo-features = ['strip']
+
 [workspace]
 members = ["gm8emulator", "gm8decompiler", "control-panel", "gml-parser", "gmio", "gm8exe", "shared"]
 # dll-bridge must be built as 32-bit, but is only needed for 64-bit builds of the emulator.
@@ -9,5 +11,6 @@ exclude = ["dll-bridge"]
 
 [profile.release]
 codegen-units = 1
-lto = true
 opt-level = 3
+lto = true
+strip = true
