@@ -3,7 +3,7 @@ use crate::{
     reader::inflate,
 };
 use byteorder::{ReadBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom};
 
 pub const VERSION: u32 = 700;
 
@@ -239,11 +239,9 @@ impl Extension {
                     let pos = reader.position() as usize;
 
                     reader.seek(SeekFrom::Current(len as i64))?; // pre-check for next get
-                    file.contents =
-                        match inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())) {
-                            Ok(x) => x.into_boxed_slice(),
-                            Err(_) => return Err(Error::MalformedData),
-                        };
+                    let mut file_bytes = Vec::new();
+                    inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())).read_to_end(&mut file_bytes)?;
+                    file.contents = file_bytes.into_boxed_slice();
                 }
             }
 

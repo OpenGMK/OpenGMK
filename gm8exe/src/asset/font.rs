@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read};
 
 pub const VERSION: u32 = 800;
 
@@ -57,14 +57,12 @@ pub struct Font {
 }
 
 impl Asset for Font {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl Read, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
+        let ver = reader.read_u32::<LE>()?;
         if strict {
-            let ver = reader.read_u32::<LE>()?;
             assert_ver(ver, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
         }
 
         let sys_name = reader.read_pas_string()?;

@@ -1,10 +1,10 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver, Error, PascalString, ReadPascalString, WritePascalString},
     def::ID,
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read};
 
 pub const VERSION: u32 = 440;
 pub const PARAM_COUNT: usize = 8;
@@ -54,13 +54,11 @@ pub struct CodeAction {
     pub param_strings: [PascalString; PARAM_COUNT],
 }
 
-impl Asset for CodeAction {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+impl CodeAction {
+    pub fn deserialize_exe(reader: &mut impl Read, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+        let version = reader.read_u32::<LE>()?;
         if strict {
-            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
         }
 
         let lib_id = reader.read_u32::<LE>()?;
@@ -123,7 +121,7 @@ impl Asset for CodeAction {
         })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+    pub fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_u32::<LE>(self.lib_id)?;
         writer.write_u32::<LE>(self.id)?;

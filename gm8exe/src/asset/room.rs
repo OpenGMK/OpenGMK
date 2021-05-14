@@ -5,7 +5,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read};
 
 pub const VERSION: u32 = 541;
 
@@ -111,14 +111,12 @@ pub struct ViewFollowData {
 }
 
 impl Asset for Room {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl Read, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
+        let entry_version = reader.read_u32::<LE>()?;
         if strict {
-            let entry_version = reader.read_u32::<LE>()?;
             assert_ver(entry_version, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
         }
 
         let caption = reader.read_pas_string()?;

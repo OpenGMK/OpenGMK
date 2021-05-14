@@ -5,7 +5,7 @@ use crate::{
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::{
     fmt,
-    io::{self, Seek, SeekFrom},
+    io::{self, Read},
 };
 
 pub const VERSION: u32 = 800;
@@ -57,12 +57,10 @@ impl From<u32> for TriggerKind {
 }
 
 impl Asset for Trigger {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl Read, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+        let version = reader.read_u32::<LE>()?;
         if strict {
-            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
         }
 
         let name = reader.read_pas_string()?;

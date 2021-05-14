@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read};
 
 pub const VERSION: u32 = 800;
 pub const VERSION_COLLISION: u32 = 800;
@@ -60,14 +60,12 @@ pub struct CollisionMap {
 }
 
 impl Asset for Sprite {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, _version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl Read, _version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
+        let version = reader.read_u32::<LE>()?;
         if strict {
-            let version = reader.read_u32::<LE>()?;
             assert_ver(version, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
         }
 
         let origin_x = reader.read_i32::<LE>()?;
@@ -76,11 +74,9 @@ impl Asset for Sprite {
         let (frames, colliders, per_frame_colliders) = if frame_count != 0 {
             let frames = (0..frame_count)
                 .map(|_| {
+                    let version = reader.read_u32::<LE>()?;
                     if strict {
-                        let version = reader.read_u32::<LE>()?;
                         assert_ver(version, VERSION_FRAME)?;
-                    } else {
-                        reader.seek(SeekFrom::Current(4))?;
                     }
 
                     let frame_width = reader.read_u32::<LE>()?;
@@ -93,12 +89,10 @@ impl Asset for Sprite {
                 })
                 .collect::<Result<_, Error>>()?;
 
-            fn read_collision(reader: &mut io::Cursor<&[u8]>, strict: bool) -> Result<CollisionMap, Error> {
+            fn read_collision(reader: &mut impl Read, strict: bool) -> Result<CollisionMap, Error> {
+                let version = reader.read_u32::<LE>()?;
                 if strict {
-                    let version = reader.read_u32::<LE>()?;
                     assert_ver(version, VERSION_COLLISION)?;
-                } else {
-                    reader.seek(SeekFrom::Current(4))?;
                 }
 
                 let width = reader.read_u32::<LE>()?;
@@ -109,27 +103,19 @@ impl Asset for Sprite {
                 let bbox_top = reader.read_u32::<LE>()?;
 
                 let pixel_count = width as usize * height as usize;
-                let chunk_size = pixel_count * 4;
-                let position = reader.position() as usize;
-                reader.seek(SeekFrom::Current(chunk_size as i64))?;
-                let mask_src = &reader.get_ref()[position..position + chunk_size];
-
-                // SAFETY: All of it is overwritten regardless.
-                let mut data = Vec::with_capacity(pixel_count);
-                unsafe { data.set_len(pixel_count) };
-                for (src, dest) in mask_src.iter().step_by(4).zip(data.iter_mut()) {
-                    *dest = *src != 0;
-                }
-                let data = data.into_boxed_slice(); // TODO: needless
+                let data = (0..pixel_count)
+                    .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_boxed_slice();
 
                 Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data })
             }
 
             let per_frame_colliders = reader.read_u32::<LE>()? != 0;
             let colliders: Vec<CollisionMap> = if per_frame_colliders {
-                (0..frame_count).map(|_| read_collision(&mut *reader, strict)).collect::<Result<_, _>>()?
+                (0..frame_count).map(|_| read_collision(&mut reader, strict)).collect::<Result<_, _>>()?
             } else {
-                vec![read_collision(reader, strict)?]
+                vec![read_collision(&mut reader, strict)?]
             };
             (frames, colliders, per_frame_colliders)
         } else {

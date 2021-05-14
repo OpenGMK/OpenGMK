@@ -10,7 +10,7 @@ use flate2::bufread::ZlibDecoder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fmt::{self, Display},
-    io::{self, Cursor, Read, Seek, SeekFrom},
+    io::{self, Read, Seek, SeekFrom},
 };
 
 #[derive(Debug)]
@@ -50,15 +50,11 @@ from_err!(ReaderError, Error, AssetError);
 from_err!(ReaderError, io::Error, IO);
 
 /// Helper function for inflating zlib data.
-pub(crate) fn inflate<I>(data: &I) -> Result<Vec<u8>, ReaderError>
+pub(crate) fn inflate<I>(data: &I) -> ZlibDecoder<&[u8]>
 where
     I: AsRef<[u8]> + ?Sized,
 {
-    let slice = data.as_ref();
-    let mut decoder = ZlibDecoder::new(slice);
-    let mut buf: Vec<u8> = Vec::with_capacity(slice.len());
-    decoder.read_to_end(&mut buf)?;
-    Ok(buf)
+    ZlibDecoder::new(data.as_ref())
 }
 
 /// A windows PE Section header
@@ -184,25 +180,22 @@ where
     let settings_len = exe.read_u32::<LE>()? as usize;
     let pos = exe.position() as usize;
     exe.seek(SeekFrom::Current(settings_len as i64))?;
-    let settings_chunk = inflate(&exe.get_ref()[pos..pos + settings_len])?;
+    let mut cfg = inflate(&exe.get_ref()[pos..pos + settings_len]);
 
-    log!(logger, "Reading settings chunk... (size: {})", settings_chunk.len(),);
+    log!(logger, "Reading settings chunk...");
 
     let settings = {
-        fn read_data_maybe(cfg: &mut io::Cursor<Vec<u8>>) -> Result<Option<Box<[u8]>>, ReaderError> {
+        fn read_data_maybe(cfg: &mut impl Read) -> Result<Option<Box<[u8]>>, ReaderError> {
             if cfg.read_u32::<LE>()? != 0 {
                 let len = cfg.read_u32::<LE>()? as usize;
-                let pos = cfg.position() as usize;
-                cfg.seek(SeekFrom::Current(len as i64))?;
-                Ok(Some(
-                    inflate(cfg.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))?.into_boxed_slice(),
-                ))
+                let mut output = Vec::with_capacity(len);
+                unsafe { output.set_len(len); }
+                cfg.read_exact(&mut output)?;
+                Ok(Some(output.into_boxed_slice()))
             } else {
                 Ok(None)
             }
         }
-
-        let mut cfg = io::Cursor::new(settings_chunk);
 
         let fullscreen = cfg.read_u32::<LE>()? != 0;
         let interpolate_pixels = cfg.read_u32::<LE>()? != 0;
@@ -437,7 +430,7 @@ where
     ) -> Result<AssetList<T>, ReaderError>
     where
         T: Send,
-        F: Fn(&[u8]) -> Result<T, Error> + Sync,
+        F: Fn(ZlibDecoder<&[u8]>) -> Result<T, Error> + Sync,
     {
         let to_asset = |data: &[u8]| {
             // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
@@ -445,17 +438,14 @@ where
             if data == [0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
                 return Ok(None);
             }
+            let mut data = inflate(data);
 
-            inflate(data).and_then(|data| {
-                // If the first u32 is 0 then it's a deleted asset, and is None.
-                // Safety: If there are at least 4 bytes (data.get(..4) -> Some)
-                // then [4..] will yield a 0-size slice at the very least.
-                match data.get(..4) {
-                    Some(&[0, 0, 0, 0]) => Ok(None),
-                    Some(_) => Ok(Some(Box::new(deserializer(&data[4..])?))),
-                    None => Err(ReaderError::AssetError(Error::MalformedData)),
-                }
-            })
+            // If the first u32 is 0 then it's a deleted asset, and is None.
+            match data.read_u32::<LE>() {
+                Ok(0) => Ok(None),
+                Ok(_) => Ok(Some(Box::new(deserializer(data)?))),
+                Err(_) => Err(ReaderError::AssetError(Error::MalformedData)),
+            }
         };
 
         if multithread {
@@ -475,7 +465,7 @@ where
     where
         T: Asset + Send,
     {
-        get_assets(src, |data| <T as Asset>::deserialize_exe(&mut Cursor::new(data), version, strict), multithread)
+        get_assets(src, |data| <T as Asset>::deserialize_exe(data, version, strict), multithread)
     }
 
     assert_ver!("extensions header", 700, exe.read_u32::<LE>()?)?;
@@ -660,9 +650,8 @@ where
         .iter()
         .map(|chunk| {
             // AssetDataError -> ReaderError
-            inflate(chunk).and_then(|data| {
-                IncludedFile::deserialize_exe(&mut Cursor::new(data.as_slice()), game_ver, strict).map_err(|e| e.into())
-            })
+            let data = inflate(chunk);
+            IncludedFile::deserialize_exe(data, game_ver, strict).map_err(|e| ReaderError::from(e))
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
@@ -688,7 +677,7 @@ where
     let help_dialog = {
         let len = exe.read_u32::<LE>()? as usize;
         let pos = exe.position() as usize;
-        let mut data = io::Cursor::new(inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]))?);
+        let mut data = inflate(exe.get_ref().get(pos..pos + len).unwrap_or(&[]));
         let hdg = GameHelpDialog {
             bg_colour: data.read_u32::<LE>()?.into(),
             new_window: data.read_u32::<LE>()? != 0,

@@ -3,7 +3,7 @@ use crate::{
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Read};
 
 pub const VERSION: u32 = 500;
 pub const VERSION_MOMENT: u32 = 400;
@@ -17,14 +17,12 @@ pub struct Timeline {
 }
 
 impl Asset for Timeline {
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error> {
+    fn deserialize_exe(mut reader: impl Read, version: GameVersion, strict: bool) -> Result<Self, Error> {
         let name = reader.read_pas_string()?;
 
+        let ver = reader.read_u32::<LE>()?;
         if strict {
-            let version = reader.read_u32::<LE>()?;
-            assert_ver(version, VERSION)?;
-        } else {
-            reader.seek(SeekFrom::Current(4))?;
+            assert_ver(ver, VERSION)?;
         }
 
         let moment_count = reader.read_u32::<LE>()? as usize;
@@ -32,17 +30,15 @@ impl Asset for Timeline {
             .map(|_| {
                 let moment_index = reader.read_u32::<LE>()?;
 
+                let ver = reader.read_u32::<LE>()?;
                 if strict {
-                    let version = reader.read_u32::<LE>()?;
-                    assert_ver(version, VERSION_MOMENT)?;
-                } else {
-                    reader.seek(SeekFrom::Current(4))?;
+                    assert_ver(ver, VERSION_MOMENT)?;
                 }
 
                 let action_count = reader.read_u32::<LE>()? as usize;
 
                 let actions = (0..action_count)
-                    .map(|_| CodeAction::deserialize_exe(&mut *reader, version, strict))
+                    .map(|_| CodeAction::deserialize_exe(&mut reader, version, strict))
                     .collect::<Result<_, _>>()?;
 
                 Ok((moment_index, actions))

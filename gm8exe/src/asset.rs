@@ -39,7 +39,7 @@ use std::{
 
 pub trait Asset: Sized {
     /// Deserializes the asset from the format used in game executables.
-    fn deserialize_exe(reader: &mut io::Cursor<&[u8]>, version: GameVersion, strict: bool) -> Result<Self, Error>;
+    fn deserialize_exe(reader: impl io::Read, version: GameVersion, strict: bool) -> Result<Self, Error>;
     /// Serializes the asset to the format used in game executables.
     fn serialize_exe(&self, writer: impl io::Write, version: GameVersion) -> io::Result<()>;
 }
