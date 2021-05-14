@@ -118,7 +118,7 @@ impl Asset for Object {
                     action.serialize_exe(&mut writer, version)?;
                 }
             }
-            writer.write_i32::<LE>(-1)?; // TODO: what's this again
+            writer.write_i32::<LE>(-1)?; // -1 in place of a sub-id indicates the end of this list
         }
         Ok(())
     }
