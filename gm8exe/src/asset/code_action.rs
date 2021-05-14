@@ -87,7 +87,7 @@ impl CodeAction {
             *val = reader.read_u32::<LE>()?;
         }
 
-        let applies_to = reader.read_i32::<LE>()? as ID;
+        let applies_to = reader.read_i32::<LE>()?;
         let is_relative = reader.read_u32::<LE>()? != 0;
 
         // arg count - should always be 8
@@ -127,25 +127,23 @@ impl CodeAction {
         writer.write_u32::<LE>(self.id)?;
         writer.write_u32::<LE>(self.action_kind)?;
         writer.write_u32::<LE>(self.can_be_relative)?;
-        writer.write_u32::<LE>(self.is_condition as u32)?;
-        writer.write_u32::<LE>(self.applies_to_something as u32)?;
+        writer.write_u32::<LE>(self.is_condition.into())?;
+        writer.write_u32::<LE>(self.applies_to_something.into())?;
         writer.write_u32::<LE>(self.execution_type)?;
         writer.write_pas_string(&self.fn_name)?;
         writer.write_pas_string(&self.fn_code)?;
         writer.write_u32::<LE>(self.param_count as u32)?;
         writer.write_u32::<LE>(PARAM_COUNT as u32)?;
         for i in &self.param_types {
-            // TODO: Write this directly with something like bytemuck
-            // TODO: Maybe safe-transmute can help? Unsure. Research.
             writer.write_u32::<LE>(*i)?;
         }
         writer.write_i32::<LE>(self.applies_to)?;
-        writer.write_u32::<LE>(self.is_relative as u32)?;
+        writer.write_u32::<LE>(self.is_relative.into())?;
         writer.write_u32::<LE>(PARAM_COUNT as u32)?;
         for i in &self.param_strings {
             writer.write_pas_string(i)?;
         }
-        writer.write_u32::<LE>(self.invert_condition as u32)?;
+        writer.write_u32::<LE>(self.invert_condition.into())?;
         Ok(())
     }
 }

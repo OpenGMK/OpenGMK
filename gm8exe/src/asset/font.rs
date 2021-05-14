@@ -113,8 +113,8 @@ impl Asset for Font {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.sys_name)?;
         writer.write_u32::<LE>(self.size)?;
-        writer.write_u32::<LE>(self.bold as u32)?;
-        writer.write_u32::<LE>(self.italic as u32)?;
+        writer.write_u32::<LE>(self.bold.into())?;
+        writer.write_u32::<LE>(self.italic.into())?;
         // TODO: Missing info! Uh-oh! GM81 bits you know what it is
         writer.write_u32::<LE>(self.range_start)?;
         writer.write_u32::<LE>(self.range_end)?;

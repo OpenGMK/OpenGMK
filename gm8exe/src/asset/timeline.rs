@@ -54,7 +54,7 @@ impl Asset for Timeline {
         writer.write_u32::<LE>(self.moments.len() as u32)?;
         for (moment_index, actions) in &self.moments {
             writer.write_u32::<LE>(*moment_index)?;
-            writer.write_u32::<LE>(VERSION_MOMENT as u32)?;
+            writer.write_u32::<LE>(VERSION_MOMENT)?;
             writer.write_u32::<LE>(actions.len() as u32)?;
             for action in actions {
                 action.serialize_exe(&mut writer, version)?;

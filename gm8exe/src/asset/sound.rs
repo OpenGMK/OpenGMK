@@ -122,23 +122,22 @@ impl Asset for Sound {
         writer.write_pas_string(&self.extension)?;
         writer.write_pas_string(&self.source)?;
         if let Some(data) = &self.data {
-            writer.write_u32::<LE>(true as u32)?;
+            writer.write_u32::<LE>(u32::from(true))?;
             writer.write_u32::<LE>(data.len() as u32)?;
             writer.write_all(&data)?;
         } else {
             writer.write_u32::<LE>(0)?;
         }
-        writer.write_u32::<LE>({
-            let mut effects = self.fx.chorus as u32;
-            effects |= (self.fx.echo as u32) << 1;
-            effects |= (self.fx.flanger as u32) << 2;
-            effects |= (self.fx.gargle as u32) << 3;
-            effects |= (self.fx.reverb as u32) << 4;
-            effects
-        })?;
+        writer.write_u32::<LE>(
+            u32::from(self.fx.chorus)
+                | u32::from(self.fx.echo) << 1
+                | u32::from(self.fx.flanger) << 2
+                | u32::from(self.fx.gargle) << 3
+                | u32::from(self.fx.reverb) << 4,
+        )?;
         writer.write_f64::<LE>(self.volume)?;
         writer.write_f64::<LE>(self.pan)?;
-        writer.write_u32::<LE>(self.preload as u32)?;
+        writer.write_u32::<LE>(self.preload.into())?;
         Ok(())
     }
 }

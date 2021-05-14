@@ -140,7 +140,7 @@ impl Asset for Sprite {
                 let pixeldata = frame.data.clone();
                 writer.write_all(&pixeldata)?;
             }
-            writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
+            writer.write_u32::<LE>(self.per_frame_colliders.into())?;
             for collider in self.colliders.iter() {
                 writer.write_u32::<LE>(VERSION_COLLISION)?;
                 writer.write_u32::<LE>(collider.width)?;
@@ -150,7 +150,7 @@ impl Asset for Sprite {
                 writer.write_u32::<LE>(collider.bbox_bottom)?;
                 writer.write_u32::<LE>(collider.bbox_top)?;
                 for pixel in &*collider.data {
-                    writer.write_u32::<LE>(*pixel as u32)?;
+                    writer.write_u32::<LE>(u32::from(*pixel))?;
                 }
             }
         } else {

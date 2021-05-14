@@ -47,6 +47,8 @@ pub struct Object {
 
 impl Asset for Object {
     fn deserialize_exe(mut reader: impl Read, version: GameVersion, strict: bool) -> Result<Self, Error> {
+        use std::convert::TryFrom;
+
         let name = reader.read_pas_string()?;
 
         let ver = reader.read_u32::<LE>()?;
@@ -54,13 +56,13 @@ impl Asset for Object {
             assert_ver(ver, VERSION)?;
         }
 
-        let sprite_index = reader.read_u32::<LE>()? as i32;
+        let sprite_index = reader.read_i32::<LE>()?;
         let solid = reader.read_u32::<LE>()? != 0;
         let visible = reader.read_u32::<LE>()? != 0;
-        let depth = reader.read_u32::<LE>()? as i32;
+        let depth = reader.read_i32::<LE>()?;
         let persistent = reader.read_u32::<LE>()? != 0;
-        let parent_index = reader.read_u32::<LE>()? as i32;
-        let mask_index = reader.read_u32::<LE>()? as i32;
+        let parent_index = reader.read_i32::<LE>()?;
+        let mask_index = reader.read_i32::<LE>()?;
 
         // This is always 11. I don't know what to do if this isn't 11.
         // We'll probably never know, because it's always 11.
@@ -76,10 +78,11 @@ impl Asset for Object {
         for _ in 0..=event_list_count {
             let mut sub_event_list: Vec<(u32, Vec<CodeAction>)> = Vec::new();
             loop {
-                let index = reader.read_i32::<LE>()?;
-                if index == -1 {
-                    break
-                }
+                // If the index is negative, it indicates the end of the list, so break here
+                let index = match u32::try_from(reader.read_i32::<LE>()?) {
+                    Ok(x) => x,
+                    Err(_) => break,
+                };
 
                 let ver = reader.read_u32::<LE>()?;
                 if strict {
@@ -90,7 +93,7 @@ impl Asset for Object {
                 let actions = (0..action_count)
                     .map(|_| CodeAction::deserialize_exe(&mut reader, version, strict))
                     .collect::<Result<_, _>>()?;
-                sub_event_list.push((index as u32, actions));
+                sub_event_list.push((index, actions));
             }
             events.push(sub_event_list);
         }
@@ -101,18 +104,18 @@ impl Asset for Object {
     fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
-        writer.write_u32::<LE>(self.sprite_index as u32)?;
-        writer.write_u32::<LE>(self.solid as u32)?;
-        writer.write_u32::<LE>(self.visible as u32)?;
-        writer.write_u32::<LE>(self.depth as u32)?;
-        writer.write_u32::<LE>(self.persistent as u32)?;
-        writer.write_u32::<LE>(self.parent_index as u32)?;
-        writer.write_u32::<LE>(self.mask_index as u32)?;
+        writer.write_i32::<LE>(self.sprite_index)?;
+        writer.write_u32::<LE>(self.solid.into())?;
+        writer.write_u32::<LE>(self.visible.into())?;
+        writer.write_i32::<LE>(self.depth)?;
+        writer.write_u32::<LE>(self.persistent.into())?;
+        writer.write_i32::<LE>(self.parent_index)?;
+        writer.write_i32::<LE>(self.mask_index)?;
         writer.write_u32::<LE>((self.events.len() - 1) as u32)?; // TODO: checks! cast checks too!
         for sub_list in self.events.iter() {
             for (sub, actions) in sub_list.iter() {
                 writer.write_u32::<LE>(*sub)?;
-                writer.write_u32::<LE>(VERSION_EVENT as u32)?;
+                writer.write_u32::<LE>(VERSION_EVENT)?;
                 writer.write_u32::<LE>(actions.len() as u32)?;
                 for action in actions.iter() {
                     action.serialize_exe(&mut writer, version)?;

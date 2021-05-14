@@ -54,10 +54,10 @@ impl Asset for Background {
 
     fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
-        writer.write_u32::<LE>(VERSION1 as u32)?;
-        writer.write_u32::<LE>(VERSION2 as u32)?;
-        writer.write_u32::<LE>(self.width as u32)?;
-        writer.write_u32::<LE>(self.height as u32)?;
+        writer.write_u32::<LE>(VERSION1)?;
+        writer.write_u32::<LE>(VERSION2)?;
+        writer.write_u32::<LE>(self.width)?;
+        writer.write_u32::<LE>(self.height)?;
         if let Some(pixeldata) = &self.data {
             writer.write_u32::<LE>(pixeldata.len() as u32)?; // TODO: safety. also grep for casts
             writer.write_all(&pixeldata)?;

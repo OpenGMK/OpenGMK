@@ -79,8 +79,8 @@ impl Asset for Path {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
         writer.write_u32::<LE>(self.connection as u32)?;
-        writer.write_u32::<LE>(self.closed as u32)?;
-        writer.write_u32::<LE>(self.precision as u32)?;
+        writer.write_u32::<LE>(self.closed.into())?;
+        writer.write_u32::<LE>(self.precision)?;
         // TODO: add debug assertions for these lengths everywhere, for real
         writer.write_u32::<LE>(self.points.len() as u32)?;
         for point in self.points.iter() {

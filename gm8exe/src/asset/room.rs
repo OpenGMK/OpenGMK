@@ -230,32 +230,32 @@ impl Asset for Room {
         writer.write_u32::<LE>(self.width)?;
         writer.write_u32::<LE>(self.height)?;
         writer.write_u32::<LE>(self.speed)?;
-        writer.write_u32::<LE>(self.persistent as u32)?;
+        writer.write_u32::<LE>(self.persistent.into())?;
         writer.write_u32::<LE>(self.bg_colour.into())?;
         match version {
-            GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen as u32)?,
+            GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen.into())?,
             GameVersion::GameMaker8_1 => {
-                writer.write_u32::<LE>(((!self.clear_region as u32) << 1) | (self.clear_screen as u32))?
+                writer.write_u32::<LE>((u32::from(!self.clear_region) << 1) | u32::from(self.clear_screen))?
             },
         };
         writer.write_pas_string(&self.creation_code)?;
         writer.write_u32::<LE>(self.backgrounds.len() as u32)?;
         for background in &self.backgrounds {
-            writer.write_u32::<LE>(background.visible_on_start as u32)?;
-            writer.write_u32::<LE>(background.is_foreground as u32)?;
+            writer.write_u32::<LE>(background.visible_on_start.into())?;
+            writer.write_u32::<LE>(background.is_foreground.into())?;
             writer.write_i32::<LE>(background.source_bg)?;
             writer.write_i32::<LE>(background.xoffset)?;
             writer.write_i32::<LE>(background.yoffset)?;
-            writer.write_u32::<LE>(background.tile_horz as u32)?;
-            writer.write_u32::<LE>(background.tile_vert as u32)?;
+            writer.write_u32::<LE>(background.tile_horz.into())?;
+            writer.write_u32::<LE>(background.tile_vert.into())?;
             writer.write_i32::<LE>(background.hspeed)?;
             writer.write_i32::<LE>(background.vspeed)?;
-            writer.write_u32::<LE>(background.stretch as u32)?;
+            writer.write_u32::<LE>(background.stretch.into())?;
         }
-        writer.write_u32::<LE>(self.views_enabled as u32)?;
+        writer.write_u32::<LE>(self.views_enabled.into())?;
         writer.write_u32::<LE>(self.views.len() as u32)?;
         for view in &self.views {
-            writer.write_u32::<LE>(view.visible as u32)?;
+            writer.write_u32::<LE>(view.visible.into())?;
             writer.write_i32::<LE>(view.source_x)?;
             writer.write_i32::<LE>(view.source_y)?;
             writer.write_u32::<LE>(view.source_w)?;

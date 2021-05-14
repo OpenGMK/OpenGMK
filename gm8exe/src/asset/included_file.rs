@@ -99,9 +99,9 @@ impl Asset for IncludedFile {
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.file_name)?;
         writer.write_pas_string(&self.source_path)?;
-        writer.write_u32::<LE>(self.data_exists as u32)?;
+        writer.write_u32::<LE>(self.data_exists.into())?;
         writer.write_u32::<LE>(self.source_length as u32)?;
-        writer.write_u32::<LE>(self.stored_in_gmk as u32)?;
+        writer.write_u32::<LE>(self.stored_in_gmk.into())?;
         if let Some(data) = &self.embedded_data {
             writer.write_u32::<LE>(data.len() as u32)?;
             // TODO: minio.write_buffer?
@@ -126,9 +126,9 @@ impl Asset for IncludedFile {
                 writer.write_pas_string(folder)?;
             },
         }
-        writer.write_u32::<LE>(self.overwrite_file as u32)?;
-        writer.write_u32::<LE>(self.free_memory as u32)?;
-        writer.write_u32::<LE>(self.remove_at_end as u32)?;
+        writer.write_u32::<LE>(self.overwrite_file.into())?;
+        writer.write_u32::<LE>(self.free_memory.into())?;
+        writer.write_u32::<LE>(self.remove_at_end.into())?;
         Ok(())
     }
 }
