@@ -69,7 +69,7 @@ impl Asset for Object {
         // Oh, also, it's 0..=n so the number is actually 11 instead of 12 because there are 12 lists. Yeah.
         let event_list_count = reader.read_u32::<LE>()?;
         if event_list_count != 11 {
-            return Err(Error::MalformedData);
+            return Err(Error::MalformedData)
         }
         let mut events = Vec::with_capacity((event_list_count + 1) as usize);
 
@@ -78,7 +78,7 @@ impl Asset for Object {
             loop {
                 let index = reader.read_i32::<LE>()?;
                 if index == -1 {
-                    break;
+                    break
                 }
 
                 let ver = reader.read_u32::<LE>()?;

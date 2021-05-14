@@ -79,7 +79,7 @@ where
     // verify executable header
     // Windows EXE must always start with "MZ"
     if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
-        return Err(ReaderError::InvalidExeHeader);
+        return Err(ReaderError::InvalidExeHeader)
     }
     // Dword at 0x3C indicates the start of the PE header
     exe.set_position(0x3C);
@@ -189,7 +189,9 @@ where
             if cfg.read_u32::<LE>()? != 0 {
                 let len = cfg.read_u32::<LE>()? as usize;
                 let mut output = Vec::with_capacity(len);
-                unsafe { output.set_len(len); }
+                unsafe {
+                    output.set_len(len);
+                }
                 cfg.read_exact(&mut output)?;
                 Ok(Some(output.into_boxed_slice()))
             } else {
@@ -436,7 +438,7 @@ where
             // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
             // This will short circuit on length, but it checks against this literal to make sure.
             if data == [0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
-                return Ok(None);
+                return Ok(None)
             }
             let mut data = inflate(data);
 

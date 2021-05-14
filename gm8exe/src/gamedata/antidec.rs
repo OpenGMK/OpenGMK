@@ -19,7 +19,7 @@ pub struct Metadata {
 pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x144AC0usize + 4 {
-        return Ok(None);
+        return Ok(None)
     }
 
     // Check for the loading sequence
@@ -59,7 +59,7 @@ pub fn check80(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> 
 pub fn check81(exe: &mut io::Cursor<&mut [u8]>) -> io::Result<Option<Metadata>> {
     // Verify size is large enough to do the following checks - otherwise it can't be antidec
     if exe.get_ref().len() < 0x1F0C53usize {
-        return Ok(None);
+        return Ok(None)
     }
 
     // Check for the loading sequence

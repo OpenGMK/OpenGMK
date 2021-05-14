@@ -40,7 +40,7 @@ pub fn find_icons(
             let leaf_count = data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_ICON, so no icon
-                return Ok((vec![], vec![]));
+                return Ok((vec![], vec![]))
             }
 
             // Get each leaf
@@ -71,7 +71,7 @@ pub fn find_icons(
             let leaf_count = data.read_u16::<LE>()? + data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_GROUP_ICON, so no icon
-                return Ok((vec![], vec![]));
+                return Ok((vec![], vec![]))
             }
 
             data.seek(SeekFrom::Current(4))?;
@@ -119,12 +119,12 @@ pub fn find_icons(
                                     println!("WARNING: Failed to recover an icon: id {}, rva 0x{:X}", icon.0, icon.1);
                                 }
                             }
-                            break;
+                            break
                         }
                     }
                 }
                 raw_file.append(&mut raw_file_body);
-                return Ok((icon_group, raw_file));
+                return Ok((icon_group, raw_file))
             }
         }
     }
@@ -143,10 +143,10 @@ fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
 
     // Checks to make sure this is a valid icon
     if width * 2 != double_height {
-        return Ok(None);
+        return Ok(None)
     }
     if reserved != 1 {
-        return Ok(None);
+        return Ok(None)
     }
 
     // Rename this for clarity
@@ -218,7 +218,7 @@ fn extract_virtual_bytes(
             // data is in this section
             let offset_on_disk = rva - section.virtual_address;
             let data_location = (section.disk_address + offset_on_disk) as usize;
-            return Ok(data.get_ref().get(data_location..data_location + size).map(|chunk| chunk.to_vec()));
+            return Ok(data.get_ref().get(data_location..data_location + size).map(|chunk| chunk.to_vec()))
         }
     }
 

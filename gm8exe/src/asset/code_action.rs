@@ -74,12 +74,12 @@ impl CodeAction {
 
         let param_count = reader.read_u32::<LE>()? as usize;
         if param_count > PARAM_COUNT {
-            return Err(Error::MalformedData);
+            return Err(Error::MalformedData)
         }
 
         // type count - should always be 8
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
-            return Err(Error::MalformedData);
+            return Err(Error::MalformedData)
         }
 
         let mut param_types = [0u32; PARAM_COUNT];
@@ -92,7 +92,7 @@ impl CodeAction {
 
         // arg count - should always be 8
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
-            return Err(Error::MalformedData);
+            return Err(Error::MalformedData)
         }
 
         let mut param_strings: [PascalString; 8] = Default::default();

@@ -29,7 +29,7 @@ impl Asset for Background {
         let name = reader.read_pas_string()?;
 
         let version1 = reader.read_u32::<LE>()?;
-            let version2 = reader.read_u32::<LE>()?;
+        let version2 = reader.read_u32::<LE>()?;
         if strict {
             assert_ver(version1, VERSION1)?;
             assert_ver(version2, VERSION2)?;
@@ -42,7 +42,7 @@ impl Asset for Background {
 
             // sanity check
             if len != (width as usize * height as usize * 4) {
-                return Err(Error::MalformedData);
+                return Err(Error::MalformedData)
             }
 
             let data = Some(reader.read_chunk(len)?.into_boxed_slice());

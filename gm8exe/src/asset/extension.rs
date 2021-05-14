@@ -240,7 +240,8 @@ impl Extension {
 
                     reader.seek(SeekFrom::Current(len as i64))?; // pre-check for next get
                     let mut file_bytes = Vec::new();
-                    inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!())).read_to_end(&mut file_bytes)?;
+                    inflate(reader.get_ref().get(pos..pos + len).unwrap_or_else(|| unreachable!()))
+                        .read_to_end(&mut file_bytes)?;
                     file.contents = file_bytes.into_boxed_slice();
                 }
             }

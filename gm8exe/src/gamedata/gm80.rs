@@ -15,7 +15,7 @@ where
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x144AC0 + 4 {
         log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
-        return Ok(false);
+        return Ok(false)
     }
 
     // Check for the standard 8.0 loading sequence
@@ -45,7 +45,7 @@ where
             },
             i => {
                 log!(logger, "Unknown instruction in place of magic CMP: {}", i);
-                return Ok(false);
+                return Ok(false)
             },
         };
 
@@ -75,7 +75,7 @@ where
                     },
                     i => {
                         log!(logger, "Unknown instruction in place of magic CMP: {}", i);
-                        return Ok(false);
+                        return Ok(false)
                     },
                 }
             } else {
@@ -98,11 +98,11 @@ where
                         Ok(h) => h,
                         _ => {
                             log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
-                            return Ok(false);
+                            return Ok(false)
                         },
                     };
                     if header1 == n {
-                        break;
+                        break
                     } else {
                         log!(
                             logger,
@@ -125,7 +125,7 @@ where
                 let header2 = exe.read_u32::<LE>()?;
                 if header2 != n {
                     log!(logger, "Failed to read GM8.0 header: expected version {}, got {}", n, header2);
-                    return Ok(false);
+                    return Ok(false)
                 }
             },
             None => {

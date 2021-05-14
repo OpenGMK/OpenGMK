@@ -54,7 +54,7 @@ where
             // Instruction bit 1 means to copy a byte directly from input to output.
             output.push(data.read_u8()?);
             pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
-            continue;
+            continue
         }
 
         // We pulled a 0. u_var6 is a value calculated from the instruction bits following a 0.
@@ -68,7 +68,7 @@ where
             // Next bit is an instruction bit. If it's 1, it means stop reading.
             pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
             if next_bit_buffer {
-                break;
+                break
             }
             // Otherwise, it means pull another bit and push it into u_var6
             pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
@@ -86,7 +86,7 @@ where
             // This is weird because it copies a byte into AL then xors all of EAX, which has a dead value left in it.
             u_var12 = ((((u_var6 - 3) << 8) & 0xFFFFFF00) + (data.read_u8()? as u32 & 0xFF)) ^ 0xFFFFFFFF;
             if u_var12 == 0 {
-                break; // This is the only exit point
+                break // This is the only exit point
             }
             // Next instruction bit is pulled from the byte we read above, then shifted out of that byte
             next_bit_buffer = (u_var12 & 1) != 0;
@@ -110,7 +110,7 @@ where
                     // Instruction bit - 1 means stop
                     pull_new_bit(&mut mask_buffer, &mut next_bit_buffer, data)?;
                     if next_bit_buffer {
-                        break;
+                        break
                     }
                 }
                 // Add 2 to the byte count for some reason?

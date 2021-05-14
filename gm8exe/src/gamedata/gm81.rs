@@ -21,7 +21,7 @@ where
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x226D8A {
         log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
-        return Ok(false);
+        return Ok(false)
     }
 
     // Check for the standard 8.1 loading sequence
@@ -74,7 +74,7 @@ where
                 let found_header = seek_value(exe, n)?.is_some();
                 if !found_header {
                     log!(logger, "Didn't find GM81 magic value (0x{:X}) before EOF, so giving up", n);
-                    return Ok(false);
+                    return Ok(false)
                 }
             },
             None => {
@@ -120,11 +120,11 @@ pub fn seek_value(exe: &mut io::Cursor<&mut [u8]>, value: u32) -> io::Result<Opt
         let parsed_value = (d1 & 0xFF00FF00) | (d2 & 0x00FF00FF);
         let parsed_xor = (d1 & 0x00FF00FF) | (d2 & 0xFF00FF00);
         if parsed_value == value {
-            break Ok(Some(parsed_xor));
+            break Ok(Some(parsed_xor))
         }
         pos += 1;
         if ((pos + 8) as usize) >= exe.get_ref().len() {
-            break Ok(None);
+            break Ok(None)
         }
     }
 }
