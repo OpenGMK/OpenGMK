@@ -108,15 +108,18 @@ impl Asset for Font {
         })
     }
 
-    fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {
+    fn serialize_exe(&self, mut writer: impl io::Write, version: GameVersion) -> io::Result<()> {
         writer.write_pas_string(&self.name)?;
         writer.write_u32::<LE>(VERSION)?;
         writer.write_pas_string(&self.sys_name)?;
         writer.write_u32::<LE>(self.size)?;
         writer.write_u32::<LE>(self.bold.into())?;
         writer.write_u32::<LE>(self.italic.into())?;
-        // TODO: Missing info! Uh-oh! GM81 bits you know what it is
-        writer.write_u32::<LE>(self.range_start)?;
+        match version {
+            GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.range_start)?,
+            GameVersion::GameMaker8_1 => writer
+                .write_u32::<LE>(self.range_start | ((self.aa_level % 0x100) << 24) | ((self.charset % 0x100) << 16))?,
+        }
         writer.write_u32::<LE>(self.range_end)?;
         writer.write_u32::<LE>(self.map_width)?;
         writer.write_u32::<LE>(self.map_height)?;
