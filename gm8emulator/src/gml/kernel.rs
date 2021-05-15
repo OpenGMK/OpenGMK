@@ -9110,19 +9110,37 @@ impl Game {
         Ok(self.assets.timelines.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn timeline_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function timeline_add")
+    pub fn timeline_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        self.assets.timelines.push(Some(Box::new(asset::Timeline {
+            name: "".into(),
+            moments: Default::default(),
+        })));
+
+        Ok(Default::default())
     }
 
-    pub fn timeline_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function timeline_delete")
+    pub fn timeline_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let timeline = expect_args!(args, [int])?;
+        if self.assets.timelines.get_asset(timeline).is_some() {
+            self.assets.timelines[timeline as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("timeline_delete".into(), "Trying to delete non-existing timeline".into()))
+        }
     }
 
-    pub fn timeline_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function timeline_clear")
+    pub fn timeline_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let timeline = expect_args!(args, [int])?;
+        if let Some(timeline) = self.assets.timelines.get_asset_mut(timeline) {
+            // Instead of timeline.moments.borrow().clear(), which could panic if this is called from
+            // within a timeline step, just drop the old list and create a new one
+            timeline.moments = Default::default();
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
+        }
+        
     }
 
     pub fn timeline_moment_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {
