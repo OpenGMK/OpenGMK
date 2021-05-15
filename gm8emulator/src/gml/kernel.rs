@@ -9112,12 +9112,13 @@ impl Game {
 
     pub fn timeline_add(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        let idx = self.assets.timelines.len();
         self.assets.timelines.push(Some(Box::new(asset::Timeline {
-            name: "".into(),
+            name: format!("__newtimeline{}", idx).into(),
             moments: Default::default(),
         })));
 
-        Ok(Default::default())
+        Ok(idx.into())
     }
 
     pub fn timeline_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
