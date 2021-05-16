@@ -102,17 +102,38 @@ impl<T> ChunkList<T> {
         });
     }
 
-    fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) {
+    fn remove_with(&mut self, mut f: impl FnMut(&T) -> bool) -> usize {
+        let mut count = 0;
         for chunk in self.iter_mut() {
             for slot in chunk.slots.iter_mut() {
                 if let Some(t) = slot {
                     if f(&*t) {
                         *slot = None;
                         chunk.vacant += 1;
+                        count += 1;
                     }
                 }
             }
         }
+        count
+    }
+
+    fn remove_as_vec(&mut self, mut f: impl FnMut(&T) -> bool) -> Vec<T> {
+        let mut output = Vec::new();
+        for chunk in self.iter_mut() {
+            for slot in chunk.slots.iter_mut() {
+                if let Some(t) = slot {
+                    if f(&*t) {
+                        let mut instance = None;
+                        std::mem::swap(&mut instance, slot);
+                        // SAFETY: we already checked that this instance is Some before swapping it
+                        output.push(instance.unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() }));
+                        chunk.vacant += 1;
+                    }
+                }
+            }
+        }
+        output
     }
 
     fn clear(&mut self) {
@@ -379,15 +400,7 @@ impl InstanceList {
     }
 
     pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
-        let mut removed_any = false;
-        self.chunks.remove_with(|x| {
-            let remove = f(x);
-            if remove {
-                removed_any = true;
-            }
-            remove
-        });
-        if removed_any {
+        if self.chunks.remove_with(f) > 0 {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
             self.insert_order.retain(|idx| chunks.get(*idx).is_some());
@@ -396,6 +409,20 @@ impl InstanceList {
             }
             self.object_id_map.retain(|_, list| !list.is_empty());
         }
+    }
+
+    pub fn remove_as_vec(&mut self, f: impl Fn(&Instance) -> bool) -> Vec<Instance> {
+        let instances = self.chunks.remove_as_vec(f);
+        if instances.len() > 0 {
+            let chunks = &self.chunks;
+            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
+            for instances in self.object_id_map.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map.retain(|_, list| !list.is_empty());
+        }
+        instances
     }
 }
 
