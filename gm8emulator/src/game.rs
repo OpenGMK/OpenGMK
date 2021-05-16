@@ -1277,10 +1277,32 @@ impl Game {
     }
 
     pub fn load_room(&mut self, room_id: i32) -> Result<(), Box<dyn std::error::Error>> {
-        let room = if let Some(Some(room)) = self.assets.rooms.get(room_id as usize) {
-            room.clone()
+        let (room, room_state, is_stored) = if let Some(room) = self.assets.rooms.get_asset(room_id) {
+            if let Some(p) = self.stored_rooms.iter().position(|x| x.id == room_id) {
+                (room.clone(), self.stored_rooms.remove(p), true)
+            } else {
+                (
+                    room.clone(),
+                    RoomState {
+                        instance_list: InstanceList::new(),
+                        tile_list: TileList::new(),
+                        id: room_id,
+                        width: room.width as _,
+                        height: room.height as _,
+                        speed: room.speed,
+                        colour: room.bg_colour,
+                        show_colour: room.clear_screen,
+                        views_enabled: room.views_enabled,
+                        views: room.views.clone(),
+                        backgrounds: room.backgrounds.clone(),
+                        caption: room.caption.clone(),
+                        persistent: room.persistent,
+                    },
+                    false
+                )
+            }
         } else {
-            return Err(format!("Tried to load non-existent room with id {}", room_id).into())
+            return Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id).into())
         };
 
         // Update this early so the other events run
@@ -1318,58 +1340,44 @@ impl Game {
             self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
         }
 
-        // Delete non-persistent instances and all tiles
-        // TODO: back up remaining instances and put them at the END of insertion order after making new ones
-        self.room.instance_list.remove_with(|instance| !instance.persistent.get());
-        self.room.tile_list.clear();
+        // Backup persistent instances
+        let persistent_instances = self.room.instance_list.remove_as_vec(|instance| instance.persistent.get());
 
         // Update renderer
         let (view_width, view_height) = {
-            if !room.views_enabled {
-                (room.width, room.height)
+            if !room_state.views_enabled {
+                (room_state.width, room_state.height)
             } else {
                 let xw = |view: &View| view.port_x + (view.port_w as i32);
                 let yh = |view: &View| view.port_y + (view.port_h as i32);
-                let x_max = room
+                let x_max = room_state
                     .views
                     .iter()
                     .filter(|view| view.visible)
                     .max_by(|v1, v2| xw(v1).cmp(&xw(v2)))
                     .map(xw)
-                    .unwrap_or(room.width as i32);
-                let y_max = room
+                    .unwrap_or(room_state.width as i32);
+                let y_max = room_state
                     .views
                     .iter()
                     .filter(|view| view.visible)
                     .max_by(|v1, v2| yh(v1).cmp(&yh(v2)))
                     .map(yh)
-                    .unwrap_or(room.height as i32);
+                    .unwrap_or(room_state.height as i32);
                 if x_max < 0 || y_max < 0 {
                     return Err(format!("Bad room width/height {},{} loading room {}", x_max, y_max, room_id).into())
                 }
-                (x_max as u32, y_max as u32)
+                (x_max, y_max)
             }
         };
 
-        self.resize_window(view_width, view_height);
-
-        // Update views, backgrounds
-        // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
-        self.room.views_enabled = room.views_enabled;
-        self.room.views.clear();
-        self.room.views.extend_from_slice(&room.views);
-        self.room.backgrounds.clear();
-        self.room.backgrounds.extend_from_slice(&room.backgrounds);
+        self.resize_window(view_width as u32, view_height as u32);
 
         // Update some stored vars
-        self.room.id = room_id;
-        self.room.width = room.width as _;
-        self.room.height = room.height as _;
-        self.room.speed = room.speed;
-        self.room.colour = room.bg_colour;
-        self.room.show_colour = room.clear_screen;
-        self.room.persistent = room.persistent;
-        self.room.caption = room.caption;
+        if self.room.persistent && !self.game_start {
+            self.stored_rooms.push(self.room.clone());
+        }
+        self.room = room_state;
         self.input_manager.clear_presses();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
@@ -1380,28 +1388,43 @@ impl Game {
         }
 
         // Load all instances in new room, unless they already exist due to persistence
-        let mut new_handles: Vec<(usize, &asset::room::Instance)> = Vec::new();
-        for instance in room.instances.iter() {
-            if self.room.instance_list.get_by_instid(instance.id).is_none() {
-                // Get object
-                let object = match self.assets.objects.get(instance.object as usize) {
-                    Some(&Some(ref o)) => o.as_ref(),
-                    _ => return Err(format!("Instance of invalid Object in room {}", room.name).into()),
-                };
+        let mut new_handles: Vec<(usize, &asset::room::Instance)> = if is_stored {
+            Vec::new()
+        } else {
+            Vec::with_capacity(room.instances.len())
+        };
+        if !is_stored {
+            for instance in room.instances.iter() {
+                if self.room.instance_list.get_by_instid(instance.id).is_none() {
+                    // Get object
+                    let object = match self.assets.objects.get_asset(instance.object) {
+                        Some(o) => o.as_ref(),
+                        _ => return Err(format!("Instance of invalid Object in room {}", room.name).into()),
+                    };
 
-                // Add instance to list
-                new_handles.push((
-                    self.room.instance_list.insert(Instance::new(
-                        instance.id as _,
-                        Real::from(instance.x),
-                        Real::from(instance.y),
-                        instance.object,
-                        object,
-                    )),
-                    instance,
-                ));
+                    // Add instance to list
+                    new_handles.push((
+                        self.room.instance_list.insert(Instance::new(
+                            instance.id as _,
+                            Real::from(instance.x),
+                            Real::from(instance.y),
+                            instance.object,
+                            object,
+                        )),
+                        instance,
+                    ));
+                }
             }
         }
+        for instance in persistent_instances {
+            // Re-add persistent instances, overwriting any in the stored room with the same ID
+            // TODO: these might not be in the right order because InstanceList::remove_as_vec is unordered?
+            if let Some(i) = self.room.instance_list.get_by_instid(instance.id.get()) {
+                self.room.instance_list.mark_deleted(i);
+            }
+            self.room.instance_list.insert(instance);
+        }
+
         for (handle, instance) in &new_handles {
             if self.room.instance_list.get(*handle).is_active() {
                 // Run this instance's room creation code
@@ -1424,10 +1447,12 @@ impl Game {
         }
 
         // Run room creation code
-        let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-        let mut new_context = Context::with_single_instance(dummy_instance);
-        self.execute(&room.creation_code?, &mut new_context)?;
-        self.room.instance_list.remove_dummy(dummy_instance);
+        if !is_stored {
+            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let mut new_context = Context::with_single_instance(dummy_instance);
+            self.execute(&room.creation_code?, &mut new_context)?;
+            self.room.instance_list.remove_dummy(dummy_instance);
+        }
 
         // Run room start event for each instance
         let mut iter = self.room.instance_list.iter_by_insertion();
@@ -1523,6 +1548,7 @@ impl Game {
 
         // Clear some stored variables
         self.room.instance_list = InstanceList::new();
+        self.stored_rooms.clear();
         self.globals = DummyFieldHolder::new();
         self.game_start = true;
 
