@@ -47,6 +47,7 @@ fn xmain() -> i32 {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
+    opts.optflag("l", "no-framelimit", "disables the frame-limiter");
     opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
@@ -75,6 +76,7 @@ fn xmain() -> i32 {
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
+    let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
     let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
         Ok(p) => p,
@@ -203,7 +205,7 @@ fn xmain() -> i32 {
         game::PlayType::Normal
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path, game_args, temp_dir, encoding, play_type) {
+    let mut components = match game::Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);

@@ -165,6 +165,7 @@ pub struct Game {
 
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
+    pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
 
     // winit windowing
     pub window: Window,
@@ -253,6 +254,7 @@ impl Game {
         game_arguments: Vec<String>,
         temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
+        frame_limiter: bool,
         play_type: PlayType,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
@@ -1109,6 +1111,7 @@ impl Game {
             open_file: None,
             file_finder: None,
             spoofed_time_nanos: None,
+            frame_limiter,
             fps: 0,
             parameters: game_arguments,
             encoding,
@@ -1846,7 +1849,7 @@ impl Game {
             }
             frame_counter += 1;
 
-            if let Some(time) = duration.checked_sub(diff) {
+            if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
                 time_now += duration;
             } else {
@@ -2236,7 +2239,7 @@ impl Game {
             }
             frame_counter += 1;
 
-            if let Some(time) = duration.checked_sub(diff) {
+            if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
                 time_now += duration;
             } else {
