@@ -1008,7 +1008,7 @@ impl Game {
             InstanceVariable::RoomHeight => Ok(self.room.height.into()),
             InstanceVariable::RoomCaption => Ok(self.room.caption.clone().into()),
             InstanceVariable::RoomSpeed => Ok(self.room.speed.into()),
-            InstanceVariable::RoomPersistent => todo!("room_persistent getter"),
+            InstanceVariable::RoomPersistent => Ok(self.room.persistent.into()),
             InstanceVariable::BackgroundColor => Ok(self.room.colour.as_decimal().into()),
             InstanceVariable::BackgroundShowcolor => Ok(self.room.show_colour.into()),
             InstanceVariable::BackgroundVisible => {
@@ -1334,7 +1334,7 @@ impl Game {
                 }
                 self.room.speed = speed as _
             },
-            InstanceVariable::RoomPersistent => todo!("room_persistent setter"),
+            InstanceVariable::RoomPersistent => self.room.persistent = value.is_truthy(),
             InstanceVariable::BackgroundColor => self.room.colour = (value.round() as u32).into(),
             InstanceVariable::BackgroundShowcolor => self.room.show_colour = value.is_truthy(),
             InstanceVariable::BackgroundVisible => match self.room.backgrounds.get_mut(array_index as usize) {
