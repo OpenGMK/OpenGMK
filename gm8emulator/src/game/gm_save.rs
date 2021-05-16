@@ -50,7 +50,7 @@ impl GMSave {
     pub fn from_game(game: &Game) -> Self {
         Self {
             game_id: game.game_id,
-            room_id: game.room_id,
+            room_id: game.room.id,
             transition_kind: game.transition_kind,
             score: game.score,
             lives: game.lives,
@@ -61,19 +61,19 @@ impl GMSave {
             globalvars: game.globalvars.clone(),
             globals: game.globals.clone(),
             room: GMRoomSave {
-                caption: game.caption.clone(),
-                width: game.room_width,
-                height: game.room_height,
-                room_speed: game.room_speed,
-                persistent: false, // TODO
-                bgcol: game.room_colour,
-                show_bgcol: game.show_room_colour,
-                show_windowcol: true, // TODO
-                backgrounds: game.backgrounds.clone(),
-                views_enabled: game.views_enabled,
-                views: game.views.clone(),
-                instances: game.instance_list.clone(),
-                tiles: game.tile_list.clone(),
+                caption: game.room.caption.clone(),
+                width: game.room.width,
+                height: game.room.height,
+                room_speed: game.room.speed,
+                persistent: game.room.persistent,
+                bgcol: game.room.colour,
+                show_bgcol: game.room.show_colour,
+                show_windowcol: true, // TODO: 
+                backgrounds: game.room.backgrounds.clone(),
+                views_enabled: game.room.views_enabled,
+                views: game.room.views.clone(),
+                instances: game.room.instance_list.clone(),
+                tiles: game.room.tile_list.clone(),
             },
             last_instance_id: game.last_instance_id,
             last_tile_id: game.last_tile_id,
@@ -85,7 +85,7 @@ impl GMSave {
             return Err("tried to load save file for different game".into())
         }
 
-        game.room_id = self.room_id;
+        game.room.id = self.room_id;
         game.transition_kind = self.transition_kind;
         game.score = self.score;
         game.lives = self.lives;
@@ -95,45 +95,47 @@ impl GMSave {
         game.auto_draw = self.auto_draw;
         game.globalvars = self.globalvars;
         game.globals = self.globals;
-        game.caption = self.room.caption;
-        game.room_width = self.room.width;
-        game.room_height = self.room.height;
-        game.room_speed = self.room.room_speed;
-        game.room_colour = self.room.bgcol;
-        game.show_room_colour = self.room.show_bgcol;
-        game.backgrounds = self.room.backgrounds;
-        game.views_enabled = self.room.views_enabled;
-        game.views = self.room.views;
-        game.instance_list = self.room.instances;
-        game.tile_list = self.room.tiles;
+        game.room.caption = self.room.caption;
+        game.room.width = self.room.width;
+        game.room.height = self.room.height;
+        game.room.speed = self.room.room_speed;
+        game.room.colour = self.room.bgcol;
+        game.room.show_colour = self.room.show_bgcol;
+        game.room.backgrounds = self.room.backgrounds;
+        game.room.views_enabled = self.room.views_enabled;
+        game.room.views = self.room.views;
+        game.room.instance_list = self.room.instances;
+        game.room.tile_list = self.room.tiles;
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
 
         // Update renderer
         let (view_width, view_height) = {
-            if !game.views_enabled {
-                (game.room_width as u32, game.room_height as u32)
+            if !game.room.views_enabled {
+                (game.room.width as u32, game.room.height as u32)
             } else {
                 let xw = |view: &View| view.port_x + (view.port_w as i32);
                 let yh = |view: &View| view.port_y + (view.port_h as i32);
                 let x_max = game
+                    .room
                     .views
                     .iter()
                     .filter(|view| view.visible)
                     .max_by(|v1, v2| xw(v1).cmp(&xw(v2)))
                     .map(xw)
-                    .unwrap_or(game.room_width as i32);
+                    .unwrap_or(game.room.width as i32);
                 let y_max = game
+                    .room
                     .views
                     .iter()
                     .filter(|view| view.visible)
                     .max_by(|v1, v2| yh(v1).cmp(&yh(v2)))
                     .map(yh)
-                    .unwrap_or(game.room_height as i32);
+                    .unwrap_or(game.room.height as i32);
                 if x_max < 0 || y_max < 0 {
                     return Err(format!(
                         "Bad room width/height {},{} loading room {} from state",
-                        x_max, y_max, game.room_id
+                        x_max, y_max, game.room.id
                     )
                     .into())
                 }

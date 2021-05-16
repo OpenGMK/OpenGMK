@@ -16,8 +16,8 @@ impl Game {
         };
         let mut position = 0;
         while let Some(&object_id) = holders.borrow().get(position) {
-            let mut iter = self.instance_list.iter_by_object(object_id);
-            while let Some(instance) = iter.next(&self.instance_list) {
+            let mut iter = self.room.instance_list.iter_by_object(object_id);
+            while let Some(instance) = iter.next(&self.room.instance_list) {
                 self.run_instance_event(event_id, event_sub, instance, other.unwrap_or(instance), None)?;
             }
             position += 1;
@@ -38,7 +38,7 @@ impl Game {
         // how GM8 is implemented as well, given the related room creation bug and collision/solid bugs.
         if self.scene_change.is_none() {
             let original_object_id =
-                if let Some(id) = as_object { id } else { self.instance_list.get(instance).object_index.get() };
+                if let Some(id) = as_object { id } else { self.room.instance_list.get(instance).object_index.get() };
             let mut object_id = original_object_id;
             let event = loop {
                 if object_id < 0 {
@@ -79,22 +79,22 @@ impl Game {
         self.scene_change = None;
 
         // Room end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
         }
 
         // Game end
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
         }
 
         // Extension finalizers
         for i in 0..self.extension_finalizers.len() {
-            let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             self.run_extension_function(self.extension_finalizers[i], gml::Context::with_single_instance(dummy_instance))?;
-            self.instance_list.remove_dummy(dummy_instance);
+            self.room.instance_list.remove_dummy(dummy_instance);
         }
 
         Ok(())
@@ -109,12 +109,12 @@ impl Game {
                 if trigger.moment == moment {
                     let trigger = trigger.clone();
                     for object_id in objects.borrow().iter().copied() {
-                        let mut iter = self.instance_list.iter_by_object(object_id);
-                        while let Some(handle) = iter.next(&self.instance_list) {
+                        let mut iter = self.room.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
                             let mut context = gml::Context::with_single_instance(handle);
                             context.event_type = 11; // ev_trigger
                             context.event_number = trigger_id as _;
-                            context.event_object = self.instance_list.get(handle).object_index.get();
+                            context.event_object = self.room.instance_list.get(handle).object_index.get();
                             self.execute(&trigger.condition, &mut context)?;
                             if context.return_value.is_truthy() {
                                 self.run_instance_event(gml::ev::TRIGGER, trigger_id, handle, handle, None)?;
@@ -135,10 +135,10 @@ impl Game {
             if let Some(objects) = self.event_holders[gml::ev::ALARMS].get(&alarm_id).map(|x| x.clone()) {
                 for object_id in objects.borrow().iter().copied() {
                     // Iter all instances of this object
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
                         // Check if this has the alarm set
-                        let instance = self.instance_list.get(handle);
+                        let instance = self.room.instance_list.get(handle);
                         let run_event = match instance.alarms.borrow_mut().get_mut(&alarm_id) {
                             Some(alarm) if *alarm >= 0 => {
                                 // Decrement it, run the event if it hit 0
@@ -167,8 +167,8 @@ impl Game {
                 // Get all the objects which have this key event registered
                 for object_id in objects.borrow().iter().copied() {
                     // Iter all instances of this object
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
                         self.run_instance_event(gml::ev::KEYBOARD, key, handle, handle, None)?;
                     }
                 }
@@ -193,8 +193,8 @@ impl Game {
                 // Get all the objects which have this key event registered
                 for object_id in objects.borrow().iter().copied() {
                     // Iter all instances of this object
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
                         self.run_instance_event(gml::ev::KEYPRESS, key, handle, handle, None)?;
                     }
                 }
@@ -219,8 +219,8 @@ impl Game {
                 // Get all the objects which have this key event registered
                 for object_id in objects.borrow().iter().copied() {
                     // Iter all instances of this object
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
                         self.run_instance_event(gml::ev::KEYRELEASE, key, handle, handle, None)?;
                     }
                 }
@@ -248,8 +248,8 @@ impl Game {
                     let holders = holders.clone();
                     let mut position = 0;
                     while let Some(&object_id) = holders.borrow().get(position) {
-                        let mut iter = self.instance_list.iter_by_object(object_id);
-                        while let Some(handle) = iter.next(&self.instance_list) {
+                        let mut iter = self.room.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
                             if self.check_collision_point(handle, mouse_x, mouse_y, true) {
                                 self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
                             }
@@ -315,8 +315,8 @@ impl Game {
             let holders = holders.clone();
             let mut position = 0;
             while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
+                let mut iter = self.room.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
                     if self.check_collision_point(handle, mouse_x, mouse_y, true)
                         && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
                     {
@@ -332,8 +332,8 @@ impl Game {
             let holders = holders.clone();
             let mut position = 0;
             while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
+                let mut iter = self.room.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
                     if !self.check_collision_point(handle, mouse_x, mouse_y, true)
                         && self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
                     {
@@ -421,22 +421,22 @@ impl Game {
             let holders = holders.clone();
             let mut position = 0;
             while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle);
+                let mut iter = self.room.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let instance = self.room.instance_list.get(handle);
                     let mask = self.get_instance_mask_sprite(handle);
 
                     let outside = if mask.is_some() {
                         instance.update_bbox(mask);
-                        instance_outside_rect(instance, 0, 0, self.room_width, self.room_height)
+                        instance_outside_rect(instance, 0, 0, self.room.width, self.room.height)
                     } else {
                         point_outside_rect(
                             instance.x.get().into(),
                             instance.y.get().into(),
                             0,
                             0,
-                            self.room_width,
-                            self.room_height,
+                            self.room.width,
+                            self.room.height,
                         )
                     };
                     if outside {
@@ -452,22 +452,22 @@ impl Game {
             let holders = holders.clone();
             let mut position = 0;
             while let Some(&object_id) = holders.borrow().get(position) {
-                let mut iter = self.instance_list.iter_by_object(object_id);
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    let instance = self.instance_list.get(handle);
+                let mut iter = self.room.instance_list.iter_by_object(object_id);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let instance = self.room.instance_list.get(handle);
                     let mask = self.get_instance_mask_sprite(handle);
 
                     let intersect = if mask.is_some() {
                         instance.update_bbox(mask);
-                        instance_intersect_rect(instance, 0, 0, self.room_width, self.room_height)
+                        instance_intersect_rect(instance, 0, 0, self.room.width, self.room.height)
                     } else {
                         point_outside_rect(
                             instance.x.get().into(),
                             instance.y.get().into(),
                             0,
                             0,
-                            self.room_width,
-                            self.room_height,
+                            self.room.width,
+                            self.room.height,
                         )
                     };
                     if intersect {
@@ -478,7 +478,7 @@ impl Game {
             }
         }
 
-        let view_count = self.views.len().min(8);
+        let view_count = self.room.views.len().min(8);
 
         // Outside view events
         for i in 0..view_count {
@@ -487,11 +487,11 @@ impl Game {
                 let holders = holders.clone();
                 let mut position = 0;
                 while let Some(&object_id) = holders.borrow().get(position) {
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
-                        let instance = self.instance_list.get(handle);
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                        let instance = self.room.instance_list.get(handle);
                         let mask = self.get_instance_mask_sprite(handle);
-                        let view = &self.views[i];
+                        let view = &self.room.views[i];
 
                         let outside = if mask.is_some() {
                             instance.update_bbox(mask);
@@ -528,11 +528,11 @@ impl Game {
                 let holders = holders.clone();
                 let mut position = 0;
                 while let Some(&object_id) = holders.borrow().get(position) {
-                    let mut iter = self.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.instance_list) {
-                        let instance = self.instance_list.get(handle);
+                    let mut iter = self.room.instance_list.iter_by_object(object_id);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                        let instance = self.room.instance_list.get(handle);
                         let mask = self.get_instance_mask_sprite(handle);
-                        let view = &self.views[i];
+                        let view = &self.room.views[i];
 
                         let intersect = if mask.is_some() {
                             instance.update_bbox(mask);
@@ -573,18 +573,18 @@ impl Game {
             self.event_holders[gml::ev::COLLISION].get_index(i).map(|(x, y)| (*x, y.clone()))
         {
             // Iter every instance of this object
-            let mut iter1 = self.instance_list.iter_by_object(object as i32);
-            'iter1: while let Some(instance) = iter1.next(&self.instance_list) {
+            let mut iter1 = self.room.instance_list.iter_by_object(object as i32);
+            'iter1: while let Some(instance) = iter1.next(&self.room.instance_list) {
                 // Go through all its collision target objects
                 for target_obj in target_list.borrow().iter().copied() {
                     // And iter every instance of the target object
-                    let mut iter2 = self.instance_list.iter_by_object(target_obj);
-                    while let Some(target) = iter2.next(&self.instance_list) {
+                    let mut iter2 = self.room.instance_list.iter_by_object(target_obj);
+                    while let Some(target) = iter2.next(&self.room.instance_list) {
                         // And finally, check if the two instances collide
                         if self.check_collision(instance, target) {
                             // If either instance is solid, move both back to their previous positions
-                            let inst1 = self.instance_list.get(instance);
-                            let inst2 = self.instance_list.get(target);
+                            let inst1 = self.room.instance_list.get(instance);
+                            let inst2 = self.room.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
                                 inst1.x.set(inst1.xprevious.get());
                                 inst1.y.set(inst1.yprevious.get());
@@ -601,8 +601,8 @@ impl Game {
                             self.run_instance_event(gml::ev::COLLISION, object as u32, target, instance, None)?;
 
                             // If either instance is solid, apply both instances' hspeed and vspeed
-                            let inst1 = self.instance_list.get(instance);
-                            let inst2 = self.instance_list.get(target);
+                            let inst1 = self.room.instance_list.get(instance);
+                            let inst2 = self.room.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
                                 self.apply_speeds(instance);
                                 self.apply_speeds(target);

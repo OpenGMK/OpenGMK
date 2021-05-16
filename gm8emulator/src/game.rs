@@ -73,8 +73,6 @@ pub struct Game {
     pub compiler: Compiler,
     pub text_files: HandleArray<file::TextHandle, 32>,
     pub binary_files: HandleArray<file::BinaryHandle, 32>,
-    pub instance_list: InstanceList,
-    pub tile_list: TileList,
     pub rand: Random,
     pub input_manager: InputManager,
     pub assets: Assets,
@@ -83,8 +81,6 @@ pub struct Game {
 
     pub renderer: Renderer,
     pub background_colour: Colour,
-    pub room_colour: Colour,
-    pub show_room_colour: bool,
 
     pub library_init_strings: Vec<Box<[u8]>>,
     pub extension_functions: Vec<Option<ExtensionFunction>>,
@@ -96,19 +92,12 @@ pub struct Game {
 
     pub last_instance_id: ID,
     pub last_tile_id: ID,
-
-    pub views_enabled: bool,
-    pub view_current: usize,
-    pub views: Vec<View>,
-    pub backgrounds: Vec<background::Background>,
-
     pub particles: particle::Manager,
 
-    pub room_id: i32,
-    pub room_width: i32,
-    pub room_height: i32,
+    pub room: RoomState,
+    pub stored_rooms: Vec<RoomState>, // persistent rooms which have been backed up
     pub room_order: Box<[i32]>,
-    pub room_speed: u32,
+    pub view_current: usize,
     pub scene_change: Option<SceneChange>, // Queued scene change which has been requested by GML, if any
     pub user_transitions: HashMap<i32, transition::UserTransition>,
 
@@ -174,10 +163,6 @@ pub struct Game {
 
     pub esc_close_game: bool,
 
-    // window caption
-    pub caption: RCStr,
-    pub caption_stale: bool,
-
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
 
@@ -220,6 +205,25 @@ pub enum SceneChange {
 pub enum ExtensionFunction {
     Dll(external::External),
     Gml(Rc<[Instruction]>),
+}
+
+/// A room state originally loaded from a room asset.
+/// This will be backed up if the room_persistent flag is true.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RoomState {
+    pub instance_list: InstanceList,
+    pub tile_list: TileList,
+    pub id: i32,
+    pub width: i32,
+    pub height: i32,
+    pub speed: u32,
+    pub colour: Colour,
+    pub show_colour: bool,
+    pub views_enabled: bool,
+    pub views: Vec<View>,
+    pub backgrounds: Vec<background::Background>,
+    pub caption: RCStr,
+    pub persistent: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -1025,8 +1029,6 @@ impl Game {
             compiler,
             text_files: HandleArray::new(),
             binary_files: HandleArray::new(),
-            instance_list: InstanceList::new(),
-            tile_list: TileList::new(),
             rand,
             renderer: renderer,
             background_colour: settings.clear_colour.into(),
@@ -1036,22 +1038,29 @@ impl Game {
             extension_finalizers,
             externals: Vec::new(),
             surface_fix: false,
-            room_colour: room1_colour,
-            show_room_colour: room1_show_colour,
             input_manager: InputManager::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
             custom_draw_objects,
-            views_enabled: false,
-            view_current: 0,
-            views: Vec::new(),
-            backgrounds: Vec::new(),
             particles: particle::Manager::new(particle_shapes),
-            room_id: room1_id,
-            room_width: room1_width as i32,
-            room_height: room1_height as i32,
+            room: RoomState {
+                instance_list: InstanceList::new(),
+                tile_list: TileList::new(),
+                id: room1_id,
+                width: room1_width as i32,
+                height: room1_height as i32,
+                speed: room1_speed,
+                colour: room1_colour,
+                show_colour: room1_show_colour,
+                views_enabled: false,
+                views: Vec::new(),
+                backgrounds: Vec::new(),
+                caption: "".to_string().into(),
+                persistent: false,
+            },
+            stored_rooms: Vec::new(),
             room_order: room_order.into_boxed_slice(),
-            room_speed: room1_speed,
+            view_current: 0,
             scene_change: None,
             user_transitions: HashMap::new(),
             constants: Vec::with_capacity(constants.len()),
@@ -1104,8 +1113,6 @@ impl Game {
             parameters: game_arguments,
             encoding,
             esc_close_game: settings.esc_close_game,
-            caption: "".to_string().into(),
-            caption_stale: false,
             score_capt_d: true,
             has_set_show_score: false,
             lives_capt_d: false,
@@ -1131,20 +1138,20 @@ impl Game {
             for file in extension.files {
                 for constant in file.consts {
                     let expr = game.compiler.compile_expression(&constant.value.0)?;
-                    let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+                    let dummy_instance = game.room.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
                     let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
                     game.constants.push(value);
-                    game.instance_list.remove_dummy(dummy_instance);
+                    game.room.instance_list.remove_dummy(dummy_instance);
                 }
             }
         }
 
         for c in &constants {
             let expr = game.compiler.compile_expression(&c.expression.0)?;
-            let dummy_instance = game.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = game.room.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
             game.constants.push(value);
-            game.instance_list.remove_dummy(dummy_instance);
+            game.room.instance_list.remove_dummy(dummy_instance);
         }
 
         // Re-initialization after constants are done
@@ -1306,15 +1313,15 @@ impl Game {
         };
 
         // Run room end event for each instance
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
         }
 
         // Delete non-persistent instances and all tiles
         // TODO: back up remaining instances and put them at the END of insertion order after making new ones
-        self.instance_list.remove_with(|instance| !instance.persistent.get());
-        self.tile_list.clear();
+        self.room.instance_list.remove_with(|instance| !instance.persistent.get());
+        self.room.tile_list.clear();
 
         // Update renderer
         let (view_width, view_height) = {
@@ -1345,36 +1352,37 @@ impl Game {
         };
 
         self.resize_window(view_width, view_height);
-        self.room_colour = room.bg_colour;
-        self.show_room_colour = room.clear_screen;
 
         // Update views, backgrounds
         // Using clear() followed by extend_from_slice() guarantees re-using vec capacity and avoids unnecessary allocs
-        self.views_enabled = room.views_enabled;
-        self.views.clear();
-        self.views.extend_from_slice(&room.views);
-        self.backgrounds.clear();
-        self.backgrounds.extend_from_slice(&room.backgrounds);
+        self.room.views_enabled = room.views_enabled;
+        self.room.views.clear();
+        self.room.views.extend_from_slice(&room.views);
+        self.room.backgrounds.clear();
+        self.room.backgrounds.extend_from_slice(&room.backgrounds);
 
         // Update some stored vars
-        self.room_id = room_id;
-        self.room_width = room.width as _;
-        self.room_height = room.height as _;
-        self.room_speed = room.speed;
-        self.caption = room.caption;
+        self.room.id = room_id;
+        self.room.width = room.width as _;
+        self.room.height = room.height as _;
+        self.room.speed = room.speed;
+        self.room.colour = room.bg_colour;
+        self.room.show_colour = room.clear_screen;
+        self.room.persistent = room.persistent;
+        self.room.caption = room.caption;
         self.input_manager.clear_presses();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
         // Load all tiles in new room
         for tile in room.tiles.iter() {
-            self.tile_list.insert(tile.clone());
+            self.room.tile_list.insert(tile.clone());
         }
 
         // Load all instances in new room, unless they already exist due to persistence
         let mut new_handles: Vec<(usize, &asset::room::Instance)> = Vec::new();
         for instance in room.instances.iter() {
-            if self.instance_list.get_by_instid(instance.id).is_none() {
+            if self.room.instance_list.get_by_instid(instance.id).is_none() {
                 // Get object
                 let object = match self.assets.objects.get(instance.object as usize) {
                     Some(&Some(ref o)) => o.as_ref(),
@@ -1383,7 +1391,7 @@ impl Game {
 
                 // Add instance to list
                 new_handles.push((
-                    self.instance_list.insert(Instance::new(
+                    self.room.instance_list.insert(Instance::new(
                         instance.id as _,
                         Real::from(instance.x),
                         Real::from(instance.y),
@@ -1395,7 +1403,7 @@ impl Game {
             }
         }
         for (handle, instance) in &new_handles {
-            if self.instance_list.get(*handle).is_active() {
+            if self.room.instance_list.get(*handle).is_active() {
                 // Run this instance's room creation code
                 let mut new_context = Context::with_single_instance(*handle);
                 new_context.event_object = instance.object;
@@ -1408,22 +1416,22 @@ impl Game {
 
         if self.game_start {
             // Run game start event for each instance
-            let mut iter = self.instance_list.iter_by_insertion();
-            while let Some(instance) = iter.next(&self.instance_list) {
+            let mut iter = self.room.instance_list.iter_by_insertion();
+            while let Some(instance) = iter.next(&self.room.instance_list) {
                 self.run_instance_event(ev::OTHER, 2, instance, instance, None)?;
             }
             self.game_start = false;
         }
 
         // Run room creation code
-        let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+        let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
         let mut new_context = Context::with_single_instance(dummy_instance);
         self.execute(&room.creation_code?, &mut new_context)?;
-        self.instance_list.remove_dummy(dummy_instance);
+        self.room.instance_list.remove_dummy(dummy_instance);
 
         // Run room start event for each instance
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
@@ -1514,7 +1522,7 @@ impl Game {
         self.run_game_end_events()?;
 
         // Clear some stored variables
-        self.instance_list = InstanceList::new();
+        self.room.instance_list = InstanceList::new();
         self.globals = DummyFieldHolder::new();
         self.game_start = true;
 
@@ -1530,8 +1538,8 @@ impl Game {
         }
 
         // Update xprevious and yprevious for all instances
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.instance_list).map(|x| self.instance_list.get(x)) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list).map(|x| self.room.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
             instance.path_positionprevious.set(instance.path_position.get());
@@ -1550,9 +1558,9 @@ impl Game {
         }
 
         // Advance timelines for all instances
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            let instance = self.instance_list.get(handle);
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            let instance = self.room.instance_list.get(handle);
             let object_index = instance.object_index.get();
             if instance.timeline_running.get() {
                 if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
@@ -1645,8 +1653,8 @@ impl Game {
 
         // Movement: apply friction, gravity, and hspeed/vspeed
         self.process_speeds();
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.apply_speeds(handle) {
                 self.run_instance_event(ev::OTHER, 8, handle, handle, None)?;
             }
@@ -1679,7 +1687,7 @@ impl Game {
         self.particles.auto_update_systems(&mut self.rand);
 
         // Clear out any deleted instances
-        self.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
+        self.room.instance_list.remove_with(|instance| instance.state.get() == InstanceState::Deleted);
 
         // Draw everything, including running draw events
         if self.auto_draw {
@@ -1687,15 +1695,15 @@ impl Game {
         }
 
         // Move backgrounds
-        for bg in self.backgrounds.iter_mut() {
+        for bg in self.room.backgrounds.iter_mut() {
             bg.x_offset += bg.hspeed;
             bg.y_offset += bg.vspeed;
         }
 
         // Advance sprite animations
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            let instance = self.instance_list.get(handle);
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            let instance = self.room.instance_list.get(handle);
             let new_index = instance.image_index.get() + instance.image_speed.get();
             instance.image_index.set(new_index);
             if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
@@ -1757,21 +1765,21 @@ impl Game {
     pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Library initialization code
         for i in 0..self.library_init_strings.len() {
-            let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let instructions = self.compiler.compile(&self.library_init_strings[i])?;
             self.execute(&instructions, &mut Context::with_single_instance(dummy_instance))?;
-            self.instance_list.remove_dummy(dummy_instance);
+            self.room.instance_list.remove_dummy(dummy_instance);
         }
 
         // Extension initializers
         for i in 0..self.extension_initializers.len() {
-            let dummy_instance = self.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             self.run_extension_function(self.extension_initializers[i], Context::with_single_instance(dummy_instance))?;
-            self.instance_list.remove_dummy(dummy_instance);
+            self.room.instance_list.remove_dummy(dummy_instance);
         }
 
         // Load first room
-        self.load_room(self.room_id)
+        self.load_room(self.room.id)
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -1798,10 +1806,10 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
-                self.fps = self.room_speed.into();
+                self.fps = self.room.speed.into();
             } else {
                 // gm8 just ignores any leftover time after a second has passed, so we do the same
                 if time_now.duration_since(time_last) >= Duration::from_secs(1) {
@@ -1938,7 +1946,7 @@ impl Game {
                         new_seed,
                     } => {
                         // Create a frame...
-                        let mut frame = replay.new_frame(self.room_speed);
+                        let mut frame = replay.new_frame(self.room.speed);
                         frame.mouse_x = mouse_location.0;
                         frame.mouse_y = mouse_location.1;
                         frame.new_seed = new_seed;
@@ -1984,11 +1992,11 @@ impl Game {
 
                         // Fake frame limiter stuff (don't actually frame-limit in record mode)
                         if let Some(t) = self.spoofed_time_nanos.as_mut() {
-                            *t += Duration::new(0, 1_000_000_000u32 / self.room_speed).as_nanos();
+                            *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
                         }
 
-                        if frame_counter == self.room_speed {
-                            self.fps = self.room_speed;
+                        if frame_counter == self.room.speed {
+                            self.fps = self.room.speed;
                             frame_counter = 0;
                         }
                         frame_counter += 1;
@@ -2006,8 +2014,8 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
-                                let instance = self.instance_list.get(x);
+                            instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.room.instance_list.get(x);
                                 instance.update_bbox(self.get_instance_mask_sprite(x));
                                 instance_details(&self.assets, instance)
                             }),
@@ -2047,8 +2055,8 @@ impl Game {
                             mouse_location: self.input_manager.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
-                            instance: instance_requested.and_then(|x| self.instance_list.get_by_instid(x)).map(|x| {
-                                let instance = self.instance_list.get(x);
+                            instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
+                                let instance = self.room.instance_list.get(x);
                                 instance.update_bbox(self.get_instance_mask_sprite(x));
                                 instance_details(&self.assets, instance)
                             }),
@@ -2077,9 +2085,9 @@ impl Game {
                     Event::MouseButtonUp(MouseButton::Right) => {
                         let mut options: Vec<(String, usize)> = Vec::new();
                         let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
-                        let mut iter = self.instance_list.iter_by_drawing();
-                        while let Some(handle) = iter.next(&self.instance_list) {
-                            let instance = self.instance_list.get(handle);
+                        let mut iter = self.room.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            let instance = self.room.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
                             if x >= instance.bbox_left.get()
                                 && x <= instance.bbox_right.get()
@@ -2099,8 +2107,8 @@ impl Game {
                     },
 
                     Event::MenuOption(id) => {
-                        if let Some(handle) = self.instance_list.get_by_instid(id as _) {
-                            let instance = self.instance_list.get(handle);
+                        if let Some(handle) = self.room.instance_list.get_by_instid(id as _) {
+                            let instance = self.room.instance_list.get(handle);
                             instance.update_bbox(self.get_instance_mask_sprite(handle));
                             stream.send_message(message::Information::InstanceClicked {
                                 details: instance_details(&self.assets, instance),
@@ -2191,13 +2199,13 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room_speed);
+            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
             if let Some(t) = self.spoofed_time_nanos.as_mut() {
                 *t += duration.as_nanos();
             }
 
-            if frame_counter == self.room_speed {
-                self.fps = self.room_speed;
+            if frame_counter == self.room.speed {
+                self.fps = self.room.speed;
                 frame_counter = 0;
             }
             frame_counter += 1;
@@ -2229,10 +2237,10 @@ impl Game {
     pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
         let x = x as i32;
         let y = y as i32;
-        if self.views_enabled {
-            match self.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
+        if self.room.views_enabled {
+            match self.room.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
                 Some(view) => view.transform_point(x, y),
-                None => match self.views.iter().find(|view| view.visible) {
+                None => match self.room.views.iter().find(|view| view.visible) {
                     Some(view) => view.transform_point(x, y),
                     None => (x, y),
                 },
@@ -2249,8 +2257,8 @@ impl Game {
             return false
         }
         // Get the sprite masks we're going to use and update instances' bbox vars
-        let inst1 = self.instance_list.get(i1);
-        let inst2 = self.instance_list.get(i2);
+        let inst1 = self.room.instance_list.get(i1);
+        let inst2 = self.room.instance_list.get(i2);
         let sprite1 = self
             .assets
             .sprites
@@ -2372,7 +2380,7 @@ impl Game {
     // Checks if an instance is colliding with a point
     pub fn check_collision_point(&self, inst: usize, x: i32, y: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
-        let inst = self.instance_list.get(inst);
+        let inst = self.room.instance_list.get(inst);
         let sprite = self
             .assets
             .sprites
@@ -2428,7 +2436,7 @@ impl Game {
     // Checks if an instance is colliding with a rectangle
     pub fn check_collision_rectangle(&self, inst: usize, x1: i32, y1: i32, x2: i32, y2: i32, precise: bool) -> bool {
         // Get sprite mask, update bbox
-        let inst = self.instance_list.get(inst);
+        let inst = self.room.instance_list.get(inst);
         let sprite = self
             .assets
             .sprites
@@ -2513,7 +2521,7 @@ impl Game {
 
     pub fn check_collision_ellipse(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
         // Get sprite mask, update bbox
-        let inst = self.instance_list.get(inst);
+        let inst = self.room.instance_list.get(inst);
         let sprite = self
             .assets
             .sprites
@@ -2638,7 +2646,7 @@ impl Game {
 
     pub fn check_collision_line(&self, inst: usize, x1: Real, y1: Real, x2: Real, y2: Real, precise: bool) -> bool {
         // Get sprite mask, update bbox
-        let inst = self.instance_list.get(inst);
+        let inst = self.room.instance_list.get(inst);
         let sprite = self
             .assets
             .sprites
@@ -2761,9 +2769,9 @@ impl Game {
 
     // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(target) = iter.next(&self.instance_list) {
-            if self.instance_list.get(target).solid.get() {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(target) = iter.next(&self.room.instance_list) {
+            if self.room.instance_list.get(target).solid.get() {
                 if self.check_collision(inst, target) {
                     return Some(target)
                 }
@@ -2774,8 +2782,8 @@ impl Game {
 
     // Checks if an instance is colliding with any instance, returning the target if it is, otherwise None
     pub fn check_collision_any(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(target) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(target) = iter.next(&self.room.instance_list) {
             if inst != target {
                 if self.check_collision(inst, target) {
                     return Some(target)
@@ -2791,9 +2799,9 @@ impl Game {
     pub fn find_instance_with(&self, object_id: i32, pred: impl Fn(usize) -> bool) -> Option<usize> {
         match object_id {
             gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_insertion();
                 loop {
-                    match iter.next(&self.instance_list) {
+                    match iter.next(&self.room.instance_list) {
                         Some(handle) => {
                             if pred(handle) {
                                 break Some(handle)
@@ -2806,9 +2814,9 @@ impl Game {
             _ if object_id < 0 => None,
             object_id if object_id < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
+                    let mut iter = self.room.instance_list.iter_by_identity(ids);
                     loop {
-                        match iter.next(&self.instance_list) {
+                        match iter.next(&self.room.instance_list) {
                             Some(handle) => {
                                 if pred(handle) {
                                     break Some(handle)
@@ -2822,8 +2830,8 @@ impl Game {
                 }
             },
             instance_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(instance_id) {
-                    if self.instance_list.get(handle).is_active() && pred(handle) { Some(handle) } else { None }
+                if let Some(handle) = self.room.instance_list.get_by_instid(instance_id) {
+                    if self.room.instance_list.get(handle).is_active() && pred(handle) { Some(handle) } else { None }
                 } else {
                     None
                 }

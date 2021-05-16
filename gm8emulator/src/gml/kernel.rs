@@ -1262,7 +1262,7 @@ impl Game {
 
     pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
             if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.image_index.get())) {
                 self.renderer.draw_sprite(
@@ -1286,7 +1286,7 @@ impl Game {
         let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1309,7 +1309,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1333,7 +1333,7 @@ impl Game {
 
     pub fn draw_sprite_stretched(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, w, h) = expect_args!(args, [any, any, any, any, any, any])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let args = [
             sprite_index,
             image_index,
@@ -1352,7 +1352,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1398,7 +1398,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1447,7 +1447,7 @@ impl Game {
         ])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1496,7 +1496,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             let image_index = if image_index < Real::from(0.0) {
-                self.instance_list.get(context.this).image_index.get()
+                self.room.instance_list.get(context.this).image_index.get()
             } else {
                 image_index
             };
@@ -1509,8 +1509,8 @@ impl Game {
                     yscale.into(),
                     colour,
                     alpha.into(),
-                    Some(self.room_width.into()),
-                    Some(self.room_height.into()),
+                    Some(self.room.width.into()),
+                    Some(self.room.height.into()),
                 );
             }
             Ok(Default::default())
@@ -1664,8 +1664,8 @@ impl Game {
                     yscale.into(),
                     colour,
                     alpha.into(),
-                    Some(self.room_width.into()),
-                    Some(self.room_height.into()),
+                    Some(self.room.width.into()),
+                    Some(self.room.height.into()),
                 );
             }
             Ok(Default::default())
@@ -1676,8 +1676,8 @@ impl Game {
 
     pub fn tile_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).x.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).x.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_x".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1685,8 +1685,8 @@ impl Game {
 
     pub fn tile_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).y.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).y.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_y".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1694,8 +1694,8 @@ impl Game {
 
     pub fn tile_get_left(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).tile_x.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).tile_x.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_left".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1703,8 +1703,8 @@ impl Game {
 
     pub fn tile_get_top(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).tile_y.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).tile_y.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_top".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1712,8 +1712,8 @@ impl Game {
 
     pub fn tile_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).width.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).width.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_width".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1721,8 +1721,8 @@ impl Game {
 
     pub fn tile_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).height.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).height.get().into())
         } else {
             Err(gml::Error::FunctionError(
                 "tile_get_height".into(),
@@ -1733,8 +1733,8 @@ impl Game {
 
     pub fn tile_get_depth(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).depth.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).depth.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1742,8 +1742,8 @@ impl Game {
 
     pub fn tile_get_visible(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).visible.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).visible.get().into())
         } else {
             Err(gml::Error::FunctionError(
                 "tile_get_visible".into(),
@@ -1754,8 +1754,8 @@ impl Game {
 
     pub fn tile_get_xscale(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).xscale.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).xscale.get().into())
         } else {
             Err(gml::Error::FunctionError(
                 "tile_get_xscale".into(),
@@ -1766,8 +1766,8 @@ impl Game {
 
     pub fn tile_get_yscale(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).yscale.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).yscale.get().into())
         } else {
             Err(gml::Error::FunctionError(
                 "tile_get_yscale".into(),
@@ -1778,8 +1778,8 @@ impl Game {
 
     pub fn tile_get_blend(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).blend.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).blend.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_blend".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1787,8 +1787,8 @@ impl Game {
 
     pub fn tile_get_alpha(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).alpha.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).alpha.get().into())
         } else {
             Err(gml::Error::FunctionError("tile_get_alpha".into(), format!("Tile with ID {} does not exist.", tile_id)))
         }
@@ -1796,8 +1796,8 @@ impl Game {
 
     pub fn tile_get_background(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            Ok(self.tile_list.get(handle).background_index.get().into())
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            Ok(self.room.tile_list.get(handle).background_index.get().into())
         } else {
             Err(gml::Error::FunctionError(
                 "tile_get_background".into(),
@@ -1808,8 +1808,8 @@ impl Game {
 
     pub fn tile_set_visible(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, visible) = expect_args!(args, [int, bool])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.get(handle).visible.set(visible);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.get(handle).visible.set(visible);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -1821,8 +1821,8 @@ impl Game {
 
     pub fn tile_set_background(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, bg_index) = expect_args!(args, [int, int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.get(handle).background_index.set(bg_index);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.get(handle).background_index.set(bg_index);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -1834,8 +1834,8 @@ impl Game {
 
     pub fn tile_set_region(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, left, top, width, height) = expect_args!(args, [int, int, int, int, int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            let tile = self.tile_list.get(handle);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            let tile = self.room.tile_list.get(handle);
             tile.tile_x.set(left);
             tile.tile_y.set(top);
             tile.width.set(width);
@@ -1851,8 +1851,8 @@ impl Game {
 
     pub fn tile_set_position(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, x, y) = expect_args!(args, [int, real, real])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            let tile = self.tile_list.get(handle);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            let tile = self.room.tile_list.get(handle);
             tile.x.set(x);
             tile.y.set(y);
             Ok(Default::default())
@@ -1866,8 +1866,8 @@ impl Game {
 
     pub fn tile_set_depth(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, depth) = expect_args!(args, [int, real])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.get(handle).depth.set(depth);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.get(handle).depth.set(depth);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("tile_set_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
@@ -1876,8 +1876,8 @@ impl Game {
 
     pub fn tile_set_scale(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, xscale, yscale) = expect_args!(args, [int, real, real])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            let tile = self.tile_list.get(handle);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            let tile = self.room.tile_list.get(handle);
             tile.xscale.set(xscale);
             tile.yscale.set(yscale);
             Ok(Default::default())
@@ -1888,8 +1888,8 @@ impl Game {
 
     pub fn tile_set_blend(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, blend) = expect_args!(args, [int, int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.get(handle).blend.set(blend);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.get(handle).blend.set(blend);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("tile_set_blend".into(), format!("Tile with ID {} does not exist.", tile_id)))
@@ -1898,8 +1898,8 @@ impl Game {
 
     pub fn tile_set_alpha(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (tile_id, alpha) = expect_args!(args, [int, real])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.get(handle).alpha.set(alpha);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.get(handle).alpha.set(alpha);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("tile_set_alpha".into(), format!("Tile with ID {} does not exist.", tile_id)))
@@ -1910,7 +1910,7 @@ impl Game {
         let (background_index, tile_x, tile_y, width, height, x, y, depth) =
             expect_args!(args, [int, int, int, int, int, real, real, real])?;
         self.last_tile_id += 1;
-        self.tile_list.insert(Tile {
+        self.room.tile_list.insert(Tile {
             x: x.into(),
             y: y.into(),
             background_index: background_index.into(),
@@ -1936,13 +1936,13 @@ impl Game {
 
     pub fn tile_exists(&self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        Ok(self.tile_list.get_by_tileid(tile_id).is_some().into())
+        Ok(self.room.tile_list.get_by_tileid(tile_id).is_some().into())
     }
 
     pub fn tile_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
         let tile_id = expect_args!(args, [int])?;
-        if let Some(handle) = self.tile_list.get_by_tileid(tile_id) {
-            self.tile_list.remove(handle);
+        if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
+            self.room.tile_list.remove(handle);
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("tile_delete".into(), format!("Tile with ID {} does not exist.", tile_id)))
@@ -1956,9 +1956,9 @@ impl Game {
 
     pub fn tile_layer_hide(&mut self, args: &[Value]) -> gml::Result<Value> {
         let depth = expect_args!(args, [real])?;
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        while let Some(handle) = iter_tile.next(&self.tile_list) {
-            let tile = self.tile_list.get(handle);
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.room.tile_list) {
+            let tile = self.room.tile_list.get(handle);
             if tile.depth.get() == depth {
                 tile.visible.set(false);
             }
@@ -1968,9 +1968,9 @@ impl Game {
 
     pub fn tile_layer_show(&mut self, args: &[Value]) -> gml::Result<Value> {
         let depth = expect_args!(args, [real])?;
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        while let Some(handle) = iter_tile.next(&self.tile_list) {
-            let tile = self.tile_list.get(handle);
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.room.tile_list) {
+            let tile = self.room.tile_list.get(handle);
             if tile.depth.get() == depth {
                 tile.visible.set(true);
             }
@@ -1980,15 +1980,15 @@ impl Game {
 
     pub fn tile_layer_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
         let depth = expect_args!(args, [real])?;
-        self.tile_list.remove_with(|t| t.depth.get() == depth);
+        self.room.tile_list.remove_with(|t| t.depth.get() == depth);
         Ok(Default::default())
     }
 
     pub fn tile_layer_shift(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (depth, x, y) = expect_args!(args, [real, real, real])?;
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        while let Some(handle) = iter_tile.next(&self.tile_list) {
-            let tile = self.tile_list.get(handle);
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.room.tile_list) {
+            let tile = self.room.tile_list.get(handle);
             if tile.depth.get() == depth {
                 tile.x.set(tile.x.get() + x);
                 tile.y.set(tile.y.get() + y);
@@ -2000,9 +2000,9 @@ impl Game {
     pub fn tile_layer_find(&self, args: &[Value]) -> gml::Result<Value> {
         let (depth, x, y) = expect_args!(args, [real, real, real])?;
         let use_scaling = self.gm_version == Version::GameMaker8_1; // 8.1 bugfix
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        while let Some(handle) = iter_tile.next(&self.tile_list) {
-            let tile = self.tile_list.get(handle);
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.room.tile_list) {
+            let tile = self.room.tile_list.get(handle);
             if tile.depth.get() == depth
                 && x >= tile.x.get()
                 && x < tile.x.get() + if use_scaling { tile.xscale.get() } else { 0.into() } * tile.width.get().into()
@@ -2018,7 +2018,7 @@ impl Game {
     pub fn tile_layer_delete_at(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (depth, x, y) = expect_args!(args, [real, real, real])?;
         let use_scaling = self.gm_version == Version::GameMaker8_1; // 8.1 bugfix
-        self.tile_list.remove_with(|tile| {
+        self.room.tile_list.remove_with(|tile| {
             tile.depth.get() == depth
                 && x >= tile.x.get()
                 && x < tile.x.get() + if use_scaling { tile.xscale.get() } else { 0.into() } * tile.width.get().into()
@@ -2030,9 +2030,9 @@ impl Game {
 
     pub fn tile_layer_depth(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (old_depth, new_depth) = expect_args!(args, [real, real])?;
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        while let Some(handle) = iter_tile.next(&self.tile_list) {
-            let tile = self.tile_list.get(handle);
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        while let Some(handle) = iter_tile.next(&self.room.tile_list) {
+            let tile = self.room.tile_list.get(handle);
             if tile.depth.get() == old_depth {
                 tile.depth.set(new_depth);
             }
@@ -2104,8 +2104,8 @@ impl Game {
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.set_target(&surf.atlas_ref);
             self.surface_target = Some(surf_id);
-            if self.surface_fix && self.views_enabled {
-                let view = &self.views[self.view_current];
+            if self.surface_fix && self.room.views_enabled {
+                let view = &self.room.views[self.view_current];
                 // would probably be good to make this its own method in the renderer
                 if self.renderer.get_3d() && self.renderer.get_perspective() {
                     self.renderer.set_projection_perspective(
@@ -2137,8 +2137,8 @@ impl Game {
         if self.gm_version == Version::GameMaker8_0 {
             self.renderer.set_zbuf_trashed(!self.surface_fix);
         }
-        if self.surface_fix && self.views_enabled {
-            let view = &self.views[self.view_current];
+        if self.surface_fix && self.room.views_enabled {
+            let view = &self.room.views[self.view_current];
             self.renderer.set_view(
                 view.source_x,
                 view.source_y,
@@ -2278,8 +2278,8 @@ impl Game {
                 yscale.into(),
                 colour,
                 alpha.into(),
-                Some(self.room_width.into()),
-                Some(self.room_height.into()),
+                Some(self.room.width.into()),
+                Some(self.room.height.into()),
             );
         }
         Ok(Default::default())
@@ -2349,7 +2349,7 @@ impl Game {
 
     pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite, scale) = expect_args!(args, [int, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.sprite_index.set(sprite);
         instance.image_xscale.set(scale);
         instance.image_yscale.set(scale);
@@ -2383,7 +2383,7 @@ impl Game {
 
     pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (dir_string, speed) = expect_args!(args, [bytes, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
         let bytes = dir_string.as_ref();
         if bytes.len() != 9 {
@@ -2430,7 +2430,7 @@ impl Game {
 
     pub fn action_set_motion(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if context.relative {
             instance.set_hspeed(direction.to_radians().cos() * speed + instance.hspeed.get());
             instance.set_vspeed(-direction.to_radians().sin() * speed + instance.vspeed.get());
@@ -2442,7 +2442,7 @@ impl Game {
 
     pub fn action_set_hspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             if context.relative {
                 instance.set_hspeed(x + instance.hspeed.get());
             } else {
@@ -2454,7 +2454,7 @@ impl Game {
 
     pub fn action_set_vspeed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             if context.relative {
                 instance.set_vspeed(x + instance.vspeed.get());
             } else {
@@ -2466,7 +2466,7 @@ impl Game {
 
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(direction, gravity)| {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             instance.gravity.set(gravity);
             instance.gravity_direction.set(direction);
         })?;
@@ -2475,14 +2475,14 @@ impl Game {
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.instance_list.get(context.this).friction.set(x);
+            self.room.instance_list.get(context.this).friction.set(x);
             Ok(Default::default())
         })?
     }
 
     pub fn action_move_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let speed = if context.relative { instance.speed.get() + speed } else { speed };
         let direction = (instance.y.get() - y).arctan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
@@ -2491,7 +2491,7 @@ impl Game {
 
     pub fn action_move_to(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
         instance.x.set(x);
         instance.y.set(y);
@@ -2501,7 +2501,7 @@ impl Game {
 
     pub fn action_move_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.x.set(instance.xstart.get());
         instance.y.set(instance.ystart.get());
         instance.bbox_is_stale.set(true);
@@ -2515,7 +2515,7 @@ impl Game {
             _ => (true, true),
         };
 
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         // Get sprite width/height, as these are used to decide how far to wrap
         let (w, h) = if let Some(Some(sprite)) = self.assets.sprites.get(instance.sprite_index.get() as usize) {
             (
@@ -2527,7 +2527,7 @@ impl Game {
         };
 
         if horizontal {
-            let room_width = Real::from(self.room_width);
+            let room_width = Real::from(self.room.width);
             if instance.hspeed.get() > Real::from(0.0) && instance.x.get() > room_width {
                 // Wrap x right-to-left
                 instance.x.set(instance.x.get() - (room_width + w));
@@ -2538,7 +2538,7 @@ impl Game {
             }
         }
         if vertical {
-            let room_height = Real::from(self.room_height);
+            let room_height = Real::from(self.room.height);
             if instance.vspeed.get() > Real::from(0.0) && instance.y.get() > room_height {
                 // Wrap y bottom-to-top
                 instance.y.set(instance.y.get() - (room_height + h));
@@ -2553,14 +2553,14 @@ impl Game {
 
     pub fn action_reverse_xdir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.set_hspeed(-instance.hspeed.get());
         Ok(Default::default())
     }
 
     pub fn action_reverse_ydir(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.set_vspeed(-instance.vspeed.get());
         Ok(Default::default())
     }
@@ -2585,7 +2585,7 @@ impl Game {
 
     pub fn action_path_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let position = expect_args!(args, [real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if context.relative {
             instance.path_position.set(position + instance.path_position.get());
         } else {
@@ -2596,7 +2596,7 @@ impl Game {
 
     pub fn action_path_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let speed = expect_args!(args, [real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if context.relative {
             instance.path_speed.set(speed + instance.path_speed.get());
         } else {
@@ -2607,7 +2607,7 @@ impl Game {
 
     pub fn action_linear_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
         Ok(pathfinding::linear_step(x, y, step_size, instance, || {
             if checkall {
@@ -2621,7 +2621,7 @@ impl Game {
 
     pub fn action_potential_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
         Ok(pathfinding::potential_step(x, y, step_size, &self.potential_step_settings, instance, || {
             if checkall {
@@ -2637,13 +2637,13 @@ impl Game {
         let (object_id, x, y) = expect_args!(args, [int, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             let (relative_x, relative_y) = if context.relative {
-                let instance = self.instance_list.get(context.this);
+                let instance = self.room.instance_list.get(context.this);
                 (instance.x.get(), instance.y.get())
             } else {
                 (Real::from(0.0), Real::from(0.0))
             };
             self.last_instance_id += 1;
-            let instance = self.instance_list.insert(Instance::new(
+            let instance = self.room.instance_list.insert(Instance::new(
                 self.last_instance_id,
                 x + relative_x,
                 y + relative_y,
@@ -2661,20 +2661,20 @@ impl Game {
         let (object_id, x, y, speed, direction) = expect_args!(args, [int, real, real, real, real])?;
         if let Some(Some(object)) = self.assets.objects.get(object_id as usize) {
             let (relative_x, relative_y) = if context.relative {
-                let instance = self.instance_list.get(context.this);
+                let instance = self.room.instance_list.get(context.this);
                 (instance.x.get(), instance.y.get())
             } else {
                 (Real::from(0.0), Real::from(0.0))
             };
             self.last_instance_id += 1;
-            let instance = self.instance_list.insert(Instance::new(
+            let instance = self.room.instance_list.insert(Instance::new(
                 self.last_instance_id,
                 x + relative_x,
                 y + relative_y,
                 object_id,
                 object,
             ));
-            self.instance_list.get(instance).set_speed_direction(speed, direction);
+            self.room.instance_list.get(instance).set_speed_direction(speed, direction);
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
@@ -2688,7 +2688,7 @@ impl Game {
     pub fn action_create_object_random(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (obj1, obj2, obj3, obj4, x, y) = expect_args!(args, [int, int, int, int, real, real])?;
         let (x, y) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
         } else {
             (x, y)
@@ -2703,7 +2703,7 @@ impl Game {
             };
             self.last_instance_id += 1;
             let id = self.last_instance_id;
-            let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
+            let instance = self.room.instance_list.insert(Instance::new(id, x, y, object_id, object));
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
         }
         Ok(Default::default())
@@ -2712,7 +2712,7 @@ impl Game {
     pub fn action_kill_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [any, any])?;
         let (x, y) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
         } else {
             (x, y)
@@ -2722,7 +2722,7 @@ impl Game {
 
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.bbox_is_stale.set(true);
         instance.sprite_index.set(sprite_id);
         instance.image_index.set(image_index);
@@ -2732,7 +2732,7 @@ impl Game {
 
     pub fn action_sprite_transform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (mut xsc, mut ysc, ang, mirroring) = expect_args!(args, [real, real, real, int])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let (hmirr, vmirr) = match mirroring {
             1 => (true, false),
             2 => (false, true),
@@ -2753,7 +2753,7 @@ impl Game {
 
     pub fn action_sprite_color(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (col, alpha) = expect_args!(args, [int, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.image_blend.set(col);
         instance.image_alpha.set(alpha);
         Ok(Default::default())
@@ -2795,7 +2795,7 @@ impl Game {
     pub fn action_if_previous_room(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         match self.room_order.first() {
-            Some(&room_id) => Ok((room_id != self.room_id).into()),
+            Some(&room_id) => Ok((room_id != self.room.id).into()),
             None => Err(gml::Error::EndOfRoomOrder),
         }
     }
@@ -2803,14 +2803,14 @@ impl Game {
     pub fn action_if_next_room(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         match self.room_order.last() {
-            Some(&room_id) => Ok((room_id != self.room_id).into()),
+            Some(&room_id) => Ok((room_id != self.room.id).into()),
             None => Err(gml::Error::EndOfRoomOrder),
         }
     }
 
     pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (time, alarm) = expect_args!(args, [int, int])?;
-        self.instance_list.get(context.this).alarms.borrow_mut().insert(alarm as u32, time);
+        self.room.instance_list.get(context.this).alarms.borrow_mut().insert(alarm as u32, time);
         Ok(Default::default())
     }
 
@@ -2824,7 +2824,7 @@ impl Game {
 
     pub fn action_set_timeline(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (index, position) = expect_args!(args, [int, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.timeline_index.set(index);
         instance.timeline_position.set(position);
         instance.timeline_running.set(true);
@@ -2833,7 +2833,7 @@ impl Game {
 
     pub fn action_timeline_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (index, position, start_option, loop_option) = expect_args!(args, [int, real, int, int])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.timeline_index.set(index);
         instance.timeline_position.set(position);
         instance.timeline_running.set(start_option == 0);
@@ -2843,19 +2843,19 @@ impl Game {
 
     pub fn action_timeline_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).timeline_running.set(true);
+        self.room.instance_list.get(context.this).timeline_running.set(true);
         Ok(Default::default())
     }
 
     pub fn action_timeline_pause(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).timeline_running.set(false);
+        self.room.instance_list.get(context.this).timeline_running.set(false);
         Ok(Default::default())
     }
 
     pub fn action_timeline_stop(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.timeline_position.set(Real::from(0.0));
         instance.timeline_running.set(false);
         Ok(Default::default())
@@ -2863,7 +2863,7 @@ impl Game {
 
     pub fn action_set_timeline_position(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let position = expect_args!(args, [real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if context.relative {
             instance.timeline_position.set(instance.timeline_position.get() + position);
         } else {
@@ -2874,7 +2874,7 @@ impl Game {
 
     pub fn action_set_timeline_speed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let speed = expect_args!(args, [real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         if context.relative {
             instance.timeline_speed.set(instance.timeline_speed.get() + speed);
         } else {
@@ -2932,7 +2932,7 @@ impl Game {
     pub fn action_if_collision(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (mut x, mut y, collision) = expect_args!(args, [real, real, bool])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -2952,7 +2952,7 @@ impl Game {
     pub fn action_if_number(&self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, number, comparator) = expect_args!(args, [int, int, int])?;
         if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-            let count = ids.borrow().iter().copied().map(|id| self.instance_list.count(id)).sum::<usize>() as i32;
+            let count = ids.borrow().iter().copied().map(|id| self.room.instance_list.count(id)).sum::<usize>() as i32;
             let cond = match comparator {
                 1 => count < number,
                 2 => count > number,
@@ -2967,7 +2967,7 @@ impl Game {
     pub fn action_if_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (object, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -2999,7 +2999,7 @@ impl Game {
 
     pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (xsnap, ysnap) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         Ok((((xsnap <= 0.into()) || (instance.x.get() % xsnap == 0.into()))
             && ((ysnap <= 0.into()) || (instance.y.get() % ysnap == 0.into())))
         .into())
@@ -3048,7 +3048,7 @@ impl Game {
     pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (variable, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -3079,7 +3079,7 @@ impl Game {
     pub fn action_draw_score(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (mut x, mut y, caption) = expect_args!(args, [real, real, bytes])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -3115,7 +3115,7 @@ impl Game {
     pub fn action_draw_life(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (mut x, mut y, caption) = expect_args!(args, [real, real, bytes])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -3125,7 +3125,7 @@ impl Game {
     pub fn action_draw_life_images(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (mut x, mut y, sprite_index) = expect_args!(args, [real, real, int])?;
         if context.relative {
-            let inst = self.instance_list.get(context.this);
+            let inst = self.room.instance_list.get(context.this);
             x += inst.x.get();
             y += inst.y.get();
         }
@@ -3161,7 +3161,7 @@ impl Game {
         let (mut x1, mut y1, mut x2, mut y2, back_col, col) = expect_args!(args, [real, real, real, real, int, int])?;
 
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             let x = instance.x.get();
             let y = instance.y.get();
             x1 += x;
@@ -3406,7 +3406,7 @@ impl Game {
 
     pub fn action_draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, x, y, image_index) = expect_args!(args, [any, real, real, any])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let (x, y) = if context.relative { (x + instance.x.get(), y + instance.y.get()) } else { (x, y) };
         self.draw_sprite(context, &[sprite_id, image_index, x.into(), y.into()])
     }
@@ -3414,7 +3414,7 @@ impl Game {
     pub fn action_draw_background(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, tiled) = expect_args!(args, [any, any, any, bool])?;
         let (x, y) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             ((instance.x.get() + x.into()).into(), (instance.y.get() + y.into()).into())
         } else {
             (x, y)
@@ -3425,7 +3425,7 @@ impl Game {
     pub fn action_draw_text(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (text, mut x, mut y) = expect_args!(args, [any, real, real])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -3435,7 +3435,7 @@ impl Game {
     pub fn action_draw_text_transformed(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (text, mut x, mut y, xscale, yscale, angle) = expect_args!(args, [any, real, real, any, any, any])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -3445,7 +3445,7 @@ impl Game {
     pub fn action_draw_rectangle(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, border) = expect_args!(args, [real, real, real, real, any])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             let x = instance.x.get();
             let y = instance.y.get();
             self.draw_rectangle(&[
@@ -3463,7 +3463,7 @@ impl Game {
     pub fn action_draw_gradient_hor(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3479,7 +3479,7 @@ impl Game {
     pub fn action_draw_gradient_vert(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3495,7 +3495,7 @@ impl Game {
     pub fn action_draw_ellipse(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, outline) = expect_args!(args, [any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3511,7 +3511,7 @@ impl Game {
     pub fn action_draw_ellipse_gradient(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, col1, col2) = expect_args!(args, [any, any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3527,7 +3527,7 @@ impl Game {
     pub fn action_draw_line(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2) = expect_args!(args, [any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3543,7 +3543,7 @@ impl Game {
     pub fn action_draw_arrow(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, x2, y2, size) = expect_args!(args, [any, any, any, any, any])?;
         let (x1, y1, x2, y2) = if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             (
                 (instance.x.get() + x1.into()).into(),
                 (instance.y.get() + y1.into()).into(),
@@ -3579,7 +3579,7 @@ impl Game {
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (kind, mut x, mut y, size, colour, below) = expect_args!(args, [any, real, real, any, any, bool])?;
         if context.relative {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
@@ -4127,8 +4127,8 @@ impl Game {
 
     pub fn move_random(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (hsnap, vsnap) = expect_args!(args, [int, int])?;
-        let inst = self.instance_list.get(context.this);
-        let (mut left, mut right, mut top, mut bottom) = (0, self.room_width, 0, self.room_height);
+        let inst = self.room.instance_list.get(context.this);
+        let (mut left, mut right, mut top, mut bottom) = (0, self.room.width, 0, self.room.height);
         if let Some(sprite) = self
             .assets
             .sprites
@@ -4156,7 +4156,7 @@ impl Game {
                 break
             }
         }
-        let inst = self.instance_list.get(context.this);
+        let inst = self.room.instance_list.get(context.this);
         inst.x.set(x);
         inst.y.set(y);
         inst.bbox_is_stale.set(true);
@@ -4167,7 +4167,7 @@ impl Game {
         let (x, y) = expect_args!(args, [real, real])?;
 
         // Set self's position to the new coordinates
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
@@ -4189,7 +4189,7 @@ impl Game {
         let (x, y) = expect_args!(args, [real, real])?;
 
         // Set self's position to the new coordinates
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
@@ -4211,7 +4211,7 @@ impl Game {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
 
         // Set self's position to the new coordinates
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
@@ -4240,7 +4240,7 @@ impl Game {
 
     pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (hsnap, vsnap) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.x.set(Real::from((instance.x.get() / hsnap).round()) * hsnap);
         instance.y.set(Real::from((instance.y.get() / vsnap).round()) * vsnap);
         instance.bbox_is_stale.set(true);
@@ -4249,7 +4249,7 @@ impl Game {
 
     pub fn move_towards_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let direction = (instance.y.get() - y).arctan2(x - instance.x.get()).to_degrees();
         instance.set_speed_direction(speed, direction);
         Ok(Default::default())
@@ -4274,7 +4274,7 @@ impl Game {
 
         // Check if we're already colliding with a solid, do nothing if so
         if self.check_collision_solid(context.this).is_none() {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             for _ in 0..max_distance {
                 // Step forward, but back up old coordinates
                 let old_x = instance.x.get();
@@ -4311,7 +4311,7 @@ impl Game {
 
         // Check if we're already colliding with another instance, do nothing if so
         if self.check_collision_any(context.this).is_none() {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             for _ in 0..max_distance {
                 // Step forward, but back up old coordinates
                 let old_x = instance.x.get();
@@ -4348,7 +4348,7 @@ impl Game {
 
         // Check if we're already outside all solids, do nothing if so
         if self.check_collision_solid(context.this).is_some() {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             for _ in 0..max_distance {
                 // Step forward
                 instance.x.set(instance.x.get() + step_x);
@@ -4380,7 +4380,7 @@ impl Game {
 
         // Check if we're already not colliding with anything, do nothing if so
         if self.check_collision_any(context.this).is_some() {
-            let instance = self.instance_list.get(context.this);
+            let instance = self.room.instance_list.get(context.this);
             for _ in 0..max_distance {
                 // Step forward
                 instance.x.set(instance.x.get() + step_x);
@@ -4420,7 +4420,7 @@ impl Game {
 
     pub fn move_wrap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (horizontal_wrap, vertical_wrap, margin) = expect_args!(args, [bool, bool, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
 
         let mut update_bbox = false;
 
@@ -4428,22 +4428,22 @@ impl Game {
             let instance_x = instance.x.get();
 
             if instance_x < -margin {
-                instance.x.set(Real::from(self.room_width) + instance_x + Real::from(2) * margin);
+                instance.x.set(Real::from(self.room.width) + instance_x + Real::from(2) * margin);
                 update_bbox = true;
             }
-            if instance_x > Real::from(self.room_width) + margin {
-                instance.x.set(instance_x - Real::from(self.room_width) - Real::from(2) * margin);
+            if instance_x > Real::from(self.room.width) + margin {
+                instance.x.set(instance_x - Real::from(self.room.width) - Real::from(2) * margin);
                 update_bbox = true;
             }
         }
         if vertical_wrap {
             let instance_y = instance.y.get();
             if instance_y < -margin {
-                instance.y.set(Real::from(self.room_height) + instance_y + Real::from(2) * margin);
+                instance.y.set(Real::from(self.room.height) + instance_y + Real::from(2) * margin);
                 update_bbox = true;
             }
-            if instance_y > Real::from(self.room_height) + margin {
-                instance.y.set(instance_y - Real::from(self.room_height) - Real::from(2) * margin);
+            if instance_y > Real::from(self.room.height) + margin {
+                instance.y.set(instance_y - Real::from(self.room.height) - Real::from(2) * margin);
                 update_bbox = true;
             }
         }
@@ -4455,13 +4455,13 @@ impl Game {
 
     pub fn motion_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        self.instance_list.get(context.this).set_speed_direction(speed, direction);
+        self.room.instance_list.get(context.this).set_speed_direction(speed, direction);
         Ok(Default::default())
     }
 
     pub fn motion_add(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (direction, speed) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let hspeed = direction.to_radians().cos() * speed;
         let vspeed = -direction.to_radians().sin() * speed;
         instance.set_hvspeed(instance.hspeed.get() + hspeed, instance.vspeed.get() + vspeed);
@@ -4470,7 +4470,7 @@ impl Game {
 
     pub fn distance_to_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
 
         let sprite = self.get_instance_mask_sprite(context.this);
         instance.update_bbox(sprite);
@@ -4524,24 +4524,24 @@ impl Game {
         }
 
         let sprite = self.get_instance_mask_sprite(context.this);
-        let this = self.instance_list.get(context.this);
+        let this = self.room.instance_list.get(context.this);
         this.update_bbox(sprite);
 
         Ok(match object_id {
             gml::SELF => 0.0,
             gml::OTHER => {
                 let sprite = self.get_instance_mask_sprite(context.other);
-                let other = self.instance_list.get(context.other);
+                let other = self.room.instance_list.get(context.other);
                 other.update_bbox(sprite);
                 instance_distance(this, other)
             },
             gml::ALL => {
                 let mut closest = 1000000.0; // GML default
                 let this = this;
-                let mut iter = self.instance_list.iter_by_insertion();
-                while let Some(other) = iter.next(&self.instance_list) {
+                let mut iter = self.room.instance_list.iter_by_insertion();
+                while let Some(other) = iter.next(&self.room.instance_list) {
                     let sprite = self.get_instance_mask_sprite(other);
-                    let other = self.instance_list.get(other);
+                    let other = self.room.instance_list.get(other);
                     other.update_bbox(sprite);
                     let dist = instance_distance(this, other);
                     if dist < closest {
@@ -4554,10 +4554,10 @@ impl Game {
                 if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
                     let mut closest = 1000000.0; // GML default
                     let this = this;
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    while let Some(other) = iter.next(&self.instance_list) {
+                    let mut iter = self.room.instance_list.iter_by_identity(ids);
+                    while let Some(other) = iter.next(&self.room.instance_list) {
                         let sprite = self.get_instance_mask_sprite(other);
-                        let other = self.instance_list.get(other);
+                        let other = self.room.instance_list.get(other);
                         other.update_bbox(sprite);
                         let dist = instance_distance(this, other);
                         if dist < closest {
@@ -4570,10 +4570,10 @@ impl Game {
                 }
             },
             instance_id => {
-                match self.instance_list.get_by_instid(instance_id) {
+                match self.room.instance_list.get_by_instid(instance_id) {
                     Some(handle) => {
                         let sprite = self.get_instance_mask_sprite(handle);
-                        let other = self.instance_list.get(handle);
+                        let other = self.room.instance_list.get(handle);
                         other.update_bbox(sprite);
                         instance_distance(this, other)
                     },
@@ -4586,7 +4586,7 @@ impl Game {
 
     pub fn path_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (path_id, speed, end_action, absolute) = expect_args!(args, [int, real, int, bool])?;
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         instance.path_index.set(path_id);
         instance.path_speed.set(speed);
         instance.path_endaction.set(end_action);
@@ -4608,13 +4608,13 @@ impl Game {
 
     pub fn path_end(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.instance_list.get(context.this).path_index.set(-1);
+        self.room.instance_list.get(context.this).path_index.set(-1);
         Ok(Default::default())
     }
 
     pub fn mp_linear_step(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, step_size, checkall) = expect_args!(args, [real, real, real, bool])?;
-        Ok(pathfinding::linear_step(x, y, step_size, self.instance_list.get(context.this), || {
+        Ok(pathfinding::linear_step(x, y, step_size, self.room.instance_list.get(context.this), || {
             if checkall {
                 self.check_collision_any(context.this).is_some()
             } else {
@@ -4629,7 +4629,7 @@ impl Game {
         // i apologize for this code
         if self.assets.paths.get_asset_mut(path_id).is_some() {
             let mut path = self.assets.paths[path_id as usize].take().unwrap();
-            let inst = self.instance_list.get(context.this);
+            let inst = self.room.instance_list.get(context.this);
             pathfinding::make_path(inst, &mut path, |inst| {
                 let (old_x, old_y) = (inst.x.get(), inst.y.get());
                 if pathfinding::linear_step(xg, yg, step_size, inst, || {
@@ -4655,7 +4655,7 @@ impl Game {
 
     pub fn mp_linear_step_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, step_size, obj) = expect_args!(args, [real, real, real, int])?;
-        Ok(pathfinding::linear_step(x, y, step_size, self.instance_list.get(context.this), || match obj {
+        Ok(pathfinding::linear_step(x, y, step_size, self.room.instance_list.get(context.this), || match obj {
             gml::SELF => false,
             gml::OTHER => self.check_collision(context.this, context.other),
             obj => self.find_instance_with(obj, |handle| self.check_collision(context.this, handle)).is_some(),
@@ -4686,7 +4686,7 @@ impl Game {
             y,
             step_size,
             &self.potential_step_settings,
-            self.instance_list.get(context.this),
+            self.room.instance_list.get(context.this),
             || {
                 if checkall {
                     self.check_collision_any(context.this).is_some()
@@ -4710,7 +4710,7 @@ impl Game {
             y,
             step_size,
             &self.potential_step_settings,
-            self.instance_list.get(context.this),
+            self.room.instance_list.get(context.this),
             || match obj {
                 gml::SELF => false,
                 gml::OTHER => self.check_collision(context.this, context.other),
@@ -4780,7 +4780,7 @@ impl Game {
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_point(handle, x, y, precise)
         }) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4791,7 +4791,7 @@ impl Game {
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_rectangle(handle, x1, y1, x2, y2, precise)
         }) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4802,7 +4802,7 @@ impl Game {
             (!exclude_self || handle != context.this)
                 && self.check_collision_ellipse(handle, x - r, y - r, x + r, y + r, precise)
         }) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4813,7 +4813,7 @@ impl Game {
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_ellipse(handle, x1, y1, x2, y2, precise)
         }) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4824,7 +4824,7 @@ impl Game {
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_line(handle, x1, y1, x2, y2, precise)
         }) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4836,14 +4836,14 @@ impl Game {
         }
         let handle = match obj {
             gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                let mut iter = self.room.instance_list.iter_by_insertion();
+                (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    (0..n + 1).filter_map(|_| iter.next(&self.instance_list)).nth(n as usize)
+                    let mut iter = self.room.instance_list.iter_by_identity(ids);
+                    (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
                 } else {
                     None
                 }
@@ -4852,29 +4852,29 @@ impl Game {
                 if n != 0 {
                     None
                 } else {
-                    self.instance_list
+                    self.room.instance_list
                         .get_by_instid(inst_id)
-                        .filter(|h| self.instance_list.get(*h).state.get() == InstanceState::Active)
+                        .filter(|h| self.room.instance_list.get(*h).state.get() == InstanceState::Active)
                 }
             },
         };
-        Ok(handle.map(|h| self.instance_list.get(h).id.get()).unwrap_or(gml::NOONE).into())
+        Ok(handle.map(|h| self.room.instance_list.get(h).id.get()).unwrap_or(gml::NOONE).into())
     }
 
     pub fn instance_exists(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
         let exists = match obj {
-            gml::SELF => self.instance_list.get(context.this).state.get() == InstanceState::Active,
-            gml::OTHER => self.instance_list.get(context.other).state.get() == InstanceState::Active,
-            gml::ALL => self.instance_list.any_active(),
+            gml::SELF => self.room.instance_list.get(context.this).state.get() == InstanceState::Active,
+            gml::OTHER => self.room.instance_list.get(context.other).state.get() == InstanceState::Active,
+            gml::ALL => self.room.instance_list.any_active(),
             obj if obj <= 100000 => {
                 if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().any(|&obj| self.instance_list.count(obj) != 0)
+                    object.children.borrow().iter().any(|&obj| self.room.instance_list.count(obj) != 0)
                 } else {
                     false
                 }
             },
-            _ => self.instance_list.get_by_instid(obj).is_some(),
+            _ => self.room.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
     }
@@ -4883,29 +4883,29 @@ impl Game {
         let object_id = expect_args!(args, [int])?;
         let number = match object_id {
             gml::SELF => {
-                if self.instance_list.get(context.this).state.get() == InstanceState::Active {
+                if self.room.instance_list.get(context.this).state.get() == InstanceState::Active {
                     1
                 } else {
                     0
                 }
             },
             gml::OTHER => {
-                if self.instance_list.get(context.other).state.get() == InstanceState::Active {
+                if self.room.instance_list.get(context.other).state.get() == InstanceState::Active {
                     1
                 } else {
                     0
                 }
             },
-            gml::ALL => self.instance_list.count_all_active(),
+            gml::ALL => self.room.instance_list.count_all_active(),
             obj if obj <= 100000 => {
                 if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().map(|&obj| self.instance_list.count(obj)).sum()
+                    object.children.borrow().iter().map(|&obj| self.room.instance_list.count(obj)).sum()
                 } else {
                     0
                 }
             },
             inst_id => {
-                if self.instance_list.get_by_instid(inst_id).is_some() {
+                if self.room.instance_list.get_by_instid(inst_id).is_some() {
                     1
                 } else {
                     0
@@ -4918,7 +4918,7 @@ impl Game {
     pub fn instance_position(&self, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [int, int, int])?;
         match self.find_instance_with(object_id, |handle| self.check_collision_point(handle, x, y, true)) {
-            Some(handle) => Ok(self.instance_list.get(handle).id.get().into()),
+            Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4929,13 +4929,13 @@ impl Game {
         let nearest = match obj {
             gml::ALL => {
                 // Target is all objects
-                let mut iter = self.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_insertion();
                 let mut maxdist = Real::from(10000000000.0); // GML default
                 let mut nearest = None;
                 loop {
-                    match iter.next(&self.instance_list) {
+                    match iter.next(&self.room.instance_list) {
                         Some(target) => {
-                            let ti = self.instance_list.get(target);
+                            let ti = self.room.instance_list.get(target);
                             let xdist = ti.x.get() - x;
                             let ydist = ti.y.get() - y;
                             let dist = (xdist * xdist) + (ydist * ydist);
@@ -4951,13 +4951,13 @@ impl Game {
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
                 if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
                     let mut maxdist = Real::from(10000000000.0); // GML default
                     let mut nearest = None;
                     loop {
-                        match iter.next(&self.instance_list) {
+                        match iter.next(&self.room.instance_list) {
                             Some(target) => {
-                                let ti = self.instance_list.get(target);
+                                let ti = self.room.instance_list.get(target);
                                 let xdist = ti.x.get() - x;
                                 let ydist = ti.y.get() - y;
                                 let dist = (xdist * xdist) + (ydist * ydist);
@@ -4978,7 +4978,7 @@ impl Game {
         };
 
         match nearest {
-            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
+            Some(t) => Ok(self.room.instance_list.get(t).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -4989,13 +4989,13 @@ impl Game {
         let other: Option<usize> = match obj {
             gml::ALL => {
                 // Target is an object ID
-                let mut iter = self.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_insertion();
                 let mut maxdist = Real::from(0.0);
                 let mut nearest = None;
                 loop {
-                    match iter.next(&self.instance_list) {
+                    match iter.next(&self.room.instance_list) {
                         Some(target) => {
-                            let ti = self.instance_list.get(target);
+                            let ti = self.room.instance_list.get(target);
                             let xdist = ti.x.get() - x;
                             let ydist = ti.y.get() - y;
                             let dist = (xdist * xdist) + (ydist * ydist);
@@ -5011,13 +5011,13 @@ impl Game {
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
                 if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.instance_list.iter_by_identity(object.children.clone());
+                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
                     let mut maxdist = Real::from(0.0);
                     let mut nearest = None;
                     loop {
-                        match iter.next(&self.instance_list) {
+                        match iter.next(&self.room.instance_list) {
                             Some(target) => {
-                                let ti = self.instance_list.get(target);
+                                let ti = self.room.instance_list.get(target);
                                 let xdist = ti.x.get() - x;
                                 let ydist = ti.y.get() - y;
                                 let dist = (xdist * xdist) + (ydist * ydist);
@@ -5038,7 +5038,7 @@ impl Game {
         };
 
         match other {
-            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
+            Some(t) => Ok(self.room.instance_list.get(t).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -5047,7 +5047,7 @@ impl Game {
         let (x, y, obj) = expect_args!(args, [real, real, int])?;
 
         // Set self's position to the new coordinates
-        let instance = self.instance_list.get(context.this);
+        let instance = self.room.instance_list.get(context.this);
         let old_x = instance.x.get();
         let old_y = instance.y.get();
         instance.x.set(x);
@@ -5064,7 +5064,7 @@ impl Game {
         instance.bbox_is_stale.set(true);
 
         match other {
-            Some(t) => Ok(self.instance_list.get(t).id.get().into()),
+            Some(t) => Ok(self.room.instance_list.get(t).id.get().into()),
             None => Ok(gml::NOONE.into()),
         }
     }
@@ -5078,18 +5078,18 @@ impl Game {
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
         self.last_instance_id += 1;
         let id = self.last_instance_id;
-        let instance = self.instance_list.insert(Instance::new(id, x, y, object_id, object));
+        let instance = self.room.instance_list.insert(Instance::new(id, x, y, object_id, object));
         self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
         Ok(id.into())
     }
 
     pub fn instance_copy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let run_event = expect_args!(args, [bool])?;
-        let new_instance = self.instance_list.get(context.this).clone();
+        let new_instance = self.room.instance_list.get(context.this).clone();
         self.last_instance_id += 1;
         let id = self.last_instance_id;
         new_instance.id.set(id);
-        let handle = self.instance_list.insert(new_instance);
+        let handle = self.room.instance_list.insert(new_instance);
         if run_event {
             self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
         }
@@ -5108,7 +5108,7 @@ impl Game {
             .objects
             .get_asset(object_id)
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
-        let new_instance = self.instance_list.get(context.this).clone();
+        let new_instance = self.room.instance_list.get(context.this).clone();
         new_instance.object_index.set(object_id);
         new_instance.sprite_index.set(object.sprite_index);
         new_instance.mask_index.set(object.mask_index);
@@ -5128,8 +5128,8 @@ impl Game {
         }
         new_instance.bbox_is_stale.set(true);
 
-        self.instance_list.mark_deleted(context.this);
-        let handle = self.instance_list.insert(new_instance);
+        self.room.instance_list.mark_deleted(context.this);
+        let handle = self.room.instance_list.insert(new_instance);
 
         if run_events {
             self.run_instance_event(gml::ev::CREATE, 0, handle, handle, None)?;
@@ -5141,7 +5141,7 @@ impl Game {
     pub fn instance_destroy(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
-        self.instance_list.mark_deleted(context.this);
+        self.room.instance_list.mark_deleted(context.this);
         Ok(Default::default())
     }
 
@@ -5167,11 +5167,11 @@ impl Game {
 
     pub fn position_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.check_collision_point(handle, x, y, true) {
                 self.run_instance_event(gml::ev::DESTROY, 0, handle, handle, None)?;
-                self.instance_list.mark_deleted(handle);
+                self.room.instance_list.mark_deleted(handle);
             }
         }
         Ok(Default::default())
@@ -5184,12 +5184,12 @@ impl Game {
 
     pub fn instance_deactivate_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let notme = expect_args!(args, [bool])?;
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            self.instance_list.deactivate(handle);
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            self.room.instance_list.deactivate(handle);
         }
         if notme {
-            self.instance_list.activate(context.this);
+            self.room.instance_list.activate(context.this);
         }
         Ok(Default::default())
     }
@@ -5197,25 +5197,25 @@ impl Game {
     pub fn instance_deactivate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
         match obj {
-            gml::SELF => self.instance_list.deactivate(context.this),
-            gml::OTHER => self.instance_list.deactivate(context.other),
+            gml::SELF => self.room.instance_list.deactivate(context.this),
+            gml::OTHER => self.room.instance_list.deactivate(context.other),
             gml::ALL => {
-                let mut iter = self.instance_list.iter_by_insertion();
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    self.instance_list.deactivate(handle);
+                let mut iter = self.room.instance_list.iter_by_insertion();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    self.room.instance_list.deactivate(handle);
                 }
             },
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.instance_list) {
-                        self.instance_list.deactivate(handle);
+                    let mut iter = self.room.instance_list.iter_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                        self.room.instance_list.deactivate(handle);
                     }
                 }
             },
             inst_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
-                    self.instance_list.deactivate(handle);
+                if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
+                    self.room.instance_list.deactivate(handle);
                 }
             },
         }
@@ -5224,9 +5224,9 @@ impl Game {
 
     pub fn instance_deactivate_region(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside, notme) = expect_args!(args, [real, real, real, real, bool, bool])?;
-        let mut iter = self.instance_list.iter_by_insertion();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            let inst = self.instance_list.get(handle);
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            let inst = self.room.instance_list.get(handle);
             let mask = self.get_instance_mask_sprite(handle);
             let outside = if mask.is_some() {
                 inst.update_bbox(mask);
@@ -5238,20 +5238,20 @@ impl Game {
                 inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
             };
             if outside != inside {
-                self.instance_list.deactivate(handle);
+                self.room.instance_list.deactivate(handle);
             }
         }
         if notme {
-            self.instance_list.activate(context.this);
+            self.room.instance_list.activate(context.this);
         }
         Ok(Default::default())
     }
 
     pub fn instance_activate_all(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let mut iter = self.instance_list.iter_inactive();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            self.instance_list.activate(handle);
+        let mut iter = self.room.instance_list.iter_inactive();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            self.room.instance_list.activate(handle);
         }
         Ok(Default::default())
     }
@@ -5259,25 +5259,25 @@ impl Game {
     pub fn instance_activate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
         match obj {
-            gml::SELF => self.instance_list.activate(context.this),
-            gml::OTHER => self.instance_list.activate(context.other),
+            gml::SELF => self.room.instance_list.activate(context.this),
+            gml::OTHER => self.room.instance_list.activate(context.other),
             gml::ALL => {
-                let mut iter = self.instance_list.iter_inactive();
-                while let Some(handle) = iter.next(&self.instance_list) {
-                    self.instance_list.activate(handle);
+                let mut iter = self.room.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    self.room.instance_list.activate(handle);
                 }
             },
             obj if obj < 100000 => {
                 if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.instance_list.iter_inactive_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.instance_list) {
-                        self.instance_list.activate(handle);
+                    let mut iter = self.room.instance_list.iter_inactive_by_identity(ids);
+                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                        self.room.instance_list.activate(handle);
                     }
                 }
             },
             inst_id => {
-                if let Some(handle) = self.instance_list.get_by_instid(inst_id) {
-                    self.instance_list.activate(handle);
+                if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
+                    self.room.instance_list.activate(handle);
                 }
             },
         }
@@ -5286,9 +5286,9 @@ impl Game {
 
     pub fn instance_activate_region(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, bool])?;
-        let mut iter = self.instance_list.iter_inactive();
-        while let Some(handle) = iter.next(&self.instance_list) {
-            let inst = self.instance_list.get(handle);
+        let mut iter = self.room.instance_list.iter_inactive();
+        while let Some(handle) = iter.next(&self.room.instance_list) {
+            let inst = self.room.instance_list.get(handle);
             let mask = self.get_instance_mask_sprite(handle);
             let outside = if mask.is_some() {
                 inst.update_bbox(mask);
@@ -5300,7 +5300,7 @@ impl Game {
                 inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
             };
             if outside != inside {
-                self.instance_list.activate(handle);
+                self.room.instance_list.activate(handle);
             }
         }
         Ok(Default::default())
@@ -5317,7 +5317,7 @@ impl Game {
         match self
             .room_order
             .iter()
-            .position(|x| *x == self.room_id)
+            .position(|x| *x == self.room.id)
             .and_then(|x| x.checked_sub(1))
             .and_then(|x| self.room_order.get(x).copied())
         {
@@ -5331,7 +5331,7 @@ impl Game {
 
     pub fn room_goto_next(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        match self.room_order.iter().position(|x| *x == self.room_id).and_then(|x| self.room_order.get(x + 1).copied())
+        match self.room_order.iter().position(|x| *x == self.room.id).and_then(|x| self.room_order.get(x + 1).copied())
         {
             Some(i) => {
                 self.scene_change = Some(SceneChange::Room(i));
@@ -5366,7 +5366,7 @@ impl Game {
 
     pub fn room_restart(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.scene_change = Some(SceneChange::Room(self.room_id));
+        self.scene_change = Some(SceneChange::Room(self.room.id));
         Ok(Default::default())
     }
 
@@ -7478,7 +7478,7 @@ impl Game {
             Ok(self
                 .compiler
                 .find_field_id(identifier.as_ref())
-                .map_or(false, |i| self.instance_list.get(context.this).fields.borrow().contains_key(&i))
+                .map_or(false, |i| self.room.instance_list.get(context.this).fields.borrow().contains_key(&i))
                 .into())
         }
     }
@@ -7494,7 +7494,7 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             self.get_instance_var(context.this, var, index, context)
         } else {
-            let fields_ref = self.instance_list.get(context.this).fields.borrow();
+            let fields_ref = self.room.instance_list.get(context.this).fields.borrow();
             Ok(self
                 .compiler
                 .find_field_id(identifier.as_ref())
@@ -7520,7 +7520,7 @@ impl Game {
         if let Some(var) = mappings::get_instance_variable_by_name(identifier.as_ref()) {
             self.set_instance_var(context.this, var, index, value, context)?;
         } else {
-            let mut fields = self.instance_list.get(context.this).fields.borrow_mut();
+            let mut fields = self.room.instance_list.get(context.this).fields.borrow_mut();
             let field_id = self.compiler.get_field_id(identifier.as_ref());
             if let Some(field) = fields.get_mut(&field_id) {
                 field.set(index, value);
@@ -10324,9 +10324,9 @@ impl Game {
             size,
             colour,
             true,
-            (Real::from(30) / self.room_speed.into()).max(1.into()),
-            self.room_width,
-            self.room_height,
+            (Real::from(30) / self.room.speed.into()).max(1.into()),
+            self.room.width,
+            self.room.height,
             &mut self.rand,
         );
         Ok(Default::default())
@@ -10361,9 +10361,9 @@ impl Game {
             size,
             colour,
             false,
-            (Real::from(30) / self.room_speed.into()).max(1.into()),
-            self.room_width,
-            self.room_height,
+            (Real::from(30) / self.room.speed.into()).max(1.into()),
+            self.room.width,
+            self.room.height,
             &mut self.rand,
         );
         Ok(Default::default())

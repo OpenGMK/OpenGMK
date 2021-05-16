@@ -118,14 +118,14 @@ impl Game {
     /// Note that this function runs GML code associated with object draw events, so its usage must match GameMaker 8.
     pub fn draw(&mut self) -> gml::Result<()> {
         // Update views that should be following objects
-        if self.views_enabled {
+        if self.room.views_enabled {
             self.renderer.clear_view(self.background_colour, 1.0);
-            for view in self.views.iter_mut().filter(|x| x.visible) {
+            for view in self.room.views.iter_mut().filter(|x| x.visible) {
                 if let Some(obj) = self.assets.objects.get_asset(view.follow_target) {
                     if let Some(handle) =
-                        self.instance_list.iter_by_identity(obj.children.clone()).next(&self.instance_list)
+                        self.room.instance_list.iter_by_identity(obj.children.clone()).next(&self.room.instance_list)
                     {
-                        let inst = self.instance_list.get(handle);
+                        let inst = self.room.instance_list.get(handle);
 
                         let x = inst.x.get().round();
                         let y = inst.y.get().round();
@@ -149,7 +149,7 @@ impl Game {
                         } else {
                             view.source_x = x - (view.source_w / 2) as i32;
                         }
-                        view.source_x = view.source_x.max(0).min(self.room_width - view.source_w as i32);
+                        view.source_x = view.source_x.max(0).min(self.room.width - view.source_w as i32);
 
                         if view.follow_vborder < (view.source_h / 2) as i32 {
                             let border_top = y - view.follow_vborder;
@@ -171,17 +171,17 @@ impl Game {
                         } else {
                             view.source_y = y - (view.source_h / 2) as i32;
                         }
-                        view.source_y = view.source_y.max(0).min(self.room_height - view.source_h as i32);
+                        view.source_y = view.source_y.max(0).min(self.room.height - view.source_h as i32);
                     }
                 }
             }
         }
 
         // Draw all views
-        if self.views_enabled {
+        if self.room.views_enabled {
             // Iter views in a non-borrowing way
             let mut count = 0;
-            while let Some(&view) = self.views.get(count) {
+            while let Some(&view) = self.room.views.get(count) {
                 if view.visible {
                     self.view_current = count;
                     self.draw_view(
@@ -200,7 +200,7 @@ impl Game {
             }
             self.view_current = 0;
         } else {
-            self.draw_view(0, 0, self.room_width, self.room_height, 0, 0, self.room_width, self.room_height, 0.0)?;
+            self.draw_view(0, 0, self.room.width, self.room.height, 0, 0, self.room.width, self.room.height, 0.0)?;
         }
 
         // Tell renderer to finish the frame
@@ -223,7 +223,7 @@ impl Game {
         // Apply room caption
         let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
         if show_score || self.lives_capt_d {
-            let mut caption = self.decode_str(self.caption.as_ref()).into_owned();
+            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
             // write!() on a String never panics
             if show_score {
                 write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
@@ -233,7 +233,7 @@ impl Game {
             }
             self.window.set_title(&caption);
         } else {
-            self.window.set_title(self.decode_str(self.caption.as_ref()).as_ref());
+            self.window.set_title(self.decode_str(self.room.caption.as_ref()).as_ref());
         }
 
         Ok(())
@@ -254,14 +254,14 @@ impl Game {
     ) -> gml::Result<()> {
         self.renderer.set_view(src_x, src_y, src_w, src_h, angle, port_x, port_y, port_w, port_h);
 
-        if self.show_room_colour {
-            self.renderer.clear_view(self.room_colour, 1.0);
+        if self.room.show_colour {
+            self.renderer.clear_view(self.room.colour, 1.0);
         } else {
             self.renderer.clear_zbuf();
         }
 
         fn draw_instance(game: &mut Game, idx: usize) -> gml::Result<()> {
-            let instance = game.instance_list.get(idx);
+            let instance = game.room.instance_list.get(idx);
             if instance.visible.get() {
                 game.renderer.set_depth(instance.depth.get().into_inner() as f32);
                 if game.custom_draw_objects.contains(&instance.object_index.get()) {
@@ -291,7 +291,7 @@ impl Game {
         }
 
         fn draw_tile(game: &mut Game, idx: usize) {
-            let tile = game.tile_list.get(idx);
+            let tile = game.room.tile_list.get(idx);
             if tile.visible.get() {
                 if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
                     if let Some(atlas) = &background.atlas_ref {
@@ -321,7 +321,7 @@ impl Game {
 
         // draw backgrounds
         self.renderer.set_depth(12000.0);
-        for background in self.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
+        for background in self.room.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(
@@ -339,12 +339,12 @@ impl Game {
             }
         }
 
-        self.instance_list.draw_sort();
-        let mut iter_inst = self.instance_list.iter_by_drawing();
-        let mut iter_inst_v = iter_inst.next(&self.instance_list);
-        self.tile_list.draw_sort();
-        let mut iter_tile = self.tile_list.iter_by_drawing();
-        let mut iter_tile_v = iter_tile.next(&self.tile_list);
+        self.room.instance_list.draw_sort();
+        let mut iter_inst = self.room.instance_list.iter_by_drawing();
+        let mut iter_inst_v = iter_inst.next(&self.room.instance_list);
+        self.room.tile_list.draw_sort();
+        let mut iter_tile = self.room.tile_list.iter_by_drawing();
+        let mut iter_tile_v = iter_tile.next(&self.room.tile_list);
         self.particles.draw_sort();
         let mut iter_part = self.particles.iter_by_drawing();
         let mut iter_part_v = iter_part.next(&self.particles);
@@ -353,14 +353,14 @@ impl Game {
                 (None, None, None) => break,
                 (Some(idx_inst), None, None) => {
                     draw_instance(self, idx_inst)?;
-                    while let Some(idx_inst) = iter_inst.next(&self.instance_list) {
+                    while let Some(idx_inst) = iter_inst.next(&self.room.instance_list) {
                         draw_instance(self, idx_inst)?;
                     }
                     break
                 },
                 (None, Some(idx_tile), None) => {
                     draw_tile(self, idx_tile);
-                    while let Some(idx_tile) = iter_tile.next(&self.tile_list) {
+                    while let Some(idx_tile) = iter_tile.next(&self.room.tile_list) {
                         draw_tile(self, idx_tile);
                     }
                     break
@@ -373,16 +373,16 @@ impl Game {
                     break
                 },
                 (idx_opt_inst, idx_opt_tile, idx_opt_part) => {
-                    let inst_depth = idx_opt_inst.map(|h| self.instance_list.get(h).depth.get());
-                    let tile_depth = idx_opt_tile.map(|h| self.tile_list.get(h).depth.get());
+                    let inst_depth = idx_opt_inst.map(|h| self.room.instance_list.get(h).depth.get());
+                    let tile_depth = idx_opt_tile.map(|h| self.room.tile_list.get(h).depth.get());
                     let part_depth = idx_opt_part.map(|h| self.particles.get_system(h).unwrap().depth);
                     if part_depth < inst_depth && part_depth < tile_depth {
                         if inst_depth < tile_depth {
                             draw_tile(self, idx_opt_tile.unwrap());
-                            iter_tile_v = iter_tile.next(&self.tile_list);
+                            iter_tile_v = iter_tile.next(&self.room.tile_list);
                         } else {
                             draw_instance(self, idx_opt_inst.unwrap())?;
-                            iter_inst_v = iter_inst.next(&self.instance_list);
+                            iter_inst_v = iter_inst.next(&self.room.instance_list);
                         }
                     } else {
                         draw_part_syst(self, idx_opt_part.unwrap());
@@ -394,7 +394,7 @@ impl Game {
 
         // draw foregrounds
         self.renderer.set_depth(-12000.0);
-        for background in self.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
+        for background in self.room.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
                 if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
                     self.renderer.draw_sprite_tiled(

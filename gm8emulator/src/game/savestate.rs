@@ -1,22 +1,21 @@
 use crate::{
     game::{
-        background, draw,
+        draw,
         external::{DefineInfo, External},
         includedfile::IncludedFile,
         model::Model,
         particle,
         pathfinding::PotentialStepSettings,
+        RoomState,
         string::RCStr,
         surface::Surface,
         transition::UserTransition,
-        view::View,
         Assets, Game, Replay, Version,
     },
     gml::{ds, rand::Random, Compiler},
     handleman::HandleList,
     input::InputManager,
     instance::DummyFieldHolder,
-    instancelist::{InstanceList, TileList},
     math::Real,
 };
 use gmio::render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling};
@@ -33,8 +32,6 @@ use std::{
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SaveState {
     pub compiler: Compiler,
-    pub instance_list: InstanceList,
-    pub tile_list: TileList,
     pub rand: Random,
     pub input_manager: InputManager,
     pub assets: Assets,
@@ -42,8 +39,6 @@ pub struct SaveState {
     pub custom_draw_objects: HashSet<ID>,
 
     pub background_colour: Colour,
-    pub room_colour: Colour,
-    pub show_room_colour: bool,
     pub textures: Vec<Option<SavedTexture>>,
     pub alpha_blending: bool,
     pub blend_mode: (BlendType, BlendType),
@@ -55,21 +50,16 @@ pub struct SaveState {
     pub externals: Vec<Option<DefineInfo>>,
     pub surface_fix: bool,
 
+    pub view_current: usize,
+
     pub last_instance_id: ID,
     pub last_tile_id: ID,
 
-    pub views_enabled: bool,
-    pub view_current: usize,
-    pub views: Vec<View>,
-    pub backgrounds: Vec<background::Background>,
-
     pub particles: particle::Manager,
 
-    pub room_id: i32,
-    pub room_width: i32,
-    pub room_height: i32,
+    pub room: RoomState,
+    pub stored_rooms: Vec<RoomState>,
     pub room_order: Box<[i32]>,
-    pub room_speed: u32,
     pub user_transitions: HashMap<i32, UserTransition>,
 
     pub globals: DummyFieldHolder,
@@ -135,8 +125,6 @@ pub struct SaveState {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub spoofed_time_nanos: Option<u128>,
-    pub caption: RCStr,
-    pub caption_stale: bool,
 
     scaling: Scaling,
     unscaled_width: u32,
@@ -157,16 +145,12 @@ impl SaveState {
 
         Self {
             compiler: game.compiler.clone(),
-            instance_list: game.instance_list.clone(),
-            tile_list: game.tile_list.clone(),
             rand: game.rand.clone(),
             input_manager: game.input_manager.clone(),
             assets: game.assets.clone(),
             event_holders: game.event_holders.clone(),
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
-            room_colour: game.room_colour,
-            show_room_colour: game.show_room_colour,
             textures: game.renderer.dump_dynamic_textures(),
             alpha_blending: game.renderer.get_alpha_blending(),
             blend_mode: game.renderer.get_blend_mode(),
@@ -176,18 +160,13 @@ impl SaveState {
             vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             surface_fix: game.surface_fix.clone(),
+            view_current: game.view_current,
             last_instance_id: game.last_instance_id.clone(),
             last_tile_id: game.last_tile_id.clone(),
-            views_enabled: game.views_enabled.clone(),
-            view_current: game.view_current.clone(),
-            views: game.views.clone(),
-            backgrounds: game.backgrounds.clone(),
             particles: game.particles.clone(),
-            room_id: game.room_id.clone(),
-            room_width: game.room_width.clone(),
-            room_height: game.room_height.clone(),
+            room: game.room.clone(),
+            stored_rooms: game.stored_rooms.clone(),
             room_order: game.room_order.clone(),
-            room_speed: game.room_speed.clone(),
             user_transitions: game.user_transitions.clone(),
             globals: game.globals.clone(),
             globalvars: game.globalvars.clone(),
@@ -246,8 +225,6 @@ impl SaveState {
             included_files: game.included_files.clone(),
             gm_version: game.gm_version.clone(),
             spoofed_time_nanos: game.spoofed_time_nanos,
-            caption: game.caption.clone(),
-            caption_stale: game.caption_stale.clone(),
             scaling: game.scaling,
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
@@ -308,28 +285,19 @@ impl SaveState {
         game.surface_fix = self.surface_fix;
 
         game.compiler = self.compiler;
-        game.instance_list = self.instance_list;
-        game.tile_list = self.tile_list;
         game.rand = self.rand;
         game.input_manager = self.input_manager;
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
         game.background_colour = self.background_colour;
-        game.room_colour = self.room_colour;
-        game.show_room_colour = self.show_room_colour;
         game.last_instance_id = self.last_instance_id;
         game.last_tile_id = self.last_tile_id;
-        game.views_enabled = self.views_enabled;
         game.view_current = self.view_current;
-        game.views = self.views;
-        game.backgrounds = self.backgrounds;
         game.particles = self.particles;
-        game.room_id = self.room_id;
-        game.room_width = self.room_width;
-        game.room_height = self.room_height;
+        game.room = self.room;
+        game.stored_rooms = self.stored_rooms;
         game.room_order = self.room_order;
-        game.room_speed = self.room_speed;
         game.user_transitions = self.user_transitions;
         game.globals = self.globals;
         game.globalvars = self.globalvars;
@@ -387,8 +355,6 @@ impl SaveState {
         game.included_files = self.included_files;
         game.gm_version = self.gm_version;
         game.spoofed_time_nanos = self.spoofed_time_nanos;
-        game.caption = self.caption;
-        game.caption_stale = self.caption_stale;
         game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;

@@ -380,8 +380,8 @@ impl Game {
                             if let Some(Some(object)) = self.assets.objects.get(i as usize) {
                                 context.other = this;
                                 let ids = object.children.clone();
-                                let mut iter = self.instance_list.iter_by_identity(ids);
-                                while let Some(instance) = iter.next(&self.instance_list) {
+                                let mut iter = self.room.instance_list.iter_by_identity(ids);
+                                while let Some(instance) = iter.next(&self.room.instance_list) {
                                     context.this = instance;
 
                                     let mut arg_values: [Value; 16] = Default::default();

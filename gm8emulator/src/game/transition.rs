@@ -251,6 +251,7 @@ impl Game {
                     {
                         let instructions = script.compiled.clone();
                         let dummy_instance = game
+                            .room
                             .instance_list
                             .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
                         game.execute(&instructions, &mut Context {
@@ -277,7 +278,7 @@ impl Game {
                             argument_count: 5,
                             ..Default::default()
                         })?;
-                        game.instance_list.remove_dummy(dummy_instance);
+                        game.room.instance_list.remove_dummy(dummy_instance);
                     }
                 } else {
                     match transition_id {

@@ -335,15 +335,15 @@ impl Game {
                     Target::Objects(index) => {
                         if let Some(Some(object)) = self.assets.objects.get(index as usize) {
                             let ids = object.children.clone();
-                            let mut iter = self.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.instance_list) {
+                            let mut iter = self.room.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.room.instance_list) {
                                 self.set_instance_field(instance, accessor.index, array_index, value.clone());
                             }
                         }
                     },
                     Target::All => {
-                        let mut iter = self.instance_list.iter_by_insertion();
-                        while let Some(instance) = iter.next(&self.instance_list) {
+                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
                     },
@@ -376,15 +376,15 @@ impl Game {
                     Target::Objects(index) => {
                         if let Some(Some(object)) = self.assets.objects.get(index as usize) {
                             let ids = object.children.clone();
-                            let mut iter = self.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.instance_list) {
+                            let mut iter = self.room.instance_list.iter_by_identity(ids);
+                            while let Some(instance) = iter.next(&self.room.instance_list) {
                                 self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                             }
                         }
                     },
                     Target::All => {
-                        let mut iter = self.instance_list.iter_by_insertion();
-                        while let Some(instance) = iter.next(&self.instance_list) {
+                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
                     },
@@ -509,8 +509,8 @@ impl Game {
                         }
                     },
                     gml::ALL => {
-                        let mut iter = self.instance_list.iter_by_insertion();
-                        while let Some(instance) = iter.next(&self.instance_list) {
+                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
                             context.this = instance;
                             match self.execute(body, context)? {
                                 ReturnType::Normal => (),
@@ -527,8 +527,8 @@ impl Game {
                     i if i < 0 => (),
                     i if i < 100_000 => {
                         if let Some(Some(object)) = self.assets.objects.get(i as usize) {
-                            let mut iter = self.instance_list.iter_by_identity(object.children.clone());
-                            while let Some(instance) = iter.next(&self.instance_list) {
+                            let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
+                            while let Some(instance) = iter.next(&self.room.instance_list) {
                                 context.this = instance;
                                 match self.execute(body, context)? {
                                     ReturnType::Normal => (),
@@ -544,7 +544,7 @@ impl Game {
                         }
                     },
                     i => {
-                        if let Some(instance) = self.instance_list.get_by_instid(i) {
+                        if let Some(instance) = self.room.instance_list.get_by_instid(i) {
                             context.this = instance;
                             match self.execute(body, context)? {
                                 ReturnType::Exit => {
@@ -622,7 +622,7 @@ impl Game {
                     Target::Objects(index) => {
                         if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
                             Some(x) => {
-                                self.instance_list.iter_by_identity(x.children.clone()).next(&self.instance_list)
+                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
                             },
                             None => None,
                         }) {
@@ -639,7 +639,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.instance_list.iter_by_insertion().next(&self.instance_list) {
+                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -697,7 +697,7 @@ impl Game {
                     Target::Objects(index) => {
                         if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
                             Some(x) => {
-                                self.instance_list.iter_by_identity(x.children.clone()).next(&self.instance_list)
+                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
                             },
                             None => None,
                         }) {
@@ -720,7 +720,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.instance_list.iter_by_insertion().next(&self.instance_list) {
+                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -812,7 +812,7 @@ impl Game {
     // Get a field value from an instance
     fn get_instance_field(&self, instance: usize, field_id: usize, array_index: u32) -> gml::Result<Value> {
         if let Some(Some(value)) =
-            self.instance_list.get(instance).fields.borrow().get(&field_id).map(|field| field.get(array_index))
+            self.room.instance_list.get(instance).fields.borrow().get(&field_id).map(|field| field.get(array_index))
         {
             Ok(value)
         } else {
@@ -826,7 +826,7 @@ impl Game {
 
     // Set a field on an instance
     fn set_instance_field(&self, instance: usize, field_id: usize, array_index: u32, value: Value) {
-        let mut fields = self.instance_list.get(instance).fields.borrow_mut();
+        let mut fields = self.room.instance_list.get(instance).fields.borrow_mut();
         if let Some(field) = fields.get_mut(&field_id) {
             field.set(array_index, value)
         } else {
@@ -842,7 +842,7 @@ impl Game {
         array_index: u32,
         context: &Context,
     ) -> gml::Result<Value> {
-        let instance = self.instance_list.get(instance_handle);
+        let instance = self.room.instance_list.get(instance_handle);
 
         match var {
             InstanceVariable::X => Ok(instance.x.get().into()),
@@ -969,7 +969,7 @@ impl Game {
             InstanceVariable::Argument15 => self.get_argument(context, 15),
             InstanceVariable::Argument => self.get_argument(context, array_index as usize),
             InstanceVariable::ArgumentCount => Ok(context.argument_count.into()),
-            InstanceVariable::Room => Ok(self.room_id.into()),
+            InstanceVariable::Room => Ok(self.room.id.into()),
             InstanceVariable::RoomFirst => match self.room_order.get(0) {
                 Some(room) => Ok((*room).into()),
                 None => Err(Error::EndOfRoomOrder),
@@ -1002,36 +1002,36 @@ impl Game {
             },
             InstanceVariable::TempDirectory => Ok(self.temp_directory.clone().into()),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
-            InstanceVariable::InstanceCount => Ok(self.instance_list.count_all().into()),
-            InstanceVariable::InstanceId => Ok(self.instance_list.instance_at(array_index as _).into()),
-            InstanceVariable::RoomWidth => Ok(self.room_width.into()),
-            InstanceVariable::RoomHeight => Ok(self.room_height.into()),
-            InstanceVariable::RoomCaption => Ok(self.caption.clone().into()),
-            InstanceVariable::RoomSpeed => Ok(self.room_speed.into()),
+            InstanceVariable::InstanceCount => Ok(self.room.instance_list.count_all().into()),
+            InstanceVariable::InstanceId => Ok(self.room.instance_list.instance_at(array_index as _).into()),
+            InstanceVariable::RoomWidth => Ok(self.room.width.into()),
+            InstanceVariable::RoomHeight => Ok(self.room.height.into()),
+            InstanceVariable::RoomCaption => Ok(self.room.caption.clone().into()),
+            InstanceVariable::RoomSpeed => Ok(self.room.speed.into()),
             InstanceVariable::RoomPersistent => todo!("room_persistent getter"),
-            InstanceVariable::BackgroundColor => Ok(self.room_colour.as_decimal().into()),
-            InstanceVariable::BackgroundShowcolor => Ok(self.show_room_colour.into()),
+            InstanceVariable::BackgroundColor => Ok(self.room.colour.as_decimal().into()),
+            InstanceVariable::BackgroundShowcolor => Ok(self.room.show_colour.into()),
             InstanceVariable::BackgroundVisible => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).visible.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).visible.into())
             },
             InstanceVariable::BackgroundForeground => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).is_foreground.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).is_foreground.into())
             },
             InstanceVariable::BackgroundIndex => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id.into())
             },
             InstanceVariable::BackgroundX => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).x_offset.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).x_offset.into())
             },
             InstanceVariable::BackgroundY => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).y_offset.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).y_offset.into())
             },
             InstanceVariable::BackgroundWidth => {
-                let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
+                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
             },
             InstanceVariable::BackgroundHeight => {
-                let index = self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).background_id;
+                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) {
                     Ok(bg.height.into())
                 } else {
@@ -1039,75 +1039,75 @@ impl Game {
                 }
             },
             InstanceVariable::BackgroundHtiled => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_horizontal.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_horizontal.into())
             },
             InstanceVariable::BackgroundVtiled => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).tile_vertical.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_vertical.into())
             },
             InstanceVariable::BackgroundXscale => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).xscale.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).xscale.into())
             },
             InstanceVariable::BackgroundYscale => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).yscale.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).yscale.into())
             },
             InstanceVariable::BackgroundHspeed => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).hspeed.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).hspeed.into())
             },
             InstanceVariable::BackgroundVspeed => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).vspeed.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).vspeed.into())
             },
             InstanceVariable::BackgroundBlend => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).blend.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).blend.into())
             },
             InstanceVariable::BackgroundAlpha => {
-                Ok(self.backgrounds.get(array_index as usize).unwrap_or(&self.backgrounds[0]).alpha.into())
+                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).alpha.into())
             },
-            InstanceVariable::ViewEnabled => Ok(self.views_enabled.into()),
+            InstanceVariable::ViewEnabled => Ok(self.room.views_enabled.into()),
             InstanceVariable::ViewCurrent => Ok(self.view_current.into()),
             InstanceVariable::ViewVisible => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).visible.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).visible.into())
             },
             InstanceVariable::ViewXview => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_x.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_x.into())
             },
             InstanceVariable::ViewYview => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_y.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_y.into())
             },
             InstanceVariable::ViewWview => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_w.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_w.into())
             },
             InstanceVariable::ViewHview => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).source_h.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_h.into())
             },
             InstanceVariable::ViewXport => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_x.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_x.into())
             },
             InstanceVariable::ViewYport => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_y.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_y.into())
             },
             InstanceVariable::ViewWport => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_w.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_w.into())
             },
             InstanceVariable::ViewHport => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).port_h.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_h.into())
             },
             InstanceVariable::ViewAngle => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).angle.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).angle.into())
             },
             InstanceVariable::ViewHborder => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_hborder.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_hborder.into())
             },
             InstanceVariable::ViewVborder => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_vborder.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_vborder.into())
             },
             InstanceVariable::ViewHspeed => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_hspeed.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_hspeed.into())
             },
             InstanceVariable::ViewVspeed => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_vspeed.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_vspeed.into())
             },
             InstanceVariable::ViewObject => {
-                Ok(self.views.get(array_index as usize).unwrap_or(&self.views[0]).follow_target.into())
+                Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_target.into())
             },
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
@@ -1180,7 +1180,7 @@ impl Game {
         value: Value,
         context: &mut Context,
     ) -> gml::Result<()> {
-        let instance = self.instance_list.get(instance_handle);
+        let instance = self.room.instance_list.get(instance_handle);
 
         match var {
             InstanceVariable::X => {
@@ -1325,131 +1325,130 @@ impl Game {
                 }
             },
             InstanceVariable::RoomCaption => {
-                self.caption = value.into();
-                self.caption_stale = true;
+                self.room.caption = value.into();
             },
             InstanceVariable::RoomSpeed => {
                 let speed: i32 = value.into();
                 if speed <= 0 {
                     return Err(Error::InvalidRoomSpeed(speed))
                 }
-                self.room_speed = speed as _
+                self.room.speed = speed as _
             },
             InstanceVariable::RoomPersistent => todo!("room_persistent setter"),
-            InstanceVariable::BackgroundColor => self.room_colour = (value.round() as u32).into(),
-            InstanceVariable::BackgroundShowcolor => self.show_room_colour = value.is_truthy(),
-            InstanceVariable::BackgroundVisible => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundColor => self.room.colour = (value.round() as u32).into(),
+            InstanceVariable::BackgroundShowcolor => self.room.show_colour = value.is_truthy(),
+            InstanceVariable::BackgroundVisible => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.visible = value.is_truthy(),
-                None => self.backgrounds[0].visible = value.is_truthy(),
+                None => self.room.backgrounds[0].visible = value.is_truthy(),
             },
-            InstanceVariable::BackgroundForeground => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundForeground => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.is_foreground = value.is_truthy(),
-                None => self.backgrounds[0].is_foreground = value.is_truthy(),
+                None => self.room.backgrounds[0].is_foreground = value.is_truthy(),
             },
-            InstanceVariable::BackgroundIndex => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundIndex => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.background_id = value.into(),
-                None => self.backgrounds[0].background_id = value.into(),
+                None => self.room.backgrounds[0].background_id = value.into(),
             },
-            InstanceVariable::BackgroundX => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundX => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.x_offset = value.into(),
-                None => self.backgrounds[0].x_offset = value.into(),
+                None => self.room.backgrounds[0].x_offset = value.into(),
             },
-            InstanceVariable::BackgroundY => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundY => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.y_offset = value.into(),
-                None => self.backgrounds[0].y_offset = value.into(),
+                None => self.room.backgrounds[0].y_offset = value.into(),
             },
-            InstanceVariable::BackgroundHtiled => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundHtiled => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.tile_horizontal = value.is_truthy(),
-                None => self.backgrounds[0].tile_horizontal = value.is_truthy(),
+                None => self.room.backgrounds[0].tile_horizontal = value.is_truthy(),
             },
-            InstanceVariable::BackgroundVtiled => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundVtiled => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.tile_vertical = value.is_truthy(),
-                None => self.backgrounds[0].tile_vertical = value.is_truthy(),
+                None => self.room.backgrounds[0].tile_vertical = value.is_truthy(),
             },
-            InstanceVariable::BackgroundXscale => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundXscale => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.xscale = value.into(),
-                None => self.backgrounds[0].xscale = value.into(),
+                None => self.room.backgrounds[0].xscale = value.into(),
             },
-            InstanceVariable::BackgroundYscale => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundYscale => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.yscale = value.into(),
-                None => self.backgrounds[0].yscale = value.into(),
+                None => self.room.backgrounds[0].yscale = value.into(),
             },
-            InstanceVariable::BackgroundHspeed => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundHspeed => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.hspeed = value.into(),
-                None => self.backgrounds[0].hspeed = value.into(),
+                None => self.room.backgrounds[0].hspeed = value.into(),
             },
-            InstanceVariable::BackgroundVspeed => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundVspeed => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.vspeed = value.into(),
-                None => self.backgrounds[0].vspeed = value.into(),
+                None => self.room.backgrounds[0].vspeed = value.into(),
             },
-            InstanceVariable::BackgroundBlend => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundBlend => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.blend = value.into(),
-                None => self.backgrounds[0].blend = value.into(),
+                None => self.room.backgrounds[0].blend = value.into(),
             },
-            InstanceVariable::BackgroundAlpha => match self.backgrounds.get_mut(array_index as usize) {
+            InstanceVariable::BackgroundAlpha => match self.room.backgrounds.get_mut(array_index as usize) {
                 Some(background) => background.alpha = value.into(),
-                None => self.backgrounds[0].alpha = value.into(),
+                None => self.room.backgrounds[0].alpha = value.into(),
             },
-            InstanceVariable::ViewEnabled => self.views_enabled = value.is_truthy(),
-            InstanceVariable::ViewVisible => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewEnabled => self.room.views_enabled = value.is_truthy(),
+            InstanceVariable::ViewVisible => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.visible = value.is_truthy(),
-                None => self.views[0].visible = value.is_truthy(),
+                None => self.room.views[0].visible = value.is_truthy(),
             },
-            InstanceVariable::ViewXview => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewXview => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.source_x = value.into(),
-                None => self.views[0].source_x = value.into(),
+                None => self.room.views[0].source_x = value.into(),
             },
-            InstanceVariable::ViewYview => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewYview => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.source_y = value.into(),
-                None => self.views[0].source_y = value.into(),
+                None => self.room.views[0].source_y = value.into(),
             },
-            InstanceVariable::ViewWview => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewWview => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.source_w = value.into(),
-                None => self.views[0].source_w = value.into(),
+                None => self.room.views[0].source_w = value.into(),
             },
-            InstanceVariable::ViewHview => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewHview => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.source_h = value.into(),
-                None => self.views[0].source_h = value.into(),
+                None => self.room.views[0].source_h = value.into(),
             },
-            InstanceVariable::ViewXport => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewXport => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.port_x = value.into(),
-                None => self.views[0].port_x = value.into(),
+                None => self.room.views[0].port_x = value.into(),
             },
-            InstanceVariable::ViewYport => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewYport => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.port_y = value.into(),
-                None => self.views[0].port_y = value.into(),
+                None => self.room.views[0].port_y = value.into(),
             },
-            InstanceVariable::ViewWport => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewWport => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.port_w = value.into(),
-                None => self.views[0].port_w = value.into(),
+                None => self.room.views[0].port_w = value.into(),
             },
-            InstanceVariable::ViewHport => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewHport => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.port_h = value.into(),
-                None => self.views[0].port_h = value.into(),
+                None => self.room.views[0].port_h = value.into(),
             },
-            InstanceVariable::ViewAngle => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewAngle => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.angle = value.into(),
-                None => self.views[0].angle = value.into(),
+                None => self.room.views[0].angle = value.into(),
             },
-            InstanceVariable::ViewHborder => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewHborder => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.follow_hborder = value.into(),
-                None => self.views[0].follow_hborder = value.into(),
+                None => self.room.views[0].follow_hborder = value.into(),
             },
-            InstanceVariable::ViewVborder => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewVborder => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.follow_vborder = value.into(),
-                None => self.views[0].follow_vborder = value.into(),
+                None => self.room.views[0].follow_vborder = value.into(),
             },
-            InstanceVariable::ViewHspeed => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewHspeed => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.follow_hspeed = value.into(),
-                None => self.views[0].follow_hspeed = value.into(),
+                None => self.room.views[0].follow_hspeed = value.into(),
             },
-            InstanceVariable::ViewVspeed => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewVspeed => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.follow_vspeed = value.into(),
-                None => self.views[0].follow_vspeed = value.into(),
+                None => self.room.views[0].follow_vspeed = value.into(),
             },
-            InstanceVariable::ViewObject => match self.views.get_mut(array_index as usize) {
+            InstanceVariable::ViewObject => match self.room.views.get_mut(array_index as usize) {
                 Some(view) => view.follow_target = value.into(),
-                None => self.views[0].follow_target = value.into(),
+                None => self.room.views[0].follow_target = value.into(),
             },
             InstanceVariable::MouseButton => {
                 let button = value.round();
@@ -1496,7 +1495,7 @@ impl Game {
 
     // Gets the sprite associated with an instance's sprite_index
     pub fn get_instance_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
-        let instance = self.instance_list.get(instance);
+        let instance = self.room.instance_list.get(instance);
         let index = instance.sprite_index.get();
         if index >= 0 {
             if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
@@ -1508,7 +1507,7 @@ impl Game {
     // Gets the sprite associated with an instance's mask_index
     pub fn get_instance_mask_sprite(&self, instance: usize) -> Option<&asset::Sprite> {
         let index = {
-            let instance = self.instance_list.get(instance);
+            let instance = self.room.instance_list.get(instance);
             let index = instance.mask_index.get();
             if index >= 0 { index } else { instance.sprite_index.get() }
         };
@@ -1572,7 +1571,7 @@ impl Game {
                     gml::NOONE => Ok(Target::Single(None)),
                     gml::GLOBAL => Ok(Target::Global),
                     gml::LOCAL => Ok(Target::Local),
-                    i if i >= 100_000 => Ok(Target::Single(self.instance_list.get_by_instid(i))),
+                    i if i >= 100_000 => Ok(Target::Single(self.room.instance_list.get_by_instid(i))),
                     i => Ok(Target::Objects(i)),
                 }
             },
