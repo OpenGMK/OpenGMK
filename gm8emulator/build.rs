@@ -75,12 +75,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         ])
         .write_bindings(GlobalGenerator, &mut file)?;
     }
-    
+
     // icon
-    if cfg!(target_os = "windows") {
+    #[cfg(target_os = "windows")]
+    {
         let mut res = winres::WindowsResource::new();
         res.set_icon("../assets/logo/opengmk.ico");
-        res.compile().unwrap();
+        res.compile()?;
     }
 
     Ok(())
