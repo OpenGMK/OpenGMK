@@ -76,14 +76,9 @@ impl Asset for Object {
         let mut events = Vec::with_capacity((event_list_count + 1) as usize);
 
         for _ in 0..=event_list_count {
+            // Read until we get a negative value in place of the sub_index (indicated here by u32::try_from failing)
             let mut sub_event_list: Vec<(u32, Vec<CodeAction>)> = Vec::new();
-            loop {
-                // If the index is negative, it indicates the end of the list, so break here
-                let index = match u32::try_from(reader.read_i32::<LE>()?) {
-                    Ok(x) => x,
-                    Err(_) => break,
-                };
-
+            while let Ok(index) = u32::try_from(reader.read_i32::<LE>()?) {
                 let ver = reader.read_u32::<LE>()?;
                 if strict {
                     assert_ver(ver, VERSION_EVENT)?;

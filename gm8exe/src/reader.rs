@@ -653,7 +653,7 @@ where
         .map(|chunk| {
             // AssetDataError -> ReaderError
             let data = inflate(chunk);
-            IncludedFile::deserialize_exe(data, game_ver, strict).map_err(|e| ReaderError::from(e))
+            IncludedFile::deserialize_exe(data, game_ver, strict).map_err(ReaderError::from)
         })
         .collect::<Result<Vec<_>, _>>()?;
     if logger.is_some() {
