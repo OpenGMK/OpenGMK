@@ -6,7 +6,8 @@ license = "GPL-2.0-only"
 edition = "2018"
 
 [build-dependencies]
-time = { version = "0.2", features = ["std"], default-features = false }
+# TODO: change to version = "0.3" when they finally publish 0.3
+time = { git = "https://github.com/time-rs/time/", features = ["std"], default-features = false }
 
 [dependencies]
 byteorder = "1"
