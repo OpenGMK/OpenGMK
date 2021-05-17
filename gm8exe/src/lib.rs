@@ -1,7 +1,6 @@
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::unreadable_literal)]
 
-#[macro_use]
 macro_rules! log {
     ($logger: expr, $x: expr) => {
         if let Some(logger) = &$logger {
