@@ -125,7 +125,7 @@ impl<T> ChunkList<T> {
                 if let Some(t) = slot {
                     if f(&*t) {
                         let instance = slot.take();
-                        // SAFETY: we already checked that this instance is Some before swapping it
+                        // SAFETY: we already checked that this instance is Some before taking it
                         output.push(instance.unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() }));
                         chunk.vacant += 1;
                     }
