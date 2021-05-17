@@ -288,8 +288,7 @@ impl<'a> AST<'a> {
                         // Read var identifiers
                         if let Some(&Token::Identifier(id)) = lex.peek() {
                             lex.next();
-                            let mut vars = Vec::with_capacity(1);
-                            vars.push(id);
+                            let mut vars = vec![id];
 
                             loop {
                                 let mut peek_lex = lex.clone();
