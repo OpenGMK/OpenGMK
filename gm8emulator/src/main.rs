@@ -106,7 +106,9 @@ fn xmain() -> i32 {
             })
             // if we can't find one, make one
             .unwrap_or_else(|| {
-                let path = [proj_path.clone(), format!("gm_ttt_{:.0}", rand::random::<f64>().fract() * 99999.0).into()]
+                let mut random_int = [0u8; 4];
+                getrandom::getrandom(&mut random_int).expect("Couldn't generate a random number");
+                let path = [proj_path.clone(), format!("gm_ttt_{}", u32::from_le_bytes(random_int) % 100000).into()]
                     .iter()
                     .collect();
                 if let Err(e) = std::fs::create_dir_all(&path) {

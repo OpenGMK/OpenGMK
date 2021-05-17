@@ -21,8 +21,7 @@ impl Random {
     /// Creates a new LCG with a random seed.
     #[inline]
     pub fn new() -> Self {
-        use rand::Rng;
-        Self(rand::thread_rng().gen())
+        Self(rand_int())
     }
 
     /// Creates a new LCG with a given seed.
@@ -52,8 +51,7 @@ impl Random {
     /// Randomizes the LCG seed.
     #[inline]
     pub fn randomize(&mut self) {
-        use rand::Rng;
-        self.set_seed(rand::thread_rng().gen());
+        self.set_seed(rand_int());
     }
 
     /// Cycles the randomizer seed. This is done automatically every call to next/next_int.
@@ -84,4 +82,11 @@ impl Random {
         let lb = u64::from(bound.wrapping_add(1));
         ((ls.wrapping_mul(lb)) >> 32) as _
     }
+}
+
+// Makes a pseudorandom integer. Only used for seeding, such as in randomize().
+fn rand_int() -> i32 {
+    let mut bytes: [u8; 4] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let _ = getrandom::getrandom(&mut bytes);
+    i32::from_le_bytes(bytes)
 }
