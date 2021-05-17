@@ -124,8 +124,7 @@ impl<T> ChunkList<T> {
             for slot in chunk.slots.iter_mut() {
                 if let Some(t) = slot {
                     if f(&*t) {
-                        let mut instance = None;
-                        std::mem::swap(&mut instance, slot);
+                        let instance = slot.take();
                         // SAFETY: we already checked that this instance is Some before swapping it
                         output.push(instance.unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() }));
                         chunk.vacant += 1;
