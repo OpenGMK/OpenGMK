@@ -15,7 +15,7 @@ winres = "0.1"
 [dependencies]
 bincode = "1.2"
 cfg-if = "0.1"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false }
 encoding_rs = "0.8.23"
 getopts = "0.2.21"
 getrandom = "0.2"

@@ -20,11 +20,11 @@ pub struct DateTime(NaiveDateTime);
 
 impl DateTime {
     pub fn now_or_nanos(nanos: Option<u128>) -> Self {
-        if let Some(nanos) = nanos {
-            Self(NaiveDateTime::from_timestamp((nanos / 1_000_000_000) as i64, (nanos % 1_000_000_000) as u32))
-        } else {
-            Self(chrono::Local::now().naive_local())
-        }
+        let nanos = nanos.unwrap_or_else(|| match time::SystemTime::now().duration_since(time::SystemTime::UNIX_EPOCH) {
+            Ok(t) => t.as_nanos(),
+            Err(_) => 0,
+        });
+        Self(NaiveDateTime::from_timestamp((nanos / 1_000_000_000) as i64, (nanos % 1_000_000_000) as u32))
     }
 
     pub fn date(&self) -> Self {

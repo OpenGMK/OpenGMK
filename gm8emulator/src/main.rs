@@ -215,10 +215,10 @@ fn xmain() -> i32 {
         },
     };
 
-    let datetime = chrono::Local::now().naive_local();
-    let secs = datetime.timestamp() as u128;
-    let nanos = datetime.timestamp_subsec_nanos() as u128;
-    let time_now = secs * 1_000_000_000 + nanos;
+    let time_now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(n) => n.as_nanos(),
+        Err(_) => 0, // System time is before January 1970 so just start at 0
+    };
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
