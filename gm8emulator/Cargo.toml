@@ -29,13 +29,9 @@ memoffset = "0.5.3"
 phf = { version = "0.7.24", features = ["macros"] }
 rand = "0.7.2" # for seeding, not generating
 rect_packer = "0.2.1"
-rust-ini = "0.15.2"
+rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 shared = { path = "../shared" }
-
-[target.'cfg(target_os = "windows")'.dependencies.winapi]
-version = "0.3"
-features = ["commctrl", "errhandlingapi", "libloaderapi", "timeapi", "winbase", "windowsx", "wingdi", "winuser"]
 
 [target.'cfg(target_os = "linux")'.dependencies.x11]
 version = "2.18.2"

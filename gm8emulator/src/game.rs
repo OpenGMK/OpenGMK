@@ -275,8 +275,14 @@ impl Game {
 
         // Improve framepacing on Windows
         #[cfg(target_os = "windows")]
-        unsafe {
-            winapi::um::timeapi::timeBeginPeriod(1);
+        {
+            #[link(name = "Winmm")]
+            extern "system" {
+               fn timeBeginPeriod(uPeriod: u32) -> u32;
+            }
+            unsafe {
+                timeBeginPeriod(1);
+            }
         }
 
         // Destructure assets
