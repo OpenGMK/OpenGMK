@@ -17,8 +17,8 @@ use crate::{
     input::InputManager,
     instance::DummyFieldHolder,
     math::Real,
+    render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling},
 };
-use gmio::render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use shared::types::{Colour, ID};

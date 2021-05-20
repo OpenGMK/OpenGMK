@@ -1,9 +1,5 @@
-use crate::{asset::Sprite, game::string::RCStr};
+use crate::{asset::Sprite, game::string::RCStr, render::{atlas::{AtlasBuilder, AtlasRef}, Renderer}};
 use encoding_rs::Encoding;
-use gmio::{
-    atlas::AtlasBuilder,
-    render::{AtlasRef, Renderer},
-};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]

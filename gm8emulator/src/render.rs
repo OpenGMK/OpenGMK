@@ -1,14 +1,13 @@
 //! Game rendering functionality
 
+pub mod atlas;
 mod opengl;
 
-use crate::{atlas::AtlasBuilder, window::Window};
+use atlas::AtlasRef;
+use gmio::window::Window;
 use serde::{Deserialize, Serialize};
 use shared::types::Colour;
 use std::any::Any;
-
-// Re-export for more logical module pathing
-pub use crate::atlas::AtlasRef;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Scaling {
@@ -179,7 +178,7 @@ pub struct Renderer(Box<dyn RendererTrait>);
 pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
-    fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
+    fn push_atlases(&mut self, atl: atlas::AtlasBuilder) -> Result<(), String>;
     fn upload_sprite(
         &mut self,
         data: Box<[u8]>,
@@ -533,7 +532,7 @@ impl Renderer {
         self.0.max_texture_size()
     }
 
-    pub fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
+    pub fn push_atlases(&mut self, atl: atlas::AtlasBuilder) -> Result<(), String> {
         self.0.push_atlases(atl)
     }
 

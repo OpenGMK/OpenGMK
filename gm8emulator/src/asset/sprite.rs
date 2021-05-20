@@ -1,5 +1,4 @@
-use crate::{game::string::RCStr, math::Real};
-use gmio::render::AtlasRef;
+use crate::{game::string::RCStr, math::Real, render::atlas::AtlasRef};
 use image::{Pixel, RgbaImage};
 use serde::{Deserialize, Serialize};
 

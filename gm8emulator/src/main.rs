@@ -10,6 +10,7 @@ mod input;
 mod instance;
 mod instancelist;
 mod math;
+mod render;
 mod tile;
 mod util;
 

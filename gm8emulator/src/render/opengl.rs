@@ -1,14 +1,14 @@
 mod wgl;
 
 use crate::{
-    atlas::{AtlasBuilder, AtlasRef},
     render::{
+        atlas::{AtlasBuilder, AtlasRef},
         mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
         RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
-    window::Window,
 };
 use cfg_if::cfg_if;
+use gmio::window::Window;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
 use shared::types::Colour;
@@ -23,11 +23,11 @@ use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 
 cfg_if! {
     if #[cfg(target_os = "windows")] {
-        use crate::window::win32 as w_imp;
+        use gmio::window::win32 as w_imp;
         use wgl as imp;
     } else {
         // TODO: This won't work when Wayland but that's okay just make a function for it.
-        use crate::window::xorg as w_imp;
+        use gmio::window::xorg as w_imp;
     }
 }
 

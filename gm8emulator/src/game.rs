@@ -37,15 +37,12 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
+    render::{atlas::AtlasBuilder, Renderer, RendererOptions, Scaling},
     tile, util,
 };
 use encoding_rs::Encoding;
 use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
-use gmio::{
-    atlas::AtlasBuilder,
-    render::{Renderer, RendererOptions, Scaling},
-    window::{self, Window, WindowBuilder},
-};
+use gmio::window::{self, Window, WindowBuilder};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

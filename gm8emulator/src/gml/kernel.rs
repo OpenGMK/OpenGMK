@@ -16,10 +16,10 @@ use crate::{
     handleman::HandleManager,
     instance::{Field, Instance, InstanceState},
     math::Real,
+    render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
     tile::Tile,
 };
 use gmio::{
-    render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
     window,
     window::Cursor,
 };

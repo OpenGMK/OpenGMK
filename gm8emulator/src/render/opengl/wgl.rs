@@ -2,7 +2,7 @@
 
 #![cfg(target_os = "windows")]
 
-use crate::window::win32::WindowImpl;
+use gmio::window::win32::WindowImpl;
 use std::{
     mem::{self, size_of},
     ops::Drop,
@@ -29,7 +29,6 @@ use winapi::{
 
 pub mod wgl {
     #![allow(clippy::all)]
-
     include!(concat!(env!("OUT_DIR"), "/wgl_bindings.rs"));
 }
 
