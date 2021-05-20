@@ -42,9 +42,9 @@ use crate::{
 };
 use encoding_rs::Encoding;
 use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
-use gmio::window::{self, Window, WindowBuilder};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
+use ramen::{event::Event, monitor::Size, window::{Window, Controls}};
 use serde::{Deserialize, Serialize};
 use shared::{
     input::MouseButton,
@@ -56,6 +56,7 @@ use std::{
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     convert::TryFrom,
+    cmp::Ordering,
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -164,10 +165,11 @@ pub struct Game {
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
 
-    // winit windowing
+    // ramen windowing
     pub window: Window,
     pub window_border: bool,
     pub window_icons: bool,
+    pub close_requested: bool,
     // Scaling type
     pub scaling: Scaling,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
@@ -326,6 +328,7 @@ impl Game {
         let room1_speed = room1.speed;
         let room1_colour = room1.bg_colour.as_decimal().into();
         let room1_show_colour = room1.clear_screen;
+        let room1_caption = String::from_utf8_lossy(room1.caption.0.as_ref());
 
         let mut rand = Random::new();
 
@@ -500,17 +503,18 @@ impl Game {
         let (width, height) = options.size;
         let window_border = !settings.dont_draw_border;
         let window_icons = !settings.dont_show_buttons;
-        let wb = WindowBuilder::new().with_size(width, height).with_style(if play_type == PlayType::Record {
-            window::Style::Regular
-        } else {
-            match (window_border, window_icons) {
-                (true, true) => window::Style::Regular,
-                (true, false) => window::Style::Undecorated,
-                (false, _) => window::Style::Borderless,
-            }
-        });
-
-        // TODO: specific flags here (make wb mutable)
+        let wb = Window::builder()
+            .visible(false)
+            .inner_size(Size::Physical(width.into(), height.into()))
+            .borderless(!window_border && play_type != PlayType::Record)
+            .title(room1_caption)
+            .controls(if play_type == PlayType::Record {
+                Some(Controls::enabled())
+            } else if window_icons {
+                Some(Controls::new(settings.allow_resize, settings.allow_resize, true))
+            } else {
+                None
+            });
 
         let window = wb.build().expect("oh no");
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
@@ -1128,6 +1132,7 @@ impl Game {
             window,
             window_border,
             window_icons,
+            close_requested: false,
             scaling,
             play_type,
             stored_events: VecDeque::new(),
@@ -1261,7 +1266,7 @@ impl Game {
                 Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
                 _ => (width, height),
             };
-            self.window.resize(width, height);
+            self.window.set_inner_size(Size::Physical(width, height));
         }
     }
 
@@ -1317,16 +1322,18 @@ impl Game {
         // Initialize room transition surface
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
-            let (width, height) = self.window.get_inner_size();
+            let (size, scale) = self.window.inner_size();
+            let (width, height) = size.as_physical(scale);
+
             let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
-                width,
-                height,
+                width: width as _,
+                height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             let new_surf = surface::Surface {
-                width,
-                height,
+                width: width as _,
+                height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             self.renderer.set_target(&old_surf.atlas_ref);
@@ -1490,7 +1497,8 @@ impl Game {
             if self.auto_draw {
                 self.draw()?;
                 if let Some(transition) = self.get_transition(transition_kind) {
-                    let (width, height) = self.window.get_inner_size();
+                    let (size, scale) = self.window.inner_size();
+                    let (width, height) = size.as_physical(scale);
                     self.renderer.reset_target();
                     // Here, we see the limitations of GM8's vsync.
                     // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets
@@ -1755,22 +1763,23 @@ impl Game {
     }
 
     pub fn process_window_events(&mut self) {
-        use gmio::window::Event;
-
         match self.play_type {
             PlayType::Normal => {
                 self.input_manager.mouse_update_previous();
-                for event in self.window.process_events().copied() {
+                for event in self.window.events() {
                     match event {
                         Event::KeyboardDown(key) => self.input_manager.key_press(key),
                         Event::KeyboardUp(key) => self.input_manager.key_release(key),
-                        Event::MenuOption(_) => (),
-                        Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
-                        Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
-                        Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
-                        Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                        Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
-                        Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
+                        Event::MouseMove((point, scale)) => {
+                            let (x, y) = point.as_physical(*scale);
+                            self.input_manager.set_mouse_pos(x.into(), y.into())
+                        },
+                        Event::MouseDown(button) => self.input_manager.mouse_press(button),
+                        Event::MouseUp(button) => self.input_manager.mouse_release(button),
+                        Event::MouseWheel(x) if x.get() > 0 => self.input_manager.mouse_scroll_up(),
+                        Event::MouseWheel(x) if x.get() < 0 => self.input_manager.mouse_scroll_down(),
+                        Event::CloseRequest(_) => self.close_requested = true,
+                        _ => (),
                     }
                 }
             },
@@ -1831,8 +1840,8 @@ impl Game {
                 None => (),
             }
 
-            // exit if X pressed or game_end() invoked
-            if self.window.close_requested() {
+            // Exit if the window was closed by the user, such as by pressing 'X'
+            if self.close_requested {
                 break Ok(self.run_game_end_events()?)
             }
 
@@ -1863,8 +1872,6 @@ impl Game {
 
     // Create a TAS for this game
     pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-        use gmio::window::Event;
-
         // Helper fn: Instance -> InstanceDetails
         fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
             message::InstanceDetails {
@@ -1964,7 +1971,7 @@ impl Game {
         let mut do_update_mouse = false;
         let mut frame_counter = 0;
 
-        loop {
+        'frame: loop {
             match stream.receive_message::<Message>(&mut read_buffer)? {
                 Some(None) => self.renderer.wait_vsync(),
                 Some(Some(m)) => match m {
@@ -2100,7 +2107,7 @@ impl Game {
                 None => break Ok(()),
             }
 
-            for event in self.window.process_events().copied() {
+            for event in self.window.events() {
                 match event {
                     Event::MouseMove(x, y) => {
                         if do_update_mouse {
@@ -2134,33 +2141,19 @@ impl Game {
                                 options.push((description, id as usize));
                             }
                         }
-                        self.window.show_context_menu(&options);
+                        //self.window.show_context_menu(&options);
+                        // probably don't do this here - message the control panel to do it instead
                         break
-                    },
-
-                    Event::MenuOption(id) => {
-                        if let Some(handle) = self.room.instance_list.get_by_instid(id as _) {
-                            let instance = self.room.instance_list.get(handle);
-                            instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            stream.send_message(message::Information::InstanceClicked {
-                                details: instance_details(&self.assets, instance),
-                            })?;
-                            break
-                        } else {
-                            println!("Requested info for instance #{} [non-existent or deleted]", id);
-                        }
                     },
 
                     Event::KeyboardDown(key) => {
                         stream.send_message(message::Information::KeyPressed { key })?;
                     },
 
+                    Event::CloseRequest(_) => break 'frame Ok(()),
+
                     _ => (),
                 }
-            }
-
-            if self.window.close_requested() {
-                break Ok(())
             }
         }
     }
@@ -2178,8 +2171,15 @@ impl Game {
         self.init()?;
 
         let mut time_now = std::time::Instant::now();
-        loop {
-            self.window.process_events();
+        'frame: loop {
+            for event in self.window.events() {
+                match event {
+                    Event::KeyboardDown(ramen::event::Key::Escape) => break 'frame Ok(()),
+                    Event::CloseRequest(_) => break 'frame Ok(()),
+                    _ => (),
+                }
+            }
+            
             self.input_manager.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
@@ -2222,11 +2222,6 @@ impl Game {
                 Some(SceneChange::Restart) => self.restart()?,
                 Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
                 None => (),
-            }
-
-            // exit if X pressed or game_end() invoked
-            if self.window.close_requested() {
-                break Ok(self.run_game_end_events()?)
             }
 
             // frame limiter

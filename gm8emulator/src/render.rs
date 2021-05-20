@@ -4,7 +4,7 @@ pub mod atlas;
 mod opengl;
 
 use atlas::AtlasRef;
-use gmio::window::Window;
+use ramen::window::Window;
 use serde::{Deserialize, Serialize};
 use shared::types::Colour;
 use std::any::Any;

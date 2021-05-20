@@ -19,10 +19,6 @@ use crate::{
     render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
     tile::Tile,
 };
-use gmio::{
-    window,
-    window::Cursor,
-};
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
 use std::{

@@ -110,9 +110,9 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "const_fn"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "402da840495de3f976eaefc3485b7f5eb5b0bf9761f9a47be27fe975b3b8c2ec"
+checksum = "f92cfa0fd5690b3cf8c1ef2cabbd9b7ef22fa53cf5e1f92b05103f6d5d1cf6e7"
 
 [[package]]
 name = "crc"
@@ -297,13 +297,13 @@ dependencies = [
  "gl_generator",
  "glob",
  "gm8exe",
- "gmio",
  "gml-parser",
  "hex",
  "image",
  "indexmap",
  "memoffset 0.5.6",
  "phf",
+ "ramen",
  "rect_packer",
  "rust-ini",
  "serde",
@@ -320,20 +320,6 @@ dependencies = [
  "byteorder",
  "flate2",
  "rayon",
-]
-
-[[package]]
-name = "gmio"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "gl_generator",
- "memoffset 0.5.6",
- "rect_packer",
- "serde",
- "shared",
- "winapi",
- "x11",
 ]
 
 [[package]]
@@ -660,6 +646,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramen"
+version = "0.0.1"
+source = "git+https://github.com/notviri/ramen#3d5fbcad7f30f1ca76e00b92d7a7725ceb04f829"
+
+[[package]]
 name = "rand"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -701,9 +692,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b0d8e0819fadc20c74ea8373106ead0600e3a67ef1fe8da56e39b9ae7275674"
+checksum = "c06aca804d41dbc8ba42dfd964f0d01334eceb64314b9ecf7c5fad5188a06d90"
 dependencies = [
  "autocfg",
  "crossbeam-deque",
@@ -713,9 +704,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.9.0"
+version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ab346ac5921dc62ffa9f89b7a773907511cdfa5490c572ae9be1be33e8afa4a"
+checksum = "d78120e2c850279833f1dd3582f730c4ab53ed95aeaaaa862a2a5c71b1656d8e"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
@@ -823,7 +814,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.0-alpha-0"
-source = "git+https://github.com/time-rs/time/#16cbce1f47cdf19531de809c150cbf0223988452"
+source = "git+https://github.com/time-rs/time/#613858f7f4627db826060929454650e18cc61bfc"
 dependencies = [
  "const_fn",
  "libc",
