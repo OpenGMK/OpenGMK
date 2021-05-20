@@ -1,6 +1,6 @@
 use crate::{gml::Value, math::Real};
 use std::convert::TryInto;
-use time::PrimitiveDateTime;
+use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 /// Sleep for T minus 1 millisecond, and busywait for the rest of the duration.
 pub fn sleep(dur: std::time::Duration) {
@@ -17,8 +17,8 @@ fn epoch() -> PrimitiveDateTime {
 }
 
 fn now() -> time::OffsetDateTime {
-    time::OffsetDateTime::now_utc()
-        + time::Duration::seconds(time::UtcOffset::try_current_local_offset().unwrap().as_seconds().into())
+    OffsetDateTime::now_utc()
+        + time::Duration::seconds(UtcOffset::try_current_local_offset().unwrap_or(UtcOffset::UTC).as_seconds().into())
 }
 
 pub fn now_as_nanos() -> u128 {
