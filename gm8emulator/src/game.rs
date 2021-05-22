@@ -292,7 +292,6 @@ impl Game {
             constants,
             extensions,
             fonts,
-            icon_data: _,
             included_files,
             last_instance_id,
             last_tile_id,
