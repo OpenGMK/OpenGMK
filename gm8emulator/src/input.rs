@@ -592,6 +592,11 @@ impl Input {
         self.keyboard_check_internal(&self.button_state, vk)
     }
 
+    #[inline]
+    pub fn keyboard_lastkey(&self) -> u8 {
+        self.key_previous
+    }
+
     /// Clears the button press and release buffers.
     /// Should be called after each frame.
     pub fn step(&mut self) {
