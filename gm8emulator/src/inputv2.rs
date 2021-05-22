@@ -342,7 +342,6 @@ impl Input {
         let code = VK_FN_INPUT_REMAP[code as usize];
         self.button_state[code as usize] = false;
         self.button_state_release[code as usize] = true;
-        // TODO: This entirely right?
         if store_cur_prev && self.key_current == code {
             self.key_current = 0;
         }
@@ -365,7 +364,6 @@ impl Input {
             Some(button) => button,
             None => return,
         };
-        // TODO: Again, this entirely right?
         if store_cur_prev {
             self.mouse_current = 0;
         }
@@ -374,7 +372,7 @@ impl Input {
 
     // == GameMaker Mappings ==
 
-    fn keyboard_check_any_internal(&self, state: &[bool; KEY_MAX]) -> bool {
+    fn keyboard_check_any_internal_indirect(&self, state: &[bool; KEY_MAX]) -> bool {
         state
             .iter()
             .enumerate()
@@ -395,14 +393,10 @@ impl Input {
     }
 
     fn keyboard_check_internal_indirect(&self, state: &[bool; KEY_MAX], vk: u8) -> bool {
-        if vk == VK_NOKEY {
-            !self.keyboard_check_any_internal(state)
-        } else if vk == VK_ANYKEY {
-            self.keyboard_check_any_internal(state)
-        } else if !IS_DIRECT_ONLY[vk as usize] {
-            self.keyboard_check_internal(state, vk)
-        } else {
-            false
+        match vk {
+            VK_NOKEY => !self.keyboard_check_any_internal_indirect(state),
+            VK_ANYKEY => self.keyboard_check_any_internal_indirect(state),
+            _ => !IS_DIRECT_ONLY[vk as usize] && self.keyboard_check_internal(state, vk),
         }
     }
 
