@@ -1,6 +1,8 @@
 use std::convert::TryFrom;
 
 const KEY_MAX: usize = 256;
+const MB_ANY: i8 = -1;
+const MB_NONE: i8 = 0;
 const VK_NOKEY: u8 = 0; // TODO: dont redefine
 const VK_ANYKEY: u8 = 1; // TODO: dont redefine
 
@@ -404,6 +406,10 @@ impl TryFrom<ramen::event::Key> for Button {
     }
 }
 
+pub fn ramen2vk(x: ramen::event::Key) -> u8 {
+    Button::try_from(x).map(|e| e as u8).unwrap_or(0)
+}
+
 const fn make_is_direct_only() -> [bool; KEY_MAX] {
     let mut table = [false; KEY_MAX];
     let mut i = 0;
@@ -449,7 +455,7 @@ const fn make_vk_fn_input_remap() -> [u8; KEY_MAX] {
 }
 const VK_FN_INPUT_REMAP: [u8; KEY_MAX] = make_vk_fn_input_remap();
 
-#[repr(u8)]
+#[repr(i8)]
 pub enum MouseButton {
     // gamemaker
     Left = 1,
@@ -461,7 +467,24 @@ pub enum MouseButton {
     X2 = 5,
 }
 
-fn mouse2button(code: u8) -> Option<Button> {
+impl TryFrom<ramen::event::MouseButton> for MouseButton {
+    type Error = ();
+    fn try_from(key: ramen::event::MouseButton) -> Result<Self, Self::Error> {
+        match key {
+            ramen::event::MouseButton::Left => Ok(Self::Left),
+            ramen::event::MouseButton::Right => Ok(Self::Right),
+            ramen::event::MouseButton::Middle => Ok(Self::Middle),
+            ramen::event::MouseButton::Mouse4 => Ok(Self::X1),
+            ramen::event::MouseButton::Mouse5 => Ok(Self::X2),
+        }
+    }
+}
+
+pub fn ramen2mb(x: ramen::event::MouseButton) -> i8 {
+    MouseButton::try_from(x).map(|e| e as u8).unwrap_or(0)
+}
+
+fn mouse2button(code: i8) -> Option<Button> {
     match code {
         x if x == MouseButton::Left as u8 => Some(Button::MouseLeft),
         x if x == MouseButton::Right as u8 => Some(Button::MouseRight),
@@ -478,12 +501,14 @@ pub struct Input {
     button_state_press: [bool; KEY_MAX],
     button_state_release: [bool; KEY_MAX],
     mouse_position: (i32, i32),
+    mouse_wheel: (bool, bool),
 
     // gamemaker weirdness
     key_current: u8,
     key_previous: u8,
-    mouse_current: u8,
-    mouse_previous: u8,
+    mouse_current: i8,
+    mouse_previous: i8,
+    mouse_position_previous: (i32, i32),
 }
 
 impl Input {
@@ -493,10 +518,12 @@ impl Input {
             button_state_press: [false; KEY_MAX],
             button_state_release: [false; KEY_MAX],
             mouse_position: (0, 0),
+            mouse_wheel: (false, false),
             key_current: 0,
             key_previous: 0,
             mouse_current: 0,
             mouse_previous: 0,
+            mouse_position_previous: (0, 0),
         }
     }
 
@@ -519,7 +546,7 @@ impl Input {
         }
     }
 
-    pub fn mouse_press(&mut self, code: u8, store_cur_prev: bool) {
+    pub fn mouse_press(&mut self, code: i8, store_cur_prev: bool) {
         let button = match mouse2button(code) {
             Some(button) => button,
             None => return,
@@ -531,7 +558,7 @@ impl Input {
         self.button_press(button as u8, false);
     }
 
-    pub fn mouse_release(&mut self, code: u8, store_cur_prev: bool) {
+    pub fn mouse_release(&mut self, code: i8, store_cur_prev: bool) {
         let button = match mouse2button(code) {
             Some(button) => button,
             None => return,
@@ -540,6 +567,14 @@ impl Input {
             self.mouse_current = 0;
         }
         self.button_press(button as u8, false);
+    }
+
+    pub fn mouse_scroll(&mut self, delta: i32) {
+        if delta > 0 {
+            self.mouse_wheel.0 = true;
+        } else if delta < 0 {
+            self.mouse_wheel.1 = true;
+        }
     }
 
     // == GameMaker Mappings ==
@@ -595,6 +630,68 @@ impl Input {
     #[inline]
     pub fn keyboard_lastkey(&self) -> u8 {
         self.key_previous
+    }
+
+    fn mouse_check_button_internal_indirect(&self, state: &[bool; KEY_MAX], mb: i8) -> bool {
+        match mb {
+            MB_ANY =>
+                state[Button::MouseLeft as usize] ||
+                state[Button::MouseRight as usize] ||
+                state[Button::MouseMiddle as usize],
+            MB_NONE => 
+                !state[Button::MouseLeft as usize] &&
+                !state[Button::MouseRight as usize] &&
+                !state[Button::MouseMiddle as usize],
+            x if x == MouseButton::Left as i8 => state[Button::MouseLeft as usize],
+            x if x == MouseButton::Right as i8 => state[Button::MouseRight as usize],
+            x if x == MouseButton::Middle as i8 => state[Button::MouseMiddle as usize],
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn mouse_button(&self) -> i8 {
+        self.mouse_current
+    }
+
+    #[inline]
+    pub fn mouse_lastbutton(&self) -> i8 {
+        self.mouse_previous
+    }
+
+    #[inline]
+    pub fn mouse_check_button(&self, mb: i8) -> bool {
+        self.mouse_check_button_internal_indirect(&self.button_state, mb)
+    }
+
+    #[inline]
+    pub fn mouse_check_button_pressed(&self, mb: i8) -> bool {
+        self.mouse_check_button_internal_indirect(&self.button_state_press, mb)
+    }
+
+    #[inline]
+    pub fn mouse_check_button_released(&self, mb: i8) -> bool {
+        self.mouse_check_button_internal_indirect(&self.button_state_release, mb)
+    }
+
+    #[inline]
+    pub fn mouse_wheel_up(&self) -> bool {
+        self.mouse_wheel.0
+    }
+
+    #[inline]
+    pub fn mouse_wheel_down(&self) -> bool {
+        self.mouse_wheel.1
+    }
+
+    #[inline]
+    pub fn mouse_x(&self) -> i32 {
+        self.mouse_position.0
+    }
+
+    #[inline]
+    pub fn mouse_y(&self) -> i32 {
+        self.mouse_position.1
     }
 
     /// Clears the button press and release buffers.
