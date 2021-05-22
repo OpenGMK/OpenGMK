@@ -2,6 +2,7 @@ use crate::reader::PESection;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{self, Seek, SeekFrom};
 
+/*
 /// A windows icon from the .rsrc header
 pub struct WindowsIcon {
     pub width: u32,
@@ -9,13 +10,14 @@ pub struct WindowsIcon {
     pub original_bpp: u16,
     pub bgra_data: Vec<u8>,
 }
+*/
 
 /// Finds the icon group from the exe file which will be used for the window icon.
-/// Returns a tuple of the parsed WindowsIcon object and the raw .ico blob
+/// Returns an entire rebuilt .ico file, or None if there isn't one associated with this exe.
 pub fn find_icons(
     data: &mut io::Cursor<&mut [u8]>,
     pe_sections: &[PESection],
-) -> io::Result<(Vec<WindowsIcon>, Vec<u8>)> {
+) -> io::Result<Option<Vec<u8>>> {
     // top level header
     let rsrc_base = data.position();
     data.seek(SeekFrom::Current(12))?;
@@ -40,7 +42,7 @@ pub fn find_icons(
             let leaf_count = data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_ICON, so no icon
-                return Ok((vec![], vec![]))
+                return Ok(None)
             }
 
             // Get each leaf
@@ -71,7 +73,7 @@ pub fn find_icons(
             let leaf_count = data.read_u16::<LE>()? + data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_GROUP_ICON, so no icon
-                return Ok((vec![], vec![]))
+                return Ok(None)
             }
 
             data.seek(SeekFrom::Current(4))?;
@@ -89,8 +91,6 @@ pub fn find_icons(
                 let mut ico_header = io::Cursor::new(&v);
                 ico_header.seek(SeekFrom::Current(4))?;
                 let image_count = usize::from(ico_header.read_u16::<LE>()?);
-
-                let mut icon_group: Vec<WindowsIcon> = vec![];
 
                 let raw_header_size = (6 + (image_count * 16)) as usize;
                 let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
@@ -113,95 +113,18 @@ pub fn find_icons(
                         if icon.0 == ordinal as u32 && icon.2 >= 40 {
                             if let Some(v) = extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                 raw_file_body.extend_from_slice(&v);
-                                if let Some(i) = make_icon(v)? {
-                                    icon_group.push(i);
-                                } else {
-                                    println!("WARNING: Failed to recover an icon: id {}, rva 0x{:X}", icon.0, icon.1);
-                                }
                             }
                             break
                         }
                     }
                 }
                 raw_file.append(&mut raw_file_body);
-                return Ok((icon_group, raw_file))
+                return Ok(Some(raw_file))
             }
         }
     }
 
-    Ok((vec![], vec![]))
-}
-
-fn make_icon(blob: Vec<u8>) -> io::Result<Option<WindowsIcon>> {
-    let mut data = io::Cursor::new(&blob);
-    let data_start = data.read_u32::<LE>()? as usize;
-    let width = data.read_u32::<LE>()?;
-    let double_height = data.read_u32::<LE>()?;
-    let reserved = data.read_u16::<LE>()?;
-    let bpp = data.read_u16::<LE>()?;
-    data.set_position(data_start as u64);
-
-    // Checks to make sure this is a valid icon
-    if width * 2 != double_height {
-        return Ok(None)
-    }
-    if reserved != 1 {
-        return Ok(None)
-    }
-
-    // Rename this for clarity
-    let ico_wh = width;
-
-    match bpp {
-        32 => {
-            // 32 bpp: just BGRA pixels followed by mask data.
-            // Mask is pointless as far as I can see.
-            match blob.get(data_start..data_start + (ico_wh as usize * ico_wh as usize * 4)) {
-                Some(d) => {
-                    Ok(Some(WindowsIcon { width: ico_wh, height: ico_wh, original_bpp: bpp, bgra_data: d.to_vec() }))
-                },
-                None => Ok(None),
-            }
-        },
-        8 => {
-            // 8 bpp: BGRX lookup table with 256 colours in it, followed by pixel bytes - each byte is a colour index.
-            // After pixels is mask data, which indicates whether each pixel is visible or not.
-            let pixel_count = ico_wh as usize * ico_wh as usize;
-            let mut bgra_data = Vec::with_capacity(pixel_count * 4);
-            data.seek(SeekFrom::Current(1024))?; // skip LUT
-
-            for _ in 0..pixel_count {
-                let lut_pos = data_start as usize + (data.read_u8()? as usize * 4);
-                bgra_data.extend_from_slice(&blob[lut_pos..lut_pos + 4]);
-            }
-
-            // read alpha bits - start by reading bitmask bytes which will be used fully
-            let mut cursor = 0;
-            while cursor + (4 * 8) <= bgra_data.len() {
-                let mut bitmask = data.read_u8()?;
-                for _ in 0..8 {
-                    let (m, b) = bitmask.overflowing_add(bitmask);
-                    bitmask = m;
-                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                    cursor += 4;
-                }
-            }
-
-            // Apply any leftover bits
-            if cursor < bgra_data.len() {
-                let mut bitmask = data.read_u8()?;
-                while cursor < bgra_data.len() {
-                    let (m, b) = bitmask.overflowing_add(bitmask);
-                    bitmask = m;
-                    bgra_data[cursor + 3] = if b { 0x0 } else { 0xFF };
-                    cursor += 4;
-                }
-            }
-
-            Ok(Some(WindowsIcon { width: ico_wh, height: ico_wh, original_bpp: bpp, bgra_data }))
-        },
-        _ => Ok(None),
-    }
+    Ok(None)
 }
 
 /// Extracts some bytes from the file from their location in the initialized exe's memory
