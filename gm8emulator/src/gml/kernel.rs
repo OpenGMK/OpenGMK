@@ -14,6 +14,7 @@ use crate::{
         ds, file, mappings, network, Context, Value,
     },
     handleman::HandleManager,
+    input,
     instance::{Field, Instance, InstanceState},
     math::Real,
     render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
@@ -22,6 +23,7 @@ use crate::{
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
 use std::{
+    convert::TryFrom,
     io::{Read, Write},
     process::Command,
 };
@@ -95,23 +97,23 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
 
 impl Game {
     pub fn display_get_width(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_width().into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_width")
     }
 
     pub fn display_get_height(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_height().into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_height")
     }
 
     pub fn display_get_colordepth(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_colour().into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_colordepth")
     }
 
     pub fn display_get_frequency(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_frequency().into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_frequency")
     }
 
     pub fn display_set_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -144,13 +146,13 @@ impl Game {
     }
 
     pub fn display_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok((self.input_manager.mouse_get_location().0 + f64::from(self.window.get_pos().0)).into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_mouse_get_x")
     }
 
     pub fn display_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok((self.input_manager.mouse_get_location().1 + f64::from(self.window.get_pos().1)).into())
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_mouse_get_y")
     }
 
     pub fn display_mouse_set(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -2984,13 +2986,13 @@ impl Game {
 
     pub fn action_if_mouse(&mut self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        let button_enum = match button {
-            1 => MouseButton::Left,
-            2 => MouseButton::Right,
-            3 => MouseButton::Middle,
-            _ => return Ok((self.input_manager.mouse_get_button() == 0).into()),
+        let mb = match button {
+            1 => input::MouseButton::Left as i8,
+            2 => input::MouseButton::Right as i8,
+            3 => input::MouseButton::Middle as i8,
+            _ => return Ok((self.input.mouse_button() == 0).into()), // "no"
         };
-        Ok((self.input_manager.mouse_check(button_enum) || self.input_manager.mouse_check_released(button_enum)).into())
+        Ok((self.input.mouse_check_button(mb) || self.input.mouse_check_button_released(mb)).into())
     }
 
     pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -6454,39 +6456,8 @@ impl Game {
     }
 
     pub fn show_message(&mut self, args: &[Value]) -> gml::Result<Value> {
-        let _text = expect_args!(args, [string])?;
-        let width = 300;
-        let height = 200;
-
-        let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
-        let options =
-            RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false, ..Default::default() };
-
-        // TODO: this should block as a dialog, not block the entire fucking thread
-        // otherwise windows thinks it's not responding or whatever
-
-        let wb = window::WindowBuilder::new().with_size(width, height);
-        let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
-        let mut renderer = Renderer::new((), &options, &window, clear_colour)
-            .map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
-        window.set_visible(true);
-        renderer.set_vsync(false);
-
-        loop {
-            window.process_events();
-            if window.close_requested() {
-                break
-            }
-
-            if window.get_inner_size() != (0, 0) {
-                renderer.finish(width, height, clear_colour);
-            }
-        }
-
-        // restore renderer
-        // self.renderer.set_current(); <- TODO, obviously
-
-        Ok(Default::default())
+        // Expected arg count: 1
+        unimplemented!("Called unimplemented kernel function show_message")
     }
 
     pub fn show_question(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -6719,14 +6690,22 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn keyboard_key_press(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_key_press")
+    pub fn keyboard_key_press(&mut self, args: &[Value]) -> gml::Result<Value> {
+        // let key = expect_args!(args, [int])?;
+        // if let Ok(vk) = u8::try_from(key) {
+        //     self.input.button_press(vk, true);
+        // }
+        // Ok(Default::default())
+        todo!() // should go on next event poll
     }
 
-    pub fn keyboard_key_release(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_key_release")
+    pub fn keyboard_key_release(&mut self, args: &[Value]) -> gml::Result<Value> {
+        // let key = expect_args!(args, [int])?;
+        // if let Ok(vk) = u8::try_from(key) {
+        //     self.input.button_release(vk, true);
+        // }
+        // Ok(Default::default())
+        todo!() // should go on next event poll
     }
 
     pub fn keyboard_set_map(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -6748,94 +6727,68 @@ impl Game {
 
     pub fn keyboard_check(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any()).into()),
-            1 => Ok(self.input_manager.key_check_any().into()),
-            key => Ok(self.input_manager.key_check(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_pressed(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any_pressed()).into()),
-            1 => Ok(self.input_manager.key_check_any_pressed().into()),
-            key => Ok(self.input_manager.key_check_pressed(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_pressed(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_released(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any_released()).into()),
-            1 => Ok(self.input_manager.key_check_any_released().into()),
-            key => Ok(self.input_manager.key_check_released(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_released(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_direct(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any()).into()),
-            1 => Ok(self.input_manager.key_check_any().into()),
-            160 => Ok(self.input_manager.key_check_lshift().into()),
-            161 => Ok(self.input_manager.key_check_rshift().into()),
-            162 => Ok(self.input_manager.key_check_lctrl().into()),
-            163 => Ok(self.input_manager.key_check_rctrl().into()),
-            164 => Ok(self.input_manager.key_check_lalt().into()),
-            165 => Ok(self.input_manager.key_check_ralt().into()),
-            key => Ok(self.input_manager.key_check(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_direct(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any().into()),
-            0 => Ok((!self.input_manager.mouse_check_any()).into()),
-            1 => Ok(self.input_manager.mouse_check(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button_pressed(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any_pressed().into()),
-            0 => Ok((!self.input_manager.mouse_check_any_pressed()).into()),
-            1 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button_pressed(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button_released(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any_released().into()),
-            0 => Ok((!self.input_manager.mouse_check_any_released()).into()),
-            1 => Ok(self.input_manager.mouse_check_released(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check_released(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check_released(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button_released(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_wheel_up(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_check_scroll_up().into())
+        Ok(self.input.mouse_wheel_up().into())
     }
 
     pub fn mouse_wheel_down(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_check_scroll_down().into())
+        Ok(self.input.mouse_wheel_down().into())
     }
 
     pub fn joystick_exists(&mut self, _args: &[Value]) -> gml::Result<Value> {
