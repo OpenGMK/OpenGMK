@@ -232,19 +232,6 @@ pub enum Button {
     // 0xFF: Unmapped
 }
 
-impl Button {
-    fn is_key(&self) -> bool {
-        !self.is_mouse_button()
-    }
-
-    fn is_mouse_button(&self) -> bool {
-        matches!(
-            self,
-            Self::MouseLeft | Self::MouseRight | Self::MouseMiddle,
-        )
-    }
-}
-
 const fn make_is_direct_only() -> [bool; KEY_MAX] {
     let mut table = [false; KEY_MAX];
     let mut i = 0;
@@ -305,6 +292,8 @@ fn mouse2button(code: u8) -> Option<Button> {
         x if x == MouseButton::Left as u8 => Some(Button::MouseLeft),
         x if x == MouseButton::Right as u8 => Some(Button::MouseRight),
         x if x == MouseButton::Middle as u8 => Some(Button::MouseMiddle),
+        x if x == MouseButton::X1 as u8 => Some(Button::MouseX1),
+        x if x == MouseButton::X2 as u8 => Some(Button::MouseX2),
         _ => None,
     }
 }
