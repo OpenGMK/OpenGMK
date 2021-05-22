@@ -240,6 +240,8 @@ const fn make_is_direct_only() -> [bool; KEY_MAX] {
             i == Button::MouseLeft as usize ||
             i == Button::MouseRight as usize ||
             i == Button::MouseMiddle as usize ||
+            i == Button::MouseX1 as usize ||
+            i == Button::MouseX2 as usize ||
             i == Button::LeftShift as usize ||
             i == Button::RightShift as usize ||
             i == Button::LeftControl as usize ||
