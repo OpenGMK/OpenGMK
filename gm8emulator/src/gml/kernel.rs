@@ -169,7 +169,7 @@ impl Game {
     // NB: This function is constant because window's visibility state is tracked.
     pub fn window_get_visible(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_visible().into())
+        Ok(self.window_visible.into())
     }
 
     pub fn window_set_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -187,11 +187,8 @@ impl Game {
         if show_border != self.window_border {
             self.window_border = show_border;
             if self.play_type != PlayType::Record {
-                self.window.set_style(match (show_border, self.window_icons) {
-                    (true, true) => window::Style::Regular,
-                    (true, false) => window::Style::Undecorated,
-                    (false, _) => window::Style::Borderless,
-                });
+                // TODO: Borderless
+                unimplemented!()
             }
         }
         Ok(Default::default())
@@ -207,11 +204,13 @@ impl Game {
         if show_icons != self.window_icons {
             self.window_icons = show_icons;
             if self.play_type != PlayType::Record {
-                self.window.set_style(match (self.window_border, show_icons) {
-                    (true, true) => window::Style::Regular,
-                    (true, false) => window::Style::Undecorated,
-                    (false, _) => window::Style::Borderless,
-                });
+                self.window.set_controls({
+                    if self.window_icons {
+                        Some(ramen::window::Controls::enabled())
+                    } else {
+                        None
+                    }
+                })
             }
         }
         Ok(Default::default())
@@ -232,26 +231,33 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_get_stayontop")
     }
 
-    pub fn window_set_sizeable(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_sizeable")
+    pub fn window_set_sizeable(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sizeable = expect_args!(args, [bool])?;
+        if sizeable != self.window_sizeable {
+            self.window_sizeable = sizeable;
+            if self.play_type != PlayType::Record {
+                self.window.set_resizable(self.window_sizeable);
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn window_get_sizeable(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_sizeable")
+    pub fn window_get_sizeable(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_sizeable.into())
     }
 
     pub fn window_set_caption(&mut self, args: &[Value]) -> gml::Result<Value> {
         let caption = expect_args!(args, [string])?;
         self.window.set_title(caption.as_ref());
+        self.window_caption = caption.into_owned();
         Ok(Default::default())
     }
 
     // NB: This function is constant because caption gets updated on every frame.
     pub fn window_get_caption(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_title().to_owned().into())
+        Ok(self.window_caption.into())
     }
 
     pub fn window_set_cursor(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -374,12 +380,12 @@ impl Game {
 
     pub fn window_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_get_location().0.into())
+        Ok(self.input.mouse_x().into())
     }
 
     pub fn window_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_get_location().1.into())
+        Ok(self.input.mouse_y().into())
     }
 
     pub fn window_mouse_set(&mut self, _args: &[Value]) -> gml::Result<Value> {

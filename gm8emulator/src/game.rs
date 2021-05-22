@@ -168,7 +168,10 @@ pub struct Game {
     // ramen windowing
     pub window: Window,
     pub window_border: bool,
+    pub window_caption: String,
     pub window_icons: bool,
+    pub window_sizeable: bool,
+    pub window_visible: bool,
     pub close_requested: bool,
     // Scaling type
     pub scaling: Scaling,
