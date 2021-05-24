@@ -2,10 +2,7 @@ mod dummy;
 mod win32;
 mod win64;
 
-use crate::{
-    game::string::RCStr,
-    gml::{self, Value},
-};
+use crate::gml::{self, Value};
 use cfg_if::cfg_if;
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
@@ -32,8 +29,8 @@ pub enum Call {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DefineInfo {
-    pub dll_name: RCStr,
-    pub fn_name: RCStr,
+    pub dll_name: gml::String,
+    pub fn_name: gml::String,
     pub call_conv: CallConv,
     pub res_type: dll::ValueType,
     pub arg_types: Vec<dll::ValueType>,
@@ -91,7 +88,7 @@ impl External {
         } else {
             let args = args.iter().zip(&self.info.arg_types).map(|(v, t)| match t {
                 dll::ValueType::Real => f64::from(v.clone()).into(),
-                dll::ValueType::Str => RCStr::from(v.clone()).into(),
+                dll::ValueType::Str => gml::String::from(v.clone()).into(),
             });
             self.call.call(args)
         }

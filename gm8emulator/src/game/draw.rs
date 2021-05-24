@@ -1,6 +1,6 @@
 use crate::{
     asset::{font, Font},
-    game::{string::RCStr, Game, GetAsset, Version},
+    game::{Game, GetAsset, Version},
     gml,
     math::Real,
 };
@@ -426,7 +426,7 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string<'a>(&self, string: RCStr, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
+    fn split_string<'a>(&self, string: gml::String, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
         let encoded_text = match self.gm_version {
             Version::GameMaker8_0 => string.as_ref().to_vec(),
             Version::GameMaker8_1 => {
@@ -459,7 +459,7 @@ impl Game {
     /// Gets width and height of a string using the current draw_font.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn get_string_size(&self, string: RCStr, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
+    pub fn get_string_size(&self, string: gml::String, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
         let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         // Figure out what the height of a line is if one wasn't specified
@@ -488,7 +488,7 @@ impl Game {
         &mut self,
         x: Real,
         y: Real,
-        string: RCStr,
+        string: gml::String,
         line_height: Option<i32>,
         max_width: Option<i32>,
         xscale: Real,

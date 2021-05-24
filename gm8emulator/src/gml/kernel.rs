@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, string::RCStr, surface::Surface,
+        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
@@ -34,7 +34,7 @@ macro_rules! _arg_into {
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
     (string, $v: expr) => {{ Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
-    (bytes, $v: expr) => {{ Ok(<Value as Into<RCStr>>::into($v.clone())) }};
+    (bytes, $v: expr) => {{ Ok(<Value as Into<gml::String>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {
@@ -7132,8 +7132,8 @@ impl Game {
         if let (Some(dll_name), Some(fn_name), Some(call_conv), Some(res_type), Some(argnumb)) =
             (args.get(0), args.get(1), args.get(2), args.get(3), args.get(4))
         {
-            let dll_name = RCStr::from(dll_name.clone());
-            let fn_name = RCStr::from(fn_name.clone());
+            let dll_name = gml::String::from(dll_name.clone());
+            let fn_name = gml::String::from(fn_name.clone());
             let call_conv = match call_conv.round() {
                 0 => external::CallConv::Cdecl,
                 _ => external::CallConv::Stdcall,

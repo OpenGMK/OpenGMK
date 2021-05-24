@@ -10,7 +10,6 @@ pub mod particle;
 pub mod pathfinding;
 pub mod replay;
 pub mod savestate;
-pub mod string;
 pub mod surface;
 pub mod transition;
 pub mod view;
@@ -64,7 +63,6 @@ use std::{
     rc::Rc,
     time::{Duration, Instant},
 };
-use string::RCStr;
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -134,25 +132,25 @@ pub struct Game {
     pub cursor_sprite: i32,       // default -1
     pub cursor_sprite_frame: u32, // default 0
     pub score: i32,               // default 0
-    pub score_capt: RCStr,        // default "Score: "
+    pub score_capt: gml::String,        // default "Score: "
     pub score_capt_d: bool,       // display in caption?
     pub has_set_show_score: bool, // if false, score displays if > 0
     pub lives: i32,               // default -1
-    pub lives_capt: RCStr,        // default "Lives: "
+    pub lives_capt: gml::String,        // default "Lives: "
     pub lives_capt_d: bool,       // display in caption?
     pub health: Real,             // default 100.0
-    pub health_capt: RCStr,       // default "Health: "
+    pub health_capt: gml::String,       // default "Health: "
     pub health_capt_d: bool,      // display in caption?
 
     pub error_occurred: bool,
-    pub error_last: RCStr,
+    pub error_last: gml::String,
 
     pub game_id: i32,
-    pub program_directory: RCStr,
-    pub temp_directory: RCStr,
+    pub program_directory: gml::String,
+    pub temp_directory: gml::String,
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
-    pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
+    pub open_ini: Option<(ini::Ini, gml::String)>, // keep the filename for writing
     pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
@@ -225,7 +223,7 @@ pub struct RoomState {
     pub views_enabled: bool,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
-    pub caption: RCStr,
+    pub caption: gml::String,
     pub persistent: bool,
 }
 
@@ -243,7 +241,7 @@ pub struct Assets {
     // todo
 }
 
-impl From<PascalString> for RCStr {
+impl From<PascalString> for gml::String {
     fn from(s: PascalString) -> Self {
         s.0.as_ref().into()
     }
@@ -271,7 +269,7 @@ impl Game {
             param_string = param_string.trim_start_matches("\\\\?\\");
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
-        // TODO: store these as RCStr probably?
+        // TODO: store these as gml::String probably?
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
@@ -548,15 +546,15 @@ impl Game {
                 match file.kind {
                     FileKind::DynamicLibrary => {
                         // DLL - save this to disk then define all the externals in it
-                        let dll_name = RCStr::from(file.name.0.clone().as_ref());
+                        let dll_name = gml::String::from(file.name.0.clone().as_ref());
                         temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.iter() {
                             match external::External::new(
                                 external::DefineInfo {
-                                    dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
-                                    fn_name: RCStr::from(if function.external_name.0.len() == 0 {
+                                    dll_name: gml::String::from(&*temp_directory.to_string_lossy()),
+                                    fn_name: gml::String::from(if function.external_name.0.len() == 0 {
                                         function.name.0.clone()
                                     } else {
                                         function.external_name.0.clone()

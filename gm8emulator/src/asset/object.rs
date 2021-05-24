@@ -1,4 +1,4 @@
-use crate::{action::Tree, game::string::RCStr};
+use crate::{action::Tree, gml};
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
@@ -8,7 +8,7 @@ use std::{
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Object {
-    pub name: RCStr,
+    pub name: gml::String,
     pub solid: bool,
     pub visible: bool,
     pub persistent: bool,

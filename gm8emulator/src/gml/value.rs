@@ -1,4 +1,4 @@
-use crate::{game::string::RCStr, gml, math::Real};
+use crate::{gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryInto,
@@ -8,7 +8,7 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
-    Str(RCStr),
+    Str(gml::String),
 }
 
 impl Display for Value {
@@ -168,7 +168,7 @@ impl Value {
                 let mut buf = Vec::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
                 buf.extend_from_slice(lhs.as_ref());
                 buf.extend_from_slice(rhs.as_ref());
-                RCStr::from(buf)
+                gml::String::from(buf)
             })),
             (x, y) => invalid_op!(Add, x, y),
         }
@@ -312,7 +312,7 @@ impl Value {
         }
     }
 
-    pub fn repr(&self) -> RCStr {
+    pub fn repr(&self) -> gml::String {
         match self {
             Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r).into(),
             Self::Real(r) => format!("{:.2}", r).into(),
@@ -394,8 +394,8 @@ impl From<bool> for Value {
     }
 }
 
-impl From<RCStr> for Value {
-    fn from(value: RCStr) -> Self {
+impl From<gml::String> for Value {
+    fn from(value: gml::String) -> Self {
         Self::Str(value)
     }
 }
@@ -464,8 +464,8 @@ impl From<Value> for Real {
     }
 }
 
-impl From<Value> for RCStr {
-    // For lazy-converting a value into an RCStr.
+impl From<Value> for gml::String {
+    // For lazy-converting a value into a gml::String.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(_) => String::new().into(),

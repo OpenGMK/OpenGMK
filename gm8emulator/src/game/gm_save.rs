@@ -1,5 +1,6 @@
 use crate::{
-    game::{string::RCStr, Background, Game, View},
+    game::{Background, Game, View},
+    gml,
     instance::DummyFieldHolder,
     instancelist::{InstanceList, TileList},
 };
@@ -30,7 +31,7 @@ pub struct GMSave {
 
 #[derive(Serialize, Deserialize)]
 struct GMRoomSave {
-    caption: RCStr,
+    caption: gml::String,
     width: i32,
     height: i32,
     room_speed: u32,
