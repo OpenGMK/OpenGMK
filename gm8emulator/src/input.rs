@@ -481,16 +481,16 @@ impl TryFrom<ramen::event::MouseButton> for MouseButton {
 }
 
 pub fn ramen2mb(x: ramen::event::MouseButton) -> i8 {
-    MouseButton::try_from(x).map(|e| e as u8).unwrap_or(0)
+    MouseButton::try_from(x).map(|e| e as i8).unwrap_or(0)
 }
 
 fn mouse2button(code: i8) -> Option<Button> {
     match code {
-        x if x == MouseButton::Left as u8 => Some(Button::MouseLeft),
-        x if x == MouseButton::Right as u8 => Some(Button::MouseRight),
-        x if x == MouseButton::Middle as u8 => Some(Button::MouseMiddle),
-        x if x == MouseButton::X1 as u8 => Some(Button::MouseX1),
-        x if x == MouseButton::X2 as u8 => Some(Button::MouseX2),
+        x if x == MouseButton::Left as i8 => Some(Button::MouseLeft),
+        x if x == MouseButton::Right as i8 => Some(Button::MouseRight),
+        x if x == MouseButton::Middle as i8 => Some(Button::MouseMiddle),
+        x if x == MouseButton::X1 as i8 => Some(Button::MouseX1),
+        x if x == MouseButton::X2 as i8 => Some(Button::MouseX2),
         _ => None,
     }
 }
@@ -628,8 +628,23 @@ impl Input {
     }
 
     #[inline]
+    pub fn keyboard_key(&self) -> u8 {
+        self.key_current
+    }
+
+    #[inline]
     pub fn keyboard_lastkey(&self) -> u8 {
         self.key_previous
+    }
+
+    #[inline]
+    pub fn set_keyboard_key(&mut self, vk: u8) {
+        self.key_current = vk;
+    }
+
+    #[inline]
+    pub fn set_keyboard_lastkey(&mut self, vk: u8) {
+        self.key_previous = vk;
     }
 
     fn mouse_check_button_internal_indirect(&self, state: &[bool; KEY_MAX], mb: i8) -> bool {
@@ -657,6 +672,16 @@ impl Input {
     #[inline]
     pub fn mouse_lastbutton(&self) -> i8 {
         self.mouse_previous
+    }
+
+    #[inline]
+    pub fn set_mouse_button(&mut self, mb: i8) {
+        self.mouse_current = mb;
+    }
+
+    #[inline]
+    pub fn set_mouse_lastbutton(&mut self, mb: i8) {
+        self.mouse_previous = mb;
     }
 
     #[inline]
