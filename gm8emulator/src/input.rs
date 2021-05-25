@@ -497,6 +497,7 @@ fn mouse2button(code: i8) -> Option<Button> {
 
 pub struct Input {
     // basic state
+    button_remap: [u8; u8::max_value() as usize],
     button_state: [bool; KEY_MAX],
     button_state_press: [bool; KEY_MAX],
     button_state_release: [bool; KEY_MAX],
@@ -514,6 +515,7 @@ pub struct Input {
 impl Input {
     pub const fn new() -> Self {
         Input {
+            button_remap: [0u8; u8::max_value() as usize],
             button_state: [false; KEY_MAX],
             button_state_press: [false; KEY_MAX],
             button_state_release: [false; KEY_MAX],
@@ -625,6 +627,16 @@ impl Input {
     #[inline]
     pub fn keyboard_check_direct(&self, vk: u8) -> bool {
         self.keyboard_check_internal(&self.button_state, vk)
+    }
+
+    #[inline]
+    pub fn keyboard_get_map(&mut self, vk: u8) -> u8 {
+        self.button_remap[vk as usize]
+    }
+
+    #[inline]
+    pub fn keyboard_set_map(&mut self, vk_from: u8, vk_to: u8) {
+        self.button_remap[vk_from as usize] = vk_to;
     }
 
     #[inline]
