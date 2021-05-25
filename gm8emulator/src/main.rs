@@ -1,5 +1,4 @@
 #![feature(seek_stream_len)]
-#![allow(dead_code)] // Shut up.
 
 mod action;
 mod asset;
