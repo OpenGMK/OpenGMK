@@ -11,17 +11,16 @@ use crate::{
     gml::{
         self,
         datetime::{self, DateTime},
-        ds, file, mappings, network, Context, Value,
+        ds, file, mappings::{self, constants as gml_consts}, network, Context, Value,
     },
     handleman::HandleManager,
-    input,
+    input::MouseButton,
     instance::{Field, Instance, InstanceState},
     math::Real,
-    render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
+    render::{BlendType, Fog, Light, Renderer, Scaling},
     tile::Tile,
 };
 use image::RgbaImage;
-use shared::{input::MouseButton, types::Colour};
 use std::{
     convert::TryFrom,
     io::{Read, Write},
@@ -260,14 +259,47 @@ impl Game {
         Ok(self.window_caption.into())
     }
 
-    pub fn window_set_cursor(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_cursor")
+    pub fn window_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let mut code = expect_args!(args, [int])?;
+        use ramen::window::Cursor;
+        let cursor = match code {
+            // TODO: maybe add more of these to ramen but wtf
+            x if x == gml_consts::CR_DEFAULT as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_ARROW as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_CROSS as i32 => Cursor::Cross,
+            x if x == gml_consts::CR_BEAM as i32 => Cursor::IBeam,
+            x if x == gml_consts::CR_SIZE_NESW as i32 => Cursor::ResizeNESW,
+            x if x == gml_consts::CR_SIZE_NS as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_SIZE_NWSE as i32 => Cursor::ResizeNWSE,
+            x if x == gml_consts::CR_SIZE_WE as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_UPARROW as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_HOURGLASS as i32 => Cursor::Wait,
+            x if x == gml_consts::CR_DRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_NODROP as i32 => Cursor::Unavailable, // ???
+            x if x == gml_consts::CR_HSPLIT as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_VSPLIT as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_MULTIDRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait, // ???
+            x if x == gml_consts::CR_NO as i32 => Cursor::Unavailable,
+            x if x == gml_consts::CR_APPSTART as i32 => Cursor::Progress, // ???
+            x if x == gml_consts::CR_HELP as i32 => Cursor::Help,
+            x if x == gml_consts::CR_HANDPOINT as i32 => Cursor::Hand,
+            x if x == gml_consts::CR_SIZE_ALL as i32 => Cursor::ResizeAll,
+            _ => {
+                code = gml_consts::CR_NONE as i32;
+                Cursor::Blank
+            },
+        };
+        if self.play_type == PlayType::Normal {
+            self.window.set_cursor(cursor);
+        }
+        self.window_cursor_gml = code;
+        Ok(Default::default())
     }
 
-    pub fn window_get_cursor(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_cursor")
+    pub fn window_get_cursor(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_cursor_gml.into())
     }
 
     pub fn window_set_color(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -283,13 +315,20 @@ impl Game {
 
     pub fn window_set_position(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        self.window.set_pos(x, y);
+        self.window_offset_spoof = (x, y);
         Ok(Default::default())
     }
 
     pub fn window_set_size(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
-        self.window.resize(width as _, height as _);
+        self.window.execute(|window| {
+            use ramen::monitor::Size;
+            if window.is_dpi_logical() {
+                window.set_inner_size(Size::Logical(width as f64, height as f64));
+            } else {
+                window.set_inner_size(Size::Physical(width as u32, height as u32));
+            }
+        });
         Ok(Default::default())
     }
 
@@ -299,8 +338,7 @@ impl Game {
     }
 
     pub fn window_center(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        self.window.center();
-        Ok(Default::default())
+        unimplemented!("dont care") // TODO (0 args)
     }
 
     pub fn window_default(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -310,22 +348,22 @@ impl Game {
 
     pub fn window_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_pos().0.into())
+        Ok(self.window_offset_spoof.0.into())
     }
 
     pub fn window_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_pos().1.into())
+        Ok(self.window_offset_spoof.1.into())
     }
 
     pub fn window_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_inner_size().0.into())
+        Ok(self.window_inner_size.0.into())
     }
 
     pub fn window_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_inner_size().1.into())
+        Ok(self.window_inner_size.1.into())
     }
 
     pub fn window_set_region_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -7341,7 +7379,11 @@ impl Game {
 
     pub fn window_handle(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        return Ok(self.window.window_handle().into())
+        #[cfg(target_os = "windows")] {
+            use ramen::platform::win32::WindowExt as _;
+            Ok((self.window.hwnd() as usize).into())
+        }
+        // TODO: Others! (They'll compile error here so it'll remind me)
     }
 
     pub fn show_debug_message(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9105,7 +9147,7 @@ impl Game {
         } else {
             Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
         }
-        
+
     }
 
     pub fn timeline_moment_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {

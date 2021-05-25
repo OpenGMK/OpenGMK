@@ -165,7 +165,11 @@ pub struct Game {
     pub window: Window,
     pub window_border: bool,
     pub window_caption: String,
+    pub window_cursor_gml: i32,
     pub window_icons: bool,
+    pub window_inner_size: (u32, u32),
+    pub window_offset_spoof: (i32, i32),
+    pub window_is_logical_dpi: bool,
     pub window_sizeable: bool,
     pub window_visible: bool,
     pub close_requested: bool,
@@ -1782,6 +1786,7 @@ impl Game {
                         Event::MouseUp(button) => self.input.mouse_release(input::ramen2mb(*button), true),
                         Event::MouseWheel(x) if x.get() > 0 => self.input.mouse_scroll_up(),
                         Event::MouseWheel(x) if x.get() < 0 => self.input.mouse_scroll_down(),
+                        Event::Resize((size, scale)) => self.window_inner_size = size.as_physical(*scale),
                         Event::CloseRequest(_) => self.close_requested = true,
                         _ => (),
                     }
@@ -2113,19 +2118,22 @@ impl Game {
 
             for event in self.window.events() {
                 match event {
-                    Event::MouseMove(x, y) => {
-                        if do_update_mouse {
-                            stream.send_message(&message::Information::MousePosition { x, y })?;
+                    Event::MouseMove((pt, scale)) => {
+                        let (x, y) = pt.as_physical(*scale);
+                        if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
+                            if do_update_mouse {
+                                stream.send_message(&message::Information::MousePosition { x, y })?;
+                            }
+                            game_mousex = x;
+                            game_mousey = y;
                         }
-                        game_mousex = x;
-                        game_mousey = y;
                     },
 
-                    Event::MouseButtonDown(MouseButton::Left) => {
+                    Event::MouseDown(ramen::event::MouseButton::Left) => {
                         stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
                     },
 
-                    Event::MouseButtonUp(MouseButton::Right) => {
+                    Event::MouseUp(ramen::event::MouseButton::Right) => {
                         let mut options: Vec<(String, usize)> = Vec::new();
                         let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
                         let mut iter = self.room.instance_list.iter_by_drawing();
@@ -2183,7 +2191,7 @@ impl Game {
                     _ => (),
                 }
             }
-            
+
             self.input.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
