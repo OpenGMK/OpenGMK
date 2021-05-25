@@ -69,7 +69,7 @@ impl<'de> Visitor<'de> for SerdeVisitor {
     type Value = String;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a bytestd::string::String")
+        formatter.write_str("a gml string")
     }
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
