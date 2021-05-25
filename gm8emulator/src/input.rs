@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-const KEY_MAX: usize = 256;
+const KEY_MAX: usize = u8::max_value() as usize;
 const MB_ANY: i8 = -1;
 const MB_NONE: i8 = 0;
 const VK_NOKEY: u8 = 0; // TODO: dont redefine
@@ -495,9 +495,19 @@ fn mouse2button(code: i8) -> Option<Button> {
     }
 }
 
+const fn gen_default_keymap() -> [u8; KEY_MAX] {
+    let mut map = [0u8; KEY_MAX];
+    let mut i = 0;
+    while i < KEY_MAX {
+        map[i] = i as u8;
+    }
+    map
+}
+const DEFAULT_KEYMAP: [u8; KEY_MAX] = gen_default_keymap();
+
 pub struct Input {
     // basic state
-    button_remap: [u8; u8::max_value() as usize],
+    button_remap: [u8; KEY_MAX],
     button_state: [bool; KEY_MAX],
     button_state_press: [bool; KEY_MAX],
     button_state_release: [bool; KEY_MAX],
@@ -515,7 +525,7 @@ pub struct Input {
 impl Input {
     pub const fn new() -> Self {
         Input {
-            button_remap: [0u8; u8::max_value() as usize],
+            button_remap: DEFAULT_KEYMAP,
             button_state: [false; KEY_MAX],
             button_state_press: [false; KEY_MAX],
             button_state_release: [false; KEY_MAX],
@@ -637,6 +647,10 @@ impl Input {
     #[inline]
     pub fn keyboard_set_map(&mut self, vk_from: u8, vk_to: u8) {
         self.button_remap[vk_from as usize] = vk_to;
+    }
+
+    pub fn keyboard_unset_map(&mut self) {
+        self.button_remap = DEFAULT_KEYMAP;
     }
 
     #[inline]

@@ -6716,18 +6716,24 @@ impl Game {
 
     pub fn keyboard_set_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (real, mapped) = expect_args!(args, [int, int])?;
-        self.input.key_set_map(real as usize, mapped as usize);
+        if let (Ok(from), Ok(to)) = (u8::try_from(real), u8::try_from(mapped)) {
+            self.input.keyboard_set_map(from, to);
+        }
         Ok(Default::default())
     }
 
     pub fn keyboard_get_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        Ok((self.input.key_get_map(key as usize) as i32).into())
+        if let Ok(vk) = u8::try_from(key) {
+            Ok(i32::from(self.input.keyboard_get_map(vk)).into())
+        } else {
+            Ok(key.into())
+        }
     }
 
     pub fn keyboard_unset_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.input.key_unmap_all();
+        self.input.keyboard_unset_map();
         Ok(Default::default())
     }
 
