@@ -8946,7 +8946,7 @@ impl Game {
     pub fn path_set_precision(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (path_id, precision) = expect_args!(args, [int, int])?;
         self.assets.paths.get_asset_mut(path_id).map(|path| {
-            path.precision = precision.min(8).max(0); // ghetto clamp
+            path.precision = precision.clamp(0, 8);
             path.update();
         });
         Ok(Default::default())
