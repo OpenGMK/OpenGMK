@@ -6688,11 +6688,11 @@ impl Game {
     // NB: This function is constant because numlock state is tracked.
     pub fn keyboard_get_numlock(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.key_get_numlock().into())
+        Ok(self.input.key_get_numlock().into())
     }
 
     pub fn keyboard_set_numlock(&mut self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [bool]).map(|x| self.input_manager.key_set_numlock(x))?;
+        expect_args!(args, [bool]).map(|x| self.input.key_set_numlock(x))?;
         Ok(Default::default())
     }
 
@@ -6716,18 +6716,18 @@ impl Game {
 
     pub fn keyboard_set_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (real, mapped) = expect_args!(args, [int, int])?;
-        self.input_manager.key_set_map(real as usize, mapped as usize);
+        self.input.key_set_map(real as usize, mapped as usize);
         Ok(Default::default())
     }
 
     pub fn keyboard_get_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        Ok((self.input_manager.key_get_map(key as usize) as i32).into())
+        Ok((self.input.key_get_map(key as usize) as i32).into())
     }
 
     pub fn keyboard_unset_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.input_manager.key_unmap_all();
+        self.input.key_unmap_all();
         Ok(Default::default())
     }
 
@@ -6899,7 +6899,7 @@ impl Game {
         let key = expect_args!(args, [int])?;
         self.process_window_events();
         if key > 0 {
-            self.input_manager.key_clear(key as usize);
+            self.input.key_clear(key as usize);
         }
         Ok(Default::default())
     }
@@ -6908,7 +6908,7 @@ impl Game {
         let button = expect_args!(args, [int])?;
         self.process_window_events();
         if button > 0 {
-            self.input_manager.mouse_clear(button as usize);
+            self.input.mouse_clear(button as usize);
         }
         Ok(Default::default())
     }
@@ -6916,7 +6916,7 @@ impl Game {
     pub fn io_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.process_window_events();
-        self.input_manager.clear();
+        self.input.clear();
         Ok(Default::default())
     }
 
@@ -6929,8 +6929,8 @@ impl Game {
     pub fn keyboard_wait(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         if self.play_type == PlayType::Normal {
-            self.input_manager.key_set_lastkey(0);
-            while self.input_manager.key_get_lastkey() == 0 {
+            self.input.set_keyboard_lastkey(0);
+            while self.input.keyboard_lastkey() == 0 {
                 datetime::sleep(std::time::Duration::from_millis(50));
                 self.process_window_events();
             }

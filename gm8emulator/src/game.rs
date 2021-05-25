@@ -32,7 +32,7 @@ use crate::{
     },
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
-    input::InputManager,
+    input::{self, Input},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
@@ -46,7 +46,6 @@ use indexmap::IndexMap;
 use ramen::{event::Event, monitor::Size, window::{Window, Controls}};
 use serde::{Deserialize, Serialize};
 use shared::{
-    input::MouseButton,
     message::{self, Message, MessageStream},
     types::{Colour, ID},
 };
@@ -55,7 +54,6 @@ use std::{
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     convert::TryFrom,
-    cmp::Ordering,
     fs::File,
     io::{BufReader, Write},
     net::{SocketAddr, TcpStream},
@@ -70,7 +68,7 @@ pub struct Game {
     pub text_files: HandleArray<file::TextHandle, 32>,
     pub binary_files: HandleArray<file::BinaryHandle, 32>,
     pub rand: Random,
-    pub input_manager: InputManager,
+    pub input: Input,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
@@ -1048,7 +1046,7 @@ impl Game {
             extension_finalizers,
             externals: Vec::new(),
             surface_fix: false,
-            input_manager: InputManager::new(),
+            input: Input::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
             event_holders,
             custom_draw_objects,
@@ -1392,7 +1390,7 @@ impl Game {
             self.stored_rooms.push(self.room.clone());
         }
         self.room = room_state;
-        self.input_manager.clear_presses();
+        self.input.step();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
@@ -1573,7 +1571,7 @@ impl Game {
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
     pub fn frame(&mut self) -> gml::Result<()> {
-        if self.esc_close_game && self.input_manager.key_get_lastkey() == 0x1b {
+        if self.esc_close_game && self.input.keyboard_lastkey() == input::Button::Escape as u8 {
             self.scene_change = Some(SceneChange::End);
             return Ok(())
         }
@@ -1758,7 +1756,7 @@ impl Game {
         self.cursor_sprite_frame += 1;
 
         // Clear inputs for this frame
-        self.input_manager.clear_presses();
+        self.input.step();
 
         Ok(())
     }
@@ -1766,19 +1764,19 @@ impl Game {
     pub fn process_window_events(&mut self) {
         match self.play_type {
             PlayType::Normal => {
-                self.input_manager.mouse_update_previous();
+                self.input.mouse_update_previous();
                 for event in self.window.events() {
                     match event {
-                        Event::KeyboardDown(key) => self.input_manager.key_press(key),
-                        Event::KeyboardUp(key) => self.input_manager.key_release(key),
+                        Event::KeyboardDown(key) => self.input.button_press(input::ramen2vk(*key), true),
+                        Event::KeyboardUp(key) => self.input.button_release(input::ramen2vk(*key), true),
                         Event::MouseMove((point, scale)) => {
                             let (x, y) = point.as_physical(*scale);
-                            self.input_manager.set_mouse_pos(x.into(), y.into())
+                            self.input.set_mouse_pos(x.into(), y.into())
                         },
-                        Event::MouseDown(button) => self.input_manager.mouse_press(button),
-                        Event::MouseUp(button) => self.input_manager.mouse_release(button),
-                        Event::MouseWheel(x) if x.get() > 0 => self.input_manager.mouse_scroll_up(),
-                        Event::MouseWheel(x) if x.get() < 0 => self.input_manager.mouse_scroll_down(),
+                        Event::MouseDown(button) => self.input.mouse_press(input::ramen2mb(*button), true),
+                        Event::MouseUp(button) => self.input.mouse_release(input::ramen2mb(*button), true),
+                        Event::MouseWheel(x) if x.get() > 0 => self.input.mouse_scroll_up(),
+                        Event::MouseWheel(x) if x.get() < 0 => self.input.mouse_scroll_down(),
                         Event::CloseRequest(_) => self.close_requested = true,
                         _ => (),
                     }
@@ -1948,13 +1946,13 @@ impl Game {
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .filter(|x| self.input.keyboard_check(*x as u8)
                                 .collect(),
                             mouse_buttons_held: mouse_buttons_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .filter(|x| self.input.mouse_check(*x))
                                 .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
+                            mouse_location: self.input.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: None,
@@ -1998,24 +1996,24 @@ impl Game {
                         // Process inputs
                         for (key, press) in key_inputs.into_iter() {
                             if press {
-                                self.input_manager.key_press(key);
+                                self.input.keyboard_press(key as u8);
                                 frame.inputs.push(replay::Input::KeyPress(key));
                             } else {
-                                self.input_manager.key_release(key);
+                                self.input.keyboard_release(key as u8);
                                 frame.inputs.push(replay::Input::KeyRelease(key));
                             }
                         }
                         for (button, press) in mouse_inputs.into_iter() {
                             if press {
-                                self.input_manager.mouse_press(button);
+                                self.input.mouse_press(button);
                                 frame.inputs.push(replay::Input::MousePress(button));
                             } else {
-                                self.input_manager.mouse_release(button);
+                                self.input.mouse_release(button);
                                 frame.inputs.push(replay::Input::MouseRelease(button));
                             }
                         }
-                        self.input_manager.mouse_update_previous();
-                        self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
+                        self.input.mouse_update_previous();
+                        self.input.set_mouse_pos(mouse_location.0, mouse_location.1);
 
                         // Advance a frame
                         self.frame()?;
@@ -2045,13 +2043,13 @@ impl Game {
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .filter(|x| self.input.key_check((*x as u8).into()))
                                 .collect(),
                             mouse_buttons_held: mouse_buttons_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .filter(|x| self.input.mouse_check(*x))
                                 .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
+                            mouse_location: self.input.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
@@ -2086,13 +2084,13 @@ impl Game {
                         stream.send_message(&message::Information::Update {
                             keys_held: keys_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
+                                .filter(|x| self.input.key_check((*x as u8).into()))
                                 .collect(),
                             mouse_buttons_held: mouse_buttons_requested
                                 .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
+                                .filter(|x| self.input.mouse_check(*x))
                                 .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
+                            mouse_location: self.input.mouse_get_location(),
                             frame_count: replay.frame_count(),
                             seed: self.rand.seed(),
                             instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
@@ -2181,7 +2179,7 @@ impl Game {
                 }
             }
             
-            self.input_manager.mouse_update_previous();
+            self.input.mouse_update_previous();
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
                     return Err(format!(
@@ -2204,15 +2202,15 @@ impl Game {
                     self.spoofed_time_nanos = Some(time);
                 }
 
-                self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
+                self.input.set_mouse_pos(frame.mouse_x, frame.mouse_y);
                 for ev in frame.inputs.iter() {
                     match ev {
-                        replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
-                        replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
-                        replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
-                        replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
-                        replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                        replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                        replay::Input::KeyPress(v) => self.input.keyboard_press(*v as u8),
+                        replay::Input::KeyRelease(v) => self.input.keyboard_release(*v as u8),
+                        replay::Input::MousePress(b) => self.input.mouse_press(*b),
+                        replay::Input::MouseRelease(b) => self.input.mouse_release(*b),
+                        replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
+                        replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
                     }
                 }
             }
@@ -2251,13 +2249,13 @@ impl Game {
 
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input_manager.mouse_get_location();
+        let (x, y) = self.input.mouse_get_location();
         self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input_manager.mouse_get_previous_location();
+        let (x, y) = self.input.mouse_get_previous_location();
         self.translate_screen_to_room(x, y)
     }
 

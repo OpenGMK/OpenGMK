@@ -32,7 +32,7 @@ use std::{
 pub struct SaveState {
     pub compiler: Compiler,
     pub rand: Random,
-    pub input_manager: InputManager,
+    pub input: InputManager,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
@@ -145,7 +145,7 @@ impl SaveState {
         Self {
             compiler: game.compiler.clone(),
             rand: game.rand.clone(),
-            input_manager: game.input_manager.clone(),
+            input: game.input.clone(),
             assets: game.assets.clone(),
             event_holders: game.event_holders.clone(),
             custom_draw_objects: game.custom_draw_objects.clone(),
@@ -285,7 +285,7 @@ impl SaveState {
 
         game.compiler = self.compiler;
         game.rand = self.rand;
-        game.input_manager = self.input_manager;
+        game.input = self.input;
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
