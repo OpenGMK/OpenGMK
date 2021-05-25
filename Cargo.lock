@@ -55,9 +55,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cc"
-version = "1.0.67"
+version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
+checksum = "4a72c244c1ff497a746a7e1fb3d14bd08420ecda70c8f25c7112f2781652d787"
 
 [[package]]
 name = "cfg-if"
@@ -384,9 +384,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.94"
+version = "0.2.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18794a8ad5b29321f790b55d93dfba91e125cb1a9edbd4f8e3150acc771c1a5e"
+checksum = "789da6d93f1b866ffe175afc5322a4d76c038605a1c3319bb57b06967ca98a36"
 
 [[package]]
 name = "libz-sys"
@@ -599,7 +599,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.1"
-source = "git+https://github.com/notviri/ramen#3d5fbcad7f30f1ca76e00b92d7a7725ceb04f829"
+source = "git+https://github.com/notviri/ramen#4ff15a6811c0bc726d67c71f4001c6fd29e1dbfb"
 
 [[package]]
 name = "rand"
@@ -754,7 +754,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.0-alpha-0"
-source = "git+https://github.com/time-rs/time/#b6c5128bff6fbf25a249eb09edf6d7521bdc6029"
+source = "git+https://github.com/time-rs/time/#abdb8dc005799bdb6788e3ded46a29c0b1a8f025"
 dependencies = [
  "const_fn",
  "libc",
