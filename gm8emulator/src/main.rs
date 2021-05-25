@@ -12,6 +12,7 @@ mod math;
 mod render;
 mod tile;
 mod util;
+mod types;
 
 use std::{
     env, fs,
