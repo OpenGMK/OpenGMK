@@ -505,6 +505,7 @@ const fn gen_default_keymap() -> [u8; KEY_MAX] {
 }
 const DEFAULT_KEYMAP: [u8; KEY_MAX] = gen_default_keymap();
 
+#[derive(Clone)]
 pub struct Input {
     // basic state
     button_remap: [u8; KEY_MAX],

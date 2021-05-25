@@ -32,7 +32,7 @@ use std::{
 pub struct SaveState {
     pub compiler: Compiler,
     pub rand: Random,
-    pub input: InputManager,
+    pub input: Input,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
