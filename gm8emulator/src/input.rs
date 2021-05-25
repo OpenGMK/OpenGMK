@@ -520,6 +520,7 @@ pub struct Input {
     mouse_current: i8,
     mouse_previous: i8,
     mouse_position_previous: (i32, i32),
+    numlock_state: bool, // spoofed!
 }
 
 impl Input {
@@ -536,6 +537,7 @@ impl Input {
             mouse_current: 0,
             mouse_previous: 0,
             mouse_position_previous: (0, 0),
+            numlock_state: false,
         }
     }
 
@@ -639,6 +641,21 @@ impl Input {
         self.keyboard_check_internal(&self.button_state, vk)
     }
 
+    pub fn keyboard_clear(&mut self, vk: u8) {
+        self.button_state[vk as usize] = false;
+        self.button_state_press[vk as usize] = false;
+        self.button_state_release[vk as usize] = false;
+    }
+
+    pub fn keyboard_clear_all(&mut self) {
+        self.key_current = 0;
+        self.key_previous = 0;
+        // TODO: self.key_lastchar = 0;
+        self.button_state.iter_mut().for_each(|x| *x = false);
+        self.button_state_press.iter_mut().for_each(|x| *x = false);
+        self.button_state_release.iter_mut().for_each(|x| *x = false);
+    }
+
     #[inline]
     pub fn keyboard_get_map(&mut self, vk: u8) -> u8 {
         self.button_remap[vk as usize]
@@ -647,6 +664,16 @@ impl Input {
     #[inline]
     pub fn keyboard_set_map(&mut self, vk_from: u8, vk_to: u8) {
         self.button_remap[vk_from as usize] = vk_to;
+    }
+
+    #[inline]
+    pub fn keyboard_get_numlock(&self) -> bool {
+        self.numlock_state
+    }
+
+    #[inline]
+    pub fn keyboard_set_numlock(&mut self, state: bool) {
+        self.numlock_state = state;
     }
 
     pub fn keyboard_unset_map(&mut self) {
@@ -679,10 +706,12 @@ impl Input {
                 state[Button::MouseLeft as usize] ||
                 state[Button::MouseRight as usize] ||
                 state[Button::MouseMiddle as usize],
-            MB_NONE => 
+            MB_NONE =>
                 !state[Button::MouseLeft as usize] &&
                 !state[Button::MouseRight as usize] &&
                 !state[Button::MouseMiddle as usize],
+
+            // unlike `mouse2button`, gm constants only
             x if x == MouseButton::Left as i8 => state[Button::MouseLeft as usize],
             x if x == MouseButton::Right as i8 => state[Button::MouseRight as usize],
             x if x == MouseButton::Middle as i8 => state[Button::MouseMiddle as usize],
@@ -698,6 +727,25 @@ impl Input {
     #[inline]
     pub fn mouse_lastbutton(&self) -> i8 {
         self.mouse_previous
+    }
+
+    pub fn mouse_clear(&mut self, mb: i8) {
+        let button = match mb {
+            // unlike `mouse2button`, gm constants only
+            x if x == MouseButton::Left as i8 => Button::MouseLeft,
+            x if x == MouseButton::Right as i8 => Button::MouseRight,
+            x if x == MouseButton::Middle as i8 => Button::MouseMiddle,
+            _ => return,
+        };
+        self.keyboard_clear(button as u8);
+    }
+
+    pub fn mouse_clear_all(&mut self) {
+        self.mouse_current = 0;
+        self.mouse_previous = 0;
+        for button in &[Button::MouseLeft, Button::MouseRight, Button::MouseMiddle] {
+            self.keyboard_clear(button as u8);
+        }
     }
 
     #[inline]

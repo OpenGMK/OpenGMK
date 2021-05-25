@@ -2993,9 +2993,9 @@ impl Game {
     pub fn action_if_mouse(&mut self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         let mb = match button {
-            1 => input::MouseButton::Left as i8,
-            2 => input::MouseButton::Right as i8,
-            3 => input::MouseButton::Middle as i8,
+            1 => MouseButton::Left as i8,
+            2 => MouseButton::Right as i8,
+            3 => MouseButton::Middle as i8,
             _ => return Ok((self.input.mouse_button() == 0).into()), // "no"
         };
         Ok((self.input.mouse_check_button(mb) || self.input.mouse_check_button_released(mb)).into())
@@ -6688,11 +6688,12 @@ impl Game {
     // NB: This function is constant because numlock state is tracked.
     pub fn keyboard_get_numlock(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input.key_get_numlock().into())
+        Ok(self.input.keyboard_get_numlock().into())
     }
 
     pub fn keyboard_set_numlock(&mut self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [bool]).map(|x| self.input.key_set_numlock(x))?;
+        let state = expect_args!(args, [bool])?;
+        self.input.keyboard_set_numlock(state);
         Ok(Default::default())
     }
 
@@ -6904,8 +6905,8 @@ impl Game {
     pub fn keyboard_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
         self.process_window_events();
-        if key > 0 {
-            self.input.key_clear(key as usize);
+        if let Ok(vk) = u8::try_from(key) {
+            self.input.keyboard_clear(vk);
         }
         Ok(Default::default())
     }
@@ -6913,8 +6914,8 @@ impl Game {
     pub fn mouse_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         self.process_window_events();
-        if button > 0 {
-            self.input.mouse_clear(button as usize);
+        if let Ok(mb) = i8::try_from(button) {
+            self.input.mouse_clear(mb);
         }
         Ok(Default::default())
     }
@@ -6922,7 +6923,9 @@ impl Game {
     pub fn io_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.process_window_events();
-        self.input.clear();
+        // TODO: clear keyboard_string
+        self.input.keyboard_clear_all();
+        self.input.mouse_clear_all();
         Ok(Default::default())
     }
 
