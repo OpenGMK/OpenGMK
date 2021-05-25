@@ -31,7 +31,6 @@ ramen = { git = "https://github.com/notviri/ramen", features = ["input"] }
 rect_packer = "0.2.1"
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
-shared = { path = "../shared" }
 
 [target.'cfg(target_os = "windows")'.dependencies.winapi]
 version = "0.3"
