@@ -598,12 +598,17 @@ impl Game {
                             match file.contents.as_ref()
                                 .windows(len)
                                 .position(|x| {
-                                    &x[..define_string.len()] == define_string && &x[define_string.len()..(len - 1)] == function_name && (x[len - 1] == 10 || x[len - 1] == 13)
+                                    &x[..define_string.len()] == define_string &&
+                                    &x[define_string.len()..(len - 1)] == function_name &&
+                                    (x[len - 1] == 10 || x[len - 1] == 13)
                                 })
                                 .map(|x| x + len)
                             {
                                 Some(start) => {
-                                    let fn_code = if let Some(len) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
+                                    let fn_code = if let Some(len) = file.contents[start..]
+                                        .windows(define_string.len())
+                                        .position(|x| x == define_string)
+                                    {
                                         &file.contents[start..(start + len)]
                                     } else {
                                         &file.contents[start..]
