@@ -13,14 +13,14 @@ use crate::{
     },
     gml::{self, ds, rand::Random, Compiler},
     handleman::HandleList,
-    input::InputManager,
+    input::Input,
     instance::DummyFieldHolder,
     math::Real,
     render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling},
+    types::{Colour, ID},
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use shared::types::{Colour, ID};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},

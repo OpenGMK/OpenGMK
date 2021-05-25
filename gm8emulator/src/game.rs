@@ -37,6 +37,7 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
     render::{atlas::AtlasBuilder, Renderer, RendererOptions, Scaling},
+    types::{Colour, ID},
     tile, util,
 };
 use encoding_rs::Encoding;
@@ -45,10 +46,6 @@ use includedfile::IncludedFile;
 use indexmap::IndexMap;
 use ramen::{event::Event, monitor::Size, window::{Window, Controls}};
 use serde::{Deserialize, Serialize};
-use shared::{
-    message::{self, Message, MessageStream},
-    types::{Colour, ID},
-};
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},

@@ -6,12 +6,11 @@ use crate::{
         mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
         RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
+    types::Colour,
 };
 use cfg_if::cfg_if;
-use gmio::window::Window;
 use memoffset::offset_of;
 use rect_packer::DensePacker;
-use shared::types::Colour;
 use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator

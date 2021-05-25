@@ -2,9 +2,9 @@ use crate::{
     game::{Background, View},
     gml::{self, runtime::Instruction},
     tile::Tile,
+    types::{Colour, ID},
 };
 use serde::{Deserialize, Serialize};
-use shared::types::{Colour, ID};
 use std::rc::Rc;
 
 #[derive(Clone, Serialize, Deserialize)]

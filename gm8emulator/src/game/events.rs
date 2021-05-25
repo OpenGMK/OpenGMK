@@ -3,8 +3,8 @@ use crate::{
     game::{Game, GetAsset},
     gml,
     instance::Instance,
+    types::ID,
 };
-use shared::{input::MouseButton, types::ID};
 
 impl Game {
     /// Runs an event for all objects which hold the given event.

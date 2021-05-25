@@ -4,9 +4,9 @@ pub mod atlas;
 mod opengl;
 
 use atlas::AtlasRef;
+use crate::types::Colour;
 use ramen::window::Window;
 use serde::{Deserialize, Serialize};
-use shared::types::Colour;
 use std::any::Any;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
