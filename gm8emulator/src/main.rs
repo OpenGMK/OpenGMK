@@ -216,10 +216,7 @@ fn xmain() -> i32 {
         },
     };
 
-    let time_now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-        Ok(n) => n.as_nanos(),
-        Err(_) => 0, // System time is before January 1970 so just start at 0
-    };
+    let time_now = gml::datetime::now_as_nanos();
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
