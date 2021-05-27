@@ -1,11 +1,13 @@
+use serde::{Serialize, Deserialize};
 use std::convert::TryFrom;
 
-const KEY_MAX: usize = u8::max_value() as usize;
+const KEY_MAX: usize = u8::max_value() as usize + 1;
 const MB_ANY: i8 = -1;
 const MB_NONE: i8 = 0;
 const VK_NOKEY: u8 = 0; // TODO: dont redefine
 const VK_ANYKEY: u8 = 1; // TODO: dont redefine
 
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 #[repr(u8)]
 pub enum Button {
     // 0x00: Unmapped
@@ -455,6 +457,7 @@ const fn make_vk_fn_input_remap() -> [u8; KEY_MAX] {
 }
 const VK_FN_INPUT_REMAP: [u8; KEY_MAX] = make_vk_fn_input_remap();
 
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 #[repr(i8)]
 pub enum MouseButton {
     // gamemaker
@@ -505,7 +508,7 @@ const fn gen_default_keymap() -> [u8; KEY_MAX] {
 }
 const DEFAULT_KEYMAP: [u8; KEY_MAX] = gen_default_keymap();
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Input {
     // basic state
     button_remap: [u8; KEY_MAX],
@@ -628,13 +631,28 @@ impl Input {
     }
 
     #[inline]
+    pub fn keyboard_check_any(&self) -> bool {
+        self.keyboard_check_any_internal_indirect(&self.button_state)
+    }
+
+    #[inline]
     pub fn keyboard_check_pressed(&self, vk: u8) -> bool {
         self.keyboard_check_internal_indirect(&self.button_state_press, vk)
     }
 
     #[inline]
+    pub fn keyboard_check_pressed_any(&self) -> bool {
+        self.keyboard_check_any_internal_indirect(&self.button_state_press)
+    }
+
+    #[inline]
     pub fn keyboard_check_released(&self, vk: u8) -> bool {
         self.keyboard_check_internal_indirect(&self.button_state_release, vk)
+    }
+
+    #[inline]
+    pub fn keyboard_check_released_any(&self) -> bool {
+        self.keyboard_check_any_internal_indirect(&self.button_state_release)
     }
 
     #[inline]
@@ -745,7 +763,7 @@ impl Input {
         self.mouse_current = 0;
         self.mouse_previous = 0;
         for button in &[Button::MouseLeft, Button::MouseRight, Button::MouseMiddle] {
-            self.keyboard_clear(button as u8);
+            self.keyboard_clear(*button as u8);
         }
     }
 
@@ -765,13 +783,28 @@ impl Input {
     }
 
     #[inline]
+    pub fn mouse_check_button_any(&self) -> bool {
+        self.mouse_check_button(MB_ANY)
+    }
+
+    #[inline]
     pub fn mouse_check_button_pressed(&self, mb: i8) -> bool {
         self.mouse_check_button_internal_indirect(&self.button_state_press, mb)
     }
 
     #[inline]
+    pub fn mouse_check_button_pressed_any(&self) -> bool {
+        self.mouse_check_button_pressed(MB_ANY)
+    }
+
+    #[inline]
     pub fn mouse_check_button_released(&self, mb: i8) -> bool {
         self.mouse_check_button_internal_indirect(&self.button_state_release, mb)
+    }
+
+    #[inline]
+    pub fn mouse_check_button_released_any(&self) -> bool {
+        self.mouse_check_button_released(MB_ANY)
     }
 
     #[inline]
