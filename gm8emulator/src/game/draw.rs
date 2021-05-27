@@ -204,7 +204,7 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        let (width, height) = self.window.get_inner_size();
+        let (width, height) = self.window_inner_size;
         self.renderer.present(width, height, self.scaling);
 
         // Reset viewport
