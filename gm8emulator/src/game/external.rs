@@ -1,30 +1,40 @@
 mod dummy;
 mod win32;
-mod win64;
+// mod win64;
 
 use crate::gml::{self, Value};
-use cfg_if::cfg_if;
+// use cfg_if::cfg_if;
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
-use shared::dll;
 
-pub use shared::dll::{CallConv, ValueType as DLLValueType};
-
-cfg_if! {
-    if
-    #[cfg(all(target_os = "windows", target_arch = "x86"))] {
-        use win32 as platform;
-    } else if #[cfg(target_os = "windows")] {
-        use win64 as platform;
-    } else {
-        use dummy as platform;
-    }
-}
+// cfg_if! {
+//     if #[cfg(all(target_os = "windows", target_arch = "x86"))] {
+//         use win32 as platform;
+//     } else if #[cfg(target_os = "windows")] {
+//         use win64 as platform;
+//     } else {
+//         use dummy as platform;
+//     }
+// }
+use dummy as platform;
 
 pub enum Call {
-    DummyNull(dll::ValueType),
+    DummyNull(ValueType),
     DummyOne,
     DllCall(platform::ExternalImpl),
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub enum CallConv {
+    Cdecl,
+    Stdcall,
+}
+
+// TODO: shouldnt this be like ... in Value lol
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ValueType {
+    Real,
+    Str,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -32,8 +42,8 @@ pub struct DefineInfo {
     pub dll_name: gml::String,
     pub fn_name: gml::String,
     pub call_conv: CallConv,
-    pub res_type: dll::ValueType,
-    pub arg_types: Vec<dll::ValueType>,
+    pub res_type: ValueType,
+    pub arg_types: Vec<ValueType>,
 }
 
 pub struct External {
@@ -56,7 +66,7 @@ Spec required for ExternalImpl {
 
 impl External {
     pub fn new(info: DefineInfo, disable_sound: bool, encoding: &'static Encoding) -> Result<Self, String> {
-        if info.arg_types.len() > 4 && info.arg_types.contains(&dll::ValueType::Str) {
+        if info.arg_types.len() > 4 && info.arg_types.contains(&ValueType::Str) {
             return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
         }
         if info.arg_types.len() >= 16 {
@@ -87,8 +97,8 @@ impl External {
             Ok(Default::default())
         } else {
             let args = args.iter().zip(&self.info.arg_types).map(|(v, t)| match t {
-                dll::ValueType::Real => f64::from(v.clone()).into(),
-                dll::ValueType::Str => gml::String::from(v.clone()).into(),
+                ValueType::Real => f64::from(v.clone()).into(),
+                ValueType::Str => gml::String::from(v.clone()).into(),
             });
             self.call.call(args)
         }
@@ -99,8 +109,8 @@ impl Call {
     fn call(&self, args: impl Iterator<Item = Value>) -> gml::Result<Value> {
         match self {
             Call::DummyNull(res_type) => match res_type {
-                dll::ValueType::Real => Ok(0.into()),
-                dll::ValueType::Str => Ok("".into()),
+                ValueType::Real => Ok(0.into()),
+                ValueType::Str => Ok("".into()),
             },
             Call::DummyOne => Ok(1.into()),
             Call::DllCall(call) => {

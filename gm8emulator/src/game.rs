@@ -562,16 +562,16 @@ impl Game {
                                         function.external_name.0.clone()
                                     }.as_ref()),
                                     call_conv: match function.convention {
-                                        CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
-                                        _ => shared::dll::CallConv::Stdcall,
+                                        CallingConvention::Cdecl => external::CallConv::Cdecl,
+                                        _ => external::CallConv::Stdcall,
                                     },
                                     res_type: match function.return_type {
-                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                        FunctionValueKind::GMReal => external::ValueType::Real,
+                                        FunctionValueKind::GMString => external::ValueType::Str,
                                     },
                                     arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
-                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                        FunctionValueKind::GMReal => external::ValueType::Real,
+                                        FunctionValueKind::GMString => external::ValueType::Str,
                                     }).collect::<Vec<_>>(),
                                 },
                                 play_type == PlayType::Record,
