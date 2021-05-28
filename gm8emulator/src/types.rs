@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use serde::{ser::{self, SerializeSeq}, de::{self, SeqAccess, Visitor}, Serialize, Deserialize};
+use std::{any::type_name, fmt, marker::PhantomData, mem, ptr, ops};
 
 /// Represents an object, instance, tile or special values.
 ///
@@ -18,6 +19,83 @@ use serde::{Serialize, Deserialize};
 ///
 /// Regarding local, `var x; x = 10` is equivalent to `local.x = 10`.
 pub type ID = i32;
+
+/// Stupid hack to make fixed-size arrays ser/de.
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ArraySerde<T, const N: usize>(pub [T; N]);
+
+impl<T, const N: usize> ops::Deref for ArraySerde<T, N> {
+    type Target = [T; N];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: ser::Serialize, const N: usize> Serialize for ArraySerde<T, N>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(N))?;
+        for el in &self.0 {
+            seq.serialize_element(el)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for ArraySerde<T, N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        struct ArrayVisitor<T, const N: usize>(PhantomData<[T; N]>);
+
+        impl<'de2, T: de::Deserialize<'de2>, const N: usize> Visitor<'de2> for ArrayVisitor<T, N> {
+            type Value = ArraySerde<T, N>;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "a [{}; {}]", type_name::<T>(), N)
+            }
+
+            fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de2>,
+            {
+                let mut inst = mem::MaybeUninit::<Self::Value>::uninit();
+                let mut i = 0;
+                loop {
+                    match seq.next_element() {
+                        Ok(Some(el)) if i < N => ptr::write(&mut (&mut *inst.as_mut_ptr()).0[i], el),
+                        Ok(None) if i >= N => break,
+
+                        Ok(Some(_)) | Ok(None) if i < N => {
+                            for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {
+                                ptr::drop_in_place(el);
+                            }
+                            return Err(de::Error::invalid_length(i, &format!("a [{}; {}]", type_name::<T>(), N).as_str()))
+                        },
+                        Err(err) => unsafe {
+                            for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {
+                                ptr::drop_in_place(el);
+                            }
+                            return Err(err)
+                        },
+                    }
+                    i += 1;
+                }
+                Ok(unsafe { inst.assume_init() })
+            }
+        }
+
+        deserializer.deserialize_seq(ArrayVisitor(PhantomData))
+    }
+}
 
 pub struct BoundingBox {
     pub width: u32,
