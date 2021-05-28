@@ -2,30 +2,32 @@
 
 #![cfg(target_os = "windows")]
 
-use gmio::window::win32::WindowImpl;
+use super::wgl_ffi::*;
+
+use ramen::{platform::win32::WindowExt as _, window::Window};
 use std::{
     mem::{self, size_of},
     ops::Drop,
     os::raw::{c_char, c_int, c_void},
     ptr,
 };
-use winapi::{
-    shared::{
-        dxgi::{CreateDXGIFactory, IDXGIFactory, IDXGIOutput},
-        minwindef::HINSTANCE,
-        windef::{HDC, HGLRC},
-    },
-    um::{
-        libloaderapi::{GetProcAddress, LoadLibraryA},
-        wingdi::{
-            wglCreateContext, wglDeleteContext, wglGetCurrentContext, wglGetCurrentDC, wglGetProcAddress,
-            wglMakeCurrent, ChoosePixelFormat, SetPixelFormat, SwapBuffers, PFD_DOUBLEBUFFER, PFD_DRAW_TO_WINDOW,
-            PFD_MAIN_PLANE, PFD_SUPPORT_OPENGL, PFD_TYPE_RGBA, PIXELFORMATDESCRIPTOR,
-        },
-        winuser::GetDC,
-    },
-    Interface,
-};
+// use winapi::{
+//     shared::{
+//         dxgi::{CreateDXGIFactory, IDXGIFactory, IDXGIOutput},
+//         minwindef::HINSTANCE,
+//         windef::{HDC, HGLRC},
+//     },
+//     um::{
+//         libloaderapi::{GetProcAddress, LoadLibraryA},
+//         wingdi::{
+//             wglCreateContext, wglDeleteContext, wglGetCurrentContext, wglGetCurrentDC, wglGetProcAddress,
+//             wglMakeCurrent, ChoosePixelFormat, SetPixelFormat, SwapBuffers, PFD_DOUBLEBUFFER, PFD_DRAW_TO_WINDOW,
+//             PFD_MAIN_PLANE, PFD_SUPPORT_OPENGL, PFD_TYPE_RGBA, PIXELFORMATDESCRIPTOR,
+//         },
+//         winuser::GetDC,
+//     },
+//     Interface,
+// };
 
 pub mod wgl {
     #![allow(clippy::all)]
@@ -35,7 +37,7 @@ pub mod wgl {
 pub struct PlatformImpl {
     context: HGLRC,
     device: HDC,
-    dxgi_output: *mut IDXGIOutput,
+    // dxgi_output: *mut IDXGIOutput,
     wgl: wgl::Wgl,
 }
 
@@ -47,7 +49,7 @@ unsafe fn glgen_loader(name: &str, gl32_dll: HINSTANCE) -> *const c_void {
     GLGEN_BUF.clear();
     GLGEN_BUF.extend_from_slice(name.as_bytes());
     GLGEN_BUF.push(0);
-    load_function(GLGEN_BUF.as_ptr() as *const c_char, gl32_dll)
+    load_function(GLGEN_BUF.as_ptr() as *const c_char, gl32_dll as _)
 }
 
 /// Configuration for querying device pixel format.
@@ -94,16 +96,6 @@ static WGL_CCTX_ATTR_ARB: &[u32] = &[
 
 // TODO: move this stuff to a reusable location
 use std::{ffi::OsString, os::windows::ffi::OsStringExt, slice};
-use winapi::{
-    shared::ntdef::{LANG_NEUTRAL, MAKELANGID, SUBLANG_DEFAULT, WCHAR},
-    um::{
-        errhandlingapi::GetLastError,
-        winbase::{
-            FormatMessageW, LocalFree, FORMAT_MESSAGE_ALLOCATE_BUFFER, FORMAT_MESSAGE_FROM_SYSTEM,
-            FORMAT_MESSAGE_IGNORE_INSERTS,
-        },
-    },
-};
 macro_rules! wapi_call {
     ($ex: expr) => {{
         match $ex {
@@ -131,24 +123,24 @@ unsafe fn wapi_error_string() -> String {
     message
 }
 
-unsafe fn create_dxgi_output() -> Result<*mut IDXGIOutput, String> {
-    let mut factory: *mut IDXGIFactory = ptr::null_mut();
-    let factory_ptr: *mut *mut IDXGIFactory = &mut factory;
-    match CreateDXGIFactory(&IDXGIFactory::uuidof(), factory_ptr.cast()) {
-        0 => (),
-        e => return Err(format!("Could not create DXGIFactory (code {:#X})", e)),
-    }
-    let mut adapter = ptr::null_mut();
-    match (&*factory).EnumAdapters(0, &mut adapter) {
-        0 => (),
-        e => return Err(format!("Could not get first DXGIAdapter (code {:#X})", e)),
-    }
-    let mut output = ptr::null_mut();
-    match (&*adapter).EnumOutputs(0, &mut output) {
-        0 => Ok(output),
-        e => Err(format!("Could not get first DXGIOutput (code {:#X})", e)),
-    }
-}
+// unsafe fn create_dxgi_output() -> Result<*mut IDXGIOutput, String> {
+//     let mut factory: *mut IDXGIFactory = ptr::null_mut();
+//     let factory_ptr: *mut *mut IDXGIFactory = &mut factory;
+//     match CreateDXGIFactory(&IDXGIFactory::uuidof(), factory_ptr.cast()) {
+//         0 => (),
+//         e => return Err(format!("Could not create DXGIFactory (code {:#X})", e)),
+//     }
+//     let mut adapter = ptr::null_mut();
+//     match (&*factory).EnumAdapters(0, &mut adapter) {
+//         0 => (),
+//         e => return Err(format!("Could not get first DXGIAdapter (code {:#X})", e)),
+//     }
+//     let mut output = ptr::null_mut();
+//     match (&*adapter).EnumOutputs(0, &mut output) {
+//         0 => Ok(output),
+//         e => Err(format!("Could not get first DXGIOutput (code {:#X})", e)),
+//     }
+// }
 
 unsafe fn create_context_basic(device: HDC) -> Result<HGLRC, String> {
     let saved_context = wglGetCurrentContext();
@@ -184,7 +176,7 @@ unsafe fn create_context_attribs(wgl: &wgl::Wgl, device: HDC) -> Result<HGLRC, S
 
 /// Loads an OpenGL function pointer.
 /// Only works if there is a current OpenGL context.
-unsafe fn load_function(name: *const c_char, gl32_dll: HINSTANCE) -> *const c_void {
+unsafe fn load_function(name: *const c_char, gl32_dll: HMODULE) -> *const c_void {
     let addr = wglGetProcAddress(name);
     match addr as isize {
         // All of these return values mean failure, as much as the docs say it's just NULL.
@@ -196,13 +188,13 @@ unsafe fn load_function(name: *const c_char, gl32_dll: HINSTANCE) -> *const c_vo
 }
 
 impl PlatformImpl {
-    pub unsafe fn new(window: &WindowImpl) -> Result<Self, String> {
+    pub unsafe fn new(window: &Window) -> Result<Self, String> {
         // our device context
-        let device = wapi_call!(GetDC(window.get_hwnd()))?;
+        let device = wapi_call!(GetDC(window.hwnd()))?;
 
         // set up pixel format
-        let pixel_format = wapi_call!(ChoosePixelFormat(device, &PIXEL_FORMAT))?;
-        wapi_call!(SetPixelFormat(device, pixel_format, &PIXEL_FORMAT))?;
+        let pixel_format = wapi_call!(wglChoosePixelFormat(device, &PIXEL_FORMAT))?;
+        wapi_call!(wglSetPixelFormat(device, pixel_format, &PIXEL_FORMAT))?;
 
         // basic context we can work with
         let mut context = create_context_basic(device)?;
@@ -216,7 +208,9 @@ impl PlatformImpl {
             context = ex_context;
         }
 
-        Ok(Self { context, device, dxgi_output: create_dxgi_output()?, wgl })
+        Ok(Self { context, device,
+            //dxgi_output: create_dxgi_output()?,
+            wgl })
     }
 
     pub unsafe fn get_function_loader() -> Result<Box<dyn FnMut(&'static str) -> *const std::os::raw::c_void>, String> {
@@ -225,11 +219,11 @@ impl PlatformImpl {
         // gl 1.1 functions are located in here then they decided to not do it that way
         let gl32 = match OPENGL32_DLL {
             x if x.is_null() => wapi_call!(LoadLibraryA(b"opengl32.dll\0".as_ptr() as *const c_char))?,
-            x => x,
+            x => x as _,
         };
-        OPENGL32_DLL = gl32;
+        OPENGL32_DLL = gl32 as _;
 
-        Ok(Box::new(move |s: &'static str| glgen_loader(s, gl32)))
+        Ok(Box::new(move |s: &'static str| glgen_loader(s, gl32 as _)))
     }
 
     pub unsafe fn clean_function_loader() {
@@ -238,7 +232,7 @@ impl PlatformImpl {
     }
 
     pub unsafe fn swap_buffers(&self) {
-        wapi_call!(SwapBuffers(self.device)).unwrap();
+        wapi_call!(wglSwapBuffers(self.device)).unwrap();
     }
 
     pub unsafe fn set_swap_interval(&self, n: u32) -> bool {
@@ -255,7 +249,8 @@ impl PlatformImpl {
     }
 
     pub unsafe fn wait_vsync(&self) {
-        (&*self.dxgi_output).WaitForVBlank();
+        //(&*self.dxgi_output).WaitForVBlank();
+        panic!("let's GOOOOOOOOOOOOOOOOOOOO");
     }
 
     // pub unsafe fn make_current(&self) -> bool {

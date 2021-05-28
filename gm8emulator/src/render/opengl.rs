@@ -1,5 +1,3 @@
-mod wgl;
-
 use crate::{
     render::{
         atlas::{AtlasBuilder, AtlasRef},
@@ -8,8 +6,8 @@ use crate::{
     },
     types::Colour,
 };
-use cfg_if::cfg_if;
 use memoffset::offset_of;
+use ramen::window::Window;
 use rect_packer::DensePacker;
 use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
@@ -20,15 +18,10 @@ pub mod gl {
 }
 use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 
-cfg_if! {
-    if #[cfg(target_os = "windows")] {
-        use gmio::window::win32 as w_imp;
-        use wgl as imp;
-    } else {
-        // TODO: This won't work when Wayland but that's okay just make a function for it.
-        use gmio::window::xorg as w_imp;
-    }
-}
+#[cfg(target_os = "windows")]
+mod wgl;
+#[cfg(target_os = "windows")]
+mod wgl_ffi;
 
 macro_rules! shader_file {
     ($path: expr) => {
@@ -165,7 +158,7 @@ impl RenderState {
 }
 
 pub struct RendererImpl {
-    imp: imp::PlatformImpl,
+    imp: wgl::PlatformImpl,
     gl: gl::Gl,
     //program: GLuint,
     //vao: GLuint,
@@ -378,17 +371,12 @@ impl ShapeBuilder {
 
 impl RendererImpl {
     pub fn new(options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
-        let window_impl: &w_imp::WindowImpl = match window.as_any().downcast_ref() {
-            Some(x) => x,
-            None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
-        };
-
         unsafe {
-            let imp = imp::PlatformImpl::new(window_impl)?;
+            let imp = wgl::PlatformImpl::new(window)?;
 
             // gl function pointers
-            let gl = gl::Gl::load_with(imp::PlatformImpl::get_function_loader()?);
-            imp::PlatformImpl::clean_function_loader();
+            let gl = gl::Gl::load_with(wgl::PlatformImpl::get_function_loader()?);
+            wgl::PlatformImpl::clean_function_loader();
 
             // debug print
             let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
