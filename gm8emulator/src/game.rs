@@ -1278,6 +1278,7 @@ impl Game {
         if self.unscaled_width != width || self.unscaled_height != height {
             self.unscaled_width = width;
             self.unscaled_height = height;
+            self.window_inner_size = (width, height);
             self.renderer.resize_framebuffer(width, height);
             let (width, height) = match self.scaling {
                 Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
