@@ -1,3 +1,4 @@
+use crate::types::ArraySerde;
 use serde::{Serialize, Deserialize};
 use std::convert::TryFrom;
 
@@ -511,10 +512,10 @@ const DEFAULT_KEYMAP: [u8; KEY_MAX] = gen_default_keymap();
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Input {
     // basic state
-    button_remap: [u8; KEY_MAX],
-    button_state: [bool; KEY_MAX],
-    button_state_press: [bool; KEY_MAX],
-    button_state_release: [bool; KEY_MAX],
+    button_remap: ArraySerde<u8, KEY_MAX>,
+    button_state: ArraySerde<bool, KEY_MAX>,
+    button_state_press: ArraySerde<bool, KEY_MAX>,
+    button_state_release: ArraySerde<bool, KEY_MAX>,
     mouse_position: (i32, i32),
     mouse_wheel: (bool, bool),
 
@@ -530,10 +531,10 @@ pub struct Input {
 impl Input {
     pub const fn new() -> Self {
         Input {
-            button_remap: DEFAULT_KEYMAP,
-            button_state: [false; KEY_MAX],
-            button_state_press: [false; KEY_MAX],
-            button_state_release: [false; KEY_MAX],
+            button_remap: ArraySerde(DEFAULT_KEYMAP),
+            button_state: ArraySerde([false; KEY_MAX]),
+            button_state_press: ArraySerde([false; KEY_MAX]),
+            button_state_release: ArraySerde([false; KEY_MAX]),
             mouse_position: (0, 0),
             mouse_wheel: (false, false),
             key_current: 0,
@@ -696,7 +697,7 @@ impl Input {
     }
 
     pub fn keyboard_unset_map(&mut self) {
-        self.button_remap = DEFAULT_KEYMAP;
+        self.button_remap.0 = DEFAULT_KEYMAP;
     }
 
     #[inline]
