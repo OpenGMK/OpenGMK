@@ -504,6 +504,7 @@ const fn gen_default_keymap() -> [u8; KEY_MAX] {
     let mut i = 0;
     while i < KEY_MAX {
         map[i] = i as u8;
+        i += 1;
     }
     map
 }
