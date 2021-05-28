@@ -295,7 +295,6 @@ dependencies = [
  "serde",
  "time 0.2.26",
  "winres",
- "x11",
 ]
 
 [[package]]
@@ -1045,16 +1044,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff4fb510bbfe5b8992ff15f77a2e6fe6cf062878f0eda00c0f44963a807ca5dc"
 dependencies = [
  "toml",
-]
-
-[[package]]
-name = "x11"
-version = "2.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77ecd092546cb16f25783a5451538e73afc8d32e242648d54f4ae5459ba1e773"
-dependencies = [
- "libc",
- "pkg-config",
 ]
 
 [[package]]
