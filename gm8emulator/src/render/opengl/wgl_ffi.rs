@@ -91,16 +91,20 @@ extern "system" {
     pub fn wglGetCurrentDC() -> HDC;
     pub fn wglGetProcAddress(lpszProc: LPCSTR) -> PROC;
     pub fn wglMakeCurrent(hdc: HDC, hglrc: HGLRC) -> BOOL;
-    pub fn wglChoosePixelFormat(
+}
+
+#[link(name = "gdi32")]
+extern "system" {
+    pub fn ChoosePixelFormat(
         hdc: HDC,
         ppfd: *const PIXELFORMATDESCRIPTOR,
     ) -> c_int;
-    pub fn wglSetPixelFormat(
+    pub fn SetPixelFormat(
         hdc: HDC,
         iPixelFormat: c_int,
         ppfd: *const PIXELFORMATDESCRIPTOR,
     ) -> BOOL;
-    pub fn wglSwapBuffers(hdc: HDC) -> BOOL;
+    pub fn SwapBuffers(hdc: HDC) -> BOOL;
 }
 
 #[link(name = "kernel32")]

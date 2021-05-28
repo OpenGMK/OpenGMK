@@ -193,8 +193,8 @@ impl PlatformImpl {
         let device = wapi_call!(GetDC(window.hwnd()))?;
 
         // set up pixel format
-        let pixel_format = wapi_call!(wglChoosePixelFormat(device, &PIXEL_FORMAT))?;
-        wapi_call!(wglSetPixelFormat(device, pixel_format, &PIXEL_FORMAT))?;
+        let pixel_format = wapi_call!(ChoosePixelFormat(device, &PIXEL_FORMAT))?;
+        wapi_call!(SetPixelFormat(device, pixel_format, &PIXEL_FORMAT))?;
 
         // basic context we can work with
         let mut context = create_context_basic(device)?;
@@ -232,7 +232,7 @@ impl PlatformImpl {
     }
 
     pub unsafe fn swap_buffers(&self) {
-        wapi_call!(wglSwapBuffers(self.device)).unwrap();
+        wapi_call!(SwapBuffers(self.device)).unwrap();
     }
 
     pub unsafe fn set_swap_interval(&self, n: u32) -> bool {
