@@ -327,7 +327,9 @@ impl Game {
         let room1_speed = room1.speed;
         let room1_colour = room1.bg_colour.as_decimal().into();
         let room1_show_colour = room1.clear_screen;
-        let room1_caption = String::from_utf8_lossy(room1.caption.0.as_ref());
+        let room1_caption = String::from_utf8_lossy(room1.caption.0.as_ref()).into_owned();
+
+        let _ = room1;
 
         let mut rand = Random::new();
 
@@ -502,11 +504,11 @@ impl Game {
         let (width, height) = options.size;
         let window_border = !settings.dont_draw_border;
         let window_icons = !settings.dont_show_buttons;
-        let wb = Window::builder()
+        let window = Window::builder()
             .visible(false)
             .inner_size(Size::Physical(width.into(), height.into()))
             .borderless(!window_border && play_type != PlayType::Record)
-            .title(room1_caption)
+            .title(room1_caption.to_owned())
             .resizable(settings.allow_resize && play_type == PlayType::Normal)
             .controls(if play_type == PlayType::Record {
                 Some(Controls::enabled())
@@ -514,9 +516,10 @@ impl Game {
                 Some(Controls::new(settings.allow_resize, settings.allow_resize, true))
             } else {
                 None
-            });
+            })
+            .build()
+            .expect("oh no");
 
-        let window = wb.build().expect("oh no");
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
@@ -1147,7 +1150,7 @@ impl Game {
             unscaled_height: 0,
 
             // lazy state
-            window_caption: room1_caption.into_owned(),
+            window_caption: room1_caption.clone(),
             window_cursor_gml: gml::mappings::constants::CR_DEFAULT as _,
             window_inner_size: (width, height),
             window_is_logical_dpi: false,
