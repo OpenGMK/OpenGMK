@@ -33,6 +33,13 @@ impl<T, const N: usize> ops::Deref for ArraySerde<T, N> {
     }
 }
 
+impl<T, const N: usize> ops::DerefMut for ArraySerde<T, N> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut <Self as ops::Deref>::Target {
+        &mut self.0
+    }
+}
+
 impl<T: ser::Serialize, const N: usize> Serialize for ArraySerde<T, N>
 where
     T: Serialize,
@@ -63,7 +70,7 @@ impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for Arra
                 write!(f, "a [{}; {}]", type_name::<T>(), N)
             }
 
-            fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
                 A: SeqAccess<'de2>,
             {
@@ -71,10 +78,9 @@ impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for Arra
                 let mut i = 0;
                 loop {
                     match seq.next_element() {
-                        Ok(Some(el)) if i < N => ptr::write(&mut (&mut *inst.as_mut_ptr()).0[i], el),
+                        Ok(Some(el)) if i < N => unsafe { ptr::write(&mut (&mut *inst.as_mut_ptr()).0[i], el) },
                         Ok(None) if i >= N => break,
-
-                        Ok(Some(_)) | Ok(None) if i < N => {
+                        Ok(Some(_)) | Ok(None) => unsafe {
                             for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {
                                 ptr::drop_in_place(el);
                             }
