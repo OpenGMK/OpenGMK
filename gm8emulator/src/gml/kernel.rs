@@ -21,6 +21,7 @@ use crate::{
     tile::Tile,
 };
 use image::RgbaImage;
+use ramen::window::Cursor;
 use std::{
     convert::TryFrom,
     io::{Read, Write},
@@ -256,12 +257,11 @@ impl Game {
     // NB: This function is constant because caption gets updated on every frame.
     pub fn window_get_caption(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window_caption.into())
+        Ok(self.window_caption.clone().into())
     }
 
     pub fn window_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let mut code = expect_args!(args, [int])?;
-        use ramen::window::Cursor;
         let cursor = match code {
             // TODO: maybe add more of these to ramen but wtf
             x if x == gml_consts::CR_DEFAULT as i32 => Cursor::Arrow,
@@ -396,12 +396,15 @@ impl Game {
             let (region_w, region_h) =
                 ((self.unscaled_width as f64 * n) as u32, (self.unscaled_height as f64 * n) as u32);
             let (width, height) = if shrink_window {
-                let (window_w, window_h) = self.window.get_inner_size();
+                let (window_w, window_h) = self.window_inner_size;
                 (region_w.max(window_w), region_h.max(window_h))
             } else {
                 (region_w, region_h)
             };
-            self.window.resize(width, height);
+            if self.window_is_logical_dpi {
+                todo!("oh god oh fuck");
+            }
+            self.window.set_inner_size(ramen::monitor::Size::Physical(width, height));
         }
         Ok(Default::default())
     }
@@ -3433,9 +3436,9 @@ impl Game {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
         self.cursor_sprite = sprite_id;
         let cursor = if show_window_cursor {
-            Cursor::default() // GM8 seems to always resets to default cursor on call of this function
+            Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
         } else {
-            Cursor::Invisible
+            Cursor::Blank
         };
         self.window.set_cursor(cursor);
         Ok(Default::default())

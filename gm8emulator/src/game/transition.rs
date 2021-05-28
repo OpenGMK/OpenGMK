@@ -1,5 +1,5 @@
 use crate::{
-    game::{self, Game, GetAsset},
+    game::{Game, GetAsset},
     gml::{self, Context},
     instance::Instance,
     math::Real,
