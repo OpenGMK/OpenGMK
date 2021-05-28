@@ -1780,6 +1780,7 @@ impl Game {
     }
 
     pub fn process_window_events(&mut self) {
+        self.window.swap_events();
         match self.play_type {
             PlayType::Normal => {
                 self.input.mouse_step();
