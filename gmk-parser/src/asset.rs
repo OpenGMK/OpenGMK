@@ -1,3 +1,5 @@
+mod script;
+
 use std::fmt;
 
 /// Represents a GameMaker string which may or may not be valid UTF-8.
