@@ -553,7 +553,8 @@ impl Game {
     }
 
     pub fn make_color_rgb(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
+        let (r, g, b) = expect_args!(args, [int, int, int])?;
+        Ok((r + (g * 256) + (b * 256 * 256)).into())
     }
 
     pub fn make_color_hsv(args: &[Value]) -> gml::Result<Value> {
@@ -583,15 +584,18 @@ impl Game {
     }
 
     pub fn color_get_red(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| c % 256).map(Value::from)
+        let col = expect_args!(args, [int])?;
+        Ok((col % 256).into())
     }
 
     pub fn color_get_green(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| (c / 256) % 256).map(Value::from)
+        let col = expect_args!(args, [int])?;
+        Ok(((col / 256) % 256).into())
     }
 
     pub fn color_get_blue(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| (c / 256 / 256) % 256).map(Value::from)
+        let col = expect_args!(args, [int])?;
+        Ok(((col / 256 / 256) % 256).into())
     }
 
     pub fn color_get_hue(args: &[Value]) -> gml::Result<Value> {
@@ -6376,20 +6380,22 @@ impl Game {
         }
     }
 
-    pub fn disk_free(&self, args: &[Value]) -> gml::Result<Value> {
-        let path = match args.get(0).clone() {
-            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
-            _ => None,
-        };
-        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
+    pub fn disk_free(&self, _args: &[Value]) -> gml::Result<Value> {
+        // let path = match args.get(0).clone() {
+        //     Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+        //     _ => None,
+        // };
+        // Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
+        todo!()
     }
 
-    pub fn disk_size(&self, args: &[Value]) -> gml::Result<Value> {
-        let path = match args.get(0).clone() {
-            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
-            _ => None,
-        };
-        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
+    pub fn disk_size(&self, _args: &[Value]) -> gml::Result<Value> {
+        // let path = match args.get(0).clone() {
+        //     Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+        //     _ => None,
+        // };
+        // Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
+        todo!()
     }
 
     pub fn splash_set_caption(&mut self, _args: &[Value]) -> gml::Result<Value> {
