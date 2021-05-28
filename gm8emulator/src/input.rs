@@ -1,6 +1,6 @@
 use crate::types::ArraySerde;
 use serde::{Serialize, Deserialize};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, num::NonZeroI32};
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;
 const MB_ANY: i8 = -1;
@@ -577,6 +577,11 @@ impl Input {
         self.button_press(button as u8, false);
     }
 
+    #[inline]
+    pub fn mouse_move_to(&mut self, pos: (i32, i32)) {
+        self.mouse_position = pos;
+    }
+
     pub fn mouse_release(&mut self, code: i8, store_cur_prev: bool) {
         let button = match mouse2button(code) {
             Some(button) => button,
@@ -588,10 +593,10 @@ impl Input {
         self.button_press(button as u8, false);
     }
 
-    pub fn mouse_scroll(&mut self, delta: i32) {
-        if delta > 0 {
+    pub fn mouse_scroll(&mut self, delta: NonZeroI32) {
+        if delta.get() > 0 {
             self.mouse_wheel.0 = true;
-        } else if delta < 0 {
+        } else {
             self.mouse_wheel.1 = true;
         }
     }
@@ -828,11 +833,26 @@ impl Input {
         self.mouse_position.1
     }
 
+    #[inline]
+    pub fn mouse_x_previous(&self) -> i32 {
+        self.mouse_position_previous.0
+    }
+
+    #[inline]
+    pub fn mouse_y_previous(&self) -> i32 {
+        self.mouse_position_previous.1
+    }
+
     /// Clears the button press and release buffers.
     /// Should be called after each frame.
     pub fn step(&mut self) {
         self.button_state_press.iter_mut().for_each(|x| *x = false);
         self.button_state_release.iter_mut().for_each(|x| *x = false);
+    }
+
+    pub fn mouse_step(&mut self) {
+        self.mouse_position_previous = self.mouse_position;
+        self.mouse_wheel = (false, false);
     }
 
     /// Hard reset, clearing all state.

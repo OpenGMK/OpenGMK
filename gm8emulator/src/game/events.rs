@@ -398,12 +398,12 @@ impl Game {
         }
 
         // Mouse wheel up
-        if self.input.mouse_check_scroll_up() {
+        if self.input.mouse_wheel_up() {
             self.run_object_event(gml::ev::MOUSE, 60, None)?;
         }
 
         // Mouse wheel up
-        if self.input.mouse_check_scroll_down() {
+        if self.input.mouse_wheel_down() {
             self.run_object_event(gml::ev::MOUSE, 61, None)?;
         }
 

@@ -1780,19 +1780,20 @@ impl Game {
     pub fn process_window_events(&mut self) {
         match self.play_type {
             PlayType::Normal => {
-                self.input.mouse_update_previous();
+                self.input.mouse_step();
                 for event in self.window.events() {
                     match event {
                         Event::KeyboardDown(key) => self.input.button_press(input::ramen2vk(*key), true),
                         Event::KeyboardUp(key) => self.input.button_release(input::ramen2vk(*key), true),
                         Event::MouseMove((point, scale)) => {
                             let (x, y) = point.as_physical(*scale);
-                            self.input.set_mouse_pos(x.into(), y.into())
+                            if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
+                                self.input.mouse_move_to((x, y));
+                            }
                         },
                         Event::MouseDown(button) => self.input.mouse_press(input::ramen2mb(*button), true),
                         Event::MouseUp(button) => self.input.mouse_release(input::ramen2mb(*button), true),
-                        Event::MouseWheel(x) if x.get() > 0 => self.input.mouse_scroll_up(),
-                        Event::MouseWheel(x) if x.get() < 0 => self.input.mouse_scroll_down(),
+                        Event::MouseWheel(x) => self.input.mouse_scroll(*x),
                         Event::Resize((size, scale)) => self.window_inner_size = size.as_physical(*scale),
                         Event::CloseRequest(_) => self.close_requested = true,
                         _ => (),
@@ -2271,20 +2272,18 @@ impl Game {
 
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input.mouse_get_location();
+        let (x, y) = (self.input.mouse_x(), self.input.mouse_y());
         self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input.mouse_get_previous_location();
+        let (x, y) = (self.input.mouse_x_previous(), self.input.mouse_y_previous());
         self.translate_screen_to_room(x, y)
     }
 
     // Translates screen coordinates to room coordinates
-    pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
-        let x = x as i32;
-        let y = y as i32;
+    pub fn translate_screen_to_room(&self, x: i32, y: i32) -> (i32, i32) {
         if self.room.views_enabled {
             match self.room.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
                 Some(view) => view.transform_point(x, y),
