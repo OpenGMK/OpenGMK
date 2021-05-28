@@ -17,16 +17,16 @@ def_handle!(PROC, __some_function);
 
 pub use core::ffi::c_void;
 pub type c_char = i8;
-pub type c_schar = i8;
+// pub type c_schar = i8;
 pub type c_uchar = u8;
-pub type c_short = i16;
+// pub type c_short = i16;
 pub type c_ushort = u16;
 pub type c_int = i32;
-pub type c_uint = u32;
-pub type c_long = i32;
+// pub type c_uint = u32;
+// pub type c_long = i32;
 pub type c_ulong = u32;
-pub type c_longlong = i64;
-pub type c_ulonglong = u64;
+// pub type c_longlong = i64;
+// pub type c_ulonglong = u64;
 
 pub type BOOL = c_int;
 pub type BYTE = c_uchar;
@@ -40,41 +40,37 @@ pub type WCHAR = WORD;
 pub type WORD = c_ushort;
 
 pub const FORMAT_MESSAGE_IGNORE_INSERTS: DWORD = 0x00000200;
-pub const FORMAT_MESSAGE_FROM_STRING: DWORD = 0x00000400;
-pub const FORMAT_MESSAGE_FROM_HMODULE: DWORD = 0x00000800;
 pub const FORMAT_MESSAGE_FROM_SYSTEM: DWORD = 0x00001000;
-pub const FORMAT_MESSAGE_ARGUMENT_ARRAY: DWORD = 0x00002000;
-pub const FORMAT_MESSAGE_MAX_WIDTH_MASK: DWORD = 0x000000FF;
 pub const FORMAT_MESSAGE_ALLOCATE_BUFFER: DWORD = 0x00000100;
 
 #[repr(C)]
 pub struct PIXELFORMATDESCRIPTOR {
-    nSize: WORD,
-    nVersion: WORD,
-    dwFlags: DWORD,
-    iPixelType: BYTE,
-    cColorBits: BYTE,
-    cRedBits: BYTE,
-    cRedShift: BYTE,
-    cGreenBits: BYTE,
-    cGreenShift: BYTE,
-    cBlueBits: BYTE,
-    cBlueShift: BYTE,
-    cAlphaBits: BYTE,
-    cAlphaShift: BYTE,
-    cAccumBits: BYTE,
-    cAccumRedBits: BYTE,
-    cAccumGreenBits: BYTE,
-    cAccumBlueBits: BYTE,
-    cAccumAlphaBits: BYTE,
-    cDepthBits: BYTE,
-    cStencilBits: BYTE,
-    cAuxBuffers: BYTE,
-    iLayerType: BYTE,
-    bReserved: BYTE,
-    dwLayerMask: DWORD,
-    dwVisibleMask: DWORD,
-    dwDamageMask: DWORD,
+    pub nSize: WORD,
+    pub nVersion: WORD,
+    pub dwFlags: DWORD,
+    pub iPixelType: BYTE,
+    pub cColorBits: BYTE,
+    pub cRedBits: BYTE,
+    pub cRedShift: BYTE,
+    pub cGreenBits: BYTE,
+    pub cGreenShift: BYTE,
+    pub cBlueBits: BYTE,
+    pub cBlueShift: BYTE,
+    pub cAlphaBits: BYTE,
+    pub cAlphaShift: BYTE,
+    pub cAccumBits: BYTE,
+    pub cAccumRedBits: BYTE,
+    pub cAccumGreenBits: BYTE,
+    pub cAccumBlueBits: BYTE,
+    pub cAccumAlphaBits: BYTE,
+    pub cDepthBits: BYTE,
+    pub cStencilBits: BYTE,
+    pub cAuxBuffers: BYTE,
+    pub iLayerType: BYTE,
+    pub bReserved: BYTE,
+    pub dwLayerMask: DWORD,
+    pub dwVisibleMask: DWORD,
+    pub dwDamageMask: DWORD,
 }
 
 pub const LANG_NEUTRAL: c_ushort = 0x00;

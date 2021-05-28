@@ -52,8 +52,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     convert::TryFrom,
     fs::File,
-    io::{BufReader, Write},
-    net::{SocketAddr, TcpStream},
+    io::Write,
     path::PathBuf,
     rc::Rc,
     time::{Duration, Instant},
@@ -1888,7 +1887,7 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         // // Helper fn: Instance -> InstanceDetails
         // fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
         //     message::InstanceDetails {
@@ -2180,7 +2179,7 @@ impl Game {
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(self, _replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
         // let mut frame_count: usize = 0;
         // self.rand.set_seed(replay.start_seed);
         // self.spoofed_time_nanos = Some(replay.start_time);

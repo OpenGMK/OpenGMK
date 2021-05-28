@@ -95,22 +95,22 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
 }
 
 impl Game {
-    pub fn display_get_width(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_width(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_get_width")
     }
 
-    pub fn display_get_height(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_height(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_get_height")
     }
 
-    pub fn display_get_colordepth(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_colordepth(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_get_colordepth")
     }
 
-    pub fn display_get_frequency(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_get_frequency(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_get_frequency")
     }
@@ -144,12 +144,12 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_reset")
     }
 
-    pub fn display_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_mouse_get_x(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_mouse_get_x")
     }
 
-    pub fn display_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn display_mouse_get_y(&self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 0
         unimplemented!("Called unimplemented kernel function display_mouse_get_y")
     }
@@ -6499,7 +6499,7 @@ impl Game {
         unimplemented!("Called unimplemented kernel function show_text")
     }
 
-    pub fn show_message(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn show_message(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
         unimplemented!("Called unimplemented kernel function show_message")
     }
@@ -6735,7 +6735,7 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn keyboard_key_press(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn keyboard_key_press(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // let key = expect_args!(args, [int])?;
         // if let Ok(vk) = u8::try_from(key) {
         //     self.input.button_press(vk, true);
@@ -6744,7 +6744,7 @@ impl Game {
         todo!() // should go on next event poll
     }
 
-    pub fn keyboard_key_release(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn keyboard_key_release(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // let key = expect_args!(args, [int])?;
         // if let Ok(vk) = u8::try_from(key) {
         //     self.input.button_release(vk, true);

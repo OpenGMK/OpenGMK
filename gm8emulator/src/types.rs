@@ -97,7 +97,8 @@ impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for Arra
     }
 }
 
-pub struct BoundingBox {
+// TODO: why is this unused
+pub struct _BoundingBox {
     pub width: u32,
     pub height: u32,
 
@@ -195,7 +196,8 @@ pub struct Rectangle {
     pub height: u32,
 }
 
-pub type Version = u32;
+// TODO: why is this unused
+pub type _Version = u32;
 
 #[cfg(test)]
 mod tests {
