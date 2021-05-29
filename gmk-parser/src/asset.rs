@@ -5,10 +5,11 @@ use std::{convert::TryFrom, fmt, io};
 
 pub trait Asset: Sized {
     fn name(&self) -> &[u8];
+    fn timestamp(&self) -> Timestamp;
+    fn version(&self) -> Version;
 
     fn from_gmk<R: io::Read>(&self, r: R) -> io::Result<Self>;
     fn to_gmk<W: io::Write>(&self, w: W) -> io::Result<()>;
-
     fn from_exe<R: io::Read>(&self, r: R) -> io::Result<Self>;
     fn to_exe<W: io::Write>(&self, w: W) -> io::Result<()>;
 }
@@ -41,5 +42,35 @@ impl ByteString {
         let length = u32::try_from(self.0.len()).unwrap_or(u32::max_value());
         writer.write_u32::<LE>(length)?;
         writer.write_all(self.0.as_slice())
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Timestamp(pub f64);
+
+impl fmt::Debug for Timestamp {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_tuple("Timestamp")
+            .field(&"FUCK")
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[repr(u32)]
+pub enum Version {
+    Gm800 = 800,
+    Gm810 = 810,
+}
+
+impl TryFrom<u32> for Version {
+    type Error = ();
+    fn try_from(x: u32) -> Result<Self, Self::Error> {
+        match x {
+            800 => Ok(Self::Gm800),
+            810 => Ok(Self::Gm810),
+            _ => Err(Default::default()),
+        }
     }
 }
