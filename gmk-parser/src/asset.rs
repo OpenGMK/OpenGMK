@@ -32,7 +32,10 @@ macro_rules! read_version {
     }};
 }
 
+pub mod background;
+pub use background::Background;
 pub mod frame;
+pub use frame::Frame; // not really an asset
 pub mod script;
 pub use script::Script;
 pub mod sprite;
