@@ -27,6 +27,12 @@ impl fmt::Debug for ByteString {
     }
 }
 
+impl fmt::Display for ByteString {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&*String::from_utf8_lossy(self.0.as_slice()))
+    }
+}
+
 impl ByteString {
     pub(crate) fn read<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let length = reader.read_u32::<LE>()? as usize;
