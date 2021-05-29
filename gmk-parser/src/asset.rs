@@ -4,7 +4,7 @@ macro_rules! read_version {
         $reader:expr,               // the reader object
         $asset_name:expr,           // dyn fmt::Display
         $format_is_gmk:expr,        // bool `is_gmk` ("GMK" else "EXE")
-        $asset_type_name:literal,   // literal like "object"
+        $asset_type_name:expr,      // literal like "object"
         $valid:pat $(,)?            // pattern like "Gm800 | Gm810"
     ) => {{
         use crate::asset::Version::*; // for matching `$valid` without requiring `Version::`
@@ -32,6 +32,7 @@ macro_rules! read_version {
     }};
 }
 
+pub mod frame;
 pub mod script;
 pub use script::Script;
 pub mod sprite;
@@ -102,6 +103,7 @@ impl fmt::Debug for Timestamp {
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum Version {
+    Gm710 = 710,
     Gm800 = 800,
     Gm810 = 810,
 }
@@ -110,6 +112,7 @@ impl TryFrom<u32> for Version {
     type Error = ();
     fn try_from(x: u32) -> Result<Self, Self::Error> {
         match x {
+            710 => Ok(Self::Gm710),
             800 => Ok(Self::Gm800),
             810 => Ok(Self::Gm810),
             _ => Err(Default::default()),

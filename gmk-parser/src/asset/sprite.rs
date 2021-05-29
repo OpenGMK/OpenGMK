@@ -1,4 +1,4 @@
-use crate::asset::{Asset, ByteString, Timestamp, Version};
+use crate::asset::{frame::Frame, Asset, ByteString, Timestamp, Version};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io;
@@ -32,12 +32,6 @@ pub struct BakedCollider {
     pub size: (u32, u32),
     pub bbox: BoundingBox,
     pub data: Vec<bool>,
-}
-
-pub struct Frame {
-    pub version: Version,
-    pub size: (u32, u32),
-    pub data: Vec<u8>,
 }
 
 impl Asset for Sprite {
@@ -88,23 +82,9 @@ impl Sprite {
             reader.read_i32::<LE>()?,
         );
 
-        let frames = (0..reader.read_u32::<LE>()? as usize).map(|_| {
-            let version = read_version!(reader, name, is_gmk, "frame in sprite", Gm800)?;
-            let size = (
-                reader.read_u32::<LE>()?,
-                reader.read_u32::<LE>()?,
-            );
-            let data = if size.0 > 0 && size.1 > 0 {
-                let data_len = reader.read_u32::<LE>()? as usize;
-                let mut data = Vec::with_capacity(data_len);
-                unsafe { data.set_len(data_len) };
-                reader.read_exact(data.as_mut_slice())?;
-                data
-            } else {
-                Vec::new()
-            };
-            Ok(Frame { version, size, data })
-        }).collect::<io::Result<Vec<Frame>>>()?;
+        let frames = (0..reader.read_u32::<LE>()? as usize)
+            .map(|_| Frame::read_for(&mut reader, is_gmk, &name, "frame in sprite"))
+            .collect::<io::Result<Vec<Frame>>>()?;
 
         let (colliders, per_frame_colliders) = if is_gmk {
             todo!()
@@ -142,15 +122,7 @@ impl Sprite {
         assert!(self.frames.len() <= u32::max_value() as usize);
         writer.write_u32::<LE>(self.frames.len() as u32)?;
         for frame in &self.frames {
-            assert_eq!(frame.version, Version::Gm800);
-            writer.write_u32::<LE>(frame.version as u32)?;
-            writer.write_u32::<LE>(frame.size.0)?;
-            writer.write_u32::<LE>(frame.size.1)?;
-            if frame.size.0 > 0 && frame.size.1 > 0 {
-                assert!(frame.data.len() <= u32::max_value() as usize);
-                writer.write_u32::<LE>(frame.data.len() as u32)?;
-                writer.write_all(frame.data.as_slice())?;
-            }
+            frame.write(&mut writer)?;
         }
 
         if is_gmk {
