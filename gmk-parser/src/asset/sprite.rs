@@ -94,7 +94,7 @@ impl Sprite {
                 reader.read_u32::<LE>()?,
                 reader.read_u32::<LE>()?,
             );
-            let data = if !is_gmk || size.0 as u64 * size.1 as u64 != 0 {
+            let data = if size.0 > 0 && size.1 > 0 {
                 let data_len = reader.read_u32::<LE>()? as usize;
                 let mut data = Vec::with_capacity(data_len);
                 unsafe { data.set_len(data_len) };
@@ -146,7 +146,7 @@ impl Sprite {
             writer.write_u32::<LE>(frame.version as u32)?;
             writer.write_u32::<LE>(frame.size.0)?;
             writer.write_u32::<LE>(frame.size.1)?;
-            if !is_gmk || frame.size.0 as u64 * frame.size.1 as u64 != 0 {
+            if frame.size.0 > 0 && frame.size.1 > 0 {
                 assert!(frame.data.len() <= u32::max_value() as usize);
                 writer.write_u32::<LE>(frame.data.len() as u32)?;
                 writer.write_all(frame.data.as_slice())?;
