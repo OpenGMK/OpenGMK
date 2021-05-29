@@ -34,6 +34,8 @@ macro_rules! read_version {
 
 mod script;
 pub use script::Script;
+mod sprite;
+pub use sprite::{BoundingBox, CollisionMap, Sprite, SpriteCollider, SpriteFrame};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{convert::TryFrom, fmt, io};
@@ -72,16 +74,15 @@ impl ByteString {
     pub(crate) fn read<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let length = reader.read_u32::<LE>()? as usize;
         let mut bytes = Vec::with_capacity(length);
-        unsafe {
-            bytes.set_len(length);
-        }
+        unsafe { bytes.set_len(length) };
         reader.read_exact(bytes.as_mut_slice())?;
         Ok(Self(bytes))
     }
 
     pub(crate) fn write<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
-        let length = u32::try_from(self.0.len()).unwrap_or(u32::max_value());
-        writer.write_u32::<LE>(length)?;
+        assert!(self.0.len() <= u32::max_value() as usize);
+
+        writer.write_u32::<LE>(self.0.len() as u32)?;
         writer.write_all(self.0.as_slice())
     }
 }
