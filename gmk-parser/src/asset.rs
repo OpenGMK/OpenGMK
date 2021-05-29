@@ -32,10 +32,10 @@ macro_rules! read_version {
     }};
 }
 
-mod script;
+pub mod script;
 pub use script::Script;
-mod sprite;
-pub use sprite::{BoundingBox, CollisionMap, Sprite, SpriteCollider, SpriteFrame};
+pub mod sprite;
+pub use sprite::Sprite;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{convert::TryFrom, fmt, io};

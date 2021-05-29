@@ -9,8 +9,8 @@ pub struct Sprite {
     pub version: Version,
 
     pub origin: (i32, i32),
-    pub frames: Vec<SpriteFrame>,
-    pub colliders: Vec<SpriteCollider>,
+    pub frames: Vec<Frame>,
+    pub colliders: Vec<Collider>,
 
     pub per_frame_colliders: bool,
 }
@@ -22,7 +22,12 @@ pub struct BoundingBox {
     pub right: u32,
 }
 
-pub struct CollisionMap {
+pub enum Collider {
+    Normal(()),
+    Baked(BakedCollider),
+}
+
+pub struct BakedCollider {
     pub version: Version,
     pub width: u32,
     pub height: u32,
@@ -30,12 +35,7 @@ pub struct CollisionMap {
     pub data: Vec<bool>,
 }
 
-pub enum SpriteCollider {
-    Normal(()),
-    Baked(CollisionMap),
-}
-
-pub struct SpriteFrame {
+pub struct Frame {
     pub version: Version,
     pub width: u32,
     pub height: u32,
@@ -105,8 +105,8 @@ impl Sprite {
             } else {
                 Vec::new()
             };
-            Ok(SpriteFrame { version, width, height, data })
-        }).collect::<io::Result<Vec<SpriteFrame>>>()?;
+            Ok(Frame { version, width, height, data })
+        }).collect::<io::Result<Vec<Frame>>>()?;
 
         let (colliders, per_frame_colliders) = if is_gmk {
             todo!()
@@ -122,8 +122,8 @@ impl Sprite {
                 let data = (0..reader.read_u32::<LE>()? as usize)
                     .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
                     .collect::<io::Result<Vec<bool>>>()?;
-                Ok(SpriteCollider::Baked(CollisionMap { version, width, height, bbox, data }))
-            }).collect::<io::Result<Vec<SpriteCollider>>>()?;
+                Ok(Collider::Baked(BakedCollider { version, width, height, bbox, data }))
+            }).collect::<io::Result<Vec<Collider>>>()?;
             (colliders, per_frame_colliders)
         };
 
@@ -161,8 +161,8 @@ impl Sprite {
             writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
             for collider in &self.colliders {
                 match collider {
-                    SpriteCollider::Normal(_) => todo!(),
-                    SpriteCollider::Baked(map) => {
+                    Collider::Normal(_) => todo!(),
+                    Collider::Baked(map) => {
                         writer.write_u32::<LE>(map.version as u32)?;
                         writer.write_u32::<LE>(map.width)?;
                         writer.write_u32::<LE>(map.height)?;
