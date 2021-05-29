@@ -29,16 +29,14 @@ pub enum Collider {
 
 pub struct BakedCollider {
     pub version: Version,
-    pub width: u32,
-    pub height: u32,
+    pub size: (u32, u32),
     pub bbox: BoundingBox,
     pub data: Vec<bool>,
 }
 
 pub struct Frame {
     pub version: Version,
-    pub width: u32,
-    pub height: u32,
+    pub size: (u32, u32),
     pub data: Vec<u8>,
 }
 
@@ -92,11 +90,11 @@ impl Sprite {
 
         let frames = (0..reader.read_u32::<LE>()? as usize).map(|_| {
             let version = read_version!(reader, name, is_gmk, "frame in sprite", Gm800)?;
-            let (width, height) = (
+            let size = (
                 reader.read_u32::<LE>()?,
                 reader.read_u32::<LE>()?,
             );
-            let data = if !is_gmk || width as u64 * height as u64 != 0 {
+            let data = if !is_gmk || size.0 as u64 * size.1 as u64 != 0 {
                 let data_len = reader.read_u32::<LE>()? as usize;
                 let mut data = Vec::with_capacity(data_len);
                 unsafe { data.set_len(data_len) };
@@ -105,7 +103,7 @@ impl Sprite {
             } else {
                 Vec::new()
             };
-            Ok(Frame { version, width, height, data })
+            Ok(Frame { version, size, data })
         }).collect::<io::Result<Vec<Frame>>>()?;
 
         let (colliders, per_frame_colliders) = if is_gmk {
@@ -114,7 +112,7 @@ impl Sprite {
             let per_frame_colliders = reader.read_u32::<LE>()? != 0;
             let colliders = (0..if per_frame_colliders { frames.len() } else { 1 }).map(|_| {
                 let version = read_version!(reader, name, is_gmk, "collider in sprite", Gm800)?;
-                let (width, height) = (
+                let size = (
                     reader.read_u32::<LE>()?,
                     reader.read_u32::<LE>()?,
                 );
@@ -122,7 +120,7 @@ impl Sprite {
                 let data = (0..reader.read_u32::<LE>()? as usize)
                     .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
                     .collect::<io::Result<Vec<bool>>>()?;
-                Ok(Collider::Baked(BakedCollider { version, width, height, bbox, data }))
+                Ok(Collider::Baked(BakedCollider { version, size, bbox, data }))
             }).collect::<io::Result<Vec<Collider>>>()?;
             (colliders, per_frame_colliders)
         };
@@ -146,9 +144,9 @@ impl Sprite {
         for frame in &self.frames {
             assert_eq!(frame.version, Version::Gm800);
             writer.write_u32::<LE>(frame.version as u32)?;
-            writer.write_u32::<LE>(frame.width)?;
-            writer.write_u32::<LE>(frame.height)?;
-            if !is_gmk || frame.width as u64 * frame.height as u64 != 0 {
+            writer.write_u32::<LE>(frame.size.0)?;
+            writer.write_u32::<LE>(frame.size.1)?;
+            if !is_gmk || frame.size.0 as u64 * frame.size.1 as u64 != 0 {
                 assert!(frame.data.len() <= u32::max_value() as usize);
                 writer.write_u32::<LE>(frame.data.len() as u32)?;
                 writer.write_all(frame.data.as_slice())?;
@@ -164,8 +162,8 @@ impl Sprite {
                     Collider::Normal(_) => todo!(),
                     Collider::Baked(map) => {
                         writer.write_u32::<LE>(map.version as u32)?;
-                        writer.write_u32::<LE>(map.width)?;
-                        writer.write_u32::<LE>(map.height)?;
+                        writer.write_u32::<LE>(map.size.0)?;
+                        writer.write_u32::<LE>(map.size.1)?;
                         map.bbox.write(&mut writer)?;
                         for pixel in &*map.data {
                             writer.write_u32::<LE>(u32::from(*pixel))?;
