@@ -38,6 +38,8 @@ pub mod frame;
 pub use frame::Frame; // not really an asset
 pub mod script;
 pub use script::Script;
+pub mod sound;
+pub use sound::Sound;
 pub mod sprite;
 pub use sprite::Sprite;
 
