@@ -1,4 +1,39 @@
+/// Helper macro to easily assert version and print errors in GMK/EXE reading.
+macro_rules! read_version {
+    (
+        $reader:expr,               // the reader object
+        $asset_name:expr,           // dyn fmt::Display
+        $format_is_gmk:expr,        // bool `is_gmk` ("GMK" else "EXE")
+        $asset_type_name:literal,   // literal like "object"
+        $valid:pat $(,)?            // pattern like "Gm800 | Gm810"
+    ) => {{
+        use crate::asset::Version::*; // for matching `$valid` without requiring `Version::`
+        use log::error;
+
+        let format = if $format_is_gmk { "GMK" } else { "EXE" };
+        let num = ($reader).read_u32::<LE>()?;
+        if let Ok(version) = <Version as ::std::convert::TryFrom<u32>>::try_from(num) {
+            if matches!(version, $valid) {
+                ::std::io::Result::Ok(version)
+            } else {
+                error!(
+                    "Invalid version {} for {} \"{}\" in {}!",
+                    version as u32, $asset_type_name, $asset_name, format,
+                );
+                ::std::io::Result::Err(::std::io::ErrorKind::InvalidData.into())
+            }
+        } else {
+            error!(
+                "Unknown version {} for {} \"{}\" in {}!",
+                num, $asset_type_name, $asset_name, format,
+            );
+            ::std::io::Result::Err(::std::io::ErrorKind::InvalidData.into())
+        }
+    }};
+}
+
 mod script;
+pub use script::Script;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{convert::TryFrom, fmt, io};
