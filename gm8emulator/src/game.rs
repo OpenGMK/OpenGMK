@@ -1347,6 +1347,8 @@ impl Game {
         while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
         }
+        // You can't change room during room end
+        self.scene_change = None;
 
         // Backup persistent instances
         let persistent_instances = self.room.instance_list.remove_as_vec(|instance| instance.persistent.get());
