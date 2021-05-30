@@ -280,6 +280,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn clamp(self, min: Real, max: Real) -> Self {
+        Self(self.0.clamp(min.0, max.0))
+    }
+
+    #[inline(always)]
     pub fn rem_euclid(self, other: Real) -> Self {
         self.0.rem_euclid(other.0).into()
     }
