@@ -1820,6 +1820,12 @@ impl Game {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
+        match self.scene_change {
+            Some(SceneChange::Room(id)) => self.load_room(id)?,
+            Some(SceneChange::Restart) => self.restart()?,
+            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+            None => (),
+        }
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -1930,6 +1936,12 @@ impl Game {
                         } else {
                             println!("Project '{}' doesn't exist, so loading game at entry point", filename);
                             self.init()?;
+                            match self.scene_change {
+                                Some(SceneChange::Room(id)) => self.load_room(id)?,
+                                Some(SceneChange::Restart) => self.restart()?,
+                                Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+                                None => (),
+                            }
                             for ev in self.stored_events.iter() {
                                 replay.startup_events.push(ev.clone());
                             }
@@ -2180,6 +2192,12 @@ impl Game {
             self.stored_events.push_back(ev.clone());
         }
         self.init()?;
+        match self.scene_change {
+            Some(SceneChange::Room(id)) => self.load_room(id)?,
+            Some(SceneChange::Restart) => self.restart()?,
+            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+            None => (),
+        }
 
         let mut time_now = std::time::Instant::now();
         loop {
