@@ -36,6 +36,8 @@ pub mod background;
 pub use background::Background;
 pub mod frame;
 pub use frame::Frame; // not really an asset
+pub mod path;
+pub use path::Path;
 pub mod script;
 pub use script::Script;
 pub mod sound;
@@ -108,6 +110,7 @@ impl fmt::Debug for Timestamp {
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum Version {
+    Gm530 = 530,
     Gm710 = 710,
     Gm800 = 800,
     Gm810 = 810,
@@ -117,6 +120,7 @@ impl TryFrom<u32> for Version {
     type Error = ();
     fn try_from(x: u32) -> Result<Self, Self::Error> {
         match x {
+            530 => Ok(Self::Gm530),
             710 => Ok(Self::Gm710),
             800 => Ok(Self::Gm800),
             810 => Ok(Self::Gm810),
