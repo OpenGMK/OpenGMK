@@ -1576,7 +1576,7 @@ impl Game {
         while let Some(instance) = iter.next(&self.room.instance_list).map(|x| self.room.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
-            instance.path_positionprevious.set(instance.path_position.get());
+            instance.path_positionprevious.set(instance.path_position.get().clamp(0.into(), 1.into()));
         }
 
         // Begin step trigger events
