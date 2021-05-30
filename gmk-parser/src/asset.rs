@@ -34,6 +34,8 @@ macro_rules! read_version {
 
 pub mod background;
 pub use background::Background;
+pub mod font;
+pub use font::Font;
 pub mod frame;
 pub use frame::Frame; // not really an asset
 pub mod path;
