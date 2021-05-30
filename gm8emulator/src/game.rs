@@ -1470,7 +1470,7 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
-        if let Some(change) = self.scene_change {
+        if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
             if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
                 self.renderer.delete_sprite(surf.atlas_ref);
@@ -1481,13 +1481,8 @@ impl Game {
                 self.surfaces[trans_surf_new as usize] = None;
             }
 
-            if let SceneChange::Room(target) = change {
-                // A room change has been requested during this room change, so let's recurse...
-                self.load_room(target) // TODO: Move to main loop and check until last target?
-            } else {
-                // Natural game end or restart happened during room change, so just quit
-                Ok(())
-            }
+            // Let then next frame handle it
+            Ok(())
         } else {
             // Draw "frame 0", perform transition if applicable, and then return
             if self.auto_draw {
