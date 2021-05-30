@@ -3837,7 +3837,7 @@ impl Game {
     }
 
     pub fn clamp(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.max(lo).min(hi)))
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.clamp(lo, hi)))
     }
 
     pub fn lerp(args: &[Value]) -> gml::Result<Value> {
@@ -3997,6 +3997,7 @@ impl Game {
     pub fn string_insert(args: &[Value]) -> gml::Result<Value> {
         // string_insert doesn't care about UTF-8
         expect_args!(args, [bytes, bytes, int]).map(|(ss, s, ix)| {
+            // ghetto clamp is better here than .clamp() because of unsigned type boundary
             let ix = ((ix as isize - 1).max(0) as usize).min(s.as_ref().len());
             s.as_ref()[..ix].iter().chain(ss.as_ref()).chain(&s.as_ref()[ix..]).copied().collect::<Vec<_>>().into()
         })
@@ -8302,7 +8303,7 @@ impl Game {
     pub fn sprite_collision_mask(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, sepmasks, bboxmode, bbleft, bbtop, bbright, bbbottom, kind, tolerance) =
             expect_args!(args, [int, bool, int, int, int, int, int, int, int])?;
-        let tolerance = tolerance.min(255).max(0) as u8;
+        let tolerance = tolerance.clamp(0, 255) as u8;
         let sepmasks = sepmasks;
         if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
             // formulate requested bounding box
@@ -8759,7 +8760,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let chars = asset::font::create_chars_from_sprite(sprite, prop, sep, &self.renderer);
             let font_id = self.assets.fonts.len();
-            let first = first.max(0).min(255) as _;
+            let first = first.clamp(0, 255) as _;
             let last = (first as usize + chars.len() - 1).min(255) as _;
             self.assets.fonts.push(Some(Box::new(asset::Font {
                 name: format!("__newfont{}", font_id).into(),
@@ -8795,7 +8796,7 @@ impl Game {
                 font.size = 12;
                 font.bold = false;
                 font.italic = false;
-                font.first = first.max(0).min(255) as _;
+                font.first = first.clamp(0, 255) as _;
                 font.last = (first as usize + chars.len() - 1).min(255) as _;
                 font.chars = chars;
                 font.own_graphics = false;
@@ -8985,7 +8986,7 @@ impl Game {
     pub fn path_set_precision(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (path_id, precision) = expect_args!(args, [int, int])?;
         self.assets.paths.get_asset_mut(path_id).map(|path| {
-            path.precision = precision.min(8).max(0); // ghetto clamp
+            path.precision = precision.clamp(0, 8);
             path.update();
         });
         Ok(Default::default())
