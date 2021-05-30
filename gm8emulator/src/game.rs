@@ -1560,7 +1560,8 @@ impl Game {
         self.game_start = true;
 
         // Go to first room
-        self.load_room(self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?)
+        self.room.id = self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?;
+        self.init()
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
