@@ -32,12 +32,17 @@ macro_rules! read_version {
     }};
 }
 
+// not full asset types, but sub-assets
+pub mod action;
+pub use action::Action;
+pub mod frame;
+pub use frame::Frame;
+
+// real editor assets
 pub mod background;
 pub use background::Background;
 pub mod font;
 pub use font::Font;
-pub mod frame;
-pub use frame::Frame; // not really an asset
 pub mod path;
 pub use path::Path;
 pub mod script;
