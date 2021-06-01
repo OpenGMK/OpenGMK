@@ -128,6 +128,7 @@ impl TryFrom<u32> for Version {
     type Error = ();
     fn try_from(x: u32) -> Result<Self, Self::Error> {
         match x {
+            440 => Ok(Self::Gm440),
             530 => Ok(Self::Gm530),
             710 => Ok(Self::Gm710),
             800 => Ok(Self::Gm800),
