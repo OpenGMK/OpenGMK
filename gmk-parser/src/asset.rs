@@ -67,7 +67,7 @@ pub trait Asset: Sized {
 }
 
 /// Represents a GameMaker string which may or may not be valid UTF-8.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ByteString(pub Vec<u8>);
 
 impl fmt::Debug for ByteString {
