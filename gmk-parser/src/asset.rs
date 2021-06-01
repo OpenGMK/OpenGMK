@@ -117,6 +117,7 @@ impl fmt::Debug for Timestamp {
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum Version {
+    Gm440 = 440,
     Gm530 = 530,
     Gm710 = 710,
     Gm800 = 800,
