@@ -44,7 +44,7 @@ where
 }
 
 // Writes a settings block to GMK
-pub fn write_settings<W>(writer: &mut W, settings: &Settings, ico_file: &[u8], version: GameVersion) -> io::Result<()>
+pub fn write_settings<W>(writer: &mut W, settings: &Settings, ico_file: Option<Vec<u8>>, version: GameVersion) -> io::Result<()>
 where
     W: io::Write,
 {
@@ -128,8 +128,12 @@ where
     enc.write_u32::<LE>(settings.translucency)?;
     enc.write_u32::<LE>(settings.scale_progress_bar as u32)?;
 
-    enc.write_u32::<LE>(ico_file.len() as u32)?;
-    enc.write_buffer(ico_file)?;
+    if let Some(ico) = ico_file {
+        enc.write_u32::<LE>(ico.len() as u32)?;
+        enc.write_buffer(&ico)?;
+    } else {
+        enc.write_u32::<LE>(0)?;
+    }
 
     enc.write_u32::<LE>(settings.show_error_messages as u32)?;
     enc.write_u32::<LE>(settings.log_errors as u32)?;

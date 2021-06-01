@@ -296,7 +296,8 @@ fn decompile(
         .map_err(|e| format!("Failed to write header: {}", e))?;
 
     println!("Writing {} settings...", out_expected_ext);
-    gmk::write_settings(&mut gmk, &assets.settings, &assets.ico_file_raw, assets.version)
+    let ico_file = assets.ico_file_raw.take();
+    gmk::write_settings(&mut gmk, &assets.settings, ico_file, assets.version)
         .map_err(|e| format!("Failed to write settings block: {}", e))?;
 
     println!("Writing {} triggers...", assets.triggers.len());

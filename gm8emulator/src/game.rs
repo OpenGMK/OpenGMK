@@ -290,7 +290,6 @@ impl Game {
             constants,
             extensions,
             fonts,
-            icon_data: _,
             included_files,
             last_instance_id,
             last_tile_id,
@@ -1370,6 +1369,8 @@ impl Game {
         while let Some(instance) = iter.next(&self.room.instance_list) {
             self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
         }
+        // You can't change room during room end
+        self.scene_change = None;
 
         // Backup persistent instances
         let persistent_instances = self.room.instance_list.remove_as_vec(|instance| instance.persistent.get());
@@ -1492,7 +1493,6 @@ impl Game {
         }
 
         if let Some(change) = self.scene_change {
-            self.scene_change = None;
             // GM8 would have a memory leak here. We're not doing that.
             if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
                 self.renderer.delete_sprite(surf.atlas_ref);
@@ -1505,7 +1505,7 @@ impl Game {
 
             if let SceneChange::Room(target) = change {
                 // A room change has been requested during this room change, so let's recurse...
-                self.load_room(target)
+                self.load_room(target) // TODO: Move to main loop and check until last target?
             } else {
                 // Natural game end or restart happened during room change, so just quit
                 Ok(())
@@ -1585,7 +1585,8 @@ impl Game {
         self.game_start = true;
 
         // Go to first room
-        self.load_room(self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?)
+        self.room.id = self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?;
+        self.init()
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
@@ -1600,7 +1601,7 @@ impl Game {
         while let Some(instance) = iter.next(&self.room.instance_list).map(|x| self.room.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
-            instance.path_positionprevious.set(instance.path_position.get());
+            instance.path_positionprevious.set(instance.path_position.get().clamp(0.into(), 1.into()));
         }
 
         // Begin step trigger events
@@ -1846,6 +1847,12 @@ impl Game {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
+        match self.scene_change {
+            Some(SceneChange::Room(id)) => self.load_room(id)?,
+            Some(SceneChange::Restart) => self.restart()?,
+            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+            None => (),
+        }
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -1892,7 +1899,9 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        // use gmio::window::Event;
+
         // // Helper fn: Instance -> InstanceDetails
         // fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
         //     message::InstanceDetails {
@@ -1954,6 +1963,12 @@ impl Game {
         //                 } else {
         //                     println!("Project '{}' doesn't exist, so loading game at entry point", filename);
         //                     self.init()?;
+        //                     match self.scene_change {
+        //                         Some(SceneChange::Room(id)) => self.load_room(id)?,
+        //                         Some(SceneChange::Restart) => self.restart()?,
+        //                         Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+        //                         None => (),
+        //                     }
         //                     for ev in self.stored_events.iter() {
         //                         replay.startup_events.push(ev.clone());
         //                     }
@@ -1968,13 +1983,13 @@ impl Game {
         //                 stream.send_message(&message::Information::Update {
         //                     keys_held: keys_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.keyboard_check(*x as u8)
+        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
         //                         .collect(),
         //                     mouse_buttons_held: mouse_buttons_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.mouse_check(*x))
+        //                         .filter(|x| self.input_manager.mouse_check(*x))
         //                         .collect(),
-        //                     mouse_location: self.input.mouse_get_location(),
+        //                     mouse_location: self.input_manager.mouse_get_location(),
         //                     frame_count: replay.frame_count(),
         //                     seed: self.rand.seed(),
         //                     instance: None,
@@ -1992,7 +2007,7 @@ impl Game {
         // let mut do_update_mouse = false;
         // let mut frame_counter = 0;
 
-        // 'frame: loop {
+        // loop {
         //     match stream.receive_message::<Message>(&mut read_buffer)? {
         //         Some(None) => self.renderer.wait_vsync(),
         //         Some(Some(m)) => match m {
@@ -2018,24 +2033,24 @@ impl Game {
         //                 // Process inputs
         //                 for (key, press) in key_inputs.into_iter() {
         //                     if press {
-        //                         self.input.keyboard_press(key as u8);
+        //                         self.input_manager.key_press(key);
         //                         frame.inputs.push(replay::Input::KeyPress(key));
         //                     } else {
-        //                         self.input.keyboard_release(key as u8);
+        //                         self.input_manager.key_release(key);
         //                         frame.inputs.push(replay::Input::KeyRelease(key));
         //                     }
         //                 }
         //                 for (button, press) in mouse_inputs.into_iter() {
         //                     if press {
-        //                         self.input.mouse_press(button);
+        //                         self.input_manager.mouse_press(button);
         //                         frame.inputs.push(replay::Input::MousePress(button));
         //                     } else {
-        //                         self.input.mouse_release(button);
+        //                         self.input_manager.mouse_release(button);
         //                         frame.inputs.push(replay::Input::MouseRelease(button));
         //                     }
         //                 }
-        //                 self.input.mouse_update_previous();
-        //                 self.input.set_mouse_pos(mouse_location.0, mouse_location.1);
+        //                 self.input_manager.mouse_update_previous();
+        //                 self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
 
         //                 // Advance a frame
         //                 self.frame()?;
@@ -2065,13 +2080,13 @@ impl Game {
         //                 stream.send_message(&message::Information::Update {
         //                     keys_held: keys_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.key_check((*x as u8).into()))
+        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
         //                         .collect(),
         //                     mouse_buttons_held: mouse_buttons_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.mouse_check(*x))
+        //                         .filter(|x| self.input_manager.mouse_check(*x))
         //                         .collect(),
-        //                     mouse_location: self.input.mouse_get_location(),
+        //                     mouse_location: self.input_manager.mouse_get_location(),
         //                     frame_count: replay.frame_count(),
         //                     seed: self.rand.seed(),
         //                     instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
@@ -2106,13 +2121,13 @@ impl Game {
         //                 stream.send_message(&message::Information::Update {
         //                     keys_held: keys_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.key_check((*x as u8).into()))
+        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
         //                         .collect(),
         //                     mouse_buttons_held: mouse_buttons_requested
         //                         .into_iter()
-        //                         .filter(|x| self.input.mouse_check(*x))
+        //                         .filter(|x| self.input_manager.mouse_check(*x))
         //                         .collect(),
-        //                     mouse_location: self.input.mouse_get_location(),
+        //                     mouse_location: self.input_manager.mouse_get_location(),
         //                     frame_count: replay.frame_count(),
         //                     seed: self.rand.seed(),
         //                     instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
@@ -2128,24 +2143,21 @@ impl Game {
         //         None => break Ok(()),
         //     }
 
-        //     for event in self.window.events() {
+        //     for event in self.window.process_events().copied() {
         //         match event {
-        //             Event::MouseMove((pt, scale)) => {
-        //                 let (x, y) = pt.as_physical(*scale);
-        //                 if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
-        //                     if do_update_mouse {
-        //                         stream.send_message(&message::Information::MousePosition { x, y })?;
-        //                     }
-        //                     game_mousex = x;
-        //                     game_mousey = y;
+        //             Event::MouseMove(x, y) => {
+        //                 if do_update_mouse {
+        //                     stream.send_message(&message::Information::MousePosition { x, y })?;
         //                 }
+        //                 game_mousex = x;
+        //                 game_mousey = y;
         //             },
 
-        //             Event::MouseDown(ramen::event::MouseButton::Left) => {
+        //             Event::MouseButtonDown(MouseButton::Left) => {
         //                 stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
         //             },
 
-        //             Event::MouseUp(ramen::event::MouseButton::Right) => {
+        //             Event::MouseButtonUp(MouseButton::Right) => {
         //                 let mut options: Vec<(String, usize)> = Vec::new();
         //                 let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
         //                 let mut iter = self.room.instance_list.iter_by_drawing();
@@ -2165,26 +2177,40 @@ impl Game {
         //                         options.push((description, id as usize));
         //                     }
         //                 }
-        //                 //self.window.show_context_menu(&options);
-        //                 // probably don't do this here - message the control panel to do it instead
+        //                 self.window.show_context_menu(&options);
         //                 break
+        //             },
+
+        //             Event::MenuOption(id) => {
+        //                 if let Some(handle) = self.room.instance_list.get_by_instid(id as _) {
+        //                     let instance = self.room.instance_list.get(handle);
+        //                     instance.update_bbox(self.get_instance_mask_sprite(handle));
+        //                     stream.send_message(message::Information::InstanceClicked {
+        //                         details: instance_details(&self.assets, instance),
+        //                     })?;
+        //                     break
+        //                 } else {
+        //                     println!("Requested info for instance #{} [non-existent or deleted]", id);
+        //                 }
         //             },
 
         //             Event::KeyboardDown(key) => {
         //                 stream.send_message(message::Information::KeyPressed { key })?;
         //             },
 
-        //             Event::CloseRequest(_) => break 'frame Ok(()),
-
         //             _ => (),
         //         }
+        //     }
+
+        //     if self.window.close_requested() {
+        //         break Ok(())
         //     }
         // }
         todo!()
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(self, _replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
         // let mut frame_count: usize = 0;
         // self.rand.set_seed(replay.start_seed);
         // self.spoofed_time_nanos = Some(replay.start_time);
@@ -2194,18 +2220,17 @@ impl Game {
         //     self.stored_events.push_back(ev.clone());
         // }
         // self.init()?;
+        // match self.scene_change {
+        //     Some(SceneChange::Room(id)) => self.load_room(id)?,
+        //     Some(SceneChange::Restart) => self.restart()?,
+        //     Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+        //     None => (),
+        // }
 
         // let mut time_now = std::time::Instant::now();
-        // 'frame: loop {
-        //     for event in self.window.events() {
-        //         match event {
-        //             Event::KeyboardDown(ramen::event::Key::Escape) => break 'frame Ok(()),
-        //             Event::CloseRequest(_) => break 'frame Ok(()),
-        //             _ => (),
-        //         }
-        //     }
-
-        //     self.input.mouse_update_previous();
+        // loop {
+        //     self.window.process_events();
+        //     self.input_manager.mouse_update_previous();
         //     if let Some(frame) = replay.get_frame(frame_count) {
         //         if !self.stored_events.is_empty() {
         //             return Err(format!(
@@ -2228,15 +2253,15 @@ impl Game {
         //             self.spoofed_time_nanos = Some(time);
         //         }
 
-        //         self.input.set_mouse_pos(frame.mouse_x, frame.mouse_y);
+        //         self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
         //         for ev in frame.inputs.iter() {
         //             match ev {
-        //                 replay::Input::KeyPress(v) => self.input.keyboard_press(*v as u8),
-        //                 replay::Input::KeyRelease(v) => self.input.keyboard_release(*v as u8),
-        //                 replay::Input::MousePress(b) => self.input.mouse_press(*b),
-        //                 replay::Input::MouseRelease(b) => self.input.mouse_release(*b),
-        //                 replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
-        //                 replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
+        //                 replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
+        //                 replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
+        //                 replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
+        //                 replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
+        //                 replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
+        //                 replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
         //             }
         //         }
         //     }
@@ -2247,6 +2272,11 @@ impl Game {
         //         Some(SceneChange::Restart) => self.restart()?,
         //         Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
         //         None => (),
+        //     }
+
+        //     // exit if X pressed or game_end() invoked
+        //     if self.window.close_requested() {
+        //         break Ok(self.run_game_end_events()?)
         //     }
 
         //     // frame limiter

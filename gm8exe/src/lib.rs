@@ -28,7 +28,7 @@ pub mod upx;
 
 mod colour;
 
-use crate::{asset::*, rsrc::WindowsIcon};
+use crate::asset::*;
 use settings::{GameHelpDialog, Settings};
 
 pub type AssetList<T> = Vec<Option<Box<T>>>;
@@ -50,8 +50,7 @@ pub struct GameAssets {
     pub version: GameVersion,
 
     pub dx_dll: Vec<u8>,
-    pub icon_data: Vec<WindowsIcon>,
-    pub ico_file_raw: Vec<u8>,
+    pub ico_file_raw: Option<Vec<u8>>,
     pub help_dialog: GameHelpDialog,
     pub last_instance_id: i32,
     pub last_tile_id: i32,
