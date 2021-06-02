@@ -94,7 +94,7 @@ impl Font {
             Some(Box::new(BakedFont { dmap, map_size, map }))
         };
 
-        Ok(Font { name, timestamp, version, system_name, size, bold, italic, antialias_level, charset, range, baked })
+        Ok(Self { name, timestamp, version, system_name, size, bold, italic, antialias_level, charset, range, baked })
     }
 
     fn write(&self, mut writer: &mut dyn io::Write, is_gmk: bool) -> io::Result<()> {

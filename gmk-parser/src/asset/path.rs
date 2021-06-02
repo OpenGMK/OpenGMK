@@ -23,11 +23,11 @@ pub enum Connection {
 }
 
 impl From<u32> for Connection {
-    fn from(n: u32) -> Connection {
+    fn from(n: u32) -> Self {
         match n {
-            0 => Connection::Straight,
-            1 => Connection::Smooth,
-            _ => Connection::Smooth,
+            0 => Self::Straight,
+            1 => Self::Smooth,
+            _ => Self::Smooth,
         }
     }
 }

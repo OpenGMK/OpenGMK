@@ -36,13 +36,13 @@ pub enum Kind {
 }
 
 impl From<u32> for Kind {
-    fn from(n: u32) -> Kind {
+    fn from(n: u32) -> Self {
         match n {
-            0 => Kind::Normal,
-            1 => Kind::BackgroundMusic,
-            2 => Kind::ThreeDimensional,
-            3 => Kind::Multimedia,
-            _ => Kind::Normal,
+            0 => Self::Normal,
+            1 => Self::BackgroundMusic,
+            2 => Self::ThreeDimensional,
+            3 => Self::Multimedia,
+            _ => Self::Normal,
         }
     }
 }
