@@ -28,27 +28,29 @@ pub struct Action {
     pub kind: u32,
 
     /// How this action will be executed: None, Function or Code.
-    // TODO: why not an enum
+    /// 
+    /// Only used if `kind` is Normal (0).
     pub execution_type: u32,
 
     /// Whether the "relative" checkbox appears in the GameMaker IDE.
     pub can_be_relative: bool,
 
     /// Whether the "relative" checkbox is checked.
+    /// 
     /// All DnDs have this property, even ones which don't actually have a "relative" checkbox.
     pub relative: bool,
 
     /// Whether you can change execution target in the GameMaker IDE.
     pub is_applicative: bool,
 
-    /// Name of the function if applicable.
+    /// Name of the kernel function for this action to call, if applicable.
     ///
-    /// Usually only provided by extensions.
+    /// Only used if `kind` is Normal (0) and `execution_type` is Function (1).
     pub function_name: ByteString,
 
     /// The GML source code of the action if applicable.
     ///
-    /// Usually only provided by extensions.
+    /// Only used if `kind` is Code (7), or if `kind` is Normal (0) and `execution_type` is Code (2).
     pub function_code: ByteString,
 
     pub param_count: usize,
@@ -132,11 +134,11 @@ impl Action {
         writer.write_u32::<LE>(self.version as u32)?;
         writer.write_u32::<LE>(self.library_id)?;
         writer.write_u32::<LE>(self.id)?;
-        writer.write_u32::<LE>(self.kind)?;
+        writer.write_u32::<LE>(self.kind as u32)?;
         writer.write_u32::<LE>(self.can_be_relative.into())?;
         writer.write_u32::<LE>(self.is_condition.into())?;
         writer.write_u32::<LE>(self.is_applicative.into())?;
-        writer.write_u32::<LE>(self.execution_type)?;
+        writer.write_u32::<LE>(self.execution_type as u32)?;
         self.function_name.write(&mut writer)?;
         self.function_code.write(&mut writer)?;
         writer.write_u32::<LE>(self.param_count as u32)?;
