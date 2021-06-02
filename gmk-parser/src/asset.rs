@@ -120,9 +120,12 @@ impl fmt::Debug for Timestamp {
 #[repr(u32)]
 pub enum Version {
     Gm400 = 400,
+    Gm430 = 430,
     Gm440 = 440,
     Gm500 = 500,
+    Gm541 = 541,
     Gm530 = 530,
+    Gm700 = 700,
     Gm710 = 710,
     Gm800 = 800,
     Gm810 = 810,
@@ -133,9 +136,12 @@ impl TryFrom<u32> for Version {
     fn try_from(x: u32) -> Result<Self, Self::Error> {
         match x {
             400 => Ok(Self::Gm400),
+            430 => Ok(Self::Gm430),
             440 => Ok(Self::Gm440),
             500 => Ok(Self::Gm500),
             530 => Ok(Self::Gm530),
+            541 => Ok(Self::Gm541),
+            700 => Ok(Self::Gm700),
             710 => Ok(Self::Gm710),
             800 => Ok(Self::Gm800),
             810 => Ok(Self::Gm810),
