@@ -163,11 +163,12 @@ impl SubEventList {
         rv_name: &ByteString,
         rv_reason: &'static str,
     ) -> io::Result<Self> {
+        use std::convert::TryFrom;
+
         let mut sub_events = Vec::new();
         loop {
             let index = reader.read_i32::<LE>()?;
-            if index >= 0 {
-                let index = index as u32; // checked above
+            if let Ok(index) = u32::try_from(index) {
                 let version = read_version!(reader, rv_name, is_gmk, rv_reason, Gm400)?;
                 let action_count = reader.read_u32::<LE>()? as usize;
                 let actions = (0..action_count)
