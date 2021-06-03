@@ -43,6 +43,8 @@ pub mod background;
 pub use background::Background;
 pub mod font;
 pub use font::Font;
+pub mod included_file;
+pub use included_file::IncludedFile;
 pub mod object;
 pub use object::Object;
 pub mod path;
