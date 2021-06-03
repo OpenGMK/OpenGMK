@@ -1,4 +1,4 @@
-use crate::asset::{Action, Asset, ByteString, Timestamp, Version};
+use crate::asset::{Asset, ByteString, Event, Timestamp, Version};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use log::error;
@@ -46,13 +46,6 @@ pub struct Object {
 }
 
 pub struct SubEventList(pub Vec<Event>);
-
-pub struct Event {
-    pub version: Version,
-
-    pub index: u32,
-    pub actions: Vec<Action>,
-}
 
 impl Asset for Object {
     #[inline]
@@ -169,12 +162,7 @@ impl SubEventList {
         loop {
             let index = reader.read_i32::<LE>()?;
             if let Ok(index) = u32::try_from(index) {
-                let version = read_version!(reader, rv_name, is_gmk, rv_reason, Gm400)?;
-                let action_count = reader.read_u32::<LE>()? as usize;
-                let actions = (0..action_count)
-                    .map(|_| Action::read_for(&mut reader, is_gmk, rv_name, rv_reason))
-                    .collect::<io::Result<Vec<Action>>>()?;
-                sub_events.push(Event { version, index, actions });
+                sub_events.push(Event::read_for(&mut reader, is_gmk, rv_name, rv_reason, index)?);
             } else {
                 break
             }
@@ -184,14 +172,7 @@ impl SubEventList {
 
     pub(crate) fn write(&self, mut writer: &mut dyn io::Write) -> io::Result<()> {
         for event in &self.0 {
-            assert_eq!(event.version, Version::Gm400);
-            writer.write_u32::<LE>(event.index)?;
-
-            assert!(event.actions.len() <= u32::max_value() as usize);
-            writer.write_u32::<LE>(event.actions.len() as u32)?;
-            for action in &event.actions {
-                action.write(&mut writer)?;
-            }
+            event.write(&mut writer)?;
         }
         writer.write_i32::<LE>(-1)
     }

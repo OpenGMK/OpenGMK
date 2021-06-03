@@ -35,6 +35,8 @@ macro_rules! read_version {
 // not full asset types, but sub-assets
 pub mod action;
 pub use action::Action;
+pub mod event;
+pub use event::Event;
 pub mod frame;
 pub use frame::Frame;
 

@@ -1,4 +1,4 @@
-use crate::asset::{Action, Asset, ByteString, Timestamp, Version, object::Event};
+use crate::asset::{Asset, ByteString, Timestamp, Version, Event};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io;
@@ -57,14 +57,7 @@ impl Timeline {
         let moment_count = reader.read_u32::<LE>()? as usize;
         let moments = (0..moment_count).map(|_| {
             let index = reader.read_u32::<LE>()?;
-            let version = read_version!(reader, name, is_gmk, "moment", Gm400)?;
-
-            let action_count = reader.read_u32::<LE>()? as usize;
-            let actions = (0..action_count)
-                .map(|_| Action::read_for(&mut reader, is_gmk, &name, "action in timeline"))
-                .collect::<Result<_, io::Error>>()?;
-
-            Ok(Event { version, index, actions })
+            Event::read_for(&mut reader, is_gmk, &name, "moment in timeline", index)
         }).collect::<io::Result<Vec<Event>>>()?;
 
         Ok(Self { name, timestamp, version, moments })
@@ -80,15 +73,7 @@ impl Timeline {
 
         writer.write_u32::<LE>(self.moments.len() as u32)?;
         for moment in &self.moments {
-            assert_eq!(moment.version, Version::Gm400);
-            writer.write_u32::<LE>(moment.index)?;
-            writer.write_u32::<LE>(moment.version as u32)?;
-
-            assert!(moment.actions.len() <= u32::max_value() as usize);
-            writer.write_u32::<LE>(moment.actions.len() as u32)?;
-            for action in &moment.actions {
-                action.write(&mut writer)?;
-            }
+            moment.write(&mut writer)?;
         }
         Ok(())
     }
