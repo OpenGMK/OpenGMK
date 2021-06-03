@@ -128,7 +128,7 @@ impl Sprite {
         if is_gmk {
             todo!()
         } else {
-            writer.write_u32::<LE>(self.per_frame_colliders as u32)?;
+            writer.write_u32::<LE>(self.per_frame_colliders.into())?;
             for collider in &self.colliders {
                 match collider {
                     Collider::Normal(_) => todo!(),

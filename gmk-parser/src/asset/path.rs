@@ -108,7 +108,7 @@ impl Path {
         writer.write_u32::<LE>(self.version as u32)?;
 
         writer.write_u32::<LE>(self.connection as u32)?;
-        writer.write_u32::<LE>(self.closed as u32)?;
+        writer.write_u32::<LE>(self.closed.into())?;
         writer.write_u32::<LE>(self.precision)?;
         if is_gmk {
             self.editor_reference.write(&mut writer)?;

@@ -107,8 +107,8 @@ impl Font {
 
         self.system_name.write(&mut writer)?;
         writer.write_u32::<LE>(self.size)?;
-        writer.write_u32::<LE>(self.bold as u32)?;
-        writer.write_u32::<LE>(self.italic as u32)?;
+        writer.write_u32::<LE>(self.bold.into())?;
+        writer.write_u32::<LE>(self.italic.into())?;
         writer.write_u8(self.antialias_level)?;
         writer.write_u8(self.charset)?;
         assert!(self.range.0 <= u32::from(u16::max_value()));

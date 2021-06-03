@@ -129,7 +129,7 @@ impl Sound {
         self.fx.write(&mut writer)?;
         writer.write_f64::<LE>(self.volume)?;
         writer.write_f64::<LE>(self.pan)?;
-        writer.write_u32::<LE>(self.preload as u32)
+        writer.write_u32::<LE>(self.preload.into())
     }
 }
 
