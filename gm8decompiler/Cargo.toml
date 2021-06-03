@@ -9,6 +9,9 @@ edition = "2018"
 # TODO: change to version = "0.3" when they finally publish 0.3
 time = { git = "https://github.com/time-rs/time/", features = ["std"], default-features = false }
 
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
 [dependencies]
 byteorder = "1"
 flate2 = { version = "1.0", features = ["zlib-ng-compat"], default-features = false }

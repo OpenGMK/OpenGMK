@@ -130,6 +130,7 @@ dependencies = [
  "gmio",
  "rusttype",
  "shared",
+ "winres",
 ]
 
 [[package]]
@@ -306,6 +307,7 @@ dependencies = [
  "gml-parser",
  "rayon",
  "time 0.3.0-alpha-0",
+ "winres",
 ]
 
 [[package]]
