@@ -49,6 +49,8 @@ pub mod object;
 pub use object::Object;
 pub mod path;
 pub use path::Path;
+// pub mod room;
+// pub use room::Room;
 pub mod script;
 pub use script::Script;
 pub mod sound;
@@ -57,6 +59,8 @@ pub mod sprite;
 pub use sprite::Sprite;
 pub mod timeline;
 pub use timeline::Timeline;
+pub mod trigger;
+pub use trigger::Trigger;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::{convert::TryFrom, fmt, io};
