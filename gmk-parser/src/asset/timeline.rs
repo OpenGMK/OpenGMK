@@ -1,4 +1,4 @@
-use crate::asset::{Action, Asset, ByteString, Timestamp, Version};
+use crate::asset::{Action, Asset, ByteString, Timestamp, Version, object::Event};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use std::io;
@@ -8,14 +8,7 @@ pub struct Timeline {
     pub timestamp: Timestamp,
     pub version: Version,
 
-    pub moments: Vec<Moment>,
-}
-
-pub struct Moment {
-    pub version: Version,
-
-    pub index: u32,
-    pub actions: Vec<Action>,
+    pub moments: Vec<Event>,
 }
 
 impl Asset for Timeline {
@@ -71,8 +64,8 @@ impl Timeline {
                 .map(|_| Action::read_for(&mut reader, is_gmk, &name, "action in timeline"))
                 .collect::<Result<_, io::Error>>()?;
 
-            Ok(Moment { version, index, actions })
-        }).collect::<io::Result<Vec<Moment>>>()?;
+            Ok(Event { version, index, actions })
+        }).collect::<io::Result<Vec<Event>>>()?;
 
         Ok(Self { name, timestamp, version, moments })
     }
