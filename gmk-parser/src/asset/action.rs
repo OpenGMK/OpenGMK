@@ -1,6 +1,7 @@
 use crate::asset::{ByteString, Version};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use log::error;
 use std::io;
 
 pub const PARAM_COUNT: usize = 8;
@@ -28,7 +29,7 @@ pub struct Action {
     pub kind: u32,
 
     /// How this action will be executed: None, Function or Code.
-    /// 
+    ///
     /// Only used if `kind` is Normal (0).
     pub execution_type: u32,
 
@@ -36,7 +37,7 @@ pub struct Action {
     pub can_be_relative: bool,
 
     /// Whether the "relative" checkbox is checked.
-    /// 
+    ///
     /// All DnDs have this property, even ones which don't actually have a "relative" checkbox.
     pub relative: bool,
 
@@ -78,17 +79,22 @@ impl Action {
         let function_code = ByteString::read(&mut reader)?;
 
         let param_count = reader.read_u32::<LE>()? as usize;
-        // verify the number of used parameters isn't greater than PARAM_COUNT, otherwise this gmk is
-        // probably corrupted, or would need a heavy runner modification to work correctly
         if param_count > PARAM_COUNT {
+            // this action is either corrupted, or would need a heavy runner modification to work correctly
+            error!(
+                "Expected at most {} params in {} \"{}\", found {}!",
+                PARAM_COUNT, rv_reason, rv_name, param_count,
+            );
             return Err(io::ErrorKind::InvalidData.into())
         }
 
-        // type count - should always be PARAM_COUNT because that's the size of the internal array
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
+            error!(
+                "Expected exactly {} type params in {} \"{}\", found {}!",
+                PARAM_COUNT, rv_reason, rv_name, param_count,
+            );
             return Err(io::ErrorKind::InvalidData.into())
         }
-
         let mut param_types = [0u32; PARAM_COUNT];
         for val in param_types.iter_mut() {
             *val = reader.read_u32::<LE>()?;
@@ -97,8 +103,11 @@ impl Action {
         let target = reader.read_i32::<LE>()?;
         let relative = reader.read_u32::<LE>()? != 0;
 
-        // arg count - again, should always be 8
         if reader.read_u32::<LE>()? as usize != PARAM_COUNT {
+            error!(
+                "Expected exactly {} args in {} \"{}\", found {}!",
+                PARAM_COUNT, rv_reason, rv_name, param_count,
+            );
             return Err(io::ErrorKind::InvalidData.into())
         }
 
@@ -141,8 +150,10 @@ impl Action {
         writer.write_u32::<LE>(self.execution_type as u32)?;
         self.function_name.write(&mut writer)?;
         self.function_code.write(&mut writer)?;
+        assert!(self.param_count <= u32::max_value() as usize);
         writer.write_u32::<LE>(self.param_count as u32)?;
 
+        assert!(self.param_types.len() <= u32::max_value() as usize);
         writer.write_u32::<LE>(self.param_types.len() as u32)?;
         for value in self.param_types.iter().copied() {
             writer.write_u32::<LE>(value)?;
@@ -151,13 +162,12 @@ impl Action {
         writer.write_i32::<LE>(self.target)?;
         writer.write_u32::<LE>(self.relative.into())?;
 
+        assert!(self.param_strings.len() <= u32::max_value() as usize);
         writer.write_u32::<LE>(self.param_strings.len() as u32)?;
         for value in self.param_strings.iter() {
             value.write(&mut writer)?;
         }
 
-        writer.write_u32::<LE>(self.invert_condition.into())?;
-
-        Ok(())
+        writer.write_u32::<LE>(self.invert_condition.into())
     }
 }
