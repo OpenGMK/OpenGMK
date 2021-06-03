@@ -43,6 +43,8 @@ pub mod background;
 pub use background::Background;
 pub mod font;
 pub use font::Font;
+pub mod object;
+pub use object::Object;
 pub mod path;
 pub use path::Path;
 pub mod script;
