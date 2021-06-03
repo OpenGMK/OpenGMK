@@ -8,7 +8,14 @@ pub struct Timeline {
     pub timestamp: Timestamp,
     pub version: Version,
 
-    pub moments: Vec<(u32, Vec<Action>)>,
+    pub moments: Vec<Moment>,
+}
+
+pub struct Moment {
+    pub version: Version,
+
+    pub index: u32,
+    pub actions: Vec<Action>,
 }
 
 impl Asset for Timeline {
@@ -55,19 +62,17 @@ impl Timeline {
         let version = read_version!(reader, name, is_gmk, "timeline", Gm500)?;
 
         let moment_count = reader.read_u32::<LE>()? as usize;
-        let moments = (0..moment_count)
-            .map(|_| {
-                let moment_index = reader.read_u32::<LE>()?;
-                read_version!(reader, name, is_gmk, "moment", Gm400)?;
+        let moments = (0..moment_count).map(|_| {
+            let index = reader.read_u32::<LE>()?;
+            let version = read_version!(reader, name, is_gmk, "moment", Gm400)?;
 
-                let action_count = reader.read_u32::<LE>()? as usize;
-                let actions = (0..action_count)
-                    .map(|_| Action::read_for(&mut reader, is_gmk, &name, "action in timeline"))
-                    .collect::<Result<_, io::Error>>()?;
+            let action_count = reader.read_u32::<LE>()? as usize;
+            let actions = (0..action_count)
+                .map(|_| Action::read_for(&mut reader, is_gmk, &name, "action in timeline"))
+                .collect::<Result<_, io::Error>>()?;
 
-                Ok((moment_index, actions))
-            })
-            .collect::<Result<_, io::Error>>()?;
+            Ok(Moment { version, index, actions })
+        }).collect::<io::Result<Vec<Moment>>>()?;
 
         Ok(Self { name, timestamp, version, moments })
     }
@@ -79,13 +84,16 @@ impl Timeline {
             writer.write_f64::<LE>(self.timestamp.0)?;
         }
         writer.write_u32::<LE>(self.version as u32)?;
-        
+
         writer.write_u32::<LE>(self.moments.len() as u32)?;
-        for (moment_index, actions) in &self.moments {
-            writer.write_u32::<LE>(*moment_index)?;
-            writer.write_u32::<LE>(400)?;
-            writer.write_u32::<LE>(actions.len() as u32)?;
-            for action in actions {
+        for moment in &self.moments {
+            assert_eq!(moment.version, Version::Gm400);
+            writer.write_u32::<LE>(moment.index)?;
+            writer.write_u32::<LE>(moment.version as u32)?;
+
+            assert!(moment.actions.len() <= u32::max_value() as usize);
+            writer.write_u32::<LE>(moment.actions.len() as u32)?;
+            for action in &moment.actions {
                 action.write(&mut writer)?;
             }
         }
