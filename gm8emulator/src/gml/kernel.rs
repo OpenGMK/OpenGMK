@@ -3940,23 +3940,24 @@ impl Game {
 
     pub fn string_copy(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let start = (start as isize - 1).max(0) as usize;
+        let start = (start-1).max(0) as usize;
         let len = len.max(0) as usize;
         let s = s.as_ref();
-        let (start, end) = match self.gm_version {
+        Ok(match self.gm_version {
             Version::GameMaker8_0 => {
-                let end = (start + len).min(s.len());
-                (start, end)
+                s.iter().skip(start)
+                        .take(len)
+                        .copied()
+                        .collect::<Vec<_>>().into()
             },
             Version::GameMaker8_1 => {
-                let s = self.decode_str(s);
-                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
-                let sub = s.get(start..).unwrap_or("");
-                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
-                (start, start + len)
+                self.decode_str(s)
+                    .chars()
+                    .skip(start)
+                    .take(len)
+                    .collect::<String>().into()
             },
-        };
-        Ok(Value::from(s.get(start..end).unwrap_or(b"")))
+        })
     }
 
     pub fn string_char_at(&self, args: &[Value]) -> gml::Result<Value> {
