@@ -26,6 +26,7 @@ use gmio::{
 use image::RgbaImage;
 use shared::{input::MouseButton, types::Colour};
 use std::{
+    convert::TryFrom,
     io::{Read, Write},
     process::Command,
 };
@@ -3975,23 +3976,26 @@ impl Game {
 
     pub fn string_delete(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let start = (start as isize - 1).max(0) as usize;
-        let len = len.max(0) as usize;
+        let (start, len) = match (<usize>::try_from(start-1), len) {
+            (Ok(a), b) if b > 0 => (a, b as usize),
+            _ => return Ok(s.into()),
+        };
         let s = s.as_ref();
-        let (start, end) = match self.gm_version {
+        Ok(match self.gm_version {
             Version::GameMaker8_0 => {
-                let end = (start + len).min(s.len());
-                (start, end)
+                s.iter().take(start)
+                        .chain(s.iter().skip(start+len))
+                        .copied()
+                        .collect::<Vec<_>>().into()
             },
             Version::GameMaker8_1 => {
-                let s = self.decode_str(s);
-                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
-                let sub = s.get(start..).unwrap_or("");
-                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
-                (start, start + len)
+                self.decode_str(s)
+                    .chars()
+                    .enumerate()
+                    .filter_map(|(i, x)| if (start..start+len).contains(&i) {None} else {Some(x)})
+                    .collect::<String>().into()
             },
-        };
-        Ok(s[..start].iter().chain(&s[end..]).copied().collect::<Vec<_>>().into())
+        })
     }
 
     pub fn string_insert(args: &[Value]) -> gml::Result<Value> {
