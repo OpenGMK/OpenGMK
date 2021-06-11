@@ -9150,14 +9150,24 @@ impl Game {
         
     }
 
-    pub fn timeline_moment_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function timeline_moment_clear")
+    pub fn timeline_moment_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (timeline, moment) = expect_args!(args, [int, int])?;
+        if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
+            timeline.moments.borrow_mut().remove(&moment);
+        }
+        Ok(Default::default())
     }
 
-    pub fn timeline_moment_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function timeline_moment_add")
+    pub fn timeline_moment_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (timeline, moment, code) = expect_args!(args, [int, int, bytes])?;
+        // Note: GM8 does not attempt to compile the string if the timeline doesn't exist
+        if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
+            let instrs = self.compiler.compile(code.as_ref())
+                .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
+            
+            timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
+        }
+        Ok(Default::default())
     }
 
     pub fn object_exists(&self, args: &[Value]) -> gml::Result<Value> {
