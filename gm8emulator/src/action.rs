@@ -51,7 +51,7 @@ pub struct Action {
 
 /// Abstraction for a tree of Actions
 /// Note that Vec is necessary here due to functions such as object_event_add and object_event_clear
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Tree(Vec<Action>);
 
 /// Body of an action, depending on the action kind.
