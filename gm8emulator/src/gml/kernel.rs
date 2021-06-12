@@ -2069,6 +2069,9 @@ impl Game {
 
     pub fn surface_free(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
+        if self.surface_target == Some(surf_id) {
+            self.surface_reset_target(&[])?;
+        }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.delete_sprite(surf.atlas_ref);
             self.surfaces[surf_id as usize] = None;
