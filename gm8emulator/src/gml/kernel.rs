@@ -1263,24 +1263,8 @@ impl Game {
 
     pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.room.instance_list.get(context.this);
-        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.image_index.get())) {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    instance.x.get().into(),
-                    instance.y.get().into(),
-                    instance.image_xscale.get().into(),
-                    instance.image_yscale.get().into(),
-                    instance.image_angle.get().into(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get().into(),
-                );
-            }
-            Ok(Default::default())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
-        }
+        self.draw_instance_default(context.this)?;
+        Ok(Default::default())
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {

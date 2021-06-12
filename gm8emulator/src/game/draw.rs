@@ -1,5 +1,5 @@
 use crate::{
-    asset::{font, Font},
+    asset::{self, font, Font},
     game::{string::RCStr, Game, GetAsset, Version},
     gml,
     math::Real,
@@ -239,6 +239,27 @@ impl Game {
         Ok(())
     }
 
+    pub fn draw_instance_default(&mut self, idx: usize) -> gml::Result<()> {
+        let instance = self.room.instance_list.get(idx);
+        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    instance.x.get().into(),
+                    instance.y.get().into(),
+                    instance.image_xscale.get().into(),
+                    instance.image_yscale.get().into(),
+                    instance.image_angle.get().into(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get().into(),
+                );
+            }
+            Ok(())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
+        }
+    }
+
     /// Draws everything in the scene using a given view rectangle
     fn draw_view(
         &mut self,
@@ -269,20 +290,7 @@ impl Game {
                     game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
                 } else {
                     // Default draw action
-                    if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
-                            game.renderer.draw_sprite(
-                                atlas_ref,
-                                instance.x.get().into(),
-                                instance.y.get().into(),
-                                instance.image_xscale.get().into(),
-                                instance.image_yscale.get().into(),
-                                instance.image_angle.get().into(),
-                                instance.image_blend.get(),
-                                instance.image_alpha.get().into(),
-                            )
-                        }
-                    }
+                    let _ = game.draw_instance_default(idx);
                     Ok(())
                 }
             } else {
