@@ -1,4 +1,3 @@
-use crate::util;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
@@ -6,13 +5,27 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
 };
 
-/// A transparent wrapper for f64 with extended precision (80-bit) arithmetic.
+/// A transparent wrapper for f64 which intended to emulate Double type from Delphi.
 #[derive(Copy, Clone, Default, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct Real(f64);
 
 /// The lenience between values when compared.
 const CMP_EPSILON: f64 = 1e-13;
+
+/// The default way to round as defined by IEEE 754 - nearest, ties to even.
+pub fn ieee_round(real: f64) -> i32 {
+    let floor = real.floor();
+    let floori = floor as i64 as i32;
+    let diff = real - floor;
+    if diff < 0.5 {
+        floori
+    } else if diff > 0.5 {
+        floori + 1
+    } else {
+        floori + (floori & 1)
+    }
+}
 
 impl Real {
     #[inline(always)]
@@ -30,42 +43,52 @@ impl Real {
         Self(self.0.tan())
     }
 
+    #[inline(always)]
     pub fn arcsin(self) -> Self {
         Self(self.0.asin())
     }
 
+    #[inline(always)]
     pub fn arccos(self) -> Self {
         Self(self.0.acos())
     }
 
+    #[inline(always)]
     pub fn arctan(self) -> Self {
         Self(self.0.atan())
     }
 
-    pub fn arctan2(self, other: Real) -> Self {
+    #[inline(always)]
+    pub fn arctan2(self, other: Self) -> Self {
         Self(self.0.atan2(other.0))
     }
 
+    #[inline(always)]
     pub fn exp(self) -> Self {
         Self(self.0.exp())
     }
 
+    #[inline(always)]
     pub fn ln(self) -> Self {
         Self(self.0.ln())
     }
 
+    #[inline(always)]
     pub fn log2(self) -> Self {
         Self(self.0.log2())
     }
 
+    #[inline(always)]
     pub fn log10(self) -> Self {
         Self(self.0.log10())
     }
 
-    pub fn logn(self, other: Real) -> Self {
+    #[inline(always)]
+    pub fn logn(self, other: Self) -> Self {
         Self(self.0.log(other.0))
     }
 
+    #[inline(always)]
     pub fn sqrt(self) -> Self {
         Self(self.0.sqrt())
     }
@@ -110,21 +133,21 @@ impl Div for Real {
 impl From<i32> for Real {
     #[inline(always)]
     fn from(i: i32) -> Self {
-        Real(f64::from(i))
+        Self(f64::from(i))
     }
 }
 
 impl From<u32> for Real {
     #[inline(always)]
     fn from(i: u32) -> Self {
-        Real(f64::from(i))
+        Self(f64::from(i))
     }
 }
 
 impl From<f64> for Real {
     #[inline(always)]
     fn from(f: f64) -> Self {
-        Real(f)
+        Self(f)
     }
 }
 
@@ -180,7 +203,7 @@ impl Rem for Real {
 
     #[inline(always)]
     fn rem(self, other: Self) -> Self {
-        Real(self.0 % other.0)
+        Self(self.0 % other.0)
     }
 }
 
@@ -189,7 +212,7 @@ impl Neg for Real {
 
     #[inline(always)]
     fn neg(self) -> Self {
-        Real(-self.0)
+        Self(-self.0)
     }
 }
 
@@ -202,6 +225,7 @@ impl PartialEq for Real {
 impl Eq for Real {}
 
 impl PartialOrd for Real {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let sub = *self - *other;
         if sub.0 >= CMP_EPSILON {
@@ -214,29 +238,40 @@ impl PartialOrd for Real {
     }
 }
 
-impl std::iter::Sum<Real> for Real {
-    fn sum<I>(iter: I) -> Real
+impl std::iter::Sum<Self> for Real {
+    #[inline]
+    fn sum<I>(iter: I) -> Self
     where
-        I: Iterator<Item = Real>,
+        I: Iterator<Item = Self>,
     {
-        iter.fold(Real(0.0), Real::add)
+        iter.fold(Self(0.0), Self::add)
     }
 }
 
 impl Real {
-    #[inline(always)]
-    pub fn abs(self) -> Self {
-        self.0.abs().into()
-    }
-
     #[inline(always)]
     pub fn into_inner(self) -> f64 {
         self.0
     }
 
     #[inline(always)]
+    pub fn as_ref(&self) -> &f64 {
+        &self.0
+    }
+
+    #[inline(always)]
+    pub fn as_mut_ref(&mut self) -> &mut f64 {
+        &mut self.0
+    }
+
+    #[inline(always)]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline(always)]
     pub fn round(self) -> i32 {
-        util::ieee_round(self.0)
+        ieee_round(self.0)
     }
 
     #[inline(always)]
@@ -270,36 +305,26 @@ impl Real {
     }
 
     #[inline(always)]
-    pub fn min(self, other: Real) -> Self {
-        self.0.min(other.0).into()
+    pub fn min(self, other: Self) -> Self {
+        Self(self.0.min(other.0))
     }
 
     #[inline(always)]
-    pub fn max(self, other: Real) -> Self {
-        self.0.max(other.0).into()
+    pub fn max(self, other: Self) -> Self {
+        Self(self.0.max(other.0))
     }
 
     #[inline(always)]
-    pub fn clamp(self, min: Real, max: Real) -> Self {
+    pub fn clamp(self, min: Self, max: Self) -> Self {
         Self(self.0.clamp(min.0, max.0))
     }
 
     #[inline(always)]
-    pub fn rem_euclid(self, other: Real) -> Self {
-        self.0.rem_euclid(other.0).into()
+    pub fn rem_euclid(self, other: Self) -> Self {
+        Self(self.0.rem_euclid(other.0))
     }
 
-    #[inline(always)]
-    pub fn as_ref(&self) -> &f64 {
-        &self.0
-    }
-
-    #[inline(always)]
-    pub fn as_mut_ref(&mut self) -> &mut f64 {
-        &mut self.0
-    }
-
-    #[inline(always)]
+    #[inline]
     pub fn cmp_nan_first(&self, other: &Self) -> Ordering {
         if self.0.is_nan() {
             if other.0.is_nan() {

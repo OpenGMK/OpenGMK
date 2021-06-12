@@ -1,4 +1,4 @@
-use crate::{math::Real, util};
+use crate::{math, util};
 use serde::{Deserialize, Serialize};
 
 /// An instance of a view in a room
@@ -32,7 +32,7 @@ pub struct View {
     pub port_h: u32,
 
     /// Angle to which this view is rotated on the screen
-    pub angle: Real,
+    pub angle: math::Real,
 
     /// Target object ID this view should follow
     pub follow_target: i32,
@@ -76,6 +76,6 @@ impl View {
             angle.sin().into(),
             angle.cos().into(),
         );
-        (util::ieee_round(x), util::ieee_round(y))
+        (math::ieee_round(x), math::ieee_round(y))
     }
 }
