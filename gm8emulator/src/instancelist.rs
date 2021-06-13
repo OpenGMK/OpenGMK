@@ -261,7 +261,7 @@ impl InstanceList {
     }
 
     pub fn count(&self, object_index: ID) -> usize {
-        self.object_id_map
+        self.object_id_map_inherit
             .get(&object_index)
             .map(|v| v.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() == InstanceState::Active).count())
             .unwrap_or_default()

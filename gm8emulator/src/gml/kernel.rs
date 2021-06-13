@@ -2949,17 +2949,13 @@ impl Game {
 
     pub fn action_if_number(&self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, number, comparator) = expect_args!(args, [int, int, int])?;
-        if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-            let count = ids.borrow().iter().copied().map(|id| self.room.instance_list.count(id)).sum::<usize>() as i32;
-            let cond = match comparator {
-                1 => count < number,
-                2 => count > number,
-                0 | _ => count == number,
-            };
-            Ok(cond.into())
-        } else {
-            Ok(0.into())
-        }
+        let count = self.room.instance_list.count(object_id) as i32;
+        let cond = match comparator {
+            1 => count < number,
+            2 => count > number,
+            0 | _ => count == number,
+        };
+        Ok(cond.into())
     }
 
     pub fn action_if_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4848,13 +4844,7 @@ impl Game {
             gml::SELF => self.room.instance_list.get(context.this).state.get() == InstanceState::Active,
             gml::OTHER => self.room.instance_list.get(context.other).state.get() == InstanceState::Active,
             gml::ALL => self.room.instance_list.any_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().any(|&obj| self.room.instance_list.count(obj) != 0)
-                } else {
-                    false
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj) != 0,
             _ => self.room.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
@@ -4878,13 +4868,7 @@ impl Game {
                 }
             },
             gml::ALL => self.room.instance_list.count_all_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().map(|&obj| self.room.instance_list.count(obj)).sum()
-                } else {
-                    0
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj),
             inst_id => {
                 if self.room.instance_list.get_by_instid(inst_id).is_some() {
                     1
