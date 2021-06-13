@@ -169,6 +169,7 @@ pub struct InstanceList {
     insert_order: Vec<usize>,
     draw_order: Vec<usize>,
     object_id_map: HashMap<ID, Vec<usize>>, // Object ID <-> Count
+    object_id_map_inherit: HashMap<ID, Vec<usize>>,
     inactive_id_map: HashMap<ID, Vec<usize>>,
 }
 
@@ -246,6 +247,7 @@ impl InstanceList {
             insert_order: Vec::new(),
             draw_order: Vec::new(),
             object_id_map: HashMap::new(),
+            object_id_map_inherit: HashMap::new(),
             inactive_id_map: HashMap::new(),
         }
     }
@@ -340,6 +342,9 @@ impl InstanceList {
         self.insert_order.push(value);
         self.draw_order.push(value);
         self.object_id_map.entry(object_id).or_insert(Vec::new()).push(value);
+        for &parent in self.get(value).parents.clone().borrow().iter() {
+            self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(value);
+        }
         value
     }
 
@@ -357,6 +362,7 @@ impl InstanceList {
             instance.state.set(InstanceState::Inactive);
 
             let object_id = instance.object_index.get();
+            let parents = instance.parents.clone();
             // Add to inactive
             self.inactive_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
             // Remove from active
@@ -364,6 +370,14 @@ impl InstanceList {
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
                 if occupied.get().is_empty() {
                     occupied.remove_entry();
+                }
+            }
+            for &parent in parents.borrow().iter() {
+                let entry = self.object_id_map_inherit.entry(parent).and_modify(|v| v.retain(|h| *h != handle));
+                if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                    if occupied.get().is_empty() {
+                        occupied.remove_entry();
+                    }
                 }
             }
         }
@@ -375,8 +389,12 @@ impl InstanceList {
             instance.state.set(InstanceState::Active);
 
             let object_id = instance.object_index.get();
+            let parents = instance.parents.clone();
             // Add to active
             self.object_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
+            for &parent in parents.borrow().iter() {
+                self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(handle);
+            }
             // Remove from inactive
             let entry = self.inactive_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
@@ -407,6 +425,10 @@ impl InstanceList {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
             self.object_id_map.retain(|_, list| !list.is_empty());
+            for instances in self.object_id_map_inherit.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
         }
     }
 
@@ -420,6 +442,10 @@ impl InstanceList {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
             self.object_id_map.retain(|_, list| !list.is_empty());
+            for instances in self.object_id_map_inherit.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
         }
         instances
     }
@@ -583,6 +609,7 @@ impl Serialize for InstanceList {
         list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
         list.serialize_field("object_id_map", &defrag_map(&self.object_id_map, &self.insert_order))?;
+        list.serialize_field("object_id_map_inherit", &defrag_map(&self.object_id_map_inherit, &self.insert_order))?;
         list.serialize_field("inactive_id_map", &defrag_map(&self.inactive_id_map, &self.insert_order))?;
         list.end()
     }
