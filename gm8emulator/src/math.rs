@@ -265,6 +265,16 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn to_i32(self) -> i32 {
+        self.0 as i64 as i32
+    }
+
+    #[inline(always)]
+    pub fn to_u32(self) -> u32 {
+        self.0 as i64 as u32
+    }
+
+    #[inline(always)]
     pub fn abs(self) -> Self {
         Self(self.0.abs())
     }
