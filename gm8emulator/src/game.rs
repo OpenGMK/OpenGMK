@@ -2881,20 +2881,16 @@ impl Game {
             },
             _ if object_id < 0 => None,
             object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(handle) => {
-                                if pred(handle) {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(object_id);
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(handle) => {
+                            if pred(handle) {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
                     }
-                } else {
-                    None
                 }
             },
             instance_id => {

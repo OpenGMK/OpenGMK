@@ -9,12 +9,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use shared::types::ID;
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    fmt,
-    rc::Rc,
-};
+use std::{collections::HashMap, fmt};
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
@@ -197,25 +192,18 @@ impl ILIterInactive {
 pub struct IdentityIter {
     count: usize,
     position: usize,
-    children: Rc<RefCell<HashSet<ID>>>,
+    object_index: ID,
     state: InstanceState,
 }
 impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        if self.count > 0 {
-            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance);
-                if inst.state.get() == self.state {
-                    let oidx = inst.object_index.get();
-                    if self.children.borrow().contains(&oidx) {
-                        self.count -= 1;
-                        self.position += idx + 1;
-                        return Some(instance)
-                    }
-                }
-            }
+        if self.position < self.count {
+            list.object_id_map_inherit
+                .get(&self.object_index)
+                .and_then(|v| nb_il_iter(v, &mut self.position, list, self.state))
+        } else {
+            None
         }
-        None
     }
 }
 
@@ -312,20 +300,22 @@ impl InstanceList {
         ILIterInactive(0)
     }
 
-    pub fn iter_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = identities
-            .borrow()
-            .iter()
-            .fold(0, |acc, x| acc + self.object_id_map.get(x).map(|v| v.len()).unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities, state: InstanceState::Active }
+    pub fn iter_by_identity(&self, object_index: ID) -> IdentityIter {
+        IdentityIter {
+            count: self.object_id_map_inherit.get(&object_index).map(|v| v.len()).unwrap_or(0),
+            position: 0,
+            object_index,
+            state: InstanceState::Active,
+        }
     }
 
-    pub fn iter_inactive_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = identities
-            .borrow()
-            .iter()
-            .fold(0, |acc, x| acc + self.inactive_id_map.get(x).map(|v| v.len()).unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities, state: InstanceState::Inactive }
+    pub fn iter_inactive_by_identity(&self, object_index: ID) -> IdentityIter {
+        IdentityIter {
+            count: self.object_id_map_inherit.get(&object_index).map(|v| v.len()).unwrap_or(0),
+            position: 0,
+            object_index,
+            state: InstanceState::Inactive,
+        }
     }
 
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
