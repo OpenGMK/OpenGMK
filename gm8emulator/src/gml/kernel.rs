@@ -9308,13 +9308,35 @@ impl Game {
     pub fn object_set_parent(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, new_parent) = expect_args!(args, [int, int])?;
         if let Some(object) = self.assets.objects.get_asset(object_id) {
-            // Remove object and all its children from old parents
+            let parents = object.parents.borrow();
             let children = object.children.borrow();
+            // Remove object and its parents from all its children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().retain(|p| !parents.contains(p));
+                }
+            }
+            // Remove object and all its children from old parents
             let mut parent_index = object.parent_index;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
                 parent.children.borrow_mut().retain(|c| !children.contains(c));
                 parent_index = parent.parent_index;
             }
+            // Calculate new parents
+            let mut new_parents = self
+                .assets
+                .objects
+                .get_asset(new_parent)
+                .map(|o| o.parents.as_ref().borrow().clone())
+                .unwrap_or_default();
+            new_parents.insert(object_id);
+            // Add object and all its new parents to children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().extend(&new_parents);
+                }
+            }
+            self.assets.objects.get_asset(object_id).map(|o| *o.parents.borrow_mut() = new_parents);
             // Add object and all its children to new parents
             parent_index = new_parent;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
@@ -9343,8 +9365,10 @@ impl Game {
             parent_index: -1,
             events: Default::default(),
             children,
+            parents: Default::default(),
         });
         object.children.borrow_mut().insert(id);
+        object.parents.borrow_mut().insert(id);
         self.assets.objects.push(Some(object));
         Ok(id.into())
     }
