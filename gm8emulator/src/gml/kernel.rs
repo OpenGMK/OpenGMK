@@ -518,8 +518,8 @@ impl Game {
         let s = s / Real::from(255.0);
         let v = v / Real::from(255.0);
         let chroma = v * s;
-        let hprime = (h / Real::from(60.0)) % Real::from(6.0);
-        let x = chroma * (Real::from(1.0) - ((hprime % Real::from(2.0)) - Real::from(1.0)).abs());
+        let hprime = (h / Real::from(60.0)).rem_euclid(Real::from(6.0));
+        let x = chroma * (Real::from(1.0) - (hprime.rem_euclid(Real::from(2.0)) - Real::from(1.0)).abs());
         let m = v - chroma;
 
         let (r, g, b) = match hprime.floor().into_inner() as i32 {
