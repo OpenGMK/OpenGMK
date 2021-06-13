@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use shared::types::ID;
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     f64,
+    rc::Rc,
 };
 
 // Default in GameMaker 8
@@ -79,6 +80,8 @@ pub struct Instance {
 
     pub fields: RefCell<HashMap<usize, Field>>,
     pub alarms: RefCell<HashMap<u32, i32>>,
+
+    pub parents: Rc<RefCell<HashSet<i32>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -147,6 +150,7 @@ impl Instance {
             bbox_is_stale: Cell::new(true),
             fields: RefCell::new(HashMap::new()),
             alarms: RefCell::new(HashMap::new()),
+            parents: object.parents.clone(),
         }
     }
 
@@ -203,6 +207,7 @@ impl Instance {
             bbox_is_stale: Cell::new(true),
             fields: RefCell::new(HashMap::new()),
             alarms: RefCell::new(HashMap::new()),
+            parents: Rc::new(RefCell::new(HashSet::new())),
         }
     }
 
