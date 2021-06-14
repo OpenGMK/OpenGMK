@@ -242,7 +242,7 @@ impl Game {
     pub fn draw_instance_default(&mut self, idx: usize) -> gml::Result<()> {
         let instance = self.room.instance_list.get(idx);
         if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get().floor().to_i32()) {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     instance.x.get().into(),
@@ -424,7 +424,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
             let (x, y) = self.get_mouse_in_room();
             if let Some(atlas_ref) =
-                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+                sprite.get_atlas_ref((self.cursor_sprite_frame % sprite.frames.len() as u32) as i32)
             {
                 self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }

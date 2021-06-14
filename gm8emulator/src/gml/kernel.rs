@@ -1015,7 +1015,7 @@ impl Game {
     pub fn sprite_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(image_index)) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 return Ok(self.renderer.get_texture_id(atlas_ref).into())
             }
             Ok((-1).into())
@@ -1266,10 +1266,10 @@ impl Game {
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, int, real, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1289,10 +1289,10 @@ impl Game {
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1332,10 +1332,10 @@ impl Game {
 
     pub fn draw_sprite_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, w, h, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1378,10 +1378,10 @@ impl Game {
 
     pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1426,11 +1426,11 @@ impl Game {
             col4,
             alpha,
         ) = expect_args!(args, [
-            int, real, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+            int, int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
         ])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1476,10 +1476,10 @@ impl Game {
 
     pub fn draw_sprite_tiled_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -3116,7 +3116,7 @@ impl Game {
             y += inst.y.get();
         }
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(0)) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(0) {
                 for _ in 0..self.lives {
                     self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
                     x += sprite.width.into();
@@ -8271,7 +8271,7 @@ impl Game {
         let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let image_index = subimg % sprite.frames.len() as i32;
-            if let Some(frame) = sprite.get_frame(Real::from(image_index)) {
+            if let Some(frame) = sprite.get_frame(image_index) {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
