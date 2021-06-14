@@ -26,15 +26,15 @@ macro_rules! gml_cmp_impl {
             $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
                 let freal: fn(Real, Real) -> bool = $r_cond;
                 let fstr: fn(&[u8], &[u8]) -> bool = $s_cond;
-                if match (self, rhs) {
+                Ok(if match (self, rhs) {
                     (Self::Real(a), Self::Real(b)) => freal(a, b),
                     (Self::Str(a), Self::Str(b)) => fstr(a.as_ref(), b.as_ref()),
                     (a, b) => return invalid_op!($op_variant, a, b),
                 } {
-                    Ok(Self::Real(super::TRUE.into()))
+                    super::TRUE
                 } else {
-                    Ok(Self::Real(super::FALSE.into()))
-                }
+                    super::FALSE
+                }.into())
             }
         )*
     };
@@ -121,7 +121,7 @@ impl Value {
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Self::Real(val) => Ok(Self::Real(f64::from(!val.round()).into())),
+            Self::Real(val) => Ok((!val.round()).into()),
             _ => invalid_op!(Complement, self),
         }
     }
@@ -129,47 +129,35 @@ impl Value {
     /// GML operator 'div' which gives the whole number of times RHS can go into LHS. In other words floor(lhs/rhs)
     pub fn intdiv(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs / rhs).floor())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs / rhs).floor().into()),
             (x, y) => invalid_op!(IntDivide, x, y),
         }
     }
 
     /// GML && operator
     pub fn bool_and(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() && rhs.is_truthy() {
-            Self::Real(gml::TRUE.into())
-        } else {
-            Self::Real(gml::FALSE.into())
-        })
+        Ok((self.is_truthy() && rhs.is_truthy()).into())
     }
 
     /// GML || operator
     pub fn bool_or(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() || rhs.is_truthy() {
-            Self::Real(gml::TRUE.into())
-        } else {
-            Self::Real(gml::FALSE.into())
-        })
+        Ok((self.is_truthy() || rhs.is_truthy()).into())
     }
 
     /// GML ^^ operator
     pub fn bool_xor(self, rhs: Self) -> gml::Result<Self> {
-        Ok(if self.is_truthy() != rhs.is_truthy() {
-            Self::Real(gml::TRUE.into())
-        } else {
-            Self::Real(gml::FALSE.into())
-        })
+        Ok((self.is_truthy() != rhs.is_truthy()).into())
     }
 
     pub fn add(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs + rhs)),
-            (Self::Str(lhs), Self::Str(rhs)) => Ok(Self::Str({
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs + rhs).into()),
+            (Self::Str(lhs), Self::Str(rhs)) => {
                 let mut buf = Vec::with_capacity(lhs.as_ref().len() + rhs.as_ref().len());
                 buf.extend_from_slice(lhs.as_ref());
                 buf.extend_from_slice(rhs.as_ref());
-                RCStr::from(buf)
-            })),
+                Ok(buf.into())
+            },
             (x, y) => invalid_op!(Add, x, y),
         }
     }
@@ -191,7 +179,7 @@ impl Value {
 
     pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() & rhs.round()).into())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() & rhs.round()).into()),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
@@ -205,7 +193,7 @@ impl Value {
 
     pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() | rhs.round()).into())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() | rhs.round()).into()),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
@@ -219,7 +207,7 @@ impl Value {
 
     pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() ^ rhs.round()).into())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() ^ rhs.round()).into()),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
@@ -233,7 +221,7 @@ impl Value {
 
     pub fn div(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs / rhs)),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs / rhs).into()),
             (x, y) => invalid_op!(Divide, x, y),
         }
     }
@@ -247,17 +235,17 @@ impl Value {
 
     pub fn modulo(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs % rhs)),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs % rhs).into()),
             (x, y) => invalid_op!(Modulo, x, y),
         }
     }
 
     pub fn mul(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs * rhs)),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs * rhs).into()),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
                 let repeat = lhs.round();
-                if repeat > 0 { rhs.as_ref().repeat(repeat as usize).into() } else { "".to_string().into() }
+                if repeat > 0 { rhs.as_ref().repeat(repeat as usize).into() } else { "".into() }
             }),
             (x, y) => invalid_op!(Multiply, x, y),
         }
@@ -272,35 +260,35 @@ impl Value {
 
     pub fn neg(self) -> gml::Result<Self> {
         match self {
-            Self::Real(f) => Ok(Self::Real(-f)),
+            Self::Real(f) => Ok((-f).into()),
             Self::Str(_) => invalid_op!(Subtract, self),
         }
     }
 
     pub fn not(self) -> gml::Result<Self> {
         match self {
-            Self::Real(_) => Ok(Self::Real(i32::from(!self.is_truthy()).into())),
+            Self::Real(_) => Ok((!self.is_truthy()).into()),
             Self::Str(_) => invalid_op!(Not, self),
         }
     }
 
     pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() << rhs.round()).into())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() << rhs.round()).into()),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
     pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real((lhs.round() >> rhs.round()).into())),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() >> rhs.round()).into()),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
 
     pub fn sub(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs - rhs)),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs - rhs).into()),
             (x, y) => invalid_op!(Subtract, x, y),
         }
     }
@@ -343,12 +331,12 @@ impl Value {
         reader.read_exact(&mut block).ok()?;
         if block.len() == 16 {
             match u32::from_le_bytes(block[0..4].try_into().unwrap()) {
-                0 => Some(Self::Real(Real::from(f64::from_le_bytes(block[4..12].try_into().unwrap())))),
+                0 => Some(f64::from_le_bytes(block[4..12].try_into().unwrap()).into()),
                 1 => {
                     let len = u32::from_le_bytes(block[12..16].try_into().unwrap());
                     let mut buf = vec![0; len as usize];
                     reader.read_exact(&mut buf).ok()?;
-                    Some(Self::Str(buf.into()))
+                    Some(buf.into())
                 },
                 _ => None,
             }
@@ -366,7 +354,7 @@ impl From<f64> for Value {
 
 impl From<Real> for Value {
     fn from(value: Real) -> Self {
-        Self::Real(value.into())
+        Self::Real(value)
     }
 }
 
@@ -384,13 +372,13 @@ impl From<u32> for Value {
 
 impl From<usize> for Value {
     fn from(value: usize) -> Self {
-        Self::Real(Real::from(value as f64))
+        (value as f64).into()
     }
 }
 
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
-        Self::Real(if value { gml::TRUE.into() } else { gml::FALSE.into() })
+        Self::Real(if value { gml::TRUE } else { gml::FALSE }.into())
     }
 }
 
@@ -435,7 +423,7 @@ impl From<Value> for i32 {
 }
 
 impl From<Value> for u32 {
-    // For lazy-converting a value into a u32.
+    // For lazy-converting a value into an u32.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(r) => r.round() as u32,
@@ -445,7 +433,7 @@ impl From<Value> for u32 {
 }
 
 impl From<Value> for f64 {
-    // For lazy-converting a value into an f64.
+    // For lazy-converting a value into a f64.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(r) => r.into(),
@@ -465,7 +453,7 @@ impl From<Value> for Real {
 }
 
 impl From<Value> for RCStr {
-    // For lazy-converting a value into an RCStr.
+    // For lazy-converting a value into a RCStr.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(_) => String::new().into(),
