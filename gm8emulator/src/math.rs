@@ -14,16 +14,15 @@ pub struct Real(f64);
 const CMP_EPSILON: f64 = 1e-13;
 
 /// The default way to round as defined by IEEE 754 - nearest, ties to even.
-pub fn ieee_round(real: f64) -> i32 {
-    let floor = real.floor();
-    let floori = floor as i64 as i32;
-    let diff = real - floor;
+pub fn ieee_round(real: f64) -> f64 {
+    let int = real.floor();
+    let diff = real - int;
     if diff < 0.5 {
-        floori
+        int
     } else if diff > 0.5 {
-        floori + 1
+        int + 1.0
     } else {
-        floori + (floori & 1)
+        int + (int as i64 & 1) as f64
     }
 }
 
@@ -280,8 +279,9 @@ impl Real {
     }
 
     #[inline(always)]
-    pub fn round(self) -> i32 {
-        ieee_round(self.0)
+    pub fn round(self) -> Self {
+        // So-called "banker's rounding", identical to Math.Round() from Delphi.
+        Self(ieee_round(self.0))
     }
 
     #[inline(always)]

@@ -148,8 +148,8 @@ impl From<DateTime> for Value {
 
 impl From<Real> for DateTime {
     fn from(dt: Real) -> Self {
-        let days = time::Duration::days(dt.trunc().round().into());
-        let ms = time::Duration::milliseconds((dt.fract() * Real::from(86400000)).floor().round().into());
+        let days = time::Duration::days(dt.trunc().to_i32().into());
+        let ms = time::Duration::milliseconds((dt.fract() * Real::from(86400000)).floor().to_i32().into());
         // negate the time (see the inverse function for explanation)
         Self(epoch() + days + if dt > 0.into() { ms } else { -ms })
     }

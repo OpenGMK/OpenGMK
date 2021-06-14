@@ -62,12 +62,13 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
+#[rustfmt::skip]
 fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
     let (r, g, b) = (Real::from(0xFF & colour), Real::from(0xFF & (colour >> 8)), Real::from(0xFF & (colour >> 16)));
 
     let (min, max) = (r.min(g).min(b), r.max(g).max(b));
 
-    let v = max.round();
+    let v = max.round().to_i32();
     let (h, s);
 
     if max == min {
@@ -79,7 +80,7 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
         let range255 = Real::from(255);
 
         let diff = max - min;
-        s = ((diff / max) * range255).round();
+        s = ((diff / max) * range255).round().to_i32();
 
         h = ((((if max == g {
             x60 * ((b - r) / diff) + Real::from(120)
@@ -89,10 +90,7 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
             x60 * ((g - b) / diff) + angle360
         } else {
             unsafe { std::hint::unreachable_unchecked() }
-        }) % angle360)
-            / angle360)
-            * range255)
-            .round();
+        }) % angle360) / angle360) * range255).round().to_i32();
     }
 
     (h, s, v)
@@ -532,9 +530,9 @@ impl Game {
             _ => (Real::from(0.0), Real::from(0.0), Real::from(0.0)),
         };
 
-        let out_r = ((r + m) * Real::from(255.0)).round();
-        let out_g = ((g + m) * Real::from(255.0)).round();
-        let out_b = ((b + m) * Real::from(255.0)).round();
+        let out_r = ((r + m) * Real::from(255.0)).round().to_i32();
+        let out_g = ((g + m) * Real::from(255.0)).round().to_i32();
+        let out_b = ((b + m) * Real::from(255.0)).round().to_i32();
         Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
@@ -573,7 +571,7 @@ impl Game {
         let r = Real::from(c1 & 255) * (Real::from(1) - amount) + Real::from(c2 & 255) * amount;
         let g = Real::from((c1 >> 8) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 8) & 255) * amount;
         let b = Real::from((c1 >> 16) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 16) & 255) * amount;
-        Ok(Value::from((r.round() & 255) + ((g.round() & 255) << 8) + ((b.round() & 255) << 16)))
+        Ok(Value::from((r.round().to_i32() & 255) + ((g.round().to_i32() & 255) << 8) + ((b.round().to_i32() & 255) << 16)))
     }
 
     pub fn draw_set_blend_mode(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -4129,10 +4127,10 @@ impl Game {
             .or(self.assets.sprites.get_asset(inst.mask_index.get()))
         {
             inst.update_bbox(Some(sprite));
-            left = (inst.x.get() - inst.bbox_left.get().into()).round();
-            right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round();
-            top = (inst.y.get() - inst.bbox_top.get().into()).round();
-            bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round();
+            left = (inst.x.get() - inst.bbox_left.get().into()).round().to_i32();
+            right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round().to_i32();
+            top = (inst.y.get() - inst.bbox_top.get().into()).round().to_i32();
+            bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round().to_i32();
         };
         drop(inst); // le borrow
         let (mut x, mut y) = Default::default();
@@ -12764,7 +12762,7 @@ impl Game {
             // translate according to given position
             let old_model_matrix = self.renderer.get_model_matrix();
             #[rustfmt::skip]
-                let translation: [f32; 16] = [
+            let translation: [f32; 16] = [
                 1.0,                    0.0,                    0.0,                    0.0,
                 0.0,                    1.0,                    0.0,                    0.0,
                 0.0,                    0.0,                    1.0,                    0.0,

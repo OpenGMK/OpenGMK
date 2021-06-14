@@ -2342,7 +2342,7 @@ impl Game {
             let collider1 = match if sprite1.per_frame_colliders {
                 sprite1
                     .colliders
-                    .get((inst1.image_index.get().floor().round() % sprite1.colliders.len() as i32) as usize)
+                    .get((inst1.image_index.get().floor().to_i32() % sprite1.colliders.len() as i32) as usize)
             } else {
                 sprite1.colliders.first()
             } {
@@ -2353,7 +2353,7 @@ impl Game {
             let collider2 = match if sprite2.per_frame_colliders {
                 sprite2
                     .colliders
-                    .get((inst2.image_index.get().floor().round() % sprite2.colliders.len() as i32) as usize)
+                    .get((inst2.image_index.get().floor().to_i32() % sprite2.colliders.len() as i32) as usize)
             } else {
                 sprite2.colliders.first()
             } {
@@ -2387,8 +2387,8 @@ impl Game {
                     let mut x = Real::from(intersect_x) - x1.into();
                     let mut y = Real::from(intersect_y) - y1.into();
                     util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin1, cos1);
-                    let x = (Real::from(sprite1.origin_x) + (x / inst1.image_xscale.get()).floor()).round();
-                    let y = (Real::from(sprite1.origin_y) + (y / inst1.image_yscale.get()).floor()).round();
+                    let x = (Real::from(sprite1.origin_x) + (x / inst1.image_xscale.get()).floor()).to_i32();
+                    let y = (Real::from(sprite1.origin_y) + (y / inst1.image_yscale.get()).floor()).to_i32();
 
                     // Now look in the collider map to figure out if instance 1 is touching this pixel
                     if x >= collider1.bbox_left as i32
@@ -2405,8 +2405,8 @@ impl Game {
                         let mut x = Real::from(intersect_x) - x2.into();
                         let mut y = Real::from(intersect_y) - y2.into();
                         util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin2, cos2);
-                        let x = (Real::from(sprite2.origin_x) + (x / inst2.image_xscale.get()).floor()).round();
-                        let y = (Real::from(sprite2.origin_y) + (y / inst2.image_yscale.get()).floor()).round();
+                        let x = (Real::from(sprite2.origin_x) + (x / inst2.image_xscale.get()).floor()).to_i32();
+                        let y = (Real::from(sprite2.origin_y) + (y / inst2.image_yscale.get()).floor()).to_i32();
 
                         // And finally check if there was a hit here too. If so, we can return true immediately.
                         if x >= collider2.bbox_left as i32
@@ -2473,8 +2473,8 @@ impl Game {
             let mut x = Real::from(x) - inst.x.get();
             let mut y = Real::from(y) - inst.y.get();
             util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle.sin().into(), angle.cos().into());
-            let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round();
-            let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round();
+            let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round().to_i32();
+            let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round().to_i32();
 
             // And finally, look up this point in the collider
             x >= collider.bbox_left as i32
@@ -2548,8 +2548,8 @@ impl Game {
                     let mut x = Real::from(intersect_x) - inst_x.into();
                     let mut y = Real::from(intersect_y) - inst_y.into();
                     util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                    let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
-                    let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
+                    let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
+                    let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
 
                     // And finally, look up this point in the collider
                     if x >= collider.bbox_left as i32
@@ -2602,10 +2602,10 @@ impl Game {
             return false
         }
 
-        let rect_left = rect_left.round();
-        let rect_right = rect_right.round();
-        let rect_top = rect_top.round();
-        let rect_bottom = rect_bottom.round();
+        let rect_left = rect_left.round().to_i32();
+        let rect_right = rect_right.round().to_i32();
+        let rect_top = rect_top.round().to_i32();
+        let rect_bottom = rect_bottom.round().to_i32();
 
         let ellipse_xcenter = Real::from(rect_right + rect_left) / 2.into();
         let ellipse_ycenter = Real::from(rect_bottom + rect_top) / 2.into();
@@ -2672,8 +2672,8 @@ impl Game {
                         let mut x = Real::from(intersect_x) - inst_x.into();
                         let mut y = Real::from(intersect_y) - inst_y.into();
                         util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
-                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
+                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
+                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
 
                         // And finally, look up this point in the collider
                         if x >= collider.bbox_left as i32
@@ -2770,10 +2770,10 @@ impl Game {
             let sin = angle.sin().into_inner();
             let cos = angle.cos().into_inner();
 
-            let x1 = x1.round();
-            let y1 = y1.round();
-            let x2 = x2.round();
-            let y2 = y2.round();
+            let x1 = x1.round().to_i32();
+            let y1 = y1.round().to_i32();
+            let x2 = x2.round().to_i32();
+            let y2 = y2.round().to_i32();
 
             // Set up the iterator
             let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
@@ -2802,8 +2802,8 @@ impl Game {
                 x -= inst_x.into();
                 y -= inst_y.into();
                 util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).round();
-                let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).round();
+                let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
+                let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
 
                 // And finally, look up this point in the collider
                 if x >= collider.bbox_left as i32

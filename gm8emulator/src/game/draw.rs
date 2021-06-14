@@ -127,8 +127,8 @@ impl Game {
                     {
                         let inst = self.room.instance_list.get(handle);
 
-                        let x = inst.x.get().round();
-                        let y = inst.y.get().round();
+                        let x = inst.x.get().round().to_i32();
+                        let y = inst.y.get().round().to_i32();
                         if view.follow_hborder < (view.source_w / 2) as i32 {
                             let border_left = x - view.follow_hborder;
                             let border_right = x + view.follow_hborder;

@@ -194,7 +194,7 @@ impl Game {
         let old_x = instance.x.get();
         let old_y = instance.y.get();
 
-        let start_angle = Real::from((instance.direction.get() / Real::from(10.0)).round() * 10);
+        let start_angle = Real::from((instance.direction.get() / Real::from(10.0)).round().to_i32() * 10);
 
         let mut get_side_collision_angle = |angle_step: i32| {
             let angle_step = Real::from(angle_step);

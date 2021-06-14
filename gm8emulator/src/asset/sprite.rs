@@ -283,8 +283,8 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
         for y in 0..height {
             for x in 0..width {
                 let px = input.get_pixel(
-                    (Real::from(x) / xscale).floor().round() as _,
-                    (Real::from(y) / yscale).floor().round() as _,
+                    (Real::from(x) / xscale).floor().to_u32(),
+                    (Real::from(y) / yscale).floor().to_u32(),
                 );
                 // this makes lerping uglier but it's accurate to GM8
                 if px[3] > 0 {

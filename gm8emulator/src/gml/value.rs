@@ -97,7 +97,7 @@ impl Value {
     /// Rounds the value to an i32. This is done very commonly by the GM8 runner.
     pub fn round(&self) -> i32 {
         match &self {
-            Self::Real(f) => f.round(),
+            Self::Real(f) => f.round().to_i32(),
             Self::Str(_) => 0,
         }
     }
@@ -121,7 +121,7 @@ impl Value {
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Self::Real(val) => Ok((!val.round()).into()),
+            Self::Real(val) => Ok((!val.round().to_i32()).into()),
             _ => invalid_op!(Complement, self),
         }
     }
@@ -179,42 +179,42 @@ impl Value {
 
     pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() & rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() & rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
 
     pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() & rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() & rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
 
     pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() | rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() | rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
 
     pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() | rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() | rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
 
     pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() ^ rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
 
     pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round() ^ rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
@@ -244,7 +244,7 @@ impl Value {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs * rhs).into()),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
-                let repeat = lhs.round();
+                let repeat = lhs.round().to_i32();
                 if repeat > 0 { rhs.as_ref().repeat(repeat as usize).into() } else { "".into() }
             }),
             (x, y) => invalid_op!(Multiply, x, y),
@@ -274,14 +274,14 @@ impl Value {
 
     pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() << rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() << rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
     pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round() >> rhs.round()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() >> rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
@@ -416,7 +416,7 @@ impl From<Value> for i32 {
     // For lazy-converting a value into an i32.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => r.round(),
+            Value::Real(r) => r.round().to_i32(),
             Value::Str(_) => 0,
         }
     }
@@ -426,7 +426,7 @@ impl From<Value> for u32 {
     // For lazy-converting a value into an u32.
     fn from(value: Value) -> Self {
         match value {
-            Value::Real(r) => r.round() as u32,
+            Value::Real(r) => r.round().to_u32(),
             Value::Str(_) => 0,
         }
     }
