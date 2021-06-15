@@ -3768,7 +3768,7 @@ impl Game {
         for value in args {
             match (value, &max) {
                 (Value::Real(v), Value::Real(m)) if m < v => max = Value::Real(*v),
-                (Value::Real(v), Value::Str(_)) => max = Value::Real(*v),
+                (Value::Real(_), Value::Str(m)) => max = Value::Str(m.clone()),
                 (Value::Str(v), Value::Real(m)) if m.into_inner() < 0.0 => max = Value::Str(v.clone()),
                 (Value::Str(v), Value::Str(m)) if m < v => max = Value::Str(v.clone()),
                 _ => (),
