@@ -507,7 +507,7 @@ impl Game {
     }
 
     pub fn make_color_rgb(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int, int, int]).map(|(r, g, b)| r + (g * 256) + (b * 256 * 256)).map(Value::from)
+        expect_args!(args, [int, int, int]).map(|(r, g, b)| r | (g << 8) | (b << 16)).map(Value::from)
     }
 
     pub fn make_color_hsv(args: &[Value]) -> gml::Result<Value> {
@@ -537,15 +537,15 @@ impl Game {
     }
 
     pub fn color_get_red(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| c % 256).map(Value::from)
+        expect_args!(args, [int]).map(|c| 0xFF & c).map(Value::from)
     }
 
     pub fn color_get_green(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| (c / 256) % 256).map(Value::from)
+        expect_args!(args, [int]).map(|c| 0xFF & (c >> 8)).map(Value::from)
     }
 
     pub fn color_get_blue(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [int]).map(|c| (c / 256 / 256) % 256).map(Value::from)
+        expect_args!(args, [int]).map(|c| 0xFF & (c >> 16)).map(Value::from)
     }
 
     pub fn color_get_hue(args: &[Value]) -> gml::Result<Value> {
