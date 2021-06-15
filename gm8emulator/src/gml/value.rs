@@ -78,6 +78,26 @@ impl Value {
             string: |s1, s2| s1 >= s2
     }
 
+    pub fn max<'a>(&'a self, other: &'a Self) -> &'a Self {
+        // Real never beats String on type mismatch, and String only beats Real if the Real is below 0.
+        match (self, other) {
+            (Value::Real(a), Value::Real(b)) => if a > b { self } else { other },
+            (Value::Real(a), Value::Str(_)) => if *a.as_ref() < 0.0 { other } else { self },
+            (Value::Str(_), Value::Real(_)) => self,
+            (Value::Str(a), Value::Str(b)) => if a > b { self } else { other },
+        }
+    }
+
+    pub fn min<'a>(&'a self, other: &'a Self) -> &'a Self {
+        // Real always beats String on type mismatch, and String only beats Real if the Real is above 0.
+        match (self, other) {
+            (Value::Real(a), Value::Real(b)) => if a > b { other } else { self },
+            (Value::Real(a), Value::Str(_)) => if *a.as_ref() > 0.0 { other } else { self },
+            (Value::Str(_), Value::Real(_)) => other,
+            (Value::Str(a), Value::Str(b)) => if a > b { other } else { self },
+        }
+    }
+
     pub fn ty_str(&self) -> &'static str {
         match self {
             Self::Real(_) => "real",

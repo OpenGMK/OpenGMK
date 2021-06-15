@@ -3738,43 +3738,11 @@ impl Game {
     }
 
     pub fn min(args: &[Value]) -> gml::Result<Value> {
-        let mut min = match args.first() {
-            Some(v) => v.clone(),
-            None => return Ok(Default::default()),
-        };
-
-        // It works like this: check all the args left to right, buffering whichever is currently lowest.
-        // Comparing Reals works as obviously expected, and comparing Strings is lexical.
-        // In type mismatch, Real always beats String, however String only beats Real if the Real is above 0.
-        for value in args {
-            match (value, &min) {
-                (Value::Real(v), Value::Real(m)) if m > v => min = Value::Real(*v),
-                (Value::Real(v), Value::Str(_)) => min = Value::Real(*v),
-                (Value::Str(v), Value::Real(m)) if m.into_inner() > 0.0 => min = Value::Str(v.clone()),
-                (Value::Str(v), Value::Str(m)) if m > v => min = Value::Str(v.clone()),
-                _ => (),
-            }
-        }
-        Ok(min)
+        Ok(args.iter().reduce(Value::min).cloned().unwrap_or_default())
     }
 
     pub fn max(args: &[Value]) -> gml::Result<Value> {
-        let mut max = match args.first() {
-            Some(v) => v.clone(),
-            None => return Ok(Default::default()),
-        };
-
-        // See min() for an explanation.
-        for value in args {
-            match (value, &max) {
-                (Value::Real(v), Value::Real(m)) if m < v => max = Value::Real(*v),
-                (Value::Real(_), Value::Str(m)) => max = Value::Str(m.clone()),
-                (Value::Str(v), Value::Real(m)) if m.into_inner() < 0.0 => max = Value::Str(v.clone()),
-                (Value::Str(v), Value::Str(m)) if m < v => max = Value::Str(v.clone()),
-                _ => (),
-            }
-        }
-        Ok(max)
+        Ok(args.iter().reduce(Value::max).cloned().unwrap_or_default())
     }
 
     pub fn min3(args: &[Value]) -> gml::Result<Value> {
