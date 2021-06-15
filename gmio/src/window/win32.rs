@@ -305,7 +305,7 @@ impl WindowTrait for WindowImpl {
             self.user_data.events.clear();
             let mut msg: MSG = mem::zeroed();
             loop {
-                match PeekMessageW(&mut msg, self.hwnd, 0, 0, PM_REMOVE) {
+                match PeekMessageW(&mut msg, ptr::null_mut(), 0, 0, PM_REMOVE) {
                     0 => break,
                     _ => {
                         TranslateMessage(&msg);
