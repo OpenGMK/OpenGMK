@@ -3746,11 +3746,13 @@ impl Game {
     }
 
     pub fn min3(args: &[Value]) -> gml::Result<Value> {
-        Self::min(args)
+        let (a, b, c) = expect_args!(args, [any, any, any])?;
+        Ok(a.min(&b).min(&c).clone())
     }
 
     pub fn max3(args: &[Value]) -> gml::Result<Value> {
-        Self::max(args)
+        let (a, b, c) = expect_args!(args, [any, any, any])?;
+        Ok(a.max(&b).max(&c).clone())
     }
 
     pub fn mean(args: &[Value]) -> gml::Result<Value> {
