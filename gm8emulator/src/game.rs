@@ -1899,7 +1899,56 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        unsafe {
+            imgui::igCreateContext(std::ptr::null_mut());
+            let io = imgui::igGetIO();
+            (*io).DisplaySize.x = self.window_inner_size.0 as f32;
+            (*io).DisplaySize.y = self.window_inner_size.1 as f32;
+            let mut font_data: *mut u8 = std::ptr::null_mut();
+            let mut font_w: i32 = 0;
+            let mut font_h: i32 = 0;
+            let mut font_bpp: i32 = 0;
+            imgui::ImFontAtlas_GetTexDataAsRGBA32((*io).Fonts, &mut font_data as _, &mut font_w as _, &mut font_h as _, &mut font_bpp as _);
+            let mut running = true;
+
+            'l: while running {
+                self.window.swap_events();
+                for event in self.window.events() {
+                    // Update io with window events
+                    let io = imgui::igGetIO();
+                    (*io).DeltaTime = 1.0f32 / self.room.speed as f32;
+                    match event {
+                        Event::KeyboardDown(key) => (*io).KeysDown[usize::from(input::ramen2vk(*key))] = true,
+                        Event::KeyboardUp(key) => (*io).KeysDown[usize::from(input::ramen2vk(*key))] = false,
+                        Event::MouseMove((point, scale)) => {
+                            let (x, y) = point.as_physical(*scale);
+                            (*io).MousePos.x = x as f32;
+                            (*io).MousePos.y = y as f32;
+                        },
+                        Event::MouseDown(button) => if let Ok(x) = usize::try_from(input::ramen2mb(*button)) {
+                            (*io).MouseDown[x] = true
+                        },
+                        Event::MouseUp(button) => if let Ok(x) = usize::try_from(input::ramen2mb(*button)) {
+                            (*io).MouseDown[x] = false
+                        },
+                        Event::MouseWheel(x) => (*io).MouseWheel = x.get() as f32,
+                        Event::Resize((size, scale)) => {
+                            let (w, h) = size.as_physical(*scale);
+                            (*io).DisplaySize.x = w as f32;
+                            (*io).DisplaySize.y = h as f32;
+                        },
+                        Event::CloseRequest(_) => break 'l,
+                        _ => (),
+                    }
+                }
+
+                imgui::igNewFrame();
+                imgui::igBegin("GM8Emulator".as_ptr() as _, &mut running as *mut _, 0b10000000000);
+                imgui::igEnd();
+                imgui::igEndFrame();
+            }
+        }
         // use gmio::window::Event;
 
         // // Helper fn: Instance -> InstanceDetails
