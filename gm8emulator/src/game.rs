@@ -2000,10 +2000,7 @@ impl Game {
                 self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
                 for ev in frame.inputs.iter() {
                     match ev {
-                        replay::Input::KeyPress(v) => {
-                            println!("Pressed {:?}", v);
-                            self.input.button_press(*v as u8, true);
-                        },
+                        replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
                         replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
                         replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
                         replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
