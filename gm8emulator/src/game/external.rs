@@ -83,6 +83,7 @@ impl External {
             "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
                 Call::DummyNull(info.res_type)
             },
+            "gmeffect_0.1.dll" => Call::DummyNull(info.res_type), // TODO don't
             _ => Call::DllCall(platform::ExternalImpl::new(&info, encoding)?),
         };
         Ok(Self { call, info })

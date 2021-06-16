@@ -563,8 +563,8 @@ impl Game {
         let s = s / Real::from(255.0);
         let v = v / Real::from(255.0);
         let chroma = v * s;
-        let hprime = (h / Real::from(60.0)) % Real::from(6.0);
-        let x = chroma * (Real::from(1.0) - ((hprime % Real::from(2.0)) - Real::from(1.0)).abs());
+        let hprime = (h / Real::from(60.0)).rem_euclid(Real::from(6.0));
+        let x = chroma * (Real::from(1.0) - (hprime.rem_euclid(Real::from(2.0)) - Real::from(1.0)).abs());
         let m = v - chroma;
 
         let (r, g, b) = match hprime.floor().into_inner() as i32 {
@@ -2117,6 +2117,9 @@ impl Game {
 
     pub fn surface_free(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
+        if self.surface_target == Some(surf_id) {
+            self.surface_reset_target(&[])?;
+        }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.delete_sprite(surf.atlas_ref);
             self.surfaces[surf_id as usize] = None;
@@ -3988,23 +3991,24 @@ impl Game {
 
     pub fn string_copy(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let start = (start as isize - 1).max(0) as usize;
+        let start = (start-1).max(0) as usize;
         let len = len.max(0) as usize;
         let s = s.as_ref();
-        let (start, end) = match self.gm_version {
+        Ok(match self.gm_version {
             Version::GameMaker8_0 => {
-                let end = (start + len).min(s.len());
-                (start, end)
+                s.iter().skip(start)
+                        .take(len)
+                        .copied()
+                        .collect::<Vec<_>>().into()
             },
             Version::GameMaker8_1 => {
-                let s = self.decode_str(s);
-                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
-                let sub = s.get(start..).unwrap_or("");
-                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
-                (start, start + len)
+                self.decode_str(s)
+                    .chars()
+                    .skip(start)
+                    .take(len)
+                    .collect::<String>().into()
             },
-        };
-        Ok(Value::from(s.get(start..end).unwrap_or(b"")))
+        })
     }
 
     pub fn string_char_at(&self, args: &[Value]) -> gml::Result<Value> {
@@ -4024,23 +4028,26 @@ impl Game {
 
     pub fn string_delete(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let start = (start as isize - 1).max(0) as usize;
-        let len = len.max(0) as usize;
+        let (start, len) = match (<usize>::try_from(start-1), len) {
+            (Ok(a), b) if b > 0 => (a, b as usize),
+            _ => return Ok(s.into()),
+        };
         let s = s.as_ref();
-        let (start, end) = match self.gm_version {
+        Ok(match self.gm_version {
             Version::GameMaker8_0 => {
-                let end = (start + len).min(s.len());
-                (start, end)
+                s.iter().take(start)
+                        .chain(s.iter().skip(start+len))
+                        .copied()
+                        .collect::<Vec<_>>().into()
             },
             Version::GameMaker8_1 => {
-                let s = self.decode_str(s);
-                let start = s.char_indices().nth(start).map_or(0, |(i, _)| i);
-                let sub = s.get(start..).unwrap_or("");
-                let len = sub.char_indices().nth(len).map_or(sub.len(), |(i, _)| i);
-                (start, start + len)
+                self.decode_str(s)
+                    .chars()
+                    .enumerate()
+                    .filter_map(|(i, x)| if (start..start+len).contains(&i) {None} else {Some(x)})
+                    .collect::<String>().into()
             },
-        };
-        Ok(s[..start].iter().chain(&s[end..]).copied().collect::<Vec<_>>().into())
+        })
     }
 
     pub fn string_insert(args: &[Value]) -> gml::Result<Value> {
@@ -9160,14 +9167,24 @@ impl Game {
 
     }
 
-    pub fn timeline_moment_clear(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function timeline_moment_clear")
+    pub fn timeline_moment_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (timeline, moment) = expect_args!(args, [int, int])?;
+        if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
+            timeline.moments.borrow_mut().remove(&moment);
+        }
+        Ok(Default::default())
     }
 
-    pub fn timeline_moment_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function timeline_moment_add")
+    pub fn timeline_moment_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (timeline, moment, code) = expect_args!(args, [int, int, bytes])?;
+        // Note: GM8 does not attempt to compile the string if the timeline doesn't exist
+        if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
+            let instrs = self.compiler.compile(code.as_ref())
+                .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
+            
+            timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
+        }
+        Ok(Default::default())
     }
 
     pub fn object_exists(&self, args: &[Value]) -> gml::Result<Value> {
