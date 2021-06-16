@@ -291,6 +291,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
+ "cimgui-sys",
  "encoding_rs",
  "getopts",
  "getrandom",
