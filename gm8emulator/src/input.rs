@@ -602,6 +602,14 @@ impl Input {
         }
     }
 
+    pub fn mouse_scroll_up(&mut self) {
+        self.mouse_wheel.0 = true;
+    }
+
+    pub fn mouse_scroll_down(&mut self) {
+        self.mouse_wheel.1 = true;
+    }
+
     // == GameMaker Mappings ==
 
     fn keyboard_check_any_internal_indirect(&self, state: &[bool; KEY_MAX]) -> bool {
