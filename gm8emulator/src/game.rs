@@ -1949,408 +1949,105 @@ impl Game {
                 imgui::igEndFrame();
             }
         }
-        // use gmio::window::Event;
-
-        // // Helper fn: Instance -> InstanceDetails
-        // fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
-        //     message::InstanceDetails {
-        //         id: instance.id.get(),
-        //         object_name: match assets.objects.get_asset(instance.object_index.get()) {
-        //             Some(obj) => obj.name.decode_utf8().into(),
-        //             None => "<deleted object>".into(),
-        //         },
-        //         x: instance.x.get().into(),
-        //         y: instance.y.get().into(),
-        //         speed: instance.speed.get().into(),
-        //         direction: instance.direction.get().into(),
-        //         timeline_info: if assets.timelines.get_asset(instance.timeline_index.get()).is_some() {
-        //             Some((
-        //                 instance.timeline_index.get(),
-        //                 instance.timeline_position.get().into(),
-        //                 instance.timeline_speed.get().into(),
-        //             ))
-        //         } else {
-        //             None
-        //         },
-        //         path_info: if assets.paths.get_asset(instance.path_index.get()).is_some() {
-        //             Some((
-        //                 instance.path_index.get(),
-        //                 instance.path_position.get().into(),
-        //                 instance.path_speed.get().into(),
-        //             ))
-        //         } else {
-        //             None
-        //         },
-        //         alarms: instance.alarms.borrow().clone(),
-        //         bbox_top: instance.bbox_top.get(),
-        //         bbox_left: instance.bbox_left.get(),
-        //         bbox_right: instance.bbox_right.get(),
-        //         bbox_bottom: instance.bbox_bottom.get(),
-        //     }
-        // }
-
-        // let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
-        // stream.set_nonblocking(true)?;
-        // let mut read_buffer: Vec<u8> = Vec::new();
-
-        // let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
-
-        // // Wait for a Hello, then send an update
-        // loop {
-        //     match stream.receive_message::<Message>(&mut read_buffer)? {
-        //         Some(None) => std::thread::yield_now(),
-        //         Some(Some(m)) => match m {
-        //             Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
-        //                 // Create or load savefile, depending if it exists
-        //                 let mut path = project_path.clone();
-        //                 std::fs::create_dir_all(&path)?;
-        //                 path.push(&filename);
-        //                 if path.exists() {
-        //                     println!("Project '{}' exists, loading workspace", filename);
-        //                     let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
-        //                     replay = state.load_into(self);
-        //                 } else {
-        //                     println!("Project '{}' doesn't exist, so loading game at entry point", filename);
-        //                     self.init()?;
-        //                     match self.scene_change {
-        //                         Some(SceneChange::Room(id)) => self.load_room(id)?,
-        //                         Some(SceneChange::Restart) => self.restart()?,
-        //                         Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-        //                         None => (),
-        //                     }
-        //                     for ev in self.stored_events.iter() {
-        //                         replay.startup_events.push(ev.clone());
-        //                     }
-        //                     self.stored_events.clear();
-
-        //                     println!("Creating new workspace...");
-        //                     let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
-        //                     File::create(&path)?.write_all(&bytes)?;
-        //                 }
-
-        //                 // Send an update
-        //                 stream.send_message(&message::Information::Update {
-        //                     keys_held: keys_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
-        //                         .collect(),
-        //                     mouse_buttons_held: mouse_buttons_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.mouse_check(*x))
-        //                         .collect(),
-        //                     mouse_location: self.input_manager.mouse_get_location(),
-        //                     frame_count: replay.frame_count(),
-        //                     seed: self.rand.seed(),
-        //                     instance: None,
-        //                 })?;
-        //                 break
-        //             },
-        //             m => return Err(format!("Waiting for greeting from server, but got {:?}", m).into()),
-        //         },
-        //         None => return Ok(()),
-        //     }
-        // }
-
-        // let mut game_mousex = 0;
-        // let mut game_mousey = 0;
-        // let mut do_update_mouse = false;
-        // let mut frame_counter = 0;
-
-        // loop {
-        //     match stream.receive_message::<Message>(&mut read_buffer)? {
-        //         Some(None) => self.renderer.wait_vsync(),
-        //         Some(Some(m)) => match m {
-        //             Message::Advance {
-        //                 key_inputs,
-        //                 mouse_inputs,
-        //                 mouse_location,
-        //                 keys_requested,
-        //                 mouse_buttons_requested,
-        //                 instance_requested,
-        //                 new_seed,
-        //             } => {
-        //                 // Create a frame...
-        //                 let mut frame = replay.new_frame(self.room.speed);
-        //                 frame.mouse_x = mouse_location.0;
-        //                 frame.mouse_y = mouse_location.1;
-        //                 frame.new_seed = new_seed;
-
-        //                 if let Some(seed) = new_seed {
-        //                     self.rand.set_seed(seed);
-        //                 }
-
-        //                 // Process inputs
-        //                 for (key, press) in key_inputs.into_iter() {
-        //                     if press {
-        //                         self.input_manager.key_press(key);
-        //                         frame.inputs.push(replay::Input::KeyPress(key));
-        //                     } else {
-        //                         self.input_manager.key_release(key);
-        //                         frame.inputs.push(replay::Input::KeyRelease(key));
-        //                     }
-        //                 }
-        //                 for (button, press) in mouse_inputs.into_iter() {
-        //                     if press {
-        //                         self.input_manager.mouse_press(button);
-        //                         frame.inputs.push(replay::Input::MousePress(button));
-        //                     } else {
-        //                         self.input_manager.mouse_release(button);
-        //                         frame.inputs.push(replay::Input::MouseRelease(button));
-        //                     }
-        //                 }
-        //                 self.input_manager.mouse_update_previous();
-        //                 self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
-
-        //                 // Advance a frame
-        //                 self.frame()?;
-        //                 match self.scene_change {
-        //                     Some(SceneChange::Room(id)) => self.load_room(id)?,
-        //                     Some(SceneChange::Restart) => self.restart()?,
-        //                     Some(SceneChange::End) => self.restart()?,
-        //                     None => (),
-        //                 }
-        //                 for ev in self.stored_events.iter() {
-        //                     frame.events.push(ev.clone());
-        //                 }
-        //                 self.stored_events.clear();
-
-        //                 // Fake frame limiter stuff (don't actually frame-limit in record mode)
-        //                 if let Some(t) = self.spoofed_time_nanos.as_mut() {
-        //                     *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
-        //                 }
-
-        //                 if frame_counter == self.room.speed {
-        //                     self.fps = self.room.speed;
-        //                     frame_counter = 0;
-        //                 }
-        //                 frame_counter += 1;
-
-        //                 // Send an update
-        //                 stream.send_message(&message::Information::Update {
-        //                     keys_held: keys_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
-        //                         .collect(),
-        //                     mouse_buttons_held: mouse_buttons_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.mouse_check(*x))
-        //                         .collect(),
-        //                     mouse_location: self.input_manager.mouse_get_location(),
-        //                     frame_count: replay.frame_count(),
-        //                     seed: self.rand.seed(),
-        //                     instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
-        //                         let instance = self.room.instance_list.get(x);
-        //                         instance.update_bbox(self.get_instance_mask_sprite(x));
-        //                         instance_details(&self.assets, instance)
-        //                     }),
-        //                 })?
-        //             },
-
-        //             Message::SetUpdateMouse { update } => do_update_mouse = update,
-
-        //             Message::Save { filename } => {
-        //                 // Save a savestate to a file
-        //                 let mut path = project_path.clone();
-        //                 std::fs::create_dir_all(&path)?;
-        //                 path.push(filename);
-        //                 let mut f = File::create(&path)?;
-        //                 let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
-        //                 f.write_all(&bytes)?;
-        //             },
-
-        //             Message::Load { filename, keys_requested, mouse_buttons_requested, instance_requested } => {
-        //                 // Load savestate from a file
-        //                 let mut path = project_path.clone();
-        //                 path.push(filename);
-        //                 let f = File::open(&path)?;
-        //                 let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
-        //                 replay = state.load_into(self);
-
-        //                 // Send an update
-        //                 stream.send_message(&message::Information::Update {
-        //                     keys_held: keys_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.key_check((*x as u8).into()))
-        //                         .collect(),
-        //                     mouse_buttons_held: mouse_buttons_requested
-        //                         .into_iter()
-        //                         .filter(|x| self.input_manager.mouse_check(*x))
-        //                         .collect(),
-        //                     mouse_location: self.input_manager.mouse_get_location(),
-        //                     frame_count: replay.frame_count(),
-        //                     seed: self.rand.seed(),
-        //                     instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
-        //                         let instance = self.room.instance_list.get(x);
-        //                         instance.update_bbox(self.get_instance_mask_sprite(x));
-        //                         instance_details(&self.assets, instance)
-        //                     }),
-        //                 })?;
-        //             },
-
-        //             m => break Err(format!("Unexpected message from server: {:?}", m).into()),
-        //         },
-        //         None => break Ok(()),
-        //     }
-
-        //     for event in self.window.process_events().copied() {
-        //         match event {
-        //             Event::MouseMove(x, y) => {
-        //                 if do_update_mouse {
-        //                     stream.send_message(&message::Information::MousePosition { x, y })?;
-        //                 }
-        //                 game_mousex = x;
-        //                 game_mousey = y;
-        //             },
-
-        //             Event::MouseButtonDown(MouseButton::Left) => {
-        //                 stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
-        //             },
-
-        //             Event::MouseButtonUp(MouseButton::Right) => {
-        //                 let mut options: Vec<(String, usize)> = Vec::new();
-        //                 let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
-        //                 let mut iter = self.room.instance_list.iter_by_drawing();
-        //                 while let Some(handle) = iter.next(&self.room.instance_list) {
-        //                     let instance = self.room.instance_list.get(handle);
-        //                     instance.update_bbox(self.get_instance_mask_sprite(handle));
-        //                     if x >= instance.bbox_left.get()
-        //                         && x <= instance.bbox_right.get()
-        //                         && y >= instance.bbox_top.get()
-        //                         && y <= instance.bbox_bottom.get()
-        //                     {
-        //                         let id = instance.id.get();
-        //                         let description = match self.assets.objects.get_asset(instance.object_index.get()) {
-        //                             Some(obj) => format!("{} ({})\0", obj.name, id.to_string()),
-        //                             None => format!("<deleted object> ({})\0", id.to_string()),
-        //                         };
-        //                         options.push((description, id as usize));
-        //                     }
-        //                 }
-        //                 self.window.show_context_menu(&options);
-        //                 break
-        //             },
-
-        //             Event::MenuOption(id) => {
-        //                 if let Some(handle) = self.room.instance_list.get_by_instid(id as _) {
-        //                     let instance = self.room.instance_list.get(handle);
-        //                     instance.update_bbox(self.get_instance_mask_sprite(handle));
-        //                     stream.send_message(message::Information::InstanceClicked {
-        //                         details: instance_details(&self.assets, instance),
-        //                     })?;
-        //                     break
-        //                 } else {
-        //                     println!("Requested info for instance #{} [non-existent or deleted]", id);
-        //                 }
-        //             },
-
-        //             Event::KeyboardDown(key) => {
-        //                 stream.send_message(message::Information::KeyPressed { key })?;
-        //             },
-
-        //             _ => (),
-        //         }
-        //     }
-
-        //     if self.window.close_requested() {
-        //         break Ok(())
-        //     }
-        // }
+        
         todo!()
     }
 
     // Replays some recorded inputs to the game
     pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
-        // let mut frame_count: usize = 0;
-        // self.rand.set_seed(replay.start_seed);
-        // self.spoofed_time_nanos = Some(replay.start_time);
-        // let mut frame_counter = 0;
+        let mut frame_count: usize = 0;
+        self.rand.set_seed(replay.start_seed);
+        self.spoofed_time_nanos = Some(replay.start_time);
+        let mut frame_counter = 0;
 
-        // for ev in replay.startup_events.iter() {
-        //     self.stored_events.push_back(ev.clone());
-        // }
-        // self.init()?;
-        // match self.scene_change {
-        //     Some(SceneChange::Room(id)) => self.load_room(id)?,
-        //     Some(SceneChange::Restart) => self.restart()?,
-        //     Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-        //     None => (),
-        // }
+        for ev in replay.startup_events.iter() {
+            self.stored_events.push_back(ev.clone());
+        }
+        self.init()?;
+        match self.scene_change {
+            Some(SceneChange::Room(id)) => self.load_room(id)?,
+            Some(SceneChange::Restart) => self.restart()?,
+            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+            None => (),
+        }
 
-        // let mut time_now = std::time::Instant::now();
-        // loop {
-        //     self.window.process_events();
-        //     self.input_manager.mouse_update_previous();
-        //     if let Some(frame) = replay.get_frame(frame_count) {
-        //         if !self.stored_events.is_empty() {
-        //             return Err(format!(
-        //                 "ERROR: {} stored events remaining at beginning of frame {}; aborting",
-        //                 self.stored_events.len(),
-        //                 frame_count,
-        //             )
-        //             .into())
-        //         }
+        let mut time_now = std::time::Instant::now();
+        loop {
+            self.window.swap_events();
+            self.input.mouse_step();
+            if let Some(frame) = replay.get_frame(frame_count) {
+                if !self.stored_events.is_empty() {
+                    return Err(format!(
+                        "ERROR: {} stored events remaining at beginning of frame {}; aborting",
+                        self.stored_events.len(),
+                        frame_count,
+                    )
+                    .into())
+                }
 
-        //         for ev in frame.events.iter() {
-        //             self.stored_events.push_back(ev.clone());
-        //         }
+                for ev in frame.events.iter() {
+                    self.stored_events.push_back(ev.clone());
+                }
 
-        //         if let Some(seed) = frame.new_seed {
-        //             self.rand.set_seed(seed);
-        //         }
+                if let Some(seed) = frame.new_seed {
+                    self.rand.set_seed(seed);
+                }
 
-        //         if let Some(time) = frame.new_time {
-        //             self.spoofed_time_nanos = Some(time);
-        //         }
+                if let Some(time) = frame.new_time {
+                    self.spoofed_time_nanos = Some(time);
+                }
 
-        //         self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
-        //         for ev in frame.inputs.iter() {
-        //             match ev {
-        //                 replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
-        //                 replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
-        //                 replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
-        //                 replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
-        //                 replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-        //                 replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
-        //             }
-        //         }
-        //     }
+                self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
+                for ev in frame.inputs.iter() {
+                    match ev {
+                        replay::Input::KeyPress(v) => {
+                            println!("Pressed {:?}", v);
+                            self.input.button_press(*v as u8, true);
+                        },
+                        replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
+                        replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
+                        replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
+                        replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
+                        replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
+                    }
+                }
+            }
 
-        //     self.frame()?;
-        //     match self.scene_change {
-        //         Some(SceneChange::Room(id)) => self.load_room(id)?,
-        //         Some(SceneChange::Restart) => self.restart()?,
-        //         Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
-        //         None => (),
-        //     }
+            self.frame()?;
+            match self.scene_change {
+                Some(SceneChange::Room(id)) => self.load_room(id)?,
+                Some(SceneChange::Restart) => self.restart()?,
+                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
+                None => (),
+            }
 
-        //     // exit if X pressed or game_end() invoked
-        //     if self.window.close_requested() {
-        //         break Ok(self.run_game_end_events()?)
-        //     }
+            // exit if X pressed or game_end() invoked
+            if self.close_requested {
+                break Ok(self.run_game_end_events()?)
+            }
 
-        //     // frame limiter
-        //     let diff = Instant::now().duration_since(time_now);
-        //     let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
-        //     if let Some(t) = self.spoofed_time_nanos.as_mut() {
-        //         *t += duration.as_nanos();
-        //     }
+            // frame limiter
+            let diff = Instant::now().duration_since(time_now);
+            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
+            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                *t += duration.as_nanos();
+            }
 
-        //     if frame_counter == self.room.speed {
-        //         self.fps = self.room.speed;
-        //         frame_counter = 0;
-        //     }
-        //     frame_counter += 1;
+            if frame_counter == self.room.speed {
+                self.fps = self.room.speed;
+                frame_counter = 0;
+            }
+            frame_counter += 1;
 
-        //     if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
-        //         gml::datetime::sleep(time);
-        //         time_now += duration;
-        //     } else {
-        //         time_now = Instant::now();
-        //     }
+            if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
+                gml::datetime::sleep(time);
+                time_now += duration;
+            } else {
+                time_now = Instant::now();
+            }
 
-        //     frame_count += 1;
-        // }
-        todo!()
+            frame_count += 1;
+        }
     }
 
     // Gets the mouse position in room coordinates
