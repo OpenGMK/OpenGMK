@@ -1900,6 +1900,20 @@ impl Game {
 
     // Create a TAS for this game
     pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+        let mut ui_width = 1280;
+        let mut ui_height = 720;
+
+        let mut ui_renderer = Renderer::new((), &RendererOptions {
+            size: (ui_width, ui_height),
+            vsync: true,
+            interpolate_pixels: false,
+            normalize_normals: true,
+            zbuf_24: true,
+        }, &self.window, Colour::new(0.961, 0.259, 0.925))?;
+        let mut atlas_builder = AtlasBuilder::new(ui_renderer.max_texture_size() as _);
+
+        //self.init()?; // this errors on glBlitFramebuffer() when it tries to use its renderer
+
         unsafe {
             imgui::igCreateContext(std::ptr::null_mut());
             let io = imgui::igGetIO();
@@ -1910,8 +1924,13 @@ impl Game {
             let mut font_h: i32 = 0;
             let mut font_bpp: i32 = 0;
             imgui::ImFontAtlas_GetTexDataAsRGBA32((*io).Fonts, &mut font_data as _, &mut font_w as _, &mut font_h as _, &mut font_bpp as _);
-            let mut running = true;
+            assert_eq!(font_bpp, 4);
 
+            let mut tex_ref = atlas_builder.texture(font_w, font_h, 0, 0, std::slice::from_raw_parts(font_data, (font_w * font_h * font_bpp) as _).into());
+            (*(*io).Fonts).TexID = &mut tex_ref as *mut _ as *mut std::ffi::c_void;
+            ui_renderer.push_atlases(atlas_builder)?;
+
+            let mut running = true;
             'l: while running {
                 self.window.swap_events();
                 for event in self.window.events() {
@@ -1937,6 +1956,8 @@ impl Game {
                             let (w, h) = size.as_physical(*scale);
                             (*io).DisplaySize.x = w as f32;
                             (*io).DisplaySize.y = h as f32;
+                            ui_width = w;
+                            ui_height = h;
                         },
                         Event::CloseRequest(_) => break 'l,
                         _ => (),
@@ -1946,11 +1967,28 @@ impl Game {
                 imgui::igNewFrame();
                 imgui::igBegin("GM8Emulator".as_ptr() as _, &mut running as *mut _, 0b10000000000);
                 imgui::igEnd();
-                imgui::igEndFrame();
+                imgui::igRender();
+
+                let draw_data = imgui::igGetDrawData();
+                debug_assert!((*draw_data).Valid);
+                let cmd_list_count = usize::try_from((*draw_data).CmdListsCount)?;
+                for list_id in 0..cmd_list_count {
+                    let draw_list = *(*draw_data).CmdLists.add(list_id);
+                    let cmd_count = usize::try_from((*draw_list).CmdBuffer.Size)?;
+                    for cmd_id in 0..cmd_count {
+                        let command = (*draw_list).CmdBuffer.Data.add(cmd_id);
+                        if let Some(f) = (*command).UserCallback {
+                            f(draw_list, command);
+                        }
+                        // TODO: actually draw the draw command
+                    }
+                }
+
+                ui_renderer.present(ui_width, ui_height, Scaling::Full);
             }
         }
-        
-        todo!()
+
+        Ok(())
     }
 
     // Replays some recorded inputs to the game
