@@ -1,3 +1,3 @@
-#![allow(bad_style)]
+#![allow(bad_style, deref_nullptr)]
 
 include!("bindgen.rs");
