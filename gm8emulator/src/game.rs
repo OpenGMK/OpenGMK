@@ -32,6 +32,7 @@ use crate::{
     },
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
+    imgui,
     input::{self, Input},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -508,7 +509,11 @@ impl Game {
             .inner_size(Size::Physical(width.into(), height.into()))
             .borderless(!window_border && play_type != PlayType::Record)
             .title(room1_caption.to_owned())
-            .resizable(settings.allow_resize && play_type == PlayType::Normal)
+            .resizable(match play_type {
+                PlayType::Normal => settings.allow_resize,
+                PlayType::Record => true,
+                PlayType::Replay => false,
+            })
             .controls(if play_type == PlayType::Record {
                 Some(Controls::enabled())
             } else if window_icons {
@@ -1902,132 +1907,135 @@ impl Game {
     pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
         let mut ui_width = 1280;
         let mut ui_height = 720;
-        
         self.resize_window(ui_width, ui_height);
 
         let clear_colour = Colour::new(0.961, 0.259, 0.925);
 
-        unsafe {
-            imgui::igCreateContext(std::ptr::null_mut());
-            let io = imgui::igGetIO();
-            (*io).DisplaySize.x = self.window_inner_size.0 as f32;
-            (*io).DisplaySize.y = self.window_inner_size.1 as f32;
-            let mut font_data: *mut u8 = std::ptr::null_mut();
-            let mut font_w: i32 = 0;
-            let mut font_h: i32 = 0;
-            let mut font_bpp: i32 = 0;
-            imgui::ImFontAtlas_GetTexDataAsRGBA32((*io).Fonts, &mut font_data as _, &mut font_w as _, &mut font_h as _, &mut font_bpp as _);
-            assert_eq!(font_bpp, 4);
+        let mut context = imgui::Context::new();
+        context.make_current();
+        let io = context.io();
 
-            let mut font_ref = self.renderer.upload_sprite(std::slice::from_raw_parts(font_data, (font_w * font_h * font_bpp) as _).into(), font_w, font_h, 0, 0)?;
-            (*(*io).Fonts).TexID = &mut font_ref as *mut _ as *mut std::ffi::c_void;
+        let (width, height) = self.window_inner_size;
+        io.set_display_size(imgui::Vec2(width as f32, height as f32));
 
-            let labels = (0..200).map(|i| format!("Text label number {}\0", i)).collect::<Vec<_>>();
+        let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
+        let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)?;
+        io.set_texture_id((&mut font as *mut AtlasRef).cast());
+        let test_labels = (0..200).map(|i| format!("Text label number {}\0", i)).collect::<Vec<_>>();
 
-            let mut running = true;
-            'l: while running {
-                self.window.swap_events();
-                for event in self.window.events() {
-                    // Update io with window events
-                    let io = imgui::igGetIO();
-                    (*io).DeltaTime = 1.0f32 / self.room.speed as f32;
-                    (*io).MouseWheel = 0.0;
-                    match event {
-                        // TODO: update imgui's ctrl, alt and shift flags
-                        Event::KeyboardDown(key) => (*io).KeysDown[usize::from(input::ramen2vk(*key))] = true,
-                        Event::KeyboardUp(key) => (*io).KeysDown[usize::from(input::ramen2vk(*key))] = false,
-                        Event::MouseMove((point, scale)) => {
-                            let (x, y) = point.as_physical(*scale);
-                            (*io).MousePos.x = x as f32;
-                            (*io).MousePos.y = y as f32;
-                        },
-                        Event::MouseDown(button) => if let Some(x) = usize::try_from(input::ramen2mb(*button)).ok().and_then(|x| x.checked_sub(1)) {
-                            (*io).MouseDown[x] = true
-                        },
-                        Event::MouseUp(button) => if let Some(x) = usize::try_from(input::ramen2mb(*button)).ok().and_then(|x| x.checked_sub(1)) {
-                            (*io).MouseDown[x] = false
-                        },
-                        Event::MouseWheel(x) => (*io).MouseWheel = x.get() as f32 / 120.0,
-                        Event::Resize((size, scale)) => {
-                            let (w, h) = size.as_physical(*scale);
-                            (*io).DisplaySize.x = w as f32;
-                            (*io).DisplaySize.y = h as f32;
-                            self.renderer.resize_framebuffer(w, h);
-                            ui_width = w;
-                            ui_height = h;
-                        },
-                        Event::CloseRequest(_) => break 'l,
-                        _ => (),
-                    }
+        'gui: loop {
+            // refresh io state
+            let io = context.io();
+            io.set_delta_time(1.0 / self.room.speed as f32);
+            io.set_mouse_wheel(0.0);
+
+            // poll window events
+            self.window.swap_events();
+            for event in self.window.events() {
+                // TODO: update imgui's ctrl, alt and shift flags
+                match event {
+                    Event::KeyboardDown(key) => io.set_key(usize::from(input::ramen2vk(*key)), true),
+                    Event::KeyboardUp(key) => io.set_key(usize::from(input::ramen2vk(*key)), false),
+                    Event::MouseMove((point, scale)) => {
+                        let (x, y) = point.as_physical(*scale);
+                        io.set_mouse(imgui::Vec2(x as f32, y as f32));
+                    },
+                    ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(*btn))
+                        .ok().and_then(|x| x.checked_sub(1))
+                        .into_iter()
+                        .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
+                    Event::MouseWheel(delta) => io.set_mouse_wheel(delta.get() as f32 / 120.0),
+                    Event::Resize((size, scale)) => {
+                        let (width, height) = size.as_physical(*scale);
+                        ui_width = width; ui_height = height;
+                        io.set_display_size(imgui::Vec2(width as f32, height as f32));
+                        self.renderer.resize_framebuffer(width, height);
+                    },
+                    Event::CloseRequest(_) => break 'gui,
+                    _ => (),
                 }
-
-                imgui::igNewFrame();
-                imgui::igBegin("The Window\0".as_ptr() as _, &mut running as *mut _, 0b10000000000);
-                if imgui::igButton("Advance\0".as_ptr() as _, *imgui::ImVec2_ImVec2Float(150.0, 20.0)) {
-                    println!("Butt onion\0");
-                }
-                imgui::igText("wwww\0".as_ptr() as _);
-                imgui::igEnd();
-                imgui::igBegin("The Other Window\0".as_ptr() as _, &mut running as *mut _, 0b10000000000);
-                for label in labels.iter() {
-                    imgui::igText(label.as_ptr() as _);
-                }
-                imgui::igEnd();
-                imgui::igRender();
-
-                let draw_data = imgui::igGetDrawData();
-                debug_assert!((*draw_data).Valid);
-                let cmd_list_count = usize::try_from((*draw_data).CmdListsCount)?;
-                for list_id in 0..cmd_list_count {
-                    let draw_list = *(*draw_data).CmdLists.add(list_id);
-                    let cmd_count = usize::try_from((*draw_list).CmdBuffer.Size)?;
-                    let vertex_buffer = (*draw_list).VtxBuffer.Data;
-                    let index_buffer = (*draw_list).IdxBuffer.Data;
-                    for cmd_id in 0..cmd_count {
-                        let command = (*draw_list).CmdBuffer.Data.add(cmd_id);
-                        let vertex_buffer = vertex_buffer.add((*command).VtxOffset as usize);
-                        let mut index_buffer = index_buffer.add((*command).IdxOffset as usize);
-                        if let Some(f) = (*command).UserCallback {
-                            f(draw_list, command);
-                        }
-                        else {
-                            // TODO: don't use the primitive builder for this, it allocates a lot and
-                            // also doesn't do instanced drawing I think?
-                            self.renderer.reset_primitive_2d(
-                                PrimitiveType::TriList,
-                                if (*command).TextureId.is_null() {
-                                    None
-                                } else {
-                                    Some(*((*command).TextureId as *mut AtlasRef))
-                                }
-                            );
-
-                            for _ in 0..(*command).ElemCount {
-                                let vert = *(vertex_buffer.add(usize::from(*index_buffer)));
-                                index_buffer = index_buffer.add(1);
-                                self.renderer.vertex_2d(
-                                    vert.pos.x.into(),
-                                    vert.pos.y.into(),
-                                    vert.uv.x.into(),
-                                    vert.uv.y.into(),
-                                    (vert.col & 0xFFFFFF) as _,
-                                    f64::from(vert.col >> 24) / 255.0,
-                                );
-                            }
-
-                            let clip_x = (*command).ClipRect.x as i32;
-                            let clip_y = (*command).ClipRect.y as i32;
-                            let clip_w = ((*command).ClipRect.z - (*command).ClipRect.x) as i32 + 1;
-                            let clip_h = ((*command).ClipRect.w - (*command).ClipRect.y) as i32 + 1;
-                            self.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
-                            self.renderer.draw_primitive_2d();
-                        }
-                    }
-                }
-
-                self.renderer.present(ui_width, ui_height, Scaling::Full);
-                self.renderer.finish(ui_width, ui_height, clear_colour);
             }
+
+            // present imgui
+            let mut is_open = false;
+            let frame = context.new_frame();
+
+            frame.begin(b"Some Window\0", &mut is_open);
+            if true {
+                if frame.button(b"Advance\0", imgui::Vec2(150.0, 20.0)) {
+                    println!("adam is a b-");
+                }
+                frame.text(b"wwww\0");
+            }
+            frame.end();
+
+            frame.begin(b"Another Window\0", &mut is_open);
+            if true {
+                for label in &*test_labels {
+                    frame.text(label.as_bytes());
+                }
+            }
+            frame.end();
+
+            unsafe {
+                cimgui_sys::igShowDemoWindow(std::ptr::null_mut());
+            }
+
+            frame.render();
+
+            // draw imgui
+            let draw_data = context.draw_data();
+            debug_assert!(draw_data.Valid);
+            let cmd_list_count = usize::try_from(draw_data.CmdListsCount)?;
+            for list_id in 0..cmd_list_count {
+                let draw_list = unsafe { &**draw_data.CmdLists.add(list_id) };
+                let cmd_count = usize::try_from(draw_list.CmdBuffer.Size)?;
+                let vertex_buffer = draw_list.VtxBuffer.Data;
+                let index_buffer = draw_list.IdxBuffer.Data;
+                for cmd_id in 0..cmd_count {
+                    let command = unsafe { &*draw_list.CmdBuffer.Data.add(cmd_id) };
+                    let vertex_buffer = unsafe { vertex_buffer.add(command.VtxOffset as usize) };
+                    let mut index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
+                    if let Some(f) = command.UserCallback {
+                        unsafe { f(draw_list, command) };
+                    }
+                    else {
+                        // TODO: don't use the primitive builder for this, it allocates a lot and
+                        // also doesn't do instanced drawing I think?
+                        self.renderer.reset_primitive_2d(
+                            PrimitiveType::TriList,
+                            if command.TextureId.is_null() {
+                                None
+                            } else {
+                                Some(unsafe { *(command.TextureId as *mut AtlasRef) })
+                            }
+                        );
+
+                        for _ in 0..command.ElemCount {
+                            let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer))) };
+                            index_buffer = unsafe { index_buffer.add(1) };
+                            self.renderer.vertex_2d(
+                                vert.pos.x.into(),
+                                vert.pos.y.into(),
+                                vert.uv.x.into(),
+                                vert.uv.y.into(),
+                                (vert.col & 0xFFFFFF) as _,
+                                f64::from(vert.col >> 24) / 255.0,
+                            );
+                        }
+
+                        let clip_x = command.ClipRect.x as i32;
+                        let clip_y = command.ClipRect.y as i32;
+                        let clip_w = (command.ClipRect.z - command.ClipRect.x) as i32 + 1;
+                        let clip_h = (command.ClipRect.w - command.ClipRect.y) as i32 + 1;
+                        self.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
+                        self.renderer.draw_primitive_2d();
+                    }
+                }
+            }
+
+            self.renderer.present(ui_width, ui_height, Scaling::Full);
+            self.renderer.finish(ui_width, ui_height, clear_colour);
         }
 
         Ok(())
