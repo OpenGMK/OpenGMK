@@ -1932,10 +1932,18 @@ impl Game {
             // poll window events
             self.window.swap_events();
             for event in self.window.events() {
-                // TODO: update imgui's ctrl, alt and shift flags
                 match event {
-                    Event::KeyboardDown(key) => io.set_key(usize::from(input::ramen2vk(*key)), true),
-                    Event::KeyboardUp(key) => io.set_key(usize::from(input::ramen2vk(*key)), false),
+                    ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
+                        use ramen::event::Key;
+                        let state = matches!(ev, Event::KeyboardDown(_));
+                        io.set_key(usize::from(input::ramen2vk(*key)), state);
+                        match key {
+                            Key::LShift | Key::RShift => io.set_shift(state),
+                            Key::LControl | Key::RControl => io.set_ctrl(state),
+                            Key::LAlt | Key::RAlt => io.set_alt(state),
+                            _ => (),
+                        }
+                    },
                     Event::MouseMove((point, scale)) => {
                         let (x, y) = point.as_physical(*scale);
                         io.set_mouse(imgui::Vec2(x as f32, y as f32));

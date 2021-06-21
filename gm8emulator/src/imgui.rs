@@ -132,6 +132,18 @@ impl IO {
         }
     }
 
+    pub fn set_ctrl(&mut self, state: bool) {
+        self.0.KeyCtrl = state;
+    }
+
+    pub fn set_shift(&mut self, state: bool) {
+        self.0.KeyShift = state;
+    }
+
+    pub fn set_alt(&mut self, state: bool) {
+        self.0.KeyAlt = state;
+    }
+
     pub fn set_mouse(&mut self, pos: Vec2<f32>) {
         self.0.MousePos = pos.into();
     }
