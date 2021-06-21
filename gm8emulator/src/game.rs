@@ -2015,8 +2015,8 @@ impl Game {
                             let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer))) };
                             index_buffer = unsafe { index_buffer.add(1) };
                             self.renderer.vertex_2d(
-                                vert.pos.x.into(),
-                                vert.pos.y.into(),
+                                f64::from(vert.pos.x) - 0.5,
+                                f64::from(vert.pos.y) - 0.5,
                                 vert.uv.x.into(),
                                 vert.uv.y.into(),
                                 (vert.col & 0xFFFFFF) as _,
