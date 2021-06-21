@@ -1958,21 +1958,21 @@ impl Game {
 
             // present imgui
             let mut is_open = false;
-            let frame = context.new_frame();
+            let mut frame = context.new_frame();
 
-            frame.begin(b"Some Window\0", &mut is_open);
+            frame.begin("Some Window", &mut is_open);
             if true {
-                if frame.button(b"Advance\0", imgui::Vec2(150.0, 20.0)) {
+                if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
                     println!("adam is a b-");
                 }
-                frame.text(b"wwww\0");
+                frame.text("wwww");
             }
             frame.end();
 
-            frame.begin(b"Another Window\0", &mut is_open);
+            frame.begin("Another Window", &mut is_open);
             if true {
                 for label in &*test_labels {
-                    frame.text(label.as_bytes());
+                    frame.text(label);
                 }
             }
             frame.end();

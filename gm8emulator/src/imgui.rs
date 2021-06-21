@@ -1,13 +1,17 @@
 //! Custom wrappers for dear imgui.
 
 use cimgui_sys as c;
-use std::{marker::PhantomData, ops, ptr::{self, NonNull}, slice};
+use std::{ops, ptr::{self, NonNull}, slice};
+
+pub struct Context {
+    cbuf: Vec<u8>,
+    ctx: NonNull<c::ImGuiContext>,
+}
+
+pub struct Frame<'a>(&'a mut Context);
 
 #[repr(transparent)]
-pub struct Context(NonNull<c::ImGuiContext>);
-#[repr(transparent)]
 pub struct IO(c::ImGuiIO);
-pub struct Frame<'a>(PhantomData<&'a Context>);
 
 pub struct FontData<'a> {
     pub data: &'a [u8],
@@ -17,7 +21,7 @@ pub struct FontData<'a> {
 impl Context {
     pub fn new() -> Self {
         match NonNull::new(unsafe { c::igCreateContext(ptr::null_mut()) }) {
-            Some(ctx) => Self(ctx),
+            Some(ctx) => Self { cbuf: Vec::with_capacity(128), ctx },
             None => panic!("`ImGui::CreateContext` returned `nullptr`"),
         }
     }
@@ -27,12 +31,12 @@ impl Context {
     }
 
     pub fn make_current(&mut self) {
-        unsafe { c::igSetCurrentContext(self.0.as_ptr()) };
+        unsafe { c::igSetCurrentContext(self.ctx.as_ptr()) };
     }
 
-    pub fn new_frame(&self) -> Frame<'_> {
+    pub fn new_frame(&mut self) -> Frame<'_> {
         unsafe { c::igNewFrame() };
-        Frame(PhantomData)
+        Frame(self)
     }
 
     pub fn io(&self) -> &mut IO {
@@ -43,17 +47,27 @@ impl Context {
 impl ops::Drop for Context {
     fn drop(&mut self) {
         unsafe {
-            c::igDestroyContext(self.0.as_ptr());
+            c::igDestroyContext(self.ctx.as_ptr());
         }
     }
 }
 
 impl Frame<'_> {
-    pub fn begin(&self, name: &[u8], is_open: &mut bool) {
-        debug_assert!(matches!(name.last().copied(), Some(0)));
+    fn cstr_store(&mut self, s: &str) {
+        self.0.cbuf.clear();
+        self.0.cbuf.extend_from_slice(s.as_bytes());
+        self.0.cbuf.push(0);
+    }
+
+    fn cstr(&self) -> *const i8 {
+        self.0.cbuf.as_ptr().cast()
+    }
+
+    pub fn begin(&mut self, name: &str, is_open: &mut bool) {
+        self.cstr_store(name);
         unsafe {
             c::igBegin(
-                name.as_ptr().cast(),
+                self.cstr(),
                 is_open,
                 c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar as _,
             );
@@ -64,14 +78,14 @@ impl Frame<'_> {
         unsafe { c::igEnd() };
     }
 
-    pub fn button(&self, name: &[u8], size: Vec2<f32>) -> bool {
-        debug_assert!(matches!(name.last().copied(), Some(0)));
-        unsafe { c::igButton(name.as_ptr().cast(), size.into()) }
+    pub fn button(&mut self, name: &str, size: Vec2<f32>) -> bool {
+        self.cstr_store(name);
+        unsafe { c::igButton(self.cstr(), size.into()) }
     }
 
-    pub fn text(&self, name: &[u8]) {
-        debug_assert!(matches!(name.last().copied(), Some(0)));
-        unsafe { c::igText(name.as_ptr().cast()) };
+    pub fn text(&mut self, text: &str) {
+        self.cstr_store(text);
+        unsafe { c::igText(self.cstr()) };
     }
 
     pub fn render(self) {
