@@ -113,9 +113,8 @@ impl IO {
     }
 
     pub fn set_key(&mut self, key: usize, state: bool) {
-        let mut map = self.0.KeysDown;
-        if key < map.len() {
-            map[key] = state;
+        if let Some(entry) = self.0.KeysDown.get_mut(key) {
+            *entry = state;
         }
     }
 
@@ -124,9 +123,8 @@ impl IO {
     }
 
     pub fn set_mouse_button(&mut self, btn: usize, state: bool) {
-        let mut map = self.0.MouseDown;
-        if btn < map.len() {
-            map[btn] = state;
+        if let Some(entry) = self.0.MouseDown.get_mut(btn) {
+            *entry = state;
         }
     }
 
