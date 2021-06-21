@@ -190,7 +190,10 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
-    fn resize_framebuffer(&mut self, width: u32, height: u32);
+    /// Resizes the rendering target. Usually called when the window has been resized.
+    /// The contents of the old framebuffer will be copied to the new one. If `store` is true, the old one
+    /// will be stored for later drawing with `draw_stored()`; otherwise, it will be deleted.
+    fn resize_framebuffer(&mut self, width: u32, height: u32, store: bool);
 
     fn set_vsync(&self, vsync: bool);
     fn get_vsync(&self) -> bool;
@@ -291,6 +294,8 @@ pub trait RendererTrait {
     );
     fn flush_queue(&mut self);
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling);
+    fn draw_stored(&mut self, target_x: i32, target_y: i32, width: u32, height: u32);
+    fn stored_size(&mut self) -> Option<(i32, i32)>;
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
@@ -849,8 +854,8 @@ impl Renderer {
         self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
     }
 
-    pub fn resize_framebuffer(&mut self, width: u32, height: u32) {
-        self.0.resize_framebuffer(width, height)
+    pub fn resize_framebuffer(&mut self, width: u32, height: u32, store: bool) {
+        self.0.resize_framebuffer(width, height, store)
     }
 
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
@@ -1064,6 +1069,14 @@ impl Renderer {
 
     pub fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
         self.0.present(window_width, window_height, scaling)
+    }
+
+    pub fn draw_stored(&mut self, target_x: i32, target_y: i32, width: u32, height: u32) {
+        self.0.draw_stored(target_x, target_y, width, height)
+    }
+
+    pub fn stored_size(&mut self) -> Option<(i32, i32)> {
+        self.0.stored_size()
     }
 
     pub fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {

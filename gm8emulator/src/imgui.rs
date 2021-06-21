@@ -74,6 +74,14 @@ impl Frame<'_> {
         }
     }
 
+    pub fn begin_sized(&self, name: &[u8], w: i32, h: i32, is_open: &mut bool) {
+        unsafe {
+            c::igSetNextWindowSize(*c::ImVec2_ImVec2Float(w as _, h as _), 0);
+        }
+        // TODO: non-resizable?
+        self.begin(name, is_open)
+    }
+
     pub fn end(&self) {
         unsafe { c::igEnd() };
     }

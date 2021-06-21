@@ -1283,12 +1283,14 @@ impl Game {
             self.unscaled_width = width;
             self.unscaled_height = height;
             self.window_inner_size = (width, height);
-            self.renderer.resize_framebuffer(width, height);
+            self.renderer.resize_framebuffer(width, height, false);
             let (width, height) = match self.scaling {
                 Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
                 _ => (width, height),
             };
-            self.window.set_inner_size(Size::Physical(width, height));
+            if self.play_type != PlayType::Record {
+                self.window.set_inner_size(Size::Physical(width, height));
+            }
         }
     }
 
@@ -1905,9 +1907,9 @@ impl Game {
 
     // Create a TAS for this game
     pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-        let mut ui_width = 1280;
-        let mut ui_height = 720;
-        self.resize_window(ui_width, ui_height);
+        let mut ui_width: u16 = 1280;
+        let mut ui_height: u16 = 720;
+        self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
 
         let clear_colour = Colour::new(0.961, 0.259, 0.925);
 
@@ -1915,13 +1917,15 @@ impl Game {
         context.make_current();
         let io = context.io();
 
-        let (width, height) = self.window_inner_size;
-        io.set_display_size(imgui::Vec2(width as f32, height as f32));
+        io.set_display_size(imgui::Vec2(f32::from(ui_width), f32::from(ui_height)));
 
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
         let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)?;
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
         let test_labels = (0..200).map(|i| format!("Text label number {}\0", i)).collect::<Vec<_>>();
+
+        self.init()?;
+        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
 
         'gui: loop {
             // refresh io state
@@ -1955,9 +1959,10 @@ impl Game {
                     Event::MouseWheel(delta) => io.set_mouse_wheel(delta.get() as f32 / 120.0),
                     Event::Resize((size, scale)) => {
                         let (width, height) = size.as_physical(*scale);
-                        ui_width = width; ui_height = height;
+                        ui_width = u16::try_from(width).unwrap_or(u16::MAX);
+                        ui_height = u16::try_from(height).unwrap_or(u16::MAX);
                         io.set_display_size(imgui::Vec2(width as f32, height as f32));
-                        self.renderer.resize_framebuffer(width, height);
+                        self.renderer.resize_framebuffer(width, height, false);
                     },
                     Event::CloseRequest(_) => break 'gui,
                     _ => (),
@@ -1984,6 +1989,12 @@ impl Game {
                 }
             }
             frame.end();
+
+            if let Some((w, h)) = self.renderer.stored_size() {
+                frame.begin_sized(b"Game, hopefully\0", w, h, &mut is_open);
+                // TODO: add draw command for drawing game
+                frame.end();
+            }
 
             unsafe {
                 cimgui_sys::igShowDemoWindow(std::ptr::null_mut());
@@ -2042,8 +2053,10 @@ impl Game {
                 }
             }
 
-            self.renderer.present(ui_width, ui_height, Scaling::Full);
-            self.renderer.finish(ui_width, ui_height, clear_colour);
+            //self.renderer.set_view(100, 100, 640, 480, 180.0, 100, 100, 640, 480);
+            //self.renderer.draw_stored(100, 100, 640, 480);
+            self.renderer.present(ui_width.into(), ui_height.into(), Scaling::Full);
+            self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
         }
 
         Ok(())

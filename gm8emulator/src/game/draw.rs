@@ -1,6 +1,6 @@
 use crate::{
     asset::{font, Font},
-    game::{Game, GetAsset, Version},
+    game::{Game, GetAsset, PlayType, Version},
     gml,
     math::Real,
 };
@@ -204,8 +204,9 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        let (width, height) = self.window_inner_size;
-        self.renderer.present(width, height, self.scaling);
+        if self.play_type != PlayType::Record {
+            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
+        }
 
         // Reset viewport
         self.renderer.set_view(
