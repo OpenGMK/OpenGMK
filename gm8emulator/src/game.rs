@@ -1991,7 +1991,7 @@ impl Game {
             frame.end();
 
             if let Some((w, h)) = self.renderer.stored_size() {
-                frame.begin_sized(b"Game, hopefully\0", w, h, &mut is_open);
+                frame.begin_sized("Game, hopefully", w, h, &mut is_open);
                 // TODO: add draw command for drawing game
                 frame.end();
             }

@@ -74,7 +74,7 @@ impl Frame<'_> {
         }
     }
 
-    pub fn begin_sized(&self, name: &[u8], w: i32, h: i32, is_open: &mut bool) {
+    pub fn begin_sized(&mut self, name: &str, w: i32, h: i32, is_open: &mut bool) {
         unsafe {
             c::igSetNextWindowSize(*c::ImVec2_ImVec2Float(w as _, h as _), 0);
         }
