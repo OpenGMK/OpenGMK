@@ -79,6 +79,7 @@ impl Frame<'_> {
         name: &str,
         size: Option<Vec2<f32>>,
         resizable: bool,
+        menu_bar: bool,
         is_open: &mut bool,
     ) {
         if let Some(size) = size {
@@ -87,13 +88,27 @@ impl Frame<'_> {
         self._begin(
             name,
             is_open,
-            c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar |
+            if menu_bar { c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar } else { 0 } |
                 if !resizable { c::ImGuiWindowFlags__ImGuiWindowFlags_NoResize } else { 0 }
         )
     }
 
     pub fn end(&self) {
         unsafe { c::igEnd() };
+    }
+
+    pub fn window_position(&self) -> (f32, f32) {
+        unsafe {
+            let mut pos: c::ImVec2 = std::mem::MaybeUninit::uninit().assume_init();
+            c::igGetWindowPos(&mut pos as *mut _);
+            (pos.x, pos.y)
+        }
+    }
+
+    pub fn window_collapsed(&self) -> bool {
+        unsafe {
+            c::igIsWindowCollapsed()
+        }
     }
 
     pub fn button(&mut self, name: &str, size: Vec2<f32>) -> bool {
@@ -104,6 +119,12 @@ impl Frame<'_> {
     pub fn text(&mut self, text: &str) {
         self.cstr_store(text);
         unsafe { c::igText(self.cstr()) };
+    }
+
+    pub fn callback<T>(&mut self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T) {
+        unsafe {
+            c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
+        }
     }
 
     pub fn render(self) {

@@ -1924,6 +1924,15 @@ impl Game {
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
         let test_labels = (0..200).map(|i| format!("Text label number {}\0", i)).collect::<Vec<_>>();
 
+        // for imgui callback
+        struct GameViewData {
+            renderer: *mut Renderer,
+            x: i32,
+            y: i32,
+            w: u32,
+            h: u32,
+        }
+
         self.init()?;
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
 
@@ -1973,7 +1982,7 @@ impl Game {
             let mut is_open = false;
             let mut frame = context.new_frame();
 
-            frame.begin_window("Some Window", None, true, &mut is_open);
+            frame.begin_window("Some Window", None, true, true, &mut is_open);
             if true {
                 if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
                     println!("adam is a b-");
@@ -1982,7 +1991,7 @@ impl Game {
             }
             frame.end();
 
-            frame.begin_window("Another Window", None, true, &mut is_open);
+            frame.begin_window("Another Window", None, true, true, &mut is_open);
             if true {
                 for label in &*test_labels {
                     frame.text(label);
@@ -1990,14 +1999,31 @@ impl Game {
             }
             frame.end();
 
+            let mut callback_data = GameViewData {
+                renderer: (&mut self.renderer) as *mut _,
+                x: 0,
+                y: 0,
+                w: 0,
+                h: 0,
+            };
             if let Some((w, h)) = self.renderer.stored_size() {
-                frame.begin_window("Game, hopefully", Some(imgui::Vec2(w as _, h as _)), false, &mut is_open);
-                // TODO: add draw command for drawing game
-                frame.end();
-            }
+                frame.begin_window("Game, hopefully", Some(imgui::Vec2((w + 2) as _, (h + 20) as _)), false, false, &mut is_open);
+                let (x, y) = frame.window_position();
+                callback_data.x = x as i32 + 1;
+                callback_data.y = y as i32 + 19;
+                callback_data.w = w as _;
+                callback_data.h = h as _;
+                
+                unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
+                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
+                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
+                }
 
-            unsafe {
-                cimgui_sys::igShowDemoWindow(std::ptr::null_mut());
+                if !frame.window_collapsed() {
+                    frame.callback(callback, &mut callback_data);
+                }
+
+                frame.end();
             }
 
             frame.render();
