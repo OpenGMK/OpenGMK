@@ -1852,6 +1852,26 @@ impl Game {
         self.load_room(self.room.id)
     }
 
+    /// Gets the whole String to be used as the window title, including score and lives if applicable
+    pub fn get_window_title(&self) -> Cow<'_, str> {
+        use std::fmt::Write;
+
+        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
+        if show_score || self.lives_capt_d {
+            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
+            // write!() on a String never panics
+            if show_score {
+                write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
+            }
+            if self.lives_capt_d {
+                write!(caption, " {}{}", self.decode_str(self.lives_capt.as_ref()), self.lives).unwrap();
+            }
+            caption.into()
+        } else {
+            self.decode_str(self.room.caption.as_ref())
+        }
+    }
+
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
         match self.scene_change {
@@ -1922,7 +1942,6 @@ impl Game {
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
         let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)?;
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
-        let test_labels = (0..200).map(|i| format!("Text label number {}\0", i)).collect::<Vec<_>>();
 
         // for imgui callback
         struct GameViewData {
@@ -1934,7 +1953,14 @@ impl Game {
         }
 
         self.init()?;
+        match self.scene_change {
+            Some(SceneChange::Room(id)) => self.load_room(id)?,
+            Some(SceneChange::Restart) => self.restart()?,
+            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
+            None => (),
+        }
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+
 
         'gui: loop {
             // refresh io state
@@ -1985,17 +2011,22 @@ impl Game {
             frame.begin_window("Some Window", None, true, true, &mut is_open);
             if true {
                 if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
-                    println!("adam is a b-");
+                    if let Some((w, h)) = self.renderer.stored_size() {
+                        self.renderer.resize_framebuffer(w as _, h as _, false);
+                        self.renderer.draw_stored(0, 0, w as _, h as _);
+                        self.frame()?;
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => self.restart()?,
+                            None => (),
+                        }
+                        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+                        // TODO: this but without calling present()
+                        //self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
+                    }
                 }
                 frame.text("wwww");
-            }
-            frame.end();
-
-            frame.begin_window("Another Window", None, true, true, &mut is_open);
-            if true {
-                for label in &*test_labels {
-                    frame.text(label);
-                }
             }
             frame.end();
 
@@ -2007,7 +2038,7 @@ impl Game {
                 h: 0,
             };
             if let Some((w, h)) = self.renderer.stored_size() {
-                frame.begin_window("Game, hopefully", Some(imgui::Vec2((w + 2) as _, (h + 20) as _)), false, false, &mut is_open);
+                frame.begin_window(&format!("{}###Game", self.get_window_title()), Some(imgui::Vec2((w + 2) as _, (h + 20) as _)), false, false, &mut is_open);
                 let imgui::Vec2(x, y) = frame.window_position();
                 callback_data.x = x as i32 + 1;
                 callback_data.y = y as i32 + 19;

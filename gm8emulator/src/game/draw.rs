@@ -5,7 +5,6 @@ use crate::{
     math::Real,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Halign {
@@ -222,20 +221,8 @@ impl Game {
         );
 
         // Apply room caption
-        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
-        if show_score || self.lives_capt_d {
-            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
-            // write!() on a String never panics
-            if show_score {
-                write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
-            }
-            if self.lives_capt_d {
-                write!(caption, " {}{}", self.decode_str(self.lives_capt.as_ref()), self.lives).unwrap();
-            }
-            self.window.set_title(&caption);
-        } else {
-            self.window.set_title(self.decode_str(self.room.caption.as_ref()).as_ref());
-        }
+        let title = self.get_window_title();
+        self.window.set_title(title.as_ref());
 
         Ok(())
     }
