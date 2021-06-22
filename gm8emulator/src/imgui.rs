@@ -63,23 +63,33 @@ impl Frame<'_> {
         self.0.cbuf.as_ptr().cast()
     }
 
-    pub fn begin(&mut self, name: &str, is_open: &mut bool) {
+    fn _begin(&mut self, name: &str, is_open: &mut bool, flags: u32) {
         self.cstr_store(name);
         unsafe {
             c::igBegin(
                 self.cstr(),
                 is_open,
-                c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar as _,
+                flags as i32,
             );
         }
     }
 
-    pub fn begin_sized(&mut self, name: &str, w: i32, h: i32, is_open: &mut bool) {
-        unsafe {
-            c::igSetNextWindowSize(*c::ImVec2_ImVec2Float(w as _, h as _), 0);
+    pub fn begin_window(
+        &mut self,
+        name: &str,
+        size: Option<Vec2<f32>>,
+        resizable: bool,
+        is_open: &mut bool,
+    ) {
+        if let Some(size) = size {
+            unsafe { c::igSetNextWindowSize(size.into(), 0) };
         }
-        // TODO: non-resizable?
-        self.begin(name, is_open)
+        self._begin(
+            name,
+            is_open,
+            c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar |
+                if !resizable { c::ImGuiWindowFlags__ImGuiWindowFlags_NoResize } else { 0 }
+        )
     }
 
     pub fn end(&self) {

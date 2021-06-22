@@ -1973,7 +1973,7 @@ impl Game {
             let mut is_open = false;
             let mut frame = context.new_frame();
 
-            frame.begin("Some Window", &mut is_open);
+            frame.begin_window("Some Window", None, true, &mut is_open);
             if true {
                 if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
                     println!("adam is a b-");
@@ -1982,7 +1982,7 @@ impl Game {
             }
             frame.end();
 
-            frame.begin("Another Window", &mut is_open);
+            frame.begin_window("Another Window", None, true, &mut is_open);
             if true {
                 for label in &*test_labels {
                     frame.text(label);
@@ -1991,7 +1991,7 @@ impl Game {
             frame.end();
 
             if let Some((w, h)) = self.renderer.stored_size() {
-                frame.begin_sized("Game, hopefully", w, h, &mut is_open);
+                frame.begin_window("Game, hopefully", Some(imgui::Vec2(w as _, h as _)), false, &mut is_open);
                 // TODO: add draw command for drawing game
                 frame.end();
             }
