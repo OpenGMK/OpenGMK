@@ -2307,9 +2307,9 @@ impl RendererTrait for RendererImpl {
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.fbo);
             self.gl.BlitFramebuffer(
                 0,
-                fb_height,
-                fb_width,
                 0,
+                fb_width,
+                fb_height,
                 x,
                 y,
                 x + width,
