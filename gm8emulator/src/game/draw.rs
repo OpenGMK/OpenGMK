@@ -222,7 +222,9 @@ impl Game {
 
         // Apply room caption
         let title = self.get_window_title();
-        self.window.set_title(title.as_ref());
+        if self.play_type != PlayType::Record {
+            self.window.set_title(title.as_ref());
+        }
 
         Ok(())
     }

@@ -249,7 +249,9 @@ impl Game {
 
     pub fn window_set_caption(&mut self, args: &[Value]) -> gml::Result<Value> {
         let caption = expect_args!(args, [string])?;
-        self.window.set_title(caption.as_ref());
+        if self.play_type == PlayType::Record {
+            self.window.set_title(caption.as_ref());
+        }
         self.window_caption = caption.into_owned();
         Ok(Default::default())
     }
@@ -9181,7 +9183,7 @@ impl Game {
         if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
             let instrs = self.compiler.compile(code.as_ref())
                 .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
-            
+
             timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
         }
         Ok(Default::default())
