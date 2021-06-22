@@ -77,10 +77,17 @@ impl Game {
                     },
                     2 => {
                         // Continue from end
+                        let path_start_pos = if instance.path_speed.get() < Real::from(0.0) {
+                            Real::from(1.0)
+                        } else {
+                            Real::from(0.0)
+                        };
+
                         instance.path_position.set(new_position);
-                        let point = path.get_point(path_end_pos);
-                        instance.path_xstart.set(point.x);
-                        instance.path_ystart.set(point.y);
+                        let start_point = path.get_point(path_start_pos);
+                        let end_point = path.get_point(path_end_pos);
+                        instance.path_xstart.set(instance.path_xstart.get() + end_point.x - start_point.x);
+                        instance.path_ystart.set(instance.path_ystart.get() + end_point.y - start_point.y);
                     },
                     3 => {
                         // Reverse
