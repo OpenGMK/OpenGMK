@@ -2288,6 +2288,8 @@ impl RendererTrait for RendererImpl {
             None => return,
         };
 
+        self.flush_queue();
+
         unsafe {
             // Get framebuffer size
             let (mut fb_width, mut fb_height) = (0, 0);
