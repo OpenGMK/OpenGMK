@@ -97,11 +97,11 @@ impl Frame<'_> {
         unsafe { c::igEnd() };
     }
 
-    pub fn window_position(&self) -> (f32, f32) {
+    pub fn window_position(&self) -> Vec2<f32> {
         unsafe {
-            let mut pos: c::ImVec2 = std::mem::MaybeUninit::uninit().assume_init();
-            c::igGetWindowPos(&mut pos as *mut _);
-            (pos.x, pos.y)
+            let mut pos = std::mem::MaybeUninit::uninit();
+            c::igGetWindowPos(pos.as_mut_ptr());
+            pos.assume_init().into()
         }
     }
 
@@ -208,5 +208,12 @@ impl From<Vec2<f32>> for c::ImVec2 {
     fn from(vec2: Vec2<f32>) -> Self {
         let Vec2(x, y) = vec2;
         Self { x, y }
+    }
+}
+
+impl From<c::ImVec2> for Vec2<f32> {
+    fn from(cvec2: c::ImVec2) -> Self {
+        let c::ImVec2 { x, y } = cvec2;
+        Self(x, y)
     }
 }

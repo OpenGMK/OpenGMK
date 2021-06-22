@@ -2008,12 +2008,12 @@ impl Game {
             };
             if let Some((w, h)) = self.renderer.stored_size() {
                 frame.begin_window("Game, hopefully", Some(imgui::Vec2((w + 2) as _, (h + 20) as _)), false, false, &mut is_open);
-                let (x, y) = frame.window_position();
+                let imgui::Vec2(x, y) = frame.window_position();
                 callback_data.x = x as i32 + 1;
                 callback_data.y = y as i32 + 19;
                 callback_data.w = w as _;
                 callback_data.h = h as _;
-                
+
                 unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
                     let data = &*((*ptr).UserCallbackData as *mut GameViewData);
                     (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
