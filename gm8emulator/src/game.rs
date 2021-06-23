@@ -1960,7 +1960,8 @@ impl Game {
             None => (),
         }
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-
+        let mut use_3d = self.renderer.get_3d();
+        self.renderer.set_3d(false);
 
         'gui: loop {
             // refresh io state
@@ -2012,6 +2013,7 @@ impl Game {
             if true {
                 if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
                     if let Some((w, h)) = self.renderer.stored_size() {
+                        self.renderer.set_3d(use_3d);
                         self.renderer.resize_framebuffer(w as _, h as _, false);
                         self.renderer.set_view(
                             0,
@@ -2045,6 +2047,8 @@ impl Game {
                             ui_height.into(),
                         );
                         self.renderer.clear_view(clear_colour, 1.0);
+                        use_3d = self.renderer.get_3d();
+                        self.renderer.set_3d(false);
                     }
                 }
                 frame.text("wwww");
