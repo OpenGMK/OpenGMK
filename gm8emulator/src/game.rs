@@ -45,7 +45,7 @@ use encoding_rs::Encoding;
 use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
-use ramen::{event::Event, monitor::Size, window::{Window, Controls}};
+use ramen::{event::{Event, Key}, monitor::Size, window::{Window, Controls}};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -1972,11 +1972,15 @@ impl Game {
             io.set_mouse_wheel(0.0);
 
             // poll window events
+            let mut space_pressed = false;
             self.window.swap_events();
             for event in self.window.events() {
+                if matches!(event, Event::KeyboardDown(Key::Space) | Event::KeyboardRepeat(Key::Space)) {
+                    space_pressed = true;
+                }
+
                 match event {
                     ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
-                        use ramen::event::Key;
                         let state = matches!(ev, Event::KeyboardDown(_));
                         io.set_key(usize::from(input::ramen2vk(*key)), state);
                         match key {
@@ -2012,7 +2016,7 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Some Window", None, true, true, &mut is_open);
-            if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
+            if frame.button("Advance", imgui::Vec2(150.0, 20.0)) || space_pressed {
                 if let Some((w, h)) = self.renderer.stored_size() {
                     self.renderer.set_3d(use_3d);
                     self.renderer.resize_framebuffer(w as _, h as _, false);
