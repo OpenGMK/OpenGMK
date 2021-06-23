@@ -50,7 +50,6 @@ fn xmain() -> i32 {
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
     opts.optflag("l", "no-framelimit", "disables the frame-limiter");
-    opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
     opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
@@ -80,14 +79,6 @@ fn xmain() -> i32 {
     let spoof_time = !matches.opt_present("r");
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
-    let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("invalid port provided: {}", e);
-            return EXIT_FAILURE
-        },
-    }
-    .unwrap_or(15560);
     let project_path = matches.opt_str("n").map(|name| {
         let mut p = env::current_dir().expect("std::env::current_dir() failed");
         p.push("projects");
@@ -221,7 +212,7 @@ fn xmain() -> i32 {
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
-        components.record(path, port)
+        components.record(path)
     } else {
         // cache temp_dir and included files because the other functions take ownership
         let temp_dir: Option<PathBuf> = if can_clear_temp_dir {

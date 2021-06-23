@@ -1926,7 +1926,7 @@ impl Game {
     }
 
     // Create a TAS for this game
-    pub fn record(&mut self, _project_path: PathBuf, _tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, _project_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         let mut ui_width: u16 = 1280;
         let mut ui_height: u16 = 720;
         self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
