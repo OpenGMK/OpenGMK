@@ -2013,6 +2013,17 @@ impl Game {
                 if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
                     if let Some((w, h)) = self.renderer.stored_size() {
                         self.renderer.resize_framebuffer(w as _, h as _, false);
+                        self.renderer.set_view(
+                            0,
+                            0,
+                            self.unscaled_width as _,
+                            self.unscaled_height as _,
+                            0.0,
+                            0,
+                            0,
+                            self.unscaled_width as _,
+                            self.unscaled_height as _,
+                        );
                         self.renderer.draw_stored(0, 0, w as _, h as _);
                         self.frame()?;
                         match self.scene_change {
@@ -2022,8 +2033,18 @@ impl Game {
                             None => (),
                         }
                         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                        // TODO: this but without calling present()
-                        //self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
+                        self.renderer.set_view(
+                            0,
+                            0,
+                            ui_width.into(),
+                            ui_height.into(),
+                            0.0,
+                            0,
+                            0,
+                            ui_width.into(),
+                            ui_height.into(),
+                        );
+                        self.renderer.clear_view(clear_colour, 1.0);
                     }
                 }
                 frame.text("wwww");
