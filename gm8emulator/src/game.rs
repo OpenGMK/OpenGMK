@@ -1963,6 +1963,8 @@ impl Game {
         let mut use_3d = self.renderer.get_3d();
         self.renderer.set_3d(false);
 
+        let mut frame_counter = 0;
+
         'gui: loop {
             // refresh io state
             let io = context.io();
@@ -2010,49 +2012,57 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Some Window", None, true, true, &mut is_open);
-            if true {
-                if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
-                    if let Some((w, h)) = self.renderer.stored_size() {
-                        self.renderer.set_3d(use_3d);
-                        self.renderer.resize_framebuffer(w as _, h as _, false);
-                        self.renderer.set_view(
-                            0,
-                            0,
-                            self.unscaled_width as _,
-                            self.unscaled_height as _,
-                            0.0,
-                            0,
-                            0,
-                            self.unscaled_width as _,
-                            self.unscaled_height as _,
-                        );
-                        self.renderer.draw_stored(0, 0, w as _, h as _);
-                        self.frame()?;
-                        match self.scene_change {
-                            Some(SceneChange::Room(id)) => self.load_room(id)?,
-                            Some(SceneChange::Restart) => self.restart()?,
-                            Some(SceneChange::End) => self.restart()?,
-                            None => (),
-                        }
-                        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                        self.renderer.set_view(
-                            0,
-                            0,
-                            ui_width.into(),
-                            ui_height.into(),
-                            0.0,
-                            0,
-                            0,
-                            ui_width.into(),
-                            ui_height.into(),
-                        );
-                        self.renderer.clear_view(clear_colour, 1.0);
-                        use_3d = self.renderer.get_3d();
-                        self.renderer.set_3d(false);
+            if frame.button("Advance", imgui::Vec2(150.0, 20.0)) {
+                if let Some((w, h)) = self.renderer.stored_size() {
+                    self.renderer.set_3d(use_3d);
+                    self.renderer.resize_framebuffer(w as _, h as _, false);
+                    self.renderer.set_view(
+                        0,
+                        0,
+                        self.unscaled_width as _,
+                        self.unscaled_height as _,
+                        0.0,
+                        0,
+                        0,
+                        self.unscaled_width as _,
+                        self.unscaled_height as _,
+                    );
+                    self.renderer.draw_stored(0, 0, w as _, h as _);
+                    self.frame()?;
+                    match self.scene_change {
+                        Some(SceneChange::Room(id)) => self.load_room(id)?,
+                        Some(SceneChange::Restart) => self.restart()?,
+                        Some(SceneChange::End) => self.restart()?,
+                        None => (),
                     }
+                    self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+                    self.renderer.set_view(
+                        0,
+                        0,
+                        ui_width.into(),
+                        ui_height.into(),
+                        0.0,
+                        0,
+                        0,
+                        ui_width.into(),
+                        ui_height.into(),
+                    );
+                    self.renderer.clear_view(clear_colour, 1.0);
+                    use_3d = self.renderer.get_3d();
+                    self.renderer.set_3d(false);
+
+                    // Fake frame limiter stuff (don't actually frame-limit in record mode)
+                    if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                        *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
+                    }
+                    if frame_counter == self.room.speed {
+                        self.fps = self.room.speed;
+                        frame_counter = 0;
+                    }
+                    frame_counter += 1;
                 }
-                frame.text("wwww");
             }
+            frame.text("wwww");
             frame.end();
 
             let mut callback_data = GameViewData {
