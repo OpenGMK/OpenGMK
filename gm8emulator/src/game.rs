@@ -1931,6 +1931,8 @@ impl Game {
         let mut ui_height: u16 = 720;
         self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
 
+        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+
         let clear_colour = Colour::new(0.961, 0.259, 0.925);
 
         let mut context = imgui::Context::new();
@@ -1959,11 +1961,19 @@ impl Game {
             Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
             None => (),
         }
+        for ev in self.stored_events.iter() {
+            replay.startup_events.push(ev.clone());
+        }
+        self.stored_events.clear();
+
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut use_3d = self.renderer.get_3d();
         self.renderer.set_3d(false);
 
-        let mut frame_counter = 0;
+        let mut frame_counter = 0; // TODO: this really should be stored in Game and Savestate, not here
+
+        let mut frame_text = String::from("Frame: 0");
+        let mut seed_text = format!("Seed: {}", self.rand.seed());
 
         'gui: loop {
             // refresh io state
@@ -2018,19 +2028,23 @@ impl Game {
             frame.begin_window("Some Window", None, true, true, &mut is_open);
             if frame.button("Advance", imgui::Vec2(150.0, 20.0)) || space_pressed {
                 if let Some((w, h)) = self.renderer.stored_size() {
+                    let frame = replay.new_frame(self.room.speed);
+                    // TODO: all of this and also key events
+                    //frame.mouse_x = mouse_location.0;
+                    //frame.mouse_y = mouse_location.1;
+                    //frame.new_seed = None;
+
+                    //if let Some(seed) = new_seed {
+                    //    self.rand.set_seed(seed);
+                    //}
+
+                    // self.input_manager.mouse_update_previous();
+                    // self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
+
                     self.renderer.set_3d(use_3d);
                     self.renderer.resize_framebuffer(w as _, h as _, false);
-                    self.renderer.set_view(
-                        0,
-                        0,
-                        self.unscaled_width as _,
-                        self.unscaled_height as _,
-                        0.0,
-                        0,
-                        0,
-                        self.unscaled_width as _,
-                        self.unscaled_height as _,
-                    );
+                    self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
+                        0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
                     self.renderer.draw_stored(0, 0, w as _, h as _);
                     self.frame()?;
                     match self.scene_change {
@@ -2039,18 +2053,14 @@ impl Game {
                         Some(SceneChange::End) => self.restart()?,
                         None => (),
                     }
+                    for ev in self.stored_events.iter() {
+                        frame.events.push(ev.clone());
+                    }
+                    self.stored_events.clear();
+
                     self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                    self.renderer.set_view(
-                        0,
-                        0,
-                        ui_width.into(),
-                        ui_height.into(),
-                        0.0,
-                        0,
-                        0,
-                        ui_width.into(),
-                        ui_height.into(),
-                    );
+                    self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
+                        0.0, 0, 0, ui_width.into(), ui_height.into());
                     self.renderer.clear_view(clear_colour, 1.0);
                     use_3d = self.renderer.get_3d();
                     self.renderer.set_3d(false);
@@ -2066,7 +2076,7 @@ impl Game {
                     frame_counter += 1;
                 }
             }
-            frame.text("wwww");
+            frame.text(&frame_text);
             frame.end();
 
             let mut callback_data = GameViewData {
