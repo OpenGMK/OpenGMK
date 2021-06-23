@@ -2025,7 +2025,7 @@ impl Game {
             let mut is_open = false;
             let mut frame = context.new_frame();
 
-            frame.begin_window("Some Window", None, true, true, &mut is_open);
+            frame.begin_window("Control", None, true, false, &mut is_open);
             if frame.button("Advance", imgui::Vec2(150.0, 20.0)) || space_pressed {
                 if let Some((w, h)) = self.renderer.stored_size() {
                     let frame = replay.new_frame(self.room.speed);
@@ -2074,9 +2074,13 @@ impl Game {
                         frame_counter = 0;
                     }
                     frame_counter += 1;
+
+                    frame_text = format!("Frame: {}", replay.frame_count());
+                    seed_text = format!("Seed: {}", self.rand.seed());
                 }
             }
             frame.text(&frame_text);
+            frame.text(&seed_text);
             frame.end();
 
             let mut callback_data = GameViewData {
