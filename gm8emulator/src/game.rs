@@ -2163,9 +2163,6 @@ impl Game {
                 }
             }
 
-            //self.renderer.set_view(100, 100, 640, 480, 180.0, 100, 100, 640, 480);
-            //self.renderer.draw_stored(100, 100, 640, 480);
-            self.renderer.present(ui_width.into(), ui_height.into(), Scaling::Full);
             self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
         }
 
