@@ -37,7 +37,7 @@ use crate::{
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
-    render::{atlas::{AtlasBuilder, AtlasRef}, PrimitiveType, Renderer, RendererOptions, Scaling},
+    render::{atlas::{AtlasBuilder, AtlasRef}, PrimitiveType, Renderer, RendererOptions, RendererState, Scaling},
     types::{Colour, ID},
     tile, util,
 };
@@ -1973,6 +1973,33 @@ impl Game {
             h: u32,
         }
 
+        let mut savestate: Option<SaveState> = None;
+
+        let ui_renderer_state = RendererState {
+            model_matrix: self.renderer.get_model_matrix(),
+            alpha_blending: true,
+            blend_mode: self.renderer.get_blend_mode(),
+            pixel_interpolation: true,
+            texture_repeat: false,
+            sprite_count: self.renderer.get_sprite_count(),
+            vsync: false,
+            ambient_colour: self.renderer.get_ambient_colour(),
+            using_3d: false,
+            depth: self.renderer.get_depth(),
+            depth_test: false,
+            write_depth: false,
+            culling: false,
+            perspective: false,
+            fog: None,
+            gouraud: false,
+            lighting_enabled: false,
+            lights: self.renderer.get_lights(),
+            circle_precision: self.renderer.get_circle_precision(),
+            primitive_2d: self.renderer.get_primitive_2d(),
+            primitive_3d: self.renderer.get_primitive_3d(),
+            zbuf_trashed: self.renderer.get_zbuf_trashed(),
+        };
+
         self.init()?;
         match self.scene_change {
             Some(SceneChange::Room(id)) => self.load_room(id)?,
@@ -1986,10 +2013,7 @@ impl Game {
         self.stored_events.clear();
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-        let mut use_3d = self.renderer.get_3d();
-        let mut use_lighting = self.renderer.get_lighting_enabled();
-        let mut use_gouraud = self.renderer.get_gouraud();
-        let mut interpolate = self.renderer.get_pixel_interpolation();
+        let mut renderer_state = self.renderer.state();
         self.renderer.set_3d(false);
         self.renderer.set_lighting_enabled(false);
         self.renderer.set_gouraud(false);
@@ -2068,10 +2092,7 @@ impl Game {
                 // self.input_manager.mouse_update_previous();
                 // self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
 
-                self.renderer.set_3d(use_3d);
-                self.renderer.set_lighting_enabled(use_lighting);
-                self.renderer.set_gouraud(use_gouraud);
-                self.renderer.set_pixel_interpolation(interpolate);
+                self.renderer.set_state(&renderer_state);
                 self.renderer.resize_framebuffer(w, h, false);
                 self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
                     0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
@@ -2092,14 +2113,8 @@ impl Game {
                 self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
                     0.0, 0, 0, ui_width.into(), ui_height.into());
                 self.renderer.clear_view(clear_colour, 1.0);
-                use_3d = self.renderer.get_3d();
-                use_lighting = self.renderer.get_lighting_enabled();
-                use_gouraud = self.renderer.get_gouraud();
-                interpolate = self.renderer.get_pixel_interpolation();
-                self.renderer.set_3d(false);
-                self.renderer.set_lighting_enabled(false);
-                self.renderer.set_gouraud(false);
-                self.renderer.set_pixel_interpolation(true);
+                renderer_state = self.renderer.state();
+                self.renderer.set_state(&ui_renderer_state);
 
                 // Fake frame limiter stuff (don't actually frame-limit in record mode)
                 if let Some(t) = self.spoofed_time_nanos.as_mut() {
@@ -2114,6 +2129,22 @@ impl Game {
                 frame_text = format!("Frame: {}", replay.frame_count());
                 seed_text = format!("Seed: {}", self.rand.seed());
             }
+
+            if frame.button("Save", imgui::Vec2(150.0, 20.0)) {
+                savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
+            }
+
+            if let Some(state) = &savestate {
+                if frame.button("Load", imgui::Vec2(150.0, 20.0)) {
+                    let (rep, ren) = state.clone().load_into(self);
+                    replay = rep;
+                    renderer_state = ren;
+
+                    frame_text = format!("Frame: {}", replay.frame_count());
+                    seed_text = format!("Seed: {}", self.rand.seed());
+                }
+            }
+
             frame.text(&frame_text);
             frame.text(&seed_text);
             frame.text(&fps_text);
