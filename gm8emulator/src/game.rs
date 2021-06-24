@@ -1948,16 +1948,17 @@ impl Game {
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
 
         let grid = (0i32..(64 * 64 * 4)).map(|i| {
-            let x = (i / 4) % 64;
-            let y = (i / 4) / 64;
-            if (y - x).abs() == 32 || (y + x - 63).abs() == 32 {
-                [0, 192, 99, 255][i as usize % 4]
-            } else if (y >= 34 && x + y == 97) || ((2..32).contains(&y) && x + y == 33) {
-                [64, 64, 64, 255][i as usize % 4]
-            } else if (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs()) {
-                [0, 64, 33, 255][i as usize % 4]
-            } else {
-                0
+            let n = i >> 2;
+            let x = n % 64;
+            let y = n / 64;
+            let a = (y - x).abs() == 32 || (y + x - 63).abs() == 32;
+            let b = (y >= 34 && x + y == 97) || ((2..32).contains(&y) && x + y == 33);
+            let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
+            match (i & 1 != 0, i & 2 != 0) {
+                (false, false) => u8::from(b) * 64,
+                (true, false) => u8::from(a) * 128 + 64,
+                (false, true) => if a { 99 } else { u8::from(b) * 34 + 33 },
+                (true, true) => u8::from(b || c) * 255,
             }
         }).collect::<Vec<_>>().into_boxed_slice();
         let grid_ref = self.renderer.upload_sprite(grid, 64, 64, 0, 0)?;
@@ -2146,7 +2147,8 @@ impl Game {
             frame.render();
 
             // draw imgui
-            let start_xy = -f64::from(((grid_start.elapsed().as_millis() >> 5) & 0x3F) as i8) - 0.5;
+            //let start_xy = -f64::from(((grid_start.elapsed().as_millis() >> 5) & 0x3F) as i8) - 0.5;
+            let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
             for y in (0..(ui_height / 64 + 2)).map(f64::from) {
                 for x in (0..(ui_width / 64 + 2)).map(f64::from) {
                     self.renderer.draw_sprite(&grid_ref, start_xy + (x * 64.0), start_xy + (y * 64.0), 1.0, 1.0, 0.0, 0xFFFFFF, 0.5);
