@@ -2222,6 +2222,10 @@ impl RendererTrait for RendererImpl {
         ]
     }
 
+    fn set_lights(&mut self, _lights: [(bool, Light); 8]) {
+        // TODO: ???
+    }
+
     fn set_light_enabled(&mut self, id: usize, enabled: bool) {
         self.next_render_state.lights[id].enabled = enabled.into();
         self.render_state_updated = true;

@@ -494,6 +494,7 @@ pub trait RendererTrait {
     fn get_ambient_colour(&self) -> i32;
     fn set_ambient_colour(&mut self, colour: i32);
     fn get_lights(&self) -> [(bool, Light); 8];
+    fn set_lights(&mut self, lights: [(bool, Light); 8]);
     fn set_light_enabled(&mut self, id: usize, enabled: bool);
     fn set_light(&mut self, id: usize, light: Light);
 }
@@ -1046,6 +1047,10 @@ impl Renderer {
         self.0.get_lights()
     }
 
+    pub fn set_lights(&mut self, lights: [(bool, Light); 8]) {
+        self.0.set_lights(lights)
+    }
+
     pub fn set_light_enabled(&mut self, id: usize, enabled: bool) {
         self.0.set_light_enabled(id, enabled)
     }
@@ -1088,6 +1093,8 @@ impl Renderer {
             perspective: self.get_perspective(),
             fog: self.get_fog(),
             gouraud: self.get_gouraud(),
+            lighting_enabled: self.get_lighting_enabled(),
+            lights: self.get_lights(),
             circle_precision: self.get_circle_precision(),
             primitive_2d: self.get_primitive_2d(),
             primitive_3d: self.get_primitive_3d(),
@@ -1112,6 +1119,8 @@ impl Renderer {
         self.set_perspective(state.perspective);
         self.set_fog(state.fog.clone());
         self.set_gouraud(state.gouraud);
+        self.set_lighting_enabled(state.lighting_enabled);
+        self.set_lights(state.lights);
         self.set_circle_precision(state.circle_precision);
         self.set_primitive_2d(state.primitive_2d.clone());
         self.set_primitive_3d(state.primitive_3d.clone());
@@ -1139,6 +1148,8 @@ pub struct RendererState {
     pub perspective: bool,
     pub fog: Option<Fog>,
     pub gouraud: bool,
+    pub lighting_enabled: bool,
+    pub lights: [(bool, Light); 8],
     pub circle_precision: i32,
     pub primitive_2d: PrimitiveBuilder,
     pub primitive_3d: PrimitiveBuilder,
