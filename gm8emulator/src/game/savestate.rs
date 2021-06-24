@@ -16,7 +16,7 @@ use crate::{
     input::Input,
     instance::DummyFieldHolder,
     math::Real,
-    render::{BlendType, Fog, PrimitiveBuilder, RendererState, SavedTexture, Scaling},
+    render::{RendererState, SavedTexture, Scaling},
     types::{Colour, ID},
 };
 use indexmap::IndexMap;
