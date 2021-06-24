@@ -1394,12 +1394,6 @@ impl RendererTrait for RendererImpl {
 
     fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32) {
         unsafe {
-            if let Some(framebuffer) = &self.stored_framebuffer {
-                self.gl.DeleteTextures(1, &framebuffer.texture);
-                self.gl.DeleteTextures(1, &framebuffer.zbuf);
-                self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
-            }
-
             let mut fbo = 0;
             let mut texture = 0;
             let mut zbuffer = 0;
@@ -1407,30 +1401,69 @@ impl RendererTrait for RendererImpl {
             self.gl.GenTextures(1, &mut texture);
             self.gl.GenTextures(1, &mut zbuffer);
 
+            assert_eq!(self.gl.GetError(), 0);
+
             self.gl.BindTexture(gl::TEXTURE_2D, texture);
-            self.gl.TexSubImage2D(
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                0,
-                0,
+                gl::RGBA as _,
                 fb_w as _,
                 fb_h as _,
+                0,
                 gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 rgba.as_ptr().cast(),
             );
+
+            assert_eq!(self.gl.GetError(), 0);
+
             self.gl.BindTexture(gl::TEXTURE_2D, zbuffer);
-            self.gl.TexSubImage2D(
+            self.gl.TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                0,
-                0,
+                self.zbuf_format,
                 fb_w as _,
                 fb_h as _,
+                0,
                 gl::DEPTH_COMPONENT,
                 gl::FLOAT,
                 zbuf.as_ptr().cast(),
             );
+
+            assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            self.gl.FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                texture,
+                0,
+            );
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                zbuffer,
+                0,
+            );
+
+            if let Some(framebuffer) = &self.stored_framebuffer {
+                self.gl.DeleteTextures(1, &framebuffer.texture);
+                self.gl.DeleteTextures(1, &framebuffer.zbuf);
+                self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
+            }
+
+            self.stored_framebuffer = Some(Framebuffer {
+                fbo,
+                texture,
+                zbuf: zbuffer,
+            });
 
             assert_eq!(self.gl.GetError(), 0);
         }
