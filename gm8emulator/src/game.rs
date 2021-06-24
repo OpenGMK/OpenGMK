@@ -1986,7 +1986,13 @@ impl Game {
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut use_3d = self.renderer.get_3d();
+        let mut use_lighting = self.renderer.get_lighting_enabled();
+        let mut use_gouraud = self.renderer.get_gouraud();
+        let mut interpolate = self.renderer.get_pixel_interpolation();
         self.renderer.set_3d(false);
+        self.renderer.set_lighting_enabled(false);
+        self.renderer.set_gouraud(false);
+        self.renderer.set_pixel_interpolation(true);
 
         let mut frame_counter = 0; // TODO: this really should be stored in Game and Savestate, not here
 
@@ -2060,6 +2066,9 @@ impl Game {
                     // self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
 
                     self.renderer.set_3d(use_3d);
+                    self.renderer.set_lighting_enabled(use_lighting);
+                    self.renderer.set_gouraud(use_gouraud);
+                    self.renderer.set_pixel_interpolation(interpolate);
                     self.renderer.resize_framebuffer(w as _, h as _, false);
                     self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
                         0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
@@ -2081,7 +2090,13 @@ impl Game {
                         0.0, 0, 0, ui_width.into(), ui_height.into());
                     self.renderer.clear_view(clear_colour, 1.0);
                     use_3d = self.renderer.get_3d();
+                    use_lighting = self.renderer.get_lighting_enabled();
+                    use_gouraud = self.renderer.get_gouraud();
+                    interpolate = self.renderer.get_pixel_interpolation();
                     self.renderer.set_3d(false);
+                    self.renderer.set_lighting_enabled(false);
+                    self.renderer.set_gouraud(false);
+                    self.renderer.set_pixel_interpolation(true);
 
                     // Fake frame limiter stuff (don't actually frame-limit in record mode)
                     if let Some(t) = self.spoofed_time_nanos.as_mut() {
