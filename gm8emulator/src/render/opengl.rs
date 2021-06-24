@@ -2222,8 +2222,11 @@ impl RendererTrait for RendererImpl {
         ]
     }
 
-    fn set_lights(&mut self, _lights: [(bool, Light); 8]) {
-        // TODO: ???
+    fn set_lights(&mut self, lights: [(bool, Light); 8]) {
+        lights.iter().enumerate().for_each(|(i, &(enabled, light))| {
+            self.set_light_enabled(i, enabled);
+            self.set_light(i, light);
+        })
     }
 
     fn set_light_enabled(&mut self, id: usize, enabled: bool) {
