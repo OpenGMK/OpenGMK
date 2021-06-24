@@ -1069,6 +1069,80 @@ impl Renderer {
     pub fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
         self.0.finish(window_width, window_height, clear_colour)
     }
+
+    pub fn state(&self) -> RendererState {
+        RendererState {
+            model_matrix: self.get_model_matrix(),
+            alpha_blending: self.get_alpha_blending(),
+            blend_mode: self.get_blend_mode(),
+            pixel_interpolation: self.get_pixel_interpolation(),
+            texture_repeat: self.get_texture_repeat(),
+            sprite_count: self.get_sprite_count(),
+            vsync: self.get_vsync(),
+            ambient_colour: self.get_ambient_colour(),
+            using_3d: self.get_3d(),
+            depth: self.get_depth(),
+            depth_test: self.get_depth_test(),
+            write_depth: self.get_write_depth(),
+            culling: self.get_culling(),
+            perspective: self.get_perspective(),
+            fog: self.get_fog(),
+            gouraud: self.get_gouraud(),
+            circle_precision: self.get_circle_precision(),
+            primitive_2d: self.get_primitive_2d(),
+            primitive_3d: self.get_primitive_3d(),
+            zbuf_trashed: self.get_zbuf_trashed(),
+        }
+    }
+
+    pub fn set_state(&mut self, state: &RendererState) {
+        self.set_model_matrix(state.model_matrix);
+        self.set_alpha_blending(state.alpha_blending);
+        self.set_blend_mode(state.blend_mode.0, state.blend_mode.1);
+        self.set_pixel_interpolation(state.pixel_interpolation);
+        self.set_texture_repeat(state.texture_repeat);
+        self.set_sprite_count(state.sprite_count);
+        self.set_vsync(state.vsync);
+        self.set_ambient_colour(state.ambient_colour);
+        self.set_3d(state.using_3d);
+        self.set_depth(state.depth);
+        self.set_depth_test(state.depth_test);
+        self.set_write_depth(state.write_depth);
+        self.set_culling(state.culling);
+        self.set_perspective(state.perspective);
+        self.set_fog(state.fog.clone());
+        self.set_gouraud(state.gouraud);
+        self.set_circle_precision(state.circle_precision);
+        self.set_primitive_2d(state.primitive_2d.clone());
+        self.set_primitive_3d(state.primitive_3d.clone());
+        self.set_zbuf_trashed(state.zbuf_trashed);
+    }
+}
+
+/// Easy wrapper for all the parts of the renderer which need saving in savestates.
+/// Everything in this struct can be queried individually. Don't use this for querying individual things.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RendererState {
+    pub model_matrix: [f32; 16],
+    pub alpha_blending: bool,
+    pub blend_mode: (BlendType, BlendType),
+    pub pixel_interpolation: bool,
+    pub texture_repeat: bool,
+    pub sprite_count: i32,
+    pub vsync: bool,
+    pub ambient_colour: i32,
+    pub using_3d: bool,
+    pub depth: f32,
+    pub depth_test: bool,
+    pub write_depth: bool,
+    pub culling: bool,
+    pub perspective: bool,
+    pub fog: Option<Fog>,
+    pub gouraud: bool,
+    pub circle_precision: i32,
+    pub primitive_2d: PrimitiveBuilder,
+    pub primitive_3d: PrimitiveBuilder,
+    pub zbuf_trashed: bool,
 }
 
 /// Multiply two mat4's together
