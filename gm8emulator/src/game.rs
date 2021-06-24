@@ -2179,13 +2179,9 @@ impl Game {
             frame.render();
 
             // draw imgui
-            //let start_xy = -f64::from(((grid_start.elapsed().as_millis() >> 5) & 0x3F) as i8) - 0.5;
             let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
-            for y in (0..(ui_height / 64 + 2)).map(f64::from) {
-                for x in (0..(ui_width / 64 + 2)).map(f64::from) {
-                    self.renderer.draw_sprite(&grid_ref, start_xy + (x * 64.0), start_xy + (y * 64.0), 1.0, 1.0, 0.0, 0xFFFFFF, 0.5);
-                }
-            }
+            self.renderer.draw_sprite_tiled(&grid_ref, start_xy, start_xy, 1.0, 1.0, 0xFFFFFF, 0.5,
+                Some(ui_width.into()), Some(ui_height.into()));
 
             let draw_data = context.draw_data();
             debug_assert!(draw_data.Valid);
