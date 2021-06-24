@@ -200,6 +200,10 @@ impl IO {
     pub fn set_texture_id(&mut self, ptr: *mut ::std::ffi::c_void) {
         unsafe { (*self.0.Fonts).TexID = ptr };
     }
+
+    pub fn framerate(&self) -> f32 {
+        self.0.Framerate
+    }
 }
 
 pub struct Vec2<T>(pub T, pub T);

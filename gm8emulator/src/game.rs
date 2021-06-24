@@ -1962,7 +1962,7 @@ impl Game {
             }
         }).collect::<Vec<_>>().into_boxed_slice();
         let grid_ref = self.renderer.upload_sprite(grid, 64, 64, 0, 0)?;
-        let grid_start = std::time::Instant::now();
+        let grid_start = Instant::now();
 
         // for imgui callback
         struct GameViewData {
@@ -2001,9 +2001,10 @@ impl Game {
         let mut seed_text = format!("Seed: {}", self.rand.seed());
 
         'gui: loop {
+            let time_start = Instant::now();
+
             // refresh io state
             let io = context.io();
-            io.set_delta_time(1.0 / self.room.speed as f32);
             io.set_mouse_wheel(0.0);
 
             // poll window events
@@ -2048,6 +2049,7 @@ impl Game {
 
             // present imgui
             let mut is_open = false;
+            let fps_text = format!("FPS: {}", io.framerate());
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
@@ -2115,6 +2117,7 @@ impl Game {
             }
             frame.text(&frame_text);
             frame.text(&seed_text);
+            frame.text(&fps_text);
             frame.end();
 
             let mut callback_data = GameViewData {
@@ -2206,6 +2209,8 @@ impl Game {
             }
 
             self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
+
+            context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
 
         Ok(())
@@ -2229,7 +2234,7 @@ impl Game {
             None => (),
         }
 
-        let mut time_now = std::time::Instant::now();
+        let mut time_now = Instant::now();
         loop {
             self.window.swap_events();
             self.input.mouse_step();
