@@ -138,9 +138,9 @@ pub struct SaveState {
 
 impl SaveState {
     pub fn from(game: &Game, replay: Replay) -> Self {
-        let (window_width, window_height) = game.window_inner_size;
-        let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
-        let zbuffer = game.renderer.dump_zbuffer();
+        let (window_width, window_height) = game.renderer.stored_size();
+        let screenshot = game.renderer.stored_pixels();
+        let zbuffer = game.renderer.stored_zbuffer();
 
         Self {
             compiler: game.compiler.clone(),
@@ -236,24 +236,9 @@ impl SaveState {
     }
 
     pub fn load_into(self, game: &mut Game) -> Replay {
-        if game.window_inner_size != (self.window_width, self.window_height) {
-            if game.window_is_logical_dpi {
-                todo!("oh god, oh fuck!");
-            }
-            game.window.set_inner_size(ramen::monitor::Size::Physical(self.window_width, self.window_height));
-        }
-
         game.renderer.upload_dynamic_textures(&self.textures);
 
-        game.renderer.draw_raw_frame(
-            self.screenshot,
-            self.zbuffer,
-            self.unscaled_width as _,
-            self.unscaled_height as _,
-            self.window_width as _,
-            self.window_height as _,
-            self.scaling,
-        );
+        game.renderer.set_stored(self.screenshot, self.zbuffer, self.window_width, self.window_height);
 
         let surfaces = self.surfaces;
         if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {

@@ -295,7 +295,7 @@ pub trait RendererTrait {
     fn flush_queue(&mut self);
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling);
     fn draw_stored(&mut self, target_x: i32, target_y: i32, width: u32, height: u32);
-    fn stored_size(&mut self) -> Option<(i32, i32)>;
+    fn stored_size(&self) -> (u32, u32);
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
@@ -321,17 +321,9 @@ pub trait RendererTrait {
     fn set_texture_repeat(&mut self, repeat: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
-    fn dump_zbuffer(&self) -> Box<[f32]>;
-    fn draw_raw_frame(
-        &mut self,
-        rgba: Box<[u8]>,
-        zbuf: Box<[f32]>,
-        fb_w: i32,
-        fb_h: i32,
-        window_w: u32,
-        window_h: u32,
-        scaling: Scaling,
-    );
+    fn stored_pixels(&self) -> Box<[u8]>;
+    fn stored_zbuffer(&self) -> Box<[f32]>;
+    fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32);
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
@@ -862,21 +854,16 @@ impl Renderer {
         self.0.get_pixels(x, y, w, h)
     }
 
-    pub fn dump_zbuffer(&self) -> Box<[f32]> {
-        self.0.dump_zbuffer()
+    pub fn stored_pixels(&self) -> Box<[u8]> {
+        self.0.stored_pixels()
     }
 
-    pub fn draw_raw_frame(
-        &mut self,
-        rgba: Box<[u8]>,
-        zbuf: Box<[f32]>,
-        fb_w: i32,
-        fb_h: i32,
-        window_w: u32,
-        window_h: u32,
-        scaling: Scaling,
-    ) {
-        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling)
+    pub fn stored_zbuffer(&self) -> Box<[f32]> {
+        self.0.stored_zbuffer()
+    }
+
+    pub fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32) {
+        self.0.set_stored(rgba, zbuf, fb_w, fb_h)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -1075,7 +1062,7 @@ impl Renderer {
         self.0.draw_stored(target_x, target_y, width, height)
     }
 
-    pub fn stored_size(&mut self) -> Option<(i32, i32)> {
+    pub fn stored_size(&self) -> (u32, u32) {
         self.0.stored_size()
     }
 
