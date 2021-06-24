@@ -16,7 +16,7 @@ use crate::{
     input::Input,
     instance::DummyFieldHolder,
     math::Real,
-    render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling},
+    render::{BlendType, Fog, PrimitiveBuilder, RendererState, SavedTexture, Scaling},
     types::{Colour, ID},
 };
 use indexmap::IndexMap;
@@ -39,12 +39,6 @@ pub struct SaveState {
 
     pub background_colour: Colour,
     pub textures: Vec<Option<SavedTexture>>,
-    pub alpha_blending: bool,
-    pub blend_mode: (BlendType, BlendType),
-    pub interpolate_pixels: bool,
-    pub texture_repeat: bool,
-    pub sprite_count: i32,
-    pub vsync: bool,
 
     pub externals: Vec<Option<DefineInfo>>,
     pub surface_fix: bool,
@@ -78,24 +72,12 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
-    pub using_3d: bool,
-    pub depth: f32,
-    pub depth_test: bool,
-    pub write_depth: bool,
-    pub culling: bool,
-    pub perspective: bool,
-    pub fog: Option<Fog>,
-    pub gouraud: bool,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
-    pub model_matrix: [f32; 16],
     pub models: Vec<Option<Model>>,
     pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
-    pub circle_precision: i32,
-    pub primitive_2d: PrimitiveBuilder,
-    pub primitive_3d: PrimitiveBuilder,
-    pub zbuf_trashed: bool,
+    pub renderer_state: RendererState,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
@@ -137,7 +119,7 @@ pub struct SaveState {
 }
 
 impl SaveState {
-    pub fn from(game: &Game, replay: Replay) -> Self {
+    pub fn from(game: &Game, replay: Replay, renderer_state: RendererState) -> Self {
         let (window_width, window_height) = game.renderer.stored_size();
         let screenshot = game.renderer.stored_pixels();
         let zbuffer = game.renderer.stored_zbuffer();
@@ -151,12 +133,6 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             textures: game.renderer.dump_dynamic_textures(),
-            alpha_blending: game.renderer.get_alpha_blending(),
-            blend_mode: game.renderer.get_blend_mode(),
-            interpolate_pixels: game.renderer.get_pixel_interpolation(),
-            texture_repeat: game.renderer.get_texture_repeat(),
-            sprite_count: game.renderer.get_sprite_count(),
-            vsync: game.renderer.get_vsync(),
             externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             surface_fix: game.surface_fix.clone(),
             view_current: game.view_current,
@@ -182,24 +158,12 @@ impl SaveState {
             draw_alpha: game.draw_alpha.clone(),
             draw_halign: game.draw_halign.clone(),
             draw_valign: game.draw_valign.clone(),
-            using_3d: game.renderer.get_3d(),
-            depth: game.renderer.get_depth(),
-            depth_test: game.renderer.get_depth_test(),
-            write_depth: game.renderer.get_write_depth(),
-            culling: game.renderer.get_culling(),
-            perspective: game.renderer.get_perspective(),
-            fog: game.renderer.get_fog(),
-            gouraud: game.renderer.get_gouraud(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
-            model_matrix: game.renderer.get_model_matrix(),
             models: game.models.clone(),
             model_matrix_stack: game.model_matrix_stack.clone(),
             auto_draw: game.auto_draw,
-            circle_precision: game.renderer.get_circle_precision(),
-            primitive_2d: game.renderer.get_primitive_2d(),
-            primitive_3d: game.renderer.get_primitive_3d(),
-            zbuf_trashed: game.renderer.get_zbuf_trashed(),
+            renderer_state,
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             potential_step_settings: game.potential_step_settings.clone(),
@@ -235,7 +199,7 @@ impl SaveState {
         }
     }
 
-    pub fn load_into(self, game: &mut Game) -> Replay {
+    pub fn load_into(self, game: &mut Game) -> (Replay, RendererState) {
         game.renderer.upload_dynamic_textures(&self.textures);
 
         game.renderer.set_stored(self.screenshot, self.zbuffer, self.window_width, self.window_height);
@@ -246,13 +210,6 @@ impl SaveState {
         } else {
             game.renderer.reset_target();
         }
-        game.renderer.set_model_matrix(self.model_matrix);
-        game.renderer.set_alpha_blending(self.alpha_blending);
-        game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
-        game.renderer.set_pixel_interpolation(self.interpolate_pixels);
-        game.renderer.set_texture_repeat(self.texture_repeat);
-        game.renderer.set_sprite_count(self.sprite_count);
-        game.renderer.set_vsync(self.vsync);
 
         let mut externals = self.externals;
         // we're always gonna be recording if we're loading savestates so disable sound
@@ -301,23 +258,11 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.renderer.set_3d(self.using_3d);
-        game.renderer.set_depth(self.depth);
-        game.renderer.set_depth_test(self.depth_test);
-        game.renderer.set_write_depth(self.write_depth);
-        game.renderer.set_culling(self.culling);
-        game.renderer.set_perspective(self.perspective);
-        game.renderer.set_fog(self.fog);
-        game.renderer.set_gouraud(self.gouraud);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.models = self.models;
         game.model_matrix_stack = self.model_matrix_stack;
         game.auto_draw = self.auto_draw;
-        game.renderer.set_circle_precision(self.circle_precision);
-        game.renderer.set_primitive_2d(self.primitive_2d);
-        game.renderer.set_primitive_3d(self.primitive_3d);
-        game.renderer.set_zbuf_trashed(self.zbuf_trashed);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.potential_step_settings = self.potential_step_settings;
@@ -345,7 +290,7 @@ impl SaveState {
         game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
-        self.replay
+        (self.replay, self.renderer_state)
     }
 
     pub fn into_replay(self) -> Replay {
