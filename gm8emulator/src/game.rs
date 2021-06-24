@@ -1552,10 +1552,12 @@ impl Game {
                             );
                         }
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
-                        self.renderer.present(width, height, self.scaling);
-                        let diff = current_time.elapsed();
-                        if let Some(dur) = FRAME_TIME.checked_sub(diff) {
-                            gml::datetime::sleep(dur);
+                        if self.play_type != PlayType::Record {
+                            self.renderer.present(width, height, self.scaling);
+                            let diff = current_time.elapsed();
+                            if let Some(dur) = FRAME_TIME.checked_sub(diff) {
+                                gml::datetime::sleep(dur);
+                            }
                         }
                         if let Some(t) = &mut self.spoofed_time_nanos {
                             *t += FRAME_TIME.as_nanos();
