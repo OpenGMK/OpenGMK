@@ -188,13 +188,6 @@ impl Game {
                         }
                         self.stored_events.clear();
 
-                        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                        self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
-                            0.0, 0, 0, ui_width.into(), ui_height.into());
-                        self.renderer.clear_view(clear_colour, 1.0);
-                        renderer_state = self.renderer.state();
-                        self.renderer.set_state(&ui_renderer_state);
-
                         // Fake frame limiter stuff (don't actually frame-limit in record mode)
                         if let Some(t) = self.spoofed_time_nanos.as_mut() {
                             *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
@@ -212,6 +205,13 @@ impl Game {
                         err_string = Some(format!("{}", e));
                     },
                 }
+
+                self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+                self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
+                    0.0, 0, 0, ui_width.into(), ui_height.into());
+                self.renderer.clear_view(clear_colour, 1.0);
+                renderer_state = self.renderer.state();
+                self.renderer.set_state(&ui_renderer_state);
             }
 
             if frame.button("Save", imgui::Vec2(150.0, 20.0), None) && err_string.is_none() {
