@@ -47,6 +47,10 @@ impl Context {
         unsafe { c::igGetFrameHeight() }
     }
 
+    pub fn window_padding(&self) -> Vec2<f32> {
+        unsafe { (*c::igGetStyle()).FramePadding.into() }
+    }
+
     pub fn window_border_size(&self) -> f32 {
         unsafe { (*c::igGetStyle()).WindowBorderSize }
     }
@@ -113,15 +117,38 @@ impl Frame<'_> {
         }
     }
 
+    pub fn window_size(&self) -> Vec2<f32> {
+        unsafe {
+            let mut size = std::mem::MaybeUninit::uninit();
+            c::igGetWindowSize(size.as_mut_ptr());
+            size.assume_init().into()
+        }
+    }
+
     pub fn window_collapsed(&self) -> bool {
         unsafe {
             c::igIsWindowCollapsed()
         }
     }
 
-    pub fn button(&mut self, name: &str, size: Vec2<f32>) -> bool {
+    pub fn button(&mut self, name: &str, size: Vec2<f32>, position: Option<Vec2<f32>>) -> bool {
         self.cstr_store(name);
-        unsafe { c::igButton(self.cstr(), size.into()) }
+        unsafe {
+            if let Some(pos) = position {
+                c::igSetCursorPos(pos.into());
+            }
+            c::igButton(self.cstr(), size.into())
+        }
+    }
+
+    pub fn invisible_button(&mut self, name: &str, size: Vec2<f32>, position: Option<Vec2<f32>>) -> bool {
+        self.cstr_store(name);
+        unsafe {
+            if let Some(pos) = position {
+                c::igSetCursorPos(pos.into());
+            }
+            c::igInvisibleButton(self.cstr(), size.into(), c::ImGuiButtonFlags__ImGuiButtonFlags_None as _)
+        }
     }
 
     pub fn text(&mut self, text: &str) {
@@ -214,6 +241,7 @@ impl IO {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Vec2<T>(pub T, pub T);
 
 impl From<Vec2<f32>> for c::ImVec2 {
@@ -227,5 +255,19 @@ impl From<c::ImVec2> for Vec2<f32> {
     fn from(cvec2: c::ImVec2) -> Self {
         let c::ImVec2 { x, y } = cvec2;
         Self(x, y)
+    }
+}
+
+impl<T, O> std::ops::Add for Vec2<T> where T: std::ops::Add<Output = O> {
+    type Output = Vec2<O>;
+    fn add(self, rhs: Self) -> Self::Output {
+        Vec2(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
+
+impl<T, O> std::ops::Sub for Vec2<T> where T: std::ops::Sub<Output = O> {
+    type Output = Vec2<O>;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Vec2(self.0 - rhs.0, self.1 - rhs.1)
     }
 }
