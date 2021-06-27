@@ -462,7 +462,7 @@ impl Game {
                 for cmd_id in 0..cmd_count {
                     let command = unsafe { &*draw_list.CmdBuffer.Data.add(cmd_id) };
                     let vertex_buffer = unsafe { vertex_buffer.add(command.VtxOffset as usize) };
-                    let mut index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
+                    let index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
                     if let Some(f) = command.UserCallback {
                         unsafe { f(draw_list, command) };
                     }
@@ -478,9 +478,8 @@ impl Game {
                             }
                         );
 
-                        for _ in 0..command.ElemCount {
-                            let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer))) };
-                            index_buffer = unsafe { index_buffer.add(1) };
+                        for i in 0..(command.ElemCount as usize) {
+                            let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer.add(i)))) };
                             self.renderer.vertex_2d(
                                 f64::from(vert.pos.x) - 0.5,
                                 f64::from(vert.pos.y) - 0.5,
