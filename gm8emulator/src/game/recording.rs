@@ -89,10 +89,7 @@ impl Game {
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
-        self.renderer.set_3d(false);
-        self.renderer.set_lighting_enabled(false);
-        self.renderer.set_gouraud(false);
-        self.renderer.set_pixel_interpolation(true);
+        self.renderer.set_state(&ui_renderer_state);
 
         let mut frame_counter = 0; // TODO: this really should be stored in Game and Savestate, not here
 
