@@ -87,6 +87,8 @@ impl Game {
         }
         self.stored_events.clear();
 
+        let mut err_string: Option<String> = None;
+
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
         self.renderer.set_state(&ui_renderer_state);
@@ -152,7 +154,7 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
-            if frame.button("Advance", imgui::Vec2(150.0, 20.0), None) || space_pressed {
+            if (frame.button("Advance", imgui::Vec2(150.0, 20.0), None) || space_pressed) && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame(self.room.speed);
                 // TODO: all of this and also key events
@@ -172,45 +174,53 @@ impl Game {
                 self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
                     0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
                 self.renderer.draw_stored(0, 0, w, h);
-                self.frame()?;
-                match self.scene_change {
-                    Some(SceneChange::Room(id)) => self.load_room(id)?,
-                    Some(SceneChange::Restart) => self.restart()?,
-                    Some(SceneChange::End) => self.restart()?,
-                    None => (),
-                }
-                for ev in self.stored_events.iter() {
-                    frame.events.push(ev.clone());
-                }
-                self.stored_events.clear();
+                match self.frame() {
+                    Ok(()) => {
+                        match self.scene_change {
+                            Some(SceneChange::Room(id)) => self.load_room(id)?,
+                            Some(SceneChange::Restart) => self.restart()?,
+                            Some(SceneChange::End) => self.restart()?,
+                            None => (),
+                        }
 
-                self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
-                    0.0, 0, 0, ui_width.into(), ui_height.into());
-                self.renderer.clear_view(clear_colour, 1.0);
-                renderer_state = self.renderer.state();
-                self.renderer.set_state(&ui_renderer_state);
+                        for ev in self.stored_events.iter() {
+                            frame.events.push(ev.clone());
+                        }
+                        self.stored_events.clear();
 
-                // Fake frame limiter stuff (don't actually frame-limit in record mode)
-                if let Some(t) = self.spoofed_time_nanos.as_mut() {
-                    *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
-                }
-                if frame_counter == self.room.speed {
-                    self.fps = self.room.speed;
-                    frame_counter = 0;
-                }
-                frame_counter += 1;
+                        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+                        self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
+                            0.0, 0, 0, ui_width.into(), ui_height.into());
+                        self.renderer.clear_view(clear_colour, 1.0);
+                        renderer_state = self.renderer.state();
+                        self.renderer.set_state(&ui_renderer_state);
 
-                frame_text = format!("Frame: {}", replay.frame_count());
-                seed_text = format!("Seed: {}", self.rand.seed());
+                        // Fake frame limiter stuff (don't actually frame-limit in record mode)
+                        if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                            *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
+                        }
+                        if frame_counter == self.room.speed {
+                            self.fps = self.room.speed;
+                            frame_counter = 0;
+                        }
+                        frame_counter += 1;
+
+                        frame_text = format!("Frame: {}", replay.frame_count());
+                        seed_text = format!("Seed: {}", self.rand.seed());
+                    },
+                    Err(e) => {
+                        err_string = Some(format!("{}", e));
+                    },
+                }
             }
 
-            if frame.button("Save", imgui::Vec2(150.0, 20.0), None) {
+            if frame.button("Save", imgui::Vec2(150.0, 20.0), None) && err_string.is_none() {
                 savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
             }
 
             if let Some(state) = &savestate {
                 if frame.button("Load", imgui::Vec2(150.0, 20.0), None) {
+                    err_string = None;
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
                     renderer_state = ren;
@@ -416,33 +426,35 @@ impl Game {
             frame.button("→", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
             frame.end();
 
-            let (w, h) = self.renderer.stored_size();
-            frame.begin_window(
-                &format!("{}###Game", self.get_window_title()),
-                Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
-                false,
-                false,
-                &mut is_open,
-            );
-            let imgui::Vec2(x, y) = frame.window_position();
-            let mut callback_data = GameViewData {
-                renderer: (&mut self.renderer) as *mut _,
-                x: (x + win_border_size) as i32,
-                y: (y + win_frame_height) as i32,
-                w: w,
-                h: h,
-            };
+            if err_string.is_none() {
+                let (w, h) = self.renderer.stored_size();
+                frame.begin_window(
+                    &format!("{}###Game", self.get_window_title()),
+                    Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
+                    false,
+                    false,
+                    &mut is_open,
+                );
+                let imgui::Vec2(x, y) = frame.window_position();
+                let mut callback_data = GameViewData {
+                    renderer: (&mut self.renderer) as *mut _,
+                    x: (x + win_border_size) as i32,
+                    y: (y + win_frame_height) as i32,
+                    w: w,
+                    h: h,
+                };
 
-            unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
-                let data = &*((*ptr).UserCallbackData as *mut GameViewData);
-                (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
+                unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
+                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
+                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
+                }
+
+                if !frame.window_collapsed() {
+                    frame.callback(callback, &mut callback_data);
+                }
+
+                frame.end();
             }
-
-            if !frame.window_collapsed() {
-                frame.callback(callback, &mut callback_data);
-            }
-
-            frame.end();
 
             frame.render();
 
