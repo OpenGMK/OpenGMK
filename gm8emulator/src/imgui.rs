@@ -42,6 +42,14 @@ impl Context {
     pub fn io(&self) -> &mut IO {
         unsafe { &mut *(c::igGetIO() as *mut IO) }
     }
+
+    pub fn frame_height(&self) -> f32 {
+        unsafe { c::igGetFrameHeight() }
+    }
+
+    pub fn window_border_size(&self) -> f32 {
+        unsafe { (*c::igGetStyle()).WindowBorderSize }
+    }
 }
 
 impl ops::Drop for Context {

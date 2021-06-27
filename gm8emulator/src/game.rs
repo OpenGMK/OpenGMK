@@ -2074,6 +2074,8 @@ impl Game {
             // present imgui
             let mut is_open = false;
             let fps_text = format!("FPS: {}", io.framerate());
+            let win_frame_height = context.frame_height();
+            let win_border_size = context.window_border_size();
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
@@ -2150,20 +2152,22 @@ impl Game {
             frame.text(&fps_text);
             frame.end();
 
+            let (w, h) = self.renderer.stored_size();
+            frame.begin_window(
+                &format!("{}###Game", self.get_window_title()),
+                Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
+                false,
+                false,
+                &mut is_open,
+            );
+            let imgui::Vec2(x, y) = frame.window_position();
             let mut callback_data = GameViewData {
                 renderer: (&mut self.renderer) as *mut _,
-                x: 0,
-                y: 0,
-                w: 0,
-                h: 0,
+                x: (x + win_border_size) as i32,
+                y: (y + win_frame_height) as i32,
+                w: w,
+                h: h,
             };
-            let (w, h) = self.renderer.stored_size();
-            frame.begin_window(&format!("{}###Game", self.get_window_title()), Some(imgui::Vec2((w + 2) as _, (h + 20) as _)), false, false, &mut is_open);
-            let imgui::Vec2(x, y) = frame.window_position();
-            callback_data.x = x as i32 + 1;
-            callback_data.y = y as i32 + 19;
-            callback_data.w = w;
-            callback_data.h = h;
 
             unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
                 let data = &*((*ptr).UserCallbackData as *mut GameViewData);
