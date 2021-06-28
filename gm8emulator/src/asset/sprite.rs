@@ -282,8 +282,8 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
         for y in 0..height {
             for x in 0..width {
                 let px = input.get_pixel(
-                    (Real::from(x) / xscale).floor().round() as _,
-                    (Real::from(y) / yscale).floor().round() as _,
+                    (Real::from(x) / xscale).floor().to_u32(),
+                    (Real::from(y) / yscale).floor().to_u32(),
                 );
                 // this makes lerping uglier but it's accurate to GM8
                 if px[3] > 0 {
@@ -298,22 +298,18 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
 }
 
 impl Sprite {
-    fn get_image_index(&self, image_index: Real) -> Option<usize> {
-        (image_index.floor().into_inner() as isize).checked_rem_euclid(self.frames.len() as isize).map(|x| x as usize)
+    fn get_frame_index(&self, image_idx: isize) -> Option<usize> {
+        image_idx.checked_rem_euclid(self.frames.len() as isize).map(|x| x as usize)
     }
 
-    pub fn get_frame(&self, image_index: Real) -> Option<&Frame> {
-        match self.get_image_index(image_index) {
-            Some(image_index) => self.frames.get(image_index),
+    pub fn get_frame(&self, image_index: i32) -> Option<&Frame> {
+        match self.get_frame_index(image_index as isize) {
+            Some(frame_idx) => self.frames.get(frame_idx),
             None => None,
         }
     }
 
-    pub fn get_atlas_ref(&self, image_index: Real) -> Option<&AtlasRef> {
-        if let Some(image_index) = self.get_image_index(image_index) {
-            self.frames.get(image_index).map(|x| &x.atlas_ref)
-        } else {
-            None
-        }
+    pub fn get_atlas_ref(&self, image_index: i32) -> Option<&AtlasRef> {
+        Some(&self.get_frame(image_index)?.atlas_ref)
     }
 }

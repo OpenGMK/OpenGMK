@@ -339,9 +339,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "322f4de77956e22ed0e5032c359a0f1273f1f7f0d79bfa3b8ffbc730d7fbcc5c"
+checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
 ]
@@ -537,8 +537,9 @@ dependencies = [
 
 [[package]]
 name = "phf"
-version = "0.8.0"
-source = "git+https://github.com/skyfloogle/rust-phf.git?branch=various-forks#0f5f8b5db76f4aabb1bbd0a20c4decf37698e0f1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2ac8b67553a7ca9457ce0e526948cad581819238f4a9d1ea74545851fa24f37"
 dependencies = [
  "phf_macros",
  "phf_shared",
@@ -547,8 +548,9 @@ dependencies = [
 
 [[package]]
 name = "phf_generator"
-version = "0.8.0"
-source = "git+https://github.com/skyfloogle/rust-phf.git?branch=various-forks#0f5f8b5db76f4aabb1bbd0a20c4decf37698e0f1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fc1437ada0f3a97d538f0bb608137bf53c53969028cab74c89893e1e9a12f0e"
 dependencies = [
  "phf_shared",
  "rand",
@@ -556,8 +558,9 @@ dependencies = [
 
 [[package]]
 name = "phf_macros"
-version = "0.8.0"
-source = "git+https://github.com/skyfloogle/rust-phf.git?branch=various-forks#0f5f8b5db76f4aabb1bbd0a20c4decf37698e0f1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b706f5936eb50ed880ae3009395b43ed19db5bff2ebd459c95e7bf013a89ab86"
 dependencies = [
  "phf_generator",
  "phf_shared",
@@ -569,8 +572,9 @@ dependencies = [
 
 [[package]]
 name = "phf_shared"
-version = "0.8.0"
-source = "git+https://github.com/skyfloogle/rust-phf.git?branch=various-forks#0f5f8b5db76f4aabb1bbd0a20c4decf37698e0f1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a68318426de33640f02be62b4ae8eb1261be2efbc337b60c54d845bf4484e0d9"
 dependencies = [
  "siphasher",
 ]
@@ -901,7 +905,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.0-alpha-2"
-source = "git+https://github.com/time-rs/time/#55cdc2832df12660f080861d5ec1240941991fc1"
+source = "git+https://github.com/time-rs/time/#bfbb8297068af02bbe7c8c208242ee00691ceaff"
 dependencies = [
  "const_fn",
  "libc",
@@ -954,9 +958,9 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "vcpkg"
-version = "0.2.13"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "025ce40a007e1907e58d5bc1a594def78e5573bb0b1160bc389634e8f12e4faa"
+checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "version_check"

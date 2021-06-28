@@ -1,5 +1,5 @@
 use crate::{
-    asset::{font, Font},
+    asset::{self, font, Font},
     game::{Game, GetAsset, PlayType, Version},
     gml,
     math::Real,
@@ -126,8 +126,8 @@ impl Game {
                     {
                         let inst = self.room.instance_list.get(handle);
 
-                        let x = inst.x.get().round();
-                        let y = inst.y.get().round();
+                        let x = inst.x.get().round().to_i32();
+                        let y = inst.y.get().round().to_i32();
                         if view.follow_hborder < (view.source_w / 2) as i32 {
                             let border_left = x - view.follow_hborder;
                             let border_right = x + view.follow_hborder;
@@ -229,6 +229,27 @@ impl Game {
         Ok(())
     }
 
+    pub fn draw_instance_default(&mut self, idx: usize) -> gml::Result<()> {
+        let instance = self.room.instance_list.get(idx);
+        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get().floor().to_i32()) {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    instance.x.get().into(),
+                    instance.y.get().into(),
+                    instance.image_xscale.get().into(),
+                    instance.image_yscale.get().into(),
+                    instance.image_angle.get().into(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get().into(),
+                );
+            }
+            Ok(())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
+        }
+    }
+
     /// Draws everything in the scene using a given view rectangle
     fn draw_view(
         &mut self,
@@ -259,20 +280,7 @@ impl Game {
                     game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
                 } else {
                     // Default draw action
-                    if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
-                            game.renderer.draw_sprite(
-                                atlas_ref,
-                                instance.x.get().into(),
-                                instance.y.get().into(),
-                                instance.image_xscale.get().into(),
-                                instance.image_yscale.get().into(),
-                                instance.image_angle.get().into(),
-                                instance.image_blend.get(),
-                                instance.image_alpha.get().into(),
-                            )
-                        }
-                    }
+                    let _ = game.draw_instance_default(idx);
                     Ok(())
                 }
             } else {
@@ -406,7 +414,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
             let (x, y) = self.get_mouse_in_room();
             if let Some(atlas_ref) =
-                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+                sprite.get_atlas_ref((self.cursor_sprite_frame % sprite.frames.len() as u32) as i32)
             {
                 self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }

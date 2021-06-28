@@ -18,10 +18,10 @@ fn wipe(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, 
 
     game.renderer.draw_sprite(&surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
-    let left = if horz < 0 { width - (progress * width.into()).round() } else { 0 };
-    let right = if horz > 0 { (progress * width.into()).round() } else { width };
-    let top = if vert < 0 { height - (progress * height.into()).round() } else { 0 };
-    let bottom = if vert > 0 { (progress * height.into()).round() } else { height };
+    let left = if horz < 0 { width - (progress * width.into()).round().to_i32() } else { 0 };
+    let right = if horz > 0 { (progress * width.into()).round().to_i32() } else { width };
+    let top = if vert < 0 { height - (progress * height.into()).round().to_i32() } else { 0 };
+    let bottom = if vert > 0 { (progress * height.into()).round().to_i32() } else { height };
     game.renderer.draw_sprite_partial(
         &surf_new.atlas_ref,
         left.into(),
@@ -44,8 +44,8 @@ fn wipe_from_center(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, h
 
     game.renderer.draw_sprite(&surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
-    let region_width = (progress * width.into()).round();
-    let region_height = (progress * height.into()).round();
+    let region_width = (progress * width.into()).round().to_i32();
+    let region_height = (progress * height.into()).round().to_i32();
 
     let x = (width - region_width) / 2;
     let y = (height - region_height) / 2;
@@ -297,7 +297,7 @@ impl Game {
                             surf_new,
                             width,
                             height,
-                            (progress * game.transition_steps.into()).round(),
+                            (progress * game.transition_steps.into()).round().to_i32(),
                             game.transition_steps,
                             1,
                             0,
@@ -308,7 +308,7 @@ impl Game {
                             surf_new,
                             width,
                             height,
-                            (progress * game.transition_steps.into()).round(),
+                            (progress * game.transition_steps.into()).round().to_i32(),
                             game.transition_steps,
                             -1,
                             0,
@@ -319,7 +319,7 @@ impl Game {
                             surf_new,
                             width,
                             height,
-                            (progress * game.transition_steps.into()).round(),
+                            (progress * game.transition_steps.into()).round().to_i32(),
                             game.transition_steps,
                             0,
                             1,
@@ -330,7 +330,7 @@ impl Game {
                             surf_new,
                             width,
                             height,
-                            (progress * game.transition_steps.into()).round(),
+                            (progress * game.transition_steps.into()).round().to_i32(),
                             game.transition_steps,
                             0,
                             -1,

@@ -59,12 +59,13 @@ macro_rules! expect_args {
     ($args: expr, [$($x: ident,)*]) => { expect_args!($args, $($x),*) };
 }
 
+#[rustfmt::skip]
 fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
     let (r, g, b) = (Real::from(0xFF & colour), Real::from(0xFF & (colour >> 8)), Real::from(0xFF & (colour >> 16)));
 
     let (min, max) = (r.min(g).min(b), r.max(g).max(b));
 
-    let v = max.round();
+    let v = max.round().to_i32();
     let (h, s);
 
     if max == min {
@@ -76,7 +77,7 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
         let range255 = Real::from(255);
 
         let diff = max - min;
-        s = ((diff / max) * range255).round();
+        s = ((diff / max) * range255).round().to_i32();
 
         h = ((((if max == g {
             x60 * ((b - r) / diff) + Real::from(120)
@@ -86,10 +87,7 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
             x60 * ((g - b) / diff) + angle360
         } else {
             unsafe { std::hint::unreachable_unchecked() }
-        }) % angle360)
-            / angle360)
-            * range255)
-            .round();
+        }) % angle360) / angle360) * range255).round().to_i32();
     }
 
     (h, s, v)
@@ -555,8 +553,7 @@ impl Game {
     }
 
     pub fn make_color_rgb(args: &[Value]) -> gml::Result<Value> {
-        let (r, g, b) = expect_args!(args, [int, int, int])?;
-        Ok((r + (g * 256) + (b * 256 * 256)).into())
+        expect_args!(args, [int, int, int]).map(|(r, g, b)| r | (g << 8) | (b << 16)).map(Value::from)
     }
 
     pub fn make_color_hsv(args: &[Value]) -> gml::Result<Value> {
@@ -579,25 +576,22 @@ impl Game {
             _ => (Real::from(0.0), Real::from(0.0), Real::from(0.0)),
         };
 
-        let out_r = ((r + m) * Real::from(255.0)).round();
-        let out_g = ((g + m) * Real::from(255.0)).round();
-        let out_b = ((b + m) * Real::from(255.0)).round();
+        let out_r = ((r + m) * Real::from(255.0)).round().to_i32();
+        let out_g = ((g + m) * Real::from(255.0)).round().to_i32();
+        let out_b = ((b + m) * Real::from(255.0)).round().to_i32();
         Ok((out_r | (out_g << 8) | (out_b << 16)).into())
     }
 
     pub fn color_get_red(args: &[Value]) -> gml::Result<Value> {
-        let col = expect_args!(args, [int])?;
-        Ok((col % 256).into())
+        expect_args!(args, [int]).map(|c| 0xFF & c).map(Value::from)
     }
 
     pub fn color_get_green(args: &[Value]) -> gml::Result<Value> {
-        let col = expect_args!(args, [int])?;
-        Ok(((col / 256) % 256).into())
+        expect_args!(args, [int]).map(|c| 0xFF & (c >> 8)).map(Value::from)
     }
 
     pub fn color_get_blue(args: &[Value]) -> gml::Result<Value> {
-        let col = expect_args!(args, [int])?;
-        Ok(((col / 256 / 256) % 256).into())
+        expect_args!(args, [int]).map(|c| 0xFF & (c >> 16)).map(Value::from)
     }
 
     pub fn color_get_hue(args: &[Value]) -> gml::Result<Value> {
@@ -623,7 +617,7 @@ impl Game {
         let r = Real::from(c1 & 255) * (Real::from(1) - amount) + Real::from(c2 & 255) * amount;
         let g = Real::from((c1 >> 8) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 8) & 255) * amount;
         let b = Real::from((c1 >> 16) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 16) & 255) * amount;
-        Ok(Value::from((r.round() & 255) + ((g.round() & 255) << 8) + ((b.round() & 255) << 16)))
+        Ok(Value::from((r.round().to_i32() & 255) + ((g.round().to_i32() & 255) << 8) + ((b.round().to_i32() & 255) << 16)))
     }
 
     pub fn draw_set_blend_mode(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -1067,7 +1061,7 @@ impl Game {
     pub fn sprite_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(image_index)) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 return Ok(self.renderer.get_texture_id(atlas_ref).into())
             }
             Ok((-1).into())
@@ -1313,31 +1307,15 @@ impl Game {
 
     pub fn draw_self(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let instance = self.room.instance_list.get(context.this);
-        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(instance.image_index.get())) {
-                self.renderer.draw_sprite(
-                    atlas_ref,
-                    instance.x.get().into(),
-                    instance.y.get().into(),
-                    instance.image_xscale.get().into(),
-                    instance.image_yscale.get().into(),
-                    instance.image_angle.get().into(),
-                    instance.image_blend.get(),
-                    instance.image_alpha.get().into(),
-                );
-            }
-            Ok(Default::default())
-        } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
-        }
+        self.draw_instance_default(context.this)?;
+        Ok(Default::default())
     }
 
     pub fn draw_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_index, image_index, x, y) = expect_args!(args, [int, real, real, real])?;
+        let (sprite_index, image_index, x, y) = expect_args!(args, [int, int, real, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1357,10 +1335,10 @@ impl Game {
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, angle, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1400,10 +1378,10 @@ impl Game {
 
     pub fn draw_sprite_stretched_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, w, h, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1446,10 +1424,10 @@ impl Game {
 
     pub fn draw_sprite_part_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1494,11 +1472,11 @@ impl Game {
             col4,
             alpha,
         ) = expect_args!(args, [
-            int, real, real, real, real, real, real, real, real, real, real, int, int, int, int, real
+            int, int, real, real, real, real, real, real, real, real, real, int, int, int, int, real
         ])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -1544,10 +1522,10 @@ impl Game {
 
     pub fn draw_sprite_tiled_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index, x, y, xscale, yscale, colour, alpha) =
-            expect_args!(args, [int, real, real, real, real, real, int, real])?;
+            expect_args!(args, [int, int, real, real, real, real, int, real])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            let image_index = if image_index < Real::from(0.0) {
-                self.room.instance_list.get(context.this).image_index.get()
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
             } else {
                 image_index
             };
@@ -3184,7 +3162,7 @@ impl Game {
             y += inst.y.get();
         }
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
-            if let Some(atlas_ref) = sprite.get_atlas_ref(Real::from(0)) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(0) {
                 for _ in 0..self.lives {
                     self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xFFFFFF, 1.0);
                     x += sprite.width.into();
@@ -3806,51 +3784,21 @@ impl Game {
     }
 
     pub fn min(args: &[Value]) -> gml::Result<Value> {
-        let mut min = match args.first() {
-            Some(v) => v.clone(),
-            None => return Ok(Default::default()),
-        };
-
-        // It works like this: check all the args left to right, buffering whichever is currently lowest.
-        // Comparing Reals works as obviously expected, and comparing Strings is lexical.
-        // In type mismatch, Real always beats String, however String only beats Real if the Real is above 0.
-        for value in args {
-            match (value, &min) {
-                (Value::Real(v), Value::Real(m)) if m > v => min = Value::Real(*v),
-                (Value::Real(v), Value::Str(_)) => min = Value::Real(*v),
-                (Value::Str(v), Value::Real(m)) if m.into_inner() > 0.0 => min = Value::Str(v.clone()),
-                (Value::Str(v), Value::Str(m)) if m > v => min = Value::Str(v.clone()),
-                _ => (),
-            }
-        }
-        Ok(min)
+        Ok(args.iter().reduce(Value::min).cloned().unwrap_or_default())
     }
 
     pub fn max(args: &[Value]) -> gml::Result<Value> {
-        let mut max = match args.first() {
-            Some(v) => v.clone(),
-            None => return Ok(Default::default()),
-        };
-
-        // See min() for an explanation.
-        for value in args {
-            match (value, &max) {
-                (Value::Real(v), Value::Real(m)) if m < v => max = Value::Real(*v),
-                (Value::Real(v), Value::Str(_)) => max = Value::Real(*v),
-                (Value::Str(v), Value::Real(m)) if m.into_inner() < 0.0 => max = Value::Str(v.clone()),
-                (Value::Str(v), Value::Str(m)) if m < v => max = Value::Str(v.clone()),
-                _ => (),
-            }
-        }
-        Ok(max)
+        Ok(args.iter().reduce(Value::max).cloned().unwrap_or_default())
     }
 
     pub fn min3(args: &[Value]) -> gml::Result<Value> {
-        Self::min(args)
+        let (a, b, c) = expect_args!(args, [any, any, any])?;
+        Ok(a.min(&b).min(&c).clone())
     }
 
     pub fn max3(args: &[Value]) -> gml::Result<Value> {
-        Self::max(args)
+        let (a, b, c) = expect_args!(args, [any, any, any])?;
+        Ok(a.max(&b).max(&c).clone())
     }
 
     pub fn mean(args: &[Value]) -> gml::Result<Value> {
@@ -4195,10 +4143,10 @@ impl Game {
             .or(self.assets.sprites.get_asset(inst.mask_index.get()))
         {
             inst.update_bbox(Some(sprite));
-            left = (inst.x.get() - inst.bbox_left.get().into()).round();
-            right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round();
-            top = (inst.y.get() - inst.bbox_top.get().into()).round();
-            bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round();
+            left = (inst.x.get() - inst.bbox_left.get().into()).round().to_i32();
+            right = (inst.x.get() + right.into() - inst.bbox_right.get().into()).round().to_i32();
+            top = (inst.y.get() - inst.bbox_top.get().into()).round().to_i32();
+            bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round().to_i32();
         };
         drop(inst); // le borrow
         let (mut x, mut y) = Default::default();
@@ -8305,7 +8253,7 @@ impl Game {
         let (sprite_id, subimg, fname) = expect_args!(args, [int, int, string])?;
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_id) {
             let image_index = subimg % sprite.frames.len() as i32;
-            if let Some(frame) = sprite.get_frame(Real::from(image_index)) {
+            if let Some(frame) = sprite.get_frame(image_index) {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
@@ -12796,7 +12744,7 @@ impl Game {
             // translate according to given position
             let old_model_matrix = self.renderer.get_model_matrix();
             #[rustfmt::skip]
-                let translation: [f32; 16] = [
+            let translation: [f32; 16] = [
                 1.0,                    0.0,                    0.0,                    0.0,
                 0.0,                    1.0,                    0.0,                    0.0,
                 0.0,                    0.0,                    1.0,                    0.0,
