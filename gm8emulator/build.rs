@@ -74,12 +74,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         .write_bindings(StructGenerator, &mut file)?;
     }
 
-    // icon
+    // Windows-specific resources
     #[cfg(target_os = "windows")]
     {
-        let mut res = winres::WindowsResource::new();
-        res.set_icon("../assets/logo/opengmk.ico");
-        res.compile()?;
+        // This code reduces size of the manifest resource. Some important notes about:
+        // * Last char trickery is necessary to prevent gluing attributes.
+        // * Windows XML parser doesn't understand LF line endings in manifests.
+        // * Indentation must use tabs to avoid removing meaningful spaces from values.
+        //   They're also more compact than multiple spaces.
+        // * To prevent excessive spaces before '/>' in single (self-closing) tags,
+        //   they must reside on the same line with the last attribute.
+        let manifest = { let mut last = '\0';
+            fs::read_to_string("data/gm8emulator.exe.manifest")?
+                .chars()
+                .filter_map(|x| match x {
+                    '\r' | '\t' => None,
+                    '\n' => if last != '>' { Some(' ') } else { None },
+                    _ => { last = x; Some(x) },
+                }).collect::<String>()
+        };
+
+        winres::WindowsResource::new()
+            .set_icon("../assets/logo/opengmk.ico")
+            .set_manifest(&manifest)
+            .compile()?;
     }
 
     Ok(())
