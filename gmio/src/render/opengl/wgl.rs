@@ -115,6 +115,7 @@ macro_rules! wapi_call {
 }
 unsafe fn wapi_error_string() -> String {
     let mut buf_ptr: *mut WCHAR = ptr::null_mut();
+    let error = GetLastError();
     let char_count = FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         ptr::null(),
@@ -124,7 +125,9 @@ unsafe fn wapi_error_string() -> String {
         0,
         ptr::null_mut(),
     );
-    assert!(!buf_ptr.is_null());
+    if char_count == 0 || buf_ptr.is_null() {
+        return format!("Error code {:#X} (could not get error string due to error code {:#X})", error, GetLastError());
+    }
     let wchars = slice::from_raw_parts(buf_ptr, char_count as usize);
     let os_message = OsString::from_wide(wchars);
     let message = os_message.to_string_lossy().into_owned();
