@@ -436,8 +436,15 @@ mod tests {
 
     #[test]
     fn round() {
+        assert_eq!(Real(0.0), Real(0.0).round());
+        assert_eq!(Real(3.0), Real(3.14).round());
+        assert_eq!(Real(10.0), Real(9.9).round());
+        assert_eq!(Real(0.0), Real(-0.4).round());
+        assert_eq!(Real(-13.0), Real(-13.37).round());
         for i in 0..1000 {
-            assert_eq!(0, Real(f64::from(i) + 0.5).round() % 2);
+            let Real(rounded) = Real(f64::from(i) + 0.5).round();
+            assert_eq!(0.0, rounded.fract());
+            assert_eq!(0, (rounded as i32) % 2);
         }
     }
 
