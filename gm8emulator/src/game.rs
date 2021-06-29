@@ -1791,10 +1791,10 @@ impl Game {
     }
 
     pub fn process_window_events(&mut self) {
+        self.input.mouse_step();
         self.window.swap_events();
         match self.play_type {
             PlayType::Normal => {
-                self.input.mouse_step();
                 for event in self.window.events() {
                     match event {
                         Event::KeyboardDown(key) => self.input.button_press(input::ramen2vk(*key), true),
