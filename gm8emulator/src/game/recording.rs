@@ -2,6 +2,21 @@ use crate::{imgui, input, game::{Game, Replay, SaveState, SceneChange}, render::
 use ramen::{event::{Event, Key}, monitor::Size};
 use std::{convert::TryFrom, path::PathBuf, time::{Duration, Instant}};
 
+#[derive(Clone, Copy, PartialEq)]
+enum KeyState {
+    Neutral,
+    NeutralWillPress,
+    NeutralWillDouble,
+    NeutralWillTriple,
+    NeutralWillCactus,
+    NeutralDoubleEveryFrame,
+    Held,
+    HeldWillRelease,
+    HeldWillDouble,
+    HeldWillTriple,
+    HeldDoubleEveryFrame,
+}
+
 impl Game {
     pub fn record(&mut self, _project_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         let mut ui_width: u16 = 1280;
@@ -49,6 +64,7 @@ impl Game {
         }
 
         let mut savestate: Option<SaveState> = None;
+        let mut keyboard_state = [KeyState::Neutral; 256];
 
         let ui_renderer_state = RendererState {
             model_matrix: self.renderer.get_model_matrix(),
@@ -86,6 +102,11 @@ impl Game {
             replay.startup_events.push(ev.clone());
         }
         self.stored_events.clear();
+        for (i, state) in keyboard_state.iter_mut().enumerate() {
+            if self.input.keyboard_check(i as u8) {
+                *state = KeyState::Held;
+            }
+        }
 
         let mut err_string: Option<String> = None;
 
@@ -157,7 +178,37 @@ impl Game {
             if (frame.button("Advance", imgui::Vec2(150.0, 20.0), None) || space_pressed) && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame(self.room.speed);
-                // TODO: all of this and also key events
+
+                self.input.mouse_step();
+                for (i, state) in keyboard_state.iter().enumerate() {
+                    let i = i as u8;
+                    match state {
+                        KeyState::NeutralWillPress => self.input.button_press(i, true),
+                        KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
+                            self.input.button_press(i, true);
+                            self.input.button_release(i, true);
+                        },
+                        KeyState::NeutralWillTriple => {
+                            self.input.button_press(i, true);
+                            self.input.button_release(i, true);
+                            self.input.button_press(i, true);
+                        },
+                        KeyState::NeutralWillCactus => self.input.button_release(i, true),
+                        KeyState::HeldWillRelease => self.input.button_release(i, true),
+                        KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                            self.input.button_release(i, true);
+                            self.input.button_press(i, true);
+                        },
+                        KeyState::HeldWillTriple => {
+                            self.input.button_release(i, true);
+                            self.input.button_press(i, true);
+                            self.input.button_release(i, true);
+                        },
+                        KeyState::Neutral | KeyState::Held => (),
+                    }
+                }
+
+                // TODO: all these things
                 //frame.mouse_x = mouse_location.0;
                 //frame.mouse_y = mouse_location.1;
                 //frame.new_seed = None;
@@ -187,6 +238,21 @@ impl Game {
                             frame.events.push(ev.clone());
                         }
                         self.stored_events.clear();
+                        for (i, state) in keyboard_state.iter_mut().enumerate() {
+                            *state = if self.input.keyboard_check(i as u8) {
+                                if *state == KeyState::HeldDoubleEveryFrame {
+                                    KeyState::HeldDoubleEveryFrame
+                                } else {
+                                    KeyState::Held
+                                }
+                            } else {
+                                if *state == KeyState::NeutralDoubleEveryFrame {
+                                    KeyState::NeutralDoubleEveryFrame
+                                } else {
+                                    KeyState::Neutral
+                                }
+                            };
+                        }
 
                         // Fake frame limiter stuff (don't actually frame-limit in record mode)
                         if let Some(t) = self.spoofed_time_nanos.as_mut() {
@@ -203,6 +269,7 @@ impl Game {
                     },
                     Err(e) => {
                         err_string = Some(format!("{}", e));
+                        keyboard_state = [KeyState::Neutral; 256];
                     },
                 }
 
@@ -235,6 +302,12 @@ impl Game {
             frame.text(&fps_text);
             frame.end();
 
+            macro_rules! kb_btn {
+                ($name: expr, $size: expr, $x: expr, $y: expr, $code: expr) => {
+                    frame.button($name, $size, Some(imgui::Vec2($x, $y)));
+                }
+            }
+
             unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(440.0, 200.0).into(), imgui::Vec2(1800.0, 650.0).into(), None, std::ptr::null_mut()) }
             frame.begin_window("Keyboard", None, true, true, &mut is_open);
             let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
@@ -245,185 +318,186 @@ impl Game {
             let left_part_edge = ((content_max.0 - content_min.0) * (15.0 / 18.5)).floor();
             let button_width = ((left_part_edge - content_min.0 - 14.0) / 15.0).floor();
             let button_height = ((content_max.1 - content_min.1 - 4.0 - (win_padding.1 * 2.0)) / 6.5).floor();
-            frame.button("Esc", imgui::Vec2((button_width * 1.5).floor(), button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            let button_size = imgui::Vec2(button_width, button_height);
+            kb_btn!("Esc", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Esc);
             cur_x = left_part_edge - (button_width * 12.0 + 11.0);
-            frame.button("F1", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F1", button_size, cur_x, cur_y, Key::F1);
             cur_x += button_width + 1.0;
-            frame.button("F2", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F2", button_size, cur_x, cur_y, Key::F2);
             cur_x += button_width + 1.0;
-            frame.button("F3", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F3", button_size, cur_x, cur_y, Key::F3);
             cur_x += button_width + 1.0;
-            frame.button("F4", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F4", button_size, cur_x, cur_y, Key::F4);
             cur_x += button_width + 1.0;
-            frame.button("F5", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F5", button_size, cur_x, cur_y, Key::F5);
             cur_x += button_width + 1.0;
-            frame.button("F6", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F6", button_size, cur_x, cur_y, Key::F6);
             cur_x += button_width + 1.0;
-            frame.button("F7", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F7", button_size, cur_x, cur_y, Key::F7);
             cur_x += button_width + 1.0;
-            frame.button("F8", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F8", button_size, cur_x, cur_y, Key::F8);
             cur_x += button_width + 1.0;
-            frame.button("F9", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F9", button_size, cur_x, cur_y, Key::F9);
             cur_x += button_width + 1.0;
-            frame.button("F10", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F10", button_size, cur_x, cur_y, Key::F10);
             cur_x += button_width + 1.0;
-            frame.button("F11", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F11", button_size, cur_x, cur_y, Key::F11);
             cur_x += button_width + 1.0;
-            frame.button("F12", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F12", button_size, cur_x, cur_y, Key::F12);
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-            frame.button("PrSc", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("PrSc", button_size, cur_x, cur_y, Key::PrSc);
             cur_x += button_width + 1.0;
-            frame.button("ScrLk", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("ScrLk", button_size, cur_x, cur_y, Key::ScrLk);
             cur_x += button_width + 1.0;
-            frame.button("Pause", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Pause", button_size, cur_x, cur_y, Key::Pause);
             cur_x = content_min.0;
             cur_y = (content_max.1 - (win_padding.1 * 2.0)).ceil() - (button_height * 5.0 + 4.0);
-            frame.button("`", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("`", button_size, cur_x, cur_y, Key::Backtick);
             cur_x += button_width + 1.0;
-            frame.button("1", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("1", button_size, cur_x, cur_y, Key::Num1);
             cur_x += button_width + 1.0;
-            frame.button("2", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("2", button_size, cur_x, cur_y, Key::Num2);
             cur_x += button_width + 1.0;
-            frame.button("3", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("3", button_size, cur_x, cur_y, Key::Num3);
             cur_x += button_width + 1.0;
-            frame.button("4", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("4", button_size, cur_x, cur_y, Key::Num4);
             cur_x += button_width + 1.0;
-            frame.button("5", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("5", button_size, cur_x, cur_y, Key::Num5);
             cur_x += button_width + 1.0;
-            frame.button("6", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("6", button_size, cur_x, cur_y, Key::Num6);
             cur_x += button_width + 1.0;
-            frame.button("7", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("7", button_size, cur_x, cur_y, Key::Num7);
             cur_x += button_width + 1.0;
-            frame.button("8", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("8", button_size, cur_x, cur_y, Key::Num8);
             cur_x += button_width + 1.0;
-            frame.button("9", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("9", button_size, cur_x, cur_y, Key::Num9);
             cur_x += button_width + 1.0;
-            frame.button("0", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("0", button_size, cur_x, cur_y, Key::Num0);
             cur_x += button_width + 1.0;
-            frame.button("-", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("-", button_size, cur_x, cur_y, Key::Subtract);
             cur_x += button_width + 1.0;
-            frame.button("=", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("=", button_size, cur_x, cur_y, Key::Equals);
             cur_x += button_width + 1.0;
-            frame.button("Back", imgui::Vec2(left_part_edge - cur_x, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Back", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::Backspace);
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-            frame.button("Ins", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Ins", button_size, cur_x, cur_y, Key::Ins);
             cur_x += button_width + 1.0;
-            frame.button("Home", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Home", button_size, cur_x, cur_y, Key::Home);
             cur_x += button_width + 1.0;
-            frame.button("PgUp", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("PgUp", button_size, cur_x, cur_y, Key::PgUp);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            frame.button("Tab", imgui::Vec2((button_width * 1.5).floor(), button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Tab", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Tab);
             cur_x += (button_width * 1.5).floor() + 1.0;
-            frame.button("Q", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Q", button_size, cur_x, cur_y, Key::Q);
             cur_x += button_width + 1.0;
-            frame.button("W", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("W", button_size, cur_x, cur_y, Key::W);
             cur_x += button_width + 1.0;
-            frame.button("E", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("E", button_size, cur_x, cur_y, Key::E);
             cur_x += button_width + 1.0;
-            frame.button("R", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("R", button_size, cur_x, cur_y, Key::R);
             cur_x += button_width + 1.0;
-            frame.button("T", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("T", button_size, cur_x, cur_y, Key::T);
             cur_x += button_width + 1.0;
-            frame.button("Y", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Y", button_size, cur_x, cur_y, Key::Y);
             cur_x += button_width + 1.0;
-            frame.button("U", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("U", button_size, cur_x, cur_y, Key::U);
             cur_x += button_width + 1.0;
-            frame.button("I", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("I", button_size, cur_x, cur_y, Key::I);
             cur_x += button_width + 1.0;
-            frame.button("O", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("O", button_size, cur_x, cur_y, Key::O);
             cur_x += button_width + 1.0;
-            frame.button("P", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("P", button_size, cur_x, cur_y, Key::P);
             cur_x += button_width + 1.0;
-            frame.button("[", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("[", button_size, cur_x, cur_y, Key::LeftBracket);
             cur_x += button_width + 1.0;
-            frame.button("]", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("]", button_size, cur_x, cur_y, Key::RightBracket);
             cur_x += button_width + 1.0;
-            frame.button("Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, Key::Enter);
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-            frame.button("Del", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Del", button_size, cur_x, cur_y, Key::Del);
             cur_x += button_width + 1.0;
-            frame.button("End", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("End", button_size, cur_x, cur_y, Key::End);
             cur_x += button_width + 1.0;
-            frame.button("PgDn", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("PgDn", button_size, cur_x, cur_y, Key::PgDn);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            frame.button("Caps", imgui::Vec2((button_width * 1.5).floor(), button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Caps", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Caps);
             cur_x += (button_width * 1.5).floor() + 1.0;
-            frame.button("A", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("A", button_size, cur_x, cur_y, Key::A);
             cur_x += button_width + 1.0;
-            frame.button("S", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("S", button_size, cur_x, cur_y, Key::S);
             cur_x += button_width + 1.0;
-            frame.button("D", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("D", button_size, cur_x, cur_y, Key::D);
             cur_x += button_width + 1.0;
-            frame.button("F", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("F", button_size, cur_x, cur_y, Key::F);
             cur_x += button_width + 1.0;
-            frame.button("G", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("G", button_size, cur_x, cur_y, Key::G);
             cur_x += button_width + 1.0;
-            frame.button("H", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("H", button_size, cur_x, cur_y, Key::H);
             cur_x += button_width + 1.0;
-            frame.button("J", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("J", button_size, cur_x, cur_y, Key::J);
             cur_x += button_width + 1.0;
-            frame.button("K", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("K", button_size, cur_x, cur_y, Key::K);
             cur_x += button_width + 1.0;
-            frame.button("L", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("L", button_size, cur_x, cur_y, Key::L);
             cur_x += button_width + 1.0;
-            frame.button(";", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!(";", button_size, cur_x, cur_y, Key::Semicolon);
             cur_x += button_width + 1.0;
-            frame.button("'", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("'", button_size, cur_x, cur_y, Key::Apostrophe);
             cur_x += button_width + 1.0;
-            frame.button("#", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("#", button_size, cur_x, cur_y, Key::Hash);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            frame.button("Shift", imgui::Vec2(button_width * 2.0, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Shift", imgui::Vec2(button_width * 2.0, button_height), cur_x, cur_y, Key::Shift);
             cur_x += button_width * 2.0 + 1.0;
-            frame.button("\\", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("\\", button_size, cur_x, cur_y, Key::Backslash);
             cur_x += button_width + 1.0;
-            frame.button("Z", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Z", button_size, cur_x, cur_y, Key::Z);
             cur_x += button_width + 1.0;
-            frame.button("X", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("X", button_size, cur_x, cur_y, Key::X);
             cur_x += button_width + 1.0;
-            frame.button("C", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("C", button_size, cur_x, cur_y, Key::C);
             cur_x += button_width + 1.0;
-            frame.button("V", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("V", button_size, cur_x, cur_y, Key::V);
             cur_x += button_width + 1.0;
-            frame.button("B", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("B", button_size, cur_x, cur_y, Key::B);
             cur_x += button_width + 1.0;
-            frame.button("N", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("N", button_size, cur_x, cur_y, Key::N);
             cur_x += button_width + 1.0;
-            frame.button("M", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("M", button_size, cur_x, cur_y, Key::M);
             cur_x += button_width + 1.0;
-            frame.button(",", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!(",", button_size, cur_x, cur_y, Key::Comma);
             cur_x += button_width + 1.0;
-            frame.button(".", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!(".", button_size, cur_x, cur_y, Key::Period);
             cur_x += button_width + 1.0;
-            frame.button("/", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("/", button_size, cur_x, cur_y, Key::Slash);
             cur_x += button_width + 1.0;
-            frame.button("Shift", imgui::Vec2(left_part_edge - cur_x, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Shift", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::Shift);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            frame.button("Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Ctrl);
             cur_x += (button_width * 1.5).floor() + 1.0;
-            frame.button("Win", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Win", button_size, cur_x, cur_y, Key::Win);
             cur_x += button_width + 1.0;
-            frame.button("Alt", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Alt", button_size, cur_x, cur_y, Key::Alt);
             cur_x += button_width + 1.0;
-            frame.button("Space", imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Space", imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height), cur_x, cur_y, Key::Space);
             cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
-            frame.button("Alt", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Alt", button_size, cur_x, cur_y, Key::Alt);
             cur_x += button_width + 1.0;
-            frame.button("Pg", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Pg", button_size, cur_x, cur_y, Key::Pg);
             cur_x += button_width + 1.0;
-            frame.button("Ctrl", imgui::Vec2(left_part_edge - cur_x, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("Ctrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::Ctrl);
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-            frame.button("←", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("←", button_size, cur_x, cur_y, Key::Left);
             cur_x += button_width + 1.0;
-            frame.button("↓", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("↓", button_size, cur_x, cur_y, Key::Down);
             cur_y -= button_height + 1.0;
-            frame.button("↑", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("↑", button_size, cur_x, cur_y, Key::Up);
             cur_x += button_width + 1.0;
             cur_y += button_height + 1.0;
-            frame.button("→", imgui::Vec2(button_width, button_height), Some(imgui::Vec2(cur_x, cur_y)));
+            kb_btn!("→", button_size, cur_x, cur_y, Key::Right);
             frame.end();
 
             if err_string.is_none() {
