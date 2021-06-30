@@ -1,6 +1,7 @@
 //! Custom wrappers for dear imgui.
 
 use cimgui_sys as c;
+use crate::types::Colour;
 use std::{ops, ptr::{self, NonNull}, slice};
 
 pub struct Context {
@@ -156,9 +157,48 @@ impl Frame<'_> {
         unsafe { c::igText(self.cstr()) };
     }
 
+    pub fn text_centered(&mut self, text: &str, center: Vec2<f32>) {
+        self.cstr_store(text);
+        unsafe {
+            let mut size = std::mem::MaybeUninit::uninit();
+            c::igCalcTextSize(size.as_mut_ptr(), self.cstr(), std::ptr::null(), false, -1.0);
+            let size = size.assume_init();
+            let size = Vec2(size.x / 2.0, size.y / 2.0);
+            c::igSetCursorPos((center - size).into());
+            c::igText(self.cstr())
+        }
+    }
+
     pub fn callback<T>(&mut self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T) {
         unsafe {
             c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
+        }
+    }
+
+    pub fn rect(&mut self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
+        unsafe {
+            c::ImDrawList_AddRectFilled(
+                c::igGetWindowDrawList(),
+                min.into(),
+                max.into(),
+                colour.as_decimal() | (u32::from(alpha) << 24),
+                0.0,
+                0,
+            )
+        }
+    }
+
+    pub fn rect_outline(&mut self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
+        unsafe {
+            c::ImDrawList_AddRect(
+                c::igGetWindowDrawList(),
+                min.into(),
+                max.into(),
+                colour.as_decimal() | (u32::from(alpha) << 24),
+                0.0,
+                0,
+                1.0,
+            )
         }
     }
 
