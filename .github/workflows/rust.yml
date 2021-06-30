@@ -46,7 +46,7 @@ jobs:
       run: |
         mv dll-bridge/dll-bridge.exe target/release
         cd target/release 
-        7z -tzip a GM8Emulator.zip * -mx0 | grep ing 
+        7z -tzip a GM8Emulator.zip control-panel.exe dll-bridge.exe gm8decompiler.exe gm8emulator.exe -mx0 | grep ing 
         cd ../..
         mv target/release/GM8Emulator.zip .
     - name: Upload artifact
