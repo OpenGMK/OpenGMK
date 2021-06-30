@@ -35,10 +35,16 @@ jobs:
         rustup self update
         rustup update
         rustup install nightly
+        rustup target add i686-pc-windows-msvc --toolchain=nightly
+        cd "dll-bridge"
+        cargo +nightly build --release
+        mv target/i686-pc-windows-msvc/release/dll-bridge.exe .
+        cd ..
     - name: Run test build for thingy
       run: cargo +nightly build --release
     - name: Archive bin
       run: |
+        mv dll-bridge/dll-bridge.exe target/release
         cd target/release 
         7z -tzip a GM8Emulator.zip * -mx0 | grep ing 
         cd ../..
