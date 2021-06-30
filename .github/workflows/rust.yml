@@ -40,7 +40,7 @@ jobs:
         cargo +nightly build --release
         mv target/i686-pc-windows-msvc/release/dll-bridge.exe .
         cd ..
-    - name: Run test build for thingy
+    - name: Build the GM8Emulator.zip artifact
       run: cargo +nightly build --release
     - name: Archive bin
       run: |
