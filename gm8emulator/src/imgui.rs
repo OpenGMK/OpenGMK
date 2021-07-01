@@ -1,5 +1,8 @@
 //! Custom wrappers for dear imgui.
 
+// Note to self: ImGui's popup API is bugged and doesn't do anything, don't use it. Make your own.
+// Current hours wasted trying to use popup API in this file: 4
+
 use cimgui_sys as c;
 use crate::types::Colour;
 use std::{ops, ptr::{self, NonNull}, slice};
@@ -106,6 +109,23 @@ impl Frame<'_> {
         )
     }
 
+    pub fn begin_context_menu(&mut self, pos: Vec2<f32>, id: &str) {
+        self.cstr_store(id);
+        unsafe {
+            c::igBegin(self.cstr(), std::ptr::null_mut(), 0b1_0011_1111);
+            let mut size = std::mem::MaybeUninit::uninit();
+            c::igGetWindowSize(size.as_mut_ptr());
+            let size = size.assume_init();
+            c::igSetWindowPosStr(self.cstr(), c::ImVec2 {
+                x: pos.0.min((*c::igGetIO()).DisplaySize.x - size.x),
+                y: if pos.1 + size.y > (*c::igGetIO()).DisplaySize.y && pos.1 >= size.y { pos.1 - size.y } else { pos.1 },
+            }, 0);
+            if c::igIsWindowAppearing() {
+                c::igSetWindowFocusNil();
+            }
+        }
+    }
+
     pub fn end(&self) {
         unsafe { c::igEnd() };
     }
@@ -126,10 +146,12 @@ impl Frame<'_> {
         }
     }
 
+    pub fn window_focused(&self) -> bool {
+        unsafe { c::igIsWindowFocused(0) }
+    }
+
     pub fn window_collapsed(&self) -> bool {
-        unsafe {
-            c::igIsWindowCollapsed()
-        }
+        unsafe { c::igIsWindowCollapsed() }
     }
 
     pub fn button(&mut self, name: &str, size: Vec2<f32>, position: Option<Vec2<f32>>) -> bool {
@@ -169,10 +191,35 @@ impl Frame<'_> {
         }
     }
 
+    pub fn menu_item(&mut self, label: &str) -> bool {
+        self.cstr_store(label);
+        unsafe { cimgui_sys::igMenuItemBool(self.cstr(), std::ptr::null(), false, true) }
+    }
+
     pub fn callback<T>(&mut self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T) {
         unsafe {
             c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
         }
+    }
+
+    pub fn key_pressed(&self, code: u8) -> bool {
+        unsafe { c::igIsKeyPressed(code.into(), true) }
+    }
+
+    pub fn mouse_pos(&self) -> Vec2<f32> {
+        unsafe {
+            let mut pos = std::mem::MaybeUninit::uninit();
+            c::igGetMousePos(pos.as_mut_ptr());
+            pos.assume_init().into()
+        }
+    }
+
+    pub fn right_clicked(&self) -> bool {
+        unsafe { c::igIsMouseClicked(1, false) }
+    }
+
+    pub fn item_hovered(&self) -> bool {
+        unsafe { c::igIsItemHovered(0) }
     }
 
     pub fn rect(&mut self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
@@ -278,6 +325,11 @@ impl IO {
 
     pub fn framerate(&self) -> f32 {
         self.0.Framerate
+    }
+
+    pub fn clear_inputs(&mut self) {
+        self.0.KeysDown = [false; 512];
+        self.0.MouseDown = [false; 5];
     }
 }
 
