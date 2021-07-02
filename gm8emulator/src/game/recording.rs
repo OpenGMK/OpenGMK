@@ -1,4 +1,5 @@
 use crate::{imgui, input, game::{Game, replay::{self, Replay}, SaveState, SceneChange}, render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState}, types::Colour};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use ramen::{event::{Event, Key}, monitor::Size};
 use std::{convert::TryFrom, fs::File, io::{BufReader, Write}, path::PathBuf, time::{Duration, Instant}};
 
@@ -704,19 +705,22 @@ impl Game {
             for i in 0..16 {
                 let y = (24 * i + 21) as f32;
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
+                    let t = std::time::Instant::now();
                     match bincode::serialize(&SaveState::from(self, replay.clone(), renderer_state.clone())) {
-                        Ok(bytes) => if let Err(e) = File::create(&save_paths[i]).and_then(|mut f| f.write_all(&bytes)) {
+                        Ok(bytes) => if let Err(e) = File::create(&save_paths[i]).and_then(|f| GzEncoder::new(f, Compression::default()).write_all(&bytes)) {
                             err_string = Some(format!("Error saving to {}:\n\n{}", save_paths[i].to_string_lossy(), e));
                         },
                         Err(e) => {
                             err_string = Some(format!("Error serializing savestate: {}", e));
                         },
                     }
+                    println!("Saved in {} microseconds", t.elapsed().as_micros());
                 }
                 if save_paths[i].exists() {
                     if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) {
+                        let t = std::time::Instant::now();
                         match File::open(&save_paths[i]) {
-                            Ok(f) => match bincode::deserialize_from::<_, SaveState>(BufReader::new(f)) {
+                            Ok(f) => match bincode::deserialize_from::<_, SaveState>(GzDecoder::new(BufReader::new(f))) {
                                 Ok(state) => {
                                     let (new_replay, new_renderer_state) = state.load_into(self);
                                     replay = new_replay;
@@ -744,6 +748,7 @@ impl Game {
                                 err_string = Some(format!("Error reading {}:\n\n{}", save_paths[i].to_string_lossy(), e));
                             },
                         }
+                        println!("Loaded in {} microseconds", t.elapsed().as_micros());
                     }
                 }
             }
