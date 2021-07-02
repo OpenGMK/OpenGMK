@@ -29,7 +29,7 @@ enum ContextMenu {
 }
 
 impl Game {
-    pub fn record(&mut self, project_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, project_path: PathBuf) {
         let mut ui_width: u16 = 1280;
         let mut ui_height: u16 = 720;
         self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
@@ -58,7 +58,8 @@ impl Game {
         io.set_display_size(imgui::Vec2(f32::from(ui_width), f32::from(ui_height)));
 
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
-        let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)?;
+        let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
+            .expect("Failed to upload UI font");
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
 
         let grid = (0i32..(64 * 64 * 4)).map(|i| {
@@ -75,7 +76,7 @@ impl Game {
                 (true, true) => u8::from(b || c) * 255,
             }
         }).collect::<Vec<_>>().into_boxed_slice();
-        let grid_ref = self.renderer.upload_sprite(grid, 64, 64, 0, 0)?;
+        let grid_ref = self.renderer.upload_sprite(grid, 64, 64, 0, 0).expect("Failed to upload UI images");
         let grid_start = Instant::now();
 
         // for imgui callback
@@ -121,12 +122,23 @@ impl Game {
             path
         }).collect::<Vec<_>>();
 
-        self.init()?;
-        match self.scene_change {
-            Some(SceneChange::Room(id)) => self.load_room(id)?,
-            Some(SceneChange::Restart) => self.restart()?,
-            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-            None => (),
+        let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
+        let mut err_string: Option<String> = None;
+
+        if let Err(e) = match self.init() {
+            Ok(()) => match self.scene_change {
+                Some(SceneChange::Room(id)) => self.load_room(id),
+                Some(SceneChange::Restart) => self.restart(),
+                Some(SceneChange::End) => match self.run_game_end_events() {
+                    Ok(()) => Err("Game ended during startup".into()),
+                    Err(e) => Err(format!("Game ended during startup, then crashed during Game End: {}", e).into()),
+                },
+                None => Ok(()),
+            },
+            Err(e) => Err(e),
+        } {
+            game_running = false;
+            err_string = Some(format!("Game crashed during startup: {}", e));
         }
         for ev in self.stored_events.iter() {
             replay.startup_events.push(ev.clone());
@@ -137,9 +149,6 @@ impl Game {
                 *state = KeyState::Held;
             }
         }
-
-        let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
-        let mut err_string: Option<String> = None;
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
@@ -210,7 +219,7 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
-            if (frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && game_running {
+            if (frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && game_running && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame(self.room.speed);
 
@@ -274,54 +283,53 @@ impl Game {
                 self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
                     0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
                 self.renderer.draw_stored(0, 0, w, h);
-                match self.frame() {
+                if let Err(e) = match self.frame() {
                     Ok(()) => {
                         match self.scene_change {
-                            Some(SceneChange::Room(id)) => self.load_room(id)?,
-                            Some(SceneChange::Restart) => self.restart()?,
-                            Some(SceneChange::End) => self.restart()?,
-                            None => (),
+                            Some(SceneChange::Room(id)) => self.load_room(id),
+                            Some(SceneChange::Restart) => self.restart(),
+                            Some(SceneChange::End) => self.restart(),
+                            None => Ok(()),
                         }
-
-                        for ev in self.stored_events.iter() {
-                            frame.events.push(ev.clone());
-                        }
-                        self.stored_events.clear();
-                        for (i, state) in keyboard_state.iter_mut().enumerate() {
-                            *state = if self.input.keyboard_check_direct(i as u8) {
-                                if *state == KeyState::HeldDoubleEveryFrame {
-                                    KeyState::HeldDoubleEveryFrame
-                                } else {
-                                    KeyState::Held
-                                }
-                            } else {
-                                if *state == KeyState::NeutralDoubleEveryFrame {
-                                    KeyState::NeutralDoubleEveryFrame
-                                } else {
-                                    KeyState::Neutral
-                                }
-                            };
-                        }
-
-                        // Fake frame limiter stuff (don't actually frame-limit in record mode)
-                        if let Some(t) = self.spoofed_time_nanos.as_mut() {
-                            *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
-                        }
-                        if frame_counter == self.room.speed {
-                            self.fps = self.room.speed;
-                            frame_counter = 0;
-                        }
-                        frame_counter += 1;
-
-                        frame_text = format!("Frame: {}", replay.frame_count());
-                        seed_text = format!("Seed: {}", self.rand.seed());
                     },
-                    Err(e) => {
-                        err_string = Some(format!("Game crashed: {}\n\nPlease load a savestate.", e));
-                        game_running = false;
-                        keyboard_state = [KeyState::Neutral; 256];
-                    },
+                    Err(e) => Err(e.into()),
+                } {
+                    err_string = Some(format!("Game crashed: {}\n\nPlease load a savestate.", e));
+                    game_running = false;
                 }
+
+                for ev in self.stored_events.iter() {
+                    frame.events.push(ev.clone());
+                }
+                self.stored_events.clear();
+                for (i, state) in keyboard_state.iter_mut().enumerate() {
+                    *state = if self.input.keyboard_check_direct(i as u8) {
+                        if *state == KeyState::HeldDoubleEveryFrame {
+                            KeyState::HeldDoubleEveryFrame
+                        } else {
+                            KeyState::Held
+                        }
+                    } else {
+                        if *state == KeyState::NeutralDoubleEveryFrame {
+                            KeyState::NeutralDoubleEveryFrame
+                        } else {
+                            KeyState::Neutral
+                        }
+                    };
+                }
+
+                // Fake frame limiter stuff (don't actually frame-limit in record mode)
+                if let Some(t) = self.spoofed_time_nanos.as_mut() {
+                    *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
+                }
+                if frame_counter == self.room.speed {
+                    self.fps = self.room.speed;
+                    frame_counter = 0;
+                }
+                frame_counter += 1;
+
+                frame_text = format!("Frame: {}", replay.frame_count());
+                seed_text = format!("Seed: {}", self.rand.seed());
 
                 self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
                 self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
@@ -332,7 +340,7 @@ impl Game {
                 context_menu = None;
             }
 
-            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running {
+            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
                 savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
                 context_menu = None;
             }
@@ -696,32 +704,46 @@ impl Game {
             for i in 0..16 {
                 let y = (24 * i + 21) as f32;
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
-                    // Save a savestate to a file
-                    let mut f = File::create(&save_paths[i])?;
-                    let bytes = bincode::serialize(&SaveState::from(self, replay.clone(), renderer_state.clone()))?;
-                    f.write_all(&bytes)?;
+                    match bincode::serialize(&SaveState::from(self, replay.clone(), renderer_state.clone())) {
+                        Ok(bytes) => if let Err(e) = File::create(&save_paths[i]).and_then(|mut f| f.write_all(&bytes)) {
+                            err_string = Some(format!("Error saving to {}:\n\n{}", save_paths[i].to_string_lossy(), e));
+                        },
+                        Err(e) => {
+                            err_string = Some(format!("Error serializing savestate: {}", e));
+                        },
+                    }
                 }
                 if save_paths[i].exists() {
                     if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) {
-                        let f = File::open(&save_paths[i])?;
-                        let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
-                        let (new_replay, new_renderer_state) = state.load_into(self);
-                        replay = new_replay;
-                        renderer_state = new_renderer_state;
+                        match File::open(&save_paths[i]) {
+                            Ok(f) => match bincode::deserialize_from::<_, SaveState>(BufReader::new(f)) {
+                                Ok(state) => {
+                                    let (new_replay, new_renderer_state) = state.load_into(self);
+                                    replay = new_replay;
+                                    renderer_state = new_renderer_state;
 
-                        for (i, state) in keyboard_state.iter_mut().enumerate() {
-                            *state = if self.input.keyboard_check_direct(i as u8) {
-                                KeyState::Held
-                            } else {
-                                KeyState::Neutral
-                            };
+                                    for (i, state) in keyboard_state.iter_mut().enumerate() {
+                                        *state = if self.input.keyboard_check_direct(i as u8) {
+                                            KeyState::Held
+                                        } else {
+                                            KeyState::Neutral
+                                        };
+                                    }
+
+                                    frame_text = format!("Frame: {}", replay.frame_count());
+                                    seed_text = format!("Seed: {}", self.rand.seed());
+                                    context_menu = None;
+                                    err_string = None;
+                                    game_running = true;
+                                },
+                                Err(e) => {
+                                    err_string = Some(format!("Error deserializing savestate: {}", e));
+                                },
+                            },
+                            Err(e) => {
+                                err_string = Some(format!("Error reading {}:\n\n{}", save_paths[i].to_string_lossy(), e));
+                            },
                         }
-
-                        frame_text = format!("Frame: {}", replay.frame_count());
-                        seed_text = format!("Seed: {}", self.rand.seed());
-                        context_menu = None;
-                        err_string = None;
-                        game_running = true;
                     }
                 }
             }
@@ -812,6 +834,9 @@ impl Game {
                         cimgui_sys::igBegin("ErrMsg\0".as_ptr() as _, &mut open as _, 0b0001_0111_1110);
                         frame.text(err);
                         cimgui_sys::igEnd();
+                        if !open {
+                            err_string = None;
+                        }
                     }
 
                 }
@@ -826,10 +851,10 @@ impl Game {
 
             let draw_data = context.draw_data();
             debug_assert!(draw_data.Valid);
-            let cmd_list_count = usize::try_from(draw_data.CmdListsCount)?;
+            let cmd_list_count = usize::try_from(draw_data.CmdListsCount).unwrap_or(0);
             for list_id in 0..cmd_list_count {
                 let draw_list = unsafe { &**draw_data.CmdLists.add(list_id) };
-                let cmd_count = usize::try_from(draw_list.CmdBuffer.Size)?;
+                let cmd_count = usize::try_from(draw_list.CmdBuffer.Size).unwrap_or(0);
                 let vertex_buffer = draw_list.VtxBuffer.Data;
                 let index_buffer = draw_list.IdxBuffer.Data;
                 for cmd_id in 0..cmd_count {
@@ -877,7 +902,5 @@ impl Game {
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
-
-        Ok(())
     }
 }

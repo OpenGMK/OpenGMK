@@ -212,7 +212,8 @@ fn xmain() -> i32 {
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
-        components.record(path)
+        components.record(path);
+        Ok(())
     } else {
         // cache temp_dir and included files because the other functions take ownership
         let temp_dir: Option<PathBuf> = if can_clear_temp_dir {
