@@ -1,6 +1,6 @@
 use crate::{imgui, input, game::{Game, Replay, SaveState, SceneChange}, render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState}, types::Colour};
 use ramen::{event::{Event, Key}, monitor::Size};
-use std::{convert::TryFrom, fs::File, io::{BufReader, Read, Write}, path::PathBuf, time::{Duration, Instant}};
+use std::{convert::TryFrom, fs::File, io::{BufReader, Write}, path::PathBuf, time::{Duration, Instant}};
 
 #[derive(Clone, Copy, PartialEq)]
 enum KeyState {
@@ -352,6 +352,13 @@ impl Game {
                     }
                     if frame.right_clicked() && frame.item_hovered() {
                         context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
+                    }
+                    if frame.middle_clicked() && frame.item_hovered() {
+                        if state.is_held() {
+                            *state = KeyState::HeldWillDouble;
+                        } else {
+                            *state = KeyState::NeutralWillDouble;
+                        }
                     }
                     let pos = frame.window_position();
                     let alpha = if frame.item_hovered() { 255 } else { 190 };
