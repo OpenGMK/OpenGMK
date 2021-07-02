@@ -699,6 +699,18 @@ impl Game {
                         let (new_replay, new_renderer_state) = state.load_into(self);
                         replay = new_replay;
                         renderer_state = new_renderer_state;
+
+                        for (i, state) in keyboard_state.iter_mut().enumerate() {
+                            *state = if self.input.keyboard_check_direct(i as u8) {
+                                KeyState::Held
+                            } else {
+                                KeyState::Neutral
+                            };
+                        }
+
+                        frame_text = format!("Frame: {}", replay.frame_count());
+                        seed_text = format!("Seed: {}", self.rand.seed());
+                        context_menu = None;
                     }
                 }
             }
