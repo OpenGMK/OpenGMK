@@ -79,12 +79,15 @@ impl Frame<'_> {
         self.0.cbuf.as_ptr().cast()
     }
 
-    fn _begin(&mut self, name: &str, is_open: &mut bool, flags: u32) {
+    fn _begin(&mut self, name: &str, is_open: Option<&mut bool>, flags: u32) {
         self.cstr_store(name);
         unsafe {
             c::igBegin(
                 self.cstr(),
-                is_open,
+                match is_open {
+                    Some(p) => p as _,
+                    None => std::ptr::null_mut(),
+                },
                 flags as i32,
             );
         }
@@ -96,7 +99,7 @@ impl Frame<'_> {
         size: Option<Vec2<f32>>,
         resizable: bool,
         menu_bar: bool,
-        is_open: &mut bool,
+        is_open: Option<&mut bool>,
     ) {
         if let Some(size) = size {
             unsafe { c::igSetNextWindowSize(size.into(), 0) };

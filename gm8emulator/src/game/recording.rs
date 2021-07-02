@@ -232,14 +232,13 @@ impl Game {
             }
 
             // present imgui
-            let mut is_open = false;
             let fps_text = format!("FPS: {}", io.framerate());
             let win_frame_height = context.frame_height();
             let win_border_size = context.window_border_size();
             let win_padding = context.window_padding();
             let mut frame = context.new_frame();
 
-            frame.begin_window("Control", None, true, false, &mut is_open);
+            frame.begin_window("Control", None, true, false, None);
             if (
                 frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) ||
                     frame.key_pressed(input::ramen2vk(Key::Space))
@@ -466,7 +465,7 @@ impl Game {
             }
 
             unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(440.0, 200.0).into(), imgui::Vec2(1800.0, 650.0).into(), None, std::ptr::null_mut()) }
-            frame.begin_window("Keyboard", None, true, true, &mut is_open);
+            frame.begin_window("Keyboard", None, true, true, None);
             let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
             let content_max = frame.window_size() - win_padding;
 
@@ -664,7 +663,7 @@ impl Game {
                     Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
                     false,
                     false,
-                    &mut is_open,
+                    None,
                 );
                 let imgui::Vec2(x, y) = frame.window_position();
                 callback_data = GameViewData {
@@ -718,7 +717,7 @@ impl Game {
             }
 
             unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(160.0, 412.0).into(), imgui::Vec2(1800.0, 412.0).into(), None, std::ptr::null_mut()) }
-            frame.begin_window("Savestates", None, true, false, &mut is_open);
+            frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
             let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
             for i in 0..8 {
