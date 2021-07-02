@@ -261,6 +261,33 @@ impl Frame<'_> {
         }
     }
 
+    pub fn popup(&mut self, message: &str) -> bool {
+        unsafe {
+            c::igSetNextWindowFocus();
+            let screen_size = (*c::igGetIO()).DisplaySize;
+            c::igSetNextWindowSize(screen_size, 0);
+            c::igSetNextWindowPos(Vec2(0.0, 0.0).into(), 0, Vec2(0.0, 0.0).into());
+            c::igBegin("ErrBG\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);
+            if self.window_hovered() && self.left_clicked() {
+                c::igEnd();
+                false
+            } else {
+                c::igEnd();
+                c::igSetNextWindowFocus();
+                c::igSetNextWindowPos(
+                    Vec2(f32::from(screen_size.x) / 2.0, f32::from(screen_size.y) / 2.0).into(),
+                    0,
+                    Vec2(0.5, 0.5).into()
+                );
+                c::igBegin("Information\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0111_1110);
+                self.text(message);
+                c::igEnd();
+                true
+            }
+
+        }
+    }
+
     pub fn render(self) {
         unsafe { c::igRender() };
     }

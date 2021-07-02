@@ -9,7 +9,7 @@ use crate::{
     types::Colour,
 };
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use lzzzz::{lz4, lz4_hc};
+use lzzzz::lz4;
 use ramen::{event::{Event, Key}, monitor::Size};
 use std::{convert::TryFrom, fs::{File, OpenOptions}, io::{Read, Write}, path::PathBuf, time::{Duration, Instant}};
 
@@ -916,31 +916,8 @@ impl Game {
             }
 
             if let Some(err) = &err_string {
-                unsafe {
-                    cimgui_sys::igSetNextWindowFocus();
-                    cimgui_sys::igSetNextWindowSize(imgui::Vec2(ui_width.into(), ui_height.into()).into(), 0);
-                    cimgui_sys::igSetNextWindowPos(imgui::Vec2(0.0, 0.0).into(), 0, imgui::Vec2(0.0, 0.0).into());
-                    cimgui_sys::igBegin("ErrBG\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);
-                    if frame.window_hovered() && frame.left_clicked() {
-                        err_string = None;
-                        cimgui_sys::igEnd();
-                    } else {
-                        cimgui_sys::igEnd();
-                        cimgui_sys::igSetNextWindowFocus();
-                        cimgui_sys::igSetNextWindowPos(
-                            imgui::Vec2(f32::from(ui_width) / 2.0, f32::from(ui_height) / 2.0).into(),
-                            0,
-                            imgui::Vec2(0.5, 0.5).into()
-                        );
-                        let mut open = true;
-                        cimgui_sys::igBegin("ErrMsg\0".as_ptr() as _, &mut open as _, 0b0001_0111_1110);
-                        frame.text(err);
-                        cimgui_sys::igEnd();
-                        if !open {
-                            err_string = None;
-                        }
-                    }
-
+                if !frame.popup(err) {
+                    err_string = None;
                 }
             }
 
