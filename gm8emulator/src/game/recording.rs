@@ -1,4 +1,4 @@
-use crate::{imgui, input, game::{Game, Replay, SaveState, SceneChange}, render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState}, types::Colour};
+use crate::{imgui, input, game::{Game, replay::{self, Replay}, SaveState, SceneChange}, render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState}, types::Colour};
 use ramen::{event::{Event, Key}, monitor::Size};
 use std::{convert::TryFrom, fs::File, io::{BufReader, Write}, path::PathBuf, time::{Duration, Instant}};
 
@@ -202,7 +202,7 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
-            if (frame.button("Advance", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && err_string.is_none() {
+            if (frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame(self.room.speed);
 
@@ -210,26 +210,41 @@ impl Game {
                 for (i, state) in keyboard_state.iter().enumerate() {
                     let i = i as u8;
                     match state {
-                        KeyState::NeutralWillPress => self.input.button_press(i, true),
+                        KeyState::NeutralWillPress => {
+                            self.input.button_press(i, true);
+                            frame.inputs.push(replay::Input::KeyPress(i));
+                        },
                         KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
                             self.input.button_press(i, true);
                             self.input.button_release(i, true);
+                            frame.inputs.push(replay::Input::KeyPress(i));
+                            frame.inputs.push(replay::Input::KeyRelease(i));
                         },
                         KeyState::NeutralWillTriple => {
                             self.input.button_press(i, true);
                             self.input.button_release(i, true);
                             self.input.button_press(i, true);
+                            frame.inputs.push(replay::Input::KeyPress(i));
+                            frame.inputs.push(replay::Input::KeyRelease(i));
+                            frame.inputs.push(replay::Input::KeyPress(i));
                         },
-                        KeyState::NeutralWillCactus => self.input.button_release(i, true),
-                        KeyState::HeldWillRelease => self.input.button_release(i, true),
+                        KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
+                            self.input.button_release(i, true);
+                            frame.inputs.push(replay::Input::KeyRelease(i));
+                        },
                         KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                             self.input.button_release(i, true);
                             self.input.button_press(i, true);
+                            frame.inputs.push(replay::Input::KeyRelease(i));
+                            frame.inputs.push(replay::Input::KeyPress(i));
                         },
                         KeyState::HeldWillTriple => {
                             self.input.button_release(i, true);
                             self.input.button_press(i, true);
                             self.input.button_release(i, true);
+                            frame.inputs.push(replay::Input::KeyRelease(i));
+                            frame.inputs.push(replay::Input::KeyPress(i));
+                            frame.inputs.push(replay::Input::KeyRelease(i));
                         },
                         KeyState::Neutral | KeyState::Held => (),
                     }
@@ -308,13 +323,13 @@ impl Game {
                 context_menu = None;
             }
 
-            if frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) && err_string.is_none() {
+            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && err_string.is_none() {
                 savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
                 context_menu = None;
             }
 
             if let Some(state) = &savestate {
-                if frame.button("Load quicksave (W)", imgui::Vec2(150.0, 20.0), None) {
+                if frame.button("Load quicksave (W)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
                     err_string = None;
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
