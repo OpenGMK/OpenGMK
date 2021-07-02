@@ -218,6 +218,10 @@ impl Frame<'_> {
         unsafe { c::igIsMouseClicked(1, false) }
     }
 
+    pub fn middle_clicked(&self) -> bool {
+        unsafe { c::igIsMouseClicked(2, false) }
+    }
+
     pub fn item_hovered(&self) -> bool {
         unsafe { c::igIsItemHovered(0) }
     }
