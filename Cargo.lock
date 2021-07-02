@@ -293,6 +293,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cimgui-sys",
  "encoding_rs",
+ "flate2",
  "getopts",
  "getrandom",
  "gl_generator",

@@ -17,6 +17,7 @@ bincode = "1.2"
 cfg-if = "0.1"
 cimgui-sys = { path = "ffi/cimgui-sys" }
 encoding_rs = "0.8.23"
+flate2 = { version = "1.0", features = ["rust_backend"] }
 getopts = "0.2.21"
 getrandom = "0.2"
 glob = "0.3.0"
