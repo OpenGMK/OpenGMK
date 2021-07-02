@@ -25,6 +25,7 @@ impl KeyState {
 
 enum ContextMenu {
     Button { pos: imgui::Vec2<f32>, key: Key },
+    Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
 }
 
 impl Game {
@@ -366,6 +367,7 @@ impl Game {
                         }
                     }
                     if frame.right_clicked() && frame.item_hovered() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
                     }
                     if frame.middle_clicked() && frame.item_hovered() {
@@ -639,6 +641,36 @@ impl Game {
 
                 if !frame.window_collapsed() {
                     frame.callback(callback, &mut callback_data);
+                    if frame.window_hovered() && frame.right_clicked() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
+                        let imgui::Vec2(x, y) = frame.mouse_pos() - offset;
+                        let (x, y) = self.translate_screen_to_room(x as _, y as _);
+
+                        let mut options: Vec<(String, i32)> = Vec::new();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            let instance = self.room.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            if x >= instance.bbox_left.get()
+                                && x <= instance.bbox_right.get()
+                                && y >= instance.bbox_top.get()
+                                && y <= instance.bbox_bottom.get()
+                            {
+                                use crate::game::GetAsset;
+                                let id = instance.id.get();
+                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => format!("{} ({})", obj.name, id.to_string()),
+                                    None => format!("<deleted object> ({})", id.to_string()),
+                                };
+                                options.push((description, id));
+                            }
+                        }
+
+                        if options.len() > 0 {
+                            context_menu = Some(ContextMenu::Instances { pos: frame.mouse_pos(), options });
+                        }
+                    }
                 }
 
                 frame.end();
@@ -672,10 +704,10 @@ impl Game {
             }
             frame.end();
 
-            match context_menu {
+            match &context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
-                    let key_state = &mut keyboard_state[usize::from(input::ramen2vk(key))];
-                    frame.begin_context_menu(pos, if key_state.is_held() { "PopupKHeld" } else { "PopupKNeutral" });
+                    let key_state = &mut keyboard_state[usize::from(input::ramen2vk(*key))];
+                    frame.begin_context_menu(*pos, if key_state.is_held() { "PopupKHeld" } else { "PopupKNeutral" });
                     if !frame.window_focused() {
                         context_menu = None;
                     } else if key_state.is_held() {
@@ -718,7 +750,22 @@ impl Game {
                     }
                     frame.end();
                 },
-                _ => (),
+                Some(ContextMenu::Instances { pos, options }) => {
+                    frame.begin_context_menu(*pos, &format!("PopupInstances{}", options.len()));
+                    if !frame.window_focused() {
+                        context_menu = None;
+                    } else {
+                        for (label, id) in options {
+                            if frame.menu_item(label) {
+                                println!("TODO: instance viewer for {}", id);
+                                context_menu = None;
+                                break;
+                            }
+                        }
+                    }
+                    frame.end();
+                },
+                None => (),
             }
 
             frame.render();
