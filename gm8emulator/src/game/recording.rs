@@ -1,6 +1,6 @@
 use crate::{imgui, input, game::{Game, Replay, SaveState, SceneChange}, render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState}, types::Colour};
 use ramen::{event::{Event, Key}, monitor::Size};
-use std::{convert::TryFrom, path::PathBuf, time::{Duration, Instant}};
+use std::{convert::TryFrom, fs::File, io::{BufReader, Read, Write}, path::PathBuf, time::{Duration, Instant}};
 
 #[derive(Clone, Copy, PartialEq)]
 enum KeyState {
@@ -28,7 +28,7 @@ enum ContextMenu {
 }
 
 impl Game {
-    pub fn record(&mut self, _project_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn record(&mut self, project_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         let mut ui_width: u16 = 1280;
         let mut ui_height: u16 = 720;
         self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
@@ -108,6 +108,12 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
+        let save_paths = (0..16).map(|i| {
+            let mut path = project_path.clone();
+            path.push(&format!("save{}.bin", i + 1));
+            path
+        }).collect::<Vec<_>>();
+
         self.init()?;
         match self.scene_change {
             Some(SceneChange::Room(id)) => self.load_room(id)?,
@@ -136,6 +142,8 @@ impl Game {
 
         let mut frame_text = String::from("Frame: 0");
         let mut seed_text = format!("Seed: {}", self.rand.seed());
+        let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
+        let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
 
         'gui: loop {
@@ -300,13 +308,13 @@ impl Game {
                 context_menu = None;
             }
 
-            if frame.button("Save", imgui::Vec2(150.0, 20.0), None) && err_string.is_none() {
+            if frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) && err_string.is_none() {
                 savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
                 context_menu = None;
             }
 
             if let Some(state) = &savestate {
-                if frame.button("Load", imgui::Vec2(150.0, 20.0), None) {
+                if frame.button("Load quicksave (W)", imgui::Vec2(150.0, 20.0), None) {
                     err_string = None;
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
@@ -612,6 +620,34 @@ impl Game {
 
                 frame.end();
             }
+
+            unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(160.0, 412.0).into(), imgui::Vec2(1800.0, 412.0).into(), None, std::ptr::null_mut()) }
+            frame.begin_window("Savestates", None, true, false, &mut is_open);
+            let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
+            let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
+            for i in 0..8 {
+                let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
+                frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
+            }
+            for i in 0..16 {
+                let y = (24 * i + 21) as f32;
+                if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) {
+                    // Save a savestate to a file
+                    let mut f = File::create(&save_paths[i])?;
+                    let bytes = bincode::serialize(&SaveState::from(self, replay.clone(), renderer_state.clone()))?;
+                    f.write_all(&bytes)?;
+                }
+                if save_paths[i].exists() {
+                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) {
+                        let f = File::open(&save_paths[i])?;
+                        let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
+                        let (new_replay, new_renderer_state) = state.load_into(self);
+                        replay = new_replay;
+                        renderer_state = new_renderer_state;
+                    }
+                }
+            }
+            frame.end();
 
             match context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
