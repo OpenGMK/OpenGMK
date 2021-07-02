@@ -138,6 +138,7 @@ impl Game {
             }
         }
 
+        let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
@@ -209,7 +210,7 @@ impl Game {
             let mut frame = context.new_frame();
 
             frame.begin_window("Control", None, true, false, &mut is_open);
-            if (frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && err_string.is_none() {
+            if (frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Space))) && game_running {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame(self.room.speed);
 
@@ -316,7 +317,8 @@ impl Game {
                         seed_text = format!("Seed: {}", self.rand.seed());
                     },
                     Err(e) => {
-                        err_string = Some(format!("{}", e));
+                        err_string = Some(format!("Game crashed: {}\n\nPlease load a savestate.", e));
+                        game_running = false;
                         keyboard_state = [KeyState::Neutral; 256];
                     },
                 }
@@ -330,7 +332,7 @@ impl Game {
                 context_menu = None;
             }
 
-            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && err_string.is_none() {
+            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running {
                 savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
                 context_menu = None;
             }
@@ -338,6 +340,7 @@ impl Game {
             if let Some(state) = &savestate {
                 if frame.button("Load quicksave (W)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
                     err_string = None;
+                    game_running = true;
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
                     renderer_state = ren;
@@ -622,7 +625,7 @@ impl Game {
             kb_btn!("→", button_size, cur_x, cur_y, Key::Right);
             frame.end();
 
-            if err_string.is_none() {
+            if game_running {
                 let (w, h) = self.renderer.stored_size();
                 frame.begin_window(
                     &format!("{}###Game", self.get_window_title()),
@@ -692,7 +695,7 @@ impl Game {
             }
             for i in 0..16 {
                 let y = (24 * i + 21) as f32;
-                if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) {
+                if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
                     // Save a savestate to a file
                     let mut f = File::create(&save_paths[i])?;
                     let bytes = bincode::serialize(&SaveState::from(self, replay.clone(), renderer_state.clone()))?;
@@ -717,6 +720,8 @@ impl Game {
                         frame_text = format!("Frame: {}", replay.frame_count());
                         seed_text = format!("Seed: {}", self.rand.seed());
                         context_menu = None;
+                        err_string = None;
+                        game_running = true;
                     }
                 }
             }
@@ -784,6 +789,32 @@ impl Game {
                     frame.end();
                 },
                 None => (),
+            }
+
+            if let Some(err) = &err_string {
+                unsafe {
+                    cimgui_sys::igSetNextWindowFocus();
+                    cimgui_sys::igSetNextWindowSize(imgui::Vec2(ui_width.into(), ui_height.into()).into(), 0);
+                    cimgui_sys::igSetNextWindowPos(imgui::Vec2(0.0, 0.0).into(), 0, imgui::Vec2(0.0, 0.0).into());
+                    cimgui_sys::igBegin("ErrBG\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);
+                    if frame.window_hovered() && frame.left_clicked() {
+                        err_string = None;
+                        cimgui_sys::igEnd();
+                    } else {
+                        cimgui_sys::igEnd();
+                        cimgui_sys::igSetNextWindowFocus();
+                        cimgui_sys::igSetNextWindowPos(
+                            imgui::Vec2(f32::from(ui_width) / 2.0, f32::from(ui_height) / 2.0).into(),
+                            0,
+                            imgui::Vec2(0.5, 0.5).into()
+                        );
+                        let mut open = true;
+                        cimgui_sys::igBegin("ErrMsg\0".as_ptr() as _, &mut open as _, 0b0001_0111_1110);
+                        frame.text(err);
+                        cimgui_sys::igEnd();
+                    }
+
+                }
             }
 
             frame.render();

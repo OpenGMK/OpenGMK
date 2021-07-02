@@ -214,6 +214,10 @@ impl Frame<'_> {
         }
     }
 
+    pub fn left_clicked(&self) -> bool {
+        unsafe { c::igIsMouseClicked(0, false) }
+    }
+
     pub fn right_clicked(&self) -> bool {
         unsafe { c::igIsMouseClicked(1, false) }
     }
