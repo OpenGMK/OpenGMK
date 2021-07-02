@@ -369,6 +369,7 @@ impl Game {
                         context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
                     }
                     if frame.middle_clicked() && frame.item_hovered() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         if state.is_held() {
                             *state = KeyState::HeldWillDouble;
                         } else {
