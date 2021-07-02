@@ -1,4 +1,4 @@
-use crate::{gml::Value, input::{Button, MouseButton}};
+use crate::{gml::Value};
 use serde::{Deserialize, Serialize};
 
 // Represents an entire replay (TAS) file
@@ -44,10 +44,10 @@ pub enum Event {
 // An input event which takes place during a frame
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Input {
-    KeyPress(Button),
-    KeyRelease(Button),
-    MousePress(MouseButton),
-    MouseRelease(MouseButton),
+    KeyPress(u8),
+    KeyRelease(u8),
+    MousePress(i8),
+    MouseRelease(i8),
     MouseWheelUp,
     MouseWheelDown,
 }
