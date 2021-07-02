@@ -49,6 +49,12 @@ impl Game {
         context.make_current();
         let io = context.io();
 
+        let ini_filename = {
+            let mut path = project_path.clone();
+            path.push("imgui.ini\0");
+            path.into_os_string().into_string().expect("Bad project file path")
+        };
+        unsafe { (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _; }
         io.set_display_size(imgui::Vec2(f32::from(ui_width), f32::from(ui_height)));
 
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
