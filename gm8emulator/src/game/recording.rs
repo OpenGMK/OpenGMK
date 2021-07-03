@@ -6,6 +6,7 @@ use crate::{
         replay::{self, Replay},
         SaveState, SceneChange
     },
+    gml::rand::Random,
     render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState},
     types::Colour,
 };
@@ -46,6 +47,7 @@ impl KeyState {
 enum ContextMenu {
     Button { pos: imgui::Vec2<f32>, key: Key },
     Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
+    Seed { pos: imgui::Vec2<f32> },
 }
 
 #[derive(Deserialize, Serialize)]
@@ -201,6 +203,7 @@ impl Game {
         }
 
         let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+        let mut new_rand: Option<Random> = None;
 
         self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
@@ -208,8 +211,8 @@ impl Game {
         let mut callback_data; // Putting this outside the loop makes sure it never goes out of scope
 
         let mut frame_text = String::from("Frame: 0");
-        let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let mut seed_text = format!("Seed: {}", self.rand.seed());
+        let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
         let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
@@ -269,6 +272,7 @@ impl Game {
             let win_padding = context.window_padding();
             let mut frame = context.new_frame();
 
+            unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(181.0, 171.0).into(), imgui::Vec2(181.0, 1000.0).into(), None, std::ptr::null_mut()) }
             frame.begin_window("Control", None, true, false, None);
             if (
                 frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None) ||
@@ -324,13 +328,12 @@ impl Game {
                 // TODO: all these things
                 //frame.mouse_x = mouse_location.0;
                 //frame.mouse_y = mouse_location.1;
-                //frame.new_seed = None;
-
-                //if let Some(seed) = new_seed {
-                //    self.rand.set_seed(seed);
-                //}
-
                 // self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
+
+                if let Some(rand) = new_rand {
+                    frame.new_seed = Some(rand.seed());
+                    self.rand.set_seed(rand.seed());
+                }
 
                 self.renderer.set_state(&renderer_state);
                 self.renderer.resize_framebuffer(w, h, false);
@@ -392,6 +395,7 @@ impl Game {
                 renderer_state = self.renderer.state();
                 self.renderer.set_state(&ui_renderer_state);
                 context_menu = None;
+                new_rand = None;
 
                 instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
             }
@@ -419,6 +423,7 @@ impl Game {
                 frame_text = format!("Frame: {}", replay.frame_count());
                 seed_text = format!("Seed: {}", self.rand.seed());
                 context_menu = None;
+                new_rand = None;
                 instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                 config.rerecords += 1;
                 rerecord_text = format!("Re-record count: {}", config.rerecords);
@@ -426,9 +431,27 @@ impl Game {
             }
 
             frame.text(&frame_text);
+            if new_rand.is_some() {
+                frame.coloured_text(&seed_text, Colour::new(1.0, 0.5, 0.5));
+            } else {
+                frame.text(&seed_text);
+            }
             frame.text(&rerecord_text);
-            frame.text(&seed_text);
             frame.text(&fps_text);
+            if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 114.0))) {
+                if let Some(rand) = &mut new_rand {
+                    rand.cycle();
+                    seed_text = format!("Seed: {}*", rand.seed());
+                } else {
+                    let mut rand = self.rand.clone();
+                    rand.cycle();
+                    seed_text = format!("Seed: {}*", rand.seed());
+                    new_rand = Some(rand);
+                }
+            }
+            if frame.item_hovered() && frame.right_clicked() {
+                context_menu = Some(ContextMenu::Seed { pos: frame.mouse_pos() });
+            }
             frame.end();
 
             macro_rules! kb_btn {
@@ -834,6 +857,7 @@ impl Game {
                                                             frame_text = format!("Frame: {}", replay.frame_count());
                                                             seed_text = format!("Seed: {}", self.rand.seed());
                                                             context_menu = None;
+                                                            new_rand = None;
                                                             err_string = None;
                                                             game_running = true;
                                                             config.rerecords += 1;
@@ -979,6 +1003,50 @@ impl Game {
                                 }
                                 context_menu = None;
                                 break;
+                            }
+                        }
+                    }
+                    frame.end();
+                },
+                Some(ContextMenu::Seed { pos }) => {
+                    frame.begin_context_menu(*pos);
+                    if !frame.window_focused() {
+                        context_menu = None;
+                    } else {
+                        let count;
+                        if new_rand.is_some() && frame.menu_item("Reset") {
+                            count = None;
+                            context_menu = None;
+                            new_rand = None;
+                            seed_text = format!("Seed: {}", self.rand.seed());
+                        } else if frame.menu_item("+1 RNG call") {
+                            count = Some(1);
+                            context_menu = None;
+                        } else if frame.menu_item("+5 RNG calls") {
+                            count = Some(5);
+                            context_menu = None;
+                        } else if frame.menu_item("+10 RNG calls") {
+                            count = Some(10);
+                            context_menu = None;
+                        } else if frame.menu_item("+50 RNG calls") {
+                            count = Some(50);
+                            context_menu = None;
+                        } else {
+                            count = None;
+                        }
+                        if let Some(count) = count {
+                            if let Some(rand) = &mut new_rand {
+                                for _ in 0..count {
+                                    rand.cycle();
+                                }
+                                seed_text = format!("Seed: {}*", rand.seed());
+                            } else {
+                                let mut rand = self.rand.clone();
+                                for _ in 0..count {
+                                    rand.cycle();
+                                }
+                                seed_text = format!("Seed: {}*", rand.seed());
+                                new_rand = Some(rand);
                             }
                         }
                     }
