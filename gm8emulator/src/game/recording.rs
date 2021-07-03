@@ -207,8 +207,6 @@ impl Game {
         self.renderer.set_state(&ui_renderer_state);
         let mut callback_data; // Putting this outside the loop makes sure it never goes out of scope
 
-        let mut frame_counter = 0; // TODO: this really should be stored in Game and Savestate, not here
-
         let mut frame_text = String::from("Frame: 0");
         let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let mut seed_text = format!("Seed: {}", self.rand.seed());
@@ -378,11 +376,11 @@ impl Game {
                 if let Some(t) = self.spoofed_time_nanos.as_mut() {
                     *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
                 }
-                if frame_counter == self.room.speed {
+                if self.frame_counter == self.room.speed {
                     self.fps = self.room.speed;
-                    frame_counter = 0;
+                    self.frame_counter = 0;
                 }
-                frame_counter += 1;
+                self.frame_counter += 1;
 
                 frame_text = format!("Frame: {}", replay.frame_count());
                 seed_text = format!("Seed: {}", self.rand.seed());

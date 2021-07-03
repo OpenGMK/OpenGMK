@@ -122,6 +122,7 @@ pub struct Game {
     pub potential_step_settings: pathfinding::PotentialStepSettings,
 
     pub fps: u32,                 // initially 0
+    pub frame_counter: u32,       // for FPS - gets set to 0 about once per second
     pub transition_kind: i32,     // default 0
     pub transition_steps: i32,    // default 80
     pub cursor_sprite: i32,       // default -1
@@ -1132,6 +1133,7 @@ impl Game {
             spoofed_time_nanos: None,
             frame_limiter,
             fps: 0,
+            frame_counter: 0,
             parameters: game_arguments,
             encoding,
             esc_close_game: settings.esc_close_game,
@@ -1886,7 +1888,6 @@ impl Game {
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
-        let mut frame_counter = 0;
         loop {
             self.process_window_events();
 
@@ -1913,11 +1914,11 @@ impl Game {
                 // gm8 just ignores any leftover time after a second has passed, so we do the same
                 if time_now.duration_since(time_last) >= Duration::from_secs(1) {
                     time_last = time_now;
-                    self.fps = frame_counter;
-                    frame_counter = 0;
+                    self.fps = self.frame_counter;
+                    self.frame_counter = 0;
                 }
             }
-            frame_counter += 1;
+            self.frame_counter += 1;
 
             if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
@@ -1933,7 +1934,6 @@ impl Game {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
-        let mut frame_counter = 0;
 
         for ev in replay.startup_events.iter() {
             self.stored_events.push_back(ev.clone());
@@ -2005,11 +2005,11 @@ impl Game {
                 *t += duration.as_nanos();
             }
 
-            if frame_counter == self.room.speed {
+            if self.frame_counter == self.room.speed {
                 self.fps = self.room.speed;
-                frame_counter = 0;
+                self.frame_counter = 0;
             }
-            frame_counter += 1;
+            self.frame_counter += 1;
 
             if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);

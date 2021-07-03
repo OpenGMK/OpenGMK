@@ -84,6 +84,8 @@ pub struct SaveState {
 
     pub potential_step_settings: PotentialStepSettings,
 
+    pub fps: u32,
+    pub frame_counter: u32,
     pub transition_kind: i32,
     pub transition_steps: i32,
     pub cursor_sprite: i32,
@@ -167,6 +169,8 @@ impl SaveState {
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             potential_step_settings: game.potential_step_settings.clone(),
+            fps: game.fps,
+            frame_counter: game.frame_counter,
             transition_kind: game.transition_kind.clone(),
             transition_steps: game.transition_steps.clone(),
             cursor_sprite: game.cursor_sprite.clone(),
@@ -266,6 +270,8 @@ impl SaveState {
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.potential_step_settings = self.potential_step_settings;
+        game.fps = self.fps;
+        game.frame_counter = self.frame_counter;
         game.transition_kind = self.transition_kind;
         game.transition_steps = self.transition_steps;
         game.cursor_sprite = self.cursor_sprite;
