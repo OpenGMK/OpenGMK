@@ -1,5 +1,6 @@
 use crate::{
     imgui, input,
+    instance::Field,
     game::{
         Game,
         replay::{self, Replay},
@@ -137,6 +138,8 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
+        let mut watched_ids: Vec<i32> = Vec::new();
+
         let save_paths = (0..16).map(|i| {
             let mut path = project_path.clone();
             path.push(&format!("save{}.bin", i + 1));
@@ -170,6 +173,8 @@ impl Game {
                 *state = KeyState::Held;
             }
         }
+
+        let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
 
         self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
@@ -361,6 +366,8 @@ impl Game {
                 renderer_state = self.renderer.state();
                 self.renderer.set_state(&ui_renderer_state);
                 context_menu = None;
+
+                instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
             }
 
             if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
@@ -387,6 +394,7 @@ impl Game {
                     frame_text = format!("Frame: {}", replay.frame_count());
                     seed_text = format!("Seed: {}", self.rand.seed());
                     context_menu = None;
+                    instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                 }
             }
 
@@ -815,40 +823,69 @@ impl Game {
                                     },
                                     Err(err) => err_string = Some(format!("Failed to load savestate #{}: {}", i, err)),
                                 }
-                                // match bincode::deserialize_from::<_, SaveState>(GzDecoder::new(BufReader::new(f))) {
-                                //     Ok(state) => {
-                                //         let (new_replay, new_renderer_state) = state.load_into(self);
-                                //         replay = new_replay;
-                                //         renderer_state = new_renderer_state;
-
-                                //         for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                //             *state = if self.input.keyboard_check_direct(i as u8) {
-                                //                 KeyState::Held
-                                //             } else {
-                                //                 KeyState::Neutral
-                                //             };
-                                //         }
-
-                                //         frame_text = format!("Frame: {}", replay.frame_count());
-                                //         seed_text = format!("Seed: {}", self.rand.seed());
-                                //         context_menu = None;
-                                //         err_string = None;
-                                //         game_running = true;
-                                //     },
-                                //     Err(e) => {
-                                //         err_string = Some(format!("Error deserializing savestate: {}", e));
-                                //     },
-                                // }
                             },
                             Err(e) => {
                                 err_string = Some(format!("Error reading {}:\n\n{}", save_paths[i].to_string_lossy(), e));
                             },
                         }
+                        instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                         println!("Loaded in {} microseconds", t.elapsed().as_micros());
                     }
                 }
             }
             frame.end();
+
+            let previous_len = watched_ids.len();
+            watched_ids.retain(|id| {
+                unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(320.0, 80.0).into(), imgui::Vec2(320.0, 1600.0).into(), None, std::ptr::null_mut()) }
+                let mut open = true;
+                frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
+                if let Some((_, Some(report))) = instance_reports.iter().find(|(i, _)| i == id) {
+                    frame.text(&report.object_name);
+                    frame.text(&report.id);
+                    frame.text("");
+                    if frame.begin_tree_node("General Variables") {
+                        report.general_vars.iter().for_each(|s| frame.text(s));
+                        frame.pop_tree_node();
+                    }
+                    if frame.begin_tree_node("Physics Variables") {
+                        report.physics_vars.iter().for_each(|s| frame.text(s));
+                        frame.pop_tree_node();
+                    }
+                    if frame.begin_tree_node("Image Variables") {
+                        report.image_vars.iter().for_each(|s| frame.text(s));
+                        frame.pop_tree_node();
+                    }
+                    if frame.begin_tree_node("Timeline Variables") {
+                        report.timeline_vars.iter().for_each(|s| frame.text(s));
+                        frame.pop_tree_node();
+                    }
+                    if frame.begin_tree_node("Alarms") {
+                        report.alarms.iter().for_each(|s| frame.text(s));
+                        frame.pop_tree_node();
+                    }
+                    if frame.begin_tree_node("Fields") {
+                        report.fields.iter().for_each(|f| match f {
+                            ReportField::Single(s) => frame.text(s),
+                            ReportField::Array(label, array) => {
+                                if frame.begin_tree_node(label) {
+                                    array.iter().for_each(|s| frame.text(s));
+                                    frame.pop_tree_node();
+                                }
+                            },
+                        });
+                        frame.pop_tree_node();
+                    }
+                } else {
+                    frame.text_centered("<deleted instance>", imgui::Vec2(160.0, 35.0));
+                }
+                frame.end();
+                open
+            });
+
+            if watched_ids.len() != previous_len {
+                instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+            }
 
             match &context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
@@ -903,7 +940,10 @@ impl Game {
                     } else {
                         for (label, id) in options {
                             if frame.menu_item(label) {
-                                println!("TODO: instance viewer for {}", id);
+                                if !watched_ids.contains(id) {
+                                    watched_ids.push(*id);
+                                    instance_reports.push((*id, InstanceReport::new(&*self, *id)));
+                                }
                                 context_menu = None;
                                 break;
                             }
@@ -979,6 +1019,114 @@ impl Game {
             self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
+        }
+    }
+}
+
+struct InstanceReport {
+    object_name: String,
+    id: String,
+    general_vars: [String; 7],
+    physics_vars: [String; 13],
+    image_vars: [String; 11],
+    timeline_vars: [String; 5],
+    alarms: Vec<String>,
+    fields: Vec<ReportField>,
+}
+
+enum ReportField {
+    Single(String),
+    Array(String, Vec<String>),
+}
+
+impl InstanceReport {
+    fn new(game: &Game, id: i32) -> Option<Self> {
+        use crate::game::GetAsset;
+        if let Some((handle, instance)) = game.room.instance_list.get_by_instid(id).map(|x| (x, game.room.instance_list.get(x))) {
+            instance.update_bbox(game.get_instance_mask_sprite(handle));
+            let object_name = game.assets.objects.get_asset(instance.object_index.get())
+                .map(|x| x.name.decode(game.encoding))
+                .unwrap_or("<deleted object>".into());
+
+            Some(Self {
+                object_name: object_name.clone().into(),
+                id: id.to_string(),
+                general_vars: [
+                    format!("object_index: {} ({})", instance.object_index.get(), object_name),
+                    format!("x: {:.4}", instance.x.get()),
+                    format!("y: {:.4}", instance.y.get()),
+                    format!("xprevious: {:.4}", instance.xprevious.get()),
+                    format!("yprevious: {:.4}", instance.yprevious.get()),
+                    format!("xstart: {:.4}", instance.xstart.get()),
+                    format!("ystart: {:.4}", instance.ystart.get()),
+                ],
+                physics_vars: [
+                    format!("speed: {:.4}", instance.speed.get()),
+                    format!("direction: {:.4}", instance.direction.get()),
+                    format!("hspeed: {:.4}", instance.hspeed.get()),
+                    format!("vspeed: {:.4}", instance.vspeed.get()),
+                    format!("gravity: {:.4}", instance.gravity.get()),
+                    format!("gravity_direction: {:.4}", instance.gravity_direction.get()),
+                    format!("friction: {:.4}", instance.friction.get()),
+                    format!("solid: {}", instance.solid.get()),
+                    format!("persistent: {}", instance.persistent.get()),
+                    format!("bbox_left: {}", instance.bbox_left.get()),
+                    format!("bbox_right: {}", instance.bbox_right.get()),
+                    format!("bbox_top: {}", instance.bbox_top.get()),
+                    format!("bbox_bottom: {}", instance.bbox_bottom.get()),
+                ],
+                image_vars: [
+                    format!(
+                        "sprite_index: {} ({})",
+                        instance.sprite_index.get(),
+                        game.assets.sprites.get_asset(instance.sprite_index.get())
+                            .map(|x| x.name.decode(game.encoding))
+                            .unwrap_or("<deleted sprite>".into()),
+                    ),
+                    format!(
+                        "mask_index: {} ({})",
+                        instance.mask_index.get(),
+                        game.assets.sprites.get_asset(instance.mask_index.get())
+                            .map(|x| x.name.decode(game.encoding))
+                            .unwrap_or("<same as sprite>".into()),
+                    ),
+                    format!("image_index: {:.4}", instance.image_index.get()),
+                    format!("image_speed: {:.4}", instance.image_speed.get()),
+                    format!("visible: {}", instance.visible.get()),
+                    format!("depth: {:.4}", instance.depth.get()),
+                    format!("image_xscale: {:.4}", instance.image_xscale.get()),
+                    format!("image_yscale: {:.4}", instance.image_yscale.get()),
+                    format!("image_angle: {:.4}", instance.image_angle.get()),
+                    format!("image_blend: {}", instance.image_blend.get()),
+                    format!("image_alpha: {:.4}", instance.image_alpha.get()),
+                ],
+                timeline_vars: [
+                    format!(
+                        "timeline_index: {} ({})",
+                        instance.timeline_index.get(),
+                        game.assets.timelines.get_asset(instance.timeline_index.get())
+                            .map(|x| x.name.decode(game.encoding))
+                            .unwrap_or("<deleted timeline>".into()),
+                    ),
+                    format!("timeline_running: {}", instance.timeline_running.get()),
+                    format!("timeline_speed: {:.4}", instance.timeline_speed.get()),
+                    format!("timeline_position: {:.4}", instance.timeline_position.get()),
+                    format!("timeline_loop: {}", instance.timeline_loop.get()),
+                ],
+                alarms: instance.alarms.borrow().iter().map(|(id, time)| format!("alarm[{}]: {}", id, time)).collect(),
+                fields: instance.fields.borrow().iter().map(|(id, field)| {
+                    let field_name = game.compiler.get_field_name(*id).unwrap_or("<???>".into());
+                    match field {
+                        Field::Single(value) => ReportField::Single(format!("{}: {}", field_name, value)),
+                        Field::Array(map) => ReportField::Array(
+                            field_name,
+                            map.iter().map(|(index, value)| format!("[{}]: {}", index, value)).collect()
+                        ),
+                    }
+                }).collect(),
+            })
+        } else {
+            None
         }
     }
 }
