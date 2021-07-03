@@ -254,7 +254,6 @@ impl Game {
                         io.set_display_size(imgui::Vec2(width as f32, height as f32));
                         self.renderer.resize_framebuffer(width, height, false);
                         context_menu = None;
-                        let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                     },
                     Event::Focus(false) => {
                         io.clear_inputs();
