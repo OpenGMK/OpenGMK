@@ -12,6 +12,7 @@ use crate::{
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use lzzzz::lz4;
 use ramen::{event::{Event, Key}, monitor::Size};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fs::{File, OpenOptions}, io::{Read, Write}, path::PathBuf, time::{Duration, Instant}};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -47,14 +48,42 @@ enum ContextMenu {
     Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
 }
 
+#[derive(Deserialize, Serialize)]
+struct ProjectConfig {
+    ui_width: u16,
+    ui_height: u16,
+    rerecords: u64,
+    watched_ids: Vec<i32>,
+}
+
 impl Game {
     pub fn record(&mut self, project_path: PathBuf) {
         let mut bin_buf: Vec<u8> = Vec::new();
         let mut lz4_buf: Vec<u8> = Vec::new();
 
-        let mut ui_width: u16 = 1280;
-        let mut ui_height: u16 = 720;
-        self.window.set_inner_size(Size::Physical(ui_width.into(), ui_height.into()));
+        let config_path = {
+            let mut p = project_path.clone();
+            p.push("project.cfg");
+            p
+        };
+        let mut config = if config_path.exists() {
+            bincode::deserialize_from(
+                File::open(&config_path).expect("Couldn't read project.cfg")
+            ).expect("Couldn't parse project.cfg")
+        } else {
+            let config = ProjectConfig {
+                ui_width: 1280,
+                ui_height: 720,
+                rerecords: 0,
+                watched_ids: Vec::new(),
+            };
+            bincode::serialize_into(
+                File::create(&config_path).expect("Couldn't write project.cfg"),
+                &config,
+            ).expect("Couldn't serialize project.cfg");
+            config
+        };
+        self.window.set_inner_size(Size::Physical(config.ui_width.into(), config.ui_height.into()));
 
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
 
@@ -77,7 +106,7 @@ impl Game {
             path.into_os_string().into_string().expect("Bad project file path")
         };
         unsafe { (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _; }
-        io.set_display_size(imgui::Vec2(f32::from(ui_width), f32::from(ui_height)));
+        io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
 
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
         let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
@@ -110,7 +139,6 @@ impl Game {
             h: u32,
         }
 
-        let mut savestate: Option<SaveState> = None;
         let mut keyboard_state = [KeyState::Neutral; 256];
 
         let ui_renderer_state = RendererState {
@@ -137,8 +165,6 @@ impl Game {
             primitive_3d: self.renderer.get_primitive_3d(),
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
-
-        let mut watched_ids: Vec<i32> = Vec::new();
 
         let save_paths = (0..16).map(|i| {
             let mut path = project_path.clone();
@@ -174,9 +200,9 @@ impl Game {
             }
         }
 
-        let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+        let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
 
-        self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
+        self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
         let mut renderer_state = self.renderer.state();
         self.renderer.set_state(&ui_renderer_state);
         let mut callback_data; // Putting this outside the loop makes sure it never goes out of scope
@@ -184,10 +210,12 @@ impl Game {
         let mut frame_counter = 0; // TODO: this really should be stored in Game and Savestate, not here
 
         let mut frame_text = String::from("Frame: 0");
+        let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let mut seed_text = format!("Seed: {}", self.rand.seed());
         let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
         let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
+        let mut savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
 
         'gui: loop {
             let time_start = Instant::now();
@@ -221,11 +249,12 @@ impl Game {
                     Event::MouseWheel(delta) => io.set_mouse_wheel(delta.get() as f32 / 120.0),
                     Event::Resize((size, scale)) => {
                         let (width, height) = size.as_physical(*scale);
-                        ui_width = u16::try_from(width).unwrap_or(u16::MAX);
-                        ui_height = u16::try_from(height).unwrap_or(u16::MAX);
+                        config.ui_width = u16::try_from(width).unwrap_or(u16::MAX);
+                        config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
                         io.set_display_size(imgui::Vec2(width as f32, height as f32));
                         self.renderer.resize_framebuffer(width, height, false);
                         context_menu = None;
+                        let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                     },
                     Event::Focus(false) => {
                         io.clear_inputs();
@@ -237,7 +266,7 @@ impl Game {
             }
 
             // present imgui
-            let fps_text = format!("FPS: {}", io.framerate());
+            let fps_text = format!("FPS: {}", io.framerate().round());
             let win_frame_height = context.frame_height();
             let win_border_size = context.window_border_size();
             let win_padding = context.window_padding();
@@ -245,7 +274,7 @@ impl Game {
 
             frame.begin_window("Control", None, true, false, None);
             if (
-                frame.button("Advance (Space)", imgui::Vec2(150.0, 20.0), None) ||
+                frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None) ||
                     frame.key_pressed(input::ramen2vk(Key::Space))
             ) && game_running && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
@@ -359,46 +388,48 @@ impl Game {
                 frame_text = format!("Frame: {}", replay.frame_count());
                 seed_text = format!("Seed: {}", self.rand.seed());
 
-                self.renderer.resize_framebuffer(ui_width.into(), ui_height.into(), true);
-                self.renderer.set_view( 0, 0, ui_width.into(), ui_height.into(),
-                    0.0, 0, 0, ui_width.into(), ui_height.into());
+                self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
+                self.renderer.set_view( 0, 0, config.ui_width.into(), config.ui_height.into(),
+                    0.0, 0, 0, config.ui_width.into(), config.ui_height.into());
                 self.renderer.clear_view(clear_colour, 1.0);
                 renderer_state = self.renderer.state();
                 self.renderer.set_state(&ui_renderer_state);
                 context_menu = None;
 
-                instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
             }
 
-            if (frame.button("Quick Save (Q)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
-                savestate = Some(SaveState::from(self, replay.clone(), renderer_state.clone()));
+            if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
+                savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
                 context_menu = None;
             }
 
-            if let Some(state) = &savestate {
-                if frame.button("Load quicksave (W)", imgui::Vec2(150.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
-                    err_string = None;
-                    game_running = true;
-                    let (rep, ren) = state.clone().load_into(self);
-                    replay = rep;
-                    renderer_state = ren;
+            if frame.button("Load quicksave (W)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
+                err_string = None;
+                game_running = true;
+                let (rep, ren) = savestate.clone().load_into(self);
+                replay = rep;
+                renderer_state = ren;
 
-                    for (i, state) in keyboard_state.iter_mut().enumerate() {
-                        *state = if self.input.keyboard_check_direct(i as u8) {
-                            KeyState::Held
-                        } else {
-                            KeyState::Neutral
-                        };
-                    }
-
-                    frame_text = format!("Frame: {}", replay.frame_count());
-                    seed_text = format!("Seed: {}", self.rand.seed());
-                    context_menu = None;
-                    instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                for (i, state) in keyboard_state.iter_mut().enumerate() {
+                    *state = if self.input.keyboard_check_direct(i as u8) {
+                        KeyState::Held
+                    } else {
+                        KeyState::Neutral
+                    };
                 }
+
+                frame_text = format!("Frame: {}", replay.frame_count());
+                seed_text = format!("Seed: {}", self.rand.seed());
+                context_menu = None;
+                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                config.rerecords += 1;
+                rerecord_text = format!("Re-record count: {}", config.rerecords);
+                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
             frame.text(&frame_text);
+            frame.text(&rerecord_text);
             frame.text(&seed_text);
             frame.text(&fps_text);
             frame.end();
@@ -808,6 +839,9 @@ impl Game {
                                                             context_menu = None;
                                                             err_string = None;
                                                             game_running = true;
+                                                            config.rerecords += 1;
+                                                            rerecord_text = format!("Re-record count: {}", config.rerecords);
+                                                            let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                                                         },
                                                         Err(err) => err_string = Some(
                                                             format!("Error deserializing savestate #{}: {}", i, err),
@@ -828,15 +862,15 @@ impl Game {
                                 err_string = Some(format!("Error reading {}:\n\n{}", save_paths[i].to_string_lossy(), e));
                             },
                         }
-                        instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                        instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                         println!("Loaded in {} microseconds", t.elapsed().as_micros());
                     }
                 }
             }
             frame.end();
 
-            let previous_len = watched_ids.len();
-            watched_ids.retain(|id| {
+            let previous_len = config.watched_ids.len();
+            config.watched_ids.retain(|id| {
                 unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(320.0, 80.0).into(), imgui::Vec2(320.0, 1600.0).into(), None, std::ptr::null_mut()) }
                 let mut open = true;
                 frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
@@ -883,8 +917,9 @@ impl Game {
                 open
             });
 
-            if watched_ids.len() != previous_len {
-                instance_reports = watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+            if config.watched_ids.len() != previous_len {
+                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
             match &context_menu {
@@ -940,9 +975,10 @@ impl Game {
                     } else {
                         for (label, id) in options {
                             if frame.menu_item(label) {
-                                if !watched_ids.contains(id) {
-                                    watched_ids.push(*id);
+                                if !config.watched_ids.contains(id) {
+                                    config.watched_ids.push(*id);
                                     instance_reports.push((*id, InstanceReport::new(&*self, *id)));
+                                    let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                                 }
                                 context_menu = None;
                                 break;
@@ -965,7 +1001,7 @@ impl Game {
             // draw imgui
             let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
             self.renderer.draw_sprite_tiled(&grid_ref, start_xy, start_xy, 1.0, 1.0, 0xFFFFFF, 0.5,
-                Some(ui_width.into()), Some(ui_height.into()));
+                Some(config.ui_width.into()), Some(config.ui_height.into()));
 
             let draw_data = context.draw_data();
             debug_assert!(draw_data.Valid);
@@ -1016,10 +1052,12 @@ impl Game {
                 }
             }
 
-            self.renderer.finish(ui_width.into(), ui_height.into(), clear_colour);
+            self.renderer.finish(config.ui_width.into(), config.ui_height.into(), clear_colour);
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
+
+        let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
     }
 }
 
