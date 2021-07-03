@@ -15,9 +15,11 @@ mod tile;
 mod util;
 mod types;
 
+use byteorder::{LE, ReadBytesExt};
+use lzzzz::lz4;
 use std::{
     env, fs,
-    io::{BufReader, Write},
+    io::BufReader,
     path::{Path, PathBuf},
     process,
 };
@@ -113,14 +115,23 @@ fn xmain() -> i32 {
     });
     let can_clear_temp_dir = temp_dir.is_none();
     let replay = matches.opt_str("f").map(|filename| {
-        let mut filepath = PathBuf::from(&filename);
+        let filepath = PathBuf::from(&filename);
         match filepath.extension().and_then(|x| x.to_str()) {
             Some("bin") => {
-                let f = fs::File::open(&filepath).unwrap();
-                let replay = bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay();
-                filepath.set_extension("gmtas");
-                fs::File::create(&filepath).unwrap().write_all(&bincode::serialize(&replay).unwrap()).unwrap();
-                replay
+                let bytes = fs::read(&filepath).unwrap();
+                match (
+                    bytes.as_slice().read_u64::<LE>().map(|x| x as usize),
+                    bytes.get(8..),
+                ) {
+                    (Ok(len), Some(block)) => {
+                        let mut buf = Vec::with_capacity(len);
+                        unsafe { buf.set_len(len); }
+                        let new_len = lz4::decompress(block, buf.as_mut_slice()).unwrap();
+                        unsafe { buf.set_len(new_len); }
+                        bincode::deserialize::<'_, game::SaveState>(&buf).unwrap().into_replay()
+                    },
+                    _ => panic!("Invalid .bin file"),
+                }
             },
 
             Some("gmtas") => {
