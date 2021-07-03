@@ -190,6 +190,11 @@ impl Frame<'_> {
         unsafe { c::igText(self.cstr()) };
     }
 
+    pub fn coloured_text(&mut self, text: &str, col: Colour) {
+        self.cstr_store(text);
+        unsafe { c::igTextColored(c::ImVec4 { x: col.r as _, y: col.g as _, z: col.b as _, w: 1.0 }, self.cstr()) }
+    }
+
     pub fn text_centered(&mut self, text: &str, center: Vec2<f32>) {
         self.cstr_store(text);
         unsafe {
