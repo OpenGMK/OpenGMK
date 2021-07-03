@@ -112,14 +112,13 @@ impl Frame<'_> {
         )
     }
 
-    pub fn begin_context_menu(&mut self, pos: Vec2<f32>, id: &str) {
-        self.cstr_store(id);
+    pub fn begin_context_menu(&mut self, pos: Vec2<f32>) {
         unsafe {
-            c::igBegin(self.cstr(), std::ptr::null_mut(), 0b1_0011_1111);
+            c::igBegin("__popup\0".as_ptr() as _, std::ptr::null_mut(), 0b1_0111_1111);
             let mut size = std::mem::MaybeUninit::uninit();
             c::igGetWindowSize(size.as_mut_ptr());
             let size = size.assume_init();
-            c::igSetWindowPosStr(self.cstr(), c::ImVec2 {
+            c::igSetWindowPosStr("__popup\0".as_ptr() as _, c::ImVec2 {
                 x: pos.0.min((*c::igGetIO()).DisplaySize.x - size.x),
                 y: if pos.1 + size.y > (*c::igGetIO()).DisplaySize.y && pos.1 >= size.y { pos.1 - size.y } else { pos.1 },
             }, 0);

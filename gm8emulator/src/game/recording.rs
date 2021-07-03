@@ -890,7 +890,7 @@ impl Game {
             match &context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
                     let key_state = &mut keyboard_state[usize::from(input::ramen2vk(*key))];
-                    frame.begin_context_menu(*pos, if key_state.is_held() { "PopupKHeld" } else { "PopupKNeutral" });
+                    frame.begin_context_menu(*pos);
                     if !frame.window_focused() {
                         context_menu = None;
                     } else if key_state.is_held() {
@@ -934,7 +934,7 @@ impl Game {
                     frame.end();
                 },
                 Some(ContextMenu::Instances { pos, options }) => {
-                    frame.begin_context_menu(*pos, &format!("PopupInstances{}", options.len()));
+                    frame.begin_context_menu(*pos);
                     if !frame.window_focused() {
                         context_menu = None;
                     } else {
