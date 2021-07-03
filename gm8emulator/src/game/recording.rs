@@ -275,7 +275,7 @@ impl Game {
                     frame.key_pressed(input::ramen2vk(Key::Space))
             ) && game_running && err_string.is_none() {
                 let (w, h) = self.renderer.stored_size();
-                let frame = replay.new_frame(self.room.speed);
+                let frame = replay.new_frame();
 
                 self.input.mouse_step();
                 for (i, state) in keyboard_state.iter().enumerate() {
