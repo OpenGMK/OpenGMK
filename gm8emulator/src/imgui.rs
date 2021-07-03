@@ -129,6 +129,15 @@ impl Frame<'_> {
         }
     }
 
+    pub fn begin_tree_node(&mut self, label: &str) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igTreeNodeStr(self.cstr()) }
+    }
+
+    pub fn pop_tree_node(&mut self) {
+        unsafe { c::igTreePop() }
+    }
+
     pub fn end(&self) {
         unsafe { c::igEnd() };
     }
