@@ -32,12 +32,12 @@ pub struct Frame {
 // Stored events for certain things which must always happen the same way during replay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
-    GetInteger(Value),   // value returned from get_integer()
-    GetString(Value),    // value returned from get_string()
-    Randomize(i32),      // value assigned to seed by randomize()
-    ShowMenu(Value),     // value returned from show_menu()
-    ShowMessage,         // acknowledges that a show_message() does not need to be shown during replay
-    ShowQuestion(Value), // value returned from show_question()
+    GetInteger(Value),    // value returned from get_integer()
+    GetString(Value),     // value returned from get_string()
+    Randomize(i32),       // value assigned to seed by randomize()
+    ShowMenu(Value),      // value returned from show_menu()
+    ShowMessage,          // acknowledges that a show_message() does not need to be shown during replay
+    ShowQuestion(Value),  // value returned from show_question()
     SoundIsPlaying(bool), // value returned from sound_isplaying()
 }
 
