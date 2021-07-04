@@ -82,7 +82,6 @@ impl Game {
             ).expect("Couldn't serialize project.cfg");
             config
         };
-        self.window.set_inner_size(Size::Physical(config.ui_width.into(), config.ui_height.into()));
 
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
 
@@ -209,6 +208,7 @@ impl Game {
             }
             self.stored_events.clear();
 
+            self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
             renderer_state = self.renderer.state();
             self.renderer.set_state(&ui_renderer_state);
             savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
@@ -222,7 +222,6 @@ impl Game {
                     err,
                 ));
             }
-            self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
         } else {
             match SaveState::from_file(&quicksave_path, &mut save_buffer) {
                 Ok(state) => {
@@ -251,6 +250,8 @@ impl Game {
                 }
             }
         }
+
+        self.window.set_inner_size(Size::Physical(config.ui_width.into(), config.ui_height.into()));
 
         for (i, state) in keyboard_state.iter_mut().enumerate() {
             if self.input.keyboard_check_direct(i as u8) {
