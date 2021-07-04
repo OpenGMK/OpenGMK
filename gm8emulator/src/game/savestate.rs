@@ -19,11 +19,16 @@ use crate::{
     render::{RendererState, SavedTexture, Scaling},
     types::{Colour, ID},
 };
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use indexmap::IndexMap;
+use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
+    path::PathBuf,
     rc::Rc,
 };
 
@@ -121,6 +126,7 @@ pub struct SaveState {
 }
 
 impl SaveState {
+    /// Creates a new SaveState from the given components.
     pub fn from(game: &Game, replay: Replay, renderer_state: RendererState) -> Self {
         let (window_width, window_height) = game.renderer.stored_size();
         let screenshot = game.renderer.stored_pixels();
@@ -203,6 +209,7 @@ impl SaveState {
         }
     }
 
+    /// Loads this SaveState into the given Game struct, returning the Replay and RendererState it contained.
     pub fn load_into(self, game: &mut Game) -> (Replay, RendererState) {
         game.renderer.upload_dynamic_textures(&self.textures);
 
@@ -299,7 +306,102 @@ impl SaveState {
         (self.replay, self.renderer_state)
     }
 
+    /// Consumes this SaveState and returns just its Replay component.
     pub fn into_replay(self) -> Replay {
         self.replay
     }
+
+    /// Loads a SaveState from a file. The format will always match the one used by `save_to_file()`.
+    pub fn from_file(path: &PathBuf, buffer: &mut Buffer) -> Result<Self, ReadError> {
+        match File::open(path).map(|f| (f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0), f)) {
+            Ok((init_size, mut file)) => {
+                buffer.lz4_buf.clear();
+                buffer.lz4_buf.reserve(init_size);
+                match file.read_to_end(&mut buffer.lz4_buf) {
+                    Ok(_) => match (
+                        buffer.lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
+                        buffer.lz4_buf.get(8..),
+                    ) {
+                        (Ok(len), Some(block)) => {
+                            buffer.bin_buf.clear();
+                            buffer.bin_buf.reserve(len);
+                            unsafe { buffer.bin_buf.set_len(len) };
+                            match lz4::decompress(block, buffer.bin_buf.as_mut_slice()) {
+                                Ok(len) => {
+                                    unsafe { buffer.bin_buf.set_len(len) };
+                                    bincode::deserialize::<'_, SaveState>(buffer.bin_buf.as_slice())
+                                        .map_err(ReadError::DeserializeErr)
+                                },
+                                Err(err) => Err(ReadError::DecompressErr(err)),
+                            }
+                        },
+                        (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
+                        (Err(err), _) => Err(ReadError::IOErr(err)),
+                    },
+                    Err(err) => Err(ReadError::IOErr(err)),
+                }
+            },
+            Err(err) => Err(ReadError::IOErr(err)),
+        }
+    }
+
+    /// Saves a SaveState to a file. The SaveState object is formatted with Serde/bincode and compressed with lz4.
+    /// A Buffer object is needed for the lz4 compression. Ideally, the same buffer should be re-used on each call.
+    pub fn save_to_file(&self, path: &PathBuf, buffer: &mut Buffer) -> Result<(), WriteError> {
+        buffer.bin_buf.clear();
+        buffer.lz4_buf.clear();
+        match bincode::serialize_into(&mut buffer.bin_buf, self) {
+            Ok(()) => {
+                match lz4::compress_to_vec(
+                    buffer.bin_buf.as_slice(),
+                    buffer.lz4_buf.as_mut(),
+                    lz4::ACC_LEVEL_DEFAULT,
+                ) {
+                    Ok(_length) => {
+                        match OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(path)
+                            .and_then(|mut f| {
+                                f.write_u64::<LE>(buffer.bin_buf.len() as u64)
+                                    .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
+                            })
+                        {
+                            Ok(()) => Ok(()),
+                            Err(e) => Err(WriteError::IOErr(e)),
+                        }
+                    },
+                    Err(err) => Err(WriteError::CompressErr(err)),
+                }
+            },
+            Err(err) => Err(WriteError::SerializeErr(err)),
+        }
+    }
+}
+
+pub struct Buffer {
+    bin_buf: Vec<u8>,
+    lz4_buf: Vec<u8>,
+}
+
+impl Buffer {
+    pub fn new() -> Self {
+        Self {
+            bin_buf: Vec::new(),
+            lz4_buf: Vec::new(),
+        }
+    }
+}
+
+pub enum ReadError {
+    IOErr(io::Error),
+    DecompressErr(lzzzz::Error),
+    DeserializeErr(Box<bincode::ErrorKind>),
+}
+
+pub enum WriteError {
+    IOErr(io::Error),
+    CompressErr(lzzzz::Error),
+    SerializeErr(Box<bincode::ErrorKind>),
 }
