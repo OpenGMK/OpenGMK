@@ -15,8 +15,7 @@ mod tile;
 mod util;
 mod types;
 
-use byteorder::{LE, ReadBytesExt};
-use lzzzz::lz4;
+use game::{Game, PlayType, savestate::{self, SaveState}};
 use std::{
     env, fs,
     io::BufReader,
@@ -114,36 +113,32 @@ fn xmain() -> i32 {
             })
     });
     let can_clear_temp_dir = temp_dir.is_none();
-    let replay = matches.opt_str("f").map(|filename| {
+    let replay = match matches.opt_str("f").map(|filename| {
         let filepath = PathBuf::from(&filename);
         match filepath.extension().and_then(|x| x.to_str()) {
-            Some("bin") => {
-                let bytes = fs::read(&filepath).unwrap();
-                match (
-                    bytes.as_slice().read_u64::<LE>().map(|x| x as usize),
-                    bytes.get(8..),
-                ) {
-                    (Ok(len), Some(block)) => {
-                        let mut buf = Vec::with_capacity(len);
-                        unsafe { buf.set_len(len); }
-                        let new_len = lz4::decompress(block, buf.as_mut_slice()).unwrap();
-                        unsafe { buf.set_len(new_len); }
-                        bincode::deserialize::<'_, game::SaveState>(&buf).unwrap().into_replay()
-                    },
-                    _ => panic!("Invalid .bin file"),
-                }
+            Some("bin") => match SaveState::from_file(&filepath, &mut savestate::Buffer::new()) {
+                Ok(state) => Ok(state.into_replay()),
+                Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
             },
 
-            Some("gmtas") => {
-                bincode::deserialize_from::<_, game::Replay>(BufReader::new(fs::File::open(&filepath).unwrap()))
-                    .unwrap()
+            Some("gmtas") => match fs::File::open(&filepath).map(BufReader::new).map(bincode::deserialize_from) {
+                Ok(Ok(replay)) => Ok(replay),
+                Ok(Err(e)) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+                Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
             },
 
             _ => {
-                panic!("Unknown filetype for -f, expected '.bin' or '.gmtas'");
+                Err("unknown filetype for -f, expected '.bin' or '.gmtas'".into())
             },
         }
-    });
+    }).transpose() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{}", e);
+            return EXIT_FAILURE;
+        },
+    };
+
     let input = {
         if matches.free.len() == 1 {
             &matches.free[0]
@@ -204,14 +199,14 @@ fn xmain() -> i32 {
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
     let play_type = if project_path.is_some() {
-        game::PlayType::Record
+        PlayType::Record
     } else if replay.is_some() {
-        game::PlayType::Replay
+        PlayType::Replay
     } else {
-        game::PlayType::Normal
+        PlayType::Normal
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
+    let mut components = match Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
