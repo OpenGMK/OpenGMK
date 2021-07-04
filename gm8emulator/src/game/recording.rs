@@ -4,17 +4,15 @@ use crate::{
     game::{
         Game,
         replay::{self, Replay},
-        SaveState, SceneChange
+        savestate::{self, SaveState}, SceneChange,
     },
     gml::rand::Random,
     render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState},
     types::Colour,
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use lzzzz::lz4;
 use ramen::{event::{Event, Key}, monitor::Size};
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fs::{File, OpenOptions}, io::{Read, Write}, path::PathBuf, time::{Duration, Instant}};
+use std::{convert::TryFrom, fs::File, path::PathBuf, time::{Duration, Instant}};
 
 #[derive(Clone, Copy, PartialEq)]
 enum KeyState {
@@ -60,8 +58,7 @@ struct ProjectConfig {
 
 impl Game {
     pub fn record(&mut self, project_path: PathBuf) {
-        let mut bin_buf: Vec<u8> = Vec::new();
-        let mut lz4_buf: Vec<u8> = Vec::new();
+        let mut save_buffer = savestate::Buffer::new();
 
         let config_path = {
             let mut p = project_path.clone();
@@ -786,105 +783,57 @@ impl Game {
             for i in 0..16 {
                 let y = (24 * i + 21) as f32;
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
-                    let t = std::time::Instant::now();
-                    bin_buf.clear();
-                    lz4_buf.clear();
-                    match bincode::serialize_into(&mut bin_buf, &SaveState::from(self, replay.clone(), renderer_state.clone())) {
-                        Ok(()) => {
-                            match lz4::compress_to_vec(
-                                bin_buf.as_slice(),
-                                lz4_buf.as_mut(),
-                                lz4::ACC_LEVEL_DEFAULT,
-                            ) {
-                                Ok(_length) => {
-                                    if let Err(err) = OpenOptions::new()
-                                        .create(true)
-                                        .write(true)
-                                        .truncate(true)
-                                        .open(&save_paths[i])
-                                        .and_then(|mut f| {
-                                            f.write_u64::<LE>(bin_buf.len() as u64)
-                                                .map(|_| f.write_all(lz4_buf.as_slice()))
-                                        })
-                                    {
-                                        err_string = Some(format!("Failed to write savestate #{}: {}", i, err));
-                                    }
-                                },
-                                Err(err) => {
-                                    err_string = Some(format!("Failed to compress savestate #{}: {}", i, err));
-                                },
-                            }
-                        },
-                        Err(err) => err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
+                    match SaveState::from(self, replay.clone(), renderer_state.clone())
+                        .save_to_file(&save_paths[i], &mut save_buffer)
+                    {
+                        Ok(()) => (),
+                        Err(savestate::WriteError::IOErr(err)) =>
+                            err_string = Some(format!("Failed to write savestate #{}: {}", i, err)),
+                        Err(savestate::WriteError::CompressErr(err)) =>
+                            err_string = Some(format!("Failed to compress savestate #{}: {}", i, err)),
+                        Err(savestate::WriteError::SerializeErr(err)) =>
+                            err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
                     }
-                    println!("Saved in {} microseconds", t.elapsed().as_micros());
                 }
                 if save_paths[i].exists() {
                     if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) {
-                        let t = std::time::Instant::now();
-                        match File::open(&save_paths[i])
-                            .map(|f| (f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0), f))
-                        {
-                            Ok((init_size, mut file)) => {
-                                lz4_buf.clear();
-                                lz4_buf.reserve(init_size);
-                                match file.read_to_end(&mut lz4_buf) {
-                                    Ok(_) => match (
-                                        lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
-                                        lz4_buf.get(8..),
-                                    ) {
-                                        (Ok(len), Some(block)) => {
-                                            bin_buf.clear();
-                                            bin_buf.reserve(len);
-                                            unsafe { bin_buf.set_len(len) };
-                                            match lz4::decompress(block, bin_buf.as_mut_slice()) {
-                                                Ok(len) => {
-                                                    unsafe { bin_buf.set_len(len) };
-                                                    match bincode::deserialize::<'_, SaveState>(bin_buf.as_slice()) {
-                                                        Ok(state) => {
-                                                            let (new_replay, new_renderer_state) = state.load_into(self);
-                                                            replay = new_replay;
-                                                            renderer_state = new_renderer_state;
+                        match SaveState::from_file(&save_paths[i], &mut save_buffer) {
+                            Ok(state) => {
+                                let (new_replay, new_renderer_state) = state.load_into(self);
+                                replay = new_replay;
+                                renderer_state = new_renderer_state;
 
-                                                            for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                                                *state = if self.input.keyboard_check_direct(i as u8) {
-                                                                    KeyState::Held
-                                                                } else {
-                                                                    KeyState::Neutral
-                                                                };
-                                                            }
-
-                                                            frame_text = format!("Frame: {}", replay.frame_count());
-                                                            seed_text = format!("Seed: {}", self.rand.seed());
-                                                            context_menu = None;
-                                                            new_rand = None;
-                                                            err_string = None;
-                                                            game_running = true;
-                                                            config.rerecords += 1;
-                                                            rerecord_text = format!("Re-record count: {}", config.rerecords);
-                                                            let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
-                                                        },
-                                                        Err(err) => err_string = Some(
-                                                            format!("Error deserializing savestate #{}: {}", i, err),
-                                                        ),
-                                                    }
-                                                },
-                                                Err(err) => err_string = Some(
-                                                    format!("Failed to decompress savestate #{}: {}", i, err),
-                                                ),
-                                            }
-                                        },
-                                        _ => err_string = Some(format!("Failed to parse savestate #{} (did you manually modify it?)", i)),
-                                    },
-                                    Err(err) => err_string = Some(format!("Failed to load savestate #{}: {}", i, err)),
+                                for (i, state) in keyboard_state.iter_mut().enumerate() {
+                                    *state = if self.input.keyboard_check_direct(i as u8) {
+                                        KeyState::Held
+                                    } else {
+                                        KeyState::Neutral
+                                    };
                                 }
+
+                                frame_text = format!("Frame: {}", replay.frame_count());
+                                seed_text = format!("Seed: {}", self.rand.seed());
+                                context_menu = None;
+                                new_rand = None;
+                                err_string = None;
+                                game_running = true;
+                                config.rerecords += 1;
+                                rerecord_text = format!("Re-record count: {}", config.rerecords);
+                                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                             },
-                            Err(e) => {
-                                err_string = Some(format!("Error reading {}:\n\n{}", save_paths[i].to_string_lossy(), e));
+                            Err(err) => {
+                                let filename = save_paths[i].to_string_lossy();
+                                err_string = Some(match err {
+                                    savestate::ReadError::IOErr(err) =>
+                                        format!("Error reading {}:\n\n{}", filename, err),
+                                    savestate::ReadError::DecompressErr(err) =>
+                                        format!("Error decompressing {}:\n\n{}", filename, err),
+                                    savestate::ReadError::DeserializeErr(err) =>
+                                        format!("Error deserializing {}:\n\n{}", filename, err),
+                                });
                             },
                         }
                         instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
-                        println!("Loaded in {} microseconds", t.elapsed().as_micros());
                     }
                 }
             }
