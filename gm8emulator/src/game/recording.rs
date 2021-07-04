@@ -165,6 +165,11 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
+        let quicksave_path = {
+            let mut path = project_path.clone();
+            path.push("quicksave.bin");
+            path
+        };
         let save_paths = (0..16).map(|i| {
             let mut path = project_path.clone();
             path.push(&format!("save{}.bin", i + 1));
@@ -174,25 +179,79 @@ impl Game {
         let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
 
-        if let Err(e) = match self.init() {
-            Ok(()) => match self.scene_change {
-                Some(SceneChange::Room(id)) => self.load_room(id),
-                Some(SceneChange::Restart) => self.restart(),
-                Some(SceneChange::End) => match self.run_game_end_events() {
-                    Ok(()) => Err("Game ended during startup".into()),
-                    Err(e) => Err(format!("Game ended during startup, then crashed during Game End: {}", e).into()),
+        let mut frame_text = String::from("Frame: 0");
+        let mut seed_text = format!("Seed: {}", self.rand.seed());
+        let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
+        let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
+        let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
+        let mut context_menu: Option<ContextMenu> = None;
+        let mut savestate;
+        let mut renderer_state;
+
+        if !quicksave_path.exists() {
+            if let Err(e) = match self.init() {
+                Ok(()) => match self.scene_change {
+                    Some(SceneChange::Room(id)) => self.load_room(id),
+                    Some(SceneChange::Restart) => self.restart(),
+                    Some(SceneChange::End) => match self.run_game_end_events() {
+                        Ok(()) => Err("Game ended during startup".into()),
+                        Err(e) => Err(format!("Game ended during startup, then crashed during Game End: {}", e).into()),
+                    },
+                    None => Ok(()),
                 },
-                None => Ok(()),
-            },
-            Err(e) => Err(e),
-        } {
-            game_running = false;
-            err_string = Some(format!("Game crashed during startup: {}", e));
+                Err(e) => Err(e),
+            } {
+                game_running = false;
+                err_string = Some(format!("Game crashed during startup: {}", e));
+            }
+            for ev in self.stored_events.iter() {
+                replay.startup_events.push(ev.clone());
+            }
+            self.stored_events.clear();
+
+            renderer_state = self.renderer.state();
+            self.renderer.set_state(&ui_renderer_state);
+            savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+
+            if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+                err_string = Some(format!(
+                    concat!(
+                        "Warning: failed to create quicksave.bin (it has still been saved in memory)\n\n",
+                        "Error message: {:?}",
+                    ),
+                    err,
+                ));
+            }
+            self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
+        } else {
+            match SaveState::from_file(&quicksave_path, &mut save_buffer) {
+                Ok(state) => {
+                    let (rep, ren) = state.clone().load_into(self);
+                    replay = rep;
+                    renderer_state = ren;
+
+                    for (i, state) in keyboard_state.iter_mut().enumerate() {
+                        *state = if self.input.keyboard_check_direct(i as u8) {
+                            KeyState::Held
+                        } else {
+                            KeyState::Neutral
+                        };
+                    }
+
+                    frame_text = format!("Frame: {}", replay.frame_count());
+                    seed_text = format!("Seed: {}", self.rand.seed());
+                    self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), false);
+                    self.renderer.set_state(&ui_renderer_state);
+                    savestate = state;
+                },
+                Err(e) => {
+                    // Currently this isn't recoverable because there is no savestate loaded
+                    eprintln!("Error loading quicksave file: {:?}", e);
+                    return;
+                }
+            }
         }
-        for ev in self.stored_events.iter() {
-            replay.startup_events.push(ev.clone());
-        }
-        self.stored_events.clear();
+
         for (i, state) in keyboard_state.iter_mut().enumerate() {
             if self.input.keyboard_check_direct(i as u8) {
                 *state = KeyState::Held;
@@ -201,19 +260,11 @@ impl Game {
 
         let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
         let mut new_rand: Option<Random> = None;
-
-        self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
-        let mut renderer_state = self.renderer.state();
-        self.renderer.set_state(&ui_renderer_state);
         let mut callback_data; // Putting this outside the loop makes sure it never goes out of scope
 
-        let mut frame_text = String::from("Frame: 0");
-        let mut seed_text = format!("Seed: {}", self.rand.seed());
-        let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
-        let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
-        let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
-        let mut context_menu: Option<ContextMenu> = None;
-        let mut savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+        /* ----------------------
+           Frame loop begins here
+           ---------------------- */
 
         'gui: loop {
             let time_start = Instant::now();
@@ -399,10 +450,19 @@ impl Game {
 
             if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
                 savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+                    err_string = Some(format!(
+                        concat!(
+                            "Warning: failed to save quicksave.bin (it has still been saved in memory)\n\n",
+                            "Error message: {:?}",
+                        ),
+                        err,
+                    ));
+                }
                 context_menu = None;
             }
 
-            if frame.button("Load quicksave (W)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
+            if frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
                 err_string = None;
                 game_running = true;
                 let (rep, ren) = savestate.clone().load_into(self);
