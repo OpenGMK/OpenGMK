@@ -394,12 +394,14 @@ impl Buffer {
     }
 }
 
+#[derive(Debug)]
 pub enum ReadError {
     IOErr(io::Error),
     DecompressErr(lzzzz::Error),
     DeserializeErr(Box<bincode::ErrorKind>),
 }
 
+#[derive(Debug)]
 pub enum WriteError {
     IOErr(io::Error),
     CompressErr(lzzzz::Error),
