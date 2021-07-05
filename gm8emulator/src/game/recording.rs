@@ -59,6 +59,7 @@ struct ProjectConfig {
 impl Game {
     pub fn record(&mut self, project_path: PathBuf) {
         let mut save_buffer = savestate::Buffer::new();
+        let mut startup_successful = true;
 
         let config_path = {
             let mut p = project_path.clone();
@@ -192,16 +193,20 @@ impl Game {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
                     Some(SceneChange::Restart) => self.restart(),
-                    Some(SceneChange::End) => match self.run_game_end_events() {
-                        Ok(()) => Err("Game ended during startup".into()),
-                        Err(e) => Err(format!("Game ended during startup, then crashed during Game End: {}", e).into()),
+                    Some(SceneChange::End) => {
+                        startup_successful = false;
+                        match self.run_game_end_events() {
+                            Ok(()) => Err("(Fatal) Game ended during startup".into()),
+                            Err(e) => Err(format!("(Fatal) Game ended during startup, then crashed during Game End: {}", e).into()),
+                        }
                     },
                     None => Ok(()),
                 },
                 Err(e) => Err(e),
             } {
                 game_running = false;
-                err_string = Some(format!("Game crashed during startup: {}", e));
+                startup_successful = false;
+                err_string = Some(format!("(Fatal) Game crashed during startup: {}", e));
             }
             for ev in self.stored_events.iter() {
                 replay.startup_events.push(ev.clone());
@@ -244,9 +249,12 @@ impl Game {
                     savestate = state;
                 },
                 Err(e) => {
-                    // Currently this isn't recoverable because there is no savestate loaded
-                    eprintln!("Error loading quicksave file: {:?}", e);
-                    return;
+                    // Just to initialize renderer_state and keep the compiler happy, this won't be used...
+                    renderer_state = ui_renderer_state.clone();
+                    err_string = Some(format!("(Fatal) Error loading quicksave file: {:?}", e));
+                    savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                    startup_successful = false;
+                    game_running = false;
                 }
             }
         }
@@ -464,28 +472,30 @@ impl Game {
             }
 
             if frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
-                err_string = None;
-                game_running = true;
-                let (rep, ren) = savestate.clone().load_into(self);
-                replay = rep;
-                renderer_state = ren;
+                if startup_successful {
+                    err_string = None;
+                    game_running = true;
+                    let (rep, ren) = savestate.clone().load_into(self);
+                    replay = rep;
+                    renderer_state = ren;
 
-                for (i, state) in keyboard_state.iter_mut().enumerate() {
-                    *state = if self.input.keyboard_check_direct(i as u8) {
-                        KeyState::Held
-                    } else {
-                        KeyState::Neutral
-                    };
+                    for (i, state) in keyboard_state.iter_mut().enumerate() {
+                        *state = if self.input.keyboard_check_direct(i as u8) {
+                            KeyState::Held
+                        } else {
+                            KeyState::Neutral
+                        };
+                    }
+
+                    frame_text = format!("Frame: {}", replay.frame_count());
+                    seed_text = format!("Seed: {}", self.rand.seed());
+                    context_menu = None;
+                    new_rand = None;
+                    instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                    config.rerecords += 1;
+                    rerecord_text = format!("Re-record count: {}", config.rerecords);
+                    let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                 }
-
-                frame_text = format!("Frame: {}", replay.frame_count());
-                seed_text = format!("Seed: {}", self.rand.seed());
-                context_menu = None;
-                new_rand = None;
-                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
-                config.rerecords += 1;
-                rerecord_text = format!("Re-record count: {}", config.rerecords);
-                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
             frame.text(&frame_text);
@@ -859,7 +869,7 @@ impl Game {
                     }
                 }
                 if save_paths[i].exists() {
-                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) {
+                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && startup_successful {
                         match SaveState::from_file(&save_paths[i], &mut save_buffer) {
                             Ok(state) => {
                                 let (new_replay, new_renderer_state) = state.load_into(self);
@@ -1069,7 +1079,11 @@ impl Game {
 
             if let Some(err) = &err_string {
                 if !frame.popup(err) {
-                    err_string = None;
+                    if startup_successful {
+                        err_string = None;
+                    } else {
+                        break 'gui;
+                    }
                 }
             }
 
