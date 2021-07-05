@@ -854,6 +854,11 @@ impl Game {
                 frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
             }
             for i in 0..16 {
+                unsafe {
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 });
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
+                }
                 let y = (24 * i + 21) as f32;
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
                     match SaveState::from(self, replay.clone(), renderer_state.clone())
@@ -868,6 +873,10 @@ impl Game {
                             err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
                     }
                 }
+                unsafe {
+                    cimgui_sys::igPopStyleColor(3);
+                }
+
                 if save_paths[i].exists() {
                     if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && startup_successful {
                         match SaveState::from_file(&save_paths[i], &mut save_buffer) {
