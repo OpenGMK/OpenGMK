@@ -329,7 +329,70 @@ impl Game {
             let win_padding = context.window_padding();
             let mut frame = context.new_frame();
 
-            unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(181.0, 171.0).into(), imgui::Vec2(181.0, 1000.0).into(), None, std::ptr::null_mut()) }
+            // Game window
+            if game_running {
+                let (w, h) = self.renderer.stored_size();
+                frame.setup_next_window(imgui::Vec2(f32::from(config.ui_width) - w as f32 - 8.0, 8.0), None, None);
+                frame.begin_window(
+                    &format!("{}###Game", self.get_window_title()),
+                    Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
+                    false,
+                    false,
+                    None,
+                );
+                let imgui::Vec2(x, y) = frame.window_position();
+                callback_data = GameViewData {
+                    renderer: (&mut self.renderer) as *mut _,
+                    x: (x + win_border_size) as i32,
+                    y: (y + win_frame_height) as i32,
+                    w: w,
+                    h: h,
+                };
+
+                unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
+                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
+                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
+                }
+
+                if !frame.window_collapsed() {
+                    frame.callback(callback, &mut callback_data);
+                    if frame.window_hovered() && frame.right_clicked() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
+                        let imgui::Vec2(x, y) = frame.mouse_pos() - offset;
+                        let (x, y) = self.translate_screen_to_room(x as _, y as _);
+
+                        let mut options: Vec<(String, i32)> = Vec::new();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            let instance = self.room.instance_list.get(handle);
+                            instance.update_bbox(self.get_instance_mask_sprite(handle));
+                            if x >= instance.bbox_left.get()
+                                && x <= instance.bbox_right.get()
+                                && y >= instance.bbox_top.get()
+                                && y <= instance.bbox_bottom.get()
+                            {
+                                use crate::game::GetAsset;
+                                let id = instance.id.get();
+                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
+                                    Some(obj) => format!("{} ({})", obj.name, id.to_string()),
+                                    None => format!("<deleted object> ({})", id.to_string()),
+                                };
+                                options.push((description, id));
+                            }
+                        }
+
+                        if options.len() > 0 {
+                            context_menu = Some(ContextMenu::Instances { pos: frame.mouse_pos(), options });
+                        }
+                    }
+                }
+
+                frame.end();
+            }
+
+            // Control window
+            frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
             frame.begin_window("Control", None, true, false, None);
             if (
                 frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None) ||
@@ -522,6 +585,84 @@ impl Game {
             }
             frame.end();
 
+            // Savestates window
+            frame.setup_next_window(imgui::Vec2(195.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
+            frame.begin_window("Savestates", None, true, false, None);
+            let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
+            let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
+            for i in 0..8 {
+                let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
+                frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
+            }
+            for i in 0..16 {
+                unsafe {
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 });
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
+                }
+                let y = (24 * i + 21) as f32;
+                if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
+                    match SaveState::from(self, replay.clone(), renderer_state.clone())
+                        .save_to_file(&save_paths[i], &mut save_buffer)
+                    {
+                        Ok(()) => (),
+                        Err(savestate::WriteError::IOErr(err)) =>
+                            err_string = Some(format!("Failed to write savestate #{}: {}", i, err)),
+                        Err(savestate::WriteError::CompressErr(err)) =>
+                            err_string = Some(format!("Failed to compress savestate #{}: {}", i, err)),
+                        Err(savestate::WriteError::SerializeErr(err)) =>
+                            err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
+                    }
+                }
+                unsafe {
+                    cimgui_sys::igPopStyleColor(3);
+                }
+
+                if save_paths[i].exists() {
+                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && startup_successful {
+                        match SaveState::from_file(&save_paths[i], &mut save_buffer) {
+                            Ok(state) => {
+                                let (new_replay, new_renderer_state) = state.load_into(self);
+                                replay = new_replay;
+                                renderer_state = new_renderer_state;
+
+                                for (i, state) in keyboard_state.iter_mut().enumerate() {
+                                    *state = if self.input.keyboard_check_direct(i as u8) {
+                                        KeyState::Held
+                                    } else {
+                                        KeyState::Neutral
+                                    };
+                                }
+
+                                frame_text = format!("Frame: {}", replay.frame_count());
+                                seed_text = format!("Seed: {}", self.rand.seed());
+                                context_menu = None;
+                                new_rand = None;
+                                err_string = None;
+                                game_running = true;
+                                config.rerecords += 1;
+                                rerecord_text = format!("Re-record count: {}", config.rerecords);
+                                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                            },
+                            Err(err) => {
+                                let filename = save_paths[i].to_string_lossy();
+                                err_string = Some(match err {
+                                    savestate::ReadError::IOErr(err) =>
+                                        format!("Error reading {}:\n\n{}", filename, err),
+                                    savestate::ReadError::DecompressErr(err) =>
+                                        format!("Error decompressing {}:\n\n{}", filename, err),
+                                    savestate::ReadError::DeserializeErr(err) =>
+                                        format!("Error deserializing {}:\n\n{}", filename, err),
+                                });
+                            },
+                        }
+                        instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                    }
+                }
+            }
+            frame.end();
+
+            // Massive macro for keyboard keys and mouse buttons...
             macro_rules! kb_btn {
                 ($name: expr, $size: expr, $x: expr, $y: expr, $code: expr) => {
                     let state = &mut keyboard_state[usize::from(input::ramen2vk($code))];
@@ -591,7 +732,8 @@ impl Game {
                 };
             }
 
-            unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(440.0, 200.0).into(), imgui::Vec2(1800.0, 650.0).into(), None, std::ptr::null_mut()) }
+            // Keyboard window
+            frame.setup_next_window(imgui::Vec2(8.0, 350.0), Some(imgui::Vec2(917.0, 362.0)), Some(imgui::Vec2(440.0, 200.0)));
             frame.begin_window("Keyboard", None, true, true, None);
             if !frame.window_collapsed() {
                 let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
@@ -785,145 +927,9 @@ impl Game {
             }
             frame.end();
 
-            if game_running {
-                let (w, h) = self.renderer.stored_size();
-                frame.begin_window(
-                    &format!("{}###Game", self.get_window_title()),
-                    Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
-                    false,
-                    false,
-                    None,
-                );
-                let imgui::Vec2(x, y) = frame.window_position();
-                callback_data = GameViewData {
-                    renderer: (&mut self.renderer) as *mut _,
-                    x: (x + win_border_size) as i32,
-                    y: (y + win_frame_height) as i32,
-                    w: w,
-                    h: h,
-                };
-
-                unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
-                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
-                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
-                }
-
-                if !frame.window_collapsed() {
-                    frame.callback(callback, &mut callback_data);
-                    if frame.window_hovered() && frame.right_clicked() {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                        let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
-                        let imgui::Vec2(x, y) = frame.mouse_pos() - offset;
-                        let (x, y) = self.translate_screen_to_room(x as _, y as _);
-
-                        let mut options: Vec<(String, i32)> = Vec::new();
-                        let mut iter = self.room.instance_list.iter_by_drawing();
-                        while let Some(handle) = iter.next(&self.room.instance_list) {
-                            let instance = self.room.instance_list.get(handle);
-                            instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            if x >= instance.bbox_left.get()
-                                && x <= instance.bbox_right.get()
-                                && y >= instance.bbox_top.get()
-                                && y <= instance.bbox_bottom.get()
-                            {
-                                use crate::game::GetAsset;
-                                let id = instance.id.get();
-                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
-                                    Some(obj) => format!("{} ({})", obj.name, id.to_string()),
-                                    None => format!("<deleted object> ({})", id.to_string()),
-                                };
-                                options.push((description, id));
-                            }
-                        }
-
-                        if options.len() > 0 {
-                            context_menu = Some(ContextMenu::Instances { pos: frame.mouse_pos(), options });
-                        }
-                    }
-                }
-
-                frame.end();
-            }
-
-            unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(160.0, 412.0).into(), imgui::Vec2(1800.0, 412.0).into(), None, std::ptr::null_mut()) }
-            frame.begin_window("Savestates", None, true, false, None);
-            let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
-            let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
-            for i in 0..8 {
-                let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
-                frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
-            }
-            for i in 0..16 {
-                unsafe {
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 });
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
-                }
-                let y = (24 * i + 21) as f32;
-                if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
-                    match SaveState::from(self, replay.clone(), renderer_state.clone())
-                        .save_to_file(&save_paths[i], &mut save_buffer)
-                    {
-                        Ok(()) => (),
-                        Err(savestate::WriteError::IOErr(err)) =>
-                            err_string = Some(format!("Failed to write savestate #{}: {}", i, err)),
-                        Err(savestate::WriteError::CompressErr(err)) =>
-                            err_string = Some(format!("Failed to compress savestate #{}: {}", i, err)),
-                        Err(savestate::WriteError::SerializeErr(err)) =>
-                            err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
-                    }
-                }
-                unsafe {
-                    cimgui_sys::igPopStyleColor(3);
-                }
-
-                if save_paths[i].exists() {
-                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && startup_successful {
-                        match SaveState::from_file(&save_paths[i], &mut save_buffer) {
-                            Ok(state) => {
-                                let (new_replay, new_renderer_state) = state.load_into(self);
-                                replay = new_replay;
-                                renderer_state = new_renderer_state;
-
-                                for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                    *state = if self.input.keyboard_check_direct(i as u8) {
-                                        KeyState::Held
-                                    } else {
-                                        KeyState::Neutral
-                                    };
-                                }
-
-                                frame_text = format!("Frame: {}", replay.frame_count());
-                                seed_text = format!("Seed: {}", self.rand.seed());
-                                context_menu = None;
-                                new_rand = None;
-                                err_string = None;
-                                game_running = true;
-                                config.rerecords += 1;
-                                rerecord_text = format!("Re-record count: {}", config.rerecords);
-                                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
-                            },
-                            Err(err) => {
-                                let filename = save_paths[i].to_string_lossy();
-                                err_string = Some(match err {
-                                    savestate::ReadError::IOErr(err) =>
-                                        format!("Error reading {}:\n\n{}", filename, err),
-                                    savestate::ReadError::DecompressErr(err) =>
-                                        format!("Error decompressing {}:\n\n{}", filename, err),
-                                    savestate::ReadError::DeserializeErr(err) =>
-                                        format!("Error deserializing {}:\n\n{}", filename, err),
-                                });
-                            },
-                        }
-                        instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
-                    }
-                }
-            }
-            frame.end();
-
+            // Instance-watcher windows
             let previous_len = config.watched_ids.len();
             config.watched_ids.retain(|id| {
-                unsafe { cimgui_sys::igSetNextWindowSizeConstraints(imgui::Vec2(320.0, 80.0).into(), imgui::Vec2(320.0, 1600.0).into(), None, std::ptr::null_mut()) }
                 let mut open = true;
                 frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
                 if let Some((_, Some(report))) = instance_reports.iter().find(|(i, _)| i == id) {
@@ -974,6 +980,7 @@ impl Game {
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
+            // Context menu windows (aka right-click menus)
             match &context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
                     let key_state = &mut keyboard_state[usize::from(input::ramen2vk(*key))];
@@ -1086,6 +1093,7 @@ impl Game {
                 None => (),
             }
 
+            // Show error/info message if there is one
             if let Some(err) = &err_string {
                 if !frame.popup(err) {
                     if startup_successful {
@@ -1096,6 +1104,7 @@ impl Game {
                 }
             }
 
+            // Done
             frame.render();
 
             // draw imgui
