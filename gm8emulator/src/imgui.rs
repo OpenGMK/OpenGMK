@@ -93,6 +93,23 @@ impl Frame<'_> {
         }
     }
 
+    pub fn setup_next_window(&mut self, default_pos: Vec2<f32>, default_size: Option<Vec2<f32>>, min_size: Option<Vec2<f32>>) {
+        unsafe {
+            if let Some(min) = min_size {
+                c::igSetNextWindowSizeConstraints(
+                    min.into(),
+                    (*c::igGetIO()).DisplaySize,
+                    None,
+                    std::ptr::null_mut(),
+                );
+            }
+            if let Some(size) = default_size {
+                c::igSetNextWindowSize(size.into(), 4);
+            }
+            c::igSetNextWindowPos(default_pos.into(), 4, c::ImVec2 { x: 0.0, y: 0.0 });
+        }
+    }
+
     pub fn begin_window(
         &mut self,
         name: &str,
