@@ -22,5 +22,5 @@ exclude = ["dll-bridge"]
 [profile.release]
 codegen-units = 1
 opt-level = 3
-lto = true
+lto = 'thin'
 strip = true
