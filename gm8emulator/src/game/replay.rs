@@ -21,8 +21,8 @@ pub struct Replay {
 // Associated data for a single frame of playback
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
-    pub mouse_x: f64,
-    pub mouse_y: f64,
+    pub mouse_x: i32,
+    pub mouse_y: i32,
     pub inputs: Vec<Input>,
     pub events: Vec<Event>,
     pub new_seed: Option<i32>,
@@ -63,7 +63,7 @@ impl Replay {
     pub fn new_frame(&mut self) -> &mut Frame {
         let (mouse_x, mouse_y) = match self.frames.last() {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
-            None => (0.0, 0.0),
+            None => (0, 0),
         };
         self.frames.push(Frame {
             mouse_x,
