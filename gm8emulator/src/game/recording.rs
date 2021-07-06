@@ -124,6 +124,22 @@ impl KeyState {
         frame.end();
         open
     }
+
+    fn repr(&self) -> &'static str {
+        match self {
+            Self::Neutral => "Neutral",
+            Self::NeutralWillPress => "Neutral; will press",
+            Self::NeutralWillDouble => "Neutral; will press and release",
+            Self::NeutralWillTriple => "Neutral; will press, release, press",
+            Self::NeutralDoubleEveryFrame => "Neutral; will tap on each frame",
+            Self::NeutralWillCactus => "Neutral; will cactus-release",
+            Self::Held => "Held",
+            Self::HeldWillRelease => "Held; will release",
+            Self::HeldWillDouble => "Held; will release and press",
+            Self::HeldWillTriple => "Held; will release, press, release",
+            Self::HeldDoubleEveryFrame => "Held; will tap on each frame",
+        }
+    }
 }
 
 enum ContextMenu {
@@ -838,16 +854,21 @@ impl Game {
                     if frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y))) {
                         state.click();
                     }
-                    if frame.right_clicked() && frame.item_hovered() {
+                    let hovered = frame.item_hovered();
+                    if frame.right_clicked() && hovered {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
                     }
-                    if frame.middle_clicked() && frame.item_hovered() {
+                    if frame.middle_clicked() && hovered {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                     }
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
+                    if hovered {
+                        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 }); }
+                        frame.text(state.repr());
+                    }
                 };
 
                 ($name: expr, $size: expr, $x: expr, $y: expr, mouse $code: expr) => {
@@ -855,16 +876,21 @@ impl Game {
                     if frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y))) {
                         state.click();
                     }
-                    if frame.right_clicked() && frame.item_hovered() {
+                    let hovered = frame.item_hovered();
+                    if frame.right_clicked() && hovered {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         context_menu = Some(ContextMenu::MouseButton { pos: frame.mouse_pos(), button: $code });
                     }
-                    if frame.middle_clicked() && frame.item_hovered() {
+                    if frame.middle_clicked() && hovered {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                     }
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
+                    if hovered {
+                        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 }); }
+                        frame.text(state.repr());
+                    }
                 };
 
                 ($name: expr, $size: expr, $x: expr, $y: expr) => {
@@ -879,8 +905,14 @@ impl Game {
             // Keyboard window
             if config.full_keyboard {
                 frame.setup_next_window(imgui::Vec2(8.0, 350.0), Some(imgui::Vec2(917.0, 362.0)), Some(imgui::Vec2(440.0, 200.0)));
-                frame.begin_window("Keyboard###FullKeyboard", None, true, true, None);
+                frame.begin_window("Keyboard###FullKeyboard", None, true, false, None);
                 if !frame.window_collapsed() {
+                    frame.rect(
+                        imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
+                        imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
+                        Colour::new(0.14, 0.14, 0.14),
+                        255,
+                    );
                     let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
                     let content_max = frame.window_size() - win_padding;
 
@@ -1073,8 +1105,14 @@ impl Game {
                 frame.end();
             } else {
                 frame.setup_next_window(imgui::Vec2(50.0, 354.0), Some(imgui::Vec2(365.0, 192.0)), Some(imgui::Vec2(201.0, 122.0)));
-                frame.begin_window("Keyboard###SimpleKeyboard", None, true, true, None);
+                frame.begin_window("Keyboard###SimpleKeyboard", None, true, false, None);
                 if !frame.window_collapsed() {
+                    frame.rect(
+                        imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
+                        imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
+                        Colour::new(0.14, 0.14, 0.14),
+                        255,
+                    );
                     let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
                     let content_max = frame.window_size() - win_padding;
 
@@ -1096,8 +1134,15 @@ impl Game {
 
             // Mouse input window
             frame.setup_next_window(imgui::Vec2(2.0, 210.0), None, None);
-            frame.begin_window("Mouse", Some(imgui::Vec2(300.0, 138.0)), false, true, None);
+            frame.begin_window("Mouse", Some(imgui::Vec2(300.0, 138.0)), false, false, None);
             if !frame.window_collapsed() {
+                frame.rect(
+                    imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
+                    imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
+                    Colour::new(0.14, 0.14, 0.14),
+                    255,
+                );
+
                 let button_size = imgui::Vec2(40.0, 40.0);
                 kb_btn!("Left", button_size, 4.0, 65.0, mouse 0);
                 kb_btn!("Middle", button_size, 48.0, 65.0, mouse 2);
