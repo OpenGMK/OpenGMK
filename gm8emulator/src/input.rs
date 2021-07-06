@@ -591,7 +591,7 @@ impl Input {
         if store_cur_prev {
             self.mouse_current = 0;
         }
-        self.button_press(button as u8, false);
+        self.button_release(button as u8, false);
     }
 
     pub fn mouse_scroll(&mut self, delta: NonZeroI32) {
