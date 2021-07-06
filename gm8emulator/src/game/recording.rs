@@ -916,14 +916,14 @@ impl Game {
                 cur_x += button_width + 1.0;
                 kb_btn!("RCtrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RControl);
                 cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                kb_btn!("←", button_size, cur_x, cur_y, Key::Left);
+                kb_btn!("<", button_size, cur_x, cur_y, Key::Left);
                 cur_x += button_width + 1.0;
-                kb_btn!("↓", button_size, cur_x, cur_y, Key::Down);
+                kb_btn!("v", button_size, cur_x, cur_y, Key::Down);
                 cur_y -= button_height + 1.0;
-                kb_btn!("↑", button_size, cur_x, cur_y, Key::Up);
+                kb_btn!("^", button_size, cur_x, cur_y, Key::Up);
                 cur_x += button_width + 1.0;
                 cur_y += button_height + 1.0;
-                kb_btn!("→", button_size, cur_x, cur_y, Key::Right);
+                kb_btn!(">", button_size, cur_x, cur_y, Key::Right);
             }
             frame.end();
 
