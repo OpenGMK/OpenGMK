@@ -294,13 +294,17 @@ impl Frame<'_> {
         }
     }
 
+    pub fn begin_screen_cover(&mut self) {
+        unsafe { c::igBegin("__cover\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111); }
+    }
+
     pub fn popup(&mut self, message: &str) -> bool {
         unsafe {
             c::igSetNextWindowFocus();
             let screen_size = (*c::igGetIO()).DisplaySize;
             c::igSetNextWindowSize(screen_size, 0);
             c::igSetNextWindowPos(Vec2(0.0, 0.0).into(), 0, Vec2(0.0, 0.0).into());
-            c::igBegin("ErrBG\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);
+            self.begin_screen_cover();
             if self.window_hovered() && self.left_clicked() {
                 c::igEnd();
                 false
