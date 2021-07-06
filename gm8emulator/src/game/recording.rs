@@ -52,16 +52,83 @@ impl KeyState {
 
     fn click(&mut self) {
         *self = match self {
-            KeyState::Neutral => KeyState::NeutralWillPress,
-            KeyState::NeutralWillPress | KeyState::NeutralWillDouble | KeyState::NeutralWillTriple | KeyState::NeutralWillCactus | KeyState::NeutralDoubleEveryFrame => KeyState::Neutral,
-            KeyState::Held => KeyState::HeldWillRelease,
-            KeyState::HeldWillRelease | KeyState::HeldWillDouble | KeyState::HeldWillTriple | KeyState::HeldDoubleEveryFrame => KeyState::Held,
+            Self::Neutral => Self::NeutralWillPress,
+            Self::NeutralWillPress | Self::NeutralWillDouble | Self::NeutralWillTriple | Self::NeutralWillCactus | Self::NeutralDoubleEveryFrame => Self::Neutral,
+            Self::Held => Self::HeldWillRelease,
+            Self::HeldWillRelease | Self::HeldWillDouble | Self::HeldWillTriple | Self::HeldDoubleEveryFrame => Self::Held,
         }
+    }
+
+    fn reset_to(&mut self, pressed: bool) {
+        *self = if pressed {
+            if *self == Self::HeldDoubleEveryFrame {
+                Self::HeldDoubleEveryFrame
+            } else {
+                Self::Held
+            }
+        } else {
+            if *self == Self::NeutralDoubleEveryFrame {
+                Self::NeutralDoubleEveryFrame
+            } else {
+                Self::Neutral
+            }
+        };
+    }
+
+    fn menu(&mut self, frame: &mut imgui::Frame, pos: imgui::Vec2<f32>) -> bool {
+        frame.begin_context_menu(pos);
+        let open = if !frame.window_focused() {
+            false
+        } else if self.is_held() {
+            if frame.menu_item("(Keep Held)") {
+                *self = KeyState::Held;
+                false
+            } else if frame.menu_item("Release") {
+                *self = KeyState::HeldWillRelease;
+                false
+            } else if frame.menu_item("Release, Press") {
+                *self = KeyState::HeldWillDouble;
+                false
+            } else if frame.menu_item("Release, Press, Release") {
+                *self = KeyState::HeldWillTriple;
+                false
+            } else if frame.menu_item("Tap Every Frame") {
+                *self = KeyState::HeldDoubleEveryFrame;
+                false
+            } else {
+                true
+            }
+        } else {
+            if frame.menu_item("(Keep Neutral)") {
+                *self = KeyState::Neutral;
+                false
+            } else if frame.menu_item("Press") {
+                *self = KeyState::NeutralWillPress;
+                false
+            } else if frame.menu_item("Press, Release") {
+                *self = KeyState::NeutralWillDouble;
+                false
+            } else if frame.menu_item("Press, Release, Press") {
+                *self = KeyState::NeutralWillTriple;
+                false
+            } else if frame.menu_item("Tap Every Frame") {
+                *self = KeyState::NeutralDoubleEveryFrame;
+                false
+            } else if frame.menu_item("Cactus-Release") {
+                *self = KeyState::NeutralWillCactus;
+                false
+            } else {
+                true
+            }
+        };
+        frame.end();
+        open
     }
 }
 
 enum ContextMenu {
     Button { pos: imgui::Vec2<f32>, key: Key },
+    MouseButton { pos: imgui::Vec2<f32>, button: i8 },
     Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
     Seed { pos: imgui::Vec2<f32> },
 }
@@ -150,6 +217,11 @@ impl Game {
         }
 
         let mut keyboard_state = [KeyState::Neutral; 256];
+        let mut mouse_state = [KeyState::Neutral; 3];
+        //let mut will_scroll_up = false;
+        //let mut will_scroll_down = false;
+        let mut new_mouse_pos: Option<(i32, i32)> = None;
+        let mut setting_mouse_pos = false;
 
         let ui_renderer_state = RendererState {
             model_matrix: self.renderer.get_model_matrix(),
@@ -253,6 +325,14 @@ impl Game {
                         };
                     }
 
+                    for (i, state) in mouse_state.iter_mut().enumerate() {
+                        *state = if self.input.mouse_check_button(i as i8 + 1) {
+                            KeyState::Held
+                        } else {
+                            KeyState::Neutral
+                        };
+                    }
+
                     frame_text = format!("Frame: {}", replay.frame_count());
                     seed_text = format!("Seed: {}", self.rand.seed());
                     self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), false);
@@ -274,6 +354,11 @@ impl Game {
 
         for (i, state) in keyboard_state.iter_mut().enumerate() {
             if self.input.keyboard_check_direct(i as u8) {
+                *state = KeyState::Held;
+            }
+        }
+        for (i, state) in mouse_state.iter_mut().enumerate() {
+            if self.input.mouse_check_button(i as i8 + 1) {
                 *state = KeyState::Held;
             }
         }
@@ -299,6 +384,7 @@ impl Game {
             for event in self.window.events() {
                 match event {
                     ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
+                        setting_mouse_pos = false;
                         let state = matches!(ev, Event::KeyboardDown(_));
                         io.set_key(usize::from(input::ramen2vk(*key)), state);
                         match key {
@@ -343,6 +429,15 @@ impl Game {
 
             // Game window
             if game_running {
+                if setting_mouse_pos {
+                    frame.begin_screen_cover();
+                    frame.end();
+                    unsafe {
+                        cimgui_sys::igSetNextWindowCollapsed(false, 0);
+                        cimgui_sys::igSetNextWindowFocus();
+                    }
+                }
+
                 let (w, h) = self.renderer.stored_size();
                 frame.setup_next_window(imgui::Vec2(f32::from(config.ui_width) - w as f32 - 8.0, 8.0), None, None);
                 frame.begin_window(
@@ -368,6 +463,16 @@ impl Game {
 
                 if !frame.window_collapsed() {
                     frame.callback(callback, &mut callback_data);
+
+                    if setting_mouse_pos && frame.left_clicked() {
+                        setting_mouse_pos = false;
+                        let imgui::Vec2(mouse_x, mouse_y) = frame.mouse_pos();
+                        new_mouse_pos = Some((
+                            -(x + win_border_size - mouse_x) as i32,
+                            -(y + win_frame_height - mouse_y) as i32,
+                        ));
+                    }
+
                     if frame.window_hovered() && frame.right_clicked() {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
@@ -401,6 +506,8 @@ impl Game {
                 }
 
                 frame.end();
+            } else {
+                setting_mouse_pos = false;
             }
 
             // Control window
@@ -457,10 +564,56 @@ impl Game {
                     }
                 }
 
-                // TODO: all these things
-                //frame.mouse_x = mouse_location.0;
-                //frame.mouse_y = mouse_location.1;
-                // self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
+                for (i, state) in mouse_state.iter().enumerate() {
+                    let i = i as i8 + 1;
+                    match state {
+                        KeyState::NeutralWillPress => {
+                            self.input.mouse_press(i, true);
+                            frame.inputs.push(replay::Input::MousePress(i));
+                            println!("Pressed {}", i);
+                        },
+                        KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
+                            self.input.mouse_press(i, true);
+                            self.input.mouse_release(i, true);
+                            frame.inputs.push(replay::Input::MousePress(i));
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                        },
+                        KeyState::NeutralWillTriple => {
+                            self.input.mouse_press(i, true);
+                            self.input.mouse_release(i, true);
+                            self.input.mouse_press(i, true);
+                            frame.inputs.push(replay::Input::MousePress(i));
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                            frame.inputs.push(replay::Input::MousePress(i));
+                        },
+                        KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
+                            self.input.mouse_release(i, true);
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                            println!("Released {}", i);
+                        },
+                        KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                            self.input.mouse_release(i, true);
+                            self.input.mouse_press(i, true);
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                            frame.inputs.push(replay::Input::MousePress(i));
+                        },
+                        KeyState::HeldWillTriple => {
+                            self.input.mouse_release(i, true);
+                            self.input.mouse_press(i, true);
+                            self.input.mouse_release(i, true);
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                            frame.inputs.push(replay::Input::MousePress(i));
+                            frame.inputs.push(replay::Input::MouseRelease(i));
+                        },
+                        KeyState::Neutral | KeyState::Held => (),
+                    }
+                }
+
+                if let Some((x, y)) = new_mouse_pos {
+                    frame.mouse_x = x;
+                    frame.mouse_y = y;
+                    self.input.mouse_move_to((x, y));
+                }
 
                 if let Some(rand) = new_rand {
                     frame.new_seed = Some(rand.seed());
@@ -492,19 +645,10 @@ impl Game {
                 }
                 self.stored_events.clear();
                 for (i, state) in keyboard_state.iter_mut().enumerate() {
-                    *state = if self.input.keyboard_check_direct(i as u8) {
-                        if *state == KeyState::HeldDoubleEveryFrame {
-                            KeyState::HeldDoubleEveryFrame
-                        } else {
-                            KeyState::Held
-                        }
-                    } else {
-                        if *state == KeyState::NeutralDoubleEveryFrame {
-                            KeyState::NeutralDoubleEveryFrame
-                        } else {
-                            KeyState::Neutral
-                        }
-                    };
+                    state.reset_to(self.input.keyboard_check_direct(i as u8));
+                }
+                for (i, state) in mouse_state.iter_mut().enumerate() {
+                    state.reset_to(self.input.mouse_check_button(i as i8 + 1));
                 }
 
                 // Fake frame limiter stuff (don't actually frame-limit in record mode)
@@ -528,6 +672,7 @@ impl Game {
                 self.renderer.set_state(&ui_renderer_state);
                 context_menu = None;
                 new_rand = None;
+                new_mouse_pos = None;
 
                 instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
             }
@@ -555,17 +700,18 @@ impl Game {
                     renderer_state = ren;
 
                     for (i, state) in keyboard_state.iter_mut().enumerate() {
-                        *state = if self.input.keyboard_check_direct(i as u8) {
-                            KeyState::Held
-                        } else {
-                            KeyState::Neutral
-                        };
+                        *state = if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+                    }
+
+                    for (i, state) in mouse_state.iter_mut().enumerate() {
+                        *state = if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
                     }
 
                     frame_text = format!("Frame: {}", replay.frame_count());
                     seed_text = format!("Seed: {}", self.rand.seed());
                     context_menu = None;
                     new_rand = None;
+                    new_mouse_pos = None;
                     instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                     config.rerecords += 1;
                     rerecord_text = format!("Re-record count: {}", config.rerecords);
@@ -609,7 +755,7 @@ impl Game {
             frame.end();
 
             // Savestates window
-            frame.setup_next_window(imgui::Vec2(195.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
+            frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
             frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
             let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
@@ -650,17 +796,17 @@ impl Game {
                                 renderer_state = new_renderer_state;
 
                                 for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                    *state = if self.input.keyboard_check_direct(i as u8) {
-                                        KeyState::Held
-                                    } else {
-                                        KeyState::Neutral
-                                    };
+                                    *state = if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+                                }
+                                for (i, state) in mouse_state.iter_mut().enumerate() {
+                                    *state = if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
                                 }
 
                                 frame_text = format!("Frame: {}", replay.frame_count());
                                 seed_text = format!("Seed: {}", self.rand.seed());
                                 context_menu = None;
                                 new_rand = None;
+                                new_mouse_pos = None;
                                 err_string = None;
                                 game_running = true;
                                 config.rerecords += 1;
@@ -695,6 +841,23 @@ impl Game {
                     if frame.right_clicked() && frame.item_hovered() {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
                         context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
+                    }
+                    if frame.middle_clicked() && frame.item_hovered() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                    }
+                    draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
+                    frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
+                };
+
+                ($name: expr, $size: expr, $x: expr, $y: expr, mouse $code: expr) => {
+                    let state = &mut mouse_state[$code as usize];
+                    if frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y))) {
+                        state.click();
+                    }
+                    if frame.right_clicked() && frame.item_hovered() {
+                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        context_menu = Some(ContextMenu::MouseButton { pos: frame.mouse_pos(), button: $code });
                     }
                     if frame.middle_clicked() && frame.item_hovered() {
                         unsafe { cimgui_sys::igSetWindowFocusNil(); }
@@ -909,7 +1072,7 @@ impl Game {
                 }
                 frame.end();
             } else {
-                frame.setup_next_window(imgui::Vec2(50.0, 350.0), Some(imgui::Vec2(365.0, 192.0)), Some(imgui::Vec2(201.0, 122.0)));
+                frame.setup_next_window(imgui::Vec2(50.0, 354.0), Some(imgui::Vec2(365.0, 192.0)), Some(imgui::Vec2(201.0, 122.0)));
                 frame.begin_window("Keyboard###SimpleKeyboard", None, true, true, None);
                 if !frame.window_collapsed() {
                     let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
@@ -924,12 +1087,40 @@ impl Game {
                     kb_btn!(">", button_size, arrows_left_bound + (button_width * 2.0 + 2.0), content_max.1 - button_height - 8.0, key Key::Right);
                     kb_btn!("^", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - (button_height * 2.0) - 9.0, key Key::Up);
                     kb_btn!("R", button_size, content_min.0, content_min.1, key Key::R);
-                    kb_btn!("Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, key Key::Up);
+                    kb_btn!("Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, key Key::LShift);
                     kb_btn!("F2", button_size, content_max.0 - button_width, content_min.1, key Key::F2);
-                    kb_btn!("Z", button_size, content_max.0 - button_width, content_max.1 - button_height - 8.0, key Key::F2);
+                    kb_btn!("Z", button_size, content_max.0 - button_width, content_max.1 - button_height - 8.0, key Key::Z);
                 }
                 frame.end();
             }
+
+            // Mouse input window
+            frame.setup_next_window(imgui::Vec2(2.0, 210.0), None, None);
+            frame.begin_window("Mouse", Some(imgui::Vec2(300.0, 138.0)), false, true, None);
+            if !frame.window_collapsed() {
+                let button_size = imgui::Vec2(40.0, 40.0);
+                kb_btn!("Left", button_size, 4.0, 65.0, mouse 0);
+                kb_btn!("Middle", button_size, 48.0, 65.0, mouse 2);
+                kb_btn!("Right", button_size, 92.0, 65.0, mouse 1);
+                if frame.button("Set Mouse", imgui::Vec2(150.0, 20.0), Some(imgui::Vec2(150.0, 50.0))) {
+                    if game_running {
+                        setting_mouse_pos = true;
+                    } else {
+                        err_string = Some("The game is not running. Please load a savestate.".into());
+                    }
+                }
+
+                if let Some((x, y)) = new_mouse_pos {
+                    unsafe { cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Text as _, cimgui_sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 }); }
+                    frame.text_centered(&format!("x: {}*", x), imgui::Vec2(225.0, 80.0));
+                    frame.text_centered(&format!("y: {}*", y), imgui::Vec2(225.0, 96.0));
+                    unsafe { cimgui_sys::igPopStyleColor(1); }
+                } else {
+                    frame.text_centered(&format!("x: {}", self.input.mouse_x()), imgui::Vec2(225.0, 80.0));
+                    frame.text_centered(&format!("y: {}", self.input.mouse_y()), imgui::Vec2(225.0, 96.0));
+                }
+            }
+            frame.end();
 
             // Instance-watcher windows
             let previous_len = config.watched_ids.len();
@@ -1017,48 +1208,15 @@ impl Game {
             match &context_menu {
                 Some(ContextMenu::Button { pos, key }) => {
                     let key_state = &mut keyboard_state[usize::from(input::ramen2vk(*key))];
-                    frame.begin_context_menu(*pos);
-                    if !frame.window_focused() {
+                    if !key_state.menu(&mut frame, *pos) {
                         context_menu = None;
-                    } else if key_state.is_held() {
-                        if frame.menu_item("(Keep Held)") {
-                            *key_state = KeyState::Held;
-                            context_menu = None;
-                        } else if frame.menu_item("Release") {
-                            *key_state = KeyState::HeldWillRelease;
-                            context_menu = None;
-                        } else if frame.menu_item("Release, Press") {
-                            *key_state = KeyState::HeldWillDouble;
-                            context_menu = None;
-                        } else if frame.menu_item("Release, Press, Release") {
-                            *key_state = KeyState::HeldWillTriple;
-                            context_menu = None;
-                        } else if frame.menu_item("Tap Every Frame") {
-                            *key_state = KeyState::HeldDoubleEveryFrame;
-                            context_menu = None;
-                        }
-                    } else {
-                        if frame.menu_item("(Keep Neutral)") {
-                            *key_state = KeyState::Neutral;
-                            context_menu = None;
-                        } else if frame.menu_item("Press") {
-                            *key_state = KeyState::NeutralWillPress;
-                            context_menu = None;
-                        } else if frame.menu_item("Press, Release") {
-                            *key_state = KeyState::NeutralWillDouble;
-                            context_menu = None;
-                        } else if frame.menu_item("Press, Release, Press") {
-                            *key_state = KeyState::NeutralWillTriple;
-                            context_menu = None;
-                        } else if frame.menu_item("Tap Every Frame") {
-                            *key_state = KeyState::NeutralDoubleEveryFrame;
-                            context_menu = None;
-                        } else if frame.menu_item("Cactus-Release") {
-                            *key_state = KeyState::NeutralWillCactus;
-                            context_menu = None;
-                        }
                     }
-                    frame.end();
+                },
+                Some(ContextMenu::MouseButton { pos, button }) => {
+                    let key_state = &mut mouse_state[*button as usize];
+                    if !key_state.menu(&mut frame, *pos) {
+                        context_menu = None;
+                    }
                 },
                 Some(ContextMenu::Instances { pos, options }) => {
                     frame.begin_context_menu(*pos);
