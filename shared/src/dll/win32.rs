@@ -2,14 +2,17 @@
 
 use crate::dll::{self, CallConv, ValueType};
 use std::{
-    ffi::OsStr,
-    os::{raw::c_char, windows::ffi::OsStrExt},
+    ffi::{OsStr, OsString},
+    os::{
+        raw::c_char,
+        windows::ffi::{OsStrExt, OsStringExt},
+    },
 };
 use winapi::{
-    shared::minwindef::HMODULE,
+    shared::minwindef::{HMODULE, MAX_PATH},
     um::{
         errhandlingapi::GetLastError,
-        libloaderapi::{FreeLibrary, GetProcAddress, LoadLibraryW},
+        libloaderapi::{FreeLibrary, GetModuleFileNameW, GetProcAddress, LoadLibraryW},
         memoryapi::VirtualProtect,
         processthreadsapi::{FlushInstructionCache, GetCurrentProcess},
         winnt::PAGE_READWRITE,
@@ -59,7 +62,7 @@ impl External {
                 ))
             }
             if fn_name == "FMODinit\0" {
-                dll::apply_fmod_hack(dll_name.as_ref(), dll_handle.cast())?;
+                apply_fmod_hack(dll_handle)?;
             }
             let codeptr = libffi::middle::CodePtr::from_ptr(fun.cast());
             let cif = libffi::middle::Builder::new()
@@ -115,18 +118,37 @@ impl Drop for External {
 }
 
 // evil hack to make fmod not crash, call when loading FMODinit
-pub unsafe fn apply_fmod_hack(filename: &str, handle: *mut u8) -> Result<(), String> {
+unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
+    let filename = {
+        // no way to get the length, so try until it works
+        let mut fname = Vec::with_capacity(MAX_PATH);
+        loop {
+            let len = GetModuleFileNameW(handle, fname.as_mut_ptr(), fname.capacity() as _);
+            if len == 0 {
+                return Err(format!("Couldn't get FMOD DLL filename: error code {:#X}", GetLastError()))
+            } else if len < fname.capacity() as u32 {
+                fname.set_len(len as usize);
+                break
+            } else {
+                fname.reserve(len as usize * 2);
+            }
+        }
+        OsString::from_wide(&fname)
+    };
+    let handle = handle.cast::<u8>();
     let file_data = std::fs::read(filename).map_err(|e| format!("Couldn't load FMOD DLL to hash: {}", e))?;
     let file_hash = crc::crc32::checksum_ieee(&file_data);
     match file_hash {
-        0xC39E3B94 => { // the usual one
+        0xC39E3B94 => {
+            // the usual one
             eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
             // i think this is a pointer to some sort of struct containing GM8 handles ripped from the main image
             // if it's null it tries to extract them, which obviously doesn't work with the emulator
             // so make it not null : )
             handle.add(0x852d0).write(1);
         },
-        0xD914E241 => { // the 2009 build
+        0xD914E241 => {
+            // the 2009 build
             eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
             // it tries to get the address for ds_list_add but this will access violate
             // so inject a RET instruction into the start of its GetProcAddress function
