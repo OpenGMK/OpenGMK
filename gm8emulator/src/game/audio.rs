@@ -42,8 +42,8 @@ impl AudioManager {
         }
     }
 
-    pub fn add_wav(&mut self, file: Box<[u8]>) -> WavHandle {
-        WavHandle(WavPlayer::new(file).unwrap())
+    pub fn add_wav(&mut self, file: Box<[u8]>) -> Option<WavHandle> {
+        WavPlayer::new(file).map(WavHandle).ok()
     }
 
     pub fn play_wav(&self, handle: &WavHandle) {

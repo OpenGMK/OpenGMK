@@ -638,10 +638,18 @@ impl Game {
             .map(|o| {
                 o.map(|b| {
                     use asset::sound::Kind;
-                    //let data = if b.extension.0.as_ref() == b".wav" { b.data } else { None };
                     let handle = match b.data {
                         Some(data) => match b.extension.0.as_ref() {
-                            b".wav" => Kind::Wav(audio.add_wav(data)),
+                            b".wav" => match audio.add_wav(data) {
+                                Some(x) => Kind::Wav(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid wav file in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    Kind::None
+                                },
+                            }
                             _ => Kind::None,
                         },
                         None => Kind::None,
