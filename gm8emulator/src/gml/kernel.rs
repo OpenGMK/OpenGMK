@@ -8613,18 +8613,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let sound = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(sound).is_some().into())
-        todo!()
+    pub fn sound_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound).is_some().into())
     }
 
-    pub fn sound_get_name(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let asset_id = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
-        todo!()
+    pub fn sound_get_name(&self, args: &[Value]) -> gml::Result<Value> {
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
     pub fn sound_get_kind(&self, _args: &[Value]) -> gml::Result<Value> {
@@ -8660,9 +8656,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_delete")
+    pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if self.assets.sounds.get_asset(sound_id).is_some() {
+            self.assets.sounds[sound_id as usize] = None;
+        }
+        Ok(Default::default())
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9102,7 +9101,7 @@ impl Game {
         } else {
             Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
         }
-        
+
     }
 
     pub fn timeline_moment_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -9119,7 +9118,7 @@ impl Game {
         if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
             let instrs = self.compiler.compile(code.as_ref())
                 .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
-            
+
             timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
         }
         Ok(Default::default())
@@ -11596,18 +11595,32 @@ impl Game {
         }
     }
 
-    pub fn sound_play(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_play")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_play(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::Kind;
+            match &sound.handle {
+                Kind::Wav(handle) => self.audio.play_wav(handle),
+                Kind::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
-    pub fn sound_loop(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_loop")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_loop(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::Kind;
+            match &sound.handle {
+                Kind::Wav(handle) => self.audio.loop_wav(handle),
+                Kind::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
     pub fn sound_stop(&mut self, _args: &[Value]) -> gml::Result<Value> {

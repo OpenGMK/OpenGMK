@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod background;
 pub mod draw;
 pub mod events;
@@ -29,7 +30,7 @@ use crate::{
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
         trigger::{self, Trigger},
-        Object, Script, Timeline,
+        Object, Script, Sound, Timeline,
     },
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
@@ -167,6 +168,8 @@ pub struct Game {
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
 
+    pub audio: audio::AudioManager,
+
     // winit windowing
     pub window: Window,
     pub window_border: bool,
@@ -235,10 +238,10 @@ pub struct Assets {
     pub paths: Vec<Option<Box<Path>>>,
     pub rooms: Vec<Option<Box<Room>>>,
     pub scripts: Vec<Option<Box<Script>>>,
+    pub sounds: Vec<Option<Box<Sound>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub triggers: Vec<Option<Box<Trigger>>>,
-    // todo
 }
 
 impl From<PascalString> for RCStr {
@@ -512,6 +515,9 @@ impl Game {
             }
         });
 
+        // Set up audio manager
+        let mut audio = audio::AudioManager::new(play_type != PlayType::Record);
+
         // TODO: specific flags here (make wb mutable)
 
         let window = wb.build().expect("oh no");
@@ -626,6 +632,26 @@ impl Game {
 
             temp_directory.pop();
         }
+
+        let sounds = sounds
+            .into_iter()
+            .map(|o| {
+                o.map(|b| {
+                    use asset::sound::Kind;
+                    //let data = if b.extension.0.as_ref() == b".wav" { b.data } else { None };
+                    let handle = match b.data {
+                        Some(data) => match b.extension.0.as_ref() {
+                            b".wav" => Kind::Wav(audio.add_wav(data)),
+                            _ => Kind::None,
+                        },
+                        None => Kind::None,
+                    };
+                    Box::new(Sound {
+                        name: b.name.into(),
+                        handle,
+                    })
+                })
+            }).collect::<Vec<_>>();
 
         let sprites = sprites
             .into_iter()
@@ -1046,7 +1072,7 @@ impl Game {
             externals: Vec::new(),
             surface_fix: false,
             input_manager: InputManager::new(),
-            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sounds, sprites, timelines, triggers },
             event_holders,
             custom_draw_objects,
             particles: particle::Manager::new(particle_shapes),
@@ -1127,6 +1153,7 @@ impl Game {
             health_capt_d: false,
             error_occurred: false,
             error_last: "".to_string().into(),
+            audio,
             window,
             window_border,
             window_icons,
