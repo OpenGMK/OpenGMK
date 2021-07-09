@@ -1096,7 +1096,7 @@ checksum = "3e5d7cd7ab3e47dda6e56542f4bbf3824c15234958c6e1bd6aaa347e93499fdc"
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon?branch=july-demo#0e0492535dca3817dc7379792b38a90f0382c89c"
+source = "git+https://github.com/adamcake/udon?branch=july-demo#8598227c127227814c83cff9d9e4658b54fa91c7"
 dependencies = [
  "alsa",
  "serde",
