@@ -112,10 +112,12 @@ impl Mp3Player {
         loop {
             match self.decoder.0.next(&self.file[self.offset..], &mut self.buffer) {
                 Some((rmp3::Frame::Audio(audio), bytes_consumed)) => {
-                    self.buffer_off = 0;
-                    self.buffer_len = usize::from(audio.channels()) * audio.sample_count();
                     self.offset += bytes_consumed;
-                    break true
+                    if self.channels.get() == audio.channels() {
+                        self.buffer_off = 0;
+                        self.buffer_len = usize::from(audio.channels()) * audio.sample_count();
+                        break true
+                    }
                 },
                 Some((rmp3::Frame::Other(_), bytes_consumed)) => self.offset += bytes_consumed,
                 None => {
