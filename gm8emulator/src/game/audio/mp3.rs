@@ -159,6 +159,8 @@ impl Source for MP3Player {
 
     #[inline(always)]
     fn reset(&mut self) {
+        self.buffer_off = 0;
+        self.buffer_len = 0;
         self.offset = 0;
     }
 }
