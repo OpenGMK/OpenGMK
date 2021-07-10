@@ -89,7 +89,7 @@ impl Mp3Player {
     fn flush(&mut self, output: &mut [Sample]) -> usize {
         // get the biggest slice that can be copied directly into `output`
         let mut buffer = &self.buffer[self.buffer_off..self.buffer_off + self.buffer_len];
-        if output.len() > buffer.len() {
+        if buffer.len() > output.len() {
             buffer = &buffer[..output.len()];
         }
 
@@ -113,7 +113,7 @@ impl Mp3Player {
             match self.decoder.0.next(&self.file[self.offset..], &mut self.buffer) {
                 Some((rmp3::Frame::Audio(audio), bytes_consumed)) => {
                     self.buffer_off = 0;
-                    self.buffer_len = audio.channels() as usize * audio.sample_count();
+                    self.buffer_len = usize::from(audio.channels()) * audio.sample_count();
                     self.offset += bytes_consumed;
                     break true
                 },
@@ -151,8 +151,10 @@ impl Source for Mp3Player {
             samples_written += flushed;
 
             // 🥤
-            if !self.refill() {
-                break samples_written
+            if self.buffer_len == 0 {
+                if !self.refill() {
+                    break samples_written
+                }
             }
         }
     }
