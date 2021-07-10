@@ -616,8 +616,13 @@ impl Input {
         state
             .iter()
             .enumerate()
-            .filter(|(i, _)| !IS_DIRECT_ONLY[*i])
-            .any(|(_, x)| *x)
+            .any(|(vk, flag)| match vk {
+                vk if IS_DIRECT_ONLY[vk] => *flag,
+                vk if vk == Button::Shift as usize => state[Button::LeftShift as usize] || state[Button::RightShift as usize],
+                vk if vk == Button::Control as usize => state[Button::LeftControl as usize] || state[Button::RightControl as usize],
+                vk if vk == Button::Alt as usize => state[Button::LeftAlt as usize] || state[Button::RightAlt as usize],
+                _ => false,
+            })
     }
 
     fn keyboard_check_internal(&self, state: &[bool; KEY_MAX], vk: u8) -> bool {
