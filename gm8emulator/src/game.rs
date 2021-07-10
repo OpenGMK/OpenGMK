@@ -463,12 +463,9 @@ impl Game {
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
-        // Register user constants
-        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
-
         // Register extension function names and constants
         let mut fn_index = 0;
-        let mut const_index = constants.len();
+        let mut const_index = 0;
         let mut extension_initializers = Vec::new();
         let mut extension_finalizers = Vec::new();
         for extension in extensions.iter() {
@@ -489,6 +486,9 @@ impl Game {
                 }
             }
         }
+
+        // Register user constants
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i + const_index));
 
         // Set up a Renderer
         let options = RendererOptions {
