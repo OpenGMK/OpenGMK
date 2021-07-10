@@ -11595,13 +11595,14 @@ impl Game {
         }
     }
 
-    pub fn sound_play(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn sound_play(&mut self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             use asset::sound::Kind;
+            let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
             match &sound.handle {
-                Kind::Mp3(handle) => self.audio.play_mp3(handle),
-                Kind::Wav(handle) => self.audio.play_wav(handle),
+                Kind::Mp3(handle) => self.audio.play_mp3(handle, nanos),
+                Kind::Wav(handle) => self.audio.play_wav(handle, nanos),
                 Kind::None => (),
             }
             Ok(Default::default())
@@ -11610,7 +11611,7 @@ impl Game {
         }
     }
 
-    pub fn sound_loop(&self, args: &[Value]) -> gml::Result<Value> {
+    pub fn sound_loop(&mut self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             use asset::sound::Kind;
@@ -11639,11 +11640,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_isplaying(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_isplaying")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_isplaying(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+        Ok(self.audio.sound_playing(sound_id, nanos).into())
     }
 
     pub fn sound_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {

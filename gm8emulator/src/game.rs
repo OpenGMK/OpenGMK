@@ -633,14 +633,13 @@ impl Game {
             temp_directory.pop();
         }
 
-        let sounds = sounds
-            .into_iter()
-            .map(|o| {
+        let sounds = sounds.into_iter().enumerate()
+            .map(|(sound_id, o)| {
                 o.map(|b| {
                     use asset::sound::Kind;
                     let handle = match b.data {
                         Some(data) => match b.extension.0.as_ref() {
-                            b".mp3" => match audio.add_mp3(data) {
+                            b".mp3" => match audio.add_mp3(data, sound_id as i32) {
                                 Some(x) => Kind::Mp3(x),
                                 None => {
                                     println!(
@@ -650,7 +649,7 @@ impl Game {
                                     Kind::None
                                 },
                             },
-                            b".wav" => match audio.add_wav(data) {
+                            b".wav" => match audio.add_wav(data, sound_id as i32) {
                                 Some(x) => Kind::Wav(x),
                                 None => {
                                     println!(
