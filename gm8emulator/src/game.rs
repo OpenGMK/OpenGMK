@@ -640,11 +640,21 @@ impl Game {
                     use asset::sound::Kind;
                     let handle = match b.data {
                         Some(data) => match b.extension.0.as_ref() {
+                            b".mp3" => match audio.add_mp3(data) {
+                                Some(x) => Kind::Mp3(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid mp3 data in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    Kind::None
+                                },
+                            },
                             b".wav" => match audio.add_wav(data) {
                                 Some(x) => Kind::Wav(x),
                                 None => {
                                     println!(
-                                        "WARNING: invalid wav file in sound '{}'",
+                                        "WARNING: invalid wav data in sound '{}'",
                                         String::from_utf8_lossy(b.name.0.as_ref())
                                     );
                                     Kind::None

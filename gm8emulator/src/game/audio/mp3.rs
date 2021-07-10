@@ -8,7 +8,7 @@ use udon::source::{ChannelCount, SampleRate, Sample, Source};
 /// - the sample rate from the first frame is assumed to be the sample rate of the whole file
 /// - any frames with a different channel count than the first frame are skipped immediately
 #[derive(Clone, Serialize, Deserialize)]
-pub struct MP3Player {
+pub struct Mp3Player {
     file: Arc<[u8]>,
     channels: ChannelCount,
     sample_rate: SampleRate,
@@ -41,7 +41,7 @@ pub enum Error {
     NoDetails,
 }
 
-impl MP3Player {
+impl Mp3Player {
     pub fn new(file: impl Into<Vec<u8>>) -> Result<Self, Error> {
         let file = file.into();
         if let Some((channels, sample_rate)) = details(Decoder::new(&file)) {
@@ -128,7 +128,7 @@ impl MP3Player {
     }
 }
 
-impl Source for MP3Player {
+impl Source for Mp3Player {
     #[inline(always)]
     fn channel_count(&self) -> ChannelCount {
         self.channels

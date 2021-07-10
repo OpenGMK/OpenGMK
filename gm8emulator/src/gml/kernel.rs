@@ -11600,6 +11600,7 @@ impl Game {
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             use asset::sound::Kind;
             match &sound.handle {
+                Kind::Mp3(handle) => self.audio.play_mp3(handle),
                 Kind::Wav(handle) => self.audio.play_wav(handle),
                 Kind::None => (),
             }
@@ -11614,6 +11615,7 @@ impl Game {
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             use asset::sound::Kind;
             match &sound.handle {
+                Kind::Mp3(handle) => self.audio.loop_mp3(handle),
                 Kind::Wav(handle) => self.audio.loop_wav(handle),
                 Kind::None => (),
             }

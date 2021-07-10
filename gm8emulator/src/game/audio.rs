@@ -11,6 +11,11 @@ use udon::{
     wav::WavPlayer
 };
 
+use self::mp3::Mp3Player;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Mp3Handle(Mp3Player);
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct WavHandle(WavPlayer);
 
@@ -42,8 +47,20 @@ impl AudioManager {
         }
     }
 
+    pub fn add_mp3(&mut self, file: Box<[u8]>) -> Option<Mp3Handle> {
+        Mp3Player::new(file).map(Mp3Handle).ok()
+    }
+
     pub fn add_wav(&mut self, file: Box<[u8]>) -> Option<WavHandle> {
         WavPlayer::new(file).map(WavHandle).ok()
+    }
+
+    pub fn play_mp3(&self, handle: &Mp3Handle) {
+        if self.do_output {
+            let _ = self.mixer_handle.add(
+                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+            );
+        }
     }
 
     pub fn play_wav(&self, handle: &WavHandle) {
@@ -51,6 +68,14 @@ impl AudioManager {
             let _ = self.mixer_handle.add(
                 Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
             );
+        }
+    }
+
+    pub fn loop_mp3(&self, handle: &Mp3Handle) {
+        if self.do_output {
+            let _ = self.mixer_handle.add(Cycle::new(
+                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+            ));
         }
     }
 
