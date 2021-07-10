@@ -1,6 +1,7 @@
+use crate::types::ArraySerde;
 use rmp3::{Decoder, Frame, RawDecoder};
 use serde::{Serialize, Deserialize};
-use std::sync::Arc;
+use std::{alloc, sync::Arc};
 use udon::source::{ChannelCount, SampleRate, Sample, Source};
 
 /// This MP3 player is deliberately designed to emulate bugs in GameMaker 8. Specifically:
@@ -12,9 +13,26 @@ pub struct MP3Player {
     channels: ChannelCount,
     sample_rate: SampleRate,
     length: usize, // Pre-calculated number of samples that will actually be output by GM8
-    decoder: RawDecoder,
+    #[serde(skip, default = "RawDecoderWrap::new")]
+    decoder: RawDecoderWrap,
     offset: usize,
-    buffer: [Sample; rmp3::MAX_SAMPLES_PER_FRAME],
+    buffer: Box<ArraySerde<rmp3::Sample, { rmp3::MAX_SAMPLES_PER_FRAME }>>,
+    buffer_off: usize,
+    buffer_len: usize,
+}
+
+struct RawDecoderWrap(RawDecoder);
+
+impl RawDecoderWrap {
+    fn new() -> Self {
+        Self(RawDecoder::new())
+    }
+}
+
+impl Clone for RawDecoderWrap {
+    fn clone(&self) -> Self {
+        Self(RawDecoder::new())
+    }
 }
 
 pub enum Error {
@@ -37,20 +55,27 @@ impl MP3Player {
                 }
             }
 
-            let buffer = Vec::with_capacity(rmp3::MAX_SAMPLES_PER_FRAME);
-            unsafe { buffer.set_len(rmp3::MAX_SAMPLES_PER_FRAME); }
+            let buffer = unsafe {
+                let layout = alloc::Layout::new::<ArraySerde<rmp3::Sample, { rmp3::MAX_SAMPLES_PER_FRAME }>>();
+                let alloc = alloc::alloc(layout);
+                if alloc.is_null() {
+                    panic!("failed to allocate mp3 decoder buffer");
+                }
+                Box::from_raw(alloc.cast())
+            };
 
             Ok(Self {
                 file: file.into(),
                 channels: ChannelCount::new(channels).ok_or(Error::InvalidDetails)?,
                 sample_rate: SampleRate::new(sample_rate).ok_or(Error::InvalidDetails)?,
-                decoder: RawDecoder::new(),
+                decoder: RawDecoderWrap(RawDecoder::new()),
                 length,
                 offset: 0,
                 buffer,
+                buffer_off: 0,
+                buffer_len: 0,
             })
-        }
-        else {
+        } else {
             Err(Error::NoDetails)
         }
     }
@@ -59,6 +84,47 @@ impl MP3Player {
     #[inline(always)]
     pub fn length(&self) -> usize {
         self.length
+    }
+
+    fn flush(&mut self, output: &mut [Sample]) -> usize {
+        // get the biggest slice that can be copied directly into `output`
+        let mut buffer = &self.buffer[self.buffer_off..self.buffer_off + self.buffer_len];
+        if output.len() > buffer.len() {
+            buffer = &buffer[..output.len()];
+        }
+
+        // copy samples into `output`
+        (&mut output[..buffer.len()]).copy_from_slice(buffer);
+
+        // adjust internal state
+        self.buffer_len -= buffer.len();
+        if self.buffer_len > 0 {
+            self.buffer_off += buffer.len();
+        } else {
+            self.buffer_off = 0;
+        }
+
+        // return samples written
+        buffer.len()
+    }
+
+    fn refill(&mut self) -> bool {
+        loop {
+            match self.decoder.0.next(&self.file[self.offset..], &mut self.buffer) {
+                Some((rmp3::Frame::Audio(audio), bytes_consumed)) => {
+                    self.buffer_off = 0;
+                    self.buffer_len = audio.channels() as usize * audio.sample_count();
+                    self.offset += bytes_consumed;
+                    break true
+                },
+                Some((rmp3::Frame::Other(_), bytes_consumed)) => self.offset += bytes_consumed,
+                None => {
+                    self.buffer_off = 0;
+                    self.buffer_len = 0;
+                    break false
+                },
+            }
+        }
     }
 }
 
@@ -73,12 +139,22 @@ impl Source for MP3Player {
         self.sample_rate
     }
 
-    fn write_samples(&mut self, buffer: &mut [Sample]) -> usize {
-        if let Some((frame, bytes_consumed)) = self.decoder.next(&self.file[self.offset], &mut self.buffer) {
-            self.offset += bytes_consumed;
-            buffer
+    fn write_samples(&mut self, mut buffer: &mut [Sample]) -> usize {
+        let mut samples_written = 0usize;
+        loop {
+            // 😳
+            let flushed = self.flush(buffer);
+            if buffer.len() == flushed {
+                break samples_written + flushed
+            }
+            buffer = &mut buffer[flushed..];
+            samples_written += flushed;
+
+            // 🥤
+            if !self.refill() {
+                break samples_written
+            }
         }
-        buffer.len()
     }
 
     #[inline(always)]

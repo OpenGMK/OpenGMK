@@ -1,4 +1,4 @@
-//mod mp3;
+mod mp3;
 
 use serde::{Serialize, Deserialize};
 use udon::{
