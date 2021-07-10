@@ -38,7 +38,6 @@ pub enum Event {
     ShowMenu(Value),      // value returned from show_menu()
     ShowMessage,          // acknowledges that a show_message() does not need to be shown during replay
     ShowQuestion(Value),  // value returned from show_question()
-    SoundIsPlaying(bool), // value returned from sound_isplaying()
 }
 
 // An input event which takes place during a frame
