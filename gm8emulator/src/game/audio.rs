@@ -15,10 +15,16 @@ use udon::{
 use self::mp3::Mp3Player;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Mp3Handle(Mp3Player, i32);
+pub struct Mp3Handle {
+    player: Mp3Player,
+    id: i32,
+}
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct WavHandle(WavPlayer, i32);
+pub struct WavHandle {
+    player: WavPlayer,
+    id: i32,
+}
 
 pub struct AudioManager {
     mixer_handle: MixerHandle,
@@ -54,47 +60,47 @@ impl AudioManager {
     }
 
     pub fn add_mp3(&mut self, file: Box<[u8]>, sound_id: i32) -> Option<Mp3Handle> {
-        Mp3Player::new(file).map(|x| Mp3Handle(x, sound_id)).ok()
+        Mp3Player::new(file).map(|player| Mp3Handle { player, id: sound_id }).ok()
     }
 
     pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32) -> Option<WavHandle> {
-        WavPlayer::new(file).map(|x| WavHandle(x, sound_id)).ok()
+        WavPlayer::new(file).map(|player| WavHandle { player, id: sound_id }).ok()
     }
 
     pub fn play_mp3(&mut self, handle: &Mp3Handle, start_time: u128) {
-        let end_time = handle.0.length() as u128 + start_time;
-        self.mp3_end = Some((handle.1, Some(end_time)));
+        let end_time = handle.player.length() as u128 + start_time;
+        self.mp3_end = Some((handle.id, Some(end_time)));
         if self.do_output {
             let _ = self.mixer_handle.add(
-                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
             );
         }
     }
 
     pub fn play_wav(&mut self, handle: &WavHandle, start_time: u128) {
-        let end_time = handle.0.length() as u128 + start_time;
-        self.end_times.insert(handle.1, Some(end_time));
+        let end_time = handle.player.length() as u128 + start_time;
+        self.end_times.insert(handle.id, Some(end_time));
         if self.do_output {
             let _ = self.mixer_handle.add(
-                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
             );
         }
     }
 
     pub fn loop_mp3(&mut self, handle: &Mp3Handle) {
-        self.mp3_end = Some((handle.1, None));
+        self.mp3_end = Some((handle.id, None));
         if self.do_output {
             let _ = self.mixer_handle.add(Cycle::new(
-                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
             ));
         }
     }
 
     pub fn loop_wav(&mut self, handle: &WavHandle) {
-        self.end_times.insert(handle.1, None);
+        self.end_times.insert(handle.id, None);
         if self.do_output {
             let _ = self.mixer_handle.add(Cycle::new(
-                Rechanneler::new(Resampler::new(handle.0.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
             ));
         }
     }
