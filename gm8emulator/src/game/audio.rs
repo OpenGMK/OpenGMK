@@ -25,6 +25,7 @@ pub struct Mp3Handle {
 pub struct WavHandle {
     player: WavPlayer,
     volume: Arc<AtomicU32>,
+    _use_3d: bool,
     exclusive: bool,
     id: i32,
 }
@@ -66,10 +67,11 @@ impl AudioManager {
         Mp3Player::new(file).map(|player| Mp3Handle { player, id: sound_id }).ok()
     }
 
-    pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32, volume: f64, exclusive: bool) -> Option<WavHandle> {
+    pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32, volume: f64, use_3d: bool, exclusive: bool) -> Option<WavHandle> {
         WavPlayer::new(file).map(|player| WavHandle {
             player,
             volume: Arc::new(AtomicU32::new(make_volume(volume).to_bits())),
+            _use_3d: use_3d,
             exclusive,
             id: sound_id,
         }).ok()

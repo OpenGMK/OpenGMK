@@ -650,7 +650,13 @@ impl Game {
                                     FileType::None
                                 },
                             },
-                            b".wav" => match audio.add_wav(data, sound_id as i32, b.volume, b.kind == SoundKind::Multimedia) {
+                            b".wav" => match audio.add_wav(
+                                data,
+                                sound_id as i32,
+                                b.volume,
+                                b.kind == SoundKind::ThreeDimensional,
+                                b.kind == SoundKind::Multimedia,
+                            ) {
                                 Some(x) => FileType::Wav(x),
                                 None => {
                                     println!(
