@@ -636,33 +636,33 @@ impl Game {
         let sounds = sounds.into_iter().enumerate()
             .map(|(sound_id, o)| {
                 o.map(|b| {
-                    use asset::sound::Kind;
+                    use asset::sound::FileType;
                     use gm8exe::asset::sound::SoundKind;
                     let handle = match b.data {
                         Some(data) => match b.extension.0.as_ref() {
                             b".mp3" => match audio.add_mp3(data, sound_id as i32) {
-                                Some(x) => Kind::Mp3(x),
+                                Some(x) => FileType::Mp3(x),
                                 None => {
                                     println!(
                                         "WARNING: invalid mp3 data in sound '{}'",
                                         String::from_utf8_lossy(b.name.0.as_ref())
                                     );
-                                    Kind::None
+                                    FileType::None
                                 },
                             },
                             b".wav" => match audio.add_wav(data, sound_id as i32, b.volume, b.kind == SoundKind::Multimedia) {
-                                Some(x) => Kind::Wav(x),
+                                Some(x) => FileType::Wav(x),
                                 None => {
                                     println!(
                                         "WARNING: invalid wav data in sound '{}'",
                                         String::from_utf8_lossy(b.name.0.as_ref())
                                     );
-                                    Kind::None
+                                    FileType::None
                                 },
                             }
-                            _ => Kind::None,
+                            _ => FileType::None,
                         },
-                        None => Kind::None,
+                        None => FileType::None,
                     };
                     Box::new(Sound {
                         name: b.name.into(),

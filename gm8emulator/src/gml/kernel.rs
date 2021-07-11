@@ -11599,12 +11599,12 @@ impl Game {
     pub fn sound_play(&mut self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
-            use asset::sound::Kind;
+            use asset::sound::FileType;
             let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
             match &sound.handle {
-                Kind::Mp3(handle) => self.audio.play_mp3(handle, nanos),
-                Kind::Wav(handle) => self.audio.play_wav(handle, nanos),
-                Kind::None => (),
+                FileType::Mp3(handle) => self.audio.play_mp3(handle, nanos),
+                FileType::Wav(handle) => self.audio.play_wav(handle, nanos),
+                FileType::None => (),
             }
             Ok(Default::default())
         } else {
@@ -11615,11 +11615,11 @@ impl Game {
     pub fn sound_loop(&mut self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
-            use asset::sound::Kind;
+            use asset::sound::FileType;
             match &sound.handle {
-                Kind::Mp3(handle) => self.audio.loop_mp3(handle),
-                Kind::Wav(handle) => self.audio.loop_wav(handle),
-                Kind::None => (),
+                FileType::Mp3(handle) => self.audio.loop_mp3(handle),
+                FileType::Wav(handle) => self.audio.loop_wav(handle),
+                FileType::None => (),
             }
             Ok(Default::default())
         } else {
@@ -11648,11 +11648,11 @@ impl Game {
         let (sound_id, volume) = expect_args!(args, [int, real])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             // Deliberately written in a way that will produce an error when Kind::Midi is added
-            use asset::sound::Kind;
+            use asset::sound::FileType;
             match &sound.handle {
-                Kind::Wav(handle) => handle.set_volume(volume.into()),
-                Kind::Mp3(_) => (),
-                Kind::None => (),
+                FileType::Wav(handle) => handle.set_volume(volume.into()),
+                FileType::Mp3(_) => (),
+                FileType::None => (),
             }
             Ok(Default::default())
         } else {
