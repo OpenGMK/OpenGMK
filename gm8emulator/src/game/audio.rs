@@ -1,10 +1,10 @@
+mod mixer;
 mod mp3;
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::{Arc, atomic::AtomicU32}};
 use udon::{
     cycle::Cycle,
-    mixer::{Mixer, MixerHandle},
     rechanneler::Rechanneler,
     resampler::Resampler,
     session::{Api, Session},
@@ -13,6 +13,7 @@ use udon::{
 };
 
 use self::mp3::Mp3Player;
+use self::mixer::{Mixer, MixerHandle};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Mp3Handle {
@@ -23,6 +24,7 @@ pub struct Mp3Handle {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct WavHandle {
     player: WavPlayer,
+    volume: Arc<AtomicU32>,
     id: i32,
 }
 
@@ -63,16 +65,21 @@ impl AudioManager {
         Mp3Player::new(file).map(|player| Mp3Handle { player, id: sound_id }).ok()
     }
 
-    pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32) -> Option<WavHandle> {
-        WavPlayer::new(file).map(|player| WavHandle { player, id: sound_id }).ok()
+    pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32, volume: f64) -> Option<WavHandle> {
+        WavPlayer::new(file).map(|player| WavHandle {
+            player,
+            volume: Arc::new(AtomicU32::new(make_volume(volume).to_bits())),
+            id: sound_id
+        }).ok()
     }
 
     pub fn play_mp3(&mut self, handle: &Mp3Handle, start_time: u128) {
         let end_time = handle.player.length() as u128 + start_time;
         self.mp3_end = Some((handle.id, Some(end_time)));
         if self.do_output {
-            let _ = self.mixer_handle.add(
-                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+            let _ = self.mixer_handle.add_exclusive(
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count),
+                handle.id,
             );
         }
     }
@@ -82,7 +89,9 @@ impl AudioManager {
         self.end_times.insert(handle.id, Some(end_time));
         if self.do_output {
             let _ = self.mixer_handle.add(
-                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
+                Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count),
+                handle.volume.clone(),
+                handle.id,
             );
         }
     }
@@ -90,9 +99,9 @@ impl AudioManager {
     pub fn loop_mp3(&mut self, handle: &Mp3Handle) {
         self.mp3_end = Some((handle.id, None));
         if self.do_output {
-            let _ = self.mixer_handle.add(Cycle::new(
+            let _ = self.mixer_handle.add_exclusive(Cycle::new(
                 Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
-            ));
+            ), handle.id);
         }
     }
 
@@ -101,7 +110,7 @@ impl AudioManager {
         if self.do_output {
             let _ = self.mixer_handle.add(Cycle::new(
                 Rechanneler::new(Resampler::new(handle.player.clone(), self.mixer_sample_rate), self.mixer_channel_count)
-            ));
+            ), handle.volume.clone(), handle.id);
         }
     }
 
@@ -123,4 +132,12 @@ impl AudioManager {
 
     // sound_stop should delete an entry from the map if it's a wav, mp3_end to None if it's an mp3
     // sound_stop_all should clear the map and set mp3_end to None
+}
+
+
+// This function takes a volume between 0.0 and 1.0 and converts it to the logarithmic scale used by DirectMusic.
+// This is, roughly, the same function used by GM8/DirectMusic.
+// Note that the minimum possible output from this function is 0.001. I think that's accurate to GM8.
+fn make_volume(vol: f64) -> f32 {
+    1000.0f64.powf(vol.clamp(0.0, 1.0) - 1.0) as f32
 }

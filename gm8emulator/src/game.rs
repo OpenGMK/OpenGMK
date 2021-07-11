@@ -649,7 +649,7 @@ impl Game {
                                     Kind::None
                                 },
                             },
-                            b".wav" => match audio.add_wav(data, sound_id as i32) {
+                            b".wav" => match audio.add_wav(data, sound_id as i32, b.volume) {
                                 Some(x) => Kind::Wav(x),
                                 None => {
                                     println!(
