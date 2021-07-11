@@ -11627,17 +11627,14 @@ impl Game {
         }
     }
 
-    pub fn sound_stop(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_stop")
-        // TODO
+    pub fn sound_stop(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
         Ok(Default::default())
     }
 
     pub fn sound_stop_all(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        //unimplemented!("Called unimplemented kernel function sound_stop_all")
-        // TODO
+        self.audio.stop_all();
         Ok(Default::default())
     }
 
@@ -11647,11 +11644,20 @@ impl Game {
         Ok(self.audio.sound_playing(sound_id, nanos).into())
     }
 
-    pub fn sound_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function sound_volume")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, volume) = expect_args!(args, [int, real])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            // Deliberately written in a way that will produce an error when Kind::Midi is added
+            use asset::sound::Kind;
+            match &sound.handle {
+                Kind::Wav(handle) => handle.set_volume(volume.into()),
+                Kind::Mp3(_) => (),
+                Kind::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
     pub fn sound_fade(&mut self, _args: &[Value]) -> gml::Result<Value> {
