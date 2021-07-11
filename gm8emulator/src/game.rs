@@ -637,6 +637,7 @@ impl Game {
             .map(|(sound_id, o)| {
                 o.map(|b| {
                     use asset::sound::Kind;
+                    use gm8exe::asset::sound::SoundKind;
                     let handle = match b.data {
                         Some(data) => match b.extension.0.as_ref() {
                             b".mp3" => match audio.add_mp3(data, sound_id as i32) {
@@ -649,7 +650,7 @@ impl Game {
                                     Kind::None
                                 },
                             },
-                            b".wav" => match audio.add_wav(data, sound_id as i32, b.volume) {
+                            b".wav" => match audio.add_wav(data, sound_id as i32, b.volume, b.kind == SoundKind::Multimedia) {
                                 Some(x) => Kind::Wav(x),
                                 None => {
                                     println!(
