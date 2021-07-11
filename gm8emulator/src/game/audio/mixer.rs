@@ -1,5 +1,6 @@
 use udon::{source::{ChannelCount, SampleRate, Sample, Source}};
 use std::{sync::Arc, sync::{atomic::{AtomicU32, Ordering}, mpsc::{self, Receiver, Sender}}};
+use super::SoundParams;
 
 const INIT_CAPACITY: usize = 16;
 
@@ -7,8 +8,9 @@ const INIT_CAPACITY: usize = 16;
 pub struct Mixer {
     channels: ChannelCount,
     sample_rate: SampleRate,
-    sources: Vec<(Box<dyn Source + Send + 'static>, Arc<AtomicU32>, i32)>,
+    sources: Vec<(Box<dyn Source + Send + 'static>, Arc<SoundParams>, i32)>,
     exclusive_source: Option<(Box<dyn Source + Send + 'static>, i32)>,
+    global_volume: Arc<AtomicU32>,
     input_buffer: Vec<Sample>,
     receiver: Receiver<Command>,
 }
@@ -16,7 +18,7 @@ pub struct Mixer {
 enum Command {
     Add {
         source: Box<dyn Source + Send + 'static>,
-        volume: Arc<AtomicU32>,
+        params: Arc<SoundParams>,
         id: i32,
     },
     AddExclusive {
@@ -40,10 +42,18 @@ pub enum Error {
 }
 
 impl Mixer {
-    pub fn new(sample_rate: SampleRate, channels: ChannelCount) -> (Self, MixerHandle) {
+    pub fn new(sample_rate: SampleRate, channels: ChannelCount, global_volume: Arc<AtomicU32>) -> (Self, MixerHandle) {
         let (sender, receiver) = mpsc::channel();
         (
-            Self { channels, sample_rate, sources: Vec::with_capacity(INIT_CAPACITY), exclusive_source: None, input_buffer: Vec::new(), receiver },
+            Self {
+                channels,
+                sample_rate,
+                sources: Vec::with_capacity(INIT_CAPACITY),
+                exclusive_source: None,
+                global_volume,
+                input_buffer: Vec::new(),
+                receiver,
+            },
             MixerHandle(sender),
         )
     }
@@ -54,7 +64,7 @@ impl Source for Mixer {
         // Check for new incoming commands
         while let Ok(cmd) = self.receiver.try_recv() {
             match cmd {
-                Command::Add { source, volume, id } => self.sources.push((source, volume, id)),
+                Command::Add { source, params, id } => self.sources.push((source, params, id)),
                 Command::AddExclusive { source, id } => self.exclusive_source = Some((source, id)),
                 Command::Stop(id) => {
                     self.sources.retain(|(_, _, x)| *x != id);
@@ -83,13 +93,14 @@ impl Source for Mixer {
 
         let input_buffer = &mut self.input_buffer;
         input_buffer.resize_with(buffer.len(), Default::default);
+        let global_volume = f32::from_bits(self.global_volume.load(Ordering::Acquire));
 
-        self.sources.retain_mut(|(source, volume, _)| {
-            let volume = f32::from_bits(volume.load(Ordering::Acquire));
+        self.sources.retain_mut(|(source, params, _)| {
+            let volume = f32::from_bits(params.volume.load(Ordering::Acquire));
             let count = source.write_samples(input_buffer);
 
             for (in_sample, out_sample) in input_buffer.iter().take(count).copied().zip(buffer.iter_mut()) {
-                *out_sample += in_sample * volume;
+                *out_sample += in_sample * volume * global_volume;
             }
 
             count == input_buffer.len()
@@ -112,9 +123,9 @@ impl Source for Mixer {
 }
 
 impl MixerHandle {
-    /// Adds a sound to be mixed, along with its ID and an atomic volume
-    pub fn add(&self, source: impl Source + Send + 'static, volume: Arc<AtomicU32>, id: i32) -> Result<(), Error> {
-        let command = Command::Add { source: Box::new(source), volume, id };
+    /// Adds a sound to be mixed, along with its ID and atomic params
+    pub fn add(&self, source: impl Source + Send + 'static, params: Arc<SoundParams>, id: i32) -> Result<(), Error> {
+        let command = Command::Add { source: Box::new(source), params, id };
         self.0.send(command).map_err(|_| Error::SendError)
     }
 

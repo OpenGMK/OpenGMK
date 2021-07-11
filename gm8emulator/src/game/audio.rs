@@ -24,10 +24,15 @@ pub struct Mp3Handle {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct WavHandle {
     player: WavPlayer,
-    volume: Arc<AtomicU32>,
+    params: Arc<SoundParams>,
     _use_3d: bool,
     exclusive: bool,
     id: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SoundParams {
+    pub volume: AtomicU32,
 }
 
 pub struct AudioManager {
@@ -35,6 +40,7 @@ pub struct AudioManager {
     mixer_channel_count: ChannelCount,
     mixer_sample_rate: SampleRate,
     do_output: bool,
+    global_volume: Arc<AtomicU32>,
     end_times: HashMap<i32, Option<u128>>,
     multimedia_end: Option<(i32, Option<u128>)>,
 }
@@ -46,7 +52,8 @@ impl AudioManager {
         let device = session.default_output_device().unwrap();
         let sample_rate = device.sample_rate();
         let channel_count = device.channel_count();
-        let (mixer, mixer_handle) = Mixer::new(sample_rate, channel_count);
+        let global_volume = Arc::new(AtomicU32::from(1.0f32.to_bits()));
+        let (mixer, mixer_handle) = Mixer::new(sample_rate, channel_count, global_volume.clone());
 
         std::thread::spawn(move || {
             let stream = session.open_output_stream(device).unwrap();
@@ -58,6 +65,7 @@ impl AudioManager {
             mixer_channel_count: channel_count,
             mixer_sample_rate: sample_rate,
             do_output,
+            global_volume,
             end_times: HashMap::new(),
             multimedia_end: None,
         }
@@ -70,7 +78,9 @@ impl AudioManager {
     pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32, volume: f64, use_3d: bool, exclusive: bool) -> Option<WavHandle> {
         WavPlayer::new(file).map(|player| WavHandle {
             player,
-            volume: Arc::new(AtomicU32::new(make_volume(volume).to_bits())),
+            params: Arc::new(SoundParams {
+                volume: AtomicU32::new(make_volume(volume).to_bits()),
+            }),
             _use_3d: use_3d,
             exclusive,
             id: sound_id,
@@ -114,7 +124,7 @@ impl AudioManager {
                         Resampler::new(handle.player.clone(), self.mixer_sample_rate),
                         self.mixer_channel_count,
                     ),
-                    handle.volume.clone(),
+                    handle.params.clone(),
                     handle.id,
                 );
             }
@@ -148,7 +158,7 @@ impl AudioManager {
                 let _ = self.mixer_handle.add(Cycle::new(Rechanneler::new(
                     Resampler::new(handle.player.clone(), self.mixer_sample_rate),
                     self.mixer_channel_count,
-                )), handle.volume.clone(), handle.id);
+                )), handle.params.clone(), handle.id);
             }
         }
     }
@@ -171,6 +181,10 @@ impl AudioManager {
         }
     }
 
+    pub fn set_global_volume(&self, vol: f64) {
+        self.global_volume.store(make_volume(vol).to_bits(), Ordering::Release)
+    }
+
     pub fn sound_playing(&self, sound_id: i32, current_time: u128) -> bool {
         self.mp3_playing(sound_id, current_time) || self.wav_playing(sound_id, current_time)
     }
@@ -190,7 +204,7 @@ impl AudioManager {
 
 impl WavHandle {
     pub fn set_volume(&self, vol: f64) {
-        self.volume.store(make_volume(vol).to_bits(), Ordering::Release);
+        self.params.volume.store(make_volume(vol).to_bits(), Ordering::Release);
     }
 }
 
