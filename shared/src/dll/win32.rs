@@ -162,6 +162,7 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
             FlushInstructionCache(GetCurrentProcess(), target_byte.cast(), 1);
         },
         0xB2FEC528 => (), // grix's fork v4.46, it doesn't have any runner hacks so it's safe
+        0xA11E30FF => (), // above but upx'd (used by gm82snd v1.1.6 and other versions)
         _ => {
             eprintln!("WARNING: Unknown version of GMFMODSimple detected with hash {:#X}", file_hash);
             eprintln!("GMFMODSimple requires a hack to work, and we weren't able to apply it.");
