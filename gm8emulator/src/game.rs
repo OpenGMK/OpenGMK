@@ -667,6 +667,8 @@ impl Game {
                     Box::new(Sound {
                         name: b.name.into(),
                         handle,
+                        gml_kind: f64::from(b.kind as u8).into(),
+                        gml_preload: f64::from(u8::from(b.preload)).into(),
                     })
                 })
             }).collect::<Vec<_>>();
