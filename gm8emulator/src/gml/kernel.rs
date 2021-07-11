@@ -5872,12 +5872,14 @@ impl Game {
                                     Ok(m) => m,
                                     Err(_) => return false,
                                 };
+                                let is_dir = md.is_dir();
                                 // false means the check isn't in yet
-                                (include_read_only || !md.permissions().readonly())
+                                // also note: apparently directories are read only?
+                                (include_read_only || is_dir || !md.permissions().readonly())
                                     && (include_hidden || !false)
                                     && (include_sys_file || !false)
                                     && (include_volume_id || !false)
-                                    && (include_directory || !md.is_dir())
+                                    && (include_directory || !is_dir)
                                     && (include_archive || !false)
                             })
                             .map(|p| p.file_name().map(|p| p.into()).unwrap_or(p)),
