@@ -2,7 +2,7 @@ mod mixer;
 mod mp3;
 
 use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, sync::{Arc, atomic::AtomicU32}};
+use std::{collections::HashMap, sync::{Arc, atomic::{AtomicU32, Ordering}}};
 use udon::{
     cycle::Cycle,
     rechanneler::Rechanneler,
@@ -146,6 +146,12 @@ impl AudioManager {
             Some(None) => true,
             None => false,
         }
+    }
+}
+
+impl WavHandle {
+    pub fn set_volume(&self, vol: f64) {
+        self.volume.store(make_volume(vol).to_bits(), Ordering::Release);
     }
 }
 
