@@ -8657,6 +8657,7 @@ impl Game {
 
     pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
         if self.assets.sounds.get_asset(sound_id).is_some() {
             self.assets.sounds[sound_id as usize] = None;
         }
