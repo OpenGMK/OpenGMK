@@ -8624,14 +8624,14 @@ impl Game {
         Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn sound_get_kind(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_kind")
+    pub fn sound_get_kind(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_kind).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_get_preload(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_preload")
+    pub fn sound_get_preload(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_preload).unwrap_or(Real::from(-1.0)).into())
     }
 
     pub fn sound_discard(&mut self, _args: &[Value]) -> gml::Result<Value> {
