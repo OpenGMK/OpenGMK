@@ -8636,14 +8636,12 @@ impl Game {
 
     pub fn sound_discard(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_discard")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_discard")
     }
 
     pub fn sound_restore(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_restore")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_restore")
     }
 
     pub fn sound_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -8653,8 +8651,7 @@ impl Game {
 
     pub fn sound_replace(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 4
-        //unimplemented!("Called unimplemented kernel function sound_replace")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_replace")
     }
 
     pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -11662,8 +11659,7 @@ impl Game {
 
     pub fn sound_fade(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        //unimplemented!("Called unimplemented kernel function sound_fade")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_fade")
     }
 
     pub fn sound_pan(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -11673,15 +11669,13 @@ impl Game {
 
     pub fn sound_background_tempo(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_background_tempo")
+        // Does nothing unless the sound is a midi, which we don't support yet
         Ok(Default::default())
     }
 
     pub fn sound_global_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_global_volume")
-        // TODO
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_global_volume")
     }
 
     pub fn sound_set_search_directory(&mut self, _args: &[Value]) -> gml::Result<Value> {
