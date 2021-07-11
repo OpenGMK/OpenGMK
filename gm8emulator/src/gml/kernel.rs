@@ -8634,14 +8634,15 @@ impl Game {
         Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_preload).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_discard(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_discard")
+    pub fn sound_discard(&mut self, args: &[Value]) -> gml::Result<Value> {
+        // Dynamically un-preloads a sound, but we preload all sounds, so all we need to do is call sound_stop()
+        self.sound_stop(args)
     }
 
-    pub fn sound_restore(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_restore")
+    pub fn sound_restore(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _sound_id = expect_args!(args, [int])?;
+        // Dynamically preloads a sound, but we preload all sounds so this does nothing
+        Ok(Default::default())
     }
 
     pub fn sound_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
