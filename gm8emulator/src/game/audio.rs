@@ -200,6 +200,20 @@ impl AudioManager {
             None => false,
         }
     }
+
+    pub fn state(&self) -> AudioState {
+        AudioState {
+            global_volume: self.global_volume.clone(),
+            end_times: self.end_times.clone(),
+            multimedia_end: self.multimedia_end,
+        }
+    }
+
+    pub fn set_state(&mut self, state: AudioState) {
+        self.global_volume = state.global_volume;
+        self.end_times = state.end_times;
+        self.multimedia_end = state.multimedia_end;
+    }
 }
 
 impl WavHandle {
@@ -208,6 +222,12 @@ impl WavHandle {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AudioState {
+    global_volume: Arc<AtomicU32>,
+    end_times: HashMap<i32, Option<u128>>,
+    multimedia_end: Option<(i32, Option<u128>)>,
+}
 
 // This function takes a volume between 0.0 and 1.0 and converts it to the logarithmic scale used by DirectMusic.
 // This is, roughly, the same function used by GM8/DirectMusic.

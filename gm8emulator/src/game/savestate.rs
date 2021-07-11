@@ -1,5 +1,6 @@
 use crate::{
     game::{
+        audio::AudioState,
         draw,
         external::{DefineInfo, External},
         includedfile::IncludedFile,
@@ -132,6 +133,8 @@ pub struct SaveState {
     window_width: u32,
     window_height: u32,
 
+    audio_state: AudioState,
+
     replay: Replay,
     screenshot: Box<[u8]>,
     zbuffer: Box<[f32]>,
@@ -230,6 +233,7 @@ impl SaveState {
             unscaled_height: game.unscaled_height,
             window_width,
             window_height,
+            audio_state: game.audio.state(),
             replay,
             screenshot,
             zbuffer,
@@ -355,6 +359,7 @@ impl SaveState {
         game.included_files = self.included_files;
         game.gm_version = self.gm_version;
         game.spoofed_time_nanos = self.spoofed_time_nanos;
+        game.audio.set_state(self.audio_state);
         game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
