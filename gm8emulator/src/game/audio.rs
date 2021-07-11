@@ -114,6 +114,24 @@ impl AudioManager {
         }
     }
 
+    pub fn stop_sound(&mut self, id: i32) {
+        self.end_times.remove(&id);
+        if self.mp3_end.map(|(x, _)| x) == Some(id) {
+            self.mp3_end = None;
+        }
+        if self.do_output {
+            let _ = self.mixer_handle.stop(id);
+        }
+    }
+
+    pub fn stop_all(&mut self) {
+        self.end_times.clear();
+        self.mp3_end = None;
+        if self.do_output {
+            let _ = self.mixer_handle.stop_all();
+        }
+    }
+
     pub fn sound_playing(&self, sound_id: i32, current_time: u128) -> bool {
         self.mp3_playing(sound_id, current_time) || self.wav_playing(sound_id, current_time)
     }
@@ -129,9 +147,6 @@ impl AudioManager {
             None => false,
         }
     }
-
-    // sound_stop should delete an entry from the map if it's a wav, mp3_end to None if it's an mp3
-    // sound_stop_all should clear the map and set mp3_end to None
 }
 
 
