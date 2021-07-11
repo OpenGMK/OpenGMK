@@ -8645,14 +8645,76 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sound_add")
+    pub fn sound_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (fname, kind, preload) = expect_args!(args, [string, int, bool])?;
+        let path_buf = std::path::PathBuf::from(fname.as_ref());
+        let data = match std::fs::read(&path_buf) {
+            Ok(b) => b.into_boxed_slice(),
+            Err(_) => return Ok((-1).into()),
+        };
+        let sound_id = self.assets.sounds.len() as i32;
+        let handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mp3") => {
+                match self.audio.add_mp3(data, sound_id as i32) {
+                    Some(x) => asset::sound::FileType::Mp3(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            Some("wav") => {
+                match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                    Some(x) => asset::sound::FileType::Wav(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            _ => return Ok((-1).into()),
+        };
+        self.assets.sounds.push(Some(Box::new(asset::Sound {
+            name: format!("__newsound{}", sound_id).into(),
+            handle,
+            gml_kind: kind.into(),
+            gml_preload: f64::from(u8::from(preload)).into(),
+        })));
+        Ok(sound_id.into())
     }
 
-    pub fn sound_replace(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function sound_replace")
+    pub fn sound_replace(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, fname, kind, preload) = expect_args!(args, [int, string, int, bool])?;
+        if let Some(sound) = self.assets.sounds.get_asset_mut(sound_id) {
+            self.audio.stop_sound(sound_id);
+            sound.gml_kind = kind.into();
+            sound.gml_preload = f64::from(u8::from(preload)).into();
+
+            if matches!(sound.handle, asset::sound::FileType::None) {
+                let path_buf = std::path::PathBuf::from(fname.as_ref());
+                let data = match std::fs::read(&path_buf) {
+                    Ok(b) => b.into_boxed_slice(),
+                    Err(_) => return Ok(0.into()),
+                };
+                sound.handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some("mp3") => {
+                        match self.audio.add_mp3(data, sound_id as i32) {
+                            Some(x) => asset::sound::FileType::Mp3(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    Some("wav") => {
+                        match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                            Some(x) => asset::sound::FileType::Wav(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    _ => return Ok(0.into()),
+                };
+                Ok(1.into())
+            } else {
+                // This appears to be a GM8 bug, I could never get it to actually load the new sound if
+                // the one we're replacing already had a sound loaded. (tested GM 8.1.141)
+                sound.handle = asset::sound::FileType::None;
+                Ok(1.into())
+            }
+        } else {
+            Err(gml::Error::FunctionError("sound_replace".into(), "Trying to replace non-existing sound.".into()))
+        }
     }
 
     pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
