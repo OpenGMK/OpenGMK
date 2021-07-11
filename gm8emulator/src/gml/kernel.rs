@@ -11737,9 +11737,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_global_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_global_volume")
+    pub fn sound_global_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let volume = expect_args!(args, [real])?;
+        self.audio.set_global_volume(volume.into());
+        Ok(Default::default())
     }
 
     pub fn sound_set_search_directory(&mut self, _args: &[Value]) -> gml::Result<Value> {
