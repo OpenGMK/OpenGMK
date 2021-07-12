@@ -8,7 +8,7 @@ use udon::{
     rechanneler::Rechanneler,
     resampler::Resampler,
     session::{Api, Session},
-    source::{ChannelCount, SampleRate},
+    source::{ChannelCount, SampleRate, Source},
     wav::WavPlayer
 };
 
@@ -88,7 +88,11 @@ impl AudioManager {
     }
 
     pub fn play_mp3(&mut self, handle: &Mp3Handle, start_time: u128) {
-        let end_time = handle.player.length() as u128 + start_time;
+        let end_time = length_to_ns(
+            handle.player.length(),
+            handle.player.sample_rate().into(),
+            1, // mp3 length() already takes channels into account
+        ) + start_time;
         self.multimedia_end = Some((handle.id, Some(end_time)));
         if self.do_output {
             let _ = self.mixer_handle.add_exclusive(
@@ -102,7 +106,11 @@ impl AudioManager {
     }
 
     pub fn play_wav(&mut self, handle: &WavHandle, start_time: u128) {
-        let end_time = handle.player.length() as u128 + start_time;
+        let end_time = length_to_ns(
+            handle.player.length(),
+            handle.player.sample_rate().into(),
+            handle.player.channel_count().into(),
+        ) + start_time;
         if handle.exclusive {
             self.multimedia_end = Some((handle.id, Some(end_time)));
         } else if self.end_times.get(&handle.id) != Some(&None) {
@@ -227,6 +235,10 @@ pub struct AudioState {
     global_volume: Arc<AtomicU32>,
     end_times: HashMap<i32, Option<u128>>,
     multimedia_end: Option<(i32, Option<u128>)>,
+}
+
+fn length_to_ns(sample_count: usize, sample_rate: u32, channels: u16) -> u128 {
+    (sample_count as u128 * 1_000_000_000) / (u128::from(sample_rate) * u128::from(channels))
 }
 
 // This function takes a volume between 0.0 and 1.0 and converts it to the logarithmic scale used by DirectMusic.
