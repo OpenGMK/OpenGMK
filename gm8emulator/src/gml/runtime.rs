@@ -561,7 +561,12 @@ impl Game {
                 context.this = old_this;
                 context.other = old_other;
             },
-            Instruction::GlobalVar { fields } => self.globalvars.extend(fields),
+            Instruction::GlobalVar { fields } => {
+                self.globalvars.extend(fields);
+                for &field in fields {
+                    self.globals.fields.entry(field).or_insert(Field::new(0, Default::default()));
+                }
+            },
             Instruction::RuntimeError { error } => return Err(error.clone()),
         }
 
