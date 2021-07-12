@@ -6461,9 +6461,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function show_question")
     }
 
-    pub fn show_error(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function show_error")
+    pub fn show_error(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (text, _abort) = expect_args!(args, [string, bool])?;
+        Err(gml::Error::FunctionError("show_error".into(), text.into()))
     }
 
     pub fn show_info(&mut self, _args: &[Value]) -> gml::Result<Value> {
