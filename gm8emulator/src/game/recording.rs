@@ -774,7 +774,7 @@ impl Game {
             frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
             frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
-            let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
+            let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
             for i in 0..8 {
                 let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
                 frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
