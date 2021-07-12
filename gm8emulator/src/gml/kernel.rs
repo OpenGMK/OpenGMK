@@ -8229,9 +8229,48 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_duplicate")
     }
 
-    pub fn sprite_assign(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_assign")
+    pub fn sprite_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if let Some(src) = self.assets.sprites.get_asset(src_id) {
+            if let Some(sprite) = self.assets.sprites.get_asset(dst_id) {
+                for frame in &sprite.frames {
+                    self.renderer.delete_sprite(frame.atlas_ref);
+                }
+            }
+            if dst_id >= 0 && self.assets.sprites.len() > dst_id as usize {
+                let renderer = &mut self.renderer; // borrowck
+                let frames = src
+                    .frames
+                    .iter()
+                    .map(|f| {
+                        Ok(asset::sprite::Frame {
+                            atlas_ref: renderer.duplicate_sprite(&f.atlas_ref).map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
+                            width: f.width,
+                            height: f.height,
+                        })
+                    })
+                    .collect::<gml::Result<_>>()?;
+                self.assets.sprites[dst_id as usize] = Some(Box::new(asset::Sprite {
+                    name: src.name.clone(),
+                    frames,
+                    colliders: src.colliders.clone(),
+                    width: src.width,
+                    height: src.height,
+                    origin_x: src.origin_x,
+                    origin_y: src.origin_y,
+                    per_frame_colliders: src.per_frame_colliders,
+                    bbox_left: src.bbox_left,
+                    bbox_right: src.bbox_right,
+                    bbox_top: src.bbox_top,
+                    bbox_bottom: src.bbox_bottom,
+                }));
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError("sprite_assign".into(), "Destination sprite has an invalid index".into()))
+            }
+        } else {
+            Err(gml::Error::FunctionError("sprite_assign".into(), "Source sprite does not exist".into()))
+        }
     }
 
     pub fn sprite_merge(&mut self, _args: &[Value]) -> gml::Result<Value> {
