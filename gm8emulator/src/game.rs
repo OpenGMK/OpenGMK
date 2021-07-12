@@ -127,6 +127,7 @@ pub struct Game {
     pub auto_draw: bool,
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+    pub swap_creation_events: bool,
 
     pub potential_step_settings: pathfinding::PotentialStepSettings,
 
@@ -1096,6 +1097,7 @@ impl Game {
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            swap_creation_events: settings.swap_creation_events,
             potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
@@ -1437,13 +1439,20 @@ impl Game {
 
         for (handle, instance) in &new_handles {
             if self.room.instance_list.get(*handle).is_active() {
+                if self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
+
                 // Run this instance's room creation code
                 let mut new_context = Context::with_single_instance(*handle);
                 new_context.event_object = instance.object;
                 self.execute(&instance.creation.clone()?, &mut new_context)?;
 
-                // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                if !self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
             }
         }
 

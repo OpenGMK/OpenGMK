@@ -235,6 +235,10 @@ where
             (GameVersion::GameMaker8_0, x) => (x != 0, false),
             (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
         };
+        let swap_creation_events = match cfg.read_u32::<LE>() {
+            Ok(_webgl) => cfg.read_u32::<LE>()? != 0,
+            Err(_) => false,
+        };
 
         log!(logger, " + Loaded settings structure");
         log!(logger, "   - Start in full-screen mode: {}", fullscreen);
@@ -371,6 +375,7 @@ where
             always_abort,
             zero_uninitialized_vars,
             error_on_uninitialized_args,
+            swap_creation_events,
         }
     };
 
