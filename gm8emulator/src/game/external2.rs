@@ -9,7 +9,6 @@ use crate::types::ID;
 use self::{dll::{CallConv, ValueType}, wow64::IpcExternals};
 
 pub enum ExternalManager {
-    Dummy(()),
     Emulated(()),
     #[cfg(all(target_os = "windows", target_arch = "x86"))]
     Win32(win32::NativeExternals),
@@ -20,7 +19,6 @@ pub enum ExternalManager {
 macro_rules! dispatch {
     ($em:expr, $f:ident ( $($arg:ident),* $(,)? ) ) => {
         match $em {
-            Self::Dummy(_dummy) => todo!(),
             Self::Emulated(_emu) => todo!(),
             #[cfg(all(target_os = "windows", target_arch = "x86"))]
             Self::Win32(win32) => win32.$f($($arg),*),
@@ -72,6 +70,10 @@ impl ExternalManager {
         let dll = dll.find('\0').map(|x| &dll[..x]).unwrap_or(dll);
         let symbol = symbol.find('\0').map(|x| &symbol[..x]).unwrap_or(symbol);
         dispatch!(self, define(dll, symbol, call_conv, type_args, type_return))
+    }
+
+    pub fn define_dummy(&mut self, dll: &str, dummy: dll::Value) -> Result<ID, String> {
+        dispatch!(self, define_dummy(dll, dummy))
     }
 
     pub fn free(&mut self, id: ID) -> Result<(), String> {

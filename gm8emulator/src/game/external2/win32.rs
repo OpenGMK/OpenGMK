@@ -58,7 +58,12 @@ pub struct NativeExternals {
     id: ID,
 }
 
-struct External {
+enum External {
+    Dummy(dll::Value),
+    Dll(DllExternal),
+}
+
+struct DllExternal {
     cif: ffi::Cif,
     code_ptr: ffi::CodePtr,
     type_args: Vec<dll::ValueType>,
@@ -82,43 +87,54 @@ impl NativeExternals {
             None => return Err(format!("undefined external with id {}", id)),
         };
 
-        if args.len() != external.type_args.len() {
-            return Err(format!(
-                "wrong number of arguments passed to '{}' (expected {}, got {})",
-                external.symbol,
-                external.type_args.len(),
-                args.len(),
-            ))
-        }
+        match external {
+            External::Dummy(dummy) => Ok(dummy.clone()),
+            External::Dll(external) => {
+                if args.len() != external.type_args.len() {
+                    return Err(format!(
+                        "wrong number of arguments passed to '{}' (expected {}, got {})",
+                        external.symbol,
+                        external.type_args.len(),
+                        args.len(),
+                    ))
+                }
 
-        let arg_ptrs: Vec<*const c_void> = args
-            .iter()
-            .zip(external.type_args.iter())
-            .map(|(arg, ty)| match (arg, ty) {
-                (dll::Value::Real(x), dll::ValueType::Real) => x as *const f64 as *const c_void,
-                (dll::Value::Real(_), dll::ValueType::Str) => &[0u32, 0u32][1] as *const u32 as *const c_void,
-                (dll::Value::Str(x), dll::ValueType::Str) => x.as_ptr().cast(),
-                (dll::Value::Str(_), dll::ValueType::Real) => &0.0f64 as *const f64 as *const c_void,
-            })
-            .collect();
+                let arg_ptrs: Vec<*const c_void> = args
+                    .iter()
+                    .zip(external.type_args.iter())
+                    .map(|(arg, ty)| match (arg, ty) {
+                        (dll::Value::Real(x), dll::ValueType::Real)
+                            => x as *const f64 as *const c_void,
+                        (dll::Value::Real(_), dll::ValueType::Str)
+                            => &[0u32, 0u32][1] as *const u32 as *const c_void,
+                        (dll::Value::Str(x), dll::ValueType::Str)
+                            => x.as_ptr().cast(),
+                        (dll::Value::Str(_), dll::ValueType::Real)
+                            => &0.0f64 as *const f64 as *const c_void,
+                    })
+                    .collect();
 
-        let ffi_args: Vec<ffi::Arg> = arg_ptrs
-            .iter()
-            .map(ffi::Arg::new)
-            .collect();
+                let ffi_args: Vec<ffi::Arg> = arg_ptrs
+                    .iter()
+                    .map(ffi::Arg::new)
+                    .collect();
 
-        unsafe {
-            Ok(match external.type_return {
-                dll::ValueType::Real => dll::Value::Real(external.cif.call::<f64>(external.code_ptr, &ffi_args)),
-                dll::ValueType::Str => dll::Value::Str({
-                    let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &ffi_args);
-                    if *char_ptr != 0 {
-                        dll::PascalString::new(CStr::from_ptr(char_ptr).to_bytes())
-                    } else {
-                        dll::PascalString::empty()
-                    }
-                }),
-            })
+                unsafe {
+                    Ok(match external.type_return {
+                        dll::ValueType::Real => dll::Value::Real(
+                            external.cif.call::<f64>(external.code_ptr, &ffi_args),
+                        ),
+                        dll::ValueType::Str => dll::Value::Str({
+                            let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &ffi_args);
+                            if *char_ptr != 0 {
+                                dll::PascalString::new(CStr::from_ptr(char_ptr).to_bytes())
+                            } else {
+                                dll::PascalString::empty()
+                            }
+                        }),
+                    })
+                }
+            },
         }
     }
 
@@ -160,14 +176,21 @@ impl NativeExternals {
                 .into_cif();
 
             let id = self.id;
-            self.defs.insert(id, External {
+            self.defs.insert(id, External::Dll(DllExternal {
                 cif, code_ptr, type_return,
                 type_args: type_args.to_vec(),
                 symbol: symbol.into(),
-            });
+            }));
             self.id += 1;
             Ok(id)
         }
+    }
+
+    pub fn define_dummy(&mut self, dll: &str, dummy: dll::Value) -> Result<ID, String> {
+        let id = self.id;
+        self.defs.insert(id, External::Dummy(dummy));
+        self.id += 1;
+        Ok(id)
     }
 
     pub fn free(&mut self, id: ID) -> Result<(), String> {

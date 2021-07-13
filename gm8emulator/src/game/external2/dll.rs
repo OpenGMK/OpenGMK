@@ -130,6 +130,7 @@ pub enum ValueType {
 pub enum Wow64Message {
     Call(super::ID, Vec<Value>),
     Define(String, String, CallConv, Vec<ValueType>, ValueType),
+    DefineDummy(String, Value),
     Free(super::ID),
 
     Stop,

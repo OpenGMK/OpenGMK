@@ -48,6 +48,10 @@ impl IpcExternals {
         self.send(dll::Wow64Message::Define(dll.into(), symbol.into(), call_conv, type_args.into(), type_return))
     }
 
+    pub fn define_dummy(&mut self, dll: &str, dummy: dll::Value) -> Result<ID, String> {
+        self.send(dll::Wow64Message::DefineDummy(dll.into(), dummy))
+    }
+
     pub fn free(&mut self, id: ID) -> Result<(), String> {
         self.send(dll::Wow64Message::Free(id))
     }
