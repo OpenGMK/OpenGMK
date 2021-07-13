@@ -76,7 +76,7 @@ impl NativeExternals {
         })
     }
 
-    pub fn call(&self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
+    pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
         let external = match self.defs.get(&id) {
             Some(x) => x,
             None => return Err(format!("undefined external with id {}", id)),

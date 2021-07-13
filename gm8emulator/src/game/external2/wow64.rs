@@ -25,6 +25,10 @@ impl IpcExternals {
         todo!()
     }
 
+    pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
+        todo!()
+    }
+
     pub fn define(
         &mut self,
         dll: &str,
