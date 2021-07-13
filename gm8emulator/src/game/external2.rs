@@ -2,11 +2,15 @@ pub mod dll;
 
 #[cfg(all(target_os = "windows"))]
 mod win32;
+#[cfg(all(target_os = "windows"))]
+use self::win32::NativeExternals;
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 mod wow64;
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+use self::wow64::IpcExternals;
 
 use crate::types::ID;
-use self::{dll::{CallConv, ValueType}, wow64::IpcExternals};
+use self::{dll::{CallConv, ValueType}};
 
 pub enum ExternalManager {
     Emulated(()),
@@ -40,7 +44,7 @@ impl ExternalManager {
 
     #[cfg(all(target_os = "windows", target_arch = "x86"))]
     fn new_native() -> Result<Self, String> {
-        Self::Win32(NativeExternals::new())
+        NativeExternals::new().map(Self::Win32)
     }
 
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
