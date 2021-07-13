@@ -1,7 +1,7 @@
 use serde::{ser, Serialize, de, Deserialize};
 use std::{
     alloc::{self, alloc, dealloc, Layout},
-    ffi::CStr, fmt, ops::Drop, ptr::NonNull, slice,
+    fmt, ops::Drop, ptr::NonNull, slice,
 };
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -131,4 +131,6 @@ pub enum Wow64Message {
     Call(super::ID, Vec<Value>),
     Define(String, String, CallConv, Vec<ValueType>, ValueType),
     Free(super::ID),
+
+    Stop,
 }
