@@ -54,7 +54,7 @@ impl PascalString {
 
     pub fn as_ptr(&self) -> *const u8 {
         match self.ptr {
-            Some(ptr) => ptr.as_ptr(),
+            Some(ptr) => unsafe { ptr.as_ptr().add(4) },
             None => &[0u32, 0u32][1] as *const u32 as *const u8,
         }
     }
