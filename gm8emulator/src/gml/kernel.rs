@@ -3146,6 +3146,9 @@ impl Game {
         } else {
             self.health = health;
         }
+        if old_health > 0.into() && self.health <= 0.into() {
+            self.run_object_event(7, 9, None)?;
+        }
         Ok(Default::default())
     }
 
