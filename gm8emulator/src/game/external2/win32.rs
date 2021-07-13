@@ -83,7 +83,7 @@ impl NativeExternals {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             defs: Default::default(),
-            id: 1,
+            id: 0,
         })
     }
 
