@@ -319,14 +319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gm8emulator-wow64"
-version = "0.1.0"
-dependencies = [
- "crc32fast",
- "libffi",
-]
-
-[[package]]
 name = "gm8exe"
 version = "0.1.0"
 dependencies = [
