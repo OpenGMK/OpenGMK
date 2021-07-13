@@ -1,5 +1,5 @@
 mod dummy;
-mod win32;
+// mod win32;
 // mod win64;
 
 use crate::gml::{self, Value};
