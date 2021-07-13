@@ -59,7 +59,7 @@ impl PascalString {
         }
     }
 
-    fn as_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
     }
 }
@@ -131,7 +131,7 @@ pub enum Wow64Message {
     Call(super::ID, Vec<Value>),
     Define(String, String, CallConv, Vec<ValueType>, ValueType),
     DefineDummy(String, String, Value, usize),
-    Free(super::ID),
+    Free(String),
 
     Stop,
 }

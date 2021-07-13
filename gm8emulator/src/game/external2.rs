@@ -76,7 +76,7 @@ impl ExternalManager {
         dispatch!(self, define_dummy(dll, symbol, dummy, argc))
     }
 
-    pub fn free(&mut self, id: ID) -> Result<(), String> {
-        dispatch!(self, free(id))
+    pub fn free(&mut self, dll: &str) -> Result<(), String> {
+        dispatch!(self, free(dll))
     }
 }

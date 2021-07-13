@@ -75,8 +75,7 @@ struct DllExternal {
     code_ptr: ffi::CodePtr,
     type_args: Vec<dll::ValueType>,
     type_return: dll::ValueType,
-
-    // for debug only
+    dll: String,
     symbol: String,
 }
 
@@ -197,6 +196,7 @@ impl NativeExternals {
             self.defs.insert(id, External::Dll(DllExternal {
                 cif, code_ptr, type_return,
                 type_args: type_args.to_vec(),
+                dll: dll.into(),
                 symbol: symbol.into(),
             }));
             self.id += 1;
@@ -216,12 +216,12 @@ impl NativeExternals {
         Ok(id)
     }
 
-    pub fn free(&mut self, id: ID) -> Result<(), String> {
-        if let None = self.defs.remove(&id) {
-            Err(format!("id {} was never defined", id))
-        } else {
-            Ok(())
-        }
+    pub fn free(&mut self, target: &str) -> Result<(), String> {
+        self.defs.retain(|_, v| match v {
+            External::Dummy(DummyExternal { dll, .. }) => !dll.eq_ignore_ascii_case(target),
+            External::Dll(DllExternal { dll, .. }) => !dll.eq_ignore_ascii_case(target),
+        });
+        Ok(())
     }
 }
 
