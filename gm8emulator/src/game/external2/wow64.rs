@@ -17,7 +17,7 @@ impl IpcExternals {
     pub fn new() -> Result<Self, String> {
         let mut process_path = env::current_exe()
             .expect("failed to query path to current executable");
-        process_path.set_file_name(match env::var_os(PROCESS_DEFAULT_NAME) {
+        process_path.set_file_name(match env::var_os(PROCESS_ENV_OVERRIDE) {
             Some(name) => name,
             None => PROCESS_DEFAULT_NAME.into(),
         });
