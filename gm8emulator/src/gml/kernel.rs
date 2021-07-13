@@ -2453,15 +2453,25 @@ impl Game {
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(direction, gravity)| {
             let instance = self.room.instance_list.get(context.this);
-            instance.gravity.set(gravity);
-            instance.gravity_direction.set(direction);
+            if context.relative {
+                instance.gravity.set(gravity + instance.gravity.get());
+                instance.gravity_direction.set(direction + instance.gravity.get());
+            } else {
+                instance.gravity.set(gravity);
+                instance.gravity_direction.set(direction);
+            }
         })?;
         Ok(Default::default())
     }
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.room.instance_list.get(context.this).friction.set(x);
+            let instance = self.room.instance_list.get(context.this);
+            if context.relative {
+                instance.friction.set(x + instance.friction.get());
+            } else {
+                instance.friction.set(x);
+            }
             Ok(Default::default())
         })?
     }
@@ -2796,7 +2806,9 @@ impl Game {
 
     pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (time, alarm) = expect_args!(args, [int, int])?;
-        self.room.instance_list.get(context.this).alarms.borrow_mut().insert(alarm as u32, time);
+        let mut alarms = self.room.instance_list.get(context.this).alarms.borrow_mut();
+        let time = if context.relative { time + alarms.get(&(alarm as u32)).copied().unwrap_or(-1) } else { time };
+        alarms.insert(alarm as u32, time);
         Ok(Default::default())
     }
 
@@ -3126,9 +3138,14 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_set_health(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_health(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let health = expect_args!(args, [real])?;
-        self.health = health;
+        let old_health = self.health;
+        if context.relative {
+            self.health += health;
+        } else {
+            self.health = health;
+        }
         Ok(Default::default())
     }
 
