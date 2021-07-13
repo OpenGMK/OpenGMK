@@ -129,6 +129,13 @@ impl Div for Real {
     }
 }
 
+impl From<u8> for Real {
+    #[inline(always)]
+    fn from(i: u8) -> Self {
+        Self(f64::from(i))
+    }
+}
+
 impl From<i32> for Real {
     #[inline(always)]
     fn from(i: i32) -> Self {

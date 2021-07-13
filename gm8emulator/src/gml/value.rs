@@ -396,6 +396,12 @@ impl From<usize> for Value {
     }
 }
 
+impl From<u8> for Value {
+    fn from(value: u8) -> Self {
+        Self::Real(value.into())
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Real(if value { gml::TRUE } else { gml::FALSE }.into())
