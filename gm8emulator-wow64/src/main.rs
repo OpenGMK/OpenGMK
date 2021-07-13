@@ -24,8 +24,6 @@ fn main() -> io::Result<()> {
         unsafe { message.set_len(length) };
         stdin.read_exact(message.as_mut_slice())?;
 
-        println!("wow64> got a length: {}", length);
-
         macro_rules! respond {
             ($res:expr) => {{
                 let result = $res;
