@@ -79,7 +79,7 @@ impl NativeExternals {
     pub fn call(&self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
         let external = match self.defs.get(&id) {
             Some(x) => x,
-            None => panic!("no"),
+            None => return Err(format!("undefined external with id {}", id)),
         };
 
         if args.len() != external.type_args.len() {
@@ -167,6 +167,14 @@ impl NativeExternals {
             });
             self.id += 1;
             Ok(id)
+        }
+    }
+
+    pub fn free(&mut self, id: ID) -> Result<(), String> {
+        if let None = self.defs.remove(&id) {
+            Err(format!("id {} was never defined", id))
+        } else {
+            Ok(())
         }
     }
 }

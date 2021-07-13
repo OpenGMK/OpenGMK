@@ -1,4 +1,5 @@
 use std::{env, process};
+use super::{dll, ID};
 
 const PROCESS_DEFAULT_NAME: &str = "gm8emulator-wow64.exe";
 const PROCESS_ENV_OVERRIDE: &str = "OPENGMK_WOW64_BINARY";
@@ -21,6 +22,21 @@ impl IpcExternals {
             .spawn()
             .map_err(|e| format!("failed to spawn child process: {}", e))?;
 
+        todo!()
+    }
+
+    pub fn define(
+        &mut self,
+        dll: &str,
+        symbol: &str,
+        call_conv: dll::CallConv,
+        type_args: &[dll::ValueType],
+        type_return: dll::ValueType,
+    ) -> Result<ID, String> {
+        todo!()
+    }
+
+    pub fn free(&mut self, id: ID) -> Result<(), String> {
         todo!()
     }
 }
