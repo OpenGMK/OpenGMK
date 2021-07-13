@@ -4500,7 +4500,7 @@ impl Game {
                 (0, 0) => 0.0,
                 (x, 0) => x.into(),
                 (0, y) => y.into(),
-                (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
+                (x, y) => f64::from(x).hypot(y.into()),
             }
         }
 
