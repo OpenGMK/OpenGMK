@@ -33,3 +33,7 @@ rect_packer = "0.2.1"
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 time = "0.2.26"
+
+[target.'cfg(all(target_os = "windows"))'.dependencies]
+crc32fast = "1.2"
+libffi = "1.0.0"
