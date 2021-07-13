@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
+        draw, external2, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
@@ -7146,39 +7146,65 @@ impl Game {
         if let (Some(dll_name), Some(fn_name), Some(call_conv), Some(res_type), Some(argnumb)) =
             (args.get(0), args.get(1), args.get(2), args.get(3), args.get(4))
         {
-            let dll_name = gml::String::from(dll_name.clone());
-            let fn_name = gml::String::from(fn_name.clone());
+            let encoding = match self.gm_version {
+                Version::GameMaker8_0 => self.encoding,
+                Version::GameMaker8_1 => encoding_rs::UTF_8,
+            };
+            let gm_dll = gml::String::from(dll_name.clone());
+            let dll = gm_dll.decode(encoding);
+            let gm_function = gml::String::from(fn_name.clone());
+            let function = gm_function.decode(encoding);
+
+            let mut dummy = None;
+            if self.play_type == PlayType::Record {
+                if dll.eq_ignore_ascii_case("gmfmodsimple.dll") {
+                    if &*function == "FMODSoundAdd" {
+                        dummy = Some(external2::dll::Value::Real(1.0));
+                    } else {
+                        dummy = Some(external2::dll::Value::Real(0.0));
+                    }
+                } else if
+                    dll.eq_ignore_ascii_case("ssound.dll") ||
+                    dll.eq_ignore_ascii_case("supersound.dll") ||
+                    dll.eq_ignore_ascii_case("sxms-3.dll")
+                {
+                    dummy = Some(external2::dll::Value::Real(0.0));
+                }
+            }
+
+            if dll.eq_ignore_ascii_case("gmeffect_0.1.dll") {
+                // TODO: don't
+                // ^ floogle's original comment, whatever it may mean
+                dummy = Some(external2::dll::Value::Real(0.0));
+            }
+
             let call_conv = match call_conv.round() {
-                0 => external::CallConv::Cdecl,
-                _ => external::CallConv::Stdcall,
+                0 => external2::dll::CallConv::Cdecl,
+                _ => external2::dll::CallConv::Stdcall,
             };
             let res_type = match res_type.round() {
-                0 => external::ValueType::Real,
-                _ => external::ValueType::Str,
+                0 => external2::dll::ValueType::Real,
+                _ => external2::dll::ValueType::Str,
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
                 return Err(gml::Error::WrongArgumentCount(5 + argnumb.max(5) as usize, args.len()))
             }
-            let arg_types = args[5..]
-                .iter()
-                .map(|v| match v.round() {
-                    0 => external::ValueType::Real,
-                    _ => external::ValueType::Str,
-                })
-                .collect::<Vec<_>>();
-            self.externals.push(Some(
-                external::External::new(
-                    external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types },
-                    self.play_type == PlayType::Record,
-                    match self.gm_version {
-                        Version::GameMaker8_0 => self.encoding,
-                        Version::GameMaker8_1 => encoding_rs::UTF_8,
-                    },
-                )
-                .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
-            ));
-            Ok((self.externals.len() - 1).into())
+
+            if let Some(dummy) = dummy {
+                // safety: arg count was checked above
+                let argc = argnumb as usize;
+                self.externals.define_dummy(&*dll, &*function, dummy, argc)
+            } else {
+                let arg_types = args[5..]
+                    .iter()
+                    .map(|v| match v.round() {
+                        0 => external2::dll::ValueType::Real,
+                        _ => external2::dll::ValueType::Str,
+                    })
+                    .collect::<Vec<_>>();
+                self.externals.define(&*dll, &*function, call_conv, &arg_types, res_type)
+            }.map(Value::from).map_err(|e| gml::Error::FunctionError("external_define".into(), e))
         } else {
             Err(gml::Error::WrongArgumentCount(5, args.len()))
         }
@@ -7187,23 +7213,28 @@ impl Game {
     pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            if let Some(external) = self.externals.get_asset(id) {
-                return external.call(&args[1..])
-            }
+            let dll_args: Vec<external2::dll::Value> = (&args[1..])
+                .iter()
+                .cloned()
+                .map(external2::dll::Value::from)
+                .collect();
+            self.externals.call(id, &dll_args)
+                .map(Value::from)
+                .map_err(|e| gml::Error::FunctionError("external_call".into(), e))
+        } else {
+            Ok(Default::default())
         }
-        Ok(Default::default())
     }
 
     pub fn external_free(&mut self, args: &[Value]) -> gml::Result<Value> {
         let dll_name = expect_args!(args, [bytes])?;
-        for e_opt in self.externals.iter_mut() {
-            if let Some(e) = e_opt {
-                if e.info.dll_name.eq_ignore_ascii_case(dll_name.as_ref()) {
-                    drop(e);
-                    *e_opt = None;
-                }
-            }
-        }
+        let encoding = match self.gm_version {
+            Version::GameMaker8_0 => self.encoding,
+            Version::GameMaker8_1 => encoding_rs::UTF_8,
+        };
+        let dll = gml::String::from(dll_name);
+        self.externals.free(&*dll.decode(encoding))
+            .map_err(|e| gml::Error::FunctionError("external_free".into(), e))?;
         Ok(Default::default())
     }
 
