@@ -1,4 +1,4 @@
-use crate::{gml, math::Real};
+use crate::{game::external2::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryInto,
@@ -495,6 +495,24 @@ impl<'a> From<&'a Value> for &'a [u8] {
 impl Default for Value {
     fn default() -> Self {
         Self::Real(Real::from(0.0))
+    }
+}
+
+impl From<Value> for dll::Value {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Real(r) => dll::Value::Real(r.into()),
+            Value::Str(s) => dll::Value::Str(dll::PascalString::new(s.as_ref())),
+        }
+    }
+}
+
+impl From<dll::Value> for Value {
+    fn from(v: dll::Value) -> Self {
+        match v {
+            dll::Value::Real(r) => Value::Real(r.into()),
+            dll::Value::Str(s) => s.as_slice().into(),
+        }
     }
 }
 
