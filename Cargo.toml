@@ -1,4 +1,4 @@
-cargo-features = ['strip']
+cargo-features = ["per-package-target", "strip"]
 
 [workspace]
 members = [
