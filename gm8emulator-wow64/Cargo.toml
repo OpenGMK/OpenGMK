@@ -8,6 +8,8 @@ authors = ["The OpenGMK Project Developers"]
 edition = "2018"
 
 [dependencies]
+bincode = "1.2"
 byteorder = "1"
 crc32fast = "1.2"
 libffi = "1.0.0"
+serde = { version = "1.0", features = ["derive"] }
