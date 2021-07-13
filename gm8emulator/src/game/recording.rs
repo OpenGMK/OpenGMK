@@ -735,6 +735,20 @@ impl Game {
                 }
             }
 
+            if frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None) {
+                let mut filepath = project_path.clone();
+                filepath.push("save.gmtas");
+                match replay.to_file(&filepath) {
+                    Ok(()) => (),
+                    Err(replay::WriteError::IOErr(err)) =>
+                        err_string = Some(format!("Failed to write save.gmtas: {}", err)),
+                    Err(replay::WriteError::CompressErr(err)) =>
+                        err_string = Some(format!("Failed to compress save.gmtas: {}", err)),
+                    Err(replay::WriteError::SerializeErr(err)) =>
+                        err_string = Some(format!("Failed to serialize save.gmtas: {}", err)),
+                }
+            }
+
             frame.text(&frame_text);
             if new_rand.is_some() {
                 frame.coloured_text(&seed_text, Colour::new(1.0, 0.5, 0.5));
@@ -754,7 +768,7 @@ impl Game {
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
-            if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 114.0))) {
+            if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
                 if let Some(rand) = &mut new_rand {
                     rand.cycle();
                     seed_text = format!("Seed: {}*", rand.seed());
