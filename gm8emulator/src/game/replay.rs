@@ -1,5 +1,8 @@
-use crate::{gml::Value};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use crate::gml::Value;
+use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
+use std::{fs::{File, OpenOptions}, io::{self, Read, Write}, path::PathBuf};
 
 // Represents an entire replay (TAS) file
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,9 +54,96 @@ pub enum Input {
     MouseWheelDown,
 }
 
+#[derive(Debug)]
+pub enum ReadError {
+    IOErr(io::Error),
+    DecompressErr(lzzzz::Error),
+    DeserializeErr(Box<bincode::ErrorKind>),
+    UnknownVersion(u32),
+}
+
+#[derive(Debug)]
+pub enum WriteError {
+    IOErr(io::Error),
+    CompressErr(lzzzz::Error),
+    SerializeErr(Box<bincode::ErrorKind>),
+}
+
 impl Replay {
     pub fn new(start_time: u128, start_seed: i32) -> Self {
         Self { start_time, start_seed, startup_events: Vec::new(), frames: Vec::new() }
+    }
+
+    // Loads a Replay from a gmtas-format file (doesn't check the file extension)
+    pub fn from_file(path: &PathBuf) -> Result<Self, ReadError> {
+        let mut lz4_buf = Vec::new();
+        let mut bin_buf = Vec::new();
+        let mut file = File::open(path).map_err(ReadError::IOErr)?;
+
+        match file.read_u32::<LE>() {
+            Ok(1) => {
+                let init_size = file.metadata().map(|m| m.len() as usize + 1).unwrap_or(0);
+                lz4_buf.reserve(init_size);
+                match file.read_to_end(&mut lz4_buf) {
+                    Ok(_) => match (
+                        lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
+                        lz4_buf.get(8..),
+                    ) {
+                        (Ok(len), Some(block)) => {
+                            bin_buf.reserve(len);
+                            unsafe { bin_buf.set_len(len) };
+                            match lz4::decompress(block, bin_buf.as_mut_slice()) {
+                                Ok(len) => {
+                                    unsafe { bin_buf.set_len(len) };
+                                    bincode::deserialize::<'_, Self>(bin_buf.as_slice())
+                                        .map_err(ReadError::DeserializeErr)
+                                },
+                                Err(err) => Err(ReadError::DecompressErr(err)),
+                            }
+                        },
+                        (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
+                        (Err(err), _) => Err(ReadError::IOErr(err)),
+                    },
+                    Err(err) => Err(ReadError::IOErr(err)),
+                }
+            },
+            Ok(v) => Err(ReadError::UnknownVersion(v)),
+            Err(e) => Err(ReadError::IOErr(e)),
+        }
+    }
+
+    // Serializes this replay into a file
+    pub fn to_file(&self, path: &PathBuf) -> Result<(), WriteError> {
+        let mut lz4_buf = Vec::new();
+        let mut bin_buf = Vec::new();
+        match bincode::serialize_into(&mut bin_buf, self) {
+            Ok(()) => {
+                match lz4::compress_to_vec(
+                    bin_buf.as_slice(),
+                    lz4_buf.as_mut(),
+                    lz4::ACC_LEVEL_DEFAULT,
+                ) {
+                    Ok(_length) => {
+                        match OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(path)
+                            .and_then(|mut f| {
+                                f.write_u32::<LE>(1)
+                                    .and_then(|_| f.write_u64::<LE>(bin_buf.len() as u64)
+                                    .and_then(|_| f.write_all(lz4_buf.as_slice())))
+                            })
+                        {
+                            Ok(()) => Ok(()),
+                            Err(e) => Err(WriteError::IOErr(e)),
+                        }
+                    },
+                    Err(err) => Err(WriteError::CompressErr(err)),
+                }
+            },
+            Err(err) => Err(WriteError::SerializeErr(err)),
+        }
     }
 
     // Adds a new frame of input to the end of the replay.
