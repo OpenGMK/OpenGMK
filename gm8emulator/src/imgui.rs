@@ -174,6 +174,14 @@ impl Frame<'_> {
         }
     }
 
+    pub fn content_position(&self) -> Vec2<f32> {
+        unsafe {
+            let mut pos = std::mem::MaybeUninit::uninit();
+            c::igGetWindowContentRegionMin(pos.as_mut_ptr());
+            pos.assume_init().into()
+        }
+    }
+
     pub fn window_focused(&self) -> bool {
         unsafe { c::igIsWindowFocused(0) }
     }

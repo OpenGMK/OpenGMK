@@ -735,6 +735,20 @@ impl Game {
                 }
             }
 
+            if frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None) {
+                let mut filepath = project_path.clone();
+                filepath.push("save.gmtas");
+                match replay.to_file(&filepath) {
+                    Ok(()) => (),
+                    Err(replay::WriteError::IOErr(err)) =>
+                        err_string = Some(format!("Failed to write save.gmtas: {}", err)),
+                    Err(replay::WriteError::CompressErr(err)) =>
+                        err_string = Some(format!("Failed to compress save.gmtas: {}", err)),
+                    Err(replay::WriteError::SerializeErr(err)) =>
+                        err_string = Some(format!("Failed to serialize save.gmtas: {}", err)),
+                }
+            }
+
             frame.text(&frame_text);
             if new_rand.is_some() {
                 frame.coloured_text(&seed_text, Colour::new(1.0, 0.5, 0.5));
@@ -754,7 +768,7 @@ impl Game {
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
-            if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 114.0))) {
+            if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
                 if let Some(rand) = &mut new_rand {
                     rand.cycle();
                     seed_text = format!("Seed: {}*", rand.seed());
@@ -774,7 +788,7 @@ impl Game {
             frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
             frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
-            let pos = frame.window_position() + imgui::Vec2(1.0, 19.0);
+            let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
             for i in 0..8 {
                 let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
                 frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);

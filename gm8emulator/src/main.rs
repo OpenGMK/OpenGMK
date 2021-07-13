@@ -15,13 +15,8 @@ mod tile;
 mod util;
 mod types;
 
-use game::{Game, PlayType, savestate::{self, SaveState}};
-use std::{
-    env, fs,
-    io::BufReader,
-    path::{Path, PathBuf},
-    process,
-};
+use game::{Game, PlayType, Replay, savestate::{self, SaveState}};
+use std::{env, fs, path::{Path, PathBuf}, process};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -121,9 +116,8 @@ fn xmain() -> i32 {
                 Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
             },
 
-            Some("gmtas") => match fs::File::open(&filepath).map(BufReader::new).map(bincode::deserialize_from) {
-                Ok(Ok(replay)) => Ok(replay),
-                Ok(Err(e)) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+            Some("gmtas") => match Replay::from_file(&filepath) {
+                Ok(replay) => Ok(replay),
                 Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
             },
 
