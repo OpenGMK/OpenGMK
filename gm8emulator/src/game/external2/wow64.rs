@@ -1,6 +1,6 @@
 use std::{env, process};
 
-const PROCESS_DEFAULT_NAME: &str = "gm8emulator.wow64.exe";
+const PROCESS_DEFAULT_NAME: &str = "gm8emulator-wow64.exe";
 const PROCESS_ENV_OVERRIDE: &str = "OPENGMK_WOW64_BINARY";
 
 pub struct IpcExternals {
