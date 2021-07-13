@@ -41,6 +41,8 @@ fn main() -> io::Result<()> {
                 => respond!(externals.call(id, &args)),
             dll::Wow64Message::Define(dll, sym, cconv, args, ret)
                 => respond!(externals.define(&dll, &sym, cconv, &args, ret)),
+            dll::Wow64Message::DefineDummy(dll, sym, dummy, argc)
+                => respond!(externals.define_dummy(&dll, &sym, dummy, argc)),
             dll::Wow64Message::Free(id)
                 => respond!(externals.free(id)),
             dll::Wow64Message::Stop => {

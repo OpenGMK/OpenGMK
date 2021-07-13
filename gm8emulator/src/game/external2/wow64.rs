@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::{env, io::{self, Read, Write}, process, ops::Drop};
+use std::{env, io::{Read, Write}, process, ops::Drop};
 use serde::de;
 use super::{dll, ID};
 
@@ -48,8 +48,8 @@ impl IpcExternals {
         self.send(dll::Wow64Message::Define(dll.into(), symbol.into(), call_conv, type_args.into(), type_return))
     }
 
-    pub fn define_dummy(&mut self, dll: &str, dummy: dll::Value) -> Result<ID, String> {
-        self.send(dll::Wow64Message::DefineDummy(dll.into(), dummy))
+    pub fn define_dummy(&mut self, dll: &str, symbol: &str, dummy: dll::Value, argc: usize) -> Result<ID, String> {
+        self.send(dll::Wow64Message::DefineDummy(dll.into(), symbol.into(), dummy, argc))
     }
 
     pub fn free(&mut self, id: ID) -> Result<(), String> {

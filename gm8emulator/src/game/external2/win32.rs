@@ -59,8 +59,15 @@ pub struct NativeExternals {
 }
 
 enum External {
-    Dummy(dll::Value),
+    Dummy(DummyExternal),
     Dll(DllExternal),
+}
+
+struct DummyExternal {
+    dll: String,
+    symbol: String,
+    dummy: dll::Value,
+    argc: usize,
 }
 
 struct DllExternal {
@@ -88,7 +95,18 @@ impl NativeExternals {
         };
 
         match external {
-            External::Dummy(dummy) => Ok(dummy.clone()),
+            External::Dummy(dummy) => {
+                if args.len() != dummy.argc {
+                    Err(format!(
+                        "wrong number of arguments passed to dummy '{}' (expected {}, got {})",
+                        dummy.symbol,
+                        dummy.argc,
+                        args.len(),
+                    ))
+                } else {
+                    Ok(dummy.dummy.clone())
+                }
+            },
             External::Dll(external) => {
                 if args.len() != external.type_args.len() {
                     return Err(format!(
@@ -186,9 +204,14 @@ impl NativeExternals {
         }
     }
 
-    pub fn define_dummy(&mut self, dll: &str, dummy: dll::Value) -> Result<ID, String> {
+    pub fn define_dummy(&mut self, dll: &str, symbol: &str, dummy: dll::Value, argc: usize) -> Result<ID, String> {
         let id = self.id;
-        self.defs.insert(id, External::Dummy(dummy));
+        self.defs.insert(id, External::Dummy(DummyExternal {
+            dll: dll.into(),
+            symbol: symbol.into(),
+            dummy,
+            argc,
+        }));
         self.id += 1;
         Ok(id)
     }
