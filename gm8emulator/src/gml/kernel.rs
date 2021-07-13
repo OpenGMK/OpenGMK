@@ -5216,9 +5216,12 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
-                let mut iter = self.room.instance_list.iter_inactive_by_identity(obj);
+                let mut iter = self.room.instance_list.iter_inactive();
                 while let Some(handle) = iter.next(&self.room.instance_list) {
-                    self.room.instance_list.activate(handle);
+                    let inst = self.room.instance_list.get(handle);
+                    if inst.parents.borrow().contains(&obj) {
+                        self.room.instance_list.activate(handle);
+                    }
                 }
             },
             inst_id => {

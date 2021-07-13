@@ -309,15 +309,6 @@ impl InstanceList {
         }
     }
 
-    pub fn iter_inactive_by_identity(&self, object_index: ID) -> IdentityIter {
-        IdentityIter {
-            count: self.object_id_map_inherit.get(&object_index).map(|v| v.len()).unwrap_or(0),
-            position: 0,
-            object_index,
-            state: InstanceState::Inactive,
-        }
-    }
-
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
         ObjectIter {
             count: self.object_id_map.get(&object_index).map(|v| v.len()).unwrap_or(0),
