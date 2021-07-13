@@ -72,7 +72,7 @@ impl NativeExternals {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             defs: Default::default(),
-            id: 1, // TODO: what's the start id?
+            id: 1,
         })
     }
 
