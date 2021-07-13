@@ -1,6 +1,10 @@
-use std::{alloc::{self, alloc, dealloc, Layout}, ops::Drop, ptr::NonNull, slice};
+use serde::{ser, Serialize, de, Deserialize};
+use std::{
+    alloc::{self, alloc, dealloc, Layout},
+    ffi::CStr, fmt, ops::Drop, ptr::NonNull, slice,
+};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum CallConv {
     Cdecl,
     Stdcall,
@@ -8,13 +12,18 @@ pub enum CallConv {
 
 pub struct PascalString {
     layout: Layout,
+    len: usize,
     ptr: Option<NonNull<u8>>,
 }
+
+unsafe impl Send for PascalString {}
+unsafe impl Sync for PascalString {}
 
 impl PascalString {
     pub fn empty() -> Self {
         Self {
             layout: unsafe { Layout::from_size_align_unchecked(0, 4) },
+            len: 0,
             ptr: None,
         }
     }
@@ -34,6 +43,7 @@ impl PascalString {
                 *alloc.add(4 + bytes.len()) = 0x00;
                 Self {
                     layout,
+                    len: bytes.len(),
                     ptr: Some(NonNull::new_unchecked(alloc)),
                 }
             } else {
@@ -48,6 +58,50 @@ impl PascalString {
             None => &[0u32, 0u32][1] as *const u32 as *const u8,
         }
     }
+
+    fn as_slice(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
+    }
+}
+
+impl Clone for PascalString {
+    fn clone(&self) -> Self {
+        Self::new(self.as_slice())
+    }
+}
+
+impl ser::Serialize for PascalString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        serializer.serialize_bytes(self.as_slice())
+    }
+}
+
+impl<'de> de::Deserialize<'de> for PascalString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        struct PascalStringVisitor;
+        impl<'vis> de::Visitor<'vis> for PascalStringVisitor {
+            type Value = PascalString;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a pascal style string allocation")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PascalString::new(v))
+            }
+        }
+
+        deserializer.deserialize_bytes(PascalStringVisitor)
+    }
 }
 
 impl Drop for PascalString {
@@ -60,17 +114,21 @@ impl Drop for PascalString {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 pub enum Value {
     Real(f64),
     Str(PascalString),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum ValueType {
     Real,
     Str,
 }
 
-impl Value {
-
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Wow64Message {
+    Call(super::ID, Vec<Value>),
+    Define(String, String, CallConv, Vec<ValueType>, ValueType),
+    Free(super::ID),
 }
