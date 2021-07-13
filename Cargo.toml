@@ -4,6 +4,7 @@ cargo-features = ["per-package-target", "strip"]
 members = [
     # main projects
     "gm8emulator",
+    "gm8emulator-wow64",
     "gm8decompiler",
     "gml-parser",
     "gm8exe",

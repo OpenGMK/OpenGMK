@@ -1,0 +1,9 @@
+[package]
+name = "gm8emulator-wow64"
+version = "0.1.0"
+authors = ["The OpenGMK Project Developers"]
+edition = "2018"
+
+[dependencies]
+crc32fast = "1.2"
+libffi = "1.0.0"
