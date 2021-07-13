@@ -141,7 +141,7 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             textures: game.renderer.dump_dynamic_textures(),
-            externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
+            externals: unimplemented!(), //game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
             surface_fix: game.surface_fix.clone(),
             view_current: game.view_current,
             last_instance_id: game.last_instance_id.clone(),
@@ -224,18 +224,19 @@ impl SaveState {
 
         let mut externals = self.externals;
         // we're always gonna be recording if we're loading savestates so disable sound
-        game.externals = externals
-            .drain(..)
-            .map(|i| {
-                i.map(|i| {
-                    External::new(i, true, match game.gm_version {
-                        Version::GameMaker8_0 => game.encoding,
-                        Version::GameMaker8_1 => encoding_rs::UTF_8,
-                    })
-                    .unwrap()
-                })
-            })
-            .collect();
+        game.externals = unimplemented!();
+        // game.externals = externals
+        //     .drain(..)
+        //     .map(|i| {
+        //         i.map(|i| {
+        //             External::new(i, true, match game.gm_version {
+        //                 Version::GameMaker8_0 => game.encoding,
+        //                 Version::GameMaker8_1 => encoding_rs::UTF_8,
+        //             })
+        //             .unwrap()
+        //         })
+        //     })
+        //     .collect();
 
         game.surface_fix = self.surface_fix;
 

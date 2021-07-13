@@ -79,7 +79,7 @@ pub struct Game {
     pub extension_initializers: Vec<usize>,
     pub extension_finalizers: Vec<usize>,
 
-    pub externals: Vec<Option<external::External>>,
+    pub externals: external2::ExternalManager,
     pub surface_fix: bool,
 
     pub last_instance_id: ID,
@@ -1059,7 +1059,7 @@ impl Game {
             extension_functions,
             extension_initializers,
             extension_finalizers,
-            externals: Vec::new(),
+            externals: external2::ExternalManager::new(false).unwrap(),
             surface_fix: false,
             input: Input::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
