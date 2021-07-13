@@ -15,6 +15,7 @@ fn main() -> io::Result<()> {
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
+    eprintln!("wow64> compatibility layer started!");
     let mut message = Vec::with_capacity(1024);
     loop {
         message.clear();
@@ -22,6 +23,8 @@ fn main() -> io::Result<()> {
         let length = stdin.read_u32::<LE>()? as usize;
         unsafe { message.set_len(length) };
         stdin.read_exact(message.as_mut_slice())?;
+
+        println!("wow64> got a length: {}", length);
 
         macro_rules! respond {
             ($res:expr) => {{
@@ -31,6 +34,7 @@ fn main() -> io::Result<()> {
                 assert!(message.len() <= u32::max_value() as usize);
                 stdout.write_u32::<LE>(message.len() as u32)?;
                 stdout.write_all(&message[..])?;
+                stdout.flush()?;
             }};
         }
 

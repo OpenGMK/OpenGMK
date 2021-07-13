@@ -66,6 +66,7 @@ impl IpcExternals {
         assert!(self.msgbuf.len() <= u32::max_value() as usize);
         self.stdin.write_u32::<LE>(self.msgbuf.len() as u32)
             .and_then(|_| self.stdin.write_all(self.msgbuf.as_slice()))
+            .and_then(|_| self.stdin.flush())
             .map_err(|io| format!("failed to write to child stdin: {}", io))?;
         self.stdout.read_u32::<LE>()
             .and_then(|len| {
