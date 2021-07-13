@@ -80,15 +80,10 @@ impl IpcExternals {
 
 impl Drop for IpcExternals {
     fn drop(&mut self) {
-        fn try_graceful_exit(s: &mut IpcExternals) -> Option<()> {
-            s.msgbuf.clear();
-            bincode::serialize_into(&mut s.msgbuf, &dll::Wow64Message::Stop).ok()?;
-            s.stdin.write_u32::<LE>(s.msgbuf.len() as u32).ok()?;
-            s.stdin.write_all(s.msgbuf.as_slice()).ok()?;
-            Some(())
-        }
+        if let Err(_) = self.send::<()>(dll::Wow64Message::Stop) {
+            // TODO: `log` stuff
+            eprintln!("failed to naturally stop wow64 server process, killing");
 
-        if let None = try_graceful_exit(self) {
             // what a beautiful line
             let _ = self.child.kill();
         }

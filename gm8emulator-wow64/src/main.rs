@@ -43,7 +43,10 @@ fn main() -> io::Result<()> {
                 => respond!(externals.define(&dll, &sym, cconv, &args, ret)),
             dll::Wow64Message::Free(id)
                 => respond!(externals.free(id)),
-            dll::Wow64Message::Stop => break Ok(()),
+            dll::Wow64Message::Stop => {
+                respond!(Result::<(), String>::Ok(()));
+                break Ok(())
+            },
         }
     }
 }
