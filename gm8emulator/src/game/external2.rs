@@ -1,4 +1,4 @@
-mod dll;
+pub mod dll;
 
 #[cfg(all(target_os = "windows"))]
 mod win32;
