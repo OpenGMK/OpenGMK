@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
             ($res:expr) => {{
                 let result = $res;
                 message.clear();
-                bincode::serialize_into(&mut message, &result).expect("failed to serialize message");
+                bincode::serialize_into(&mut message, &result).expect("failed to serialize message (server)");
                 assert!(message.len() <= u32::max_value() as usize);
                 stdout.write_u32::<LE>(message.len() as u32)?;
                 stdout.write_all(&message[..])?;
@@ -35,7 +35,7 @@ fn main() -> io::Result<()> {
         }
 
         match bincode::deserialize::<dll::Wow64Message>(&message)
-            .expect("failed to deserialize message")
+            .expect("failed to deserialize message (server)")
         {
             dll::Wow64Message::Call(id, args)
                 => respond!(externals.call(id, &args)),
