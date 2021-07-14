@@ -2038,7 +2038,7 @@ impl Game {
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
@@ -2090,6 +2090,14 @@ impl Game {
                         replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
                         replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
                     }
+                }
+            } else if let Some(bin) = &output_bin {
+                let render_state = self.renderer.state();
+                match SaveState::from(&mut self, replay.clone(), render_state)
+                    .save_to_file(bin, &mut savestate::Buffer::new())
+                {
+                    Ok(()) => break Ok(()),
+                    Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
                 }
             }
 
