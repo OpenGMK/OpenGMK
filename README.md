@@ -121,7 +121,7 @@ a standalone executable or `.msi` installer, however the standalone builds
 just extract the contents of the installer to a temporary folder when they're launched.
 
 This project was originally started as
-[**`GM8Emulator`**](https://github.com/Adamcake/Legacy-GM8Emulator),
+[`GM8Emulator`](https://github.com/Adamcake/Legacy-GM8Emulator),
 a program that can load
 *GameMaker Classic* games and accurately play the game within.
 It should mimic the behaviour of the original engine as closely as possible,
@@ -133,9 +133,9 @@ We aren't emulating any computer system, just the engine.
 A more accurate term would be *sourceport* but emulator sounded cooler at the time.
 The project required us to write a decompiler to get the assets,
 and since we were already maintaining a fork of the 2013
-[**`gm81decompiler`**]((https://github.com/WastedMeerkat/gm81decompiler))
+[`gm81decompiler`]((https://github.com/WastedMeerkat/gm81decompiler))
 we made our own much faster version out of the new codebase,
-[**`GM8Decompiler`**]((https://github.com/OpenGMK/GM8Decompiler)),
+[`GM8Decompiler`]((https://github.com/OpenGMK/GM8Decompiler)),
 which was originally a separate repository but was eventually merged
 into the unified repository known as **`OpenGMK`**
 where all related (and future) projects will be hosted.
