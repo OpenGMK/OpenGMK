@@ -11,6 +11,7 @@ mod instance;
 mod instancelist;
 mod math;
 mod tile;
+mod types;
 mod util;
 
 use std::{
