@@ -54,6 +54,9 @@ fn wstrz(s: &str) -> Vec<WCHAR> {
 }
 
 pub struct NativeExternals {
+    buf_ffi_data: Vec<FfiData>,
+    buf_ffi_arg: Vec<ffi::Arg>,
+
     defs: HashMap<ID, External>,
     id: ID,
 }
@@ -79,9 +82,16 @@ struct DllExternal {
     symbol: String,
 }
 
+enum FfiData {
+    Real(f64),
+    Str(*const c_char),
+}
+
 impl NativeExternals {
     pub fn new() -> Result<Self, String> {
         Ok(Self {
+            buf_ffi_data: Vec::new(),
+            buf_ffi_arg: Vec::new(),
             defs: Default::default(),
             id: 0,
         })
@@ -116,33 +126,40 @@ impl NativeExternals {
                     ))
                 }
 
-                let arg_ptrs: Vec<*const c_void> = args
-                    .iter()
-                    .zip(external.type_args.iter())
-                    .map(|(arg, ty)| match (arg, ty) {
-                        (dll::Value::Real(x), dll::ValueType::Real)
-                            => x as *const f64 as *const c_void,
-                        (dll::Value::Real(_), dll::ValueType::Str)
-                            => &[0u32, 0u32][1] as *const u32 as *const c_void,
-                        (dll::Value::Str(x), dll::ValueType::Str)
-                            => x.as_ptr().cast(),
-                        (dll::Value::Str(_), dll::ValueType::Real)
-                            => &0.0f64 as *const f64 as *const c_void,
-                    })
-                    .collect();
+                self.buf_ffi_data.clear();
+                self.buf_ffi_data.extend(
+                    args
+                        .iter()
+                        .zip(external.type_args.iter())
+                        .map(|(arg, ty)| match (arg, ty) {
+                            (dll::Value::Real(x), dll::ValueType::Real)
+                                => FfiData::Real(*x),
+                            (dll::Value::Real(_), dll::ValueType::Str)
+                                => FfiData::Str(dll::PascalString::empty().as_ptr().cast()),
+                            (dll::Value::Str(x), dll::ValueType::Str)
+                                => FfiData::Str(x.as_ptr().cast()),
+                            (dll::Value::Str(_), dll::ValueType::Real)
+                                => FfiData::Real(0.0),
+                        })
+                );
 
-                let ffi_args: Vec<ffi::Arg> = arg_ptrs
-                    .iter()
-                    .map(ffi::Arg::new)
-                    .collect();
+                self.buf_ffi_arg.clear();
+                self.buf_ffi_arg.extend(
+                    self.buf_ffi_data
+                        .iter()
+                        .map(|data| match data {
+                            FfiData::Real(x) => ffi::Arg::new(x),
+                            FfiData::Str(s) => ffi::Arg::new(s),
+                        })
+                );
 
                 unsafe {
                     Ok(match external.type_return {
-                        dll::ValueType::Real => dll::Value::Real(
-                            external.cif.call::<f64>(external.code_ptr, &ffi_args),
-                        ),
+                        dll::ValueType::Real => {
+                            dll::Value::Real(external.cif.call::<f64>(external.code_ptr, &self.buf_ffi_arg))
+                        },
                         dll::ValueType::Str => dll::Value::Str({
-                            let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &ffi_args);
+                            let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &self.buf_ffi_arg);
                             if *char_ptr != 0 {
                                 dll::PascalString::new(CStr::from_ptr(char_ptr).to_bytes())
                             } else {
