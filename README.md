@@ -9,8 +9,6 @@ Until there's an official release, please note that your saves may break
 in future releases.
 See runtime errors section below on how to work around this.
 
-Also please keep in mind that we’re all volunteers making this passion project because we love fangames and want to contribute to the community
-
 ## Building GM8Emulator / GM8Decompiler
 
 This project is written in the Rust programming language. Download the toolchain manager directly from https://rustup.rs/ or a package manager of your choice.
@@ -50,8 +48,6 @@ where the WoW64 server is not required
 and the DLL loading logic is bundled inside GM8Emulator.
 It should be noted that cross-platform extension emulation is planned
 for the long-term future.
-
----
 
 ## Recording & Replaying TASes with GM8Emulator
 
@@ -97,8 +93,6 @@ Whether it will in the future is unclear right now.
 
 > Your game tried to access functionality that's yet to be implemented.
 > The full GameMaker standard library is massive and there's a good bit left to cover.
-
----
 
 ## About GameMaker Classic
 **GameMaker** is an engine for creating Windows games, developed by YoYo Games.
