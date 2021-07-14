@@ -4117,22 +4117,26 @@ impl Game {
     pub fn string_replace_all(args: &[Value]) -> gml::Result<Value> {
         let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
         let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
-        // could be faster but i'm feeling lazy
-        let mut out = Vec::new();
-        let mut section_start = 0;
-        let mut i = 0;
-        while i < s.len() {
-            if s[i..].starts_with(sub) {
-                out.extend_from_slice(&s[section_start..i]);
-                out.extend_from_slice(rep);
-                i += sub.len();
-                section_start = i;
-            } else {
-                i += 1;
+        if sub.len() > 0 {
+            // could be faster but i'm feeling lazy
+            let mut out = Vec::new();
+            let mut section_start = 0;
+            let mut i = 0;
+            while i < s.len() {
+                if s[i..].starts_with(sub) {
+                    out.extend_from_slice(&s[section_start..i]);
+                    out.extend_from_slice(rep);
+                    i += sub.len();
+                    section_start = i;
+                } else {
+                    i += 1;
+                }
             }
+            out.extend_from_slice(&s[section_start..]);
+            Ok(out.into())
+        } else {
+            Ok(s.into())
         }
-        out.extend_from_slice(&s[section_start..]);
-        Ok(out.into())
     }
 
     pub fn string_count(args: &[Value]) -> gml::Result<Value> {
