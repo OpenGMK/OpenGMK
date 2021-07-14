@@ -7369,9 +7369,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn set_program_priority(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_program_priority")
+    pub fn set_program_priority(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _priority = expect_args!(args, [int])?;
+        // do nothing
+        Ok(Default::default())
     }
 
     pub fn set_application_title(args: &[Value]) -> gml::Result<Value> {
