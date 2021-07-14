@@ -1,8 +1,0 @@
-[package]
-name = "dll-bridge"
-version = "0.1.0"
-authors = ["The OpenGMK Project Developers"]
-edition = "2018"
-
-[dependencies]
-shared = { path = "../shared" }

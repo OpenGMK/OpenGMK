@@ -1,11 +1,10 @@
 use crate::{
     asset::{self, font, Font},
-    game::{string::RCStr, Game, GetAsset, Version},
+    game::{Game, GetAsset, PlayType, Version},
     gml,
     math::Real,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Halign {
@@ -204,8 +203,9 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        let (width, height) = self.window.get_inner_size();
-        self.renderer.present(width, height, self.scaling);
+        if self.play_type != PlayType::Record {
+            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
+        }
 
         // Reset viewport
         self.renderer.set_view(
@@ -221,19 +221,9 @@ impl Game {
         );
 
         // Apply room caption
-        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
-        if show_score || self.lives_capt_d {
-            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
-            // write!() on a String never panics
-            if show_score {
-                write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
-            }
-            if self.lives_capt_d {
-                write!(caption, " {}{}", self.decode_str(self.lives_capt.as_ref()), self.lives).unwrap();
-            }
-            self.window.set_title(&caption);
-        } else {
-            self.window.set_title(self.decode_str(self.room.caption.as_ref()).as_ref());
+        let title = self.get_window_title();
+        if self.play_type != PlayType::Record {
+            self.window.set_title(title.as_ref());
         }
 
         Ok(())
@@ -434,7 +424,7 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string<'a>(&self, string: RCStr, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
+    fn split_string<'a>(&self, string: gml::String, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
         let encoded_text = match self.gm_version {
             Version::GameMaker8_0 => string.as_ref().to_vec(),
             Version::GameMaker8_1 => {
@@ -467,7 +457,7 @@ impl Game {
     /// Gets width and height of a string using the current draw_font.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn get_string_size(&self, string: RCStr, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
+    pub fn get_string_size(&self, string: gml::String, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
         let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         // Figure out what the height of a line is if one wasn't specified
@@ -496,7 +486,7 @@ impl Game {
         &mut self,
         x: Real,
         y: Real,
-        string: RCStr,
+        string: gml::String,
         line_height: Option<i32>,
         max_width: Option<i32>,
         xscale: Real,

@@ -1,16 +1,18 @@
+pub mod audio;
 pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
+pub mod external2;
 pub mod gm_save;
 pub mod includedfile;
 pub mod model;
 pub mod movement;
 pub mod particle;
 pub mod pathfinding;
+pub mod recording;
 pub mod replay;
 pub mod savestate;
-pub mod string;
 pub mod surface;
 pub mod transition;
 pub mod view;
@@ -29,44 +31,35 @@ use crate::{
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
         trigger::{self, Trigger},
-        Object, Script, Timeline,
+        Object, Script, Sound, Timeline,
     },
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
-    input::InputManager,
+    input::{self, Input},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
     math::Real,
+    render::{atlas::AtlasBuilder, Renderer, RendererOptions, Scaling},
+    types::{Colour, ID},
     tile, util,
 };
 use encoding_rs::Encoding;
 use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
-use gmio::{
-    atlas::AtlasBuilder,
-    render::{Renderer, RendererOptions, Scaling},
-    window::{self, Window, WindowBuilder},
-};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
+use ramen::{event::Event, monitor::Size, window::{Controls, Window}};
 use serde::{Deserialize, Serialize};
-use shared::{
-    input::MouseButton,
-    message::{self, Message, MessageStream},
-    types::{Colour, ID},
-};
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     convert::TryFrom,
     fs::File,
-    io::{BufReader, Write},
-    net::{SocketAddr, TcpStream},
+    io::Write,
     path::PathBuf,
     rc::Rc,
     time::{Duration, Instant},
 };
-use string::RCStr;
 
 /// Structure which contains all the components of a game.
 pub struct Game {
@@ -74,7 +67,7 @@ pub struct Game {
     pub text_files: HandleArray<file::TextHandle, 32>,
     pub binary_files: HandleArray<file::BinaryHandle, 32>,
     pub rand: Random,
-    pub input_manager: InputManager,
+    pub input: Input,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
@@ -87,7 +80,7 @@ pub struct Game {
     pub extension_initializers: Vec<usize>,
     pub extension_finalizers: Vec<usize>,
 
-    pub externals: Vec<Option<external::External>>,
+    pub externals: external2::ExternalManager,
     pub surface_fix: bool,
 
     pub last_instance_id: ID,
@@ -127,34 +120,36 @@ pub struct Game {
     pub auto_draw: bool,
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+    pub swap_creation_events: bool,
 
     pub potential_step_settings: pathfinding::PotentialStepSettings,
 
     pub fps: u32,                 // initially 0
+    pub frame_counter: u32,       // for FPS - gets set to 0 about once per second
     pub transition_kind: i32,     // default 0
     pub transition_steps: i32,    // default 80
     pub cursor_sprite: i32,       // default -1
     pub cursor_sprite_frame: u32, // default 0
     pub score: i32,               // default 0
-    pub score_capt: RCStr,        // default "Score: "
+    pub score_capt: gml::String,        // default "Score: "
     pub score_capt_d: bool,       // display in caption?
     pub has_set_show_score: bool, // if false, score displays if > 0
     pub lives: i32,               // default -1
-    pub lives_capt: RCStr,        // default "Lives: "
+    pub lives_capt: gml::String,        // default "Lives: "
     pub lives_capt_d: bool,       // display in caption?
     pub health: Real,             // default 100.0
-    pub health_capt: RCStr,       // default "Health: "
+    pub health_capt: gml::String,       // default "Health: "
     pub health_capt_d: bool,      // display in caption?
 
     pub error_occurred: bool,
-    pub error_last: RCStr,
+    pub error_last: gml::String,
 
     pub game_id: i32,
-    pub program_directory: RCStr,
-    pub temp_directory: RCStr,
+    pub program_directory: gml::String,
+    pub temp_directory: gml::String,
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
-    pub open_ini: Option<(ini::Ini, RCStr)>, // keep the filename for writing
+    pub open_ini: Option<(ini::Ini, gml::String)>, // keep the filename for writing
     pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
@@ -167,10 +162,20 @@ pub struct Game {
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
 
+    pub audio: audio::AudioManager,
+
     // winit windowing
     pub window: Window,
     pub window_border: bool,
+    pub window_caption: String,
+    pub window_cursor_gml: i32,
     pub window_icons: bool,
+    pub window_inner_size: (u32, u32),
+    pub window_offset_spoof: (i32, i32),
+    pub window_is_logical_dpi: bool,
+    pub window_sizeable: bool,
+    pub window_visible: bool,
+    pub close_requested: bool,
     // Scaling type
     pub scaling: Scaling,
     // Width the window is supposed to have, assuming it hasn't been resized by the user
@@ -223,7 +228,7 @@ pub struct RoomState {
     pub views_enabled: bool,
     pub views: Vec<View>,
     pub backgrounds: Vec<background::Background>,
-    pub caption: RCStr,
+    pub caption: gml::String,
     pub persistent: bool,
 }
 
@@ -235,13 +240,13 @@ pub struct Assets {
     pub paths: Vec<Option<Box<Path>>>,
     pub rooms: Vec<Option<Box<Room>>>,
     pub scripts: Vec<Option<Box<Script>>>,
+    pub sounds: Vec<Option<Box<Sound>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub triggers: Vec<Option<Box<Trigger>>>,
-    // todo
 }
 
-impl From<PascalString> for RCStr {
+impl From<PascalString> for gml::String {
     fn from(s: PascalString) -> Self {
         s.0.as_ref().into()
     }
@@ -269,7 +274,7 @@ impl Game {
             param_string = param_string.trim_start_matches("\\\\?\\");
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
-        // TODO: store these as RCStr probably?
+        // TODO: store these as gml::String probably?
         println!("param_string: {}", param_string);
         println!("program_directory: {}", program_directory);
 
@@ -328,6 +333,9 @@ impl Game {
         let room1_speed = room1.speed;
         let room1_colour = room1.bg_colour.as_decimal().into();
         let room1_show_colour = room1.clear_screen;
+        let room1_caption = String::from_utf8_lossy(room1.caption.0.as_ref()).into_owned();
+
+        let _ = room1;
 
         let mut rand = Random::new();
 
@@ -463,12 +471,9 @@ impl Game {
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
-        // Register user constants
-        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
-
         // Register extension function names and constants
         let mut fn_index = 0;
-        let mut const_index = constants.len();
+        let mut const_index = 0;
         let mut extension_initializers = Vec::new();
         let mut extension_finalizers = Vec::new();
         for extension in extensions.iter() {
@@ -490,6 +495,9 @@ impl Game {
             }
         }
 
+        // Register user constants
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i + const_index));
+
         // Set up a Renderer
         let options = RendererOptions {
             size: (room1_width, room1_height),
@@ -502,19 +510,31 @@ impl Game {
         let (width, height) = options.size;
         let window_border = !settings.dont_draw_border;
         let window_icons = !settings.dont_show_buttons;
-        let wb = WindowBuilder::new().with_size(width, height).with_style(if play_type == PlayType::Record {
-            window::Style::Regular
-        } else {
-            match (window_border, window_icons) {
-                (true, true) => window::Style::Regular,
-                (true, false) => window::Style::Undecorated,
-                (false, _) => window::Style::Borderless,
-            }
-        });
+        let window = Window::builder()
+            .visible(false)
+            .inner_size(Size::Physical(width.into(), height.into()))
+            .borderless(!window_border && play_type != PlayType::Record)
+            .title(room1_caption.to_owned())
+            .resizable(match play_type {
+                PlayType::Normal => settings.allow_resize,
+                PlayType::Record => true,
+                PlayType::Replay => false,
+            })
+            .controls(if play_type == PlayType::Record {
+                Some(Controls::enabled())
+            } else if window_icons {
+                Some(Controls::new(settings.allow_resize, settings.allow_resize, true))
+            } else {
+                None
+            })
+            .build()
+            .expect("oh no");
+
+        // Set up audio manager
+        let mut audio = audio::AudioManager::new(play_type != PlayType::Record);
 
         // TODO: specific flags here (make wb mutable)
 
-        let window = wb.build().expect("oh no");
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
@@ -543,30 +563,30 @@ impl Game {
                 match file.kind {
                     FileKind::DynamicLibrary => {
                         // DLL - save this to disk then define all the externals in it
-                        let dll_name = RCStr::from(file.name.0.clone().as_ref());
+                        let dll_name = gml::String::from(file.name.0.clone().as_ref());
                         temp_directory.push(&*String::from_utf8_lossy(dll_name.as_ref()));
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.iter() {
                             match external::External::new(
                                 external::DefineInfo {
-                                    dll_name: RCStr::from(&*temp_directory.to_string_lossy()),
-                                    fn_name: RCStr::from(if function.external_name.0.len() == 0 {
+                                    dll_name: gml::String::from(&*temp_directory.to_string_lossy()),
+                                    fn_name: gml::String::from(if function.external_name.0.len() == 0 {
                                         function.name.0.clone()
                                     } else {
                                         function.external_name.0.clone()
                                     }.as_ref()),
                                     call_conv: match function.convention {
-                                        CallingConvention::Cdecl => shared::dll::CallConv::Cdecl,
-                                        _ => shared::dll::CallConv::Stdcall,
+                                        CallingConvention::Cdecl => external::CallConv::Cdecl,
+                                        _ => external::CallConv::Stdcall,
                                     },
                                     res_type: match function.return_type {
-                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                        FunctionValueKind::GMReal => external::ValueType::Real,
+                                        FunctionValueKind::GMString => external::ValueType::Str,
                                     },
                                     arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
-                                        FunctionValueKind::GMReal => shared::dll::ValueType::Real,
-                                        FunctionValueKind::GMString => shared::dll::ValueType::Str,
+                                        FunctionValueKind::GMReal => external::ValueType::Real,
+                                        FunctionValueKind::GMString => external::ValueType::Str,
                                     }).collect::<Vec<_>>(),
                                 },
                                 play_type == PlayType::Record,
@@ -576,7 +596,10 @@ impl Game {
                                 },
                             ) {
                                 Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
-                                Err(_) => extension_functions.push(None),
+                                Err(e) => {
+                                    println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                         temp_directory.pop();
@@ -597,19 +620,27 @@ impl Game {
                             match file.contents.as_ref()
                                 .windows(len)
                                 .position(|x| {
-                                    &x[..define_string.len()] == define_string && &x[define_string.len()..(len - 1)] == function_name && (x[len - 1] == 10 || x[len - 1] == 13)
+                                    &x[..define_string.len()] == define_string &&
+                                    &x[define_string.len()..(len - 1)] == function_name &&
+                                    (x[len - 1] == 10 || x[len - 1] == 13)
                                 })
                                 .map(|x| x + len)
                             {
                                 Some(start) => {
-                                    let fn_code = if let Some(len) = file.contents[start..].windows(define_string.len()).position(|x| x == define_string) {
+                                    let fn_code = if let Some(len) = file.contents[start..]
+                                        .windows(define_string.len())
+                                        .position(|x| x == define_string)
+                                    {
                                         &file.contents[start..(start + len)]
                                     } else {
                                         &file.contents[start..]
                                     };
                                     extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
                                 },
-                                None => extension_functions.push(None),
+                                None => {
+                                    println!("WARNING: failed to load extension function {} (from {})", function.name, file.name);
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                     },
@@ -626,6 +657,52 @@ impl Game {
 
             temp_directory.pop();
         }
+
+        let sounds = sounds.into_iter().enumerate()
+            .map(|(sound_id, o)| {
+                o.map(|b| {
+                    use asset::sound::FileType;
+                    use gm8exe::asset::sound::SoundKind;
+                    let handle = match b.data {
+                        Some(data) => match b.extension.0.as_ref() {
+                            b".mp3" => match audio.add_mp3(data, sound_id as i32) {
+                                Some(x) => FileType::Mp3(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid mp3 data in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    FileType::None
+                                },
+                            },
+                            b".wav" => match audio.add_wav(
+                                data,
+                                sound_id as i32,
+                                b.volume,
+                                b.kind == SoundKind::ThreeDimensional,
+                                b.kind == SoundKind::Multimedia,
+                            ) {
+                                Some(x) => FileType::Wav(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid wav data in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    FileType::None
+                                },
+                            }
+                            _ => FileType::None,
+                        },
+                        None => FileType::None,
+                    };
+                    Box::new(Sound {
+                        name: b.name.into(),
+                        handle,
+                        gml_kind: f64::from(b.kind as u8).into(),
+                        gml_preload: f64::from(u8::from(b.preload)).into(),
+                    })
+                })
+            }).collect::<Vec<_>>();
 
         let sprites = sprites
             .into_iter()
@@ -1043,10 +1120,10 @@ impl Game {
             extension_functions,
             extension_initializers,
             extension_finalizers,
-            externals: Vec::new(),
+            externals: external2::ExternalManager::new(false).unwrap(),
             surface_fix: false,
-            input_manager: InputManager::new(),
-            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
+            input: Input::new(),
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, sounds, timelines, triggers },
             event_holders,
             custom_draw_objects,
             particles: particle::Manager::new(particle_shapes),
@@ -1096,6 +1173,7 @@ impl Game {
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            swap_creation_events: settings.swap_creation_events,
             potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
@@ -1118,6 +1196,7 @@ impl Game {
             spoofed_time_nanos: None,
             frame_limiter,
             fps: 0,
+            frame_counter: 0,
             parameters: game_arguments,
             encoding,
             esc_close_game: settings.esc_close_game,
@@ -1127,9 +1206,11 @@ impl Game {
             health_capt_d: false,
             error_occurred: false,
             error_last: "".to_string().into(),
+            audio,
             window,
             window_border,
             window_icons,
+            close_requested: false,
             scaling,
             play_type,
             stored_events: VecDeque::new(),
@@ -1137,6 +1218,15 @@ impl Game {
             // load_room sets this
             unscaled_width: 0,
             unscaled_height: 0,
+
+            // lazy state
+            window_caption: room1_caption.clone(),
+            window_cursor_gml: gml::mappings::constants::CR_DEFAULT as _,
+            window_inner_size: (width, height),
+            window_is_logical_dpi: false,
+            window_offset_spoof: (0, 0),
+            window_sizeable: settings.allow_resize,
+            window_visible: true,
         };
 
         game.temp_directory = game.encode_str_maybe(temp_directory.to_str().unwrap()).unwrap().into_owned().into();
@@ -1258,12 +1348,15 @@ impl Game {
         if self.unscaled_width != width || self.unscaled_height != height {
             self.unscaled_width = width;
             self.unscaled_height = height;
-            self.renderer.resize_framebuffer(width, height);
+            self.window_inner_size = (width, height);
+            self.renderer.resize_framebuffer(width, height, false);
             let (width, height) = match self.scaling {
                 Scaling::Fixed(scale) => ((f64::from(width) * scale) as u32, (f64::from(height) * scale) as u32),
                 _ => (width, height),
             };
-            self.window.resize(width, height);
+            if self.play_type != PlayType::Record {
+                self.window.set_inner_size(Size::Physical(width, height));
+            }
         }
     }
 
@@ -1319,16 +1412,18 @@ impl Game {
         // Initialize room transition surface
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
-            let (width, height) = self.window.get_inner_size();
+            let (size, scale) = self.window.inner_size();
+            let (width, height) = size.as_physical(scale);
+
             let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
-                width,
-                height,
+                width: width as _,
+                height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             let new_surf = surface::Surface {
-                width,
-                height,
+                width: width as _,
+                height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
             self.renderer.set_target(&old_surf.atlas_ref);
@@ -1388,7 +1483,7 @@ impl Game {
             self.stored_rooms.push(self.room.clone());
         }
         self.room = room_state;
-        self.input_manager.clear_presses();
+        self.input.step();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
@@ -1437,13 +1532,20 @@ impl Game {
 
         for (handle, instance) in &new_handles {
             if self.room.instance_list.get(*handle).is_active() {
+                if self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
+
                 // Run this instance's room creation code
                 let mut new_context = Context::with_single_instance(*handle);
                 new_context.event_object = instance.object;
                 self.execute(&instance.creation.clone()?, &mut new_context)?;
 
-                // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                if !self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
             }
         }
 
@@ -1493,7 +1595,8 @@ impl Game {
             if self.auto_draw {
                 self.draw()?;
                 if let Some(transition) = self.get_transition(transition_kind) {
-                    let (width, height) = self.window.get_inner_size();
+                    let (size, scale) = self.window.inner_size();
+                    let (width, height) = size.as_physical(scale);
                     self.renderer.reset_target();
                     // Here, we see the limitations of GM8's vsync.
                     // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets
@@ -1522,10 +1625,12 @@ impl Game {
                             );
                         }
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
-                        self.renderer.present(width, height, self.scaling);
-                        let diff = current_time.elapsed();
-                        if let Some(dur) = FRAME_TIME.checked_sub(diff) {
-                            gml::datetime::sleep(dur);
+                        if self.play_type != PlayType::Record {
+                            self.renderer.present(width, height, self.scaling);
+                            let diff = current_time.elapsed();
+                            if let Some(dur) = FRAME_TIME.checked_sub(diff) {
+                                gml::datetime::sleep(dur);
+                            }
                         }
                         if let Some(t) = &mut self.spoofed_time_nanos {
                             *t += FRAME_TIME.as_nanos();
@@ -1568,7 +1673,7 @@ impl Game {
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
     pub fn frame(&mut self) -> gml::Result<()> {
-        if self.esc_close_game && self.input_manager.key_get_lastkey() == 0x1b {
+        if self.esc_close_game && self.input.keyboard_lastkey() == input::Button::Escape as u8 {
             self.scene_change = Some(SceneChange::End);
             return Ok(())
         }
@@ -1753,28 +1858,32 @@ impl Game {
         self.cursor_sprite_frame += 1;
 
         // Clear inputs for this frame
-        self.input_manager.clear_presses();
+        self.input.step();
 
         Ok(())
     }
 
     pub fn process_window_events(&mut self) {
-        use gmio::window::Event;
-
+        self.input.mouse_step();
+        self.window.swap_events();
         match self.play_type {
             PlayType::Normal => {
-                self.input_manager.mouse_update_previous();
-                for event in self.window.process_events().copied() {
+                for event in self.window.events() {
                     match event {
-                        Event::KeyboardDown(key) => self.input_manager.key_press(key),
-                        Event::KeyboardUp(key) => self.input_manager.key_release(key),
-                        Event::MenuOption(_) => (),
-                        Event::MouseMove(x, y) => self.input_manager.set_mouse_pos(x.into(), y.into()),
-                        Event::MouseButtonDown(button) => self.input_manager.mouse_press(button),
-                        Event::MouseButtonUp(button) => self.input_manager.mouse_release(button),
-                        Event::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                        Event::MouseWheelDown => self.input_manager.mouse_scroll_down(),
-                        Event::Resize(w, h) => println!("user resize: width={}, height={}", w, h),
+                        Event::KeyboardDown(key) => self.input.button_press(input::ramen2vk(*key), true),
+                        Event::KeyboardUp(key) => self.input.button_release(input::ramen2vk(*key), true),
+                        Event::MouseMove((point, scale)) => {
+                            let (x, y) = point.as_physical(*scale);
+                            if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
+                                self.input.mouse_move_to((x, y));
+                            }
+                        },
+                        Event::MouseDown(button) => self.input.mouse_press(input::ramen2mb(*button), true),
+                        Event::MouseUp(button) => self.input.mouse_release(input::ramen2mb(*button), true),
+                        Event::MouseWheel(x) => self.input.mouse_scroll(*x),
+                        Event::Resize((size, scale)) => self.window_inner_size = size.as_physical(*scale),
+                        Event::CloseRequest(_) => self.close_requested = true,
+                        _ => (),
                     }
                 }
             },
@@ -1818,6 +1927,27 @@ impl Game {
         self.load_room(self.room.id)
     }
 
+    /// Gets the whole String to be used as the window title, including score and lives if applicable
+    pub fn get_window_title(&self) -> Cow<'_, str> {
+        use std::fmt::Write;
+
+        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
+        if show_score || self.lives_capt_d {
+            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
+            // write!() on a String never panics
+            if show_score {
+                write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
+            }
+            if self.lives_capt_d {
+                write!(caption, " {}{}", self.decode_str(self.lives_capt.as_ref()), self.lives).unwrap();
+            }
+            caption.into()
+        } else {
+            self.decode_str(self.room.caption.as_ref())
+        }
+    }
+
+    // Plays the game normally
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
         match self.scene_change {
@@ -1829,7 +1959,6 @@ impl Game {
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
-        let mut frame_counter = 0;
         loop {
             self.process_window_events();
 
@@ -1841,8 +1970,8 @@ impl Game {
                 None => (),
             }
 
-            // exit if X pressed or game_end() invoked
-            if self.window.close_requested() {
+            // Exit if the window was closed by the user, such as by pressing 'X'
+            if self.close_requested {
                 break Ok(self.run_game_end_events()?)
             }
 
@@ -1856,11 +1985,11 @@ impl Game {
                 // gm8 just ignores any leftover time after a second has passed, so we do the same
                 if time_now.duration_since(time_last) >= Duration::from_secs(1) {
                     time_last = time_now;
-                    self.fps = frame_counter;
-                    frame_counter = 0;
+                    self.fps = self.frame_counter;
+                    self.frame_counter = 0;
                 }
             }
-            frame_counter += 1;
+            self.frame_counter += 1;
 
             if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
@@ -1871,322 +2000,11 @@ impl Game {
         }
     }
 
-    // Create a TAS for this game
-    pub fn record(&mut self, project_path: PathBuf, tcp_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-        use gmio::window::Event;
-
-        // Helper fn: Instance -> InstanceDetails
-        fn instance_details(assets: &Assets, instance: &Instance) -> message::InstanceDetails {
-            message::InstanceDetails {
-                id: instance.id.get(),
-                object_name: match assets.objects.get_asset(instance.object_index.get()) {
-                    Some(obj) => obj.name.decode_utf8().into(),
-                    None => "<deleted object>".into(),
-                },
-                x: instance.x.get().into(),
-                y: instance.y.get().into(),
-                speed: instance.speed.get().into(),
-                direction: instance.direction.get().into(),
-                timeline_info: if assets.timelines.get_asset(instance.timeline_index.get()).is_some() {
-                    Some((
-                        instance.timeline_index.get(),
-                        instance.timeline_position.get().into(),
-                        instance.timeline_speed.get().into(),
-                    ))
-                } else {
-                    None
-                },
-                path_info: if assets.paths.get_asset(instance.path_index.get()).is_some() {
-                    Some((
-                        instance.path_index.get(),
-                        instance.path_position.get().into(),
-                        instance.path_speed.get().into(),
-                    ))
-                } else {
-                    None
-                },
-                alarms: instance.alarms.borrow().clone(),
-                bbox_top: instance.bbox_top.get(),
-                bbox_left: instance.bbox_left.get(),
-                bbox_right: instance.bbox_right.get(),
-                bbox_bottom: instance.bbox_bottom.get(),
-            }
-        }
-
-        let mut stream = TcpStream::connect(&SocketAddr::from(([127, 0, 0, 1], tcp_port)))?;
-        stream.set_nonblocking(true)?;
-        let mut read_buffer: Vec<u8> = Vec::new();
-
-        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
-
-        // Wait for a Hello, then send an update
-        loop {
-            match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => std::thread::yield_now(),
-                Some(Some(m)) => match m {
-                    Message::Hello { keys_requested, mouse_buttons_requested, filename } => {
-                        // Create or load savefile, depending if it exists
-                        let mut path = project_path.clone();
-                        std::fs::create_dir_all(&path)?;
-                        path.push(&filename);
-                        if path.exists() {
-                            println!("Project '{}' exists, loading workspace", filename);
-                            let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(File::open(&path)?))?;
-                            replay = state.load_into(self);
-                        } else {
-                            println!("Project '{}' doesn't exist, so loading game at entry point", filename);
-                            self.init()?;
-                            match self.scene_change {
-                                Some(SceneChange::Room(id)) => self.load_room(id)?,
-                                Some(SceneChange::Restart) => self.restart()?,
-                                Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-                                None => (),
-                            }
-                            for ev in self.stored_events.iter() {
-                                replay.startup_events.push(ev.clone());
-                            }
-                            self.stored_events.clear();
-
-                            println!("Creating new workspace...");
-                            let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
-                            File::create(&path)?.write_all(&bytes)?;
-                        }
-
-                        // Send an update
-                        stream.send_message(&message::Information::Update {
-                            keys_held: keys_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
-                                .collect(),
-                            mouse_buttons_held: mouse_buttons_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
-                                .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
-                            frame_count: replay.frame_count(),
-                            seed: self.rand.seed(),
-                            instance: None,
-                        })?;
-                        break
-                    },
-                    m => return Err(format!("Waiting for greeting from server, but got {:?}", m).into()),
-                },
-                None => return Ok(()),
-            }
-        }
-
-        let mut game_mousex = 0;
-        let mut game_mousey = 0;
-        let mut do_update_mouse = false;
-        let mut frame_counter = 0;
-
-        loop {
-            match stream.receive_message::<Message>(&mut read_buffer)? {
-                Some(None) => self.renderer.wait_vsync(),
-                Some(Some(m)) => match m {
-                    Message::Advance {
-                        key_inputs,
-                        mouse_inputs,
-                        mouse_location,
-                        keys_requested,
-                        mouse_buttons_requested,
-                        instance_requested,
-                        new_seed,
-                    } => {
-                        // Create a frame...
-                        let mut frame = replay.new_frame(self.room.speed);
-                        frame.mouse_x = mouse_location.0;
-                        frame.mouse_y = mouse_location.1;
-                        frame.new_seed = new_seed;
-
-                        if let Some(seed) = new_seed {
-                            self.rand.set_seed(seed);
-                        }
-
-                        // Process inputs
-                        for (key, press) in key_inputs.into_iter() {
-                            if press {
-                                self.input_manager.key_press(key);
-                                frame.inputs.push(replay::Input::KeyPress(key));
-                            } else {
-                                self.input_manager.key_release(key);
-                                frame.inputs.push(replay::Input::KeyRelease(key));
-                            }
-                        }
-                        for (button, press) in mouse_inputs.into_iter() {
-                            if press {
-                                self.input_manager.mouse_press(button);
-                                frame.inputs.push(replay::Input::MousePress(button));
-                            } else {
-                                self.input_manager.mouse_release(button);
-                                frame.inputs.push(replay::Input::MouseRelease(button));
-                            }
-                        }
-                        self.input_manager.mouse_update_previous();
-                        self.input_manager.set_mouse_pos(mouse_location.0, mouse_location.1);
-
-                        // Advance a frame
-                        self.frame()?;
-                        match self.scene_change {
-                            Some(SceneChange::Room(id)) => self.load_room(id)?,
-                            Some(SceneChange::Restart) => self.restart()?,
-                            Some(SceneChange::End) => self.restart()?,
-                            None => (),
-                        }
-                        for ev in self.stored_events.iter() {
-                            frame.events.push(ev.clone());
-                        }
-                        self.stored_events.clear();
-
-                        // Fake frame limiter stuff (don't actually frame-limit in record mode)
-                        if let Some(t) = self.spoofed_time_nanos.as_mut() {
-                            *t += Duration::new(0, 1_000_000_000u32 / self.room.speed).as_nanos();
-                        }
-
-                        if frame_counter == self.room.speed {
-                            self.fps = self.room.speed;
-                            frame_counter = 0;
-                        }
-                        frame_counter += 1;
-
-                        // Send an update
-                        stream.send_message(&message::Information::Update {
-                            keys_held: keys_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
-                                .collect(),
-                            mouse_buttons_held: mouse_buttons_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
-                                .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
-                            frame_count: replay.frame_count(),
-                            seed: self.rand.seed(),
-                            instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
-                                let instance = self.room.instance_list.get(x);
-                                instance.update_bbox(self.get_instance_mask_sprite(x));
-                                instance_details(&self.assets, instance)
-                            }),
-                        })?
-                    },
-
-                    Message::SetUpdateMouse { update } => do_update_mouse = update,
-
-                    Message::Save { filename } => {
-                        // Save a savestate to a file
-                        let mut path = project_path.clone();
-                        std::fs::create_dir_all(&path)?;
-                        path.push(filename);
-                        let mut f = File::create(&path)?;
-                        let bytes = bincode::serialize(&SaveState::from(self, replay.clone()))?;
-                        f.write_all(&bytes)?;
-                    },
-
-                    Message::Load { filename, keys_requested, mouse_buttons_requested, instance_requested } => {
-                        // Load savestate from a file
-                        let mut path = project_path.clone();
-                        path.push(filename);
-                        let f = File::open(&path)?;
-                        let state = bincode::deserialize_from::<_, SaveState>(BufReader::new(f))?;
-                        replay = state.load_into(self);
-
-                        // Send an update
-                        stream.send_message(&message::Information::Update {
-                            keys_held: keys_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.key_check((*x as u8).into()))
-                                .collect(),
-                            mouse_buttons_held: mouse_buttons_requested
-                                .into_iter()
-                                .filter(|x| self.input_manager.mouse_check(*x))
-                                .collect(),
-                            mouse_location: self.input_manager.mouse_get_location(),
-                            frame_count: replay.frame_count(),
-                            seed: self.rand.seed(),
-                            instance: instance_requested.and_then(|x| self.room.instance_list.get_by_instid(x)).map(|x| {
-                                let instance = self.room.instance_list.get(x);
-                                instance.update_bbox(self.get_instance_mask_sprite(x));
-                                instance_details(&self.assets, instance)
-                            }),
-                        })?;
-                    },
-
-                    m => break Err(format!("Unexpected message from server: {:?}", m).into()),
-                },
-                None => break Ok(()),
-            }
-
-            for event in self.window.process_events().copied() {
-                match event {
-                    Event::MouseMove(x, y) => {
-                        if do_update_mouse {
-                            stream.send_message(&message::Information::MousePosition { x, y })?;
-                        }
-                        game_mousex = x;
-                        game_mousey = y;
-                    },
-
-                    Event::MouseButtonDown(MouseButton::Left) => {
-                        stream.send_message(&message::Information::LeftClick { x: game_mousex, y: game_mousey })?;
-                    },
-
-                    Event::MouseButtonUp(MouseButton::Right) => {
-                        let mut options: Vec<(String, usize)> = Vec::new();
-                        let (x, y) = self.translate_screen_to_room(f64::from(game_mousex), f64::from(game_mousey));
-                        let mut iter = self.room.instance_list.iter_by_drawing();
-                        while let Some(handle) = iter.next(&self.room.instance_list) {
-                            let instance = self.room.instance_list.get(handle);
-                            instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            if x >= instance.bbox_left.get()
-                                && x <= instance.bbox_right.get()
-                                && y >= instance.bbox_top.get()
-                                && y <= instance.bbox_bottom.get()
-                            {
-                                let id = instance.id.get();
-                                let description = match self.assets.objects.get_asset(instance.object_index.get()) {
-                                    Some(obj) => format!("{} ({})\0", obj.name, id.to_string()),
-                                    None => format!("<deleted object> ({})\0", id.to_string()),
-                                };
-                                options.push((description, id as usize));
-                            }
-                        }
-                        self.window.show_context_menu(&options);
-                        break
-                    },
-
-                    Event::MenuOption(id) => {
-                        if let Some(handle) = self.room.instance_list.get_by_instid(id as _) {
-                            let instance = self.room.instance_list.get(handle);
-                            instance.update_bbox(self.get_instance_mask_sprite(handle));
-                            stream.send_message(message::Information::InstanceClicked {
-                                details: instance_details(&self.assets, instance),
-                            })?;
-                            break
-                        } else {
-                            println!("Requested info for instance #{} [non-existent or deleted]", id);
-                        }
-                    },
-
-                    Event::KeyboardDown(key) => {
-                        stream.send_message(message::Information::KeyPressed { key })?;
-                    },
-
-                    _ => (),
-                }
-            }
-
-            if self.window.close_requested() {
-                break Ok(())
-            }
-        }
-    }
-
     // Replays some recorded inputs to the game
     pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
-        let mut frame_counter = 0;
 
         for ev in replay.startup_events.iter() {
             self.stored_events.push_back(ev.clone());
@@ -2199,10 +2017,10 @@ impl Game {
             None => (),
         }
 
-        let mut time_now = std::time::Instant::now();
+        let mut time_now = Instant::now();
         loop {
-            self.window.process_events();
-            self.input_manager.mouse_update_previous();
+            self.window.swap_events();
+            self.input.mouse_step();
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
                     return Err(format!(
@@ -2225,15 +2043,15 @@ impl Game {
                     self.spoofed_time_nanos = Some(time);
                 }
 
-                self.input_manager.set_mouse_pos(frame.mouse_x, frame.mouse_y);
+                self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
                 for ev in frame.inputs.iter() {
                     match ev {
-                        replay::Input::KeyPress(v) => self.input_manager.key_press(*v),
-                        replay::Input::KeyRelease(v) => self.input_manager.key_release(*v),
-                        replay::Input::MousePress(b) => self.input_manager.mouse_press(*b),
-                        replay::Input::MouseRelease(b) => self.input_manager.mouse_release(*b),
-                        replay::Input::MouseWheelUp => self.input_manager.mouse_scroll_up(),
-                        replay::Input::MouseWheelDown => self.input_manager.mouse_scroll_down(),
+                        replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
+                        replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
+                        replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
+                        replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
+                        replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
+                        replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
                     }
                 }
             }
@@ -2247,7 +2065,7 @@ impl Game {
             }
 
             // exit if X pressed or game_end() invoked
-            if self.window.close_requested() {
+            if self.close_requested {
                 break Ok(self.run_game_end_events()?)
             }
 
@@ -2258,11 +2076,11 @@ impl Game {
                 *t += duration.as_nanos();
             }
 
-            if frame_counter == self.room.speed {
+            if self.frame_counter == self.room.speed {
                 self.fps = self.room.speed;
-                frame_counter = 0;
+                self.frame_counter = 0;
             }
-            frame_counter += 1;
+            self.frame_counter += 1;
 
             if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
@@ -2277,20 +2095,18 @@ impl Game {
 
     // Gets the mouse position in room coordinates
     pub fn get_mouse_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input_manager.mouse_get_location();
+        let (x, y) = (self.input.mouse_x(), self.input.mouse_y());
         self.translate_screen_to_room(x, y)
     }
 
     // Gets the previous mouse position in room coordinates
     pub fn get_mouse_previous_in_room(&self) -> (i32, i32) {
-        let (x, y) = self.input_manager.mouse_get_previous_location();
+        let (x, y) = (self.input.mouse_x_previous(), self.input.mouse_y_previous());
         self.translate_screen_to_room(x, y)
     }
 
     // Translates screen coordinates to room coordinates
-    pub fn translate_screen_to_room(&self, x: f64, y: f64) -> (i32, i32) {
-        let x = x as i32;
-        let y = y as i32;
+    pub fn translate_screen_to_room(&self, x: i32, y: i32) -> (i32, i32) {
         if self.room.views_enabled {
             match self.room.views.iter().rev().find(|view| view.visible && view.contains_point(x, y)) {
                 Some(view) => view.transform_point(x, y),

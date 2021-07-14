@@ -2,9 +2,11 @@ use crate::{
     asset::trigger::TriggerTime,
     game::{Game, GetAsset},
     gml,
+    input::MouseButton,
     instance::Instance,
+    types::ID,
 };
-use shared::{input::MouseButton, types::ID};
+use std::convert::TryFrom;
 
 impl Game {
     /// Runs an event for all objects which hold the given event.
@@ -163,19 +165,21 @@ impl Game {
         while let Some((key, objects)) =
             self.event_holders[gml::ev::KEYBOARD].get_index(i).map(|(x, y)| (*x, y.clone()))
         {
-            if self.input_manager.key_check(key as usize) {
-                // Get all the objects which have this key event registered
-                for object_id in objects.borrow().iter().copied() {
-                    // Iter all instances of this object
-                    let mut iter = self.room.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
-                        self.run_instance_event(gml::ev::KEYBOARD, key, handle, handle, None)?;
+            if let Ok(vk) = u8::try_from(key) {
+                if self.input.keyboard_check(vk) {
+                    // Get all the objects which have this key event registered
+                    for object_id in objects.borrow().iter().copied() {
+                        // Iter all instances of this object
+                        let mut iter = self.room.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            self.run_instance_event(gml::ev::KEYBOARD, key, handle, handle, None)?;
+                        }
                     }
                 }
             }
             i += 1;
         }
-        if self.input_manager.key_check_any() {
+        if self.input.keyboard_check_any() {
             self.run_object_event(gml::ev::KEYBOARD, 1, None)?;
         } else {
             self.run_object_event(gml::ev::KEYBOARD, 0, None)?;
@@ -189,19 +193,21 @@ impl Game {
         while let Some((key, objects)) =
             self.event_holders[gml::ev::KEYPRESS].get_index(i).map(|(x, y)| (*x, y.clone()))
         {
-            if self.input_manager.key_check_pressed(key as usize) {
-                // Get all the objects which have this key event registered
-                for object_id in objects.borrow().iter().copied() {
-                    // Iter all instances of this object
-                    let mut iter = self.room.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
-                        self.run_instance_event(gml::ev::KEYPRESS, key, handle, handle, None)?;
+            if let Ok(vk) = u8::try_from(key) {
+                if self.input.keyboard_check_pressed(vk) {
+                    // Get all the objects which have this key event registered
+                    for object_id in objects.borrow().iter().copied() {
+                        // Iter all instances of this object
+                        let mut iter = self.room.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            self.run_instance_event(gml::ev::KEYPRESS, key, handle, handle, None)?;
+                        }
                     }
                 }
             }
             i += 1;
         }
-        if self.input_manager.key_check_any_pressed() {
+        if self.input.keyboard_check_pressed_any() {
             self.run_object_event(gml::ev::KEYPRESS, 1, None)?;
         } else {
             self.run_object_event(gml::ev::KEYPRESS, 0, None)?;
@@ -215,19 +221,21 @@ impl Game {
         while let Some((key, objects)) =
             self.event_holders[gml::ev::KEYRELEASE].get_index(i).map(|(x, y)| (*x, y.clone()))
         {
-            if self.input_manager.key_check_released(key as usize) {
-                // Get all the objects which have this key event registered
-                for object_id in objects.borrow().iter().copied() {
-                    // Iter all instances of this object
-                    let mut iter = self.room.instance_list.iter_by_object(object_id);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
-                        self.run_instance_event(gml::ev::KEYRELEASE, key, handle, handle, None)?;
+            if let Ok(vk) = u8::try_from(key) {
+                if self.input.keyboard_check_released(vk) {
+                    // Get all the objects which have this key event registered
+                    for object_id in objects.borrow().iter().copied() {
+                        // Iter all instances of this object
+                        let mut iter = self.room.instance_list.iter_by_object(object_id);
+                        while let Some(handle) = iter.next(&self.room.instance_list) {
+                            self.run_instance_event(gml::ev::KEYRELEASE, key, handle, handle, None)?;
+                        }
                     }
                 }
             }
             i += 1;
         }
-        if self.input_manager.key_check_any_released() {
+        if self.input.keyboard_check_released_any() {
             self.run_object_event(gml::ev::KEYRELEASE, 1, None)?;
         } else {
             self.run_object_event(gml::ev::KEYRELEASE, 0, None)?;
@@ -261,52 +269,52 @@ impl Game {
         }
 
         // Left button
-        if self.input_manager.mouse_check(MouseButton::Left) {
+        if self.input.mouse_check_button(MouseButton::Left as i8) {
             try_mouse_events!(0);
         }
 
         // Right button
-        if self.input_manager.mouse_check(MouseButton::Right) {
+        if self.input.mouse_check_button(MouseButton::Right as i8) {
             try_mouse_events!(1);
         }
 
         // Middle button
-        if self.input_manager.mouse_check(MouseButton::Left) {
+        if self.input.mouse_check_button(MouseButton::Left as i8) {
             try_mouse_events!(2);
         }
 
         // No button
-        if !self.input_manager.mouse_check_any() {
+        if !self.input.mouse_check_button_any() {
             try_mouse_events!(3);
         }
 
         // Left button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Left) {
+        if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
             try_mouse_events!(4);
         }
 
         // Right button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Right) {
+        if self.input.mouse_check_button_pressed(MouseButton::Right as i8) {
             try_mouse_events!(5);
         }
 
         // Middle button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Left) {
+        if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
             try_mouse_events!(6);
         }
 
         // Left button released
-        if self.input_manager.mouse_check_released(MouseButton::Left) {
+        if self.input.mouse_check_button_released(MouseButton::Left as i8) {
             try_mouse_events!(7);
         }
 
         // Right button released
-        if self.input_manager.mouse_check_released(MouseButton::Right) {
+        if self.input.mouse_check_button_released(MouseButton::Right as i8) {
             try_mouse_events!(8);
         }
 
         // Middle button released
-        if self.input_manager.mouse_check_released(MouseButton::Left) {
+        if self.input.mouse_check_button_released(MouseButton::Left as i8) {
             try_mouse_events!(9);
         }
 
@@ -345,57 +353,57 @@ impl Game {
         }
 
         // Global left button
-        if self.input_manager.mouse_check(MouseButton::Left) {
+        if self.input.mouse_check_button(MouseButton::Left as i8) {
             self.run_object_event(gml::ev::MOUSE, 50, None)?;
         }
 
         // Global right button
-        if self.input_manager.mouse_check(MouseButton::Right) {
+        if self.input.mouse_check_button(MouseButton::Right as i8) {
             self.run_object_event(gml::ev::MOUSE, 51, None)?;
         }
 
         // Global middle button
-        if self.input_manager.mouse_check(MouseButton::Middle) {
+        if self.input.mouse_check_button(MouseButton::Middle as i8) {
             self.run_object_event(gml::ev::MOUSE, 52, None)?;
         }
 
         // Global left button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Left) {
+        if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
             self.run_object_event(gml::ev::MOUSE, 53, None)?;
         }
 
         // Global right button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Right) {
+        if self.input.mouse_check_button_pressed(MouseButton::Right as i8) {
             self.run_object_event(gml::ev::MOUSE, 54, None)?;
         }
 
         // Global middle button pressed
-        if self.input_manager.mouse_check_pressed(MouseButton::Middle) {
+        if self.input.mouse_check_button_pressed(MouseButton::Middle as i8) {
             self.run_object_event(gml::ev::MOUSE, 55, None)?;
         }
 
         // Global left button released
-        if self.input_manager.mouse_check_released(MouseButton::Left) {
+        if self.input.mouse_check_button_released(MouseButton::Left as i8) {
             self.run_object_event(gml::ev::MOUSE, 56, None)?;
         }
 
         // Global right button released
-        if self.input_manager.mouse_check_released(MouseButton::Right) {
+        if self.input.mouse_check_button_released(MouseButton::Right as i8) {
             self.run_object_event(gml::ev::MOUSE, 57, None)?;
         }
 
         // Global middle button released
-        if self.input_manager.mouse_check_released(MouseButton::Middle) {
+        if self.input.mouse_check_button_released(MouseButton::Middle as i8) {
             self.run_object_event(gml::ev::MOUSE, 58, None)?;
         }
 
         // Mouse wheel up
-        if self.input_manager.mouse_check_scroll_up() {
+        if self.input.mouse_wheel_up() {
             self.run_object_event(gml::ev::MOUSE, 60, None)?;
         }
 
         // Mouse wheel up
-        if self.input_manager.mouse_check_scroll_down() {
+        if self.input.mouse_wheel_down() {
             self.run_object_event(gml::ev::MOUSE, 61, None)?;
         }
 

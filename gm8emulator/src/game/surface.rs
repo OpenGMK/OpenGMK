@@ -1,4 +1,4 @@
-use gmio::atlas::AtlasRef;
+use crate::render::atlas::AtlasRef;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

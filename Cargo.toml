@@ -1,16 +1,20 @@
-cargo-features = ['strip']
+cargo-features = ["strip"]
 
 [workspace]
-members = ["gm8emulator", "gm8decompiler", "control-panel", "gml-parser", "gmio", "gm8exe", "shared"]
-# dll-bridge must be built as 32-bit, but is only needed for 64-bit builds of the emulator.
-# Cargo doesn't support different binaries targeting different architectures in one build,
-# so dll-bridge must be built separately.
-# If you're making 32-bit builds of the emulator as well, you may find it useful to put dll-bridge in the members list
-# when you're building it. Make sure to remove it when making 64-bit builds though.
-exclude = ["dll-bridge"]
+exclude = ["gm8emulator-wow64"]
+members = [
+    # main projects
+    "gm8emulator",
+    "gm8decompiler",
+    "gml-parser",
+    "gm8exe",
+
+    # bindings
+    "gm8emulator/ffi/cimgui-sys",
+]
 
 [profile.release]
 codegen-units = 1
 opt-level = 3
-lto = true
+lto = 'thin'
 strip = true

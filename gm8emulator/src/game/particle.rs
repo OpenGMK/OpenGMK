@@ -2,10 +2,7 @@ use crate::{
     game::{Assets, GetAsset},
     gml::rand::Random,
     math::Real,
-};
-use gmio::{
-    atlas::{AtlasBuilder, AtlasRef},
-    render::{BlendType, Renderer},
+    render::{atlas::{AtlasBuilder, AtlasRef}, BlendType, Renderer},
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;

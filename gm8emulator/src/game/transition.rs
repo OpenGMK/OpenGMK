@@ -1,5 +1,5 @@
 use crate::{
-    game::{string::RCStr, Game, GetAsset},
+    game::{Game, GetAsset},
     gml::{self, Context},
     instance::Instance,
     math::Real,
@@ -9,7 +9,7 @@ use std::f64::consts::PI;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserTransition {
-    pub script_name: RCStr,
+    pub script_name: gml::String,
 }
 
 fn wipe(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, progress: Real, horz: i32, vert: i32) {
