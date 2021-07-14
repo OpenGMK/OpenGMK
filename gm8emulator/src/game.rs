@@ -471,6 +471,9 @@ impl Game {
             .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
         // Register extension function names and constants
+        compiler.reserve_extension_functions(
+            extensions.iter().map(|x| x.files.iter().map(|x| x.functions.len()).sum::<usize>()).sum::<usize>()
+        );
         let mut fn_index = 0;
         let mut const_index = 0;
         let mut extension_initializers = Vec::new();
