@@ -596,7 +596,10 @@ impl Game {
                                 },
                             ) {
                                 Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
-                                Err(_) => extension_functions.push(None),
+                                Err(e) => {
+                                    println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                         temp_directory.pop();
@@ -634,7 +637,10 @@ impl Game {
                                     };
                                     extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
                                 },
-                                None => extension_functions.push(None),
+                                None => {
+                                    println!("WARNING: failed to load extension function {} (from {})", function.name, file.name);
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                     },
