@@ -5,4 +5,3 @@ authors = ["The OpenGMK Project Developers"]
 edition = "2018"
 
 [dependencies]
-shared = { path = "../shared" }

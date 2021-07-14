@@ -4,15 +4,15 @@ use std::{borrow::Cow, fmt, rc::Rc};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct RCStr(Rc<[u8]>);
+pub struct String(Rc<[u8]>);
 
-impl RCStr {
+impl String {
     pub fn decode(&self, encoding: &'static Encoding) -> Cow<str> {
         encoding.decode_without_bom_handling(&self.0).0
     }
 
     pub fn decode_utf8(&self) -> Cow<str> {
-        String::from_utf8_lossy(&self.0)
+        std::string::String::from_utf8_lossy(&self.0)
     }
 
     pub fn eq_ignore_ascii_case(&self, other: &[u8]) -> bool {
@@ -27,37 +27,37 @@ impl RCStr {
     }
 }
 
-impl AsRef<[u8]> for RCStr {
+impl AsRef<[u8]> for String {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
-impl fmt::Display for RCStr {
+impl fmt::Display for String {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        String::from_utf8_lossy(&self.0).fmt(f)
+        std::string::String::from_utf8_lossy(&self.0).fmt(f)
     }
 }
 
-impl From<String> for RCStr {
-    fn from(value: String) -> Self {
+impl From<std::string::String> for String {
+    fn from(value: std::string::String) -> Self {
         Self(value.into_bytes().into())
     }
 }
 
-impl From<&str> for RCStr {
+impl From<&str> for String {
     fn from(value: &str) -> Self {
         Self(value.as_bytes().to_vec().into())
     }
 }
 
-impl From<Vec<u8>> for RCStr {
+impl From<Vec<u8>> for String {
     fn from(value: Vec<u8>) -> Self {
         Self(value.into())
     }
 }
 
-impl From<&[u8]> for RCStr {
+impl From<&[u8]> for String {
     fn from(value: &[u8]) -> Self {
         Self(value.to_vec().into())
     }
@@ -66,10 +66,10 @@ impl From<&[u8]> for RCStr {
 struct SerdeVisitor;
 
 impl<'de> Visitor<'de> for SerdeVisitor {
-    type Value = RCStr;
+    type Value = String;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a bytestring")
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a gml string")
     }
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
@@ -87,7 +87,7 @@ impl<'de> Visitor<'de> for SerdeVisitor {
     }
 }
 
-impl Serialize for RCStr {
+impl Serialize for String {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -96,7 +96,7 @@ impl Serialize for RCStr {
     }
 }
 
-impl<'de> Deserialize<'de> for RCStr {
+impl<'de> Deserialize<'de> for String {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

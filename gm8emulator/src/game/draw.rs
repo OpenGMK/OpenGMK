@@ -1,11 +1,10 @@
 use crate::{
-    asset::{font, Font},
-    game::{string::RCStr, Game, GetAsset, Version},
+    asset::{self, font, Font},
+    game::{Game, GetAsset, PlayType, Version},
     gml,
     math::Real,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Halign {
@@ -127,8 +126,8 @@ impl Game {
                     {
                         let inst = self.room.instance_list.get(handle);
 
-                        let x = inst.x.get().round();
-                        let y = inst.y.get().round();
+                        let x = inst.x.get().round().to_i32();
+                        let y = inst.y.get().round().to_i32();
                         if view.follow_hborder < (view.source_w / 2) as i32 {
                             let border_left = x - view.follow_hborder;
                             let border_right = x + view.follow_hborder;
@@ -204,8 +203,9 @@ impl Game {
         }
 
         // Tell renderer to finish the frame
-        let (width, height) = self.window.get_inner_size();
-        self.renderer.present(width, height, self.scaling);
+        if self.play_type != PlayType::Record {
+            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
+        }
 
         // Reset viewport
         self.renderer.set_view(
@@ -221,22 +221,33 @@ impl Game {
         );
 
         // Apply room caption
-        let show_score = self.score_capt_d && (self.has_set_show_score || self.score > 0);
-        if show_score || self.lives_capt_d {
-            let mut caption = self.decode_str(self.room.caption.as_ref()).into_owned();
-            // write!() on a String never panics
-            if show_score {
-                write!(caption, " {}{}", self.decode_str(self.score_capt.as_ref()), self.score).unwrap();
-            }
-            if self.lives_capt_d {
-                write!(caption, " {}{}", self.decode_str(self.lives_capt.as_ref()), self.lives).unwrap();
-            }
-            self.window.set_title(&caption);
-        } else {
-            self.window.set_title(self.decode_str(self.room.caption.as_ref()).as_ref());
+        let title = self.get_window_title();
+        if self.play_type != PlayType::Record {
+            self.window.set_title(title.as_ref());
         }
 
         Ok(())
+    }
+
+    pub fn draw_instance_default(&mut self, idx: usize) -> gml::Result<()> {
+        let instance = self.room.instance_list.get(idx);
+        if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
+            if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get().floor().to_i32()) {
+                self.renderer.draw_sprite(
+                    atlas_ref,
+                    instance.x.get().into(),
+                    instance.y.get().into(),
+                    instance.image_xscale.get().into(),
+                    instance.image_yscale.get().into(),
+                    instance.image_angle.get().into(),
+                    instance.image_blend.get(),
+                    instance.image_alpha.get().into(),
+                );
+            }
+            Ok(())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
+        }
     }
 
     /// Draws everything in the scene using a given view rectangle
@@ -269,20 +280,7 @@ impl Game {
                     game.run_instance_event(gml::ev::DRAW, 0, idx, idx, None)
                 } else {
                     // Default draw action
-                    if let Some(Some(sprite)) = game.assets.sprites.get(instance.sprite_index.get() as usize) {
-                        if let Some(atlas_ref) = sprite.get_atlas_ref(instance.image_index.get()) {
-                            game.renderer.draw_sprite(
-                                atlas_ref,
-                                instance.x.get().into(),
-                                instance.y.get().into(),
-                                instance.image_xscale.get().into(),
-                                instance.image_yscale.get().into(),
-                                instance.image_angle.get().into(),
-                                instance.image_blend.get(),
-                                instance.image_alpha.get().into(),
-                            )
-                        }
-                    }
+                    let _ = game.draw_instance_default(idx);
                     Ok(())
                 }
             } else {
@@ -416,7 +414,7 @@ impl Game {
         if let Some(sprite) = self.assets.sprites.get_asset(self.cursor_sprite) {
             let (x, y) = self.get_mouse_in_room();
             if let Some(atlas_ref) =
-                sprite.get_atlas_ref(Real::from(self.cursor_sprite_frame % sprite.frames.len() as u32))
+                sprite.get_atlas_ref((self.cursor_sprite_frame % sprite.frames.len() as u32) as i32)
             {
                 self.renderer.draw_sprite(atlas_ref, x.into(), y.into(), 1.0, 1.0, 0.0, 0xffffff, 1.0);
             }
@@ -426,7 +424,7 @@ impl Game {
     }
 
     /// Splits the string into line-width pairs.
-    fn split_string<'a>(&self, string: RCStr, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
+    fn split_string<'a>(&self, string: gml::String, max_width: Option<i32>, font: &'a Font) -> LineIterator<'a> {
         let encoded_text = match self.gm_version {
             Version::GameMaker8_0 => string.as_ref().to_vec(),
             Version::GameMaker8_1 => {
@@ -459,7 +457,7 @@ impl Game {
     /// Gets width and height of a string using the current draw_font.
     /// If line_height is None, a line height will be inferred from the font.
     /// If max_width is None, the string will not be given a maximum width.
-    pub fn get_string_size(&self, string: RCStr, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
+    pub fn get_string_size(&self, string: gml::String, line_height: Option<i32>, max_width: Option<i32>) -> (i32, i32) {
         let font = self.assets.fonts.get_asset(self.draw_font_id).map(|x| x.as_ref()).unwrap_or(&self.default_font);
 
         // Figure out what the height of a line is if one wasn't specified
@@ -488,7 +486,7 @@ impl Game {
         &mut self,
         x: Real,
         y: Real,
-        string: RCStr,
+        string: gml::String,
         line_height: Option<i32>,
         max_width: Option<i32>,
         xscale: Real,

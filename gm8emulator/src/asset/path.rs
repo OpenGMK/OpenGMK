@@ -1,9 +1,9 @@
-use crate::{game::string::RCStr, math::Real};
+use crate::{gml, math::Real};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Path {
-    pub name: RCStr,
+    pub name: gml::String,
     pub points: Vec<Point>,
     pub control_nodes: Vec<ControlNode>,
     pub length: Real,

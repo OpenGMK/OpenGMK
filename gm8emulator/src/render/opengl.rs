@@ -1,17 +1,14 @@
-mod wgl;
-
 use crate::{
-    atlas::{AtlasBuilder, AtlasRef},
     render::{
+        atlas::{AtlasBuilder, AtlasRef},
         mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
         RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
-    window::Window,
+    types::Colour,
 };
-use cfg_if::cfg_if;
 use memoffset::offset_of;
+use ramen::window::Window;
 use rect_packer::DensePacker;
-use shared::types::Colour;
 use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
@@ -21,15 +18,10 @@ pub mod gl {
 }
 use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 
-cfg_if! {
-    if #[cfg(target_os = "windows")] {
-        use crate::window::win32 as w_imp;
-        use wgl as imp;
-    } else {
-        // TODO: This won't work when Wayland but that's okay just make a function for it.
-        use crate::window::xorg as w_imp;
-    }
-}
+#[cfg(target_os = "windows")]
+mod wgl;
+#[cfg(target_os = "windows")]
+mod wgl_ffi;
 
 macro_rules! shader_file {
     ($path: expr) => {
@@ -166,7 +158,7 @@ impl RenderState {
 }
 
 pub struct RendererImpl {
-    imp: imp::PlatformImpl,
+    imp: wgl::PlatformImpl,
     gl: gl::Gl,
     //program: GLuint,
     //vao: GLuint,
@@ -178,9 +170,8 @@ pub struct RendererImpl {
     sprite_count: i32,
     stock_atlas_count: u32,
     current_atlas: u32,
-    framebuffer_texture: GLuint,
-    framebuffer_zbuf: GLuint,
-    framebuffer_fbo: GLuint,
+    framebuffer: Framebuffer,
+    stored_framebuffer: Option<Framebuffer>,
     zbuf_format: GLint,
     zbuf_trashed: bool,
     white_pixel: AtlasRef,
@@ -199,6 +190,13 @@ pub struct RendererImpl {
     loc_gm81_normalize: GLint, // uniform bool gm81_normalize
     loc_tex: GLint,            // uniform sampler2D tex
     buf_state: GLuint,         // uniform RenderState state
+}
+
+#[derive(Clone, Copy)]
+struct Framebuffer {
+    pub texture: GLuint,
+    pub zbuf: GLuint,
+    pub fbo: GLuint,
 }
 
 static VERTEX_SHADER_SOURCE: &[u8] = shader_file!("glsl/vertex.glsl");
@@ -379,17 +377,12 @@ impl ShapeBuilder {
 
 impl RendererImpl {
     pub fn new(options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
-        let window_impl: &w_imp::WindowImpl = match window.as_any().downcast_ref() {
-            Some(x) => x,
-            None => return Err("Wrong backend provided to OpenGLRenderer::new()".into()),
-        };
-
         unsafe {
-            let imp = imp::PlatformImpl::new(window_impl)?;
+            let imp = wgl::PlatformImpl::new(window)?;
 
             // gl function pointers
-            let gl = gl::Gl::load_with(imp::PlatformImpl::get_function_loader()?);
-            imp::PlatformImpl::clean_function_loader();
+            let gl = gl::Gl::load_with(wgl::PlatformImpl::get_function_loader()?);
+            wgl::PlatformImpl::clean_function_loader();
 
             // debug print
             let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
@@ -557,9 +550,12 @@ impl RendererImpl {
                 sprite_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
-                framebuffer_texture,
-                framebuffer_zbuf,
-                framebuffer_fbo,
+                framebuffer: Framebuffer {
+                    texture: framebuffer_texture,
+                    zbuf: framebuffer_zbuf,
+                    fbo: framebuffer_fbo,
+                },
+                stored_framebuffer: None,
                 zbuf_format,
                 zbuf_trashed: false,
                 white_pixel: Default::default(),
@@ -616,7 +612,7 @@ impl RendererImpl {
         unsafe {
             // get framebuffer size
             let (mut width, mut height) = (0, 0);
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer.texture);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
             // set view
@@ -890,7 +886,7 @@ impl RendererTrait for RendererImpl {
                 self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, *tex_id, 0);
                 fbo_ids.push(Some(fbo));
             }
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
 
             // verify it actually worked
             match self.gl.GetError() {
@@ -1158,11 +1154,11 @@ impl RendererTrait for RendererImpl {
     fn reset_target(&mut self) {
         self.flush_queue();
         unsafe {
-            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer.fbo);
 
             // reset view
             let (mut fb_width, mut fb_height) = (0, 0);
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer.texture);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
             assert_eq!(self.gl.GetError(), 0);
@@ -1177,13 +1173,13 @@ impl RendererTrait for RendererImpl {
             unsafe {
                 let mut prev_fbo = 0;
                 self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_fbo);
-                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
                 assert_eq!(self.gl.GetError(), 0);
                 self.gl.FramebufferTexture2D(
                     gl::READ_FRAMEBUFFER,
                     gl::DEPTH_ATTACHMENT,
                     gl::TEXTURE_2D,
-                    if trashed { 0 } else { self.framebuffer_zbuf },
+                    if trashed { 0 } else { self.framebuffer.zbuf },
                     0,
                 );
                 assert_eq!(self.gl.GetError(), 0);
@@ -1196,18 +1192,18 @@ impl RendererTrait for RendererImpl {
         self.zbuf_trashed
     }
 
-    fn resize_framebuffer(&mut self, width: u32, height: u32) {
+    fn resize_framebuffer(&mut self, width: u32, height: u32, store: bool) {
         self.flush_queue();
         unsafe {
             // get old size
-            let old_tex = self.framebuffer_texture;
+            let old_tex = self.framebuffer.texture;
             self.gl.BindTexture(gl::TEXTURE_2D, old_tex);
             let (mut old_width, mut old_height) = (0, 0);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut old_width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut old_height);
             // set up new texture
-            self.gl.GenTextures(1, &mut self.framebuffer_texture);
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.GenTextures(1, &mut self.framebuffer.texture);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer.texture);
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
             self.gl.TexImage2D(
                 gl::TEXTURE_2D,    // target
@@ -1222,9 +1218,9 @@ impl RendererTrait for RendererImpl {
             );
             assert_eq!(self.gl.GetError(), 0);
             // set up new zbuffer
-            let old_zbuf = self.framebuffer_zbuf;
-            self.gl.GenTextures(1, &mut self.framebuffer_zbuf);
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
+            let old_zbuf = self.framebuffer.zbuf;
+            self.gl.GenTextures(1, &mut self.framebuffer.zbuf);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer.zbuf);
             self.gl.TexImage2D(
                 gl::TEXTURE_2D,      // target
                 0,                   // level
@@ -1238,21 +1234,21 @@ impl RendererTrait for RendererImpl {
             );
             assert_eq!(self.gl.GetError(), 0);
             // set up new fbo
-            let old_fbo = self.framebuffer_fbo;
-            self.gl.GenFramebuffers(1, &mut self.framebuffer_fbo);
-            self.gl.BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer_fbo);
+            let old_fbo = self.framebuffer.fbo;
+            self.gl.GenFramebuffers(1, &mut self.framebuffer.fbo);
+            self.gl.BindFramebuffer(gl::FRAMEBUFFER, self.framebuffer.fbo);
             self.gl.FramebufferTexture2D(
                 gl::READ_FRAMEBUFFER,
                 gl::COLOR_ATTACHMENT0,
                 gl::TEXTURE_2D,
-                self.framebuffer_texture,
+                self.framebuffer.texture,
                 0,
             );
             self.gl.FramebufferTexture2D(
                 gl::READ_FRAMEBUFFER,
                 gl::DEPTH_ATTACHMENT,
                 gl::TEXTURE_2D,
-                self.framebuffer_zbuf,
+                self.framebuffer.zbuf,
                 0,
             );
             assert_eq!(self.gl.GetError(), 0);
@@ -1273,10 +1269,24 @@ impl RendererTrait for RendererImpl {
                 gl::NEAREST,
             );
             assert_eq!(self.gl.GetError(), 0);
-            // delete old texture and fbo
-            self.gl.DeleteTextures(1, &old_tex);
-            self.gl.DeleteTextures(1, &old_zbuf);
-            self.gl.DeleteFramebuffers(1, &old_fbo);
+            if store {
+                // store old texture and fbo, delete previous stored one
+                if let Some(framebuffer) = &self.stored_framebuffer {
+                    self.gl.DeleteTextures(1, &framebuffer.texture);
+                    self.gl.DeleteTextures(1, &framebuffer.zbuf);
+                    self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
+                }
+                self.stored_framebuffer = Some(Framebuffer {
+                    texture: old_tex,
+                    zbuf: old_zbuf,
+                    fbo: old_fbo,
+                });
+            } else {
+                // delete old texture and fbo
+                self.gl.DeleteTextures(1, &old_tex);
+                self.gl.DeleteTextures(1, &old_zbuf);
+                self.gl.DeleteFramebuffers(1, &old_fbo);
+            }
             assert_eq!(self.gl.GetError(), 0);
         }
     }
@@ -1339,72 +1349,124 @@ impl RendererTrait for RendererImpl {
             let len = (w * h * 4) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
             self.gl.ReadPixels(x, y, w, h, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
             assert_eq!(self.gl.GetError(), 0);
             data.into_boxed_slice()
         }
     }
 
-    fn dump_zbuffer(&self) -> Box<[f32]> {
-        unsafe {
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
-            let mut width = 0;
-            let mut height = 0;
-            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-            let len = (width * height) as usize;
-            let mut data: Vec<f32> = Vec::with_capacity(len);
-            data.set_len(len);
-            self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
-            data.into_boxed_slice()
+    fn stored_pixels(&self) -> Box<[u8]> {
+        if let Some(fb) = self.stored_framebuffer {
+            unsafe {
+                let (width, height) = self.stored_size();
+                let len = (width * height * 4) as usize;
+                let mut data: Vec<u8> = Vec::with_capacity(len);
+                data.set_len(len);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
+                self.gl.ReadPixels(0, 0, width as _, height as _, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+                assert_eq!(self.gl.GetError(), 0);
+                data.into_boxed_slice()
+            }
+        } else {
+            Box::new([])
         }
     }
 
-    fn draw_raw_frame(
-        &mut self,
-        rgba: Box<[u8]>,
-        zbuf: Box<[f32]>,
-        fb_w: i32,
-        fb_h: i32,
-        window_w: u32,
-        window_h: u32,
-        scaling: Scaling,
-    ) {
+    fn stored_zbuffer(&self) -> Box<[f32]> {
+        if let Some(fb) = self.stored_framebuffer {
+            unsafe {
+                self.gl.BindTexture(gl::TEXTURE_2D, fb.zbuf);
+                let mut width = 0;
+                let mut height = 0;
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                let len = (width * height) as usize;
+                let mut data: Vec<f32> = Vec::with_capacity(len);
+                data.set_len(len);
+                self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
+                data.into_boxed_slice()
+            }
+        } else {
+            Box::new([])
+        }
+    }
+
+    fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32) {
         unsafe {
-            // resize framebuffer
-            self.resize_framebuffer(fb_w as _, fb_h as _);
-            // upload new frame
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
-            self.gl.TexSubImage2D(
+            let mut fbo = 0;
+            let mut texture = 0;
+            let mut zbuffer = 0;
+            self.gl.GenFramebuffers(1, &mut fbo);
+            self.gl.GenTextures(1, &mut texture);
+            self.gl.GenTextures(1, &mut zbuffer);
+
+            assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.BindTexture(gl::TEXTURE_2D, texture);
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.TexImage2D(
                 gl::TEXTURE_2D,
                 0,
+                gl::RGBA as _,
+                fb_w as _,
+                fb_h as _,
                 0,
-                0,
-                fb_w,
-                fb_h,
                 gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 rgba.as_ptr().cast(),
             );
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_zbuf);
-            self.gl.TexSubImage2D(
+
+            assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.BindTexture(gl::TEXTURE_2D, zbuffer);
+            self.gl.TexImage2D(
                 gl::TEXTURE_2D,
                 0,
+                self.zbuf_format,
+                fb_w as _,
+                fb_h as _,
                 0,
-                0,
-                fb_w,
-                fb_h,
                 gl::DEPTH_COMPONENT,
                 gl::FLOAT,
                 zbuf.as_ptr().cast(),
             );
 
             assert_eq!(self.gl.GetError(), 0);
+
+            self.gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            self.gl.FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                texture,
+                0,
+            );
+            assert_eq!(self.gl.GetError(), 0);
+            self.gl.FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                zbuffer,
+                0,
+            );
+
+            if let Some(framebuffer) = &self.stored_framebuffer {
+                self.gl.DeleteTextures(1, &framebuffer.texture);
+                self.gl.DeleteTextures(1, &framebuffer.zbuf);
+                self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
+            }
+
+            self.stored_framebuffer = Some(Framebuffer {
+                fbo,
+                texture,
+                zbuf: zbuffer,
+            });
+
+            assert_eq!(self.gl.GetError(), 0);
         }
-        self.vertex_queue.clear();
-        self.present(window_w as _, window_h as _, scaling);
-        self.set_view(0, 0, fb_w, fb_h, 0.0, 0, 0, fb_w, fb_h);
     }
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -1546,7 +1608,7 @@ impl RendererTrait for RendererImpl {
                     }
                 }
             }
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
             assert_eq!(self.gl.GetError(), 0);
         }
     }
@@ -1988,7 +2050,7 @@ impl RendererTrait for RendererImpl {
             self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_current);
             assert_eq!(self.gl.GetError(), 0);
         }
-        if fb_current == self.framebuffer_fbo as _ {
+        if fb_current == self.framebuffer.fbo as _ {
             // Set viewport (gl::Viewport, gl::Scissor)
             if port_x >= 0 && port_y >= 0 && port_w >= 0 && port_h >= 0 {
                 unsafe {
@@ -2160,6 +2222,13 @@ impl RendererTrait for RendererImpl {
         ]
     }
 
+    fn set_lights(&mut self, lights: [(bool, Light); 8]) {
+        lights.iter().enumerate().for_each(|(i, &(enabled, light))| {
+            self.set_light_enabled(i, enabled);
+            self.set_light(i, light);
+        })
+    }
+
     fn set_light_enabled(&mut self, id: usize, enabled: bool) {
         self.next_render_state.lights[id].enabled = enabled.into();
         self.render_state_updated = true;
@@ -2193,7 +2262,7 @@ impl RendererTrait for RendererImpl {
 
             // Get framebuffer size
             let (mut fb_width, mut fb_height) = (0, 0);
-            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer_texture);
+            self.gl.BindTexture(gl::TEXTURE_2D, self.framebuffer.texture);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
             self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
 
@@ -2238,7 +2307,7 @@ impl RendererTrait for RendererImpl {
             // Draw framebuffer to screen
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
             self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer_fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
             self.gl.BlitFramebuffer(
                 0,
                 fb_height,
@@ -2266,6 +2335,69 @@ impl RendererTrait for RendererImpl {
             // This hack evades the error, but a less awful solution would be really nice to have.
             self.gl.GetError();
         }
+    }
+
+    fn draw_stored(&mut self, x: i32, y: i32, w: u32, h: u32) {
+        if w == 0 || h == 0 {
+            return
+        }
+
+        let framebuffer = match self.stored_framebuffer {
+            Some(f) => f,
+            None => return,
+        };
+
+        self.flush_queue();
+
+        unsafe {
+            // Get framebuffer size
+            let (mut fb_width, mut fb_height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut fb_width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut fb_height);
+
+            let (width, height) = (w as i32, h as i32);
+
+            // Remember old framebuffer so we can rebind it after we're done
+            let mut fb_old = 0;
+            self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_old);
+            assert_eq!(self.gl.GetError(), 0);
+
+            // Draw framebuffer to screen
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.framebuffer.fbo);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.fbo);
+            self.gl.BlitFramebuffer(
+                0,
+                0,
+                fb_width,
+                fb_height,
+                x,
+                y,
+                x + width,
+                y + height,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+            self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
+
+            assert_eq!(self.gl.GetError(), 0);
+        }
+    }
+
+    fn stored_size(&self) -> (u32, u32) {
+        use std::convert::TryFrom;
+        self.stored_framebuffer.map(|framebuffer| {
+            unsafe {
+                let (mut width, mut height) = (0, 0);
+                self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+                (
+                    u32::try_from(width).expect("Negative width reported by OpenGL"),
+                    u32::try_from(height).expect("Negative height reported by OpenGL"),
+                )
+            }
+        }).unwrap_or((0, 0))
     }
 
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {

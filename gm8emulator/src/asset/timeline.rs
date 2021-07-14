@@ -1,9 +1,9 @@
-use crate::{action::Tree, game::string::RCStr};
+use crate::{action::Tree, gml};
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Timeline {
-    pub name: RCStr,
+    pub name: gml::String,
     pub moments: Rc<RefCell<BTreeMap<i32, Rc<RefCell<Tree>>>>>,
 }

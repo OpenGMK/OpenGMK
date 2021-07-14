@@ -1,14 +1,13 @@
 //! Game rendering functionality
 
+pub mod atlas;
 mod opengl;
 
-use crate::{atlas::AtlasBuilder, window::Window};
+use atlas::AtlasRef;
+use crate::types::Colour;
+use ramen::window::Window;
 use serde::{Deserialize, Serialize};
-use shared::types::Colour;
 use std::any::Any;
-
-// Re-export for more logical module pathing
-pub use crate::atlas::AtlasRef;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Scaling {
@@ -179,7 +178,7 @@ pub struct Renderer(Box<dyn RendererTrait>);
 pub trait RendererTrait {
     fn as_any(&self) -> &dyn Any;
     fn max_texture_size(&self) -> u32;
-    fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String>;
+    fn push_atlases(&mut self, atl: atlas::AtlasBuilder) -> Result<(), String>;
     fn upload_sprite(
         &mut self,
         data: Box<[u8]>,
@@ -191,7 +190,10 @@ pub trait RendererTrait {
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
-    fn resize_framebuffer(&mut self, width: u32, height: u32);
+    /// Resizes the rendering target. Usually called when the window has been resized.
+    /// The contents of the old framebuffer will be copied to the new one. If `store` is true, the old one
+    /// will be stored for later drawing with `draw_stored()`; otherwise, it will be deleted.
+    fn resize_framebuffer(&mut self, width: u32, height: u32, store: bool);
 
     fn set_vsync(&self, vsync: bool);
     fn get_vsync(&self) -> bool;
@@ -292,6 +294,8 @@ pub trait RendererTrait {
     );
     fn flush_queue(&mut self);
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling);
+    fn draw_stored(&mut self, target_x: i32, target_y: i32, width: u32, height: u32);
+    fn stored_size(&self) -> (u32, u32);
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
     fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
@@ -317,17 +321,9 @@ pub trait RendererTrait {
     fn set_texture_repeat(&mut self, repeat: bool);
 
     fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]>;
-    fn dump_zbuffer(&self) -> Box<[f32]>;
-    fn draw_raw_frame(
-        &mut self,
-        rgba: Box<[u8]>,
-        zbuf: Box<[f32]>,
-        fb_w: i32,
-        fb_h: i32,
-        window_w: u32,
-        window_h: u32,
-        scaling: Scaling,
-    );
+    fn stored_pixels(&self) -> Box<[u8]>;
+    fn stored_zbuffer(&self) -> Box<[f32]>;
+    fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32);
 
     fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>>;
     fn upload_dynamic_textures(&mut self, textures: &[Option<SavedTexture>]);
@@ -498,6 +494,7 @@ pub trait RendererTrait {
     fn get_ambient_colour(&self) -> i32;
     fn set_ambient_colour(&mut self, colour: i32);
     fn get_lights(&self) -> [(bool, Light); 8];
+    fn set_lights(&mut self, lights: [(bool, Light); 8]);
     fn set_light_enabled(&mut self, id: usize, enabled: bool);
     fn set_light(&mut self, id: usize, light: Light);
 }
@@ -533,7 +530,7 @@ impl Renderer {
         self.0.max_texture_size()
     }
 
-    pub fn push_atlases(&mut self, atl: AtlasBuilder) -> Result<(), String> {
+    pub fn push_atlases(&mut self, atl: atlas::AtlasBuilder) -> Result<(), String> {
         self.0.push_atlases(atl)
     }
 
@@ -850,29 +847,24 @@ impl Renderer {
         self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
     }
 
-    pub fn resize_framebuffer(&mut self, width: u32, height: u32) {
-        self.0.resize_framebuffer(width, height)
+    pub fn resize_framebuffer(&mut self, width: u32, height: u32, store: bool) {
+        self.0.resize_framebuffer(width, height, store)
     }
 
     pub fn get_pixels(&self, x: i32, y: i32, w: i32, h: i32) -> Box<[u8]> {
         self.0.get_pixels(x, y, w, h)
     }
 
-    pub fn dump_zbuffer(&self) -> Box<[f32]> {
-        self.0.dump_zbuffer()
+    pub fn stored_pixels(&self) -> Box<[u8]> {
+        self.0.stored_pixels()
     }
 
-    pub fn draw_raw_frame(
-        &mut self,
-        rgba: Box<[u8]>,
-        zbuf: Box<[f32]>,
-        fb_w: i32,
-        fb_h: i32,
-        window_w: u32,
-        window_h: u32,
-        scaling: Scaling,
-    ) {
-        self.0.draw_raw_frame(rgba, zbuf, fb_w, fb_h, window_w, window_h, scaling)
+    pub fn stored_zbuffer(&self) -> Box<[f32]> {
+        self.0.stored_zbuffer()
+    }
+
+    pub fn set_stored(&mut self, rgba: Box<[u8]>, zbuf: Box<[f32]>, fb_w: u32, fb_h: u32) {
+        self.0.set_stored(rgba, zbuf, fb_w, fb_h)
     }
 
     pub fn dump_dynamic_textures(&self) -> Vec<Option<SavedTexture>> {
@@ -1055,6 +1047,10 @@ impl Renderer {
         self.0.get_lights()
     }
 
+    pub fn set_lights(&mut self, lights: [(bool, Light); 8]) {
+        self.0.set_lights(lights)
+    }
+
     pub fn set_light_enabled(&mut self, id: usize, enabled: bool) {
         self.0.set_light_enabled(id, enabled)
     }
@@ -1067,9 +1063,97 @@ impl Renderer {
         self.0.present(window_width, window_height, scaling)
     }
 
+    pub fn draw_stored(&mut self, target_x: i32, target_y: i32, width: u32, height: u32) {
+        self.0.draw_stored(target_x, target_y, width, height)
+    }
+
+    pub fn stored_size(&self) -> (u32, u32) {
+        self.0.stored_size()
+    }
+
     pub fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
         self.0.finish(window_width, window_height, clear_colour)
     }
+
+    pub fn state(&self) -> RendererState {
+        RendererState {
+            model_matrix: self.get_model_matrix(),
+            alpha_blending: self.get_alpha_blending(),
+            blend_mode: self.get_blend_mode(),
+            pixel_interpolation: self.get_pixel_interpolation(),
+            texture_repeat: self.get_texture_repeat(),
+            sprite_count: self.get_sprite_count(),
+            vsync: self.get_vsync(),
+            ambient_colour: self.get_ambient_colour(),
+            using_3d: self.get_3d(),
+            depth: self.get_depth(),
+            depth_test: self.get_depth_test(),
+            write_depth: self.get_write_depth(),
+            culling: self.get_culling(),
+            perspective: self.get_perspective(),
+            fog: self.get_fog(),
+            gouraud: self.get_gouraud(),
+            lighting_enabled: self.get_lighting_enabled(),
+            lights: self.get_lights(),
+            circle_precision: self.get_circle_precision(),
+            primitive_2d: self.get_primitive_2d(),
+            primitive_3d: self.get_primitive_3d(),
+            zbuf_trashed: self.get_zbuf_trashed(),
+        }
+    }
+
+    pub fn set_state(&mut self, state: &RendererState) {
+        self.set_model_matrix(state.model_matrix);
+        self.set_alpha_blending(state.alpha_blending);
+        self.set_blend_mode(state.blend_mode.0, state.blend_mode.1);
+        self.set_pixel_interpolation(state.pixel_interpolation);
+        self.set_texture_repeat(state.texture_repeat);
+        self.set_sprite_count(state.sprite_count);
+        self.set_vsync(state.vsync);
+        self.set_ambient_colour(state.ambient_colour);
+        self.set_3d(state.using_3d);
+        self.set_depth(state.depth);
+        self.set_depth_test(state.depth_test);
+        self.set_write_depth(state.write_depth);
+        self.set_culling(state.culling);
+        self.set_perspective(state.perspective);
+        self.set_fog(state.fog.clone());
+        self.set_gouraud(state.gouraud);
+        self.set_lighting_enabled(state.lighting_enabled);
+        self.set_lights(state.lights);
+        self.set_circle_precision(state.circle_precision);
+        self.set_primitive_2d(state.primitive_2d.clone());
+        self.set_primitive_3d(state.primitive_3d.clone());
+        self.set_zbuf_trashed(state.zbuf_trashed);
+    }
+}
+
+/// Easy wrapper for all the parts of the renderer which need saving in savestates.
+/// Everything in this struct can be queried individually. Don't use this for querying individual things.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RendererState {
+    pub model_matrix: [f32; 16],
+    pub alpha_blending: bool,
+    pub blend_mode: (BlendType, BlendType),
+    pub pixel_interpolation: bool,
+    pub texture_repeat: bool,
+    pub sprite_count: i32,
+    pub vsync: bool,
+    pub ambient_colour: i32,
+    pub using_3d: bool,
+    pub depth: f32,
+    pub depth_test: bool,
+    pub write_depth: bool,
+    pub culling: bool,
+    pub perspective: bool,
+    pub fog: Option<Fog>,
+    pub gouraud: bool,
+    pub lighting_enabled: bool,
+    pub lights: [(bool, Light); 8],
+    pub circle_precision: i32,
+    pub primitive_2d: PrimitiveBuilder,
+    pub primitive_3d: PrimitiveBuilder,
+    pub zbuf_trashed: bool,
 }
 
 /// Multiply two mat4's together

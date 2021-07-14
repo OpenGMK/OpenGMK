@@ -75,7 +75,7 @@ void main() {
     // apply fog
     if (fog_enabled) {
         float f = clamp((fog_end - fog_z) / (fog_end - fog_begin), 0, 1);
-        colour.rgb = (1-f) * fog_colour.rgb + f * colour.rgb;
+        colour.rgb = mix(fog_colour.rgb, colour.rgb, f);
     }
     // alpha test
     if (alpha_test && colour.a <= 0) {

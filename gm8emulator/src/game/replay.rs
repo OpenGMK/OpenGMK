@@ -1,6 +1,8 @@
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use crate::gml::Value;
+use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
-use shared::input::{Key, MouseButton};
+use std::{fs::{File, OpenOptions}, io::{self, Read, Write}, path::PathBuf};
 
 // Represents an entire replay (TAS) file
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,9 +24,8 @@ pub struct Replay {
 // Associated data for a single frame of playback
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
-    pub fps: u32,
-    pub mouse_x: f64,
-    pub mouse_y: f64,
+    pub mouse_x: i32,
+    pub mouse_y: i32,
     pub inputs: Vec<Input>,
     pub events: Vec<Event>,
     pub new_seed: Option<i32>,
@@ -34,23 +35,38 @@ pub struct Frame {
 // Stored events for certain things which must always happen the same way during replay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
-    GetInteger(Value),   // value returned from get_integer()
-    GetString(Value),    // value returned from get_string()
-    Randomize(i32),      // value assigned to seed by randomize()
-    ShowMenu(Value),     // value returned from show_menu()
-    ShowMessage,         // acknowledges that a show_message() does not need to be shown during replay
-    ShowQuestion(Value), // value returned from show_question()
+    GetInteger(Value),    // value returned from get_integer()
+    GetString(Value),     // value returned from get_string()
+    Randomize(i32),       // value assigned to seed by randomize()
+    ShowMenu(Value),      // value returned from show_menu()
+    ShowMessage,          // acknowledges that a show_message() does not need to be shown during replay
+    ShowQuestion(Value),  // value returned from show_question()
 }
 
 // An input event which takes place during a frame
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Input {
-    KeyPress(Key),
-    KeyRelease(Key),
-    MousePress(MouseButton),
-    MouseRelease(MouseButton),
+    KeyPress(u8),
+    KeyRelease(u8),
+    MousePress(i8),
+    MouseRelease(i8),
     MouseWheelUp,
     MouseWheelDown,
+}
+
+#[derive(Debug)]
+pub enum ReadError {
+    IOErr(io::Error),
+    DecompressErr(lzzzz::Error),
+    DeserializeErr(Box<bincode::ErrorKind>),
+    UnknownVersion(u32),
+}
+
+#[derive(Debug)]
+pub enum WriteError {
+    IOErr(io::Error),
+    CompressErr(lzzzz::Error),
+    SerializeErr(Box<bincode::ErrorKind>),
 }
 
 impl Replay {
@@ -58,16 +74,87 @@ impl Replay {
         Self { start_time, start_seed, startup_events: Vec::new(), frames: Vec::new() }
     }
 
+    // Loads a Replay from a gmtas-format file (doesn't check the file extension)
+    pub fn from_file(path: &PathBuf) -> Result<Self, ReadError> {
+        let mut lz4_buf = Vec::new();
+        let mut bin_buf = Vec::new();
+        let mut file = File::open(path).map_err(ReadError::IOErr)?;
+
+        match file.read_u32::<LE>() {
+            Ok(1) => {
+                let init_size = file.metadata().map(|m| m.len() as usize + 1).unwrap_or(0);
+                lz4_buf.reserve(init_size);
+                match file.read_to_end(&mut lz4_buf) {
+                    Ok(_) => match (
+                        lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
+                        lz4_buf.get(8..),
+                    ) {
+                        (Ok(len), Some(block)) => {
+                            bin_buf.reserve(len);
+                            unsafe { bin_buf.set_len(len) };
+                            match lz4::decompress(block, bin_buf.as_mut_slice()) {
+                                Ok(len) => {
+                                    unsafe { bin_buf.set_len(len) };
+                                    bincode::deserialize::<'_, Self>(bin_buf.as_slice())
+                                        .map_err(ReadError::DeserializeErr)
+                                },
+                                Err(err) => Err(ReadError::DecompressErr(err)),
+                            }
+                        },
+                        (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
+                        (Err(err), _) => Err(ReadError::IOErr(err)),
+                    },
+                    Err(err) => Err(ReadError::IOErr(err)),
+                }
+            },
+            Ok(v) => Err(ReadError::UnknownVersion(v)),
+            Err(e) => Err(ReadError::IOErr(e)),
+        }
+    }
+
+    // Serializes this replay into a file
+    pub fn to_file(&self, path: &PathBuf) -> Result<(), WriteError> {
+        let mut lz4_buf = Vec::new();
+        let mut bin_buf = Vec::new();
+        match bincode::serialize_into(&mut bin_buf, self) {
+            Ok(()) => {
+                match lz4::compress_to_vec(
+                    bin_buf.as_slice(),
+                    lz4_buf.as_mut(),
+                    lz4::ACC_LEVEL_DEFAULT,
+                ) {
+                    Ok(_length) => {
+                        match OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(path)
+                            .and_then(|mut f| {
+                                f.write_u32::<LE>(1)
+                                    .and_then(|_| f.write_u64::<LE>(bin_buf.len() as u64)
+                                    .and_then(|_| f.write_all(lz4_buf.as_slice())))
+                            })
+                        {
+                            Ok(()) => Ok(()),
+                            Err(e) => Err(WriteError::IOErr(e)),
+                        }
+                    },
+                    Err(err) => Err(WriteError::CompressErr(err)),
+                }
+            },
+            Err(err) => Err(WriteError::SerializeErr(err)),
+        }
+    }
+
     // Adds a new frame of input to the end of the replay.
     // Mouse position will be the same as the previous frame unless this is the first frame,
     // in which case it will be (0, 0)
-    pub fn new_frame(&mut self, fps: u32) -> &mut Frame {
+    pub fn new_frame(&mut self) -> &mut Frame {
         let (mouse_x, mouse_y) = match self.frames.last() {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
-            None => (0.0, 0.0),
+            None => (0, 0),
         };
         self.frames.push(Frame {
-            fps,
             mouse_x,
             mouse_y,
             inputs: Vec::new(),
@@ -86,30 +173,5 @@ impl Replay {
     // Gets the replay's frame count
     pub fn frame_count(&self) -> usize {
         self.frames.len()
-    }
-
-    // Calculates the length of this replay in milliseconds
-    pub fn get_length(&self) -> f64 {
-        // We want to do this in a way that'll avoid FPI as much as possible (for example in a 60FPS game)
-        let mut ms: f64 = 0.0;
-
-        let mut iter = self.frames.iter().peekable();
-        loop {
-            let speed = match iter.next() {
-                Some(s) => s.fps,
-                None => break,
-            };
-            let mut count: usize = 1;
-            while let Some(Frame { fps, .. }) = iter.peek() {
-                if *fps == speed {
-                    iter.next();
-                    count += 1;
-                } else {
-                    break
-                }
-            }
-            ms += (count * 1000) as f64 / (speed as f64)
-        }
-        ms
     }
 }

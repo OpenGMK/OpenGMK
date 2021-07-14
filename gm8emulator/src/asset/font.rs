@@ -1,15 +1,11 @@
-use crate::{asset::Sprite, game::string::RCStr};
+use crate::{asset::Sprite, gml, render::{atlas::{AtlasBuilder, AtlasRef}, Renderer}};
 use encoding_rs::Encoding;
-use gmio::{
-    atlas::AtlasBuilder,
-    render::{AtlasRef, Renderer},
-};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Font {
-    pub name: RCStr,
-    pub sys_name: RCStr,
+    pub name: gml::String,
+    pub sys_name: gml::String,
     pub charset: u32,
     pub size: u32,
     pub bold: bool,

@@ -1,8 +1,5 @@
 use crate::math::Real;
-use gmio::{
-    atlas::AtlasRef,
-    render::{PrimitiveType, Renderer, VertexBuffer},
-};
+use crate::render::{atlas::AtlasRef, PrimitiveType, Renderer, VertexBuffer};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

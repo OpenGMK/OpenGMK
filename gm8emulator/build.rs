@@ -1,6 +1,4 @@
-extern crate winres;
-
-use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
+use gl_generator::{Api, Fallbacks, Profile, Registry, StructGenerator};
 use std::{
     env,
     error::Error,
@@ -15,11 +13,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // that one giant macro in kernel.rs
     let aa_macro_path = &Path::new(&out).join("_apply_args.macro.rs");
-    if !aa_macro_path.is_file() || aa_macro_path.metadata()?.len() != 6999 {
+    if !aa_macro_path.is_file() {
         let i_char = |i| char::from(b'a' + i);
         let mut aa_macro = String::with_capacity(16384);
         aa_macro += &"macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n".to_string();
-        for i in 1..17 {
+        for i in 1..=16 {
             aa_macro += "    ($args: expr, ";
             for j in 0..i {
                 aa_macro += &format!("${}: ident ", i_char(j));
@@ -45,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // opengl bindings
     let mut bindings = File::create(&Path::new(&out).join("gl_bindings.rs"))?;
     Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, &OPENGL_EXTENSIONS)
-        .write_bindings(GlobalGenerator, &mut bindings)?;
+        .write_bindings(StructGenerator, &mut bindings)?;
 
     // WGL (Windows OpenGL) Bindings
     if cfg!(target_os = "windows") {
@@ -56,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "WGL_ARB_extensions_string",
             "WGL_EXT_swap_control",
         ])
-        .write_bindings(GlobalGenerator, &mut file)?;
+        .write_bindings(StructGenerator, &mut file)?;
     }
 
     // GLX (OpenGL Extension for X) Bindings
@@ -73,15 +71,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             "GLX_ARB_create_context_profile",
             "GLX_EXT_swap_control",
         ])
-        .write_bindings(GlobalGenerator, &mut file)?;
+        .write_bindings(StructGenerator, &mut file)?;
     }
 
-    // icon
+    // Windows-specific resources
     #[cfg(target_os = "windows")]
     {
-        let mut res = winres::WindowsResource::new();
-        res.set_icon("../assets/logo/opengmk.ico");
-        res.compile()?;
+        // This code reduces size of the manifest resource. Some important notes about:
+        // * Last char trickery is necessary to prevent gluing attributes.
+        // * Windows XML parser doesn't understand LF line endings in manifests.
+        // * Indentation must use tabs to avoid removing meaningful spaces from values.
+        //   They're also more compact than multiple spaces.
+        // * To prevent excessive spaces before '/>' in single (self-closing) tags,
+        //   they must reside on the same line with the last attribute.
+        let manifest = { let mut last = '\0';
+            fs::read_to_string("data/gm8emulator.exe.manifest")?
+                .chars()
+                .filter_map(|x| match x {
+                    '\r' | '\t' => None,
+                    '\n' => if last != '>' { Some(' ') } else { None },
+                    _ => { last = x; Some(x) },
+                }).collect::<String>()
+        };
+
+        winres::WindowsResource::new()
+            .set_icon("../assets/logo/opengmk.ico")
+            .set_manifest(&manifest)
+            .compile()?;
     }
 
     Ok(())

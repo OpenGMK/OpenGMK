@@ -76,6 +76,6 @@ impl View {
             angle.sin().into(),
             angle.cos().into(),
         );
-        (util::ieee_round(x), util::ieee_round(y))
+        (Real::from(x).round().to_i32(), Real::from(y).round().to_i32())
     }
 }

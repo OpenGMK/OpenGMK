@@ -1,3 +1,5 @@
+extern crate winres;
+
 use std::{env, error::Error, process::Command};
 use time::OffsetDateTime;
 
@@ -14,6 +16,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // target triple
     let target_triple = env::var("TARGET")?;
     println!("cargo:rustc-env=TARGET_TRIPLE={}", target_triple);
+
+    // icon
+    #[cfg(target_os = "windows")]
+    {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("../assets/logo/gm8dec.ico");
+        res.compile()?;
+    }
 
     Ok(())
 }
