@@ -836,9 +836,44 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_button(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_button")
+    pub fn draw_button(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, up) = expect_args!(args, [real, real, real, real, bool])?;
+        let (top_col, bottom_col) = if up { (0xffffff, 0x808080) } else { (0x808080, 0xffffff) };
+        self.renderer.draw_triangle(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y1.into(),
+            x1.into(),
+            y2.into(),
+            top_col,
+            top_col,
+            top_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_triangle(
+            x1.into(),
+            y2.into(),
+            x2.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            bottom_col,
+            bottom_col,
+            bottom_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_rectangle(
+            x1.into_inner() + 2.0,
+            y1.into_inner() + 2.0,
+            x2.into_inner() - 2.0,
+            y2.into_inner() - 2.0,
+            u32::from(self.draw_colour) as i32,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_healthbar(&mut self, args: &[Value]) -> gml::Result<Value> {
