@@ -8,7 +8,7 @@ providing a full sourceport of the runner, a decompiler, and the ability to reco
 It's being worked on almost every day! We’re constantly adding new features and updating the code.
 Please remember that ___this project is a work in progress___ and is unreleased.
 Until there's an official release, please note that your saves may break in future releases.
-See runtime errors section below on how to work around this.
+See [runtime errors](#load--runtime-errors) section below on how to work around this.
 
 ## Building GM8Emulator / GM8Decompiler
 
@@ -58,6 +58,9 @@ It should be noted that cross-platform extension emulation is planned for the lo
 - Replay a TAS: `gm8emulator <game_exe_location> -f <save#{.bin,.gmtas}>`
   - A `save#.bin` file is generated for each savestate in record mode.
   - A `save#.gmtas` can be exported from record mode, which is inputs only.
+  - A `save#.gmtas` can be used to recreate a savestate if `-o path/to/save#.bin` is passed.
+    - You may want to pass `-l` to disable the framelimiter which makes replaying the `save#.gmtas` much quicker.
+    - Full example: `gm8emulator <game_exe_location> -l -f path/to/save#.gmtas -o path/to/save#.bin`
 
 *Note that all command-line steps will be streamlined in a future release.*
 
@@ -69,7 +72,7 @@ It should be noted that cross-platform extension emulation is planned for the lo
 which it does not have support for at the moment.
 Whether it will in the future is unclear right now.
 
-**Loading a game gives "invalid u8 while decoding bool" or "expected variant index" (or similar)**
+**Loading a savestate gives "invalid u8 while decoding bool" or "expected variant index" (or similar)**
 
 > This means that the `save#.bin` format in your current project directory has changed
 > and is incompatible with the current GM8Emulator.
@@ -78,8 +81,8 @@ Whether it will in the future is unclear right now.
 >
 > There are two ways to fix this:
 >
-> - You can export a `save#.gmtas` file from the old build, and then create a `save#.bin` out of it:
->     - `gm8emulator <game_exe_location> -f path/to/file.gmtas -o path/to/save#.bin`
+> - You can export a `save#.gmtas` file from the old build, and then create a `save#.bin` out of it.
+>   - Instructions for this are available in the [recording section](#recording--replaying-tases-with-gm8emulator).
 > - You can downgrade your local repository to the last version it worked on.
 >   - View the latest commit in your cloned repo: `git log -1` (or look on GitHub)
 >   - Make sure you're up to date with the remote repo: `git fetch --all`
