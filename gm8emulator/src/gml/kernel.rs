@@ -3031,17 +3031,13 @@ impl Game {
 
     pub fn action_if_number(&self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, number, comparator) = expect_args!(args, [int, int, int])?;
-        if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-            let count = ids.borrow().iter().copied().map(|id| self.room.instance_list.count(id)).sum::<usize>() as i32;
-            let cond = match comparator {
-                1 => count < number,
-                2 => count > number,
-                0 | _ => count == number,
-            };
-            Ok(cond.into())
-        } else {
-            Ok(0.into())
-        }
+        let count = self.room.instance_list.count(object_id) as i32;
+        let cond = match comparator {
+            1 => count < number,
+            2 => count > number,
+            0 | _ => count == number,
+        };
+        Ok(cond.into())
     }
 
     pub fn action_if_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4618,23 +4614,19 @@ impl Game {
                 closest
             },
             object_id if object_id <= 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut closest = 1000000.0; // GML default
-                    let this = this;
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    while let Some(other) = iter.next(&self.room.instance_list) {
-                        let sprite = self.get_instance_mask_sprite(other);
-                        let other = self.room.instance_list.get(other);
-                        other.update_bbox(sprite);
-                        let dist = instance_distance(this, other);
-                        if dist < closest {
-                            closest = dist;
-                        }
+                let mut closest = 1000000.0; // GML default
+                let this = this;
+                let mut iter = self.room.instance_list.iter_by_identity(object_id);
+                while let Some(other) = iter.next(&self.room.instance_list) {
+                    let sprite = self.get_instance_mask_sprite(other);
+                    let other = self.room.instance_list.get(other);
+                    other.update_bbox(sprite);
+                    let dist = instance_distance(this, other);
+                    if dist < closest {
+                        closest = dist;
                     }
-                    closest
-                } else {
-                    1000000.0 // GML default
                 }
+                closest
             },
             instance_id => {
                 match self.room.instance_list.get_by_instid(instance_id) {
@@ -4908,12 +4900,8 @@ impl Game {
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
-                } else {
-                    None
-                }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
             },
             inst_id => {
                 if n != 0 {
@@ -4934,13 +4922,7 @@ impl Game {
             gml::SELF => self.room.instance_list.get(context.this).state.get() == InstanceState::Active,
             gml::OTHER => self.room.instance_list.get(context.other).state.get() == InstanceState::Active,
             gml::ALL => self.room.instance_list.any_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().any(|&obj| self.room.instance_list.count(obj) != 0)
-                } else {
-                    false
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj) != 0,
             _ => self.room.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
@@ -4964,13 +4946,7 @@ impl Game {
                 }
             },
             gml::ALL => self.room.instance_list.count_all_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().map(|&obj| self.room.instance_list.count(obj)).sum()
-                } else {
-                    0
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj),
             inst_id => {
                 if self.room.instance_list.get_by_instid(inst_id).is_some() {
                     1
@@ -5017,27 +4993,23 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                    let mut maxdist = Real::from(10000000000.0); // GML default
-                    let mut nearest = None;
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(target) => {
-                                let ti = self.room.instance_list.get(target);
-                                let xdist = ti.x.get() - x;
-                                let ydist = ti.y.get() - y;
-                                let dist = (xdist * xdist) + (ydist * ydist);
-                                if dist < maxdist {
-                                    maxdist = dist;
-                                    nearest = Some(target);
-                                }
-                            },
-                            None => break nearest,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                let mut maxdist = Real::from(10000000000.0); // GML default
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(target) => {
+                            let ti = self.room.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if dist < maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
                     }
-                } else {
-                    None
                 }
             },
             // Target is an instance id
@@ -5077,27 +5049,23 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                    let mut maxdist = Real::from(0.0);
-                    let mut nearest = None;
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(target) => {
-                                let ti = self.room.instance_list.get(target);
-                                let xdist = ti.x.get() - x;
-                                let ydist = ti.y.get() - y;
-                                let dist = (xdist * xdist) + (ydist * ydist);
-                                if nearest.is_none() || dist > maxdist {
-                                    maxdist = dist;
-                                    nearest = Some(target);
-                                }
-                            },
-                            None => break nearest,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                let mut maxdist = Real::from(0.0);
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(target) => {
+                            let ti = self.room.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if nearest.is_none() || dist > maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
                     }
-                } else {
-                    None
                 }
             },
             // Target is an instance ID
@@ -5175,7 +5143,7 @@ impl Game {
             .objects
             .get_asset(object_id)
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
-        let new_instance = self.room.instance_list.get(context.this).clone();
+        let mut new_instance = self.room.instance_list.get(context.this).clone();
         new_instance.object_index.set(object_id);
         new_instance.sprite_index.set(object.sprite_index);
         new_instance.mask_index.set(object.mask_index);
@@ -5183,6 +5151,7 @@ impl Game {
         new_instance.solid.set(object.solid);
         new_instance.visible.set(object.visible);
         new_instance.persistent.set(object.persistent);
+        new_instance.parents = object.parents.clone();
         self.last_instance_id += 1; // This is incremented by GM8 but not used
 
         let frame_count = if let Some(sprite) = self.assets.sprites.get_asset(object.sprite_index) {
@@ -5273,11 +5242,9 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
-                        self.room.instance_list.deactivate(handle);
-                    }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    self.room.instance_list.deactivate(handle);
                 }
             },
             inst_id => {
@@ -5335,9 +5302,10 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_inactive_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                let mut iter = self.room.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let inst = self.room.instance_list.get(handle);
+                    if inst.parents.borrow().contains(&obj) {
                         self.room.instance_list.activate(handle);
                     }
                 }
@@ -9431,13 +9399,35 @@ impl Game {
     pub fn object_set_parent(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, new_parent) = expect_args!(args, [int, int])?;
         if let Some(object) = self.assets.objects.get_asset(object_id) {
-            // Remove object and all its children from old parents
+            let parents = object.parents.borrow();
             let children = object.children.borrow();
+            // Remove object and its parents from all its children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().retain(|p| !parents.contains(p));
+                }
+            }
+            // Remove object and all its children from old parents
             let mut parent_index = object.parent_index;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
                 parent.children.borrow_mut().retain(|c| !children.contains(c));
                 parent_index = parent.parent_index;
             }
+            // Calculate new parents
+            let mut new_parents = self
+                .assets
+                .objects
+                .get_asset(new_parent)
+                .map(|o| o.parents.as_ref().borrow().clone())
+                .unwrap_or_default();
+            new_parents.insert(object_id);
+            // Add object and all its new parents to children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().extend(&new_parents);
+                }
+            }
+            self.assets.objects.get_asset(object_id).map(|o| *o.parents.borrow_mut() = new_parents);
             // Add object and all its children to new parents
             parent_index = new_parent;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
@@ -9466,8 +9456,10 @@ impl Game {
             parent_index: -1,
             events: Default::default(),
             children,
+            parents: Default::default(),
         });
         object.children.borrow_mut().insert(id);
+        object.parents.borrow_mut().insert(id);
         self.assets.objects.push(Some(object));
         Ok(id.into())
     }

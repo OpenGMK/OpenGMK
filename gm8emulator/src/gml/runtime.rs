@@ -336,12 +336,9 @@ impl Game {
                         self.set_instance_field(instance, accessor.index, array_index, value);
                     },
                     Target::Objects(index) => {
-                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
-                            let ids = object.children.clone();
-                            let mut iter = self.room.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                self.set_instance_field(instance, accessor.index, array_index, value.clone());
-                            }
+                        let mut iter = self.room.instance_list.iter_by_identity(index);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
                     },
                     Target::All => {
@@ -377,12 +374,9 @@ impl Game {
                         self.set_instance_var(instance, &accessor.var, array_index, value, context)?;
                     },
                     Target::Objects(index) => {
-                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
-                            let ids = object.children.clone();
-                            let mut iter = self.room.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
-                            }
+                        let mut iter = self.room.instance_list.iter_by_identity(index);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
                     },
                     Target::All => {
@@ -529,20 +523,18 @@ impl Game {
                     },
                     i if i < 0 => (),
                     i if i < 100_000 => {
-                        if let Some(Some(object)) = self.assets.objects.get(i as usize) {
-                            let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                context.this = instance;
-                                match self.execute(body, context)? {
-                                    ReturnType::Normal => (),
-                                    ReturnType::Continue => continue,
-                                    ReturnType::Break => break,
-                                    ReturnType::Exit => {
-                                        context.this = old_this;
-                                        context.other = old_other;
-                                        return Ok(ReturnType::Exit)
-                                    },
-                                }
+                        let mut iter = self.room.instance_list.iter_by_identity(i);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            context.this = instance;
+                            match self.execute(body, context)? {
+                                ReturnType::Normal => (),
+                                ReturnType::Continue => continue,
+                                ReturnType::Break => break,
+                                ReturnType::Exit => {
+                                    context.this = old_this;
+                                    context.other = old_other;
+                                    return Ok(ReturnType::Exit)
+                                },
                             }
                         }
                     },
@@ -628,12 +620,9 @@ impl Game {
                     )),
                     Target::Single(Some(instance)) => self.get_instance_field(instance, accessor.index, array_index),
                     Target::Objects(index) => {
-                        if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
-                            Some(x) => {
-                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
-                            },
-                            None => None,
-                        }) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_identity(index).next(&self.room.instance_list)
+                        {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -647,7 +636,9 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -703,12 +694,9 @@ impl Game {
                         self.get_instance_var(instance, &accessor.var, array_index, context)
                     },
                     Target::Objects(index) => {
-                        if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
-                            Some(x) => {
-                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
-                            },
-                            None => None,
-                        }) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_identity(index).next(&self.room.instance_list)
+                        {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -728,7 +716,9 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {
                             if self.uninit_fields_are_zero {

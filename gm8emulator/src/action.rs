@@ -370,30 +370,25 @@ impl Game {
                         },
                         Some(i) if i < 0 => (),
                         Some(i) => {
-                            if let Some(Some(object)) = self.assets.objects.get(i as usize) {
-                                context.other = this;
-                                let ids = object.children.clone();
-                                let mut iter = self.room.instance_list.iter_by_identity(ids);
-                                while let Some(instance) = iter.next(&self.room.instance_list) {
-                                    context.this = instance;
+                            context.other = this;
+                            let mut iter = self.room.instance_list.iter_by_identity(i);
+                            while let Some(instance) = iter.next(&self.room.instance_list) {
+                                context.this = instance;
 
-                                    let mut arg_values: [Value; 16] = Default::default();
-                                    for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
-                                        *dest = self.eval(src, &mut context)?;
-                                    }
-
-                                    returned_value = match gml_body {
-                                        GmlBody::Function(f) => {
-                                            self.invoke(*f, &mut context, &arg_values[..args.len()])?
-                                        },
-                                        GmlBody::Code(code) => {
-                                            context.arguments = arg_values;
-                                            context.argument_count = args.len();
-                                            self.execute(code, &mut context)?;
-                                            context.return_value.clone()
-                                        },
-                                    };
+                                let mut arg_values: [Value; 16] = Default::default();
+                                for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
+                                    *dest = self.eval(src, &mut context)?;
                                 }
+
+                                returned_value = match gml_body {
+                                    GmlBody::Function(f) => self.invoke(*f, &mut context, &arg_values[..args.len()])?,
+                                    GmlBody::Code(code) => {
+                                        context.arguments = arg_values;
+                                        context.argument_count = args.len();
+                                        self.execute(code, &mut context)?;
+                                        context.return_value.clone()
+                                    },
+                                };
                             }
                         },
                     }
