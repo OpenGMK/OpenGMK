@@ -159,6 +159,9 @@ pub struct Settings {
 
     /// Throw an error when arguments aren't initialized correctly
     pub error_on_uninitialized_args: bool,
+
+    /// Run create events before instance creation code (not available in base 8.1)
+    pub swap_creation_events: bool,
 }
 
 /// The help dialog box associated with a GM8 game

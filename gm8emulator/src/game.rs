@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod background;
 pub mod draw;
 pub mod events;
@@ -30,7 +31,7 @@ use crate::{
         room::{self, Room},
         sprite::{Collider, Frame, Sprite},
         trigger::{self, Trigger},
-        Object, Script, Timeline,
+        Object, Script, Sound, Timeline,
     },
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
@@ -46,7 +47,7 @@ use encoding_rs::Encoding;
 use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
-use ramen::{event::Event, monitor::Size, window::{Window, Controls}};
+use ramen::{event::Event, monitor::Size, window::{Controls, Window}};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -119,6 +120,7 @@ pub struct Game {
     pub auto_draw: bool,
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
+    pub swap_creation_events: bool,
 
     pub potential_step_settings: pathfinding::PotentialStepSettings,
 
@@ -160,7 +162,9 @@ pub struct Game {
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
 
-    // ramen windowing
+    pub audio: audio::AudioManager,
+
+    // winit windowing
     pub window: Window,
     pub window_border: bool,
     pub window_caption: String,
@@ -236,10 +240,10 @@ pub struct Assets {
     pub paths: Vec<Option<Box<Path>>>,
     pub rooms: Vec<Option<Box<Room>>>,
     pub scripts: Vec<Option<Box<Script>>>,
+    pub sounds: Vec<Option<Box<Sound>>>,
     pub sprites: Vec<Option<Box<Sprite>>>,
     pub timelines: Vec<Option<Box<Timeline>>>,
     pub triggers: Vec<Option<Box<Trigger>>>,
-    // todo
 }
 
 impl From<PascalString> for gml::String {
@@ -467,12 +471,9 @@ impl Game {
             .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
             .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
-        // Register user constants
-        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i));
-
         // Register extension function names and constants
         let mut fn_index = 0;
-        let mut const_index = constants.len();
+        let mut const_index = 0;
         let mut extension_initializers = Vec::new();
         let mut extension_finalizers = Vec::new();
         for extension in extensions.iter() {
@@ -493,6 +494,9 @@ impl Game {
                 }
             }
         }
+
+        // Register user constants
+        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i + const_index));
 
         // Set up a Renderer
         let options = RendererOptions {
@@ -525,6 +529,11 @@ impl Game {
             })
             .build()
             .expect("oh no");
+
+        // Set up audio manager
+        let mut audio = audio::AudioManager::new(play_type != PlayType::Record);
+
+        // TODO: specific flags here (make wb mutable)
 
         let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
 
@@ -642,6 +651,52 @@ impl Game {
 
             temp_directory.pop();
         }
+
+        let sounds = sounds.into_iter().enumerate()
+            .map(|(sound_id, o)| {
+                o.map(|b| {
+                    use asset::sound::FileType;
+                    use gm8exe::asset::sound::SoundKind;
+                    let handle = match b.data {
+                        Some(data) => match b.extension.0.as_ref() {
+                            b".mp3" => match audio.add_mp3(data, sound_id as i32) {
+                                Some(x) => FileType::Mp3(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid mp3 data in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    FileType::None
+                                },
+                            },
+                            b".wav" => match audio.add_wav(
+                                data,
+                                sound_id as i32,
+                                b.volume,
+                                b.kind == SoundKind::ThreeDimensional,
+                                b.kind == SoundKind::Multimedia,
+                            ) {
+                                Some(x) => FileType::Wav(x),
+                                None => {
+                                    println!(
+                                        "WARNING: invalid wav data in sound '{}'",
+                                        String::from_utf8_lossy(b.name.0.as_ref())
+                                    );
+                                    FileType::None
+                                },
+                            }
+                            _ => FileType::None,
+                        },
+                        None => FileType::None,
+                    };
+                    Box::new(Sound {
+                        name: b.name.into(),
+                        handle,
+                        gml_kind: f64::from(b.kind as u8).into(),
+                        gml_preload: f64::from(u8::from(b.preload)).into(),
+                    })
+                })
+            }).collect::<Vec<_>>();
 
         let sprites = sprites
             .into_iter()
@@ -1062,7 +1117,7 @@ impl Game {
             externals: external2::ExternalManager::new(false).unwrap(),
             surface_fix: false,
             input: Input::new(),
-            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, timelines, triggers },
+            assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, sounds, timelines, triggers },
             event_holders,
             custom_draw_objects,
             particles: particle::Manager::new(particle_shapes),
@@ -1112,6 +1167,7 @@ impl Game {
             last_tile_id,
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
+            swap_creation_events: settings.swap_creation_events,
             potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
@@ -1144,6 +1200,7 @@ impl Game {
             health_capt_d: false,
             error_occurred: false,
             error_last: "".to_string().into(),
+            audio,
             window,
             window_border,
             window_icons,
@@ -1469,13 +1526,20 @@ impl Game {
 
         for (handle, instance) in &new_handles {
             if self.room.instance_list.get(*handle).is_active() {
+                if self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
+
                 // Run this instance's room creation code
                 let mut new_context = Context::with_single_instance(*handle);
                 new_context.event_object = instance.object;
                 self.execute(&instance.creation.clone()?, &mut new_context)?;
 
-                // Run create event for this instance
-                self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                if !self.swap_creation_events {
+                    // Run create event for this instance
+                    self.run_instance_event(ev::CREATE, 0, *handle, *handle, None)?;
+                }
             }
         }
 

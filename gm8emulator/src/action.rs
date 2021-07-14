@@ -103,38 +103,31 @@ impl Tree {
     pub fn from_list(list: &[CodeAction], compiler: &mut Compiler) -> Result<Self, String> {
         let mut iter = list.iter().enumerate().peekable();
         let mut output = Vec::new();
-        Self::from_iter(&mut iter, compiler, false, &mut output)?;
+        Self::from_iter(&mut iter, compiler, false, false, &mut output)?;
         Ok(Self(output))
     }
 
     fn from_iter<'a, T>(
         iter: &mut std::iter::Peekable<T>,
         compiler: &mut Compiler,
-        single_group: bool,
+        single_group: bool, // Read just one action/group of actions?
+        stop_at_end_group: bool, // Stop reading after encountering an END_GROUP action?
         output: &mut Vec<Action>,
     ) -> Result<(), String>
     where
         T: Iterator<Item = (usize, &'a CodeAction)>,
     {
-        // If we're only iterating a single group of actions, and the first is not a BEGIN_GROUP action,
-        // then we only want to collect one action.
-        let stop_immediately = if let Some((_, CodeAction { action_kind: kind::BEGIN_GROUP, .. })) = iter.peek() {
-            false
-        } else {
-            single_group
-        };
-
         while let Some((i, action)) = iter.next() {
             match action.action_kind {
                 kind::NORMAL => {
                     // If the action we got is a condition then immediately parse its if/else bodies from the iterator
                     let if_else = if action.is_condition {
                         let mut if_body = Vec::new();
-                        Self::from_iter(iter, compiler, true, &mut if_body)?;
+                        Self::from_iter(iter, compiler, true, true, &mut if_body)?;
                         let mut else_body = Vec::new();
                         if let Some((_, CodeAction { action_kind: kind::ELSE, .. })) = iter.peek() {
                             iter.next(); // skip "else"
-                            Self::from_iter(iter, compiler, true, &mut else_body)?;
+                            Self::from_iter(iter, compiler, true, true, &mut else_body)?;
                         }
                         Some((if_body.into_boxed_slice(), else_body.into_boxed_slice()))
                     } else {
@@ -196,7 +189,7 @@ impl Tree {
                 },
 
                 kind::BEGIN_GROUP => {
-                    Self::from_iter(iter, compiler, true, output)?;
+                    Self::from_iter(iter, compiler, false, true, output)?;
                 },
 
                 kind::EXIT => {
@@ -211,7 +204,7 @@ impl Tree {
 
                 kind::REPEAT => {
                     let mut body = Vec::new();
-                    Self::from_iter(iter, compiler, true, &mut body)?;
+                    Self::from_iter(iter, compiler, true, true, &mut body)?;
                     output.push(Action {
                         index: i,
                         target: if action.applies_to_something { Some(action.applies_to) } else { None },
@@ -259,7 +252,7 @@ impl Tree {
             }
 
             // Is it time to stop reading actions?
-            if (single_group && action.action_kind == kind::END_GROUP) || stop_immediately {
+            if (stop_at_end_group && action.action_kind == kind::END_GROUP) || single_group {
                 break
             }
         }

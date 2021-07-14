@@ -12,8 +12,8 @@ mod instancelist;
 mod math;
 mod render;
 mod tile;
-mod util;
 mod types;
+mod util;
 
 use game::{Game, PlayType, Replay, savestate::{self, SaveState}};
 use std::{env, fs, path::{Path, PathBuf}, process};

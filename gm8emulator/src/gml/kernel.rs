@@ -2499,15 +2499,25 @@ impl Game {
     pub fn action_set_gravity(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).map(|(direction, gravity)| {
             let instance = self.room.instance_list.get(context.this);
-            instance.gravity.set(gravity);
-            instance.gravity_direction.set(direction);
+            if context.relative {
+                instance.gravity.set(gravity + instance.gravity.get());
+                instance.gravity_direction.set(direction + instance.gravity.get());
+            } else {
+                instance.gravity.set(gravity);
+                instance.gravity_direction.set(direction);
+            }
         })?;
         Ok(Default::default())
     }
 
     pub fn action_set_friction(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).map(|x| {
-            self.room.instance_list.get(context.this).friction.set(x);
+            let instance = self.room.instance_list.get(context.this);
+            if context.relative {
+                instance.friction.set(x + instance.friction.get());
+            } else {
+                instance.friction.set(x);
+            }
             Ok(Default::default())
         })?
     }
@@ -2791,16 +2801,17 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sound(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function action_sound")
-        // TODO
-        Ok(Default::default())
+    pub fn action_sound(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, do_loop) = expect_args!(args, [any, bool])?;
+        if do_loop {
+            self.sound_loop(&[sound_id])
+        } else {
+            self.sound_play(&[sound_id])
+        }
     }
 
-    pub fn action_if_sound(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_sound")
+    pub fn action_if_sound(&self, args: &[Value]) -> gml::Result<Value> {
+        self.sound_isplaying(args)
     }
 
     pub fn action_another_room(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -2842,7 +2853,9 @@ impl Game {
 
     pub fn action_set_alarm(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (time, alarm) = expect_args!(args, [int, int])?;
-        self.room.instance_list.get(context.this).alarms.borrow_mut().insert(alarm as u32, time);
+        let mut alarms = self.room.instance_list.get(context.this).alarms.borrow_mut();
+        let time = if context.relative { time + alarms.get(&(alarm as u32)).copied().unwrap_or(-1) } else { time };
+        alarms.insert(alarm as u32, time);
         Ok(Default::default())
     }
 
@@ -3172,9 +3185,17 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_set_health(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn action_set_health(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let health = expect_args!(args, [real])?;
-        self.health = health;
+        let old_health = self.health;
+        if context.relative {
+            self.health += health;
+        } else {
+            self.health = health;
+        }
+        if old_health > 0.into() && self.health <= 0.into() {
+            self.run_object_event(7, 9, None)?;
+        }
         Ok(Default::default())
     }
 
@@ -4526,7 +4547,7 @@ impl Game {
                 (0, 0) => 0.0,
                 (x, 0) => x.into(),
                 (0, y) => y.into(),
-                (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
+                (x, y) => f64::from(x).hypot(y.into()),
             }
         }
 
@@ -5918,12 +5939,14 @@ impl Game {
                                     Ok(m) => m,
                                     Err(_) => return false,
                                 };
+                                let is_dir = md.is_dir();
                                 // false means the check isn't in yet
-                                (include_read_only || !md.permissions().readonly())
+                                // also note: apparently directories are read only?
+                                (include_read_only || is_dir || !md.permissions().readonly())
                                     && (include_hidden || !false)
                                     && (include_sys_file || !false)
                                     && (include_volume_id || !false)
-                                    && (include_directory || !md.is_dir())
+                                    && (include_directory || !is_dir)
                                     && (include_archive || !false)
                             })
                             .map(|p| p.file_name().map(|p| p.into()).unwrap_or(p)),
@@ -6476,9 +6499,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function show_question")
     }
 
-    pub fn show_error(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function show_error")
+    pub fn show_error(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (text, _abort) = expect_args!(args, [string, bool])?;
+        Err(gml::Error::FunctionError("show_error".into(), text.into()))
     }
 
     pub fn show_info(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -7395,9 +7418,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn set_program_priority(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_program_priority")
+    pub fn set_program_priority(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _priority = expect_args!(args, [int])?;
+        // do nothing
+        Ok(Default::default())
     }
 
     pub fn set_application_title(args: &[Value]) -> gml::Result<Value> {
@@ -8275,9 +8299,48 @@ impl Game {
         unimplemented!("Called unimplemented kernel function sprite_duplicate")
     }
 
-    pub fn sprite_assign(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function sprite_assign")
+    pub fn sprite_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        if let Some(src) = self.assets.sprites.get_asset(src_id) {
+            if let Some(sprite) = self.assets.sprites.get_asset(dst_id) {
+                for frame in &sprite.frames {
+                    self.renderer.delete_sprite(frame.atlas_ref);
+                }
+            }
+            if dst_id >= 0 && self.assets.sprites.len() > dst_id as usize {
+                let renderer = &mut self.renderer; // borrowck
+                let frames = src
+                    .frames
+                    .iter()
+                    .map(|f| {
+                        Ok(asset::sprite::Frame {
+                            atlas_ref: renderer.duplicate_sprite(&f.atlas_ref).map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
+                            width: f.width,
+                            height: f.height,
+                        })
+                    })
+                    .collect::<gml::Result<_>>()?;
+                self.assets.sprites[dst_id as usize] = Some(Box::new(asset::Sprite {
+                    name: src.name.clone(),
+                    frames,
+                    colliders: src.colliders.clone(),
+                    width: src.width,
+                    height: src.height,
+                    origin_x: src.origin_x,
+                    origin_y: src.origin_y,
+                    per_frame_colliders: src.per_frame_colliders,
+                    bbox_left: src.bbox_left,
+                    bbox_right: src.bbox_right,
+                    bbox_top: src.bbox_top,
+                    bbox_bottom: src.bbox_bottom,
+                }));
+                Ok(Default::default())
+            } else {
+                Err(gml::Error::FunctionError("sprite_assign".into(), "Destination sprite has an invalid index".into()))
+            }
+        } else {
+            Err(gml::Error::FunctionError("sprite_assign".into(), "Source sprite does not exist".into()))
+        }
     }
 
     pub fn sprite_merge(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -8661,56 +8724,116 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let sound = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(sound).is_some().into())
-        todo!()
+    pub fn sound_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound).is_some().into())
     }
 
-    pub fn sound_get_name(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let asset_id = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
-        todo!()
+    pub fn sound_get_name(&self, args: &[Value]) -> gml::Result<Value> {
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn sound_get_kind(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_kind")
+    pub fn sound_get_kind(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_kind).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_get_preload(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_preload")
+    pub fn sound_get_preload(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_preload).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_discard(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_discard")
+    pub fn sound_discard(&mut self, args: &[Value]) -> gml::Result<Value> {
+        // Dynamically un-preloads a sound, but we preload all sounds, so all we need to do is call sound_stop()
+        self.sound_stop(args)
+    }
+
+    pub fn sound_restore(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _sound_id = expect_args!(args, [int])?;
+        // Dynamically preloads a sound, but we preload all sounds so this does nothing
         Ok(Default::default())
     }
 
-    pub fn sound_restore(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_restore")
+    pub fn sound_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (fname, kind, preload) = expect_args!(args, [string, int, bool])?;
+        let path_buf = std::path::PathBuf::from(fname.as_ref());
+        let data = match std::fs::read(&path_buf) {
+            Ok(b) => b.into_boxed_slice(),
+            Err(_) => return Ok((-1).into()),
+        };
+        let sound_id = self.assets.sounds.len() as i32;
+        let handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mp3") => {
+                match self.audio.add_mp3(data, sound_id as i32) {
+                    Some(x) => asset::sound::FileType::Mp3(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            Some("wav") => {
+                match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                    Some(x) => asset::sound::FileType::Wav(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            _ => return Ok((-1).into()),
+        };
+        self.assets.sounds.push(Some(Box::new(asset::Sound {
+            name: format!("__newsound{}", sound_id).into(),
+            handle,
+            gml_kind: kind.into(),
+            gml_preload: f64::from(u8::from(preload)).into(),
+        })));
+        Ok(sound_id.into())
+    }
+
+    pub fn sound_replace(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, fname, kind, preload) = expect_args!(args, [int, string, int, bool])?;
+        if let Some(sound) = self.assets.sounds.get_asset_mut(sound_id) {
+            self.audio.stop_sound(sound_id);
+            sound.gml_kind = kind.into();
+            sound.gml_preload = f64::from(u8::from(preload)).into();
+
+            if matches!(sound.handle, asset::sound::FileType::None) {
+                let path_buf = std::path::PathBuf::from(fname.as_ref());
+                let data = match std::fs::read(&path_buf) {
+                    Ok(b) => b.into_boxed_slice(),
+                    Err(_) => return Ok(0.into()),
+                };
+                sound.handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some("mp3") => {
+                        match self.audio.add_mp3(data, sound_id as i32) {
+                            Some(x) => asset::sound::FileType::Mp3(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    Some("wav") => {
+                        match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                            Some(x) => asset::sound::FileType::Wav(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    _ => return Ok(0.into()),
+                };
+                Ok(1.into())
+            } else {
+                // This appears to be a GM8 bug, I could never get it to actually load the new sound if
+                // the one we're replacing already had a sound loaded. (tested GM 8.1.141)
+                sound.handle = asset::sound::FileType::None;
+                Ok(1.into())
+            }
+        } else {
+            Err(gml::Error::FunctionError("sound_replace".into(), "Trying to replace non-existing sound.".into()))
+        }
+    }
+
+    pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
+        if self.assets.sounds.get_asset(sound_id).is_some() {
+            self.assets.sounds[sound_id as usize] = None;
+        }
         Ok(Default::default())
-    }
-
-    pub fn sound_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sound_add")
-    }
-
-    pub fn sound_replace(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        //unimplemented!("Called unimplemented kernel function sound_replace")
-        Ok(Default::default())
-    }
-
-    pub fn sound_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_delete")
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -8723,34 +8846,34 @@ impl Game {
         Ok(self.assets.fonts.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn font_get_fontname(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_fontname")
+    pub fn font_get_fontname(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.sys_name.clone().into()).unwrap_or("".into()))
     }
 
-    pub fn font_get_size(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_size")
+    pub fn font_get_size(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.size.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_bold(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_bold")
+    pub fn font_get_bold(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.bold.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_italic(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_italic")
+    pub fn font_get_italic(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.italic.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_first(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_first")
+    pub fn font_get_first(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.first.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_last(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_last")
+    pub fn font_get_last(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.last.into()).unwrap_or((-1).into()))
     }
 
     pub fn font_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -11644,52 +11767,73 @@ impl Game {
         }
     }
 
-    pub fn sound_play(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_play")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_play(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::FileType;
+            let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+            match &sound.handle {
+                FileType::Mp3(handle) => self.audio.play_mp3(handle, nanos),
+                FileType::Wav(handle) => self.audio.play_wav(handle, nanos),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
-    pub fn sound_loop(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_loop")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_loop(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::FileType;
+            match &sound.handle {
+                FileType::Mp3(handle) => self.audio.loop_mp3(handle),
+                FileType::Wav(handle) => self.audio.loop_wav(handle),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
-    pub fn sound_stop(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_stop")
-        // TODO
+    pub fn sound_stop(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
         Ok(Default::default())
     }
 
     pub fn sound_stop_all(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        //unimplemented!("Called unimplemented kernel function sound_stop_all")
-        // TODO
+        self.audio.stop_all();
         Ok(Default::default())
     }
 
-    pub fn sound_isplaying(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_isplaying")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_isplaying(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+        Ok(self.audio.sound_playing(sound_id, nanos).into())
     }
 
-    pub fn sound_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function sound_volume")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, volume) = expect_args!(args, [int, real])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            // Deliberately written in a way that will produce an error when Kind::Midi is added
+            use asset::sound::FileType;
+            match &sound.handle {
+                FileType::Wav(handle) => handle.set_volume(volume.into()),
+                FileType::Mp3(_) => (),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
     pub fn sound_fade(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        //unimplemented!("Called unimplemented kernel function sound_fade")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_fade")
     }
 
     pub fn sound_pan(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -11699,14 +11843,13 @@ impl Game {
 
     pub fn sound_background_tempo(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_background_tempo")
+        // Does nothing unless the sound is a midi, which we don't support yet
         Ok(Default::default())
     }
 
-    pub fn sound_global_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_global_volume")
-        // TODO
+    pub fn sound_global_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let volume = expect_args!(args, [real])?;
+        self.audio.set_global_volume(volume.into());
         Ok(Default::default())
     }
 

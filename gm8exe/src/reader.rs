@@ -232,8 +232,12 @@ where
         let log_errors = cfg.read_u32::<LE>()? != 0;
         let always_abort = cfg.read_u32::<LE>()? != 0;
         let (zero_uninitialized_vars, error_on_uninitialized_args) = match (game_ver, cfg.read_u32::<LE>()?) {
-            (GameVersion::GameMaker8_0, x) => (x != 0, true),
+            (GameVersion::GameMaker8_0, x) => (x != 0, false),
             (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
+        };
+        let swap_creation_events = match cfg.read_u32::<LE>() {
+            Ok(_webgl) => cfg.read_u32::<LE>()? != 0,
+            Err(_) => false,
         };
 
         log!(logger, " + Loaded settings structure");
@@ -371,6 +375,7 @@ where
             always_abort,
             zero_uninitialized_vars,
             error_on_uninitialized_args,
+            swap_creation_events,
         }
     };
 

@@ -30,9 +30,11 @@ memoffset = "0.5.3"
 phf = { version = "0.9.0", features = ["macros"] }
 ramen = { git = "https://github.com/notviri/ramen", features = ["input"] }
 rect_packer = "0.2.1"
+rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 time = "0.2.26"
+udon = { git = "https://github.com/adamcake/udon", branch = "july-demo", features = ["serde-derives", "wav"] }
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"
