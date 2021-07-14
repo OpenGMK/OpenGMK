@@ -2,7 +2,7 @@ use crate::{
     game::{
         audio::AudioState,
         draw,
-        external2,
+        external,
         includedfile::IncludedFile,
         model::Model,
         particle,
@@ -46,7 +46,7 @@ pub struct SaveState {
     pub background_colour: Colour,
     pub textures: Vec<Option<SavedTexture>>,
 
-    pub externals: (HashMap<ID, external2::state::State>, ID),
+    pub externals: (HashMap<ID, external::state::State>, ID),
     pub surface_fix: bool,
 
     pub view_current: usize,
@@ -226,11 +226,11 @@ impl SaveState {
             game.renderer.reset_target();
         }
 
-        game.externals = external2::ExternalManager::new(false).unwrap();
+        game.externals = external::ExternalManager::new(false).unwrap();
         for (id, state) in &self.externals.0 {
             game.externals.ss_set_id(*id).unwrap();
             match state {
-                external2::state::State::DummyExternal { dll, symbol, dummy, argc } => {
+                external::state::State::DummyExternal { dll, symbol, dummy, argc } => {
                     game.externals.define_dummy(
                         &dll,
                         &symbol,
@@ -238,7 +238,7 @@ impl SaveState {
                         *argc,
                     ).unwrap();
                 },
-                external2::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
+                external::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
                     game.externals.define(
                         &dll,
                         &symbol,

@@ -3,7 +3,6 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
-pub mod external2;
 pub mod gm_save;
 pub mod includedfile;
 pub mod model;
@@ -80,7 +79,7 @@ pub struct Game {
     pub extension_initializers: Vec<usize>,
     pub extension_finalizers: Vec<usize>,
 
-    pub externals: external2::ExternalManager,
+    pub externals: external::ExternalManager,
     pub surface_fix: bool,
 
     pub last_instance_id: ID,
@@ -192,7 +191,7 @@ pub enum Version {
 }
 
 /// Enum indicating how this game is being played - normal, recording or replaying
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PlayType {
     Normal,
     Record,
@@ -209,7 +208,7 @@ pub enum SceneChange {
 
 /// A function defined in an extension, which could either be a DLL external or some compiled GML
 pub enum ExtensionFunction {
-    Dll(external::External),
+    Dll(String, ID),
     Gml(Rc<[Instruction]>),
 }
 
@@ -551,6 +550,8 @@ impl Game {
 
         let default_font = asset::font::load_default_font(&mut atlases)?;
 
+        let mut externals = external::ExternalManager::new(false).unwrap();
+
         // Code compiling starts here. The order in which things are compiled is important for
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
 
@@ -568,38 +569,61 @@ impl Game {
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.iter() {
-                            match external::External::new(
-                                external::DefineInfo {
-                                    dll_name: gml::String::from(&*temp_directory.to_string_lossy()),
-                                    fn_name: gml::String::from(if function.external_name.0.len() == 0 {
-                                        function.name.0.clone()
-                                    } else {
-                                        function.external_name.0.clone()
-                                    }.as_ref()),
-                                    call_conv: match function.convention {
-                                        CallingConvention::Cdecl => external::CallConv::Cdecl,
-                                        _ => external::CallConv::Stdcall,
+                            let dll = &*temp_directory.to_string_lossy();
+                            let symbol = gml::String::from(if function.external_name.0.len() == 0 {
+                                &*function.name.0
+                            } else {
+                                &*function.external_name.0
+                            });
+                            let sym = &*symbol.decode(match gm_version {
+                                Version::GameMaker8_0 => encoding,
+                                Version::GameMaker8_1 => encoding_rs::UTF_8,
+                            });
+                            if let Some(dummy) = external::should_dummy(dll, &*sym, play_type) {
+                                match externals.define_dummy(
+                                    dll,
+                                    sym,
+                                    dummy,
+                                    function.arg_types.len(),
+                                ) {
+                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                    Err(e) => {
+                                        println!(
+                                            "WARNING: failed to create dummy extension function {} (from {}): {}",
+                                            function.name, dll_name, e,
+                                        );
+                                        extension_functions.push(None);
                                     },
-                                    res_type: match function.return_type {
-                                        FunctionValueKind::GMReal => external::ValueType::Real,
-                                        FunctionValueKind::GMString => external::ValueType::Str,
+                                }
+                            } else {
+                                match externals.define(
+                                    dll,
+                                    sym,
+                                    match function.convention {
+                                        CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
+                                        _ => external::dll::CallConv::Stdcall,
                                     },
-                                    arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
-                                        FunctionValueKind::GMReal => external::ValueType::Real,
-                                        FunctionValueKind::GMString => external::ValueType::Str,
-                                    }).collect::<Vec<_>>(),
-                                },
-                                play_type == PlayType::Record,
-                                match gm_version {
-                                    Version::GameMaker8_0 => encoding,
-                                    Version::GameMaker8_1 => encoding_rs::UTF_8,
-                                },
-                            ) {
-                                Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
-                                Err(e) => {
-                                    println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
-                                    extension_functions.push(None);
-                                },
+                                    function.arg_types
+                                        .iter()
+                                        .take(function.arg_count as usize)
+                                        .map(|x| match x {
+                                            FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                            FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .as_slice()
+                                    ,
+                                    match function.return_type {
+                                        FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                    },
+                                ) {
+                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                    Err(e) => {
+                                        println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
+                                        extension_functions.push(None);
+                                    },
+                                }
                             }
                         }
                         temp_directory.pop();
@@ -1120,7 +1144,7 @@ impl Game {
             extension_functions,
             extension_initializers,
             extension_finalizers,
-            externals: external2::ExternalManager::new(false).unwrap(),
+            externals,
             surface_fix: false,
             input: Input::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, sounds, timelines, triggers },
@@ -1894,8 +1918,18 @@ impl Game {
     /// Runs an ExtensionFunction by its ID
     pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(external)) => {
-                external.call(&context.arguments[..context.argument_count])
+            Some(ExtensionFunction::Dll(sym, id)) => {
+                self.externals.call(
+                    *id,
+                    (&context.arguments[..context.argument_count])
+                        .iter()
+                        .cloned()
+                        .map(external::dll::Value::from)
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+                    .map(gml::Value::from)
+                    .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err))
             },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();

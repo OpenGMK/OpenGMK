@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external2, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
+        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
@@ -7213,41 +7213,15 @@ impl Game {
             let gm_function = gml::String::from(fn_name.clone());
             let function = gm_function.decode(encoding);
 
-            let mut dummy = None;
-            if self.play_type == PlayType::Record {
-                if dll.eq_ignore_ascii_case("gmfmodsimple.dll") {
-                    if &*function == "FMODSoundAdd" {
-                        dummy = Some(external2::dll::Value::Real(1.0));
-                    } else {
-                        dummy = Some(external2::dll::Value::Real(0.0));
-                    }
-                } else if
-                    dll.eq_ignore_ascii_case("ssound.dll") ||
-                    dll.eq_ignore_ascii_case("supersound.dll")
-                {
-                    if &*function == "SS_Init" {
-                        dummy = Some(external2::dll::Value::Str(external2::dll::PascalString::new(b"Yes")));
-                    } else {
-                        dummy = Some(external2::dll::Value::Real(0.0));
-                    }
-                } else if dll.eq_ignore_ascii_case("sxms-3.dll") {
-                    dummy = Some(external2::dll::Value::Real(0.0));
-                }
-            }
-
-            if dll.eq_ignore_ascii_case("gmeffect_0.1.dll") {
-                // TODO: don't
-                // ^ floogle's original comment, whatever it may mean
-                dummy = Some(external2::dll::Value::Real(0.0));
-            }
+            let dummy = external::should_dummy(&*dll, &*function, self.play_type);
 
             let call_conv = match call_conv.round() {
-                0 => external2::dll::CallConv::Cdecl,
-                _ => external2::dll::CallConv::Stdcall,
+                0 => external::dll::CallConv::Cdecl,
+                _ => external::dll::CallConv::Stdcall,
             };
             let res_type = match res_type.round() {
-                0 => external2::dll::ValueType::Real,
-                _ => external2::dll::ValueType::Str,
+                0 => external::dll::ValueType::Real,
+                _ => external::dll::ValueType::Str,
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
@@ -7262,8 +7236,8 @@ impl Game {
                 let arg_types = args[5..]
                     .iter()
                     .map(|v| match v.round() {
-                        0 => external2::dll::ValueType::Real,
-                        _ => external2::dll::ValueType::Str,
+                        0 => external::dll::ValueType::Real,
+                        _ => external::dll::ValueType::Str,
                     })
                     .collect::<Vec<_>>();
                 self.externals.define(&*dll, &*function, call_conv, &arg_types, res_type)
@@ -7276,10 +7250,10 @@ impl Game {
     pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            let dll_args: Vec<external2::dll::Value> = (&args[1..])
+            let dll_args: Vec<external::dll::Value> = (&args[1..])
                 .iter()
                 .cloned()
-                .map(external2::dll::Value::from)
+                .map(external::dll::Value::from)
                 .collect();
             self.externals.call(id, &dll_args)
                 .map(Value::from)

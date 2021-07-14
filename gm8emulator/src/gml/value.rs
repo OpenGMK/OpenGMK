@@ -1,4 +1,4 @@
-use crate::{game::external2::dll, gml, math::Real};
+use crate::{game::external::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryInto,

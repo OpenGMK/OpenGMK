@@ -162,6 +162,7 @@ pub enum Error {
     FunctionError(String, String),
     ReplayError(String),
     BadDirectoryError(String),
+    ExternalFunction(String, String),
 }
 
 impl std::error::Error for Error {}
@@ -207,6 +208,7 @@ impl Display for Error {
             Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
             Self::ReplayError(s) => write!(f, "{}", s),
             Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
+            Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
         }
     }
 }
