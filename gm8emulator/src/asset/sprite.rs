@@ -1,11 +1,10 @@
-use crate::{game::string::RCStr, math::Real};
-use gmio::render::AtlasRef;
+use crate::{gml, math::Real, render::atlas::AtlasRef};
 use image::{Pixel, RgbaImage};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Sprite {
-    pub name: RCStr,
+    pub name: gml::String,
     pub frames: Vec<Frame>,
     pub colliders: Vec<Collider>,
     pub width: u32,

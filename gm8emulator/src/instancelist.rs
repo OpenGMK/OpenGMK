@@ -2,13 +2,13 @@ use crate::{
     gml,
     instance::{Instance, InstanceState},
     tile::Tile,
+    types::ID,
 };
 use serde::{
     de::{SeqAccess, Visitor},
     ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use shared::types::ID;
 use std::{collections::HashMap, fmt};
 
 /// Elements per Chunk (fixed size).

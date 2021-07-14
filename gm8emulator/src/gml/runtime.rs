@@ -13,6 +13,7 @@ use crate::{
 use gml_parser::token::Operator;
 use serde::{Deserialize, Serialize};
 use std::{
+    convert::TryFrom,
     fmt::{self, Display},
     time,
 };
@@ -161,6 +162,7 @@ pub enum Error {
     FunctionError(String, String),
     ReplayError(String),
     BadDirectoryError(String),
+    ExternalFunction(String, String),
 }
 
 impl std::error::Error for Error {}
@@ -206,6 +208,7 @@ impl Display for Error {
             Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
             Self::ReplayError(s) => write!(f, "{}", s),
             Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
+            Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
         }
     }
 }
@@ -1106,10 +1109,10 @@ impl Game {
             },
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
-            InstanceVariable::MouseButton => Ok(self.input_manager.mouse_get_button().into()),
-            InstanceVariable::MouseLastbutton => Ok(self.input_manager.mouse_get_lastbutton().into()),
-            InstanceVariable::KeyboardKey => Ok(self.input_manager.key_get_key().into()),
-            InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
+            InstanceVariable::MouseButton => Ok(f64::from(self.input.mouse_button()).into()),
+            InstanceVariable::MouseLastbutton => Ok(f64::from(self.input.mouse_lastbutton()).into()),
+            InstanceVariable::KeyboardKey => Ok(f64::from(self.input.keyboard_key()).into()),
+            InstanceVariable::KeyboardLastkey => Ok(f64::from(self.input.keyboard_lastkey()).into()),
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar getter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string getter"),
             InstanceVariable::CursorSprite => Ok(self.cursor_sprite.into()),
@@ -1447,26 +1450,30 @@ impl Game {
             },
             InstanceVariable::MouseButton => {
                 let button = value.round();
-                if button > 0 {
-                    self.input_manager.mouse_set_button(button as _);
+                if let Ok(mb) = i8::try_from(button) {
+                    if matches!(mb, 1 | 2 | 3) {
+                        self.input.set_mouse_button(mb);
+                    }
                 }
             },
             InstanceVariable::MouseLastbutton => {
                 let button = value.round();
-                if button > 0 {
-                    self.input_manager.mouse_set_lastbutton(button as _);
+                if let Ok(mb) = i8::try_from(button) {
+                    if matches!(mb, 1 | 2 | 3) {
+                        self.input.set_mouse_lastbutton(mb);
+                    }
                 }
             },
             InstanceVariable::KeyboardKey => {
                 let code = value.round();
-                if code > 0 {
-                    self.input_manager.key_set_key(code as _);
+                if let Ok(vk) = u8::try_from(code) {
+                    self.input.set_keyboard_key(vk);
                 }
             },
             InstanceVariable::KeyboardLastkey => {
                 let code = value.round();
-                if code > 0 {
-                    self.input_manager.key_set_lastkey(code as _);
+                if let Ok(vk) = u8::try_from(code) {
+                    self.input.set_keyboard_lastkey(vk);
                 }
             },
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),

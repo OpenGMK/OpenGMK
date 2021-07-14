@@ -2,10 +2,10 @@ use crate::{
     asset::{Object, Sprite},
     gml::{InstanceVariable, Value},
     math::Real,
+    types::ID,
     util,
 };
 use serde::{Deserialize, Serialize};
-use shared::types::ID;
 use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},

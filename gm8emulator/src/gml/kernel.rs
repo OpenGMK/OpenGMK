@@ -5,26 +5,23 @@
 use crate::{
     action, asset,
     game::{
-        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, string::RCStr, surface::Surface,
+        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
         self,
         datetime::{self, DateTime},
-        ds, file, mappings, network, Context, Value,
+        ds, file, mappings::{self, constants as gml_consts}, network, Context, Value,
     },
     handleman::HandleManager,
+    input::MouseButton,
     instance::{Field, Instance, InstanceState},
     math::Real,
+    render::{BlendType, Fog, Light, Renderer, Scaling},
     tile::Tile,
 };
-use gmio::{
-    render::{BlendType, Fog, Light, Renderer, RendererOptions, Scaling},
-    window,
-    window::Cursor,
-};
 use image::RgbaImage;
-use shared::{input::MouseButton, types::Colour};
+use ramen::window::Cursor;
 use std::{
     convert::TryFrom,
     io::{Read, Write},
@@ -37,7 +34,7 @@ macro_rules! _arg_into {
     (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
     (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
     (string, $v: expr) => {{ Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
-    (bytes, $v: expr) => {{ Ok(<Value as Into<RCStr>>::into($v.clone())) }};
+    (bytes, $v: expr) => {{ Ok(<Value as Into<gml::String>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {
@@ -97,24 +94,24 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
 }
 
 impl Game {
-    pub fn display_get_width(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_width().into())
+    pub fn display_get_width(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_width")
     }
 
-    pub fn display_get_height(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_height().into())
+    pub fn display_get_height(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_height")
     }
 
-    pub fn display_get_colordepth(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_colour().into())
+    pub fn display_get_colordepth(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_colordepth")
     }
 
-    pub fn display_get_frequency(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok(self.window.display_frequency().into())
+    pub fn display_get_frequency(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_get_frequency")
     }
 
     pub fn display_set_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -146,14 +143,14 @@ impl Game {
         unimplemented!("Called unimplemented kernel function display_reset")
     }
 
-    pub fn display_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok((self.input_manager.mouse_get_location().0 + f64::from(self.window.get_pos().0)).into())
+    pub fn display_mouse_get_x(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_mouse_get_x")
     }
 
-    pub fn display_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [])?;
-        Ok((self.input_manager.mouse_get_location().1 + f64::from(self.window.get_pos().1)).into())
+    pub fn display_mouse_get_y(&self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 0
+        unimplemented!("Called unimplemented kernel function display_mouse_get_y")
     }
 
     pub fn display_mouse_set(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -170,7 +167,7 @@ impl Game {
     // NB: This function is constant because window's visibility state is tracked.
     pub fn window_get_visible(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_visible().into())
+        Ok(self.window_visible.into())
     }
 
     pub fn window_set_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -188,11 +185,8 @@ impl Game {
         if show_border != self.window_border {
             self.window_border = show_border;
             if self.play_type != PlayType::Record {
-                self.window.set_style(match (show_border, self.window_icons) {
-                    (true, true) => window::Style::Regular,
-                    (true, false) => window::Style::Undecorated,
-                    (false, _) => window::Style::Borderless,
-                });
+                // TODO: Borderless
+                unimplemented!()
             }
         }
         Ok(Default::default())
@@ -208,11 +202,13 @@ impl Game {
         if show_icons != self.window_icons {
             self.window_icons = show_icons;
             if self.play_type != PlayType::Record {
-                self.window.set_style(match (self.window_border, show_icons) {
-                    (true, true) => window::Style::Regular,
-                    (true, false) => window::Style::Undecorated,
-                    (false, _) => window::Style::Borderless,
-                });
+                self.window.set_controls({
+                    if self.window_icons {
+                        Some(ramen::window::Controls::enabled())
+                    } else {
+                        None
+                    }
+                })
             }
         }
         Ok(Default::default())
@@ -233,36 +229,77 @@ impl Game {
         unimplemented!("Called unimplemented kernel function window_get_stayontop")
     }
 
-    pub fn window_set_sizeable(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_sizeable")
+    pub fn window_set_sizeable(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sizeable = expect_args!(args, [bool])?;
+        if sizeable != self.window_sizeable {
+            self.window_sizeable = sizeable;
+            if self.play_type != PlayType::Record {
+                self.window.set_resizable(self.window_sizeable);
+            }
+        }
+        Ok(Default::default())
     }
 
-    pub fn window_get_sizeable(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_sizeable")
+    pub fn window_get_sizeable(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_sizeable.into())
     }
 
     pub fn window_set_caption(&mut self, args: &[Value]) -> gml::Result<Value> {
         let caption = expect_args!(args, [string])?;
-        self.window.set_title(caption.as_ref());
+        if self.play_type == PlayType::Record {
+            self.window.set_title(caption.as_ref());
+        }
+        self.window_caption = caption.into_owned();
         Ok(Default::default())
     }
 
     // NB: This function is constant because caption gets updated on every frame.
     pub fn window_get_caption(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_title().to_owned().into())
+        Ok(self.window_caption.clone().into())
     }
 
-    pub fn window_set_cursor(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_cursor")
+    pub fn window_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let mut code = expect_args!(args, [int])?;
+        let cursor = match code {
+            // TODO: maybe add more of these to ramen but wtf
+            x if x == gml_consts::CR_DEFAULT as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_ARROW as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_CROSS as i32 => Cursor::Cross,
+            x if x == gml_consts::CR_BEAM as i32 => Cursor::IBeam,
+            x if x == gml_consts::CR_SIZE_NESW as i32 => Cursor::ResizeNESW,
+            x if x == gml_consts::CR_SIZE_NS as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_SIZE_NWSE as i32 => Cursor::ResizeNWSE,
+            x if x == gml_consts::CR_SIZE_WE as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_UPARROW as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_HOURGLASS as i32 => Cursor::Wait,
+            x if x == gml_consts::CR_DRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_NODROP as i32 => Cursor::Unavailable, // ???
+            x if x == gml_consts::CR_HSPLIT as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_VSPLIT as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_MULTIDRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait, // ???
+            x if x == gml_consts::CR_NO as i32 => Cursor::Unavailable,
+            x if x == gml_consts::CR_APPSTART as i32 => Cursor::Progress, // ???
+            x if x == gml_consts::CR_HELP as i32 => Cursor::Help,
+            x if x == gml_consts::CR_HANDPOINT as i32 => Cursor::Hand,
+            x if x == gml_consts::CR_SIZE_ALL as i32 => Cursor::ResizeAll,
+            _ => {
+                code = gml_consts::CR_NONE as i32;
+                Cursor::Blank
+            },
+        };
+        if self.play_type == PlayType::Normal {
+            self.window.set_cursor(cursor);
+        }
+        self.window_cursor_gml = code;
+        Ok(Default::default())
     }
 
-    pub fn window_get_cursor(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_cursor")
+    pub fn window_get_cursor(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        Ok(self.window_cursor_gml.into())
     }
 
     pub fn window_set_color(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -278,13 +315,20 @@ impl Game {
 
     pub fn window_set_position(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [int, int])?;
-        self.window.set_pos(x, y);
+        self.window_offset_spoof = (x, y);
         Ok(Default::default())
     }
 
     pub fn window_set_size(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
-        self.window.resize(width as _, height as _);
+        self.window.execute(|window| {
+            use ramen::monitor::Size;
+            if window.is_dpi_logical() {
+                window.set_inner_size(Size::Logical(width as f64, height as f64));
+            } else {
+                window.set_inner_size(Size::Physical(width as u32, height as u32));
+            }
+        });
         Ok(Default::default())
     }
 
@@ -294,8 +338,7 @@ impl Game {
     }
 
     pub fn window_center(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        self.window.center();
-        Ok(Default::default())
+        unimplemented!("dont care") // TODO (0 args)
     }
 
     pub fn window_default(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -305,22 +348,22 @@ impl Game {
 
     pub fn window_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_pos().0.into())
+        Ok(self.window_offset_spoof.0.into())
     }
 
     pub fn window_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_pos().1.into())
+        Ok(self.window_offset_spoof.1.into())
     }
 
     pub fn window_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_inner_size().0.into())
+        Ok(self.window_inner_size.0.into())
     }
 
     pub fn window_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.window.get_inner_size().1.into())
+        Ok(self.window_inner_size.1.into())
     }
 
     pub fn window_set_region_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -353,12 +396,15 @@ impl Game {
             let (region_w, region_h) =
                 ((self.unscaled_width as f64 * n) as u32, (self.unscaled_height as f64 * n) as u32);
             let (width, height) = if shrink_window {
-                let (window_w, window_h) = self.window.get_inner_size();
+                let (window_w, window_h) = self.window_inner_size;
                 (region_w.max(window_w), region_h.max(window_h))
             } else {
                 (region_w, region_h)
             };
-            self.window.resize(width, height);
+            if self.window_is_logical_dpi {
+                todo!("oh god oh fuck");
+            }
+            self.window.set_inner_size(ramen::monitor::Size::Physical(width, height));
         }
         Ok(Default::default())
     }
@@ -375,12 +421,12 @@ impl Game {
 
     pub fn window_mouse_get_x(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_get_location().0.into())
+        Ok(self.input.mouse_x().into())
     }
 
     pub fn window_mouse_get_y(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_get_location().1.into())
+        Ok(self.input.mouse_y().into())
     }
 
     pub fn window_mouse_set(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -438,7 +484,7 @@ impl Game {
 
     pub fn screen_refresh(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let (width, height) = self.window.get_inner_size();
+        let (width, height) = self.window_inner_size;
         self.renderer.present(width, height, self.scaling);
         Ok(Default::default())
     }
@@ -790,9 +836,44 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_button(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_button")
+    pub fn draw_button(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, up) = expect_args!(args, [real, real, real, real, bool])?;
+        let (top_col, bottom_col) = if up { (0xffffff, 0x808080) } else { (0x808080, 0xffffff) };
+        self.renderer.draw_triangle(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y1.into(),
+            x1.into(),
+            y2.into(),
+            top_col,
+            top_col,
+            top_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_triangle(
+            x1.into(),
+            y2.into(),
+            x2.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            bottom_col,
+            bottom_col,
+            bottom_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_rectangle(
+            x1.into_inner() + 2.0,
+            y1.into_inner() + 2.0,
+            x2.into_inner() - 2.0,
+            y2.into_inner() - 2.0,
+            u32::from(self.draw_colour) as i32,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_healthbar(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -2755,16 +2836,17 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_sound(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function action_sound")
-        // TODO
-        Ok(Default::default())
+    pub fn action_sound(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, do_loop) = expect_args!(args, [any, bool])?;
+        if do_loop {
+            self.sound_loop(&[sound_id])
+        } else {
+            self.sound_play(&[sound_id])
+        }
     }
 
-    pub fn action_if_sound(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_if_sound")
+    pub fn action_if_sound(&self, args: &[Value]) -> gml::Result<Value> {
+        self.sound_isplaying(args)
     }
 
     pub fn action_another_room(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -2982,13 +3064,13 @@ impl Game {
 
     pub fn action_if_mouse(&mut self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        let button_enum = match button {
-            1 => MouseButton::Left,
-            2 => MouseButton::Right,
-            3 => MouseButton::Middle,
-            _ => return Ok((self.input_manager.mouse_get_button() == 0).into()),
+        let mb = match button {
+            1 => MouseButton::Left as i8,
+            2 => MouseButton::Right as i8,
+            3 => MouseButton::Middle as i8,
+            _ => return Ok((self.input.mouse_button() == 0).into()), // "no"
         };
-        Ok((self.input_manager.mouse_check(button_enum) || self.input_manager.mouse_check_released(button_enum)).into())
+        Ok((self.input.mouse_check_button(mb) || self.input.mouse_check_button_released(mb)).into())
     }
 
     pub fn action_if_aligned(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3393,9 +3475,9 @@ impl Game {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
         self.cursor_sprite = sprite_id;
         let cursor = if show_window_cursor {
-            Cursor::default() // GM8 seems to always resets to default cursor on call of this function
+            Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
         } else {
-            Cursor::Invisible
+            Cursor::Blank
         };
         self.window.set_cursor(cursor);
         Ok(Default::default())
@@ -4496,7 +4578,7 @@ impl Game {
                 (0, 0) => 0.0,
                 (x, 0) => x.into(),
                 (0, y) => y.into(),
-                (x, y) => f64::from(x.pow(2) + y.pow(2)).sqrt(),
+                (x, y) => f64::from(x).hypot(y.into()),
             }
         }
 
@@ -6282,20 +6364,22 @@ impl Game {
         }
     }
 
-    pub fn disk_free(&self, args: &[Value]) -> gml::Result<Value> {
-        let path = match args.get(0).clone() {
-            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
-            _ => None,
-        };
-        Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
+    pub fn disk_free(&self, _args: &[Value]) -> gml::Result<Value> {
+        // let path = match args.get(0).clone() {
+        //     Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+        //     _ => None,
+        // };
+        // Ok(self.window.disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
+        todo!()
     }
 
-    pub fn disk_size(&self, args: &[Value]) -> gml::Result<Value> {
-        let path = match args.get(0).clone() {
-            Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
-            _ => None,
-        };
-        Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
+    pub fn disk_size(&self, _args: &[Value]) -> gml::Result<Value> {
+        // let path = match args.get(0).clone() {
+        //     Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
+        //     _ => None,
+        // };
+        // Ok(self.window.disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
+        todo!()
     }
 
     pub fn splash_set_caption(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -6408,40 +6492,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function show_text")
     }
 
-    pub fn show_message(&mut self, args: &[Value]) -> gml::Result<Value> {
-        let _text = expect_args!(args, [string])?;
-        let width = 300;
-        let height = 200;
-
-        let clear_colour = Colour::new(1.0, 142.0 / 255.0, 250.0 / 255.0);
-        let options =
-            RendererOptions { size: (width, height), vsync: false, interpolate_pixels: false, ..Default::default() };
-
-        // TODO: this should block as a dialog, not block the entire fucking thread
-        // otherwise windows thinks it's not responding or whatever
-
-        let wb = window::WindowBuilder::new().with_size(width, height);
-        let mut window = wb.build().map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
-        let mut renderer = Renderer::new((), &options, &window, clear_colour)
-            .map_err(|e| gml::Error::FunctionError("show_message".into(), e))?;
-        window.set_visible(true);
-        renderer.set_vsync(false);
-
-        loop {
-            window.process_events();
-            if window.close_requested() {
-                break
-            }
-
-            if window.get_inner_size() != (0, 0) {
-                renderer.finish(width, height, clear_colour);
-            }
-        }
-
-        // restore renderer
-        // self.renderer.set_current(); <- TODO, obviously
-
-        Ok(Default::default())
+    pub fn show_message(&mut self, _args: &[Value]) -> gml::Result<Value> {
+        // Expected arg count: 1
+        unimplemented!("Called unimplemented kernel function show_message")
     }
 
     pub fn show_question(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -6666,131 +6719,120 @@ impl Game {
     // NB: This function is constant because numlock state is tracked.
     pub fn keyboard_get_numlock(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.key_get_numlock().into())
+        Ok(self.input.keyboard_get_numlock().into())
     }
 
     pub fn keyboard_set_numlock(&mut self, args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [bool]).map(|x| self.input_manager.key_set_numlock(x))?;
+        let state = expect_args!(args, [bool])?;
+        self.input.keyboard_set_numlock(state);
         Ok(Default::default())
     }
 
     pub fn keyboard_key_press(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_key_press")
+        // let key = expect_args!(args, [int])?;
+        // if let Ok(vk) = u8::try_from(key) {
+        //     self.input.button_press(vk, true);
+        // }
+        // Ok(Default::default())
+        todo!() // should go on next event poll
     }
 
     pub fn keyboard_key_release(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function keyboard_key_release")
+        // let key = expect_args!(args, [int])?;
+        // if let Ok(vk) = u8::try_from(key) {
+        //     self.input.button_release(vk, true);
+        // }
+        // Ok(Default::default())
+        todo!() // should go on next event poll
     }
 
     pub fn keyboard_set_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (real, mapped) = expect_args!(args, [int, int])?;
-        self.input_manager.key_set_map(real as usize, mapped as usize);
+        if let (Ok(from), Ok(to)) = (u8::try_from(real), u8::try_from(mapped)) {
+            self.input.keyboard_set_map(from, to);
+        }
         Ok(Default::default())
     }
 
     pub fn keyboard_get_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        Ok((self.input_manager.key_get_map(key as usize) as i32).into())
+        if let Ok(vk) = u8::try_from(key) {
+            Ok(i32::from(self.input.keyboard_get_map(vk)).into())
+        } else {
+            Ok(key.into())
+        }
     }
 
     pub fn keyboard_unset_map(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        self.input_manager.key_unmap_all();
+        self.input.keyboard_unset_map();
         Ok(Default::default())
     }
 
     pub fn keyboard_check(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any()).into()),
-            1 => Ok(self.input_manager.key_check_any().into()),
-            key => Ok(self.input_manager.key_check(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_pressed(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any_pressed()).into()),
-            1 => Ok(self.input_manager.key_check_any_pressed().into()),
-            key => Ok(self.input_manager.key_check_pressed(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_pressed(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_released(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any_released()).into()),
-            1 => Ok(self.input_manager.key_check_any_released().into()),
-            key => Ok(self.input_manager.key_check_released(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_released(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn keyboard_check_direct(&self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
-        match key {
-            k if k < 0 => Ok(gml::FALSE.into()),
-            0 => Ok((!self.input_manager.key_check_any()).into()),
-            1 => Ok(self.input_manager.key_check_any().into()),
-            160 => Ok(self.input_manager.key_check_lshift().into()),
-            161 => Ok(self.input_manager.key_check_rshift().into()),
-            162 => Ok(self.input_manager.key_check_lctrl().into()),
-            163 => Ok(self.input_manager.key_check_rctrl().into()),
-            164 => Ok(self.input_manager.key_check_lalt().into()),
-            165 => Ok(self.input_manager.key_check_ralt().into()),
-            key => Ok(self.input_manager.key_check(key as usize).into()),
+        match u8::try_from(key) {
+            Ok(vk) => Ok(self.input.keyboard_check_direct(vk).into()),
+            _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any().into()),
-            0 => Ok((!self.input_manager.mouse_check_any()).into()),
-            1 => Ok(self.input_manager.mouse_check(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button_pressed(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any_pressed().into()),
-            0 => Ok((!self.input_manager.mouse_check_any_pressed()).into()),
-            1 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check_pressed(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button_pressed(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_check_button_released(&self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
-        match button {
-            -1 => Ok(self.input_manager.mouse_check_any_released().into()),
-            0 => Ok((!self.input_manager.mouse_check_any_released()).into()),
-            1 => Ok(self.input_manager.mouse_check_released(MouseButton::Left).into()),
-            2 => Ok(self.input_manager.mouse_check_released(MouseButton::Right).into()),
-            3 => Ok(self.input_manager.mouse_check_released(MouseButton::Middle).into()),
+        match i8::try_from(button) {
+            Ok(mb) => Ok(self.input.mouse_check_button_released(mb).into()),
             _ => Ok(gml::FALSE.into()),
         }
     }
 
     pub fn mouse_wheel_up(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_check_scroll_up().into())
+        Ok(self.input.mouse_wheel_up().into())
     }
 
     pub fn mouse_wheel_down(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(self.input_manager.mouse_check_scroll_down().into())
+        Ok(self.input.mouse_wheel_down().into())
     }
 
     pub fn joystick_exists(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -6894,8 +6936,8 @@ impl Game {
     pub fn keyboard_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         let key = expect_args!(args, [int])?;
         self.process_window_events();
-        if key > 0 {
-            self.input_manager.key_clear(key as usize);
+        if let Ok(vk) = u8::try_from(key) {
+            self.input.keyboard_clear(vk);
         }
         Ok(Default::default())
     }
@@ -6903,8 +6945,8 @@ impl Game {
     pub fn mouse_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         let button = expect_args!(args, [int])?;
         self.process_window_events();
-        if button > 0 {
-            self.input_manager.mouse_clear(button as usize);
+        if let Ok(mb) = i8::try_from(button) {
+            self.input.mouse_clear(mb);
         }
         Ok(Default::default())
     }
@@ -6912,7 +6954,9 @@ impl Game {
     pub fn io_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.process_window_events();
-        self.input_manager.clear();
+        // TODO: clear keyboard_string
+        self.input.keyboard_clear_all();
+        self.input.mouse_clear_all();
         Ok(Default::default())
     }
 
@@ -6925,8 +6969,8 @@ impl Game {
     pub fn keyboard_wait(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         if self.play_type == PlayType::Normal {
-            self.input_manager.key_set_lastkey(0);
-            while self.input_manager.key_get_lastkey() == 0 {
+            self.input.set_keyboard_lastkey(0);
+            while self.input.keyboard_lastkey() == 0 {
                 datetime::sleep(std::time::Duration::from_millis(50));
                 self.process_window_events();
             }
@@ -7128,39 +7172,44 @@ impl Game {
         if let (Some(dll_name), Some(fn_name), Some(call_conv), Some(res_type), Some(argnumb)) =
             (args.get(0), args.get(1), args.get(2), args.get(3), args.get(4))
         {
-            let dll_name = RCStr::from(dll_name.clone());
-            let fn_name = RCStr::from(fn_name.clone());
+            let encoding = match self.gm_version {
+                Version::GameMaker8_0 => self.encoding,
+                Version::GameMaker8_1 => encoding_rs::UTF_8,
+            };
+            let gm_dll = gml::String::from(dll_name.clone());
+            let dll = gm_dll.decode(encoding);
+            let gm_function = gml::String::from(fn_name.clone());
+            let function = gm_function.decode(encoding);
+
+            let dummy = external::should_dummy(&*dll, &*function, self.play_type);
+
             let call_conv = match call_conv.round() {
-                0 => external::CallConv::Cdecl,
-                _ => external::CallConv::Stdcall,
+                0 => external::dll::CallConv::Cdecl,
+                _ => external::dll::CallConv::Stdcall,
             };
             let res_type = match res_type.round() {
-                0 => external::DLLValueType::Real,
-                _ => external::DLLValueType::Str,
+                0 => external::dll::ValueType::Real,
+                _ => external::dll::ValueType::Str,
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
                 return Err(gml::Error::WrongArgumentCount(5 + argnumb.max(5) as usize, args.len()))
             }
-            let arg_types = args[5..]
-                .iter()
-                .map(|v| match v.round() {
-                    0 => external::DLLValueType::Real,
-                    _ => external::DLLValueType::Str,
-                })
-                .collect::<Vec<_>>();
-            self.externals.push(Some(
-                external::External::new(
-                    external::DefineInfo { dll_name, fn_name, call_conv, res_type, arg_types },
-                    self.play_type == PlayType::Record,
-                    match self.gm_version {
-                        Version::GameMaker8_0 => self.encoding,
-                        Version::GameMaker8_1 => encoding_rs::UTF_8,
-                    },
-                )
-                .map_err(|e| gml::Error::FunctionError("external_define".into(), e))?,
-            ));
-            Ok((self.externals.len() - 1).into())
+
+            if let Some(dummy) = dummy {
+                // safety: arg count was checked above
+                let argc = argnumb as usize;
+                self.externals.define_dummy(&*dll, &*function, dummy, argc)
+            } else {
+                let arg_types = args[5..]
+                    .iter()
+                    .map(|v| match v.round() {
+                        0 => external::dll::ValueType::Real,
+                        _ => external::dll::ValueType::Str,
+                    })
+                    .collect::<Vec<_>>();
+                self.externals.define(&*dll, &*function, call_conv, &arg_types, res_type)
+            }.map(Value::from).map_err(|e| gml::Error::FunctionError("external_define".into(), e))
         } else {
             Err(gml::Error::WrongArgumentCount(5, args.len()))
         }
@@ -7169,23 +7218,28 @@ impl Game {
     pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            if let Some(external) = self.externals.get_asset(id) {
-                return external.call(&args[1..])
-            }
+            let dll_args: Vec<external::dll::Value> = (&args[1..])
+                .iter()
+                .cloned()
+                .map(external::dll::Value::from)
+                .collect();
+            self.externals.call(id, &dll_args)
+                .map(Value::from)
+                .map_err(|e| gml::Error::FunctionError("external_call".into(), e))
+        } else {
+            Ok(Default::default())
         }
-        Ok(Default::default())
     }
 
     pub fn external_free(&mut self, args: &[Value]) -> gml::Result<Value> {
         let dll_name = expect_args!(args, [bytes])?;
-        for e_opt in self.externals.iter_mut() {
-            if let Some(e) = e_opt {
-                if e.info.dll_name.eq_ignore_ascii_case(dll_name.as_ref()) {
-                    drop(e);
-                    *e_opt = None;
-                }
-            }
-        }
+        let encoding = match self.gm_version {
+            Version::GameMaker8_0 => self.encoding,
+            Version::GameMaker8_1 => encoding_rs::UTF_8,
+        };
+        let dll = gml::String::from(dll_name);
+        self.externals.free(&*dll.decode(encoding))
+            .map_err(|e| gml::Error::FunctionError("external_free".into(), e))?;
         Ok(Default::default())
     }
 
@@ -7328,7 +7382,11 @@ impl Game {
 
     pub fn window_handle(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        return Ok(self.window.window_handle().into())
+        #[cfg(target_os = "windows")] {
+            use ramen::platform::win32::WindowExt as _;
+            Ok((self.window.hwnd() as usize).into())
+        }
+        // TODO: Others! (They'll compile error here so it'll remind me)
     }
 
     pub fn show_debug_message(&self, args: &[Value]) -> gml::Result<Value> {
@@ -7337,9 +7395,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn set_program_priority(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function set_program_priority")
+    pub fn set_program_priority(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _priority = expect_args!(args, [int])?;
+        // do nothing
+        Ok(Default::default())
     }
 
     pub fn set_application_title(args: &[Value]) -> gml::Result<Value> {
@@ -8642,56 +8701,116 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sound_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let sound = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(sound).is_some().into())
-        todo!()
+    pub fn sound_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound).is_some().into())
     }
 
-    pub fn sound_get_name(&self, _args: &[Value]) -> gml::Result<Value> {
-        // TODO: uncomment this when there are sounds
-        //let asset_id = expect_args!(args, [int])?;
-        //Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
-        todo!()
+    pub fn sound_get_name(&self, args: &[Value]) -> gml::Result<Value> {
+        let asset_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn sound_get_kind(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_kind")
+    pub fn sound_get_kind(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_kind).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_get_preload(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_get_preload")
+    pub fn sound_get_preload(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        Ok(self.assets.sounds.get_asset(sound_id).map(|x| x.gml_preload).unwrap_or(Real::from(-1.0)).into())
     }
 
-    pub fn sound_discard(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_discard")
+    pub fn sound_discard(&mut self, args: &[Value]) -> gml::Result<Value> {
+        // Dynamically un-preloads a sound, but we preload all sounds, so all we need to do is call sound_stop()
+        self.sound_stop(args)
+    }
+
+    pub fn sound_restore(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _sound_id = expect_args!(args, [int])?;
+        // Dynamically preloads a sound, but we preload all sounds so this does nothing
         Ok(Default::default())
     }
 
-    pub fn sound_restore(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_restore")
+    pub fn sound_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (fname, kind, preload) = expect_args!(args, [string, int, bool])?;
+        let path_buf = std::path::PathBuf::from(fname.as_ref());
+        let data = match std::fs::read(&path_buf) {
+            Ok(b) => b.into_boxed_slice(),
+            Err(_) => return Ok((-1).into()),
+        };
+        let sound_id = self.assets.sounds.len() as i32;
+        let handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mp3") => {
+                match self.audio.add_mp3(data, sound_id as i32) {
+                    Some(x) => asset::sound::FileType::Mp3(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            Some("wav") => {
+                match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                    Some(x) => asset::sound::FileType::Wav(x),
+                    None => return Ok((-1).into()),
+                }
+            },
+            _ => return Ok((-1).into()),
+        };
+        self.assets.sounds.push(Some(Box::new(asset::Sound {
+            name: format!("__newsound{}", sound_id).into(),
+            handle,
+            gml_kind: kind.into(),
+            gml_preload: f64::from(u8::from(preload)).into(),
+        })));
+        Ok(sound_id.into())
+    }
+
+    pub fn sound_replace(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, fname, kind, preload) = expect_args!(args, [int, string, int, bool])?;
+        if let Some(sound) = self.assets.sounds.get_asset_mut(sound_id) {
+            self.audio.stop_sound(sound_id);
+            sound.gml_kind = kind.into();
+            sound.gml_preload = f64::from(u8::from(preload)).into();
+
+            if matches!(sound.handle, asset::sound::FileType::None) {
+                let path_buf = std::path::PathBuf::from(fname.as_ref());
+                let data = match std::fs::read(&path_buf) {
+                    Ok(b) => b.into_boxed_slice(),
+                    Err(_) => return Ok(0.into()),
+                };
+                sound.handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some("mp3") => {
+                        match self.audio.add_mp3(data, sound_id as i32) {
+                            Some(x) => asset::sound::FileType::Mp3(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    Some("wav") => {
+                        match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                            Some(x) => asset::sound::FileType::Wav(x),
+                            None => return Ok(0.into()),
+                        }
+                    },
+                    _ => return Ok(0.into()),
+                };
+                Ok(1.into())
+            } else {
+                // This appears to be a GM8 bug, I could never get it to actually load the new sound if
+                // the one we're replacing already had a sound loaded. (tested GM 8.1.141)
+                sound.handle = asset::sound::FileType::None;
+                Ok(1.into())
+            }
+        } else {
+            Err(gml::Error::FunctionError("sound_replace".into(), "Trying to replace non-existing sound.".into()))
+        }
+    }
+
+    pub fn sound_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
+        if self.assets.sounds.get_asset(sound_id).is_some() {
+            self.assets.sounds[sound_id as usize] = None;
+        }
         Ok(Default::default())
-    }
-
-    pub fn sound_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function sound_add")
-    }
-
-    pub fn sound_replace(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        //unimplemented!("Called unimplemented kernel function sound_replace")
-        Ok(Default::default())
-    }
-
-    pub fn sound_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function sound_delete")
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -8704,34 +8823,34 @@ impl Game {
         Ok(self.assets.fonts.get_asset(asset_id).map(|x| x.name.clone().into()).unwrap_or("<undefined>".into()))
     }
 
-    pub fn font_get_fontname(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_fontname")
+    pub fn font_get_fontname(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.sys_name.clone().into()).unwrap_or("".into()))
     }
 
-    pub fn font_get_size(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_size")
+    pub fn font_get_size(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.size.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_bold(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_bold")
+    pub fn font_get_bold(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.bold.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_italic(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_italic")
+    pub fn font_get_italic(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.italic.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_first(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_first")
+    pub fn font_get_first(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.first.into()).unwrap_or((-1).into()))
     }
 
-    pub fn font_get_last(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_get_last")
+    pub fn font_get_last(&self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        Ok(self.assets.fonts.get_asset(id).map(|x| x.last.into()).unwrap_or((-1).into()))
     }
 
     pub fn font_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -9131,7 +9250,7 @@ impl Game {
         } else {
             Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
         }
-        
+
     }
 
     pub fn timeline_moment_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -9148,7 +9267,7 @@ impl Game {
         if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
             let instrs = self.compiler.compile(code.as_ref())
                 .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
-            
+
             timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
         }
         Ok(Default::default())
@@ -11649,52 +11768,73 @@ impl Game {
         }
     }
 
-    pub fn sound_play(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_play")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_play(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::FileType;
+            let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+            match &sound.handle {
+                FileType::Mp3(handle) => self.audio.play_mp3(handle, nanos),
+                FileType::Wav(handle) => self.audio.play_wav(handle, nanos),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
-    pub fn sound_loop(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_loop")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_loop(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            use asset::sound::FileType;
+            match &sound.handle {
+                FileType::Mp3(handle) => self.audio.loop_mp3(handle),
+                FileType::Wav(handle) => self.audio.loop_wav(handle),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
-    pub fn sound_stop(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_stop")
-        // TODO
+    pub fn sound_stop(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        self.audio.stop_sound(sound_id);
         Ok(Default::default())
     }
 
     pub fn sound_stop_all(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        //unimplemented!("Called unimplemented kernel function sound_stop_all")
-        // TODO
+        self.audio.stop_all();
         Ok(Default::default())
     }
 
-    pub fn sound_isplaying(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_isplaying")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_isplaying(&self, args: &[Value]) -> gml::Result<Value> {
+        let sound_id = expect_args!(args, [int])?;
+        let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+        Ok(self.audio.sound_playing(sound_id, nanos).into())
     }
 
-    pub fn sound_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        //unimplemented!("Called unimplemented kernel function sound_volume")
-        // TODO
-        Ok(Default::default())
+    pub fn sound_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (sound_id, volume) = expect_args!(args, [int, real])?;
+        if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
+            // Deliberately written in a way that will produce an error when Kind::Midi is added
+            use asset::sound::FileType;
+            match &sound.handle {
+                FileType::Wav(handle) => handle.set_volume(volume.into()),
+                FileType::Mp3(_) => (),
+                FileType::None => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+        }
     }
 
     pub fn sound_fade(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 3
-        //unimplemented!("Called unimplemented kernel function sound_fade")
-        Ok(Default::default())
+        unimplemented!("Called unimplemented kernel function sound_fade")
     }
 
     pub fn sound_pan(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -11704,14 +11844,13 @@ impl Game {
 
     pub fn sound_background_tempo(&mut self, _args: &[Value]) -> gml::Result<Value> {
         // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_background_tempo")
+        // Does nothing unless the sound is a midi, which we don't support yet
         Ok(Default::default())
     }
 
-    pub fn sound_global_volume(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        //unimplemented!("Called unimplemented kernel function sound_global_volume")
-        // TODO
+    pub fn sound_global_volume(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let volume = expect_args!(args, [real])?;
+        self.audio.set_global_volume(volume.into());
         Ok(Default::default())
     }
 

@@ -1,4 +1,4 @@
-use crate::{game::string::RCStr, gml, math::Real};
+use crate::{game::external::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryInto,
@@ -8,7 +8,7 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
-    Str(RCStr),
+    Str(gml::String),
 }
 
 impl Display for Value {
@@ -320,7 +320,7 @@ impl Value {
         }
     }
 
-    pub fn repr(&self) -> RCStr {
+    pub fn repr(&self) -> gml::String {
         match self {
             Self::Real(r) if r.fract().into_inner() == 0.0 => format!("{:.0}", r).into(),
             Self::Real(r) => format!("{:.2}", r).into(),
@@ -396,14 +396,20 @@ impl From<usize> for Value {
     }
 }
 
+impl From<u8> for Value {
+    fn from(value: u8) -> Self {
+        Self::Real(value.into())
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Real(if value { gml::TRUE } else { gml::FALSE }.into())
     }
 }
 
-impl From<RCStr> for Value {
-    fn from(value: RCStr) -> Self {
+impl From<gml::String> for Value {
+    fn from(value: gml::String) -> Self {
         Self::Str(value)
     }
 }
@@ -472,8 +478,8 @@ impl From<Value> for Real {
     }
 }
 
-impl From<Value> for RCStr {
-    // For lazy-converting a value into a RCStr.
+impl From<Value> for gml::String {
+    // For lazy-converting a value into a gml::String.
     fn from(value: Value) -> Self {
         match value {
             Value::Real(_) => String::new().into(),
@@ -495,6 +501,24 @@ impl<'a> From<&'a Value> for &'a [u8] {
 impl Default for Value {
     fn default() -> Self {
         Self::Real(Real::from(0.0))
+    }
+}
+
+impl From<Value> for dll::Value {
+    fn from(v: Value) -> Self {
+        match v {
+            Value::Real(r) => dll::Value::Real(r.into()),
+            Value::Str(s) => dll::Value::Str(dll::PascalString::new(s.as_ref())),
+        }
+    }
+}
+
+impl From<dll::Value> for Value {
+    fn from(v: dll::Value) -> Self {
+        match v {
+            dll::Value::Real(r) => Value::Real(r.into()),
+            dll::Value::Str(s) => s.as_slice().into(),
+        }
     }
 }
 

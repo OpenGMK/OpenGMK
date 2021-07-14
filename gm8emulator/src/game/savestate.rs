@@ -1,30 +1,35 @@
 use crate::{
     game::{
+        audio::AudioState,
         draw,
-        external::{DefineInfo, External},
+        external,
         includedfile::IncludedFile,
         model::Model,
         particle,
         pathfinding::PotentialStepSettings,
         RoomState,
-        string::RCStr,
         surface::Surface,
         transition::UserTransition,
         Assets, Game, Replay, Version,
     },
-    gml::{ds, rand::Random, Compiler},
+    gml::{self, ds, rand::Random, Compiler},
     handleman::HandleList,
-    input::InputManager,
+    input::Input,
     instance::DummyFieldHolder,
     math::Real,
+    render::{RendererState, SavedTexture, Scaling},
+    types::{Colour, ID},
 };
-use gmio::render::{BlendType, Fog, PrimitiveBuilder, SavedTexture, Scaling};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use indexmap::IndexMap;
+use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
-use shared::types::{Colour, ID};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
+    path::PathBuf,
     rc::Rc,
 };
 
@@ -33,21 +38,15 @@ use std::{
 pub struct SaveState {
     pub compiler: Compiler,
     pub rand: Random,
-    pub input_manager: InputManager,
+    pub input: Input,
     pub assets: Assets,
     pub event_holders: [IndexMap<u32, Rc<RefCell<Vec<ID>>>>; 12],
     pub custom_draw_objects: HashSet<ID>,
 
     pub background_colour: Colour,
     pub textures: Vec<Option<SavedTexture>>,
-    pub alpha_blending: bool,
-    pub blend_mode: (BlendType, BlendType),
-    pub interpolate_pixels: bool,
-    pub texture_repeat: bool,
-    pub sprite_count: i32,
-    pub vsync: bool,
 
-    pub externals: Vec<Option<DefineInfo>>,
+    pub externals: (HashMap<ID, external::state::State>, ID),
     pub surface_fix: bool,
 
     pub view_current: usize,
@@ -79,49 +78,39 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
-    pub using_3d: bool,
-    pub depth: f32,
-    pub depth_test: bool,
-    pub write_depth: bool,
-    pub culling: bool,
-    pub perspective: bool,
-    pub fog: Option<Fog>,
-    pub gouraud: bool,
     pub surfaces: Vec<Option<Surface>>,
     pub surface_target: Option<i32>,
-    pub model_matrix: [f32; 16],
     pub models: Vec<Option<Model>>,
     pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
-    pub circle_precision: i32,
-    pub primitive_2d: PrimitiveBuilder,
-    pub primitive_3d: PrimitiveBuilder,
-    pub zbuf_trashed: bool,
+    pub renderer_state: RendererState,
 
     pub uninit_fields_are_zero: bool,
     pub uninit_args_are_zero: bool,
 
     pub potential_step_settings: PotentialStepSettings,
 
+    pub fps: u32,
+    pub frame_counter: u32,
     pub transition_kind: i32,
     pub transition_steps: i32,
     pub cursor_sprite: i32,
     pub cursor_sprite_frame: u32,
     pub score: i32,
-    pub score_capt: RCStr,
+    pub score_capt: gml::String,
     pub score_capt_d: bool,
     pub has_set_show_score: bool,
     pub lives: i32,
-    pub lives_capt: RCStr,
+    pub lives_capt: gml::String,
     pub lives_capt_d: bool,
     pub health: Real,
-    pub health_capt: RCStr,
+    pub health_capt: gml::String,
     pub health_capt_d: bool,
     pub error_occurred: bool,
-    pub error_last: RCStr,
+    pub error_last: gml::String,
 
     pub game_id: i32,
-    pub program_directory: RCStr,
+    pub program_directory: gml::String,
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub spoofed_time_nanos: Option<u128>,
@@ -132,33 +121,30 @@ pub struct SaveState {
     window_width: u32,
     window_height: u32,
 
+    audio_state: AudioState,
+
     replay: Replay,
     screenshot: Box<[u8]>,
     zbuffer: Box<[f32]>,
 }
 
 impl SaveState {
-    pub fn from(game: &Game, replay: Replay) -> Self {
-        let (window_width, window_height) = game.window.get_inner_size();
-        let screenshot = game.renderer.get_pixels(0, 0, game.unscaled_width as _, game.unscaled_height as _);
-        let zbuffer = game.renderer.dump_zbuffer();
+    /// Creates a new SaveState from the given components.
+    pub fn from(game: &mut Game, replay: Replay, renderer_state: RendererState) -> Self {
+        let (window_width, window_height) = game.renderer.stored_size();
+        let screenshot = game.renderer.stored_pixels();
+        let zbuffer = game.renderer.stored_zbuffer();
 
         Self {
             compiler: game.compiler.clone(),
             rand: game.rand.clone(),
-            input_manager: game.input_manager.clone(),
+            input: game.input.clone(),
             assets: game.assets.clone(),
             event_holders: game.event_holders.clone(),
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             textures: game.renderer.dump_dynamic_textures(),
-            alpha_blending: game.renderer.get_alpha_blending(),
-            blend_mode: game.renderer.get_blend_mode(),
-            interpolate_pixels: game.renderer.get_pixel_interpolation(),
-            texture_repeat: game.renderer.get_texture_repeat(),
-            sprite_count: game.renderer.get_sprite_count(),
-            vsync: game.renderer.get_vsync(),
-            externals: game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
+            externals: game.externals.ss_query_defs().unwrap(),
             surface_fix: game.surface_fix.clone(),
             view_current: game.view_current,
             last_instance_id: game.last_instance_id.clone(),
@@ -183,27 +169,17 @@ impl SaveState {
             draw_alpha: game.draw_alpha.clone(),
             draw_halign: game.draw_halign.clone(),
             draw_valign: game.draw_valign.clone(),
-            using_3d: game.renderer.get_3d(),
-            depth: game.renderer.get_depth(),
-            depth_test: game.renderer.get_depth_test(),
-            write_depth: game.renderer.get_write_depth(),
-            culling: game.renderer.get_culling(),
-            perspective: game.renderer.get_perspective(),
-            fog: game.renderer.get_fog(),
-            gouraud: game.renderer.get_gouraud(),
             surfaces: game.surfaces.clone(),
             surface_target: game.surface_target,
-            model_matrix: game.renderer.get_model_matrix(),
             models: game.models.clone(),
             model_matrix_stack: game.model_matrix_stack.clone(),
             auto_draw: game.auto_draw,
-            circle_precision: game.renderer.get_circle_precision(),
-            primitive_2d: game.renderer.get_primitive_2d(),
-            primitive_3d: game.renderer.get_primitive_3d(),
-            zbuf_trashed: game.renderer.get_zbuf_trashed(),
+            renderer_state,
             uninit_fields_are_zero: game.uninit_fields_are_zero.clone(),
             uninit_args_are_zero: game.uninit_args_are_zero.clone(),
             potential_step_settings: game.potential_step_settings.clone(),
+            fps: game.fps,
+            frame_counter: game.frame_counter,
             transition_kind: game.transition_kind.clone(),
             transition_steps: game.transition_steps.clone(),
             cursor_sprite: game.cursor_sprite.clone(),
@@ -230,28 +206,18 @@ impl SaveState {
             unscaled_height: game.unscaled_height,
             window_width,
             window_height,
+            audio_state: game.audio.state(),
             replay,
             screenshot,
             zbuffer,
         }
     }
 
-    pub fn load_into(self, game: &mut Game) -> Replay {
-        if game.window.get_inner_size() != (self.window_width, self.window_height) {
-            game.window.resize(self.window_width, self.window_height);
-        }
-
+    /// Loads this SaveState into the given Game struct, returning the Replay and RendererState it contained.
+    pub fn load_into(self, game: &mut Game) -> (Replay, RendererState) {
         game.renderer.upload_dynamic_textures(&self.textures);
 
-        game.renderer.draw_raw_frame(
-            self.screenshot,
-            self.zbuffer,
-            self.unscaled_width as _,
-            self.unscaled_height as _,
-            self.window_width as _,
-            self.window_height as _,
-            self.scaling,
-        );
+        game.renderer.set_stored(self.screenshot, self.zbuffer, self.window_width, self.window_height);
 
         let surfaces = self.surfaces;
         if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
@@ -259,34 +225,37 @@ impl SaveState {
         } else {
             game.renderer.reset_target();
         }
-        game.renderer.set_model_matrix(self.model_matrix);
-        game.renderer.set_alpha_blending(self.alpha_blending);
-        game.renderer.set_blend_mode(self.blend_mode.0, self.blend_mode.1);
-        game.renderer.set_pixel_interpolation(self.interpolate_pixels);
-        game.renderer.set_texture_repeat(self.texture_repeat);
-        game.renderer.set_sprite_count(self.sprite_count);
-        game.renderer.set_vsync(self.vsync);
 
-        let mut externals = self.externals;
-        // we're always gonna be recording if we're loading savestates so disable sound
-        game.externals = externals
-            .drain(..)
-            .map(|i| {
-                i.map(|i| {
-                    External::new(i, true, match game.gm_version {
-                        Version::GameMaker8_0 => game.encoding,
-                        Version::GameMaker8_1 => encoding_rs::UTF_8,
-                    })
-                    .unwrap()
-                })
-            })
-            .collect();
+        game.externals = external::ExternalManager::new(false).unwrap();
+        for (id, state) in &self.externals.0 {
+            game.externals.ss_set_id(*id).unwrap();
+            match state {
+                external::state::State::DummyExternal { dll, symbol, dummy, argc } => {
+                    game.externals.define_dummy(
+                        &dll,
+                        &symbol,
+                        dummy.clone(),
+                        *argc,
+                    ).unwrap();
+                },
+                external::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
+                    game.externals.define(
+                        &dll,
+                        &symbol,
+                        *call_conv,
+                        type_args,
+                        *type_return,
+                    ).unwrap();
+                },
+            }
+        }
+        game.externals.ss_set_id(self.externals.1).unwrap();
 
         game.surface_fix = self.surface_fix;
 
         game.compiler = self.compiler;
         game.rand = self.rand;
-        game.input_manager = self.input_manager;
+        game.input = self.input;
         game.assets = self.assets;
         game.event_holders = self.event_holders;
         game.custom_draw_objects = self.custom_draw_objects;
@@ -314,26 +283,16 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.renderer.set_3d(self.using_3d);
-        game.renderer.set_depth(self.depth);
-        game.renderer.set_depth_test(self.depth_test);
-        game.renderer.set_write_depth(self.write_depth);
-        game.renderer.set_culling(self.culling);
-        game.renderer.set_perspective(self.perspective);
-        game.renderer.set_fog(self.fog);
-        game.renderer.set_gouraud(self.gouraud);
         game.surfaces = surfaces;
         game.surface_target = self.surface_target;
         game.models = self.models;
         game.model_matrix_stack = self.model_matrix_stack;
         game.auto_draw = self.auto_draw;
-        game.renderer.set_circle_precision(self.circle_precision);
-        game.renderer.set_primitive_2d(self.primitive_2d);
-        game.renderer.set_primitive_3d(self.primitive_3d);
-        game.renderer.set_zbuf_trashed(self.zbuf_trashed);
         game.uninit_fields_are_zero = self.uninit_fields_are_zero;
         game.uninit_args_are_zero = self.uninit_args_are_zero;
         game.potential_step_settings = self.potential_step_settings;
+        game.fps = self.fps;
+        game.frame_counter = self.frame_counter;
         game.transition_kind = self.transition_kind;
         game.transition_steps = self.transition_steps;
         game.cursor_sprite = self.cursor_sprite;
@@ -355,13 +314,111 @@ impl SaveState {
         game.included_files = self.included_files;
         game.gm_version = self.gm_version;
         game.spoofed_time_nanos = self.spoofed_time_nanos;
+        game.audio.set_state(self.audio_state);
         game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;
         game.unscaled_height = self.unscaled_height;
-        self.replay
+        (self.replay, self.renderer_state)
     }
 
+    /// Consumes this SaveState and returns just its Replay component.
     pub fn into_replay(self) -> Replay {
         self.replay
     }
+
+    /// Loads a SaveState from a file. The format will always match the one used by `save_to_file()`.
+    pub fn from_file(path: &PathBuf, buffer: &mut Buffer) -> Result<Self, ReadError> {
+        match File::open(path).map(|f| (f.metadata().map(|m| m.len() as usize + 1).unwrap_or(0), f)) {
+            Ok((init_size, mut file)) => {
+                buffer.lz4_buf.clear();
+                buffer.lz4_buf.reserve(init_size);
+                match file.read_to_end(&mut buffer.lz4_buf) {
+                    Ok(_) => match (
+                        buffer.lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
+                        buffer.lz4_buf.get(8..),
+                    ) {
+                        (Ok(len), Some(block)) => {
+                            buffer.bin_buf.clear();
+                            buffer.bin_buf.reserve(len);
+                            unsafe { buffer.bin_buf.set_len(len) };
+                            match lz4::decompress(block, buffer.bin_buf.as_mut_slice()) {
+                                Ok(len) => {
+                                    unsafe { buffer.bin_buf.set_len(len) };
+                                    bincode::deserialize::<'_, SaveState>(buffer.bin_buf.as_slice())
+                                        .map_err(ReadError::DeserializeErr)
+                                },
+                                Err(err) => Err(ReadError::DecompressErr(err)),
+                            }
+                        },
+                        (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
+                        (Err(err), _) => Err(ReadError::IOErr(err)),
+                    },
+                    Err(err) => Err(ReadError::IOErr(err)),
+                }
+            },
+            Err(err) => Err(ReadError::IOErr(err)),
+        }
+    }
+
+    /// Saves a SaveState to a file. The SaveState object is formatted with Serde/bincode and compressed with lz4.
+    /// A Buffer object is needed for the lz4 compression. Ideally, the same buffer should be re-used on each call.
+    pub fn save_to_file(&self, path: &PathBuf, buffer: &mut Buffer) -> Result<(), WriteError> {
+        buffer.bin_buf.clear();
+        buffer.lz4_buf.clear();
+        match bincode::serialize_into(&mut buffer.bin_buf, self) {
+            Ok(()) => {
+                match lz4::compress_to_vec(
+                    buffer.bin_buf.as_slice(),
+                    buffer.lz4_buf.as_mut(),
+                    lz4::ACC_LEVEL_DEFAULT,
+                ) {
+                    Ok(_length) => {
+                        match OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .truncate(true)
+                            .open(path)
+                            .and_then(|mut f| {
+                                f.write_u64::<LE>(buffer.bin_buf.len() as u64)
+                                    .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
+                            })
+                        {
+                            Ok(()) => Ok(()),
+                            Err(e) => Err(WriteError::IOErr(e)),
+                        }
+                    },
+                    Err(err) => Err(WriteError::CompressErr(err)),
+                }
+            },
+            Err(err) => Err(WriteError::SerializeErr(err)),
+        }
+    }
+}
+
+pub struct Buffer {
+    bin_buf: Vec<u8>,
+    lz4_buf: Vec<u8>,
+}
+
+impl Buffer {
+    pub fn new() -> Self {
+        Self {
+            bin_buf: Vec::new(),
+            lz4_buf: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ReadError {
+    IOErr(io::Error),
+    DecompressErr(lzzzz::Error),
+    DeserializeErr(Box<bincode::ErrorKind>),
+}
+
+#[derive(Debug)]
+pub enum WriteError {
+    IOErr(io::Error),
+    CompressErr(lzzzz::Error),
+    SerializeErr(Box<bincode::ErrorKind>),
 }

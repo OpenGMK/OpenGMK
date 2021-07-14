@@ -1,0 +1,15 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "gm8emulator-wow64"
+forced-target = "i686-pc-windows-msvc"
+version = "0.1.0"
+authors = ["The OpenGMK Project Developers"]
+edition = "2018"
+
+[dependencies]
+bincode = "1.2"
+byteorder = "1"
+crc32fast = "1.2"
+libffi = "1.0.0"
+serde = { version = "1.0", features = ["derive"] }
