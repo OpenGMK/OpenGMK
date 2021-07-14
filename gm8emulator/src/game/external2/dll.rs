@@ -133,5 +133,9 @@ pub enum Wow64Message {
     DefineDummy(String, String, Value, usize),
     Free(String),
 
+    GetNextId,
+    SetNextId(super::ID),
+    QueryDefs,
+
     Stop,
 }

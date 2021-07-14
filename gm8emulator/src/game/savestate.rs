@@ -1,7 +1,7 @@
 use crate::{
     game::{
         draw,
-        external::{DefineInfo, External},
+        external2,
         includedfile::IncludedFile,
         model::Model,
         particle,
@@ -45,7 +45,7 @@ pub struct SaveState {
     pub background_colour: Colour,
     pub textures: Vec<Option<SavedTexture>>,
 
-    pub externals: Vec<Option<DefineInfo>>,
+    pub externals: (HashMap<ID, external2::state::State>, ID),
     pub surface_fix: bool,
 
     pub view_current: usize,
@@ -127,7 +127,7 @@ pub struct SaveState {
 
 impl SaveState {
     /// Creates a new SaveState from the given components.
-    pub fn from(game: &Game, replay: Replay, renderer_state: RendererState) -> Self {
+    pub fn from(game: &mut Game, replay: Replay, renderer_state: RendererState) -> Self {
         let (window_width, window_height) = game.renderer.stored_size();
         let screenshot = game.renderer.stored_pixels();
         let zbuffer = game.renderer.stored_zbuffer();
@@ -141,7 +141,7 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             textures: game.renderer.dump_dynamic_textures(),
-            externals: unimplemented!(), //game.externals.iter().map(|e| e.as_ref().map(|e| e.info.clone())).collect(),
+            externals: game.externals.ss_query_defs().unwrap(),
             surface_fix: game.surface_fix.clone(),
             view_current: game.view_current,
             last_instance_id: game.last_instance_id.clone(),
@@ -222,21 +222,30 @@ impl SaveState {
             game.renderer.reset_target();
         }
 
-        let mut externals = self.externals;
-        // we're always gonna be recording if we're loading savestates so disable sound
-        game.externals = unimplemented!();
-        // game.externals = externals
-        //     .drain(..)
-        //     .map(|i| {
-        //         i.map(|i| {
-        //             External::new(i, true, match game.gm_version {
-        //                 Version::GameMaker8_0 => game.encoding,
-        //                 Version::GameMaker8_1 => encoding_rs::UTF_8,
-        //             })
-        //             .unwrap()
-        //         })
-        //     })
-        //     .collect();
+        game.externals = external2::ExternalManager::new(false).unwrap();
+        for (id, state) in &self.externals.0 {
+            game.externals.ss_set_id(*id).unwrap();
+            match state {
+                external2::state::State::DummyExternal { dll, symbol, dummy, argc } => {
+                    game.externals.define_dummy(
+                        &dll,
+                        &symbol,
+                        dummy.clone(),
+                        *argc,
+                    ).unwrap();
+                },
+                external2::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
+                    game.externals.define(
+                        &dll,
+                        &symbol,
+                        *call_conv,
+                        type_args,
+                        *type_return,
+                    ).unwrap();
+                },
+            }
+        }
+        game.externals.ss_set_id(self.externals.1).unwrap();
 
         game.surface_fix = self.surface_fix;
 

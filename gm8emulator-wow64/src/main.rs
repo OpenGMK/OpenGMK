@@ -4,6 +4,8 @@ compile_error!("this crate cannot be built for a target other than windows i686"
 type ID = i32;
 #[path = "../../gm8emulator/src/game/external2/dll.rs"]
 mod dll;
+#[path = "../../gm8emulator/src/game/external2/state.rs"]
+mod state;
 #[path = "../../gm8emulator/src/game/external2/win32.rs"]
 mod win32;
 
@@ -47,6 +49,12 @@ fn main() -> io::Result<()> {
                 => respond!(externals.define_dummy(&dll, &sym, dummy, argc)),
             dll::Wow64Message::Free(dll)
                 => respond!(externals.free(&dll)),
+            dll::Wow64Message::GetNextId
+                => respond!(externals.ss_id()),
+            dll::Wow64Message::SetNextId(id)
+                => respond!(externals.ss_set_id(id)),
+            dll::Wow64Message::QueryDefs
+                => respond!(externals.ss_query_defs()),
             dll::Wow64Message::Stop => {
                 respond!(Result::<(), String>::Ok(()));
                 break Ok(())

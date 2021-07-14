@@ -1,7 +1,7 @@
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::{env, io::{Read, Write}, process, ops::Drop};
+use std::{env, collections::HashMap, io::{Read, Write}, process, ops::Drop};
 use serde::de;
-use super::{dll, ID};
+use super::{dll, state, ID};
 
 const PROCESS_DEFAULT_NAME: &str = "gm8emulator-wow64.exe";
 const PROCESS_ENV_OVERRIDE: &str = "OPENGMK_WOW64_BINARY";
@@ -54,6 +54,18 @@ impl IpcExternals {
 
     pub fn free(&mut self, dll: &str) -> Result<(), String> {
         self.send(dll::Wow64Message::Free(dll.into()))
+    }
+
+    pub fn ss_id(&mut self) -> Result<ID, String> {
+        self.send(dll::Wow64Message::GetNextId)
+    }
+
+    pub fn ss_set_id(&mut self, next: ID) -> Result<(), String> {
+        self.send(dll::Wow64Message::SetNextId(next))
+    }
+
+    pub fn ss_query_defs(&mut self) -> Result<(HashMap<ID, self::state::State>, ID), String> {
+        self.send(dll::Wow64Message::QueryDefs)
     }
 
     fn send<T>(&mut self, message: dll::Wow64Message) -> Result<T, String>

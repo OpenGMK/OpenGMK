@@ -1,4 +1,5 @@
 pub mod dll;
+pub mod state;
 
 #[cfg(all(target_os = "windows"))]
 mod win32;
@@ -11,6 +12,7 @@ use self::wow64::IpcExternals;
 
 use crate::types::ID;
 use self::{dll::{CallConv, ValueType}};
+use std::collections::HashMap;
 
 pub enum ExternalManager {
     Emulated(()),
@@ -82,5 +84,17 @@ impl ExternalManager {
 
     pub fn free(&mut self, dll: &str) -> Result<(), String> {
         dispatch!(self, free(dll))
+    }
+
+    pub fn ss_id(&mut self) -> Result<ID, String> {
+        dispatch!(self, ss_id())
+    }
+
+    pub fn ss_set_id(&mut self, next: ID) -> Result<(), String> {
+        dispatch!(self, ss_set_id(next))
+    }
+
+    pub fn ss_query_defs(&mut self) -> Result<(HashMap<ID, self::state::State>, ID), String> {
+        dispatch!(self, ss_query_defs())
     }
 }

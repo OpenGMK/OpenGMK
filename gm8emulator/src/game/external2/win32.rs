@@ -1,7 +1,7 @@
 #![allow(bad_style)]
 
 use libffi::middle as ffi;
-use super::{ID, dll};
+use super::{ID, dll, state};
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString, OsStr, OsString},
@@ -74,6 +74,7 @@ struct DummyExternal {
 }
 
 struct DllExternal {
+    call_conv: dll::CallConv,
     cif: ffi::Cif,
     code_ptr: ffi::CodePtr,
     type_args: Vec<dll::ValueType>,
@@ -211,7 +212,7 @@ impl NativeExternals {
 
             let id = self.id;
             self.defs.insert(id, External::Dll(DllExternal {
-                cif, code_ptr, type_return,
+                cif, code_ptr, type_return, call_conv,
                 type_args: type_args.to_vec(),
                 dll: dll.into(),
                 symbol: symbol.into(),
@@ -239,6 +240,43 @@ impl NativeExternals {
             External::Dll(DllExternal { dll, .. }) => !dll.eq_ignore_ascii_case(target),
         });
         Ok(())
+    }
+
+    pub fn ss_id(&mut self) -> Result<ID, String> {
+        Ok(self.id)
+    }
+
+    pub fn ss_set_id(&mut self, next: ID) -> Result<(), String> {
+        self.id = next;
+        Ok(())
+    }
+
+    pub fn ss_query_defs(&mut self) -> Result<(HashMap<ID, self::state::State>, ID), String> {
+        Ok((
+            self.defs
+                .iter()
+                .map(|(id, def)| match def {
+                    External::Dll(DllExternal { dll, symbol, call_conv, type_args, type_return, .. }) => {
+                        (*id, state::State::NormalExternal {
+                            dll: dll.clone(),
+                            symbol: symbol.clone(),
+                            call_conv: *call_conv,
+                            type_args: type_args.clone(),
+                            type_return: *type_return,
+                        })
+                    },
+                    External::Dummy(DummyExternal { dll, symbol, dummy, argc }) => {
+                        (*id, state::State::DummyExternal {
+                            dll: dll.clone(),
+                            symbol: symbol.clone(),
+                            dummy: dummy.clone(),
+                            argc: *argc,
+                        })
+                    },
+                })
+                .collect(),
+            self.id,
+        ))
     }
 }
 
