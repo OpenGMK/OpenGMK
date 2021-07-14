@@ -7165,9 +7165,14 @@ impl Game {
                     }
                 } else if
                     dll.eq_ignore_ascii_case("ssound.dll") ||
-                    dll.eq_ignore_ascii_case("supersound.dll") ||
-                    dll.eq_ignore_ascii_case("sxms-3.dll")
+                    dll.eq_ignore_ascii_case("supersound.dll")
                 {
+                    if &*function == "SS_Init" {
+                        dummy = Some(external2::dll::Value::Str(external2::dll::PascalString::new(b"Yes")));
+                    } else {
+                        dummy = Some(external2::dll::Value::Real(0.0));
+                    }
+                } else if dll.eq_ignore_ascii_case("sxms-3.dll") {
                     dummy = Some(external2::dll::Value::Real(0.0));
                 }
             }
