@@ -78,7 +78,8 @@ Whether it will in the future is unclear right now.
 >
 > There are two ways to fix this:
 >
-> - You can export a `save#.gmtas` file, and then beg Adam to add the converter to the repo.
+> - You can export a `save#.gmtas` file from the old build, and then create a `save#.bin` out of it:
+>     - `gm8emulator <game_exe_location> -f path/to/file.gmtas -o path/to/save#.bin`
 > - You can downgrade your local repository to the last version it worked on.
 >   - View the latest commit in your cloned repo: `git log -1` (or look on GitHub)
 >   - Make sure you're up to date with the remote repo: `git fetch --all`
