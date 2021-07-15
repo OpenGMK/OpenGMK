@@ -409,6 +409,9 @@ impl<'a> AST<'a> {
 
                     Keyword::With => {
                         let target = AST::read_binary_tree(lex, None, false)?;
+                        if lex.peek() == Some(&Token::Keyword(Keyword::Do)) {
+                            lex.next();
+                        }
                         let body = AST::read_group(lex)?
                             .ok_or_else(|| Error::new("Unexpected EOF after 'with' condition".to_string()))?;
                         Ok(Some(Expr::With(Box::new(WithExpr { target, body }))))
