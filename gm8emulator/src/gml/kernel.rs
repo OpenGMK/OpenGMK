@@ -2400,14 +2400,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_getpixel")
     }
 
-    pub fn surface_copy(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function surface_copy")
+    pub fn surface_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dest_id, x, y, src_id) = expect_args!(args, [int, int, int, int])?;
+        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+            self.renderer.copy_surface(&dst.atlas_ref, x, y, &src.atlas_ref, 0, 0, src.width as _, src.height as _);
+        }
+        Ok(Default::default())
     }
 
-    pub fn surface_copy_part(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function surface_copy_part")
+    pub fn surface_copy_part(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dest_id, dest_x, dest_y, src_id, src_x, src_y, width, height) =
+            expect_args!(args, [int, int, int, int, int, int, int, int])?;
+        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+            self.renderer.copy_surface(&dst.atlas_ref, dest_x, dest_y, &src.atlas_ref, src_x, src_y, width, height);
+        }
+        Ok(Default::default())
     }
 
     pub fn action_path_old(&mut self, _args: &[Value]) -> gml::Result<Value> {
