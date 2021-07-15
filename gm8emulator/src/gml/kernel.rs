@@ -170,14 +170,16 @@ impl Game {
         Ok(self.window_visible.into())
     }
 
-    pub fn window_set_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_fullscreen")
+    pub fn window_set_fullscreen(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _full = expect_args!(args, [bool])?;
+        // TODO
+        Ok(Default::default())
     }
 
-    pub fn window_get_fullscreen(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_fullscreen")
+    pub fn window_get_fullscreen(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        // TODO
+        Ok(false.into())
     }
 
     pub fn window_set_showborder(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -3663,9 +3665,11 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_fullscreen")
+    pub fn action_fullscreen(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _action = expect_args!(args, [int])?;
+        // 1 is windowed, 2 is fullscreen 0/other is switch
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
