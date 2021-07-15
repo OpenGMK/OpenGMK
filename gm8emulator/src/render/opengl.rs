@@ -1166,6 +1166,89 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn copy_surface(
+        &mut self,
+        dest: &AtlasRef,
+        mut dest_x: i32,
+        mut dest_y: i32,
+        src: &AtlasRef,
+        mut src_x: i32,
+        mut src_y: i32,
+        mut width: i32,
+        mut height: i32,
+    ) {
+        // correct coordinates
+        if src_x < 0 {
+            dest_x -= src_x;
+            width += src_x;
+            src_x = 0;
+        }
+        if src_y < 0 {
+            dest_y -= src_y;
+            height += src_y;
+            src_y = 0;
+        }
+        if src_x + width > src.w {
+            width = src.w - src_x;
+        }
+        if src_y + height > src.h {
+            height = dest.h - src_y;
+        }
+        if dest_x < 0 {
+            src_x -= dest_x;
+            width += dest_x;
+            dest_x = 0;
+        }
+        if dest_y < 0 {
+            src_y -= dest_y;
+            height += dest_y;
+            dest_y = 0;
+        }
+        if dest_x + width > dest.w {
+            width = dest.w - dest_x;
+        }
+        if dest_y + height > dest.h {
+            height = dest.h - dest_y;
+        }
+        if width > 0 && height > 0 {
+            // actual copy
+            if let (Some(Some(src_id)), Some(Some(dst_id))) =
+                (self.fbo_ids.get(src.atlas_id as usize), self.fbo_ids.get(dest.atlas_id as usize))
+            {
+                unsafe {
+                    // On Intel, glBlitFrameBuffer just does nothing if the scissor box is too big, which it
+                    // very well could be. So just disable the scissor test for now.
+                    self.gl.Disable(gl::SCISSOR_TEST);
+
+                    // Remember old framebuffer so we can rebind it after we're done
+                    let mut fb_old = 0;
+                    self.gl.GetIntegerv(gl::DRAW_FRAMEBUFFER_BINDING, &mut fb_old);
+                    assert_eq!(self.gl.GetError(), 0);
+
+                    self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *dst_id);
+                    self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, *src_id);
+                    self.gl.BlitFramebuffer(
+                        src_x,
+                        src_y,
+                        src_x + width,
+                        src_y + height,
+                        dest_x,
+                        dest_y,
+                        dest_x + width,
+                        dest_y + height,
+                        gl::COLOR_BUFFER_BIT,
+                        gl::NEAREST,
+                    );
+                    self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
+
+                    self.gl.Enable(gl::SCISSOR_TEST);
+
+                    assert_eq!(self.gl.GetError(), 0);
+                }
+            }
+        }
+    }
+
     fn set_zbuf_trashed(&mut self, trashed: bool) {
         if trashed != self.zbuf_trashed {
             self.flush_queue();

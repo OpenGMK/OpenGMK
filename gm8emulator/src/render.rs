@@ -332,6 +332,17 @@ pub trait RendererTrait {
     fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String>;
     fn set_target(&mut self, atlas_ref: &AtlasRef);
     fn reset_target(&mut self);
+    fn copy_surface(
+        &mut self,
+        dest: &AtlasRef,
+        dest_x: i32,
+        dest_y: i32,
+        src: &AtlasRef,
+        src_x: i32,
+        src_y: i32,
+        width: i32,
+        height: i32,
+    );
 
     fn set_zbuf_trashed(&mut self, trashed: bool);
     fn get_zbuf_trashed(&self) -> bool;
@@ -889,6 +900,20 @@ impl Renderer {
 
     pub fn reset_target(&mut self) {
         self.0.reset_target()
+    }
+
+    pub fn copy_surface(
+        &mut self,
+        dest: &AtlasRef,
+        dest_x: i32,
+        dest_y: i32,
+        src: &AtlasRef,
+        src_x: i32,
+        src_y: i32,
+        width: i32,
+        height: i32,
+    ) {
+        self.0.copy_surface(dest, dest_x, dest_y, src, src_x, src_y, width, height)
     }
 
     pub fn set_zbuf_trashed(&mut self, trashed: bool) {
