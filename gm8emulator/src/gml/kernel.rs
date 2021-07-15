@@ -338,7 +338,8 @@ impl Game {
     }
 
     pub fn window_center(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("dont care") // TODO (0 args)
+        // TODO: make this do something!
+        Ok(Default::default())
     }
 
     pub fn window_default(&mut self, _args: &[Value]) -> gml::Result<Value> {
