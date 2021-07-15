@@ -4311,10 +4311,10 @@ impl Game {
     pub fn place_snapped(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (hsnap, vsnap) = expect_args!(args, [real, real])?;
         let instance = self.room.instance_list.get(context.this);
-        Ok((hsnap > 0.into()
-            && vsnap > 0.into()
-            && instance.x.get() - (instance.x.get() / hsnap).round() * hsnap >= 0.0014765625.into()
-            && instance.y.get() - (instance.y.get() / vsnap).round() * vsnap >= 0.0014765625.into())
+        Ok(((hsnap <= 0.into()
+            || (instance.x.get() - (instance.x.get() / hsnap).round() * hsnap).abs() < 0.0014765625.into())
+            && (vsnap <= 0.into()
+                || (instance.y.get() - (instance.y.get() / vsnap).round() * vsnap).abs() < 0.0014765625.into()))
         .into())
     }
 
