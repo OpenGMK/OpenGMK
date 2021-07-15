@@ -4297,9 +4297,14 @@ impl Game {
         Ok(collision.into())
     }
 
-    pub fn place_snapped(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function place_snapped")
+    pub fn place_snapped(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hsnap, vsnap) = expect_args!(args, [real, real])?;
+        let instance = self.room.instance_list.get(context.this);
+        Ok((hsnap > 0.into()
+            && vsnap > 0.into()
+            && instance.x.get() - (instance.x.get() / hsnap).round() * hsnap >= 0.0014765625.into()
+            && instance.y.get() - (instance.y.get() / vsnap).round() * vsnap >= 0.0014765625.into())
+        .into())
     }
 
     pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
