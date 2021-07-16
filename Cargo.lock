@@ -1008,7 +1008,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.0-alpha-2"
-source = "git+https://github.com/time-rs/time/#5141e0d9df7074f98284775ba90c7c41459a5807"
+source = "git+https://github.com/time-rs/time/#9f17cff694e48928791cc7f139ef945b1869730b"
 dependencies = [
  "const_fn",
  "libc",
