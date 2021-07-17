@@ -629,7 +629,7 @@ impl RendererImpl {
             self.flush_queue();
             // update the viewproj matrix before doing any cloning
             if self.queue_render_state.view_matrix != self.next_render_state.view_matrix
-                || self.queue_render_state.proj_matrix != self.queue_render_state.proj_matrix
+                || self.queue_render_state.proj_matrix != self.next_render_state.proj_matrix
             {
                 self.next_render_state.update_matrix(&self.gl);
             }
