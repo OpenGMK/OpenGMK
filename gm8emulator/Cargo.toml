@@ -28,7 +28,7 @@ indexmap = { version = "1.3.2", features = ["serde-1"] }
 lzzzz = "0.8.0"
 memoffset = "0.5.3"
 phf = { version = "0.9.0", features = ["macros"] }
-ramen = { git = "https://github.com/notviri/ramen", features = ["input"] }
+ramen = { git = "https://github.com/notviri/ramen", features = ["input"], branch = "july-demo" }
 rect_packer = "0.2.1"
 rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
