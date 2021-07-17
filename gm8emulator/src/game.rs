@@ -1386,6 +1386,7 @@ impl Game {
                 _ => (width, height),
             };
             if self.play_type != PlayType::Record {
+                self.window_inner_size = (width, height);
                 self.window.set_inner_size(Size::Physical(width, height));
             }
         }
@@ -1443,8 +1444,7 @@ impl Game {
         // Initialize room transition surface
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
-            let (size, scale) = self.window.inner_size();
-            let (width, height) = size.as_physical(scale);
+            let (width, height) = self.window_inner_size;
 
             let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
@@ -1621,8 +1621,7 @@ impl Game {
             if self.auto_draw {
                 self.draw()?;
                 if let Some(transition) = self.get_transition(transition_kind) {
-                    let (size, scale) = self.window.inner_size();
-                    let (width, height) = size.as_physical(scale);
+                    let (width, height) = self.window_inner_size;
                     self.renderer.reset_target();
                     // Here, we see the limitations of GM8's vsync.
                     // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets

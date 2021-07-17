@@ -323,14 +323,17 @@ impl Game {
 
     pub fn window_set_size(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
-        self.window.execute(|window| {
-            use ramen::monitor::Size;
-            if window.is_dpi_logical() {
-                window.set_inner_size(Size::Logical(width as f64, height as f64));
-            } else {
-                window.set_inner_size(Size::Physical(width as u32, height as u32));
-            }
-        });
+        if width > 0 && height > 0 {
+            self.window_inner_size = (width as u32, height as u32);
+            self.window.execute(|window| {
+                use ramen::monitor::Size;
+                if window.is_dpi_logical() {
+                    unimplemented!();
+                } else {
+                    window.set_inner_size(Size::Physical(width as u32, height as u32));
+                }
+            });
+        }
         Ok(Default::default())
     }
 
@@ -404,9 +407,7 @@ impl Game {
             } else {
                 (region_w, region_h)
             };
-            if self.window_is_logical_dpi {
-                todo!("oh god oh fuck");
-            }
+            self.window_inner_size = (width, height);
             self.window.set_inner_size(ramen::monitor::Size::Physical(width, height));
         }
         Ok(Default::default())
