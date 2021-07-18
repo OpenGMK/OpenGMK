@@ -486,7 +486,12 @@ impl Game {
                     }
                 },
                 Body::BlockBegin => block_depth += 1,
-                Body::BlockEnd => block_depth = block_depth.saturating_sub(1),
+                Body::BlockEnd => {
+                    block_depth = block_depth.saturating_sub(1);
+                    if one_block && block_depth == 0 {
+                        return Ok((ReturnType::Continue, i + 1 + skip_count))
+                    }
+                },
                 Body::Exit => return Ok((ReturnType::Exit, i)),
                 Body::Else | Body::Comment => (),
             }
