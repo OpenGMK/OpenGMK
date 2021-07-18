@@ -274,8 +274,7 @@ impl Game {
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
         // TODO: store these as gml::String probably?
-        println!("param_string: {}", param_string);
-        println!("program_directory: {}", program_directory);
+        eprintln!("launching game\n  > param_string: \"{}\"\n  > program_directory: \"{}\"", param_string, program_directory);
 
         // Improve framepacing on Windows
         #[cfg(target_os = "windows")]
