@@ -10,14 +10,15 @@ mod state;
 mod win32;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Read, Write};
+use std::{env, io::{self, Read, Write}};
 
 fn main() -> io::Result<()> {
     let mut externals = win32::NativeExternals::new().unwrap();
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    eprintln!("wow64> compatibility layer started!");
+    eprintln!("starting dll compatibility layer\n  > server: \"{}\"", env::args().next().unwrap());
+
     let mut message = Vec::with_capacity(1024);
     loop {
         message.clear();
