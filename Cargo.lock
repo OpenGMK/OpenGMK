@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "gm8emulator"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bincode",
  "byteorder",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "gm8exe"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "flate2",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "gml-parser"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
 ]
