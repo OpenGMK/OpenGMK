@@ -35,6 +35,7 @@ jobs:
         rustup self update
         rustup update
         rustup install nightly
+        git submodule update --init --recursive
         rustup target add i686-pc-windows-msvc --toolchain=nightly
         cd "gm8emulator-wow64"
         cargo +nightly build --release
