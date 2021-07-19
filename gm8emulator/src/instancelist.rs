@@ -9,12 +9,7 @@ use serde::{
     ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    fmt,
-    rc::Rc,
-};
+use std::{collections::HashMap, fmt};
 
 /// Elements per Chunk (fixed size).
 const CHUNK_SIZE: usize = 256;
@@ -169,6 +164,7 @@ pub struct InstanceList {
     insert_order: Vec<usize>,
     draw_order: Vec<usize>,
     object_id_map: HashMap<ID, Vec<usize>>, // Object ID <-> Count
+    object_id_map_inherit: HashMap<ID, Vec<usize>>,
     inactive_id_map: HashMap<ID, Vec<usize>>,
 }
 
@@ -196,25 +192,18 @@ impl ILIterInactive {
 pub struct IdentityIter {
     count: usize,
     position: usize,
-    children: Rc<RefCell<HashSet<ID>>>,
+    object_index: ID,
     state: InstanceState,
 }
 impl IdentityIter {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        if self.count > 0 {
-            for (idx, &instance) in list.insert_order.get(self.position..)?.iter().enumerate() {
-                let inst = list.get(instance);
-                if inst.state.get() == self.state {
-                    let oidx = inst.object_index.get();
-                    if self.children.borrow().contains(&oidx) {
-                        self.count -= 1;
-                        self.position += idx + 1;
-                        return Some(instance)
-                    }
-                }
-            }
+        if self.position < self.count {
+            list.object_id_map_inherit
+                .get(&self.object_index)
+                .and_then(|v| nb_il_iter(v, &mut self.position, list, self.state))
+        } else {
+            None
         }
-        None
     }
 }
 
@@ -246,6 +235,7 @@ impl InstanceList {
             insert_order: Vec::new(),
             draw_order: Vec::new(),
             object_id_map: HashMap::new(),
+            object_id_map_inherit: HashMap::new(),
             inactive_id_map: HashMap::new(),
         }
     }
@@ -259,7 +249,7 @@ impl InstanceList {
     }
 
     pub fn count(&self, object_index: ID) -> usize {
-        self.object_id_map
+        self.object_id_map_inherit
             .get(&object_index)
             .map(|v| v.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() == InstanceState::Active).count())
             .unwrap_or_default()
@@ -310,20 +300,13 @@ impl InstanceList {
         ILIterInactive(0)
     }
 
-    pub fn iter_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = identities
-            .borrow()
-            .iter()
-            .fold(0, |acc, x| acc + self.object_id_map.get(x).map(|v| v.len()).unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities, state: InstanceState::Active }
-    }
-
-    pub fn iter_inactive_by_identity(&self, identities: Rc<RefCell<HashSet<ID>>>) -> IdentityIter {
-        let count = identities
-            .borrow()
-            .iter()
-            .fold(0, |acc, x| acc + self.inactive_id_map.get(x).map(|v| v.len()).unwrap_or_default());
-        IdentityIter { count, position: 0, children: identities, state: InstanceState::Inactive }
+    pub fn iter_by_identity(&self, object_index: ID) -> IdentityIter {
+        IdentityIter {
+            count: self.object_id_map_inherit.get(&object_index).map(|v| v.len()).unwrap_or(0),
+            position: 0,
+            object_index,
+            state: InstanceState::Active,
+        }
     }
 
     pub fn iter_by_object(&self, object_index: ID) -> ObjectIter {
@@ -340,6 +323,9 @@ impl InstanceList {
         self.insert_order.push(value);
         self.draw_order.push(value);
         self.object_id_map.entry(object_id).or_insert(Vec::new()).push(value);
+        for &parent in self.get(value).parents.clone().borrow().iter() {
+            self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(value);
+        }
         value
     }
 
@@ -357,6 +343,7 @@ impl InstanceList {
             instance.state.set(InstanceState::Inactive);
 
             let object_id = instance.object_index.get();
+            let parents = instance.parents.clone();
             // Add to inactive
             self.inactive_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
             // Remove from active
@@ -364,6 +351,14 @@ impl InstanceList {
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
                 if occupied.get().is_empty() {
                     occupied.remove_entry();
+                }
+            }
+            for &parent in parents.borrow().iter() {
+                let entry = self.object_id_map_inherit.entry(parent).and_modify(|v| v.retain(|h| *h != handle));
+                if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
+                    if occupied.get().is_empty() {
+                        occupied.remove_entry();
+                    }
                 }
             }
         }
@@ -375,8 +370,12 @@ impl InstanceList {
             instance.state.set(InstanceState::Active);
 
             let object_id = instance.object_index.get();
+            let parents = instance.parents.clone();
             // Add to active
             self.object_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
+            for &parent in parents.borrow().iter() {
+                self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(handle);
+            }
             // Remove from inactive
             let entry = self.inactive_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
@@ -407,6 +406,10 @@ impl InstanceList {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
             self.object_id_map.retain(|_, list| !list.is_empty());
+            for instances in self.object_id_map_inherit.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
         }
     }
 
@@ -420,6 +423,10 @@ impl InstanceList {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
             self.object_id_map.retain(|_, list| !list.is_empty());
+            for instances in self.object_id_map_inherit.values_mut() {
+                instances.retain(|idx| chunks.get(*idx).is_some());
+            }
+            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
         }
         instances
     }
@@ -583,6 +590,7 @@ impl Serialize for InstanceList {
         list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
         list.serialize_field("object_id_map", &defrag_map(&self.object_id_map, &self.insert_order))?;
+        list.serialize_field("object_id_map_inherit", &defrag_map(&self.object_id_map_inherit, &self.insert_order))?;
         list.serialize_field("inactive_id_map", &defrag_map(&self.inactive_id_map, &self.insert_order))?;
         list.end()
     }

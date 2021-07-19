@@ -1,6 +1,6 @@
 [package]
 name = "gml-parser"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The OpenGMK Project Developers"]
 edition = "2018"
 

@@ -48,6 +48,7 @@ fn xmain() -> i32 {
     opts.optflag("l", "no-framelimit", "disables the frame-limiter");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
+    opts.optopt("o", "output-file", "output savestate name in replay mode", "FILE.bin");
     opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
 
     let matches = match opts.parse(&args[1..]) {
@@ -75,12 +76,21 @@ fn xmain() -> i32 {
     let spoof_time = !matches.opt_present("r");
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
+    let output_bin = matches.opt_str("o").map(PathBuf::from);
     let project_path = matches.opt_str("n").map(|name| {
         let mut p = env::current_dir().expect("std::env::current_dir() failed");
         p.push("projects");
         p.push(name);
         p
     });
+
+    if let Some(bin) = &output_bin {
+        if bin.extension().and_then(|x| x.to_str()) != Some("bin") {
+            eprintln!("invalid output file for -o: must be a .gmtas file");
+            return EXIT_FAILURE
+        }
+    }
+
     let temp_dir = project_path.as_ref().map(|proj_path| {
         // attempt to find temp dir in project path
         std::fs::read_dir(proj_path)
@@ -228,7 +238,7 @@ fn xmain() -> i32 {
             .map(|i| PathBuf::from(components.decode_str(i.name.as_ref()).into_owned()))
             .collect::<Vec<_>>();
         let result = if let Some(replay) = replay {
-            components.replay(replay)
+            components.replay(replay, output_bin)
         } else {
             components.spoofed_time_nanos = if spoof_time { Some(time_now) } else { None };
             components.run()

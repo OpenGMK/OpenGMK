@@ -3,7 +3,6 @@ pub mod background;
 pub mod draw;
 pub mod events;
 pub mod external;
-pub mod external2;
 pub mod gm_save;
 pub mod includedfile;
 pub mod model;
@@ -80,7 +79,7 @@ pub struct Game {
     pub extension_initializers: Vec<usize>,
     pub extension_finalizers: Vec<usize>,
 
-    pub externals: external2::ExternalManager,
+    pub externals: external::ExternalManager,
     pub surface_fix: bool,
 
     pub last_instance_id: ID,
@@ -192,7 +191,7 @@ pub enum Version {
 }
 
 /// Enum indicating how this game is being played - normal, recording or replaying
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PlayType {
     Normal,
     Record,
@@ -209,7 +208,7 @@ pub enum SceneChange {
 
 /// A function defined in an extension, which could either be a DLL external or some compiled GML
 pub enum ExtensionFunction {
-    Dll(external::External),
+    Dll(String, ID),
     Gml(Rc<[Instruction]>),
 }
 
@@ -275,8 +274,7 @@ impl Game {
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
         // TODO: store these as gml::String probably?
-        println!("param_string: {}", param_string);
-        println!("program_directory: {}", program_directory);
+        eprintln!("launching game\n  > param_string: \"{}\"\n  > program_directory: \"{}\"", param_string, program_directory);
 
         // Improve framepacing on Windows
         #[cfg(target_os = "windows")]
@@ -472,6 +470,9 @@ impl Game {
             .for_each(|(i, x)| compiler.register_script(x.name.0.clone(), i));
 
         // Register extension function names and constants
+        compiler.reserve_extension_functions(
+            extensions.iter().map(|x| x.files.iter().map(|x| x.functions.len()).sum::<usize>()).sum::<usize>()
+        );
         let mut fn_index = 0;
         let mut const_index = 0;
         let mut extension_initializers = Vec::new();
@@ -551,6 +552,8 @@ impl Game {
 
         let default_font = asset::font::load_default_font(&mut atlases)?;
 
+        let mut externals = external::ExternalManager::new(false).unwrap();
+
         // Code compiling starts here. The order in which things are compiled is important for
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
 
@@ -568,38 +571,61 @@ impl Game {
 
                         File::create(&temp_directory)?.write_all(&file.contents)?;
                         for function in file.functions.iter() {
-                            match external::External::new(
-                                external::DefineInfo {
-                                    dll_name: gml::String::from(&*temp_directory.to_string_lossy()),
-                                    fn_name: gml::String::from(if function.external_name.0.len() == 0 {
-                                        function.name.0.clone()
-                                    } else {
-                                        function.external_name.0.clone()
-                                    }.as_ref()),
-                                    call_conv: match function.convention {
-                                        CallingConvention::Cdecl => external::CallConv::Cdecl,
-                                        _ => external::CallConv::Stdcall,
+                            let dll = &*temp_directory.to_string_lossy();
+                            let symbol = gml::String::from(if function.external_name.0.len() == 0 {
+                                &*function.name.0
+                            } else {
+                                &*function.external_name.0
+                            });
+                            let sym = &*symbol.decode(match gm_version {
+                                Version::GameMaker8_0 => encoding,
+                                Version::GameMaker8_1 => encoding_rs::UTF_8,
+                            });
+                            if let Some(dummy) = external::should_dummy(dll, &*sym, play_type) {
+                                match externals.define_dummy(
+                                    dll,
+                                    sym,
+                                    dummy,
+                                    function.arg_types.len(),
+                                ) {
+                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                    Err(e) => {
+                                        println!(
+                                            "WARNING: failed to create dummy extension function {} (from {}): {}",
+                                            function.name, dll_name, e,
+                                        );
+                                        extension_functions.push(None);
                                     },
-                                    res_type: match function.return_type {
-                                        FunctionValueKind::GMReal => external::ValueType::Real,
-                                        FunctionValueKind::GMString => external::ValueType::Str,
+                                }
+                            } else {
+                                match externals.define(
+                                    dll,
+                                    sym,
+                                    match function.convention {
+                                        CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
+                                        _ => external::dll::CallConv::Stdcall,
                                     },
-                                    arg_types: function.arg_types.iter().take(function.arg_count as usize).map(|x| match x {
-                                        FunctionValueKind::GMReal => external::ValueType::Real,
-                                        FunctionValueKind::GMString => external::ValueType::Str,
-                                    }).collect::<Vec<_>>(),
-                                },
-                                play_type == PlayType::Record,
-                                match gm_version {
-                                    Version::GameMaker8_0 => encoding,
-                                    Version::GameMaker8_1 => encoding_rs::UTF_8,
-                                },
-                            ) {
-                                Ok(external) => extension_functions.push(Some(ExtensionFunction::Dll(external))),
-                                Err(e) => {
-                                    println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
-                                    extension_functions.push(None);
-                                },
+                                    function.arg_types
+                                        .iter()
+                                        .take(function.arg_count as usize)
+                                        .map(|x| match x {
+                                            FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                            FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .as_slice()
+                                    ,
+                                    match function.return_type {
+                                        FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                        FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                    },
+                                ) {
+                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                    Err(e) => {
+                                        println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
+                                        extension_functions.push(None);
+                                    },
+                                }
                             }
                         }
                         temp_directory.pop();
@@ -951,6 +977,7 @@ impl Game {
                             parent_index: b.parent_index,
                             events,
                             children: Rc::new(RefCell::new(HashSet::new())),
+                            parents: Rc::new(RefCell::new(HashSet::new())),
                         }))
                     })
                     .transpose()
@@ -960,6 +987,7 @@ impl Game {
             // Populate identity lists
             for (i, object) in objects.iter_mut().enumerate().filter_map(|(i, x)| x.as_mut().map(|x| (i, x))) {
                 object.children.borrow_mut().insert(i as _);
+                object.parents.borrow_mut().insert(i as _);
             }
             for (i, mut parent_index) in
                 object_parents.iter().enumerate().filter_map(|(i, x)| x.as_ref().map(|x| (i, *x)))
@@ -967,7 +995,9 @@ impl Game {
                 while parent_index >= 0 {
                     if let Some(Some(parent)) = objects.get_mut(parent_index as usize) {
                         parent.children.borrow_mut().insert(i as _);
-                        parent_index = parent.parent_index;
+                        let next_parent_index = parent.parent_index;
+                        objects.get_asset_mut(i as _).unwrap().parents.borrow_mut().insert(parent_index);
+                        parent_index = next_parent_index;
                     } else {
                         return Err(format!(
                             "Invalid parent tree for object {}: non-existent object: {}",
@@ -1120,7 +1150,7 @@ impl Game {
             extension_functions,
             extension_initializers,
             extension_finalizers,
-            externals: external2::ExternalManager::new(false).unwrap(),
+            externals,
             surface_fix: false,
             input: Input::new(),
             assets: Assets { backgrounds, fonts, objects, paths, rooms, scripts, sprites, sounds, timelines, triggers },
@@ -1355,6 +1385,7 @@ impl Game {
                 _ => (width, height),
             };
             if self.play_type != PlayType::Record {
+                self.window_inner_size = (width, height);
                 self.window.set_inner_size(Size::Physical(width, height));
             }
         }
@@ -1412,8 +1443,7 @@ impl Game {
         // Initialize room transition surface
         let transition_kind = self.transition_kind;
         let (trans_surf_old, trans_surf_new) = if self.get_transition(transition_kind).is_some() {
-            let (size, scale) = self.window.inner_size();
-            let (width, height) = size.as_physical(scale);
+            let (width, height) = self.window_inner_size;
 
             let make_zbuf = self.gm_version == Version::GameMaker8_1 || self.surface_fix;
             let old_surf = surface::Surface {
@@ -1572,7 +1602,7 @@ impl Game {
             self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
         }
 
-        if let Some(change) = self.scene_change {
+        if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
             if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
                 self.renderer.delete_sprite(surf.atlas_ref);
@@ -1583,20 +1613,14 @@ impl Game {
                 self.surfaces[trans_surf_new as usize] = None;
             }
 
-            if let SceneChange::Room(target) = change {
-                // A room change has been requested during this room change, so let's recurse...
-                self.load_room(target) // TODO: Move to main loop and check until last target?
-            } else {
-                // Natural game end or restart happened during room change, so just quit
-                Ok(())
-            }
+            // Let then next frame handle it
+            Ok(())
         } else {
             // Draw "frame 0", perform transition if applicable, and then return
             if self.auto_draw {
                 self.draw()?;
                 if let Some(transition) = self.get_transition(transition_kind) {
-                    let (size, scale) = self.window.inner_size();
-                    let (width, height) = size.as_physical(scale);
+                    let (width, height) = self.window_inner_size;
                     self.renderer.reset_target();
                     // Here, we see the limitations of GM8's vsync.
                     // Room transitions don't have a specific framerate, they just vsync. Unfortunately, this gets
@@ -1894,8 +1918,18 @@ impl Game {
     /// Runs an ExtensionFunction by its ID
     pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(external)) => {
-                external.call(&context.arguments[..context.argument_count])
+            Some(ExtensionFunction::Dll(sym, id)) => {
+                self.externals.call(
+                    *id,
+                    (&context.arguments[..context.argument_count])
+                        .iter()
+                        .cloned()
+                        .map(external::dll::Value::from)
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+                    .map(gml::Value::from)
+                    .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err))
             },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
@@ -2001,7 +2035,7 @@ impl Game {
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
@@ -2053,6 +2087,14 @@ impl Game {
                         replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
                         replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
                     }
+                }
+            } else if let Some(bin) = &output_bin {
+                let render_state = self.renderer.state();
+                match SaveState::from(&mut self, replay.clone(), render_state)
+                    .save_to_file(bin, &mut savestate::Buffer::new())
+                {
+                    Ok(()) => break Ok(()),
+                    Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
                 }
             }
 
@@ -2683,20 +2725,16 @@ impl Game {
             },
             _ if object_id < 0 => None,
             object_id if object_id < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(handle) => {
-                                if pred(handle) {
-                                    break Some(handle)
-                                }
-                            },
-                            None => break None,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(object_id);
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(handle) => {
+                            if pred(handle) {
+                                break Some(handle)
+                            }
+                        },
+                        None => break None,
                     }
-                } else {
-                    None
                 }
             },
             instance_id => {

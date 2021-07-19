@@ -5,7 +5,7 @@
 use crate::{
     action, asset,
     game::{
-        draw, external2, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
+        draw, external, gm_save::GMSave, model, particle, pathfinding, replay, surface::Surface,
         transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
@@ -170,14 +170,16 @@ impl Game {
         Ok(self.window_visible.into())
     }
 
-    pub fn window_set_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function window_set_fullscreen")
+    pub fn window_set_fullscreen(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _full = expect_args!(args, [bool])?;
+        // TODO
+        Ok(Default::default())
     }
 
-    pub fn window_get_fullscreen(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function window_get_fullscreen")
+    pub fn window_get_fullscreen(&self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        // TODO
+        Ok(false.into())
     }
 
     pub fn window_set_showborder(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -321,14 +323,17 @@ impl Game {
 
     pub fn window_set_size(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
-        self.window.execute(|window| {
-            use ramen::monitor::Size;
-            if window.is_dpi_logical() {
-                window.set_inner_size(Size::Logical(width as f64, height as f64));
-            } else {
-                window.set_inner_size(Size::Physical(width as u32, height as u32));
-            }
-        });
+        if width > 0 && height > 0 {
+            self.window_inner_size = (width as u32, height as u32);
+            self.window.execute(|window| {
+                use ramen::monitor::Size;
+                if window.is_dpi_logical() {
+                    unimplemented!();
+                } else {
+                    window.set_inner_size(Size::Physical(width as u32, height as u32));
+                }
+            });
+        }
         Ok(Default::default())
     }
 
@@ -338,7 +343,8 @@ impl Game {
     }
 
     pub fn window_center(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        unimplemented!("dont care") // TODO (0 args)
+        // TODO: make this do something!
+        Ok(Default::default())
     }
 
     pub fn window_default(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -401,9 +407,7 @@ impl Game {
             } else {
                 (region_w, region_h)
             };
-            if self.window_is_logical_dpi {
-                todo!("oh god oh fuck");
-            }
+            self.window_inner_size = (width, height);
             self.window.set_inner_size(ramen::monitor::Size::Physical(width, height));
         }
         Ok(Default::default())
@@ -836,9 +840,44 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn draw_button(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function draw_button")
+    pub fn draw_button(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (x1, y1, x2, y2, up) = expect_args!(args, [real, real, real, real, bool])?;
+        let (top_col, bottom_col) = if up { (0xffffff, 0x808080) } else { (0x808080, 0xffffff) };
+        self.renderer.draw_triangle(
+            x1.into(),
+            y1.into(),
+            x2.into(),
+            y1.into(),
+            x1.into(),
+            y2.into(),
+            top_col,
+            top_col,
+            top_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_triangle(
+            x1.into(),
+            y2.into(),
+            x2.into(),
+            y1.into(),
+            x2.into(),
+            y2.into(),
+            bottom_col,
+            bottom_col,
+            bottom_col,
+            self.draw_alpha.into(),
+            false,
+        );
+        self.renderer.draw_rectangle(
+            x1.into_inner() + 2.0,
+            y1.into_inner() + 2.0,
+            x2.into_inner() - 2.0,
+            y2.into_inner() - 2.0,
+            u32::from(self.draw_colour) as i32,
+            self.draw_alpha.into(),
+        );
+        Ok(Default::default())
     }
 
     pub fn draw_healthbar(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -2364,14 +2403,21 @@ impl Game {
         unimplemented!("Called unimplemented kernel function surface_getpixel")
     }
 
-    pub fn surface_copy(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function surface_copy")
+    pub fn surface_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dest_id, x, y, src_id) = expect_args!(args, [int, int, int, int])?;
+        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+            self.renderer.copy_surface(&dst.atlas_ref, x, y, &src.atlas_ref, 0, 0, src.width as _, src.height as _);
+        }
+        Ok(Default::default())
     }
 
-    pub fn surface_copy_part(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 8
-        unimplemented!("Called unimplemented kernel function surface_copy_part")
+    pub fn surface_copy_part(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dest_id, dest_x, dest_y, src_id, src_x, src_y, width, height) =
+            expect_args!(args, [int, int, int, int, int, int, int, int])?;
+        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+            self.renderer.copy_surface(&dst.atlas_ref, dest_x, dest_y, &src.atlas_ref, src_x, src_y, width, height);
+        }
+        Ok(Default::default())
     }
 
     pub fn action_path_old(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -2996,17 +3042,13 @@ impl Game {
 
     pub fn action_if_number(&self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, number, comparator) = expect_args!(args, [int, int, int])?;
-        if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-            let count = ids.borrow().iter().copied().map(|id| self.room.instance_list.count(id)).sum::<usize>() as i32;
-            let cond = match comparator {
-                1 => count < number,
-                2 => count > number,
-                0 | _ => count == number,
-            };
-            Ok(cond.into())
-        } else {
-            Ok(0.into())
-        }
+        let count = self.room.instance_list.count(object_id) as i32;
+        let cond = match comparator {
+            1 => count < number,
+            2 => count > number,
+            0 | _ => count == number,
+        };
+        Ok(cond.into())
     }
 
     pub fn action_if_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3624,9 +3666,11 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_fullscreen(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_fullscreen")
+    pub fn action_fullscreen(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _action = expect_args!(args, [int])?;
+        // 1 is windowed, 2 is fullscreen 0/other is switch
+        // TODO
+        Ok(Default::default())
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4082,22 +4126,26 @@ impl Game {
     pub fn string_replace_all(args: &[Value]) -> gml::Result<Value> {
         let (s, sub, rep) = expect_args!(args, [bytes, bytes, bytes])?;
         let (s, sub, rep) = (s.as_ref(), sub.as_ref(), rep.as_ref());
-        // could be faster but i'm feeling lazy
-        let mut out = Vec::new();
-        let mut section_start = 0;
-        let mut i = 0;
-        while i < s.len() {
-            if s[i..].starts_with(sub) {
-                out.extend_from_slice(&s[section_start..i]);
-                out.extend_from_slice(rep);
-                i += sub.len();
-                section_start = i;
-            } else {
-                i += 1;
+        if sub.len() > 0 {
+            // could be faster but i'm feeling lazy
+            let mut out = Vec::new();
+            let mut section_start = 0;
+            let mut i = 0;
+            while i < s.len() {
+                if s[i..].starts_with(sub) {
+                    out.extend_from_slice(&s[section_start..i]);
+                    out.extend_from_slice(rep);
+                    i += sub.len();
+                    section_start = i;
+                } else {
+                    i += 1;
+                }
             }
+            out.extend_from_slice(&s[section_start..]);
+            Ok(out.into())
+        } else {
+            Ok(s.into())
         }
-        out.extend_from_slice(&s[section_start..]);
-        Ok(out.into())
     }
 
     pub fn string_count(args: &[Value]) -> gml::Result<Value> {
@@ -4261,9 +4309,14 @@ impl Game {
         Ok(collision.into())
     }
 
-    pub fn place_snapped(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function place_snapped")
+    pub fn place_snapped(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (hsnap, vsnap) = expect_args!(args, [real, real])?;
+        let instance = self.room.instance_list.get(context.this);
+        Ok(((hsnap <= 0.into()
+            || (instance.x.get() - (instance.x.get() / hsnap).round() * hsnap).abs() < 0.0014765625.into())
+            && (vsnap <= 0.into()
+                || (instance.y.get() - (instance.y.get() / vsnap).round() * vsnap).abs() < 0.0014765625.into()))
+        .into())
     }
 
     pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -4579,23 +4632,19 @@ impl Game {
                 closest
             },
             object_id if object_id <= 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(object_id).map(|x| x.children.clone()) {
-                    let mut closest = 1000000.0; // GML default
-                    let this = this;
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    while let Some(other) = iter.next(&self.room.instance_list) {
-                        let sprite = self.get_instance_mask_sprite(other);
-                        let other = self.room.instance_list.get(other);
-                        other.update_bbox(sprite);
-                        let dist = instance_distance(this, other);
-                        if dist < closest {
-                            closest = dist;
-                        }
+                let mut closest = 1000000.0; // GML default
+                let this = this;
+                let mut iter = self.room.instance_list.iter_by_identity(object_id);
+                while let Some(other) = iter.next(&self.room.instance_list) {
+                    let sprite = self.get_instance_mask_sprite(other);
+                    let other = self.room.instance_list.get(other);
+                    other.update_bbox(sprite);
+                    let dist = instance_distance(this, other);
+                    if dist < closest {
+                        closest = dist;
                     }
-                    closest
-                } else {
-                    1000000.0 // GML default
                 }
+                closest
             },
             instance_id => {
                 match self.room.instance_list.get_by_instid(instance_id) {
@@ -4869,12 +4918,8 @@ impl Game {
             },
             _ if obj < 0 => None,
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
-                } else {
-                    None
-                }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
             },
             inst_id => {
                 if n != 0 {
@@ -4895,13 +4940,7 @@ impl Game {
             gml::SELF => self.room.instance_list.get(context.this).state.get() == InstanceState::Active,
             gml::OTHER => self.room.instance_list.get(context.other).state.get() == InstanceState::Active,
             gml::ALL => self.room.instance_list.any_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().any(|&obj| self.room.instance_list.count(obj) != 0)
-                } else {
-                    false
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj) != 0,
             _ => self.room.instance_list.get_by_instid(obj).is_some(),
         };
         Ok(exists.into())
@@ -4925,13 +4964,7 @@ impl Game {
                 }
             },
             gml::ALL => self.room.instance_list.count_all_active(),
-            obj if obj <= 100000 => {
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    object.children.borrow().iter().map(|&obj| self.room.instance_list.count(obj)).sum()
-                } else {
-                    0
-                }
-            },
+            obj if obj <= 100000 => self.room.instance_list.count(obj),
             inst_id => {
                 if self.room.instance_list.get_by_instid(inst_id).is_some() {
                     1
@@ -4978,27 +5011,23 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                    let mut maxdist = Real::from(10000000000.0); // GML default
-                    let mut nearest = None;
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(target) => {
-                                let ti = self.room.instance_list.get(target);
-                                let xdist = ti.x.get() - x;
-                                let ydist = ti.y.get() - y;
-                                let dist = (xdist * xdist) + (ydist * ydist);
-                                if dist < maxdist {
-                                    maxdist = dist;
-                                    nearest = Some(target);
-                                }
-                            },
-                            None => break nearest,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                let mut maxdist = Real::from(10000000000.0); // GML default
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(target) => {
+                            let ti = self.room.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if dist < maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
                     }
-                } else {
-                    None
                 }
             },
             // Target is an instance id
@@ -5038,27 +5067,23 @@ impl Game {
             },
             obj if obj >= 0 && obj < 100000 => {
                 // Target is an object ID
-                if let Some(object) = self.assets.objects.get_asset(obj) {
-                    let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                    let mut maxdist = Real::from(0.0);
-                    let mut nearest = None;
-                    loop {
-                        match iter.next(&self.room.instance_list) {
-                            Some(target) => {
-                                let ti = self.room.instance_list.get(target);
-                                let xdist = ti.x.get() - x;
-                                let ydist = ti.y.get() - y;
-                                let dist = (xdist * xdist) + (ydist * ydist);
-                                if nearest.is_none() || dist > maxdist {
-                                    maxdist = dist;
-                                    nearest = Some(target);
-                                }
-                            },
-                            None => break nearest,
-                        }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                let mut maxdist = Real::from(0.0);
+                let mut nearest = None;
+                loop {
+                    match iter.next(&self.room.instance_list) {
+                        Some(target) => {
+                            let ti = self.room.instance_list.get(target);
+                            let xdist = ti.x.get() - x;
+                            let ydist = ti.y.get() - y;
+                            let dist = (xdist * xdist) + (ydist * ydist);
+                            if nearest.is_none() || dist > maxdist {
+                                maxdist = dist;
+                                nearest = Some(target);
+                            }
+                        },
+                        None => break nearest,
                     }
-                } else {
-                    None
                 }
             },
             // Target is an instance ID
@@ -5136,7 +5161,7 @@ impl Game {
             .objects
             .get_asset(object_id)
             .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
-        let new_instance = self.room.instance_list.get(context.this).clone();
+        let mut new_instance = self.room.instance_list.get(context.this).clone();
         new_instance.object_index.set(object_id);
         new_instance.sprite_index.set(object.sprite_index);
         new_instance.mask_index.set(object.mask_index);
@@ -5144,6 +5169,7 @@ impl Game {
         new_instance.solid.set(object.solid);
         new_instance.visible.set(object.visible);
         new_instance.persistent.set(object.persistent);
+        new_instance.parents = object.parents.clone();
         self.last_instance_id += 1; // This is incremented by GM8 but not used
 
         let frame_count = if let Some(sprite) = self.assets.sprites.get_asset(object.sprite_index) {
@@ -5234,11 +5260,9 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
-                        self.room.instance_list.deactivate(handle);
-                    }
+                let mut iter = self.room.instance_list.iter_by_identity(obj);
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    self.room.instance_list.deactivate(handle);
                 }
             },
             inst_id => {
@@ -5296,9 +5320,10 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
-                if let Some(ids) = self.assets.objects.get_asset(obj).map(|x| x.children.clone()) {
-                    let mut iter = self.room.instance_list.iter_inactive_by_identity(ids);
-                    while let Some(handle) = iter.next(&self.room.instance_list) {
+                let mut iter = self.room.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let inst = self.room.instance_list.get(handle);
+                    if inst.parents.borrow().contains(&obj) {
                         self.room.instance_list.activate(handle);
                     }
                 }
@@ -7178,41 +7203,15 @@ impl Game {
             let gm_function = gml::String::from(fn_name.clone());
             let function = gm_function.decode(encoding);
 
-            let mut dummy = None;
-            if self.play_type == PlayType::Record {
-                if dll.eq_ignore_ascii_case("gmfmodsimple.dll") {
-                    if &*function == "FMODSoundAdd" {
-                        dummy = Some(external2::dll::Value::Real(1.0));
-                    } else {
-                        dummy = Some(external2::dll::Value::Real(0.0));
-                    }
-                } else if
-                    dll.eq_ignore_ascii_case("ssound.dll") ||
-                    dll.eq_ignore_ascii_case("supersound.dll")
-                {
-                    if &*function == "SS_Init" {
-                        dummy = Some(external2::dll::Value::Str(external2::dll::PascalString::new(b"Yes")));
-                    } else {
-                        dummy = Some(external2::dll::Value::Real(0.0));
-                    }
-                } else if dll.eq_ignore_ascii_case("sxms-3.dll") {
-                    dummy = Some(external2::dll::Value::Real(0.0));
-                }
-            }
-
-            if dll.eq_ignore_ascii_case("gmeffect_0.1.dll") {
-                // TODO: don't
-                // ^ floogle's original comment, whatever it may mean
-                dummy = Some(external2::dll::Value::Real(0.0));
-            }
+            let dummy = external::should_dummy(&*dll, &*function, self.play_type);
 
             let call_conv = match call_conv.round() {
-                0 => external2::dll::CallConv::Cdecl,
-                _ => external2::dll::CallConv::Stdcall,
+                0 => external::dll::CallConv::Cdecl,
+                _ => external::dll::CallConv::Stdcall,
             };
             let res_type = match res_type.round() {
-                0 => external2::dll::ValueType::Real,
-                _ => external2::dll::ValueType::Str,
+                0 => external::dll::ValueType::Real,
+                _ => external::dll::ValueType::Str,
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
@@ -7227,8 +7226,8 @@ impl Game {
                 let arg_types = args[5..]
                     .iter()
                     .map(|v| match v.round() {
-                        0 => external2::dll::ValueType::Real,
-                        _ => external2::dll::ValueType::Str,
+                        0 => external::dll::ValueType::Real,
+                        _ => external::dll::ValueType::Str,
                     })
                     .collect::<Vec<_>>();
                 self.externals.define(&*dll, &*function, call_conv, &arg_types, res_type)
@@ -7241,10 +7240,10 @@ impl Game {
     pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            let dll_args: Vec<external2::dll::Value> = (&args[1..])
+            let dll_args: Vec<external::dll::Value> = (&args[1..])
                 .iter()
                 .cloned()
-                .map(external2::dll::Value::from)
+                .map(external::dll::Value::from)
                 .collect();
             self.externals.call(id, &dll_args)
                 .map(Value::from)
@@ -9418,13 +9417,35 @@ impl Game {
     pub fn object_set_parent(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (object_id, new_parent) = expect_args!(args, [int, int])?;
         if let Some(object) = self.assets.objects.get_asset(object_id) {
-            // Remove object and all its children from old parents
+            let parents = object.parents.borrow();
             let children = object.children.borrow();
+            // Remove object and its parents from all its children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().retain(|p| !parents.contains(p));
+                }
+            }
+            // Remove object and all its children from old parents
             let mut parent_index = object.parent_index;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
                 parent.children.borrow_mut().retain(|c| !children.contains(c));
                 parent_index = parent.parent_index;
             }
+            // Calculate new parents
+            let mut new_parents = self
+                .assets
+                .objects
+                .get_asset(new_parent)
+                .map(|o| o.parents.as_ref().borrow().clone())
+                .unwrap_or_default();
+            new_parents.insert(object_id);
+            // Add object and all its new parents to children
+            for &child_id in children.iter() {
+                if let Some(child) = self.assets.objects.get_asset(child_id) {
+                    child.parents.borrow_mut().extend(&new_parents);
+                }
+            }
+            self.assets.objects.get_asset(object_id).map(|o| *o.parents.borrow_mut() = new_parents);
             // Add object and all its children to new parents
             parent_index = new_parent;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
@@ -9453,8 +9474,10 @@ impl Game {
             parent_index: -1,
             events: Default::default(),
             children,
+            parents: Default::default(),
         });
         object.children.borrow_mut().insert(id);
+        object.parents.borrow_mut().insert(id);
         self.assets.objects.push(Some(object));
         Ok(id.into())
     }

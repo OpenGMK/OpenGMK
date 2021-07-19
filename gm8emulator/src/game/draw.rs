@@ -120,58 +120,56 @@ impl Game {
         if self.room.views_enabled {
             self.renderer.clear_view(self.background_colour, 1.0);
             for view in self.room.views.iter_mut().filter(|x| x.visible) {
-                if let Some(obj) = self.assets.objects.get_asset(view.follow_target) {
-                    if let Some(handle) =
-                        self.room.instance_list.iter_by_identity(obj.children.clone()).next(&self.room.instance_list)
-                    {
-                        let inst = self.room.instance_list.get(handle);
+                if let Some(handle) =
+                    self.room.instance_list.iter_by_identity(view.follow_target).next(&self.room.instance_list)
+                {
+                    let inst = self.room.instance_list.get(handle);
 
-                        let x = inst.x.get().round().to_i32();
-                        let y = inst.y.get().round().to_i32();
-                        if view.follow_hborder < (view.source_w / 2) as i32 {
-                            let border_left = x - view.follow_hborder;
-                            let border_right = x + view.follow_hborder;
-                            if border_left < view.source_x {
-                                if view.follow_hspeed < 0 {
-                                    view.source_x = border_left;
-                                } else {
-                                    view.source_x -= (view.source_x - border_left).min(view.follow_hspeed);
-                                }
-                            } else if border_right > (view.source_x + view.source_w as i32) {
-                                if view.follow_hspeed < 0 {
-                                    view.source_x = border_right - view.source_w as i32;
-                                } else {
-                                    view.source_x +=
-                                        (border_right - (view.source_x + view.source_w as i32)).min(view.follow_hspeed);
-                                }
+                    let x = inst.x.get().round().to_i32();
+                    let y = inst.y.get().round().to_i32();
+                    if view.follow_hborder < (view.source_w / 2) as i32 {
+                        let border_left = x - view.follow_hborder;
+                        let border_right = x + view.follow_hborder;
+                        if border_left < view.source_x {
+                            if view.follow_hspeed < 0 {
+                                view.source_x = border_left;
+                            } else {
+                                view.source_x -= (view.source_x - border_left).min(view.follow_hspeed);
                             }
-                        } else {
-                            view.source_x = x - (view.source_w / 2) as i32;
-                        }
-                        view.source_x = view.source_x.max(0).min(self.room.width - view.source_w as i32);
-
-                        if view.follow_vborder < (view.source_h / 2) as i32 {
-                            let border_top = y - view.follow_vborder;
-                            let border_bottom = y + view.follow_vborder;
-                            if border_top < view.source_y {
-                                if view.follow_vspeed < 0 {
-                                    view.source_y = border_top;
-                                } else {
-                                    view.source_y -= (view.source_y - border_top).min(view.follow_vspeed);
-                                }
-                            } else if border_bottom > (view.source_y + view.source_h as i32) {
-                                if view.follow_vspeed < 0 {
-                                    view.source_y = border_bottom - view.source_h as i32;
-                                } else {
-                                    view.source_y += (border_bottom - (view.source_y + view.source_h as i32))
-                                        .min(view.follow_vspeed);
-                                }
+                        } else if border_right > (view.source_x + view.source_w as i32) {
+                            if view.follow_hspeed < 0 {
+                                view.source_x = border_right - view.source_w as i32;
+                            } else {
+                                view.source_x +=
+                                    (border_right - (view.source_x + view.source_w as i32)).min(view.follow_hspeed);
                             }
-                        } else {
-                            view.source_y = y - (view.source_h / 2) as i32;
                         }
-                        view.source_y = view.source_y.max(0).min(self.room.height - view.source_h as i32);
+                    } else {
+                        view.source_x = x - (view.source_w / 2) as i32;
                     }
+                    view.source_x = view.source_x.max(0).min(self.room.width - view.source_w as i32);
+
+                    if view.follow_vborder < (view.source_h / 2) as i32 {
+                        let border_top = y - view.follow_vborder;
+                        let border_bottom = y + view.follow_vborder;
+                        if border_top < view.source_y {
+                            if view.follow_vspeed < 0 {
+                                view.source_y = border_top;
+                            } else {
+                                view.source_y -= (view.source_y - border_top).min(view.follow_vspeed);
+                            }
+                        } else if border_bottom > (view.source_y + view.source_h as i32) {
+                            if view.follow_vspeed < 0 {
+                                view.source_y = border_bottom - view.source_h as i32;
+                            } else {
+                                view.source_y +=
+                                    (border_bottom - (view.source_y + view.source_h as i32)).min(view.follow_vspeed);
+                            }
+                        }
+                    } else {
+                        view.source_y = y - (view.source_h / 2) as i32;
+                    }
+                    view.source_y = view.source_y.max(0).min(self.room.height - view.source_h as i32);
                 }
             }
         }

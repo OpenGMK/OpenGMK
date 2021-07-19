@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "gm8emulator"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bincode",
  "byteorder",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "gm8exe"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "flate2",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "gml-parser"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
 ]
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.1"
-source = "git+https://github.com/notviri/ramen#9bccde6363182426d7716f291f3a723a230d25b2"
+source = "git+https://github.com/notviri/ramen?branch=july-demo#1968b739a6de3f26bd7af41276a578e60d033fd4"
 
 [[package]]
 name = "rand"
@@ -1008,7 +1008,7 @@ dependencies = [
 [[package]]
 name = "time"
 version = "0.3.0-alpha-2"
-source = "git+https://github.com/time-rs/time/#5141e0d9df7074f98284775ba90c7c41459a5807"
+source = "git+https://github.com/time-rs/time/#9f17cff694e48928791cc7f139ef945b1869730b"
 dependencies = [
  "const_fn",
  "libc",

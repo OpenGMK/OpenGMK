@@ -2,22 +2,23 @@
 compile_error!("this crate cannot be built for a target other than windows i686");
 
 type ID = i32;
-#[path = "../../gm8emulator/src/game/external2/dll.rs"]
+#[path = "../../gm8emulator/src/game/external/dll.rs"]
 mod dll;
-#[path = "../../gm8emulator/src/game/external2/state.rs"]
+#[path = "../../gm8emulator/src/game/external/state.rs"]
 mod state;
-#[path = "../../gm8emulator/src/game/external2/win32.rs"]
+#[path = "../../gm8emulator/src/game/external/win32.rs"]
 mod win32;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Read, Write};
+use std::{env, io::{self, Read, Write}};
 
 fn main() -> io::Result<()> {
     let mut externals = win32::NativeExternals::new().unwrap();
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    eprintln!("wow64> compatibility layer started!");
+    eprintln!("starting dll compatibility layer\n  > server: \"{}\"", env::args().next().unwrap());
+
     let mut message = Vec::with_capacity(1024);
     loop {
         message.clear();

@@ -1,122 +1,137 @@
-mod dummy;
-// mod win32;
-// mod win64;
+pub mod dll;
+pub mod state;
 
-use crate::gml::{self, Value};
-// use cfg_if::cfg_if;
-use encoding_rs::Encoding;
-use serde::{Deserialize, Serialize};
+#[cfg(all(target_os = "windows"))]
+mod win32;
+#[cfg(all(target_os = "windows"))]
+use self::win32::NativeExternals;
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+mod wow64;
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+use self::wow64::IpcExternals;
 
-// cfg_if! {
-//     if #[cfg(all(target_os = "windows", target_arch = "x86"))] {
-//         use win32 as platform;
-//     } else if #[cfg(target_os = "windows")] {
-//         use win64 as platform;
-//     } else {
-//         use dummy as platform;
-//     }
-// }
-use dummy as platform;
+use crate::{game::PlayType, types::ID};
+use self::{dll::{CallConv, ValueType}};
+use std::{collections::HashMap, path::Path};
 
-pub enum Call {
-    DummyNull(ValueType),
-    DummyOne,
-    DllCall(platform::ExternalImpl),
+pub enum ExternalManager {
+    Emulated(()),
+    #[cfg(all(target_os = "windows", target_arch = "x86"))]
+    Win32(win32::NativeExternals),
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    Wow64(wow64::IpcExternals),
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
-pub enum CallConv {
-    Cdecl,
-    Stdcall,
-}
-
-// TODO: shouldnt this be like ... in Value lol
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ValueType {
-    Real,
-    Str,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DefineInfo {
-    pub dll_name: gml::String,
-    pub fn_name: gml::String,
-    pub call_conv: CallConv,
-    pub res_type: ValueType,
-    pub arg_types: Vec<ValueType>,
-}
-
-pub struct External {
-    call: Call,
-    pub info: DefineInfo,
-}
-
-/*
-Spec required for ExternalImpl {
-    /// Create a new ExternalImpl with the given DefineInfo.
-    /// The given encoding specifies the encoding of the strings in `info`.
-    pub fn new(info: &DefineInfo, encoding: &'static Encoding) -> Result<Self, String>;
-    /// Calls the ExternalImpl.
-    /// Make sure the args iterator matches the function *before* calling it, as it will not be checked.
-    // This takes an iterator in order to reduce the number of times the args list has to be copied.
-    // Setting it up this way makes dealing with traits more annoying, so I just didn't.
-    pub fn call<I: Iterator<Item = gml::Value>>(&self, args: I) -> Result<gml::Value, String>;
-}
- */
-
-impl External {
-    pub fn new(info: DefineInfo, disable_sound: bool, encoding: &'static Encoding) -> Result<Self, String> {
-        if info.arg_types.len() > 4 && info.arg_types.contains(&ValueType::Str) {
-            return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
+macro_rules! dispatch {
+    ($em:expr, $f:ident ( $($arg:ident),* $(,)? ) ) => {
+        match $em {
+            Self::Emulated(_emu) => todo!(),
+            #[cfg(all(target_os = "windows", target_arch = "x86"))]
+            Self::Win32(win32) => win32.$f($($arg),*),
+            #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+            Self::Wow64(wow64) => wow64.$f($($arg),*),
         }
-        if info.arg_types.len() >= 16 {
-            return Err("DLL functions can have at most 16 arguments".into())
-        }
-        let mut dll_name_lower = std::path::Path::new(info.dll_name.decode(encoding).as_ref())
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        dll_name_lower.make_ascii_lowercase();
-        let call = match dll_name_lower.as_str() {
-            "gmfmodsimple.dll" if disable_sound && info.fn_name.as_ref() == b"FMODSoundAdd" => Call::DummyOne,
-            "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
-                Call::DummyNull(info.res_type)
-            },
-            "gmeffect_0.1.dll" => Call::DummyNull(info.res_type), // TODO don't
-            _ => Call::DllCall(platform::ExternalImpl::new(&info, encoding)?),
-        };
-        Ok(Self { call, info })
-    }
+    };
+}
 
-    pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
-        if args.len() != self.info.arg_types.len() {
-            eprintln!(
-                "Warning: call to external function {} from {} with an invalid argument count was ignored",
-                self.info.fn_name, self.info.dll_name
-            );
-            Ok(Default::default())
+impl ExternalManager {
+    #[inline]
+    pub fn new(emulate: bool) -> Result<Self, String> {
+        if emulate {
+            todo!()
         } else {
-            let args = args.iter().zip(&self.info.arg_types).map(|(v, t)| match t {
-                ValueType::Real => f64::from(v.clone()).into(),
-                ValueType::Str => gml::String::from(v.clone()).into(),
-            });
-            self.call.call(args)
+            Self::new_native()
         }
+    }
+
+    #[cfg(all(target_os = "windows", target_arch = "x86"))]
+    fn new_native() -> Result<Self, String> {
+        NativeExternals::new().map(Self::Win32)
+    }
+
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    fn new_native() -> Result<Self, String> {
+        IpcExternals::new().map(Self::Wow64)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn new_native() -> Result<Self, String> {
+        let _ = emulate;
+        todo!()
+    }
+
+    pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
+        dispatch!(self, call(id, args))
+    }
+
+    pub fn define(
+        &mut self,
+        dll: &str,
+        symbol: &str,
+        call_conv: CallConv,
+        type_args: &[ValueType],
+        type_return: ValueType,
+    ) -> Result<ID, String> {
+        // Akin to `LoadLibraryW` & `GetProcAddress`, pretend it's always null terminated.
+        let dll = dll.find('\0').map(|x| &dll[..x]).unwrap_or(dll);
+        let symbol = symbol.find('\0').map(|x| &symbol[..x]).unwrap_or(symbol);
+        dispatch!(self, define(dll, symbol, call_conv, type_args, type_return))
+    }
+
+    pub fn define_dummy(&mut self, dll: &str, symbol: &str, dummy: dll::Value, argc: usize) -> Result<ID, String> {
+        dispatch!(self, define_dummy(dll, symbol, dummy, argc))
+    }
+
+    pub fn free(&mut self, dll: &str) -> Result<(), String> {
+        dispatch!(self, free(dll))
+    }
+
+    pub fn ss_id(&mut self) -> Result<ID, String> {
+        dispatch!(self, ss_id())
+    }
+
+    pub fn ss_set_id(&mut self, next: ID) -> Result<(), String> {
+        dispatch!(self, ss_set_id(next))
+    }
+
+    pub fn ss_query_defs(&mut self) -> Result<(HashMap<ID, self::state::State>, ID), String> {
+        dispatch!(self, ss_query_defs())
     }
 }
 
-impl Call {
-    fn call(&self, args: impl Iterator<Item = Value>) -> gml::Result<Value> {
-        match self {
-            Call::DummyNull(res_type) => match res_type {
-                ValueType::Real => Ok(0.into()),
-                ValueType::Str => Ok("".into()),
-            },
-            Call::DummyOne => Ok(1.into()),
-            Call::DllCall(call) => {
-                call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
-            },
+pub fn should_dummy(dll: &str, sym: &str, play_type: PlayType) -> Option<dll::Value> {
+    let dll = Path::new(dll)
+        .file_name()
+        .and_then(|oss| oss.to_str())
+        .unwrap_or(dll);
+
+    let mut dummy = None;
+    if play_type == PlayType::Record {
+        if dll.eq_ignore_ascii_case("gmfmodsimple.dll") {
+            if sym == "FMODSoundAdd" {
+                dummy = Some(dll::Value::Real(1.0));
+            } else {
+                dummy = Some(dll::Value::Real(0.0));
+            }
+        } else if
+            dll.eq_ignore_ascii_case("ssound.dll") ||
+            dll.eq_ignore_ascii_case("supersound.dll")
+        {
+            if sym == "SS_Init" {
+                dummy = Some(dll::Value::Str(dll::PascalString::new(b"Yes")));
+            } else {
+                dummy = Some(dll::Value::Real(0.0));
+            }
+        } else if dll.eq_ignore_ascii_case("sxms-3.dll") {
+            dummy = Some(dll::Value::Real(0.0));
         }
     }
+
+    if dll.eq_ignore_ascii_case("gmeffect_0.1.dll") {
+        // TODO: don't
+        // ^ floogle's original comment, whatever it may mean
+        dummy = Some(dll::Value::Real(0.0));
+    }
+
+    dummy
 }
