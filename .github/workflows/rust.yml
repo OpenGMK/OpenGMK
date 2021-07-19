@@ -36,17 +36,17 @@ jobs:
         rustup update
         rustup install nightly
         rustup target add i686-pc-windows-msvc --toolchain=nightly
-        cd "dll-bridge"
+        cd "gm8emulator-wow64"
         cargo +nightly build --release
-        mv target/i686-pc-windows-msvc/release/dll-bridge.exe .
+        mv target/i686-pc-windows-msvc/release/gm8emulator-wow64.exe .
         cd ..
     - name: Build the GM8Emulator.zip artifact
       run: cargo +nightly build --release
     - name: Archive bin
       run: |
-        mv dll-bridge/dll-bridge.exe target/release
+        mv gm8emulator-wow64/gm8emulator-wow64.exe target/release
         cd target/release 
-        7z -tzip a GM8Emulator.zip control-panel.exe dll-bridge.exe gm8decompiler.exe gm8emulator.exe -mx0 | grep ing 
+        7z -tzip a GM8Emulator.zip control-panel.exe gm8emulator-wow64.exe gm8decompiler.exe gm8emulator.exe -mx0 | grep ing 
         cd ../..
         mv target/release/GM8Emulator.zip .
     - name: Upload artifact
