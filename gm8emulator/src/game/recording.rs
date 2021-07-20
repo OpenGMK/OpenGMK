@@ -150,12 +150,19 @@ enum ContextMenu {
 }
 
 #[derive(Deserialize, Serialize)]
+enum InputMode {
+    Mouse,
+    Direct,
+}
+
+#[derive(Deserialize, Serialize)]
 struct ProjectConfig {
     ui_width: u16,
     ui_height: u16,
     rerecords: u64,
     watched_ids: Vec<i32>,
     full_keyboard: bool,
+    input_mode: InputMode,
 }
 
 impl Game {
@@ -179,6 +186,7 @@ impl Game {
                 rerecords: 0,
                 watched_ids: Vec::new(),
                 full_keyboard: false,
+                input_mode: InputMode::Mouse,
             };
             bincode::serialize_into(
                 File::create(&config_path).expect("Couldn't write project.cfg"),
@@ -768,6 +776,17 @@ impl Game {
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
+            let input_label = match config.input_mode {
+                InputMode::Direct => "Switch to mouse input###InputMethod",
+                InputMode::Mouse => "Switch to direct input###InputMethod",
+            };
+            if frame.button(input_label, imgui::Vec2(165.0, 20.0), None) {
+                config.input_mode = match config.input_mode {
+                    InputMode::Mouse => InputMode::Direct,
+                    InputMode::Direct => InputMode::Mouse,
+                }
+            }
+
             if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
                 if let Some(rand) = &mut new_rand {
                     rand.cycle();
@@ -864,18 +883,45 @@ impl Game {
             // Macro for keyboard keys and mouse buttons...
             macro_rules! kb_btn {
                 ($name: expr, $size: expr, $x: expr, $y: expr, key $code: expr) => {
-                    let state = &mut keyboard_state[usize::from(input::ramen2vk($code))];
-                    if frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y))) {
-                        state.click();
-                    }
+                    let vk = input::ramen2vk($code);
+                    let state = &mut keyboard_state[usize::from(vk)];
+                    let clicked = frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y)));
                     let hovered = frame.item_hovered();
-                    if frame.right_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                        context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
-                    }
-                    if frame.middle_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                        *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                    match config.input_mode {
+                        InputMode::Mouse => {
+                            if clicked {
+                                state.click();
+                            }
+                            if frame.right_clicked() && hovered {
+                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                                context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
+                            }
+                            if frame.middle_clicked() && hovered {
+                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                                *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                            }
+                        },
+                        InputMode::Direct => {
+                            if frame.key_pressed(vk) {
+                                *state = match state {
+                                    // if neutral and setting would stay neutral => will press
+                                    KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralWillCactus => KeyState::NeutralWillPress,
+                                    // if held but would release => keep held
+                                    KeyState::HeldWillRelease | KeyState::HeldWillTriple => KeyState::Held,
+                                    // otherwise just keep the state
+                                    _ => *state,
+                                };
+                            } else if frame.key_released(vk) {
+                                *state = match state {
+                                    // if held and setting would stay held => will release
+                                    KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => KeyState::HeldWillRelease,
+                                    // if neutral but would press => keep neutral
+                                    KeyState::NeutralWillPress | KeyState::NeutralWillTriple => KeyState::Neutral,
+                                    // otherwise just keep the state
+                                    _ => *state,
+                                };
+                            }
+                        },
                     }
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
