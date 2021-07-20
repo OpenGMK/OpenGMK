@@ -163,6 +163,7 @@ struct ProjectConfig {
     watched_ids: Vec<i32>,
     full_keyboard: bool,
     input_mode: InputMode,
+    quicksave_slot: usize,
 }
 
 impl Game {
@@ -182,6 +183,7 @@ impl Game {
             watched_ids: Vec::new(),
             full_keyboard: false,
             input_mode: InputMode::Mouse,
+            quicksave_slot: 0,
         };
         let mut config = if config_path.exists() {
             match bincode::deserialize_from(
@@ -278,11 +280,6 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
-        let quicksave_path = {
-            let mut path = project_path.clone();
-            path.push("quicksave.bin");
-            path
-        };
         let save_paths = (0..16).map(|i| {
             let mut path = project_path.clone();
             path.push(&format!("save{}.bin", i + 1));
@@ -297,11 +294,12 @@ impl Game {
         let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
         let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
+        let select_text = (0..16).map(|i| format!("Select###Select{}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
         let mut savestate;
         let mut renderer_state;
 
-        if !quicksave_path.exists() {
+        if !save_paths[config.quicksave_slot].exists() {
             if let Err(e) = match self.init() {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
@@ -331,17 +329,18 @@ impl Game {
             self.renderer.set_state(&ui_renderer_state);
             savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
 
-            if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+            if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                 err_string = Some(format!(
                     concat!(
-                        "Warning: failed to create quicksave.bin (it has still been saved in memory)\n\n",
+                        "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
                         "Error message: {:?}",
                     ),
+                    save_paths[config.quicksave_slot].file_name(),
                     err,
                 ));
             }
         } else {
-            match SaveState::from_file(&quicksave_path, &mut save_buffer) {
+            match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                 Ok(state) => {
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
@@ -709,7 +708,7 @@ impl Game {
 
             if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
                 savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
-                if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+                if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                     err_string = Some(format!(
                         concat!(
                             "Warning: failed to save quicksave.bin (it has still been saved in memory)\n\n",
@@ -810,7 +809,7 @@ impl Game {
             frame.end();
 
             // Savestates window
-            frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
+            frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
             frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
             let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
@@ -825,6 +824,10 @@ impl Game {
                     cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
                 }
                 let y = (24 * i + 21) as f32;
+                if i == config.quicksave_slot {
+                    let min = imgui::Vec2(0.0, (i * 24) as f32);
+                    frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
+                }
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
                     match SaveState::from(self, replay.clone(), renderer_state.clone())
                         .save_to_file(&save_paths[i], &mut save_buffer)
@@ -881,6 +884,24 @@ impl Game {
                             },
                         }
                         instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                    }
+
+                    if frame.button(&select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && config.quicksave_slot != i {
+//                        config.quicksave_slot = i;
+                        match SaveState::from_file(&save_paths[i], &mut save_buffer) {
+                            Ok(state) => {
+                                savestate = state;
+                                config.quicksave_slot = i;
+                                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                            }
+                            Err(e) => {
+                                println!(
+                                    "Error: Failed to select quicksave slot {:?}. {:?}",
+                                    save_paths[i].file_name(),
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
             }
