@@ -175,24 +175,30 @@ impl Game {
             p.push("project.cfg");
             p
         };
+        let default_config = ProjectConfig {
+            ui_width: 1280,
+            ui_height: 720,
+            rerecords: 0,
+            watched_ids: Vec::new(),
+            full_keyboard: false,
+            input_mode: InputMode::Mouse,
+        };
         let mut config = if config_path.exists() {
-            bincode::deserialize_from(
+            match bincode::deserialize_from(
                 File::open(&config_path).expect("Couldn't read project.cfg")
-            ).expect("Couldn't parse project.cfg")
+            ) {
+                Ok(config) => config,
+                Err(_) => {
+                    println!("Warning: Couldn't parse project.cfg. Using default configuration.");
+                    default_config
+                }
+            }
         } else {
-            let config = ProjectConfig {
-                ui_width: 1280,
-                ui_height: 720,
-                rerecords: 0,
-                watched_ids: Vec::new(),
-                full_keyboard: false,
-                input_mode: InputMode::Mouse,
-            };
             bincode::serialize_into(
                 File::create(&config_path).expect("Couldn't write project.cfg"),
-                &config,
+                &default_config,
             ).expect("Couldn't serialize project.cfg");
-            config
+            default_config
         };
 
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
