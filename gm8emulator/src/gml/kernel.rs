@@ -5266,6 +5266,8 @@ impl Game {
                 }
             },
             inst_id => {
+                // fun fact: in gm8 you can deactivate dead instances
+                // this changes nothing about their deadness
                 if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
                     self.room.instance_list.deactivate(handle);
                 }
@@ -5329,8 +5331,13 @@ impl Game {
                 }
             },
             inst_id => {
-                if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
-                    self.room.instance_list.activate(handle);
+                let mut iter = self.room.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let inst = self.room.instance_list.get(handle);
+                    if inst.id.get() == inst_id {
+                        self.room.instance_list.activate(handle);
+                        break // gm8 doesn't short circuit
+                    }
                 }
             },
         }

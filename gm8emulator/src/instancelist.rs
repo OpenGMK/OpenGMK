@@ -245,7 +245,13 @@ impl InstanceList {
     }
 
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
-        self.insert_order.iter().copied().find(|&inst| self.get(inst).id.get() == instance_index)
+        // gm8 will check the entire instance list if the first one doesn't match
+        // instances shouldn't have matching ids anyway so eh it's faster to short circuit
+        self.insert_order
+            .iter()
+            .copied()
+            .find(|&inst| self.get(inst).id.get() == instance_index)
+            .filter(|&inst| self.get(inst).state.get() == InstanceState::Active)
     }
 
     pub fn count(&self, object_index: ID) -> usize {
