@@ -5266,6 +5266,8 @@ impl Game {
                 }
             },
             inst_id => {
+                // fun fact: in gm8 you can deactivate dead instances
+                // this changes nothing about their deadness
                 if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
                     self.room.instance_list.deactivate(handle);
                 }
@@ -5329,8 +5331,13 @@ impl Game {
                 }
             },
             inst_id => {
-                if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
-                    self.room.instance_list.activate(handle);
+                let mut iter = self.room.instance_list.iter_inactive();
+                while let Some(handle) = iter.next(&self.room.instance_list) {
+                    let inst = self.room.instance_list.get(handle);
+                    if inst.id.get() == inst_id {
+                        self.room.instance_list.activate(handle);
+                        break // gm8 doesn't short circuit
+                    }
                 }
             },
         }
@@ -9551,9 +9558,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn room_set_persistent(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_persistent")
+    pub fn room_set_persistent(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, persistent) = expect_args!(args, [int, bool])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.persistent = persistent;
+        }
+        Ok(Default::default())
     }
 
     pub fn room_set_code(&mut self, _args: &[Value]) -> gml::Result<Value> {
