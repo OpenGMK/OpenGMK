@@ -586,7 +586,7 @@ impl Game {
                                     dll,
                                     sym,
                                     dummy,
-                                    function.arg_types.len(),
+                                    function.arg_count as _,
                                 ) {
                                     Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
                                     Err(e) => {
