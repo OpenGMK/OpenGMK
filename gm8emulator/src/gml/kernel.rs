@@ -9558,9 +9558,12 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn room_set_persistent(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_set_persistent")
+    pub fn room_set_persistent(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (room_id, persistent) = expect_args!(args, [int, bool])?;
+        if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
+            room.persistent = persistent;
+        }
+        Ok(Default::default())
     }
 
     pub fn room_set_code(&mut self, _args: &[Value]) -> gml::Result<Value> {
