@@ -1312,14 +1312,14 @@ impl Game {
                 let old_lives = self.lives;
                 self.lives = value.into();
                 if old_lives > 0 && self.lives <= 0 {
-                    self.run_object_event(7, 6, None)?;
+                    self.run_other_event(6)?;
                 }
             },
             InstanceVariable::Health => {
                 let old_health = self.health;
                 self.health = value.into();
                 if old_health > 0.into() && self.health <= 0.into() {
-                    self.run_object_event(7, 9, None)?;
+                    self.run_other_event(9)?;
                 }
             },
             InstanceVariable::RoomCaption => {

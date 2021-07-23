@@ -27,6 +27,15 @@ impl Game {
         Ok(())
     }
 
+    /// Runs an "Other" event on all instances, without thinking about the event holders first.
+    pub fn run_other_event(&mut self, event_sub: u32) -> gml::Result<()> {
+        let mut iter = self.room.instance_list.iter_by_insertion();
+        while let Some(instance) = iter.next(&self.room.instance_list) {
+            self.run_instance_event(gml::ev::OTHER, event_sub, instance, instance, None)?;
+        }
+        Ok(())
+    }
+
     /// Runs an event for a given instance. Does nothing if that instance doesn't have the specified event.
     pub fn run_instance_event(
         &mut self,
@@ -81,16 +90,10 @@ impl Game {
         self.scene_change = None;
 
         // Room end
-        let mut iter = self.room.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.room.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 5, instance, instance, None)?;
-        }
+        self.run_other_event(5)?;
 
         // Game end
-        let mut iter = self.room.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.room.instance_list) {
-            self.run_instance_event(gml::ev::OTHER, 3, instance, instance, None)?;
-        }
+        self.run_other_event(3)?;
 
         // Extension finalizers
         for i in 0..self.extension_finalizers.len() {
