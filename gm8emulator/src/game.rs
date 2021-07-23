@@ -1468,10 +1468,7 @@ impl Game {
         };
 
         // Run room end event for each instance
-        let mut iter = self.room.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.room.instance_list) {
-            self.run_instance_event(ev::OTHER, 5, instance, instance, None)?;
-        }
+        self.run_other_event(5)?;
         // You can't change room during room end
         self.scene_change = None;
 
@@ -1581,10 +1578,7 @@ impl Game {
 
         if self.game_start {
             // Run game start event for each instance
-            let mut iter = self.room.instance_list.iter_by_insertion();
-            while let Some(instance) = iter.next(&self.room.instance_list) {
-                self.run_instance_event(ev::OTHER, 2, instance, instance, None)?;
-            }
+            self.run_other_event(2)?;
             self.game_start = false;
         }
 
@@ -1597,10 +1591,7 @@ impl Game {
         }
 
         // Run room start event for each instance
-        let mut iter = self.room.instance_list.iter_by_insertion();
-        while let Some(instance) = iter.next(&self.room.instance_list) {
-            self.run_instance_event(ev::OTHER, 4, instance, instance, None)?;
-        }
+        self.run_other_event(4)?;
 
         if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
