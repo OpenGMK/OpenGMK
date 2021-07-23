@@ -169,22 +169,22 @@ pub struct InstanceList {
 }
 
 // generic purpose non-borrowing iterators
-pub struct ILIterDrawOrder(usize);
-pub struct ILIterInsertOrder(usize);
-pub struct ILIterInactive(usize);
+pub struct ILIterDrawOrder(usize, usize);
+pub struct ILIterInsertOrder(usize, usize);
+pub struct ILIterInactive(usize, usize);
 impl ILIterDrawOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.draw_order, &mut self.0, &list, InstanceState::Active)
+        nb_il_iter(&list.draw_order[..self.1], &mut self.0, &list, InstanceState::Active)
     }
 }
 impl ILIterInsertOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.insert_order, &mut self.0, &list, InstanceState::Active)
+        nb_il_iter(&list.insert_order[..self.1], &mut self.0, &list, InstanceState::Active)
     }
 }
 impl ILIterInactive {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.insert_order, &mut self.0, &list, InstanceState::Inactive)
+        nb_il_iter(&list.insert_order[..self.1], &mut self.0, &list, InstanceState::Inactive)
     }
 }
 
@@ -294,16 +294,16 @@ impl InstanceList {
         })
     }
 
-    pub const fn iter_by_drawing(&self) -> ILIterDrawOrder {
-        ILIterDrawOrder(0)
+    pub fn iter_by_drawing(&self) -> ILIterDrawOrder {
+        ILIterDrawOrder(0, self.draw_order.len())
     }
 
-    pub const fn iter_by_insertion(&self) -> ILIterInsertOrder {
-        ILIterInsertOrder(0)
+    pub fn iter_by_insertion(&self) -> ILIterInsertOrder {
+        ILIterInsertOrder(0, self.insert_order.len())
     }
 
-    pub const fn iter_inactive(&self) -> ILIterInactive {
-        ILIterInactive(0)
+    pub fn iter_inactive(&self) -> ILIterInactive {
+        ILIterInactive(0, self.insert_order.len())
     }
 
     pub fn iter_by_identity(&self, object_index: ID) -> IdentityIter {
