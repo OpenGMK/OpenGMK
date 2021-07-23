@@ -124,6 +124,12 @@ pub fn should_dummy(dll: &str, sym: &str, play_type: PlayType) -> Option<dll::Va
             }
         } else if dll.eq_ignore_ascii_case("sxms-3.dll") {
             dummy = Some(dll::Value::Real(0.0));
+        } else if dll.eq_ignore_ascii_case("caster.dll") {
+            if sym == "caster_error_message" || sym == "caster_version" {
+                dummy = Some(dll::Value::Str(dll::PascalString::new(b"")));
+            } else {
+                dummy = Some(dll::Value::Real(0.0));
+            }
         }
     }
 
