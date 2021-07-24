@@ -4313,9 +4313,9 @@ impl Game {
         let (hsnap, vsnap) = expect_args!(args, [real, real])?;
         let instance = self.room.instance_list.get(context.this);
         Ok(((hsnap <= 0.into()
-            || (instance.x.get() - (instance.x.get() / hsnap).round() * hsnap).abs() < 0.0014765625.into())
+            || (instance.x.get() - (instance.x.get() / hsnap).round() * hsnap).abs() < 0.001.into())
             && (vsnap <= 0.into()
-                || (instance.y.get() - (instance.y.get() / vsnap).round() * vsnap).abs() < 0.0014765625.into()))
+                || (instance.y.get() - (instance.y.get() / vsnap).round() * vsnap).abs() < 0.001.into()))
         .into())
     }
 
