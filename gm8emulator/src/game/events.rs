@@ -597,14 +597,15 @@ impl Game {
                             let inst1 = self.room.instance_list.get(instance);
                             let inst2 = self.room.instance_list.get(target);
                             if inst1.solid.get() || inst2.solid.get() {
-                                inst1.x.set(inst1.xprevious.get());
-                                inst1.y.set(inst1.yprevious.get());
-                                inst1.bbox_is_stale.set(true);
-                                inst1.path_position.set(inst1.path_positionprevious.get());
-                                inst2.x.set(inst2.xprevious.get());
-                                inst2.y.set(inst2.yprevious.get());
-                                inst2.bbox_is_stale.set(true);
-                                inst2.path_position.set(inst2.path_positionprevious.get());
+                                for inst in [inst1, inst2] {
+                                    inst.x.set(inst.xprevious.get());
+                                    inst.y.set(inst.yprevious.get());
+                                    inst.bbox_is_stale.set(true);
+                                    inst.path_position.set(inst.path_positionprevious.get());
+                                    if let Some(path) = self.assets.paths.get_asset(inst.path_index.get()) {
+                                        inst.path_pointspeed.set(path.get_point(inst.path_position.get()).speed);
+                                    }
+                                }
                             }
 
                             // Run both collision events
