@@ -56,48 +56,59 @@ impl Game {
         let mut run_event = false;
         if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
             if path.length != 0.into() && instance.path_speed.get() != 0.into() {
+                // Prepare this for later
+                let angle = instance.path_orientation.get().to_radians();
+
                 // Calculate how much offset (0-1) we want to add to the instance's path position
                 let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0))
                     / (path.length * instance.path_scale.get());
 
                 // Work out what the new position should be
                 let new_position = instance.path_position.get() + offset;
-                if (new_position <= Real::from(0.0) && instance.path_speed.get() < Real::from(0.0))
-                    || (new_position >= Real::from(1.0) && instance.path_speed.get() > Real::from(0.0))
-                {
+                if new_position <= Real::from(0.0) || new_position >= Real::from(1.0) {
                     // Path end
-                    let (new_position, path_end_pos) = if instance.path_speed.get() < Real::from(0.0) {
-                        (new_position.fract() + Real::from(1.0), Real::from(0.0))
+                    let reversed = new_position < Real::from(0.0);
+                    let opposite_position = if reversed {
+                        new_position + Real::from(1.0)
                     } else {
-                        (new_position.fract(), Real::from(1.0))
+                        new_position - Real::from(1.0)
                     };
                     match instance.path_endaction.get() {
                         1 => {
                             // Continue from start
-                            instance.path_position.set(new_position);
+                            instance.path_position.set(opposite_position);
                         },
                         2 => {
                             // Continue from end
-                            let path_start_pos = if instance.path_speed.get() < Real::from(0.0) {
-                                Real::from(1.0)
-                            } else {
-                                Real::from(0.0)
-                            };
+                            let path_start_pos = if reversed { Real::from(1.0) } else { Real::from(0.0) };
+                            let path_end_pos = if reversed { Real::from(0.0) } else { Real::from(1.0) };
 
-                            instance.path_position.set(new_position);
+                            instance.path_position.set(opposite_position);
                             let start_point = path.get_point(path_start_pos);
                             let end_point = path.get_point(path_end_pos);
-                            instance.path_xstart.set(instance.path_xstart.get() + end_point.x - start_point.x);
-                            instance.path_ystart.set(instance.path_ystart.get() + end_point.y - start_point.y);
+                            let mut size_h = end_point.x - start_point.x;
+                            let mut size_v = end_point.y - start_point.y;
+                            util::rotate_around_center(
+                                size_h.as_mut_ref(),
+                                size_v.as_mut_ref(),
+                                angle.sin().into(),
+                                angle.cos().into(),
+                            );
+                            instance.path_xstart.set(instance.path_xstart.get() + size_h * instance.path_scale.get());
+                            instance.path_ystart.set(instance.path_ystart.get() + size_v * instance.path_scale.get());
                         },
                         3 => {
                             // Reverse
-                            instance.path_position.set(Real::from(1.0) - (new_position));
-                            instance.path_speed.set(-instance.path_speed.get());
+                            instance.path_position.set(Real::from(1.0) - (opposite_position));
+                            instance.path_speed.set(if reversed {
+                                instance.path_speed.get().abs()
+                            } else {
+                                -instance.path_speed.get().abs()
+                            });
                         },
                         _ => {
                             // Stop
-                            instance.path_position.set(path_end_pos);
+                            instance.path_position.set(1.into());
                             instance.path_index.set(-1);
                         },
                     }
@@ -115,7 +126,6 @@ impl Game {
                 point.y -= path.start.y;
                 point.x *= instance.path_scale.get();
                 point.y *= instance.path_scale.get();
-                let angle = instance.path_orientation.get().to_radians();
                 util::rotate_around_center(
                     point.x.as_mut_ref(),
                     point.y.as_mut_ref(),
