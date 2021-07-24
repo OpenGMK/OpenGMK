@@ -681,9 +681,21 @@ impl Input {
     }
 
     pub fn keyboard_clear(&mut self, vk: u8) {
+        // TODO this sucks
+
+        let (vk, vk2) = match vk {
+            x if x == Button::Control as u8 => (Button::LeftControl as u8, Button::RightControl as u8),
+            x if x == Button::Shift as u8 => (Button::LeftShift as u8, Button::RightShift as u8),
+            x if x == Button::Alt as u8 => (Button::LeftAlt as u8, Button::RightAlt as u8),
+            _ => (vk, vk),
+        };
+
         self.button_state[vk as usize] = false;
         self.button_state_press[vk as usize] = false;
         self.button_state_release[vk as usize] = false;
+        self.button_state[vk2 as usize] = false;
+        self.button_state_press[vk2 as usize] = false;
+        self.button_state_release[vk2 as usize] = false;
     }
 
     pub fn keyboard_clear_all(&mut self) {
