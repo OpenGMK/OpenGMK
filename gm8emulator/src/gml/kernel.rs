@@ -4664,21 +4664,25 @@ impl Game {
     pub fn path_start(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (path_id, speed, end_action, absolute) = expect_args!(args, [int, real, int, bool])?;
         let instance = self.room.instance_list.get(context.this);
-        instance.path_index.set(path_id);
-        instance.path_speed.set(speed);
-        instance.path_endaction.set(end_action);
-        instance.path_position.set(Real::from(0.0));
-        if absolute {
-            if let Some(path_start) = self.assets.paths.get_asset(path_id).map(|x| x.start) {
-                instance.path_xstart.set(path_start.x);
-                instance.path_ystart.set(path_start.y);
-                instance.path_pointspeed.set(path_start.speed);
-            } else {
-                return Err(gml::Error::NonexistentAsset(asset::Type::Path, path_id))
+        if let Some(path) = self.assets.paths.get_asset(path_id).filter(|p| p.length > 0.into()) {
+            instance.path_index.set(path_id);
+            instance.path_speed.set(speed);
+            instance.path_endaction.set(end_action);
+            let forwards = speed >= Real::from(0.0);
+            instance.path_position.set(Real::from(if forwards { 0.0 } else { 1.0 }));
+            instance.path_positionprevious.set(instance.path_position.get());
+            instance.path_scale.set(Real::from(1.0));
+            instance.path_orientation.set(Real::from(0.0));
+            let path_start = if forwards { path.start } else { path.end };
+            if absolute {
+                instance.x.set(path_start.x);
+                instance.y.set(path_start.y);
             }
-        } else {
             instance.path_xstart.set(instance.x.get());
             instance.path_ystart.set(instance.y.get());
+            instance.path_pointspeed.set(path_start.speed);
+        } else {
+            instance.path_index.set(path_id.min(-1));
         }
         Ok(Default::default())
     }
