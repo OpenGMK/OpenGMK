@@ -4707,19 +4707,22 @@ impl Game {
 
     pub fn mp_linear_path(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (path_id, xg, yg, step_size, checkall) = expect_args!(args, [int, real, real, real, bool])?;
-        // i apologize for this code
-        if self.assets.paths.get_asset_mut(path_id).is_some() {
-            let mut path = self.assets.paths[path_id as usize].take().unwrap();
+        // we use a closure that needs a &Game for the collision calls, so we can't have a &mut Path
+        // so this function needs to own the path while that closure's being used
+        if let Some(mut path) =
+            usize::try_from(path_id).ok().and_then(|id| self.assets.paths.get_mut(id)).and_then(Option::take)
+        {
             let inst = self.room.instance_list.get(context.this);
+            let coll = || {
+                if checkall {
+                    self.check_collision_any(context.this).is_some()
+                } else {
+                    self.check_collision_solid(context.this).is_some()
+                }
+            };
             pathfinding::make_path(inst, &mut path, |inst| {
                 let (old_x, old_y) = (inst.x.get(), inst.y.get());
-                if pathfinding::linear_step(xg, yg, step_size, inst, || {
-                    if checkall {
-                        self.check_collision_any(context.this).is_some()
-                    } else {
-                        self.check_collision_solid(context.this).is_some()
-                    }
-                }) {
+                if pathfinding::linear_step(xg, yg, step_size, inst, coll) {
                     pathfinding::PathGenResult::Done
                 } else if inst.x.get() == old_x && inst.y.get() == old_y {
                     pathfinding::PathGenResult::Failed
