@@ -7630,14 +7630,15 @@ impl Game {
         Ok(DateTime::from_ymd(year, month, day).and_then(|_| DateTime::from_hms(hour, minute, second)).is_some().into())
     }
 
-    pub fn date_valid_date(_args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_valid_date")
+    pub fn date_valid_date(args: &[Value]) -> gml::Result<Value> {
+        let (y, m, d) = expect_args!(args, [int, int, int])?;
+        Ok(DateTime::from_ymd(y, m, d).is_some().into())
     }
 
-    pub fn date_valid_time(_args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function date_valid_time")
+    pub fn date_valid_time(args: &[Value]) -> gml::Result<Value> {
+        let (h, m, s) = expect_args!(args, [int, int, int])?;
+        // 24:00:00 is counted as valid, even though making such a date would cause a crash
+        Ok((((0..24).contains(&h) && (0..60).contains(&m) && (0..60).contains(&s)) || (h, m, s) == (24, 0, 0)).into())
     }
 
     pub fn date_inc_year(_args: &[Value]) -> gml::Result<Value> {
@@ -7650,9 +7651,9 @@ impl Game {
         unimplemented!("Called unimplemented kernel function date_inc_month")
     }
 
-    pub fn date_inc_week(_args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function date_inc_week")
+    pub fn date_inc_week(args: &[Value]) -> gml::Result<Value> {
+        let (datetime, amount) = expect_args!(args, [real, int])?;
+        Ok((datetime + Real::from(amount * 7)).into())
     }
 
     pub fn date_inc_day(args: &[Value]) -> gml::Result<Value> {
