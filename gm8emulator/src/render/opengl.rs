@@ -1767,6 +1767,8 @@ impl RendererTrait for RendererImpl {
     }
 
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        let (x1, x2) = if x2 < x1 { (x2, x1) } else { (x1, x2) };
+        let (y1, y2) = if y2 < y1 { (y2, y1) } else { (y1, y2) };
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         self.push_primitive(
@@ -1780,6 +1782,8 @@ impl RendererTrait for RendererImpl {
     }
 
     fn draw_rectangle_outline(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
+        let (x1, x2) = if x2 < x1 { (x2, x1) } else { (x1, x2) };
+        let (y1, y2) = if y2 < y1 { (y2, y1) } else { (y1, y2) };
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         self.push_primitive(
@@ -1805,6 +1809,8 @@ impl RendererTrait for RendererImpl {
         alpha: f64,
         outline: bool,
     ) {
+        let (x1, x2) = if x2 < x1 { (x2, x1) } else { (x1, x2) };
+        let (y1, y2) = if y2 < y1 { (y2, y1) } else { (y1, y2) };
         let x2 = if x2 == x2.floor() { x2 + 0.01 } else { x2 };
         let y2 = if y2 == y2.floor() { y2 + 0.01 } else { y2 };
         self.push_primitive(
