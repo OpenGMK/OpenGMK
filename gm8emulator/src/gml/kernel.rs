@@ -4809,39 +4809,134 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mp_potential_path_object")
     }
 
-    pub fn mp_grid_create(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function mp_grid_create")
+    pub fn mp_grid_create(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (left, top, hcells, vcells, cellwidth, cellheight) = expect_args!(args, [int, int, int, int, int, int])?;
+        if hcells < 0 || vcells < 0 {
+            return Err(gml::Error::FunctionError(
+                "mp_grid_create".into(),
+                "mp grids cannot have negative dimensions".to_string(),
+            ))
+        }
+        Ok(self
+            .mpgrids
+            .put(pathfinding::MpGrid::new(left, top, hcells as usize, vcells as usize, cellwidth, cellheight))
+            .into())
     }
 
-    pub fn mp_grid_destroy(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mp_grid_destroy")
+    pub fn mp_grid_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if self.mpgrids.delete(id) {
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError(
+                "mp_grid_destroy".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            ))
+        }
     }
 
-    pub fn mp_grid_clear_all(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mp_grid_clear_all")
+    pub fn mp_grid_clear_all(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                for x in 0..mpgrid.hcells {
+                    for y in 0..mpgrid.vcells {
+                        mpgrid.set(x, y, 0);
+                    }
+                }
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_clear_all".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
-    pub fn mp_grid_clear_cell(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function mp_grid_clear_cell")
+    pub fn mp_grid_clear_cell(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y) = expect_args!(args, [int, int, int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                if x >= 0 && y >= 0 {
+                    mpgrid.set(x as usize, y as usize, 0);
+                }
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_clear_cell".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
-    pub fn mp_grid_clear_rectangle(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function mp_grid_clear_rectangle")
+    pub fn mp_grid_clear_rectangle(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, left, top, right, bottom) = expect_args!(args, [int, int, int, int, int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                let (left, right) = if right < left { (right, left) } else { (left, right) };
+                let (top, bottom) = if bottom < top { (bottom, top) } else { (top, bottom) };
+
+                let gl = (((left - mpgrid.left) / mpgrid.cellwidth).max(0) as usize).min(mpgrid.hcells - 1);
+                let gt = (((top - mpgrid.top) / mpgrid.cellheight).max(0) as usize).min(mpgrid.vcells - 1);
+                let gr = (((right - mpgrid.left) / mpgrid.cellwidth).max(0) as usize).min(mpgrid.hcells - 1);
+                let gb = (((bottom - mpgrid.top) / mpgrid.cellheight).max(0) as usize).min(mpgrid.vcells - 1);
+
+                for x in gl..=gr {
+                    for y in gt..=gb {
+                        mpgrid.set(x, y, 0);
+                    }
+                }
+
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_add_rectangle".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
-    pub fn mp_grid_add_cell(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function mp_grid_add_cell")
+    pub fn mp_grid_add_cell(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y) = expect_args!(args, [int, int, int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                if x >= 0 && y >= 0 {
+                    mpgrid.set(x as usize, y as usize, -1);
+                }
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_clear_cell".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
-    pub fn mp_grid_add_rectangle(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function mp_grid_add_rectangle")
+    pub fn mp_grid_add_rectangle(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, left, top, right, bottom) = expect_args!(args, [int, int, int, int, int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                let (left, right) = if right < left { (right, left) } else { (left, right) };
+                let (top, bottom) = if bottom < top { (bottom, top) } else { (top, bottom) };
+
+                let gl = (((left - mpgrid.left) / mpgrid.cellwidth).max(0) as usize).min(mpgrid.hcells - 1);
+                let gt = (((top - mpgrid.top) / mpgrid.cellheight).max(0) as usize).min(mpgrid.vcells - 1);
+                let gr = (((right - mpgrid.left) / mpgrid.cellwidth).max(0) as usize).min(mpgrid.hcells - 1);
+                let gb = (((bottom - mpgrid.top) / mpgrid.cellheight).max(0) as usize).min(mpgrid.vcells - 1);
+
+                for x in gl..=gr {
+                    for y in gt..=gb {
+                        mpgrid.set(x, y, -1);
+                    }
+                }
+
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_add_rectangle".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
     pub fn mp_grid_add_instances(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
@@ -4854,9 +4949,39 @@ impl Game {
         unimplemented!("Called unimplemented kernel function mp_grid_path")
     }
 
-    pub fn mp_grid_draw(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function mp_grid_draw")
+    pub fn mp_grid_draw(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        match self.mpgrids.get_mut(id) {
+            Some(mpgrid) => {
+                for x in 0..mpgrid.hcells {
+                    for y in 0..mpgrid.vcells {
+                        let x1 = mpgrid.left + x as i32 * mpgrid.cellwidth;
+                        let y1 = mpgrid.top + y as i32 * mpgrid.cellheight;
+                        let x2 = x1 + mpgrid.cellwidth;
+                        let y2 = y1 + mpgrid.cellheight;
+                        let c = if mpgrid.get(x, y) < 0 { 0x0000ff } else { 0x008000 };
+
+                        self.renderer.draw_rectangle_gradient(
+                            x1.into(),
+                            y1.into(),
+                            x2.into(),
+                            y2.into(),
+                            c,
+                            c,
+                            c,
+                            c,
+                            self.draw_alpha.into(),
+                            false,
+                        );
+                    }
+                }
+                Ok(Default::default())
+            },
+            None => Err(gml::Error::FunctionError(
+                "mp_grid_draw".into(),
+                pathfinding::Error::NonexistentStructure(id).into(),
+            )),
+        }
     }
 
     pub fn collision_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {

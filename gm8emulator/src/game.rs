@@ -104,6 +104,7 @@ pub struct Game {
     pub maps: HandleList<ds::Map>,
     pub priority_queues: HandleList<ds::Priority>,
     pub grids: HandleList<ds::Grid>,
+    pub mpgrids: HandleList<pathfinding::MpGrid>,
     pub ds_precision: Real,
 
     pub default_font: Font,
@@ -1187,6 +1188,7 @@ impl Game {
             maps: HandleList::new(),
             priority_queues: HandleList::new(),
             grids: HandleList::new(),
+            mpgrids: HandleList::new(),
             ds_precision: Real::from(0.00000001),
             default_font,
             draw_font_id: -1,
