@@ -277,7 +277,7 @@ impl Game {
             pixel_interpolation: true,
             texture_repeat: false,
             sprite_count: self.renderer.get_sprite_count(),
-            vsync: false,
+            vsync: true,
             ambient_colour: self.renderer.get_ambient_colour(),
             using_3d: false,
             depth: self.renderer.get_depth(),
