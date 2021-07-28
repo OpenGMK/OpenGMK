@@ -44,7 +44,12 @@ where
 }
 
 // Writes a settings block to GMK
-pub fn write_settings<W>(writer: &mut W, settings: &Settings, ico_file: Option<Vec<u8>>, version: GameVersion) -> io::Result<()>
+pub fn write_settings<W>(
+    writer: &mut W,
+    settings: &Settings,
+    ico_file: Option<Vec<u8>>,
+    version: GameVersion,
+) -> io::Result<()>
 where
     W: io::Write,
 {

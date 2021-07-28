@@ -2,7 +2,10 @@ use crate::{
     game::{Assets, GetAsset},
     gml::rand::Random,
     math::Real,
-    render::{atlas::{AtlasBuilder, AtlasRef}, BlendType, Renderer},
+    render::{
+        atlas::{AtlasBuilder, AtlasRef},
+        BlendType, Renderer,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -1230,7 +1233,8 @@ impl Particle {
             let speed = Distribution::Linear.range(rand, ptype.speed_min.into(), ptype.speed_max.into()).into();
             let direction = Distribution::Linear.range(rand, ptype.dir_min.into(), ptype.dir_max.into()).into();
             let image_angle = Distribution::Linear.range(rand, ptype.ang_min.into(), ptype.ang_max.into()).into();
-            let lifetime = Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round().to_i32();
+            let lifetime =
+                Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round().to_i32();
             let colour = Self::init_colour(rand, &ptype.colour); // do this despite colour_arg for rng parity
             let alpha = ptype.alpha1;
             let size = Distribution::Linear.range(rand, ptype.size_min.into(), ptype.size_max.into()).into();

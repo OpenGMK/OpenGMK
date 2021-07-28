@@ -1,5 +1,5 @@
 use crate::types::ArraySerde;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, num::NonZeroI32};
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;
@@ -242,6 +242,7 @@ pub enum Button {
 
 impl TryFrom<ramen::event::Key> for Button {
     type Error = ();
+
     fn try_from(key: ramen::event::Key) -> Result<Self, Self::Error> {
         match key {
             ramen::event::Key::Attn => Ok(Self::Attn),
@@ -417,19 +418,18 @@ const fn make_is_direct_only() -> [bool; KEY_MAX] {
     let mut table = [false; KEY_MAX];
     let mut i = 0;
     while i < KEY_MAX {
-        if
-            i == Button::MouseLeft as usize ||
-            i == Button::MouseRight as usize ||
-            i == Button::MouseMiddle as usize ||
-            i == Button::MouseX1 as usize ||
-            i == Button::MouseX2 as usize ||
-            i == Button::LeftShift as usize ||
-            i == Button::RightShift as usize ||
-            i == Button::LeftControl as usize ||
-            i == Button::RightControl as usize ||
-            i == Button::LeftAlt as usize ||
-            i == Button::RightAlt as usize
-            // TODO: Maybe the gamepad ones too? Ask Adam/Floogle/renex about this one...
+        if i == Button::MouseLeft as usize
+            || i == Button::MouseRight as usize
+            || i == Button::MouseMiddle as usize
+            || i == Button::MouseX1 as usize
+            || i == Button::MouseX2 as usize
+            || i == Button::LeftShift as usize
+            || i == Button::RightShift as usize
+            || i == Button::LeftControl as usize
+            || i == Button::RightControl as usize
+            || i == Button::LeftAlt as usize
+            || i == Button::RightAlt as usize
+        // TODO: Maybe the gamepad ones too? Ask Adam/Floogle/renex about this one...
         {
             table[i] = true;
         }
@@ -473,6 +473,7 @@ pub enum MouseButton {
 
 impl TryFrom<ramen::event::MouseButton> for MouseButton {
     type Error = ();
+
     fn try_from(key: ramen::event::MouseButton) -> Result<Self, Self::Error> {
         match key {
             ramen::event::MouseButton::Left => Ok(Self::Left),
@@ -613,16 +614,17 @@ impl Input {
     // == GameMaker Mappings ==
 
     fn keyboard_check_any_internal_indirect(&self, state: &[bool; KEY_MAX]) -> bool {
-        state
-            .iter()
-            .enumerate()
-            .any(|(vk, flag)| match vk {
-                vk if vk == Button::Shift as usize => state[Button::LeftShift as usize] || state[Button::RightShift as usize],
-                vk if vk == Button::Control as usize => state[Button::LeftControl as usize] || state[Button::RightControl as usize],
-                vk if vk == Button::Alt as usize => state[Button::LeftAlt as usize] || state[Button::RightAlt as usize],
-                vk if !IS_DIRECT_ONLY[vk] => *flag,
-                _ => false,
-            })
+        state.iter().enumerate().any(|(vk, flag)| match vk {
+            vk if vk == Button::Shift as usize => {
+                state[Button::LeftShift as usize] || state[Button::RightShift as usize]
+            },
+            vk if vk == Button::Control as usize => {
+                state[Button::LeftControl as usize] || state[Button::RightControl as usize]
+            },
+            vk if vk == Button::Alt as usize => state[Button::LeftAlt as usize] || state[Button::RightAlt as usize],
+            vk if !IS_DIRECT_ONLY[vk] => *flag,
+            _ => false,
+        })
     }
 
     fn keyboard_check_internal(&self, state: &[bool; KEY_MAX], vk: u8) -> bool {
@@ -753,14 +755,16 @@ impl Input {
 
     fn mouse_check_button_internal_indirect(&self, state: &[bool; KEY_MAX], mb: i8) -> bool {
         match mb {
-            MB_ANY =>
-                state[Button::MouseLeft as usize] ||
-                state[Button::MouseRight as usize] ||
-                state[Button::MouseMiddle as usize],
-            MB_NONE =>
-                !state[Button::MouseLeft as usize] &&
-                !state[Button::MouseRight as usize] &&
-                !state[Button::MouseMiddle as usize],
+            MB_ANY => {
+                state[Button::MouseLeft as usize]
+                    || state[Button::MouseRight as usize]
+                    || state[Button::MouseMiddle as usize]
+            },
+            MB_NONE => {
+                !state[Button::MouseLeft as usize]
+                    && !state[Button::MouseRight as usize]
+                    && !state[Button::MouseMiddle as usize]
+            },
 
             // unlike `mouse2button`, gm constants only
             x if x == MouseButton::Left as i8 => state[Button::MouseLeft as usize],

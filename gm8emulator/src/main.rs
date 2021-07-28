@@ -15,8 +15,15 @@ mod tile;
 mod types;
 mod util;
 
-use game::{Game, PlayType, Replay, savestate::{self, SaveState}};
-use std::{env, fs, path::{Path, PathBuf}, process};
+use game::{
+    savestate::{self, SaveState},
+    Game, PlayType, Replay,
+};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process,
+};
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -118,28 +125,30 @@ fn xmain() -> i32 {
             })
     });
     let can_clear_temp_dir = temp_dir.is_none();
-    let replay = match matches.opt_str("f").map(|filename| {
-        let filepath = PathBuf::from(&filename);
-        match filepath.extension().and_then(|x| x.to_str()) {
-            Some("bin") => match SaveState::from_file(&filepath, &mut savestate::Buffer::new()) {
-                Ok(state) => Ok(state.into_replay()),
-                Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
-            },
+    let replay = match matches
+        .opt_str("f")
+        .map(|filename| {
+            let filepath = PathBuf::from(&filename);
+            match filepath.extension().and_then(|x| x.to_str()) {
+                Some("bin") => match SaveState::from_file(&filepath, &mut savestate::Buffer::new()) {
+                    Ok(state) => Ok(state.into_replay()),
+                    Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+                },
 
-            Some("gmtas") => match Replay::from_file(&filepath) {
-                Ok(replay) => Ok(replay),
-                Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
-            },
+                Some("gmtas") => match Replay::from_file(&filepath) {
+                    Ok(replay) => Ok(replay),
+                    Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+                },
 
-            _ => {
-                Err("unknown filetype for -f, expected '.bin' or '.gmtas'".into())
-            },
-        }
-    }).transpose() {
+                _ => Err("unknown filetype for -f, expected '.bin' or '.gmtas'".into()),
+            }
+        })
+        .transpose()
+    {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{}", e);
-            return EXIT_FAILURE;
+            return EXIT_FAILURE
         },
     };
 
@@ -210,13 +219,14 @@ fn xmain() -> i32 {
         PlayType::Normal
     };
 
-    let mut components = match Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("Failed to launch game: {}", e);
-            return EXIT_FAILURE
-        },
-    };
+    let mut components =
+        match Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("Failed to launch game: {}", e);
+                return EXIT_FAILURE
+            },
+        };
 
     let time_now = gml::datetime::now_as_nanos();
 

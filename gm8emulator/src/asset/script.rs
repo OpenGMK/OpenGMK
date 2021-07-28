@@ -1,4 +1,4 @@
-use crate::{gml::{self, runtime::Instruction}};
+use crate::gml::{self, runtime::Instruction};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 

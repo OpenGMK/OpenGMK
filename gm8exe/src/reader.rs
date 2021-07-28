@@ -137,13 +137,16 @@ where
         sections.push(PESection { virtual_size, virtual_address, disk_size, disk_address })
     }
 
-    let ico_file_raw = rsrc_location.map(|x| {
-        let temp_pos = exe.position();
-        exe.set_position(u64::from(x));
-        let ico = rsrc::find_icons(&mut exe, &sections);
-        exe.set_position(temp_pos);
-        ico
-    }).transpose()?.flatten();
+    let ico_file_raw = rsrc_location
+        .map(|x| {
+            let temp_pos = exe.position();
+            exe.set_position(u64::from(x));
+            let ico = rsrc::find_icons(&mut exe, &sections);
+            exe.set_position(temp_pos);
+            ico
+        })
+        .transpose()?
+        .flatten();
 
     // Decide if UPX is in use based on PE section names
     // This is None if there is no UPX, obviously, otherwise it's (max_size, offset_on_disk)

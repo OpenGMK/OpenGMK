@@ -97,8 +97,14 @@ impl Game {
 
         // Extension finalizers
         for i in 0..self.extension_finalizers.len() {
-            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-            self.run_extension_function(self.extension_finalizers[i], gml::Context::with_single_instance(dummy_instance))?;
+            let dummy_instance = self
+                .room
+                .instance_list
+                .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            self.run_extension_function(
+                self.extension_finalizers[i],
+                gml::Context::with_single_instance(dummy_instance),
+            )?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }
 

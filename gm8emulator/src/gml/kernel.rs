@@ -11,7 +11,9 @@ use crate::{
     gml::{
         self,
         datetime::{self, DateTime},
-        ds, file, mappings::{self, constants as gml_consts}, network, Context, Value,
+        ds, file,
+        mappings::{self, constants as gml_consts},
+        network, Context, Value,
     },
     handleman::HandleManager,
     input::MouseButton,
@@ -205,11 +207,7 @@ impl Game {
             self.window_icons = show_icons;
             if self.play_type != PlayType::Record {
                 self.window.set_controls({
-                    if self.window_icons {
-                        Some(ramen::window::Controls::enabled())
-                    } else {
-                        None
-                    }
+                    if self.window_icons { Some(ramen::window::Controls::enabled()) } else { None }
                 })
             }
         }
@@ -281,7 +279,7 @@ impl Game {
             x if x == gml_consts::CR_HSPLIT as i32 => Cursor::ResizeWE,
             x if x == gml_consts::CR_VSPLIT as i32 => Cursor::ResizeNS,
             x if x == gml_consts::CR_MULTIDRAG as i32 => Cursor::Arrow, // ???
-            x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait, // ???
+            x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait,    // ???
             x if x == gml_consts::CR_NO as i32 => Cursor::Unavailable,
             x if x == gml_consts::CR_APPSTART as i32 => Cursor::Progress, // ???
             x if x == gml_consts::CR_HELP as i32 => Cursor::Help,
@@ -621,7 +619,9 @@ impl Game {
         let r = Real::from(c1 & 255) * (Real::from(1) - amount) + Real::from(c2 & 255) * amount;
         let g = Real::from((c1 >> 8) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 8) & 255) * amount;
         let b = Real::from((c1 >> 16) & 255) * (Real::from(1) - amount) + Real::from((c2 >> 16) & 255) * amount;
-        Ok(Value::from((r.round().to_i32() & 255) + ((g.round().to_i32() & 255) << 8) + ((b.round().to_i32() & 255) << 16)))
+        Ok(Value::from(
+            (r.round().to_i32() & 255) + ((g.round().to_i32() & 255) << 8) + ((b.round().to_i32() & 255) << 16),
+        ))
     }
 
     pub fn draw_set_blend_mode(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -2849,11 +2849,7 @@ impl Game {
 
     pub fn action_sound(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sound_id, do_loop) = expect_args!(args, [any, bool])?;
-        if do_loop {
-            self.sound_loop(&[sound_id])
-        } else {
-            self.sound_play(&[sound_id])
-        }
+        if do_loop { self.sound_loop(&[sound_id]) } else { self.sound_play(&[sound_id]) }
     }
 
     pub fn action_if_sound(&self, args: &[Value]) -> gml::Result<Value> {
@@ -3097,7 +3093,9 @@ impl Game {
         if let Some(script) = self.assets.scripts.get_asset(script_id) {
             let instructions = script.compiled.clone();
 
-            let mut new_context = Context::copy_with_args(context, [
+            let mut new_context = Context::copy_with_args(
+                context,
+                [
                     arg1,
                     arg2,
                     arg3,
@@ -3114,7 +3112,9 @@ impl Game {
                     Default::default(),
                     Default::default(),
                     Default::default(),
-                ], 5);
+                ],
+                5,
+            );
             self.execute(&instructions, &mut new_context)?;
             Ok(new_context.return_value)
         } else {
@@ -4006,23 +4006,12 @@ impl Game {
 
     pub fn string_copy(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let start = (start-1).max(0) as usize;
+        let start = (start - 1).max(0) as usize;
         let len = len.max(0) as usize;
         let s = s.as_ref();
         Ok(match self.gm_version {
-            Version::GameMaker8_0 => {
-                s.iter().skip(start)
-                        .take(len)
-                        .copied()
-                        .collect::<Vec<_>>().into()
-            },
-            Version::GameMaker8_1 => {
-                self.decode_str(s)
-                    .chars()
-                    .skip(start)
-                    .take(len)
-                    .collect::<String>().into()
-            },
+            Version::GameMaker8_0 => s.iter().skip(start).take(len).copied().collect::<Vec<_>>().into(),
+            Version::GameMaker8_1 => self.decode_str(s).chars().skip(start).take(len).collect::<String>().into(),
         })
     }
 
@@ -4043,25 +4032,22 @@ impl Game {
 
     pub fn string_delete(&self, args: &[Value]) -> gml::Result<Value> {
         let (s, start, len) = expect_args!(args, [bytes, int, int])?;
-        let (start, len) = match (<usize>::try_from(start-1), len) {
+        let (start, len) = match (<usize>::try_from(start - 1), len) {
             (Ok(a), b) if b > 0 => (a, b as usize),
             _ => return Ok(s.into()),
         };
         let s = s.as_ref();
         Ok(match self.gm_version {
             Version::GameMaker8_0 => {
-                s.iter().take(start)
-                        .chain(s.iter().skip(start+len))
-                        .copied()
-                        .collect::<Vec<_>>().into()
+                s.iter().take(start).chain(s.iter().skip(start + len)).copied().collect::<Vec<_>>().into()
             },
-            Version::GameMaker8_1 => {
-                self.decode_str(s)
-                    .chars()
-                    .enumerate()
-                    .filter_map(|(i, x)| if (start..start+len).contains(&i) {None} else {Some(x)})
-                    .collect::<String>().into()
-            },
+            Version::GameMaker8_1 => self
+                .decode_str(s)
+                .chars()
+                .enumerate()
+                .filter_map(|(i, x)| if (start..start + len).contains(&i) { None } else { Some(x) })
+                .collect::<String>()
+                .into(),
         })
     }
 
@@ -5057,7 +5043,8 @@ impl Game {
                 if n != 0 {
                     None
                 } else {
-                    self.room.instance_list
+                    self.room
+                        .instance_list
                         .get_by_instid(inst_id)
                         .filter(|h| self.room.instance_list.get(*h).state.get() == InstanceState::Active)
                 }
@@ -7370,7 +7357,9 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 self.externals.define(&*dll, &*function, call_conv, &arg_types, res_type)
-            }.map(Value::from).map_err(|e| gml::Error::FunctionError("external_define".into(), e))
+            }
+            .map(Value::from)
+            .map_err(|e| gml::Error::FunctionError("external_define".into(), e))
         } else {
             Err(gml::Error::WrongArgumentCount(5, args.len()))
         }
@@ -7379,12 +7368,10 @@ impl Game {
     pub fn external_call(&mut self, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            let dll_args: Vec<external::dll::Value> = (&args[1..])
-                .iter()
-                .cloned()
-                .map(external::dll::Value::from)
-                .collect();
-            self.externals.call(id, &dll_args)
+            let dll_args: Vec<external::dll::Value> =
+                (&args[1..]).iter().cloned().map(external::dll::Value::from).collect();
+            self.externals
+                .call(id, &dll_args)
                 .map(Value::from)
                 .map_err(|e| gml::Error::FunctionError("external_call".into(), e))
         } else {
@@ -7399,7 +7386,8 @@ impl Game {
             Version::GameMaker8_1 => encoding_rs::UTF_8,
         };
         let dll = gml::String::from(dll_name);
-        self.externals.free(&*dll.decode(encoding))
+        self.externals
+            .free(&*dll.decode(encoding))
             .map_err(|e| gml::Error::FunctionError("external_free".into(), e))?;
         Ok(Default::default())
     }
@@ -7543,7 +7531,8 @@ impl Game {
 
     pub fn window_handle(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        #[cfg(target_os = "windows")] {
+        #[cfg(target_os = "windows")]
+        {
             use ramen::platform::win32::WindowExt as _;
             Ok((self.window.hwnd() as usize).into())
         }
@@ -8453,7 +8442,9 @@ impl Game {
                     .iter()
                     .map(|f| {
                         Ok(asset::sprite::Frame {
-                            atlas_ref: renderer.duplicate_sprite(&f.atlas_ref).map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
+                            atlas_ref: renderer
+                                .duplicate_sprite(&f.atlas_ref)
+                                .map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
                             width: f.width,
                             height: f.height,
                         })
@@ -8903,17 +8894,13 @@ impl Game {
         };
         let sound_id = self.assets.sounds.len() as i32;
         let handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
-            Some("mp3") => {
-                match self.audio.add_mp3(data, sound_id as i32) {
-                    Some(x) => asset::sound::FileType::Mp3(x),
-                    None => return Ok((-1).into()),
-                }
+            Some("mp3") => match self.audio.add_mp3(data, sound_id as i32) {
+                Some(x) => asset::sound::FileType::Mp3(x),
+                None => return Ok((-1).into()),
             },
-            Some("wav") => {
-                match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
-                    Some(x) => asset::sound::FileType::Wav(x),
-                    None => return Ok((-1).into()),
-                }
+            Some("wav") => match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                Some(x) => asset::sound::FileType::Wav(x),
+                None => return Ok((-1).into()),
             },
             _ => return Ok((-1).into()),
         };
@@ -8940,17 +8927,13 @@ impl Game {
                     Err(_) => return Ok(0.into()),
                 };
                 sound.handle = match path_buf.extension().and_then(std::ffi::OsStr::to_str) {
-                    Some("mp3") => {
-                        match self.audio.add_mp3(data, sound_id as i32) {
-                            Some(x) => asset::sound::FileType::Mp3(x),
-                            None => return Ok(0.into()),
-                        }
+                    Some("mp3") => match self.audio.add_mp3(data, sound_id as i32) {
+                        Some(x) => asset::sound::FileType::Mp3(x),
+                        None => return Ok(0.into()),
                     },
-                    Some("wav") => {
-                        match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
-                            Some(x) => asset::sound::FileType::Wav(x),
-                            None => return Ok(0.into()),
-                        }
+                    Some("wav") => match self.audio.add_wav(data, sound_id as i32, 1.0, kind == 2, kind >= 3) {
+                        Some(x) => asset::sound::FileType::Wav(x),
+                        None => return Ok(0.into()),
                     },
                     _ => return Ok(0.into()),
                 };
@@ -9412,7 +9395,6 @@ impl Game {
         } else {
             Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
         }
-
     }
 
     pub fn timeline_moment_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -9427,7 +9409,9 @@ impl Game {
         let (timeline, moment, code) = expect_args!(args, [int, int, bytes])?;
         // Note: GM8 does not attempt to compile the string if the timeline doesn't exist
         if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
-            let instrs = self.compiler.compile(code.as_ref())
+            let instrs = self
+                .compiler
+                .compile(code.as_ref())
                 .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
 
             timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);

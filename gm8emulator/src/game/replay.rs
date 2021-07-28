@@ -1,8 +1,12 @@
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use crate::gml::Value;
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
-use std::{fs::{File, OpenOptions}, io::{self, Read, Write}, path::PathBuf};
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
+    path::PathBuf,
+};
 
 // Represents an entire replay (TAS) file
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -35,12 +39,12 @@ pub struct Frame {
 // Stored events for certain things which must always happen the same way during replay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
-    GetInteger(Value),    // value returned from get_integer()
-    GetString(Value),     // value returned from get_string()
-    Randomize(i32),       // value assigned to seed by randomize()
-    ShowMenu(Value),      // value returned from show_menu()
-    ShowMessage,          // acknowledges that a show_message() does not need to be shown during replay
-    ShowQuestion(Value),  // value returned from show_question()
+    GetInteger(Value),   // value returned from get_integer()
+    GetString(Value),    // value returned from get_string()
+    Randomize(i32),      // value assigned to seed by randomize()
+    ShowMenu(Value),     // value returned from show_menu()
+    ShowMessage,         // acknowledges that a show_message() does not need to be shown during replay
+    ShowQuestion(Value), // value returned from show_question()
 }
 
 // An input event which takes place during a frame
@@ -85,10 +89,7 @@ impl Replay {
                 let init_size = file.metadata().map(|m| m.len() as usize + 1).unwrap_or(0);
                 lz4_buf.reserve(init_size);
                 match file.read_to_end(&mut lz4_buf) {
-                    Ok(_) => match (
-                        lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
-                        lz4_buf.get(8..),
-                    ) {
+                    Ok(_) => match (lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize), lz4_buf.get(8..)) {
                         (Ok(len), Some(block)) => {
                             bin_buf.reserve(len);
                             unsafe { bin_buf.set_len(len) };
@@ -117,30 +118,18 @@ impl Replay {
         let mut lz4_buf = Vec::new();
         let mut bin_buf = Vec::new();
         match bincode::serialize_into(&mut bin_buf, self) {
-            Ok(()) => {
-                match lz4::compress_to_vec(
-                    bin_buf.as_slice(),
-                    lz4_buf.as_mut(),
-                    lz4::ACC_LEVEL_DEFAULT,
-                ) {
-                    Ok(_length) => {
-                        match OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(path)
-                            .and_then(|mut f| {
-                                f.write_u32::<LE>(1)
-                                    .and_then(|_| f.write_u64::<LE>(bin_buf.len() as u64)
-                                    .and_then(|_| f.write_all(lz4_buf.as_slice())))
-                            })
-                        {
-                            Ok(()) => Ok(()),
-                            Err(e) => Err(WriteError::IOErr(e)),
-                        }
-                    },
-                    Err(err) => Err(WriteError::CompressErr(err)),
-                }
+            Ok(()) => match lz4::compress_to_vec(bin_buf.as_slice(), lz4_buf.as_mut(), lz4::ACC_LEVEL_DEFAULT) {
+                Ok(_length) => {
+                    match OpenOptions::new().create(true).write(true).truncate(true).open(path).and_then(|mut f| {
+                        f.write_u32::<LE>(1).and_then(|_| {
+                            f.write_u64::<LE>(bin_buf.len() as u64).and_then(|_| f.write_all(lz4_buf.as_slice()))
+                        })
+                    }) {
+                        Ok(()) => Ok(()),
+                        Err(e) => Err(WriteError::IOErr(e)),
+                    }
+                },
+                Err(err) => Err(WriteError::CompressErr(err)),
             },
             Err(err) => Err(WriteError::SerializeErr(err)),
         }

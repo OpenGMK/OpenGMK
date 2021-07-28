@@ -1,4 +1,11 @@
-use crate::{asset::Sprite, gml, render::{atlas::{AtlasBuilder, AtlasRef}, Renderer}};
+use crate::{
+    asset::Sprite,
+    gml,
+    render::{
+        atlas::{AtlasBuilder, AtlasRef},
+        Renderer,
+    },
+};
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 

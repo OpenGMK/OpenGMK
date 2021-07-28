@@ -81,7 +81,9 @@ pub const PFD_SUPPORT_OPENGL: DWORD = 0x00000020;
 pub const PFD_TYPE_RGBA: BYTE = 0;
 pub const SUBLANG_DEFAULT: c_ushort = 0x01;
 
-pub fn MAKELANGID(p: c_ushort, s: c_ushort) -> c_ushort { (s << 10) | p }
+pub fn MAKELANGID(p: c_ushort, s: c_ushort) -> c_ushort {
+    (s << 10) | p
+}
 
 #[link(name = "opengl32")]
 extern "system" {
@@ -95,15 +97,8 @@ extern "system" {
 
 #[link(name = "gdi32")]
 extern "system" {
-    pub fn ChoosePixelFormat(
-        hdc: HDC,
-        ppfd: *const PIXELFORMATDESCRIPTOR,
-    ) -> c_int;
-    pub fn SetPixelFormat(
-        hdc: HDC,
-        iPixelFormat: c_int,
-        ppfd: *const PIXELFORMATDESCRIPTOR,
-    ) -> BOOL;
+    pub fn ChoosePixelFormat(hdc: HDC, ppfd: *const PIXELFORMATDESCRIPTOR) -> c_int;
+    pub fn SetPixelFormat(hdc: HDC, iPixelFormat: c_int, ppfd: *const PIXELFORMATDESCRIPTOR) -> BOOL;
     pub fn SwapBuffers(hdc: HDC) -> BOOL;
 }
 

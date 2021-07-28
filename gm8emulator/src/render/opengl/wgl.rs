@@ -117,7 +117,7 @@ unsafe fn wapi_error_string() -> String {
         ptr::null_mut(),
     );
     if char_count == 0 || buf_ptr.is_null() {
-        return format!("Error code {:#X} (could not get error string due to error code {:#X})", error, GetLastError());
+        return format!("Error code {:#X} (could not get error string due to error code {:#X})", error, GetLastError())
     }
     let wchars = slice::from_raw_parts(buf_ptr, char_count as usize);
     let os_message = OsString::from_wide(wchars);
@@ -211,9 +211,12 @@ impl PlatformImpl {
             context = ex_context;
         }
 
-        Ok(Self { context, device,
+        Ok(Self {
+            context,
+            device,
             //dxgi_output: create_dxgi_output()?,
-            wgl })
+            wgl,
+        })
     }
 
     pub unsafe fn get_function_loader() -> Result<Box<dyn FnMut(&'static str) -> *const std::os::raw::c_void>, String> {

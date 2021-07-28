@@ -1,18 +1,26 @@
 use crate::{
-    imgui, input,
-    instance::Field,
     game::{
-        Game,
         replay::{self, Replay},
-        savestate::{self, SaveState}, SceneChange,
+        savestate::{self, SaveState},
+        Game, SceneChange,
     },
     gml::rand::Random,
+    imgui, input,
+    instance::Field,
     render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState},
     types::Colour,
 };
-use ramen::{event::{Event, Key}, monitor::Size};
+use ramen::{
+    event::{Event, Key},
+    monitor::Size,
+};
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fs::File, path::PathBuf, time::{Duration, Instant}};
+use std::{
+    convert::TryFrom,
+    fs::File,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 const CLEAR_COLOUR: Colour = Colour::new(0.0196, 0.1059, 0.06275);
 const BTN_NEUTRAL_COL: Colour = Colour::new(0.15, 0.15, 0.21);
@@ -42,36 +50,34 @@ impl KeyState {
     fn is_held(&self) -> bool {
         matches!(
             self,
-            Self::Held |
-                Self::HeldWillRelease |
-                Self::HeldWillDouble |
-                Self::HeldWillTriple |
-                Self::HeldDoubleEveryFrame
+            Self::Held
+                | Self::HeldWillRelease
+                | Self::HeldWillDouble
+                | Self::HeldWillTriple
+                | Self::HeldDoubleEveryFrame
         )
     }
 
     fn click(&mut self) {
         *self = match self {
             Self::Neutral => Self::NeutralWillPress,
-            Self::NeutralWillPress | Self::NeutralWillDouble | Self::NeutralWillTriple | Self::NeutralWillCactus | Self::NeutralDoubleEveryFrame => Self::Neutral,
+            Self::NeutralWillPress
+            | Self::NeutralWillDouble
+            | Self::NeutralWillTriple
+            | Self::NeutralWillCactus
+            | Self::NeutralDoubleEveryFrame => Self::Neutral,
             Self::Held => Self::HeldWillRelease,
-            Self::HeldWillRelease | Self::HeldWillDouble | Self::HeldWillTriple | Self::HeldDoubleEveryFrame => Self::Held,
+            Self::HeldWillRelease | Self::HeldWillDouble | Self::HeldWillTriple | Self::HeldDoubleEveryFrame => {
+                Self::Held
+            },
         }
     }
 
     fn reset_to(&mut self, pressed: bool) {
         *self = if pressed {
-            if *self == Self::HeldDoubleEveryFrame {
-                Self::HeldDoubleEveryFrame
-            } else {
-                Self::Held
-            }
+            if *self == Self::HeldDoubleEveryFrame { Self::HeldDoubleEveryFrame } else { Self::Held }
         } else {
-            if *self == Self::NeutralDoubleEveryFrame {
-                Self::NeutralDoubleEveryFrame
-            } else {
-                Self::Neutral
-            }
+            if *self == Self::NeutralDoubleEveryFrame { Self::NeutralDoubleEveryFrame } else { Self::Neutral }
         };
     }
 
@@ -186,20 +192,16 @@ impl Game {
             quicksave_slot: 0,
         };
         let mut config = if config_path.exists() {
-            match bincode::deserialize_from(
-                File::open(&config_path).expect("Couldn't read project.cfg")
-            ) {
+            match bincode::deserialize_from(File::open(&config_path).expect("Couldn't read project.cfg")) {
                 Ok(config) => config,
                 Err(_) => {
                     println!("Warning: Couldn't parse project.cfg. Using default configuration.");
                     default_config
-                }
+                },
             }
         } else {
-            bincode::serialize_into(
-                File::create(&config_path).expect("Couldn't write project.cfg"),
-                &default_config,
-            ).expect("Couldn't serialize project.cfg");
+            bincode::serialize_into(File::create(&config_path).expect("Couldn't write project.cfg"), &default_config)
+                .expect("Couldn't serialize project.cfg");
             default_config
         };
 
@@ -214,28 +216,41 @@ impl Game {
             path.push("imgui.ini\0");
             path.into_os_string().into_string().expect("Bad project file path")
         };
-        unsafe { (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _; }
+        unsafe {
+            (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _;
+        }
         io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
 
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
-        let mut font = self.renderer.upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
+        let mut font = self
+            .renderer
+            .upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
             .expect("Failed to upload UI font");
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
 
-        let grid = (0i32..(64 * 64 * 4)).map(|i| {
-            let n = i >> 2;
-            let x = n % 64;
-            let y = n / 64;
-            let a = (y - x).abs() == 32 || (y + x - 63).abs() == 32;
-            let b = (y >= 34 && x + y == 97) || ((2..32).contains(&y) && x + y == 33);
-            let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
-            match (i & 1 != 0, i & 2 != 0) {
-                (false, false) => u8::from(b) * 64,
-                (true, false) => u8::from(a) * 128 + 64,
-                (false, true) => if a { 99 } else { u8::from(b) * 34 + 33 },
-                (true, true) => u8::from(b || c) * 255,
-            }
-        }).collect::<Vec<_>>().into_boxed_slice();
+        let grid = (0i32..(64 * 64 * 4))
+            .map(|i| {
+                let n = i >> 2;
+                let x = n % 64;
+                let y = n / 64;
+                let a = (y - x).abs() == 32 || (y + x - 63).abs() == 32;
+                let b = (y >= 34 && x + y == 97) || ((2..32).contains(&y) && x + y == 33);
+                let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
+                match (i & 1 != 0, i & 2 != 0) {
+                    (false, false) => u8::from(b) * 64,
+                    (true, false) => u8::from(a) * 128 + 64,
+                    (false, true) => {
+                        if a {
+                            99
+                        } else {
+                            u8::from(b) * 34 + 33
+                        }
+                    },
+                    (true, true) => u8::from(b || c) * 255,
+                }
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
         let grid_ref = self.renderer.upload_sprite(grid, 64, 64, 0, 0).expect("Failed to upload UI images");
         let grid_start = Instant::now();
 
@@ -280,11 +295,13 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
-        let save_paths = (0..16).map(|i| {
-            let mut path = project_path.clone();
-            path.push(&format!("save{}.bin", i + 1));
-            path
-        }).collect::<Vec<_>>();
+        let save_paths = (0..16)
+            .map(|i| {
+                let mut path = project_path.clone();
+                path.push(&format!("save{}.bin", i + 1));
+                path
+            })
+            .collect::<Vec<_>>();
 
         let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
@@ -308,7 +325,10 @@ impl Game {
                         startup_successful = false;
                         match self.run_game_end_events() {
                             Ok(()) => Err("(Fatal) Game ended during startup".into()),
-                            Err(e) => Err(format!("(Fatal) Game ended during startup, then crashed during Game End: {}", e).into()),
+                            Err(e) => {
+                                Err(format!("(Fatal) Game ended during startup, then crashed during Game End: {}", e)
+                                    .into())
+                            },
                         }
                     },
                     None => Ok(()),
@@ -347,19 +367,13 @@ impl Game {
                     renderer_state = ren;
 
                     for (i, state) in keyboard_state.iter_mut().enumerate() {
-                        *state = if self.input.keyboard_check_direct(i as u8) {
-                            KeyState::Held
-                        } else {
-                            KeyState::Neutral
-                        };
+                        *state =
+                            if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
                     }
 
                     for (i, state) in mouse_state.iter_mut().enumerate() {
-                        *state = if self.input.mouse_check_button(i as i8 + 1) {
-                            KeyState::Held
-                        } else {
-                            KeyState::Neutral
-                        };
+                        *state =
+                            if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
                     }
 
                     frame_text = format!("Frame: {}", replay.frame_count());
@@ -375,7 +389,7 @@ impl Game {
                     savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
                     startup_successful = false;
                     game_running = false;
-                }
+                },
             }
         }
 
@@ -392,14 +406,15 @@ impl Game {
             }
         }
 
-        let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+        let mut instance_reports: Vec<(i32, Option<InstanceReport>)> =
+            config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
         let mut instance_images: Vec<AtlasRef> = Vec::new();
         let mut new_rand: Option<Random> = None;
         let mut callback_data; // Putting this outside the loop makes sure it never goes out of scope
 
         /* ----------------------
-           Frame loop begins here
-           ---------------------- */
+        Frame loop begins here
+        ---------------------- */
 
         'gui: loop {
             let time_start = Instant::now();
@@ -428,7 +443,8 @@ impl Game {
                         io.set_mouse(imgui::Vec2(x as f32, y as f32));
                     },
                     ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(*btn))
-                        .ok().and_then(|x| x.checked_sub(1))
+                        .ok()
+                        .and_then(|x| x.checked_sub(1))
                         .into_iter()
                         .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
                     Event::MouseWheel(delta) => io.set_mouse_wheel(delta.get() as f32 / 120.0),
@@ -443,7 +459,7 @@ impl Game {
                     Event::Focus(false) => {
                         io.clear_inputs();
                         context_menu = None;
-                    }
+                    },
                     Event::CloseRequest(_) => break 'gui,
                     _ => (),
                 }
@@ -471,7 +487,10 @@ impl Game {
                 frame.setup_next_window(imgui::Vec2(f32::from(config.ui_width) - w as f32 - 8.0, 8.0), None, None);
                 frame.begin_window(
                     &format!("{}###Game", self.get_window_title()),
-                    Some(imgui::Vec2(w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height)),
+                    Some(imgui::Vec2(
+                        w as f32 + (2.0 * win_border_size),
+                        h as f32 + win_border_size + win_frame_height,
+                    )),
                     false,
                     false,
                     None,
@@ -485,7 +504,10 @@ impl Game {
                     h: h,
                 };
 
-                unsafe extern "C" fn callback(_draw_list: *const cimgui_sys::ImDrawList, ptr: *const cimgui_sys::ImDrawCmd) {
+                unsafe extern "C" fn callback(
+                    _draw_list: *const cimgui_sys::ImDrawList,
+                    ptr: *const cimgui_sys::ImDrawCmd,
+                ) {
                     let data = &*((*ptr).UserCallbackData as *mut GameViewData);
                     (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
                 }
@@ -496,14 +518,14 @@ impl Game {
                     if setting_mouse_pos && frame.left_clicked() {
                         setting_mouse_pos = false;
                         let imgui::Vec2(mouse_x, mouse_y) = frame.mouse_pos();
-                        new_mouse_pos = Some((
-                            -(x + win_border_size - mouse_x) as i32,
-                            -(y + win_frame_height - mouse_y) as i32,
-                        ));
+                        new_mouse_pos =
+                            Some((-(x + win_border_size - mouse_x) as i32, -(y + win_frame_height - mouse_y) as i32));
                     }
 
                     if frame.window_hovered() && frame.right_clicked() {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        unsafe {
+                            cimgui_sys::igSetWindowFocusNil();
+                        }
                         let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
                         let imgui::Vec2(x, y) = frame.mouse_pos() - offset;
                         let (x, y) = self.translate_screen_to_room(x as _, y as _);
@@ -542,10 +564,11 @@ impl Game {
             // Control window
             frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
             frame.begin_window("Control", None, true, false, None);
-            if (
-                frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None) ||
-                    frame.key_pressed(input::ramen2vk(Key::Space))
-            ) && game_running && err_string.is_none() {
+            if (frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None)
+                || frame.key_pressed(input::ramen2vk(Key::Space)))
+                && game_running
+                && err_string.is_none()
+            {
                 let (w, h) = self.renderer.stored_size();
                 let frame = replay.new_frame();
 
@@ -651,17 +674,24 @@ impl Game {
 
                 self.renderer.set_state(&renderer_state);
                 self.renderer.resize_framebuffer(w, h, false);
-                self.renderer.set_view(0, 0, self.unscaled_width as _, self.unscaled_height as _,
-                    0.0, 0, 0, self.unscaled_width as _, self.unscaled_height as _);
+                self.renderer.set_view(
+                    0,
+                    0,
+                    self.unscaled_width as _,
+                    self.unscaled_height as _,
+                    0.0,
+                    0,
+                    0,
+                    self.unscaled_width as _,
+                    self.unscaled_height as _,
+                );
                 self.renderer.draw_stored(0, 0, w, h);
                 if let Err(e) = match self.frame() {
-                    Ok(()) => {
-                        match self.scene_change {
-                            Some(SceneChange::Room(id)) => self.load_room(id),
-                            Some(SceneChange::Restart) => self.restart(),
-                            Some(SceneChange::End) => self.restart(),
-                            None => Ok(()),
-                        }
+                    Ok(()) => match self.scene_change {
+                        Some(SceneChange::Room(id)) => self.load_room(id),
+                        Some(SceneChange::Restart) => self.restart(),
+                        Some(SceneChange::End) => self.restart(),
+                        None => Ok(()),
                     },
                     Err(e) => Err(e.into()),
                 } {
@@ -694,8 +724,17 @@ impl Game {
                 seed_text = format!("Seed: {}", self.rand.seed());
 
                 self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
-                self.renderer.set_view( 0, 0, config.ui_width.into(), config.ui_height.into(),
-                    0.0, 0, 0, config.ui_width.into(), config.ui_height.into());
+                self.renderer.set_view(
+                    0,
+                    0,
+                    config.ui_width.into(),
+                    config.ui_height.into(),
+                    0.0,
+                    0,
+                    0,
+                    config.ui_width.into(),
+                    config.ui_height.into(),
+                );
                 self.renderer.clear_view(CLEAR_COLOUR, 1.0);
                 renderer_state = self.renderer.state();
                 self.renderer.set_state(&ui_renderer_state);
@@ -703,10 +742,15 @@ impl Game {
                 new_rand = None;
                 new_mouse_pos = None;
 
-                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                instance_reports =
+                    config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
             }
 
-            if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
+            if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None)
+                || frame.key_pressed(input::ramen2vk(Key::Q)))
+                && game_running
+                && err_string.is_none()
+            {
                 savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
                 if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                     err_string = Some(format!(
@@ -720,7 +764,9 @@ impl Game {
                 context_menu = None;
             }
 
-            if frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::W)) {
+            if frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None)
+                || frame.key_pressed(input::ramen2vk(Key::W))
+            {
                 if startup_successful {
                     err_string = None;
                     game_running = true;
@@ -729,11 +775,13 @@ impl Game {
                     renderer_state = ren;
 
                     for (i, state) in keyboard_state.iter_mut().enumerate() {
-                        *state = if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+                        *state =
+                            if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
                     }
 
                     for (i, state) in mouse_state.iter_mut().enumerate() {
-                        *state = if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
+                        *state =
+                            if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
                     }
 
                     frame_text = format!("Frame: {}", replay.frame_count());
@@ -741,7 +789,8 @@ impl Game {
                     context_menu = None;
                     new_rand = None;
                     new_mouse_pos = None;
-                    instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                    instance_reports =
+                        config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                     config.rerecords += 1;
                     rerecord_text = format!("Re-record count: {}", config.rerecords);
                     let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
@@ -753,12 +802,15 @@ impl Game {
                 filepath.push("save.gmtas");
                 match replay.to_file(&filepath) {
                     Ok(()) => (),
-                    Err(replay::WriteError::IOErr(err)) =>
-                        err_string = Some(format!("Failed to write save.gmtas: {}", err)),
-                    Err(replay::WriteError::CompressErr(err)) =>
-                        err_string = Some(format!("Failed to compress save.gmtas: {}", err)),
-                    Err(replay::WriteError::SerializeErr(err)) =>
-                        err_string = Some(format!("Failed to serialize save.gmtas: {}", err)),
+                    Err(replay::WriteError::IOErr(err)) => {
+                        err_string = Some(format!("Failed to write save.gmtas: {}", err))
+                    },
+                    Err(replay::WriteError::CompressErr(err)) => {
+                        err_string = Some(format!("Failed to compress save.gmtas: {}", err))
+                    },
+                    Err(replay::WriteError::SerializeErr(err)) => {
+                        err_string = Some(format!("Failed to serialize save.gmtas: {}", err))
+                    },
                 }
             }
 
@@ -819,9 +871,20 @@ impl Game {
             }
             for i in 0..16 {
                 unsafe {
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 });
-                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
+                    cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 {
+                        x: 0.98,
+                        y: 0.59,
+                        z: 0.26,
+                        w: 0.4,
+                    });
+                    cimgui_sys::igPushStyleColorVec4(
+                        cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _,
+                        cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 },
+                    );
+                    cimgui_sys::igPushStyleColorVec4(
+                        cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _,
+                        cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 },
+                    );
                 }
                 let y = (24 * i + 21) as f32;
                 if i == config.quicksave_slot {
@@ -833,12 +896,15 @@ impl Game {
                         .save_to_file(&save_paths[i], &mut save_buffer)
                     {
                         Ok(()) => (),
-                        Err(savestate::WriteError::IOErr(err)) =>
-                            err_string = Some(format!("Failed to write savestate #{}: {}", i, err)),
-                        Err(savestate::WriteError::CompressErr(err)) =>
-                            err_string = Some(format!("Failed to compress savestate #{}: {}", i, err)),
-                        Err(savestate::WriteError::SerializeErr(err)) =>
-                            err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err)),
+                        Err(savestate::WriteError::IOErr(err)) => {
+                            err_string = Some(format!("Failed to write savestate #{}: {}", i, err))
+                        },
+                        Err(savestate::WriteError::CompressErr(err)) => {
+                            err_string = Some(format!("Failed to compress savestate #{}: {}", i, err))
+                        },
+                        Err(savestate::WriteError::SerializeErr(err)) => {
+                            err_string = Some(format!("Failed to serialize savestate #{}: {}", i, err))
+                        },
                     }
                 }
                 unsafe {
@@ -846,7 +912,9 @@ impl Game {
                 }
 
                 if save_paths[i].exists() {
-                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && startup_successful {
+                    if frame.button(&load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y)))
+                        && startup_successful
+                    {
                         match SaveState::from_file(&save_paths[i], &mut save_buffer) {
                             Ok(state) => {
                                 let (new_replay, new_renderer_state) = state.load_into(self);
@@ -854,10 +922,18 @@ impl Game {
                                 renderer_state = new_renderer_state;
 
                                 for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                    *state = if self.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+                                    *state = if self.input.keyboard_check_direct(i as u8) {
+                                        KeyState::Held
+                                    } else {
+                                        KeyState::Neutral
+                                    };
                                 }
                                 for (i, state) in mouse_state.iter_mut().enumerate() {
-                                    *state = if self.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
+                                    *state = if self.input.mouse_check_button(i as i8 + 1) {
+                                        KeyState::Held
+                                    } else {
+                                        KeyState::Neutral
+                                    };
                                 }
 
                                 frame_text = format!("Frame: {}", replay.frame_count());
@@ -874,33 +950,39 @@ impl Game {
                             Err(err) => {
                                 let filename = save_paths[i].to_string_lossy();
                                 err_string = Some(match err {
-                                    savestate::ReadError::IOErr(err) =>
-                                        format!("Error reading {}:\n\n{}", filename, err),
-                                    savestate::ReadError::DecompressErr(err) =>
-                                        format!("Error decompressing {}:\n\n{}", filename, err),
-                                    savestate::ReadError::DeserializeErr(err) =>
-                                        format!("Error deserializing {}:\n\n{}", filename, err),
+                                    savestate::ReadError::IOErr(err) => {
+                                        format!("Error reading {}:\n\n{}", filename, err)
+                                    },
+                                    savestate::ReadError::DecompressErr(err) => {
+                                        format!("Error decompressing {}:\n\n{}", filename, err)
+                                    },
+                                    savestate::ReadError::DeserializeErr(err) => {
+                                        format!("Error deserializing {}:\n\n{}", filename, err)
+                                    },
                                 });
                             },
                         }
-                        instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                        instance_reports =
+                            config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                     }
 
-                    if frame.button(&select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && config.quicksave_slot != i {
-//                        config.quicksave_slot = i;
+                    if frame.button(&select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y)))
+                        && config.quicksave_slot != i
+                    {
+                        //                        config.quicksave_slot = i;
                         match SaveState::from_file(&save_paths[i], &mut save_buffer) {
                             Ok(state) => {
                                 savestate = state;
                                 config.quicksave_slot = i;
                                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
-                            }
+                            },
                             Err(e) => {
                                 println!(
                                     "Error: Failed to select quicksave slot {:?}. {:?}",
                                     save_paths[i].file_name(),
                                     e
                                 );
-                            }
+                            },
                         }
                     }
                 }
@@ -920,19 +1002,29 @@ impl Game {
                                 state.click();
                             }
                             if frame.right_clicked() && hovered {
-                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                                unsafe {
+                                    cimgui_sys::igSetWindowFocusNil();
+                                }
                                 context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
                             }
                             if frame.middle_clicked() && hovered {
-                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                                *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                                unsafe {
+                                    cimgui_sys::igSetWindowFocusNil();
+                                }
+                                *state = if state.is_held() {
+                                    KeyState::HeldWillDouble
+                                } else {
+                                    KeyState::NeutralWillDouble
+                                };
                             }
                         },
                         InputMode::Direct => {
                             if frame.key_pressed(vk) {
                                 *state = match state {
                                     // if neutral and setting would stay neutral => will press
-                                    KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralWillCactus => KeyState::NeutralWillPress,
+                                    KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralWillCactus => {
+                                        KeyState::NeutralWillPress
+                                    },
                                     // if held but would release => keep held
                                     KeyState::HeldWillRelease | KeyState::HeldWillTriple => KeyState::Held,
                                     // otherwise just keep the state
@@ -941,7 +1033,9 @@ impl Game {
                             } else if frame.key_released(vk) {
                                 *state = match state {
                                     // if held and setting would stay held => will release
-                                    KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => KeyState::HeldWillRelease,
+                                    KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                                        KeyState::HeldWillRelease
+                                    },
                                     // if neutral but would press => keep neutral
                                     KeyState::NeutralWillPress | KeyState::NeutralWillTriple => KeyState::Neutral,
                                     // otherwise just keep the state
@@ -953,7 +1047,9 @@ impl Game {
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
                     if hovered {
-                        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 }); }
+                        unsafe {
+                            cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+                        }
                         frame.text(state.repr());
                     }
                 };
@@ -965,17 +1061,23 @@ impl Game {
                     }
                     let hovered = frame.item_hovered();
                     if frame.right_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        unsafe {
+                            cimgui_sys::igSetWindowFocusNil();
+                        }
                         context_menu = Some(ContextMenu::MouseButton { pos: frame.mouse_pos(), button: $code });
                     }
                     if frame.middle_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                        unsafe {
+                            cimgui_sys::igSetWindowFocusNil();
+                        }
                         *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                     }
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
                     if hovered {
-                        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 }); }
+                        unsafe {
+                            cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+                        }
                         frame.text(state.repr());
                     }
                 };
@@ -984,14 +1086,23 @@ impl Game {
                     let pos = frame.window_position();
                     frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y)));
                     frame.rect(imgui::Vec2($x, $y) + pos, imgui::Vec2($x, $y) + $size + pos, BTN_NEUTRAL_COL, 190);
-                    frame.rect_outline(imgui::Vec2($x, $y) + pos, imgui::Vec2($x, $y) + $size + pos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
+                    frame.rect_outline(
+                        imgui::Vec2($x, $y) + pos,
+                        imgui::Vec2($x, $y) + $size + pos,
+                        Colour::new(0.4, 0.4, 0.65),
+                        u8::MAX,
+                    );
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));
                 };
             }
 
             // Keyboard window
             if config.full_keyboard {
-                frame.setup_next_window(imgui::Vec2(8.0, 350.0), Some(imgui::Vec2(917.0, 362.0)), Some(imgui::Vec2(440.0, 200.0)));
+                frame.setup_next_window(
+                    imgui::Vec2(8.0, 350.0),
+                    Some(imgui::Vec2(917.0, 362.0)),
+                    Some(imgui::Vec2(440.0, 200.0)),
+                );
                 frame.begin_window("Keyboard###FullKeyboard", None, true, false, None);
                 if !frame.window_collapsed() {
                     frame.rect(
@@ -1009,7 +1120,13 @@ impl Game {
                     let button_width = ((left_part_edge - content_min.0 - 14.0) / 15.0).floor();
                     let button_height = ((content_max.1 - content_min.1 - 4.0 - (win_padding.1 * 2.0)) / 6.5).floor();
                     let button_size = imgui::Vec2(button_width, button_height);
-                    kb_btn!("Esc", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::Escape);
+                    kb_btn!(
+                        "Esc",
+                        imgui::Vec2((button_width * 1.5).floor(), button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::Escape
+                    );
                     cur_x = left_part_edge - (button_width * 12.0 + 11.0);
                     kb_btn!("F1", button_size, cur_x, cur_y, key Key::F1);
                     cur_x += button_width + 1.0;
@@ -1068,7 +1185,13 @@ impl Game {
                     cur_x += button_width + 1.0;
                     kb_btn!("=", button_size, cur_x, cur_y);
                     cur_x += button_width + 1.0;
-                    kb_btn!("Back", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::Backspace);
+                    kb_btn!(
+                        "Back",
+                        imgui::Vec2(left_part_edge - cur_x, button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::Backspace
+                    );
                     cur_x = content_max.0 - (button_width * 3.0 + 2.0);
                     kb_btn!("Ins", button_size, cur_x, cur_y, key Key::Insert);
                     cur_x += button_width + 1.0;
@@ -1077,7 +1200,13 @@ impl Game {
                     kb_btn!("PgUp", button_size, cur_x, cur_y, key Key::PageUp);
                     cur_x = content_min.0;
                     cur_y += button_height + 1.0;
-                    kb_btn!("Tab", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::Tab);
+                    kb_btn!(
+                        "Tab",
+                        imgui::Vec2((button_width * 1.5).floor(), button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::Tab
+                    );
                     cur_x += (button_width * 1.5).floor() + 1.0;
                     kb_btn!("Q", button_size, cur_x, cur_y, key Key::Q);
                     cur_x += button_width + 1.0;
@@ -1103,7 +1232,13 @@ impl Game {
                     cur_x += button_width + 1.0;
                     kb_btn!("]", button_size, cur_x, cur_y);
                     cur_x += button_width + 1.0;
-                    kb_btn!("Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, key Key::Enter);
+                    kb_btn!(
+                        "Enter",
+                        imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0),
+                        cur_x,
+                        cur_y,
+                        key Key::Enter
+                    );
                     cur_x = content_max.0 - (button_width * 3.0 + 2.0);
                     kb_btn!("Del", button_size, cur_x, cur_y, key Key::Delete);
                     cur_x += button_width + 1.0;
@@ -1112,7 +1247,13 @@ impl Game {
                     kb_btn!("PgDn", button_size, cur_x, cur_y, key Key::PageDown);
                     cur_x = content_min.0;
                     cur_y += button_height + 1.0;
-                    kb_btn!("Caps", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::CapsLock);
+                    kb_btn!(
+                        "Caps",
+                        imgui::Vec2((button_width * 1.5).floor(), button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::CapsLock
+                    );
                     cur_x += (button_width * 1.5).floor() + 1.0;
                     kb_btn!("A", button_size, cur_x, cur_y, key Key::A);
                     cur_x += button_width + 1.0;
@@ -1163,22 +1304,46 @@ impl Game {
                     cur_x += button_width + 1.0;
                     kb_btn!("/", button_size, cur_x, cur_y);
                     cur_x += button_width + 1.0;
-                    kb_btn!("RShift", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RShift);
+                    kb_btn!(
+                        "RShift",
+                        imgui::Vec2(left_part_edge - cur_x, button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::RShift
+                    );
                     cur_x = content_min.0;
                     cur_y += button_height + 1.0;
-                    kb_btn!("Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::LControl);
+                    kb_btn!(
+                        "Ctrl",
+                        imgui::Vec2((button_width * 1.5).floor(), button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::LControl
+                    );
                     cur_x += (button_width * 1.5).floor() + 1.0;
                     kb_btn!("Win", button_size, cur_x, cur_y, key Key::LSuper);
                     cur_x += button_width + 1.0;
                     kb_btn!("Alt", button_size, cur_x, cur_y, key Key::LAlt);
                     cur_x += button_width + 1.0;
-                    kb_btn!("Space", imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height), cur_x, cur_y, key Key::Space);
+                    kb_btn!(
+                        "Space",
+                        imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::Space
+                    );
                     cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
                     kb_btn!("RAlt", button_size, cur_x, cur_y, key Key::RAlt);
                     cur_x += button_width + 1.0;
                     kb_btn!("Pg", button_size, cur_x, cur_y, key Key::Applications);
                     cur_x += button_width + 1.0;
-                    kb_btn!("RCtrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RControl);
+                    kb_btn!(
+                        "RCtrl",
+                        imgui::Vec2(left_part_edge - cur_x, button_height),
+                        cur_x,
+                        cur_y,
+                        key Key::RControl
+                    );
                     cur_x = content_max.0 - (button_width * 3.0 + 2.0);
                     kb_btn!("<", button_size, cur_x, cur_y, key Key::Left);
                     cur_x += button_width + 1.0;
@@ -1191,7 +1356,11 @@ impl Game {
                 }
                 frame.end();
             } else {
-                frame.setup_next_window(imgui::Vec2(50.0, 354.0), Some(imgui::Vec2(365.0, 192.0)), Some(imgui::Vec2(201.0, 122.0)));
+                frame.setup_next_window(
+                    imgui::Vec2(50.0, 354.0),
+                    Some(imgui::Vec2(365.0, 192.0)),
+                    Some(imgui::Vec2(201.0, 122.0)),
+                );
                 frame.begin_window("Keyboard###SimpleKeyboard", None, true, false, None);
                 if !frame.window_collapsed() {
                     frame.rect(
@@ -1206,15 +1375,40 @@ impl Game {
                     let button_width = (((content_max.0 - content_min.0) - 2.0) / 6.0).floor();
                     let button_height = ((content_max.1 - content_min.1) / 2.5).floor();
                     let button_size = imgui::Vec2(button_width, button_height);
-                    let arrows_left_bound = content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
+                    let arrows_left_bound =
+                        content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
                     kb_btn!("<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, key Key::Left);
-                    kb_btn!("v", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - button_height - 8.0, key Key::Down);
-                    kb_btn!(">", button_size, arrows_left_bound + (button_width * 2.0 + 2.0), content_max.1 - button_height - 8.0, key Key::Right);
-                    kb_btn!("^", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - (button_height * 2.0) - 9.0, key Key::Up);
+                    kb_btn!(
+                        "v",
+                        button_size,
+                        arrows_left_bound + button_width + 1.0,
+                        content_max.1 - button_height - 8.0,
+                        key Key::Down
+                    );
+                    kb_btn!(
+                        ">",
+                        button_size,
+                        arrows_left_bound + (button_width * 2.0 + 2.0),
+                        content_max.1 - button_height - 8.0,
+                        key Key::Right
+                    );
+                    kb_btn!(
+                        "^",
+                        button_size,
+                        arrows_left_bound + button_width + 1.0,
+                        content_max.1 - (button_height * 2.0) - 9.0,
+                        key Key::Up
+                    );
                     kb_btn!("R", button_size, content_min.0, content_min.1, key Key::R);
                     kb_btn!("Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, key Key::LShift);
                     kb_btn!("F2", button_size, content_max.0 - button_width, content_min.1, key Key::F2);
-                    kb_btn!("Z", button_size, content_max.0 - button_width, content_max.1 - button_height - 8.0, key Key::Z);
+                    kb_btn!(
+                        "Z",
+                        button_size,
+                        content_max.0 - button_width,
+                        content_max.1 - button_height - 8.0,
+                        key Key::Z
+                    );
                 }
                 frame.end();
             }
@@ -1243,10 +1437,17 @@ impl Game {
                 }
 
                 if let Some((x, y)) = new_mouse_pos {
-                    unsafe { cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Text as _, cimgui_sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 }); }
+                    unsafe {
+                        cimgui_sys::igPushStyleColorVec4(
+                            cimgui_sys::ImGuiCol__ImGuiCol_Text as _,
+                            cimgui_sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 },
+                        );
+                    }
                     frame.text_centered(&format!("x: {}*", x), imgui::Vec2(225.0, 80.0));
                     frame.text_centered(&format!("y: {}*", y), imgui::Vec2(225.0, 96.0));
-                    unsafe { cimgui_sys::igPopStyleColor(1); }
+                    unsafe {
+                        cimgui_sys::igPopStyleColor(1);
+                    }
                 } else {
                     frame.text_centered(&format!("x: {}", self.input.mouse_x()), imgui::Vec2(225.0, 80.0));
                     frame.text_centered(&format!("y: {}", self.input.mouse_y()), imgui::Vec2(225.0, 96.0));
@@ -1300,7 +1501,12 @@ impl Game {
                     if let Some(handle) = self.room.instance_list.get_by_instid(*id) {
                         use crate::game::GetAsset;
                         let instance = self.room.instance_list.get(handle);
-                        if let Some(atlas_ref) = self.assets.sprites.get_asset(instance.sprite_index.get()).and_then(|x| x.get_atlas_ref(instance.image_index.get().floor().to_i32())) {
+                        if let Some(atlas_ref) = self
+                            .assets
+                            .sprites
+                            .get_asset(instance.sprite_index.get())
+                            .and_then(|x| x.get_atlas_ref(instance.image_index.get().floor().to_i32()))
+                        {
                             if atlas_ref.w <= 48 && atlas_ref.h <= 48 {
                                 let i = instance_images.len();
                                 instance_images.push(*atlas_ref);
@@ -1315,7 +1521,10 @@ impl Game {
                                         cimgui_sys::igGetWindowDrawList(),
                                         instance_images.as_mut_ptr().add(i) as _,
                                         cimgui_sys::ImVec2 { x: min_x, y: min_y },
-                                        cimgui_sys::ImVec2 { x: min_x + atlas_ref.w as f32, y: min_y + atlas_ref.h as f32 },
+                                        cimgui_sys::ImVec2 {
+                                            x: min_x + atlas_ref.w as f32,
+                                            y: min_y + atlas_ref.h as f32,
+                                        },
                                         cimgui_sys::ImVec2 { x: 0.0, y: 0.0 },
                                         cimgui_sys::ImVec2 { x: 1.0, y: 1.0 },
                                         instance.image_blend.get() as u32 | 0xFF000000,
@@ -1332,7 +1541,8 @@ impl Game {
             });
 
             if config.watched_ids.len() != previous_len {
-                instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
+                instance_reports =
+                    config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
@@ -1363,7 +1573,7 @@ impl Game {
                                     let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
                                 }
                                 context_menu = None;
-                                break;
+                                break
                             }
                         }
                     }
@@ -1422,7 +1632,7 @@ impl Game {
                     if startup_successful {
                         err_string = None;
                     } else {
-                        break 'gui;
+                        break 'gui
                     }
                 }
             }
@@ -1432,8 +1642,17 @@ impl Game {
 
             // draw imgui
             let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
-            self.renderer.draw_sprite_tiled(&grid_ref, start_xy, start_xy, 1.0, 1.0, 0xFFFFFF, 0.5,
-                Some(config.ui_width.into()), Some(config.ui_height.into()));
+            self.renderer.draw_sprite_tiled(
+                &grid_ref,
+                start_xy,
+                start_xy,
+                1.0,
+                1.0,
+                0xFFFFFF,
+                0.5,
+                Some(config.ui_width.into()),
+                Some(config.ui_height.into()),
+            );
 
             let draw_data = context.draw_data();
             debug_assert!(draw_data.Valid);
@@ -1449,8 +1668,7 @@ impl Game {
                     let index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
                     if let Some(f) = command.UserCallback {
                         unsafe { f(draw_list, command) };
-                    }
-                    else {
+                    } else {
                         // TODO: don't use the primitive builder for this, it allocates a lot and
                         // also doesn't do instanced drawing I think?
                         self.renderer.reset_primitive_2d(
@@ -1459,7 +1677,7 @@ impl Game {
                                 None
                             } else {
                                 Some(unsafe { *(command.TextureId as *mut AtlasRef) })
-                            }
+                            },
                         );
 
                         for i in 0..(command.ElemCount as usize) {
@@ -1512,9 +1730,14 @@ enum ReportField {
 impl InstanceReport {
     fn new(game: &Game, id: i32) -> Option<Self> {
         use crate::game::GetAsset;
-        if let Some((handle, instance)) = game.room.instance_list.get_by_instid(id).map(|x| (x, game.room.instance_list.get(x))) {
+        if let Some((handle, instance)) =
+            game.room.instance_list.get_by_instid(id).map(|x| (x, game.room.instance_list.get(x)))
+        {
             instance.update_bbox(game.get_instance_mask_sprite(handle));
-            let object_name = game.assets.objects.get_asset(instance.object_index.get())
+            let object_name = game
+                .assets
+                .objects
+                .get_asset(instance.object_index.get())
                 .map(|x| x.name.decode(game.encoding))
                 .unwrap_or("<deleted object>".into());
 
@@ -1549,14 +1772,18 @@ impl InstanceReport {
                     format!(
                         "sprite_index: {} ({})",
                         instance.sprite_index.get(),
-                        game.assets.sprites.get_asset(instance.sprite_index.get())
+                        game.assets
+                            .sprites
+                            .get_asset(instance.sprite_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<deleted sprite>".into()),
                     ),
                     format!(
                         "mask_index: {} ({})",
                         instance.mask_index.get(),
-                        game.assets.sprites.get_asset(instance.mask_index.get())
+                        game.assets
+                            .sprites
+                            .get_asset(instance.mask_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<same as sprite>".into()),
                     ),
@@ -1574,7 +1801,9 @@ impl InstanceReport {
                     format!(
                         "timeline_index: {} ({})",
                         instance.timeline_index.get(),
-                        game.assets.timelines.get_asset(instance.timeline_index.get())
+                        game.assets
+                            .timelines
+                            .get_asset(instance.timeline_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<deleted timeline>".into()),
                     ),
@@ -1584,16 +1813,21 @@ impl InstanceReport {
                     format!("timeline_loop: {}", instance.timeline_loop.get()),
                 ],
                 alarms: instance.alarms.borrow().iter().map(|(id, time)| format!("alarm[{}]: {}", id, time)).collect(),
-                fields: instance.fields.borrow().iter().map(|(id, field)| {
-                    let field_name = game.compiler.get_field_name(*id).unwrap_or("<???>".into());
-                    match field {
-                        Field::Single(value) => ReportField::Single(format!("{}: {}", field_name, value)),
-                        Field::Array(map) => ReportField::Array(
-                            field_name,
-                            map.iter().map(|(index, value)| format!("[{}]: {}", index, value)).collect()
-                        ),
-                    }
-                }).collect(),
+                fields: instance
+                    .fields
+                    .borrow()
+                    .iter()
+                    .map(|(id, field)| {
+                        let field_name = game.compiler.get_field_name(*id).unwrap_or("<???>".into());
+                        match field {
+                            Field::Single(value) => ReportField::Single(format!("{}: {}", field_name, value)),
+                            Field::Array(map) => ReportField::Array(
+                                field_name,
+                                map.iter().map(|(index, value)| format!("[{}]: {}", index, value)).collect(),
+                            ),
+                        }
+                    })
+                    .collect(),
             })
         } else {
             None

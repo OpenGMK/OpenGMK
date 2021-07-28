@@ -1,7 +1,10 @@
-use serde::{ser, Serialize, de, Deserialize};
+use serde::{de, ser, Deserialize, Serialize};
 use std::{
     alloc::{self, alloc, dealloc, Layout},
-    fmt, ops::Drop, ptr::NonNull, slice,
+    fmt,
+    ops::Drop,
+    ptr::NonNull,
+    slice,
 };
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -21,11 +24,7 @@ unsafe impl Sync for PascalString {}
 
 impl PascalString {
     pub fn empty() -> Self {
-        Self {
-            layout: unsafe { Layout::from_size_align_unchecked(0, 4) },
-            len: 0,
-            ptr: None,
-        }
+        Self { layout: unsafe { Layout::from_size_align_unchecked(0, 4) }, len: 0, ptr: None }
     }
 
     pub fn new(bytes: &[u8]) -> Self {
@@ -41,11 +40,7 @@ impl PascalString {
                 *(alloc as *mut [u8; 4]) = (bytes.len() as u32).to_le_bytes();
                 slice::from_raw_parts_mut(alloc.add(4), bytes.len()).copy_from_slice(bytes);
                 *alloc.add(4 + bytes.len()) = 0x00;
-                Self {
-                    layout,
-                    len: bytes.len(),
-                    ptr: Some(NonNull::new_unchecked(alloc)),
-                }
+                Self { layout, len: bytes.len(), ptr: Some(NonNull::new_unchecked(alloc)) }
             } else {
                 alloc::handle_alloc_error(layout)
             }

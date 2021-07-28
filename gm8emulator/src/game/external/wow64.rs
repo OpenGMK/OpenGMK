@@ -1,7 +1,13 @@
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::{env, collections::HashMap, io::{Read, Write}, process, ops::Drop};
-use serde::de;
 use super::{dll, state, ID};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use serde::de;
+use std::{
+    collections::HashMap,
+    env,
+    io::{Read, Write},
+    ops::Drop,
+    process,
+};
 
 const PROCESS_DEFAULT_NAME: &str = "gm8emulator-wow64.exe";
 const PROCESS_ENV_OVERRIDE: &str = "OPENGMK_WOW64_BINARY";
@@ -15,8 +21,7 @@ pub struct IpcExternals {
 
 impl IpcExternals {
     pub fn new() -> Result<Self, String> {
-        let mut process_path = env::current_exe()
-            .expect("failed to query path to current executable");
+        let mut process_path = env::current_exe().expect("failed to query path to current executable");
         process_path.set_file_name(match env::var_os(PROCESS_ENV_OVERRIDE) {
             Some(name) => name,
             None => PROCESS_DEFAULT_NAME.into(),
@@ -28,9 +33,7 @@ impl IpcExternals {
             .map_err(|e| format!("failed to spawn child process: {}", e))?;
         let stdin = child.stdin.take().unwrap();
         let stdout = child.stdout.take().unwrap();
-        Ok(Self {
-            child, msgbuf: Vec::new(), stdin, stdout,
-        })
+        Ok(Self { child, msgbuf: Vec::new(), stdin, stdout })
     }
 
     pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
@@ -73,14 +76,15 @@ impl IpcExternals {
         T: for<'de> de::Deserialize<'de>,
     {
         self.msgbuf.clear();
-        bincode::serialize_into(&mut self.msgbuf, &message)
-            .expect("failed to serialize message (client)");
+        bincode::serialize_into(&mut self.msgbuf, &message).expect("failed to serialize message (client)");
         assert!(self.msgbuf.len() <= u32::max_value() as usize);
-        self.stdin.write_u32::<LE>(self.msgbuf.len() as u32)
+        self.stdin
+            .write_u32::<LE>(self.msgbuf.len() as u32)
             .and_then(|_| self.stdin.write_all(self.msgbuf.as_slice()))
             .and_then(|_| self.stdin.flush())
             .map_err(|io| format!("failed to write to child stdin: {}", io))?;
-        self.stdout.read_u32::<LE>()
+        self.stdout
+            .read_u32::<LE>()
             .and_then(|len| {
                 let length = len as usize;
                 self.msgbuf.clear();

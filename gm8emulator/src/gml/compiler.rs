@@ -370,7 +370,12 @@ impl Compiler {
             },
 
             ast::Expr::Function(function) => {
-                let args = function.params.iter().map(|x| self.compile_ast_expr(&x, locals)).collect::<Vec<_>>().into_boxed_slice();
+                let args = function
+                    .params
+                    .iter()
+                    .map(|x| self.compile_ast_expr(&x, locals))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
 
                 if let Some(script_id) = self.get_script_id(function.name) {
                     Node::Script { args, script_id }

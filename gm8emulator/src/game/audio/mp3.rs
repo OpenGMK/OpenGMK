@@ -1,8 +1,8 @@
 use crate::types::ArraySerde;
 use rmp3::{Decoder, Frame, RawDecoder};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{alloc, sync::Arc};
-use udon::source::{ChannelCount, SampleRate, Sample, Source};
+use udon::source::{ChannelCount, Sample, SampleRate, Source};
 
 /// This MP3 player is deliberately designed to emulate bugs in GameMaker 8. Specifically:
 /// - the sample rate from the first frame is assumed to be the sample rate of the whole file
@@ -172,7 +172,7 @@ impl Source for Mp3Player {
 fn details(mut decoder: Decoder) -> Option<(u16, u32)> {
     while let Some(frame) = decoder.peek() {
         if let Frame::Audio(audio) = frame {
-            return Some((audio.channels(), audio.sample_rate()));
+            return Some((audio.channels(), audio.sample_rate()))
         } else {
             decoder.skip();
         }

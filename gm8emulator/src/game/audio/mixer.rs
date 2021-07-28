@@ -1,6 +1,10 @@
-use udon::{source::{ChannelCount, SampleRate, Sample, Source}};
-use std::{sync::Arc, sync::{atomic::{AtomicU32, Ordering}, mpsc::{self, Receiver, Sender}}};
 use super::SoundParams;
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    mpsc::{self, Receiver, Sender},
+    Arc,
+};
+use udon::source::{ChannelCount, Sample, SampleRate, Source};
 
 const INIT_CAPACITY: usize = 16;
 
@@ -16,15 +20,8 @@ pub struct Mixer {
 }
 
 enum Command {
-    Add {
-        source: Box<dyn Source + Send + 'static>,
-        params: Arc<SoundParams>,
-        id: i32,
-    },
-    AddExclusive {
-        source: Box<dyn Source + Send + 'static>,
-        id: i32,
-    },
+    Add { source: Box<dyn Source + Send + 'static>, params: Arc<SoundParams>, id: i32 },
+    AddExclusive { source: Box<dyn Source + Send + 'static>, id: i32 },
     Stop(i32),
     StopAll,
 }

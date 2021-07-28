@@ -1,5 +1,9 @@
-use serde::{ser::{self, SerializeSeq}, de::{self, SeqAccess, Visitor}, Serialize, Deserialize};
-use std::{any::type_name, fmt, marker::PhantomData, mem, ptr, ops};
+use serde::{
+    de::{self, SeqAccess, Visitor},
+    ser::{self, SerializeSeq},
+    Deserialize, Serialize,
+};
+use std::{any::type_name, fmt, marker::PhantomData, mem, ops, ptr};
 
 /// Represents an object, instance, tile or special values.
 ///
@@ -84,7 +88,10 @@ impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for Arra
                             for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {
                                 ptr::drop_in_place(el);
                             }
-                            return Err(de::Error::invalid_length(i, &format!("a [{}; {}]", type_name::<T>(), N).as_str()))
+                            return Err(de::Error::invalid_length(
+                                i,
+                                &format!("a [{}; {}]", type_name::<T>(), N).as_str(),
+                            ))
                         },
                         Err(err) => unsafe {
                             for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {

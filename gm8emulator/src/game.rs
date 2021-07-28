@@ -39,14 +39,22 @@ use crate::{
     instancelist::{InstanceList, TileList},
     math::Real,
     render::{atlas::AtlasBuilder, Renderer, RendererOptions, Scaling},
+    tile,
     types::{Colour, ID},
-    tile, util,
+    util,
 };
 use encoding_rs::Encoding;
-use gm8exe::asset::{PascalString, extension::{CallingConvention, FileKind, FunctionValueKind}};
+use gm8exe::asset::{
+    extension::{CallingConvention, FileKind, FunctionValueKind},
+    PascalString,
+};
 use includedfile::IncludedFile;
 use indexmap::IndexMap;
-use ramen::{event::Event, monitor::Size, window::{Controls, Window}};
+use ramen::{
+    event::Event,
+    monitor::Size,
+    window::{Controls, Window},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -131,14 +139,14 @@ pub struct Game {
     pub cursor_sprite: i32,       // default -1
     pub cursor_sprite_frame: u32, // default 0
     pub score: i32,               // default 0
-    pub score_capt: gml::String,        // default "Score: "
+    pub score_capt: gml::String,  // default "Score: "
     pub score_capt_d: bool,       // display in caption?
     pub has_set_show_score: bool, // if false, score displays if > 0
     pub lives: i32,               // default -1
-    pub lives_capt: gml::String,        // default "Lives: "
+    pub lives_capt: gml::String,  // default "Lives: "
     pub lives_capt_d: bool,       // display in caption?
     pub health: Real,             // default 100.0
-    pub health_capt: gml::String,       // default "Health: "
+    pub health_capt: gml::String, // default "Health: "
     pub health_capt_d: bool,      // display in caption?
 
     pub error_occurred: bool,
@@ -150,7 +158,7 @@ pub struct Game {
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
     pub open_ini: Option<(ini::Ini, gml::String)>, // keep the filename for writing
-    pub open_file: Option<file::TextHandle>, // for legacy file functions from GM <= 5.1
+    pub open_file: Option<file::TextHandle>,       // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
     pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
     pub parameters: Vec<String>,
@@ -275,14 +283,17 @@ impl Game {
             program_directory = program_directory.trim_start_matches("\\\\?\\");
         }
         // TODO: store these as gml::String probably?
-        eprintln!("launching game\n  > param_string: \"{}\"\n  > program_directory: \"{}\"", param_string, program_directory);
+        eprintln!(
+            "launching game\n  > param_string: \"{}\"\n  > program_directory: \"{}\"",
+            param_string, program_directory
+        );
 
         // Improve framepacing on Windows
         #[cfg(target_os = "windows")]
         {
             #[link(name = "Winmm")]
             extern "system" {
-               fn timeBeginPeriod(uPeriod: u32) -> u32;
+                fn timeBeginPeriod(uPeriod: u32) -> u32;
             }
             unsafe {
                 timeBeginPeriod(1);
@@ -472,7 +483,7 @@ impl Game {
 
         // Register extension function names and constants
         compiler.reserve_extension_functions(
-            extensions.iter().map(|x| x.files.iter().map(|x| x.functions.len()).sum::<usize>()).sum::<usize>()
+            extensions.iter().map(|x| x.files.iter().map(|x| x.functions.len()).sum::<usize>()).sum::<usize>(),
         );
         let mut fn_index = 0;
         let mut const_index = 0;
@@ -498,7 +509,10 @@ impl Game {
         }
 
         // Register user constants
-        constants.iter().enumerate().for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i + const_index));
+        constants
+            .iter()
+            .enumerate()
+            .for_each(|(i, x)| compiler.register_user_constant(x.name.0.clone(), i + const_index));
 
         // Set up a Renderer
         let options = RendererOptions {
@@ -558,7 +572,9 @@ impl Game {
         // Code compiling starts here. The order in which things are compiled is important for
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
 
-        let mut extension_functions = Vec::with_capacity(extensions.iter().map(|x| x.files.iter().map(|f| f.functions.len()).sum::<usize>()).sum::<usize>());
+        let mut extension_functions = Vec::with_capacity(
+            extensions.iter().map(|x| x.files.iter().map(|f| f.functions.len()).sum::<usize>()).sum::<usize>(),
+        );
         for extension in extensions.iter() {
             temp_directory.push(&*String::from_utf8_lossy(extension.folder_name.0.as_ref()));
             std::fs::create_dir_all(&temp_directory)?;
@@ -583,12 +599,7 @@ impl Game {
                                 Version::GameMaker8_1 => encoding_rs::UTF_8,
                             });
                             if let Some(dummy) = external::should_dummy(dll, &*sym, play_type) {
-                                match externals.define_dummy(
-                                    dll,
-                                    sym,
-                                    dummy,
-                                    function.arg_count as _,
-                                ) {
+                                match externals.define_dummy(dll, sym, dummy, function.arg_count as _) {
                                     Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
                                     Err(e) => {
                                         println!(
@@ -606,7 +617,8 @@ impl Game {
                                         CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
                                         _ => external::dll::CallConv::Stdcall,
                                     },
-                                    function.arg_types
+                                    function
+                                        .arg_types
                                         .iter()
                                         .take(function.arg_count as usize)
                                         .map(|x| match x {
@@ -614,8 +626,7 @@ impl Game {
                                             FunctionValueKind::GMString => external::dll::ValueType::Str,
                                         })
                                         .collect::<Vec<_>>()
-                                        .as_slice()
-                                    ,
+                                        .as_slice(),
                                     match function.return_type {
                                         FunctionValueKind::GMReal => external::dll::ValueType::Real,
                                         FunctionValueKind::GMString => external::dll::ValueType::Str,
@@ -623,7 +634,10 @@ impl Game {
                                 ) {
                                     Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
                                     Err(e) => {
-                                        println!("WARNING: failed to load extension function {} (from {}): {}", function.name, dll_name, e);
+                                        println!(
+                                            "WARNING: failed to load extension function {} (from {}): {}",
+                                            function.name, dll_name, e
+                                        );
                                         extension_functions.push(None);
                                     },
                                 }
@@ -644,12 +658,14 @@ impl Game {
                             };
 
                             let len = define_string.len() + function_name.len() + 1;
-                            match file.contents.as_ref()
+                            match file
+                                .contents
+                                .as_ref()
                                 .windows(len)
                                 .position(|x| {
-                                    &x[..define_string.len()] == define_string &&
-                                    &x[define_string.len()..(len - 1)] == function_name &&
-                                    (x[len - 1] == 10 || x[len - 1] == 13)
+                                    &x[..define_string.len()] == define_string
+                                        && &x[define_string.len()..(len - 1)] == function_name
+                                        && (x[len - 1] == 10 || x[len - 1] == 13)
                                 })
                                 .map(|x| x + len)
                             {
@@ -665,7 +681,10 @@ impl Game {
                                     extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
                                 },
                                 None => {
-                                    println!("WARNING: failed to load extension function {} (from {})", function.name, file.name);
+                                    println!(
+                                        "WARNING: failed to load extension function {} (from {})",
+                                        function.name, file.name
+                                    );
                                     extension_functions.push(None);
                                 },
                             }
@@ -685,7 +704,9 @@ impl Game {
             temp_directory.pop();
         }
 
-        let sounds = sounds.into_iter().enumerate()
+        let sounds = sounds
+            .into_iter()
+            .enumerate()
             .map(|(sound_id, o)| {
                 o.map(|b| {
                     use asset::sound::FileType;
@@ -717,7 +738,7 @@ impl Game {
                                     );
                                     FileType::None
                                 },
-                            }
+                            },
                             _ => FileType::None,
                         },
                         None => FileType::None,
@@ -729,7 +750,8 @@ impl Game {
                         gml_preload: f64::from(u8::from(b.preload)).into(),
                     })
                 })
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let sprites = sprites
             .into_iter()
@@ -1268,7 +1290,10 @@ impl Game {
             for file in extension.files {
                 for constant in file.consts {
                     let expr = game.compiler.compile_expression(&constant.value.0)?;
-                    let dummy_instance = game.room.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+                    let dummy_instance = game
+                        .room
+                        .instance_list
+                        .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
                     let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
                     game.constants.push(value);
                     game.room.instance_list.remove_dummy(dummy_instance);
@@ -1278,7 +1303,10 @@ impl Game {
 
         for c in &constants {
             let expr = game.compiler.compile_expression(&c.expression.0)?;
-            let dummy_instance = game.room.instance_list.insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = game
+                .room
+                .instance_list
+                .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let value = game.eval(&expr, &mut Context::with_single_instance(dummy_instance))?;
             game.constants.push(value);
             game.room.instance_list.remove_dummy(dummy_instance);
@@ -1432,7 +1460,7 @@ impl Game {
                         caption: room.caption.clone(),
                         persistent: room.persistent,
                     },
-                    false
+                    false,
                 )
             }
         } else {
@@ -1522,11 +1550,8 @@ impl Game {
         }
 
         // Load all instances in new room, unless they already exist due to persistence
-        let mut new_handles: Vec<(usize, &asset::room::Instance)> = if is_stored {
-            Vec::new()
-        } else {
-            Vec::with_capacity(room.instances.len())
-        };
+        let mut new_handles: Vec<(usize, &asset::room::Instance)> =
+            if is_stored { Vec::new() } else { Vec::with_capacity(room.instances.len()) };
         if !is_stored {
             for instance in room.instances.iter() {
                 if self.room.instance_list.get_by_instid(instance.id).is_none() {
@@ -1586,7 +1611,10 @@ impl Game {
 
         // Run room creation code
         if !is_stored {
-            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self
+                .room
+                .instance_list
+                .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let mut new_context = Context::with_single_instance(dummy_instance);
             self.execute(&room.creation_code?, &mut new_context)?;
             self.room.instance_list.remove_dummy(dummy_instance);
@@ -1911,8 +1939,9 @@ impl Game {
     /// Runs an ExtensionFunction by its ID
     pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(sym, id)) => {
-                self.externals.call(
+            Some(ExtensionFunction::Dll(sym, id)) => self
+                .externals
+                .call(
                     *id,
                     (&context.arguments[..context.argument_count])
                         .iter()
@@ -1921,9 +1950,8 @@ impl Game {
                         .collect::<Vec<_>>()
                         .as_slice(),
                 )
-                    .map(gml::Value::from)
-                    .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err))
-            },
+                .map(gml::Value::from)
+                .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err)),
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
                 self.execute(&instructions, &mut context)?;
@@ -1937,7 +1965,10 @@ impl Game {
     pub fn init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Library initialization code
         for i in 0..self.library_init_strings.len() {
-            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self
+                .room
+                .instance_list
+                .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let instructions = self.compiler.compile(&self.library_init_strings[i])?;
             self.execute(&instructions, &mut Context::with_single_instance(dummy_instance))?;
             self.room.instance_list.remove_dummy(dummy_instance);
@@ -1945,7 +1976,10 @@ impl Game {
 
         // Extension initializers
         for i in 0..self.extension_initializers.len() {
-            let dummy_instance = self.room.instance_list.insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
+            let dummy_instance = self
+                .room
+                .instance_list
+                .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             self.run_extension_function(self.extension_initializers[i], Context::with_single_instance(dummy_instance))?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }

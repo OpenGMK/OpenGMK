@@ -3,9 +3,13 @@
 // Note to self: ImGui's popup API is bugged and doesn't do anything, don't use it. Make your own.
 // Current hours wasted trying to use popup API in this file: 4
 
-use cimgui_sys as c;
 use crate::types::Colour;
-use std::{ops, ptr::{self, NonNull}, slice};
+use cimgui_sys as c;
+use std::{
+    ops,
+    ptr::{self, NonNull},
+    slice,
+};
 
 pub struct Context {
     cbuf: Vec<u8>,
@@ -93,15 +97,15 @@ impl Frame<'_> {
         }
     }
 
-    pub fn setup_next_window(&mut self, default_pos: Vec2<f32>, default_size: Option<Vec2<f32>>, min_size: Option<Vec2<f32>>) {
+    pub fn setup_next_window(
+        &mut self,
+        default_pos: Vec2<f32>,
+        default_size: Option<Vec2<f32>>,
+        min_size: Option<Vec2<f32>>,
+    ) {
         unsafe {
             if let Some(min) = min_size {
-                c::igSetNextWindowSizeConstraints(
-                    min.into(),
-                    (*c::igGetIO()).DisplaySize,
-                    None,
-                    std::ptr::null_mut(),
-                );
+                c::igSetNextWindowSizeConstraints(min.into(), (*c::igGetIO()).DisplaySize, None, std::ptr::null_mut());
             }
             if let Some(size) = default_size {
                 c::igSetNextWindowSize(size.into(), 4);
@@ -124,8 +128,8 @@ impl Frame<'_> {
         self._begin(
             name,
             is_open,
-            if menu_bar { c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar } else { 0 } |
-                if !resizable { c::ImGuiWindowFlags__ImGuiWindowFlags_NoResize } else { 0 }
+            if menu_bar { c::ImGuiWindowFlags__ImGuiWindowFlags_MenuBar } else { 0 }
+                | if !resizable { c::ImGuiWindowFlags__ImGuiWindowFlags_NoResize } else { 0 },
         )
     }
 
@@ -135,10 +139,18 @@ impl Frame<'_> {
             let mut size = std::mem::MaybeUninit::uninit();
             c::igGetWindowSize(size.as_mut_ptr());
             let size = size.assume_init();
-            c::igSetWindowPosStr("__popup\0".as_ptr() as _, c::ImVec2 {
-                x: pos.0.min((*c::igGetIO()).DisplaySize.x - size.x),
-                y: if pos.1 + size.y > (*c::igGetIO()).DisplaySize.y && pos.1 >= size.y { pos.1 - size.y } else { pos.1 },
-            }, 0);
+            c::igSetWindowPosStr(
+                "__popup\0".as_ptr() as _,
+                c::ImVec2 {
+                    x: pos.0.min((*c::igGetIO()).DisplaySize.x - size.x),
+                    y: if pos.1 + size.y > (*c::igGetIO()).DisplaySize.y && pos.1 >= size.y {
+                        pos.1 - size.y
+                    } else {
+                        pos.1
+                    },
+                },
+                0,
+            );
             if c::igIsWindowAppearing() {
                 c::igSetWindowFocusNil();
             }
@@ -237,7 +249,11 @@ impl Frame<'_> {
         unsafe { cimgui_sys::igMenuItemBool(self.cstr(), std::ptr::null(), false, true) }
     }
 
-    pub fn callback<T>(&mut self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T) {
+    pub fn callback<T>(
+        &mut self,
+        callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd),
+        data_ptr: &mut T,
+    ) {
         unsafe {
             c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
         }
@@ -248,7 +264,7 @@ impl Frame<'_> {
     }
 
     pub fn key_released(&self, code: u8) -> bool {
-        unsafe {c::igIsKeyReleased(code.into()) }
+        unsafe { c::igIsKeyReleased(code.into()) }
     }
 
     pub fn mouse_pos(&self) -> Vec2<f32> {
@@ -328,14 +344,13 @@ impl Frame<'_> {
                 c::igSetNextWindowPos(
                     Vec2(f32::from(screen_size.x) / 2.0, f32::from(screen_size.y) / 2.0).into(),
                     0,
-                    Vec2(0.5, 0.5).into()
+                    Vec2(0.5, 0.5).into(),
                 );
                 c::igBegin("Information\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0111_1110);
                 self.text(message);
                 c::igEnd();
                 true
             }
-
         }
     }
 
@@ -351,19 +366,13 @@ impl IO {
             let mut width = 0;
             let mut height = 0;
             let mut bpp = 0;
-            c::ImFontAtlas_GetTexDataAsRGBA32(
-                self.0.Fonts,
-                &mut data, &mut width, &mut height, &mut bpp,
-            );
+            c::ImFontAtlas_GetTexDataAsRGBA32(self.0.Fonts, &mut data, &mut width, &mut height, &mut bpp);
             assert!(!data.is_null());
             assert!(width >= 0);
             assert!(height >= 0);
             assert!(bpp > 0);
             FontData {
-                data: slice::from_raw_parts(
-                    data,
-                    width as usize * height as usize * bpp as usize,
-                ),
+                data: slice::from_raw_parts(data, width as usize * height as usize * bpp as usize),
                 size: (width as u32, height as u32),
             }
         }
@@ -440,15 +449,23 @@ impl From<c::ImVec2> for Vec2<f32> {
     }
 }
 
-impl<T, O> std::ops::Add for Vec2<T> where T: std::ops::Add<Output = O> {
+impl<T, O> std::ops::Add for Vec2<T>
+where
+    T: std::ops::Add<Output = O>,
+{
     type Output = Vec2<O>;
+
     fn add(self, rhs: Self) -> Self::Output {
         Vec2(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 
-impl<T, O> std::ops::Sub for Vec2<T> where T: std::ops::Sub<Output = O> {
+impl<T, O> std::ops::Sub for Vec2<T>
+where
+    T: std::ops::Sub<Output = O>,
+{
     type Output = Vec2<O>;
+
     fn sub(self, rhs: Self) -> Self::Output {
         Vec2(self.0 - rhs.0, self.1 - rhs.1)
     }

@@ -281,10 +281,8 @@ pub fn scale(input: &mut RgbaImage, width: u32, height: u32) {
         let mut output_vec = Vec::with_capacity((width * height * 4) as usize);
         for y in 0..height {
             for x in 0..width {
-                let px = input.get_pixel(
-                    (Real::from(x) / xscale).floor().to_u32(),
-                    (Real::from(y) / yscale).floor().to_u32(),
-                );
+                let px = input
+                    .get_pixel((Real::from(x) / xscale).floor().to_u32(), (Real::from(y) / yscale).floor().to_u32());
                 // this makes lerping uglier but it's accurate to GM8
                 if px[3] > 0 {
                     output_vec.extend_from_slice(px.channels());

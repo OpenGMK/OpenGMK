@@ -10,8 +10,8 @@ mod wow64;
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 use self::wow64::IpcExternals;
 
+use self::dll::{CallConv, ValueType};
 use crate::{game::PlayType, types::ID};
-use self::{dll::{CallConv, ValueType}};
 use std::{collections::HashMap, path::Path};
 
 pub enum ExternalManager {
@@ -37,11 +37,7 @@ macro_rules! dispatch {
 impl ExternalManager {
     #[inline]
     pub fn new(emulate: bool) -> Result<Self, String> {
-        if emulate {
-            todo!()
-        } else {
-            Self::new_native()
-        }
+        if emulate { todo!() } else { Self::new_native() }
     }
 
     #[cfg(all(target_os = "windows", target_arch = "x86"))]
@@ -100,10 +96,7 @@ impl ExternalManager {
 }
 
 pub fn should_dummy(dll: &str, sym: &str, play_type: PlayType) -> Option<dll::Value> {
-    let dll = Path::new(dll)
-        .file_name()
-        .and_then(|oss| oss.to_str())
-        .unwrap_or(dll);
+    let dll = Path::new(dll).file_name().and_then(|oss| oss.to_str()).unwrap_or(dll);
 
     let mut dummy = None;
     if play_type == PlayType::Record {
@@ -113,10 +106,7 @@ pub fn should_dummy(dll: &str, sym: &str, play_type: PlayType) -> Option<dll::Va
             } else {
                 dummy = Some(dll::Value::Real(0.0));
             }
-        } else if
-            dll.eq_ignore_ascii_case("ssound.dll") ||
-            dll.eq_ignore_ascii_case("supersound.dll")
-        {
+        } else if dll.eq_ignore_ascii_case("ssound.dll") || dll.eq_ignore_ascii_case("supersound.dll") {
             if sym == "SS_Init" {
                 dummy = Some(dll::Value::Str(dll::PascalString::new(b"Yes")));
             } else {

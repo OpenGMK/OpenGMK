@@ -341,9 +341,11 @@ impl Instance {
                 // Set left to whichever x is lowest, right to whichever x is highest,
                 // top to whichever y is lowest, and bottom to whichever y is highest.
                 self.bbox_left.set(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x))).round().to_i32());
-                self.bbox_right.set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round().to_i32());
+                self.bbox_right
+                    .set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round().to_i32());
                 self.bbox_top.set(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y))).round().to_i32());
-                self.bbox_bottom.set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round().to_i32());
+                self.bbox_bottom
+                    .set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round().to_i32());
             } else {
                 // No valid collider provided - set default values and return
                 self.bbox_top.set(BBOX_DEFAULT);

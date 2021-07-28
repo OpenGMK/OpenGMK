@@ -549,11 +549,7 @@ impl RendererImpl {
                 sprite_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
-                framebuffer: Framebuffer {
-                    texture: framebuffer_texture,
-                    zbuf: framebuffer_zbuf,
-                    fbo: framebuffer_fbo,
-                },
+                framebuffer: Framebuffer { texture: framebuffer_texture, zbuf: framebuffer_zbuf, fbo: framebuffer_fbo },
                 stored_framebuffer: None,
                 zbuf_format,
                 zbuf_trashed: false,
@@ -1358,11 +1354,7 @@ impl RendererTrait for RendererImpl {
                     self.gl.DeleteTextures(1, &framebuffer.zbuf);
                     self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
                 }
-                self.stored_framebuffer = Some(Framebuffer {
-                    texture: old_tex,
-                    zbuf: old_zbuf,
-                    fbo: old_fbo,
-                });
+                self.stored_framebuffer = Some(Framebuffer { texture: old_tex, zbuf: old_zbuf, fbo: old_fbo });
             } else {
                 // delete old texture and fbo
                 self.gl.DeleteTextures(1, &old_tex);
@@ -1446,7 +1438,15 @@ impl RendererTrait for RendererImpl {
                 let mut data: Vec<u8> = Vec::with_capacity(len);
                 data.set_len(len);
                 self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
-                self.gl.ReadPixels(0, 0, width as _, height as _, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+                self.gl.ReadPixels(
+                    0,
+                    0,
+                    width as _,
+                    height as _,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    data.as_mut_ptr().cast(),
+                );
                 assert_eq!(self.gl.GetError(), 0);
                 data.into_boxed_slice()
             }
@@ -1519,21 +1519,9 @@ impl RendererTrait for RendererImpl {
             assert_eq!(self.gl.GetError(), 0);
 
             self.gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
-            self.gl.FramebufferTexture2D(
-                gl::READ_FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                texture,
-                0,
-            );
+            self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, texture, 0);
             assert_eq!(self.gl.GetError(), 0);
-            self.gl.FramebufferTexture2D(
-                gl::READ_FRAMEBUFFER,
-                gl::DEPTH_ATTACHMENT,
-                gl::TEXTURE_2D,
-                zbuffer,
-                0,
-            );
+            self.gl.FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, zbuffer, 0);
 
             if let Some(framebuffer) = &self.stored_framebuffer {
                 self.gl.DeleteTextures(1, &framebuffer.texture);
@@ -1541,11 +1529,7 @@ impl RendererTrait for RendererImpl {
                 self.gl.DeleteFramebuffers(1, &framebuffer.fbo);
             }
 
-            self.stored_framebuffer = Some(Framebuffer {
-                fbo,
-                texture,
-                zbuf: zbuffer,
-            });
+            self.stored_framebuffer = Some(Framebuffer { fbo, texture, zbuf: zbuffer });
 
             assert_eq!(self.gl.GetError(), 0);
         }
@@ -2474,8 +2458,8 @@ impl RendererTrait for RendererImpl {
 
     fn stored_size(&self) -> (u32, u32) {
         use std::convert::TryFrom;
-        self.stored_framebuffer.map(|framebuffer| {
-            unsafe {
+        self.stored_framebuffer
+            .map(|framebuffer| unsafe {
                 let (mut width, mut height) = (0, 0);
                 self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
                 self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
@@ -2484,8 +2468,8 @@ impl RendererTrait for RendererImpl {
                     u32::try_from(width).expect("Negative width reported by OpenGL"),
                     u32::try_from(height).expect("Negative height reported by OpenGL"),
                 )
-            }
-        }).unwrap_or((0, 0))
+            })
+            .unwrap_or((0, 0))
     }
 
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {

@@ -1,5 +1,7 @@
-use crate::math::Real;
-use crate::render::{atlas::AtlasRef, PrimitiveType, Renderer, VertexBuffer};
+use crate::{
+    math::Real,
+    render::{atlas::AtlasRef, PrimitiveType, Renderer, VertexBuffer},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

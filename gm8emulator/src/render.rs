@@ -3,8 +3,8 @@
 pub mod atlas;
 mod opengl;
 
-use atlas::AtlasRef;
 use crate::types::Colour;
+use atlas::AtlasRef;
 use ramen::window::Window;
 use serde::{Deserialize, Serialize};
 use std::any::Any;

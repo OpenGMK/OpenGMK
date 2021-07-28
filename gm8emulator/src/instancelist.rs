@@ -31,11 +31,9 @@ struct ChunkList<T>(Vec<Chunk<T>>);
 impl<T> Chunk<T> {
     // TODO: This is somewhat annoying. See the similar comment in 'handleman'.
     const NONE_INIT: Option<T> = None;
+
     pub fn new() -> Self {
-        Self {
-            slots: Box::new([Self::NONE_INIT; CHUNK_SIZE]),
-            vacant: CHUNK_SIZE,
-        }
+        Self { slots: Box::new([Self::NONE_INIT; CHUNK_SIZE]), vacant: CHUNK_SIZE }
     }
 }
 

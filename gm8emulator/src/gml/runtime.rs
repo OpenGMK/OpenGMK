@@ -1012,12 +1012,20 @@ impl Game {
             InstanceVariable::BackgroundVisible => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).visible.into())
             },
-            InstanceVariable::BackgroundForeground => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).is_foreground.into())
-            },
-            InstanceVariable::BackgroundIndex => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id.into())
-            },
+            InstanceVariable::BackgroundForeground => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .is_foreground
+                .into()),
+            InstanceVariable::BackgroundIndex => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .background_id
+                .into()),
             InstanceVariable::BackgroundX => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).x_offset.into())
             },
@@ -1025,23 +1033,33 @@ impl Game {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).y_offset.into())
             },
             InstanceVariable::BackgroundWidth => {
-                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
+                let index =
+                    self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
             },
             InstanceVariable::BackgroundHeight => {
-                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
+                let index =
+                    self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) {
                     Ok(bg.height.into())
                 } else {
                     Ok(0.into())
                 }
             },
-            InstanceVariable::BackgroundHtiled => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_horizontal.into())
-            },
-            InstanceVariable::BackgroundVtiled => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_vertical.into())
-            },
+            InstanceVariable::BackgroundHtiled => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .tile_horizontal
+                .into()),
+            InstanceVariable::BackgroundVtiled => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .tile_vertical
+                .into()),
             InstanceVariable::BackgroundXscale => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).xscale.into())
             },

@@ -84,20 +84,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         //   They're also more compact than multiple spaces.
         // * To prevent excessive spaces before '/>' in single (self-closing) tags,
         //   they must reside on the same line with the last attribute.
-        let manifest = { let mut last = '\0';
+        let manifest = {
+            let mut last = '\0';
             fs::read_to_string("data/gm8emulator.exe.manifest")?
                 .chars()
                 .filter_map(|x| match x {
                     '\r' | '\t' => None,
-                    '\n' => if last != '>' { Some(' ') } else { None },
-                    _ => { last = x; Some(x) },
-                }).collect::<String>()
+                    '\n' => {
+                        if last != '>' {
+                            Some(' ')
+                        } else {
+                            None
+                        }
+                    },
+                    _ => {
+                        last = x;
+                        Some(x)
+                    },
+                })
+                .collect::<String>()
         };
 
-        winres::WindowsResource::new()
-            .set_icon("../assets/logo/opengmk.ico")
-            .set_manifest(&manifest)
-            .compile()?;
+        winres::WindowsResource::new().set_icon("../assets/logo/opengmk.ico").set_manifest(&manifest).compile()?;
     }
 
     Ok(())

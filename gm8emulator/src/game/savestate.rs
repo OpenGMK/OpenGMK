@@ -1,16 +1,8 @@
 use crate::{
     game::{
-        audio::AudioState,
-        draw,
-        external,
-        includedfile::IncludedFile,
-        model::Model,
-        particle,
-        pathfinding::PotentialStepSettings,
-        RoomState,
-        surface::Surface,
-        transition::UserTransition,
-        Assets, Game, Replay, Version,
+        audio::AudioState, draw, external, includedfile::IncludedFile, model::Model, particle,
+        pathfinding::PotentialStepSettings, surface::Surface, transition::UserTransition, Assets, Game, Replay,
+        RoomState, Version,
     },
     gml::{self, ds, rand::Random, Compiler},
     handleman::HandleList,
@@ -20,7 +12,7 @@ use crate::{
     render::{RendererState, SavedTexture, Scaling},
     types::{Colour, ID},
 };
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use indexmap::IndexMap;
 use lzzzz::lz4;
 use serde::{Deserialize, Serialize};
@@ -231,21 +223,10 @@ impl SaveState {
             game.externals.ss_set_id(*id).unwrap();
             match state {
                 external::state::State::DummyExternal { dll, symbol, dummy, argc } => {
-                    game.externals.define_dummy(
-                        &dll,
-                        &symbol,
-                        dummy.clone(),
-                        *argc,
-                    ).unwrap();
+                    game.externals.define_dummy(&dll, &symbol, dummy.clone(), *argc).unwrap();
                 },
                 external::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
-                    game.externals.define(
-                        &dll,
-                        &symbol,
-                        *call_conv,
-                        type_args,
-                        *type_return,
-                    ).unwrap();
+                    game.externals.define(&dll, &symbol, *call_conv, type_args, *type_return).unwrap();
                 },
             }
         }
@@ -333,25 +314,25 @@ impl SaveState {
                 buffer.lz4_buf.clear();
                 buffer.lz4_buf.reserve(init_size);
                 match file.read_to_end(&mut buffer.lz4_buf) {
-                    Ok(_) => match (
-                        buffer.lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize),
-                        buffer.lz4_buf.get(8..),
-                    ) {
-                        (Ok(len), Some(block)) => {
-                            buffer.bin_buf.clear();
-                            buffer.bin_buf.reserve(len);
-                            unsafe { buffer.bin_buf.set_len(len) };
-                            match lz4::decompress(block, buffer.bin_buf.as_mut_slice()) {
-                                Ok(len) => {
-                                    unsafe { buffer.bin_buf.set_len(len) };
-                                    bincode::deserialize::<'_, SaveState>(buffer.bin_buf.as_slice())
-                                        .map_err(ReadError::DeserializeErr)
-                                },
-                                Err(err) => Err(ReadError::DecompressErr(err)),
-                            }
-                        },
-                        (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
-                        (Err(err), _) => Err(ReadError::IOErr(err)),
+                    Ok(_) => {
+                        match (buffer.lz4_buf.as_slice().read_u64::<LE>().map(|x| x as usize), buffer.lz4_buf.get(8..))
+                        {
+                            (Ok(len), Some(block)) => {
+                                buffer.bin_buf.clear();
+                                buffer.bin_buf.reserve(len);
+                                unsafe { buffer.bin_buf.set_len(len) };
+                                match lz4::decompress(block, buffer.bin_buf.as_mut_slice()) {
+                                    Ok(len) => {
+                                        unsafe { buffer.bin_buf.set_len(len) };
+                                        bincode::deserialize::<'_, SaveState>(buffer.bin_buf.as_slice())
+                                            .map_err(ReadError::DeserializeErr)
+                                    },
+                                    Err(err) => Err(ReadError::DecompressErr(err)),
+                                }
+                            },
+                            (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
+                            (Err(err), _) => Err(ReadError::IOErr(err)),
+                        }
                     },
                     Err(err) => Err(ReadError::IOErr(err)),
                 }
@@ -367,22 +348,12 @@ impl SaveState {
         buffer.lz4_buf.clear();
         match bincode::serialize_into(&mut buffer.bin_buf, self) {
             Ok(()) => {
-                match lz4::compress_to_vec(
-                    buffer.bin_buf.as_slice(),
-                    buffer.lz4_buf.as_mut(),
-                    lz4::ACC_LEVEL_DEFAULT,
-                ) {
+                match lz4::compress_to_vec(buffer.bin_buf.as_slice(), buffer.lz4_buf.as_mut(), lz4::ACC_LEVEL_DEFAULT) {
                     Ok(_length) => {
-                        match OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open(path)
-                            .and_then(|mut f| {
-                                f.write_u64::<LE>(buffer.bin_buf.len() as u64)
-                                    .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
-                            })
-                        {
+                        match OpenOptions::new().create(true).write(true).truncate(true).open(path).and_then(|mut f| {
+                            f.write_u64::<LE>(buffer.bin_buf.len() as u64)
+                                .and_then(|_| f.write_all(buffer.lz4_buf.as_slice()))
+                        }) {
                             Ok(()) => Ok(()),
                             Err(e) => Err(WriteError::IOErr(e)),
                         }
@@ -402,10 +373,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new() -> Self {
-        Self {
-            bin_buf: Vec::new(),
-            lz4_buf: Vec::new(),
-        }
+        Self { bin_buf: Vec::new(), lz4_buf: Vec::new() }
     }
 }
 

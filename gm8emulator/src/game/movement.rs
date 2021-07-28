@@ -68,11 +68,8 @@ impl Game {
                 if new_position <= Real::from(0.0) || new_position >= Real::from(1.0) {
                     // Path end
                     let reversed = new_position < Real::from(0.0);
-                    let opposite_position = if reversed {
-                        new_position + Real::from(1.0)
-                    } else {
-                        new_position - Real::from(1.0)
-                    };
+                    let opposite_position =
+                        if reversed { new_position + Real::from(1.0) } else { new_position - Real::from(1.0) };
                     match instance.path_endaction.get() {
                         1 => {
                             // Continue from start

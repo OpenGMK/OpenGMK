@@ -1,12 +1,15 @@
 #![allow(bad_style)]
 
+use super::{dll, state, ID};
 use libffi::middle as ffi;
-use super::{ID, dll, state};
 use std::{
     collections::HashMap,
     ffi::{c_void, CStr, CString, OsStr, OsString},
     iter::once,
-    os::{raw::c_char, windows::ffi::{OsStrExt, OsStringExt}},
+    os::{
+        raw::c_char,
+        windows::ffi::{OsStrExt, OsStringExt},
+    },
 };
 
 const FFI_STDCALL: u32 = 2;
@@ -38,7 +41,6 @@ extern "system" {
     fn GetCurrentProcess() -> HANDLE;
     fn VirtualProtect(lpAddress: *mut c_void, dwSize: SIZE_T, flNewProtect: DWORD, lpflOldProtect: *mut DWORD) -> BOOL;
 }
-
 
 impl From<dll::ValueType> for ffi::Type {
     fn from(t: dll::ValueType) -> Self {
@@ -90,12 +92,7 @@ enum FfiData {
 
 impl NativeExternals {
     pub fn new() -> Result<Self, String> {
-        Ok(Self {
-            buf_ffi_data: Vec::new(),
-            buf_ffi_arg: Vec::new(),
-            defs: Default::default(),
-            id: 0,
-        })
+        Ok(Self { buf_ffi_data: Vec::new(), buf_ffi_arg: Vec::new(), defs: Default::default(), id: 0 })
     }
 
     pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
@@ -128,31 +125,20 @@ impl NativeExternals {
                 }
 
                 self.buf_ffi_data.clear();
-                self.buf_ffi_data.extend(
-                    args
-                        .iter()
-                        .zip(external.type_args.iter())
-                        .map(|(arg, ty)| match (arg, ty) {
-                            (dll::Value::Real(x), dll::ValueType::Real)
-                                => FfiData::Real(*x),
-                            (dll::Value::Real(_), dll::ValueType::Str)
-                                => FfiData::Str(dll::PascalString::empty().as_ptr().cast()),
-                            (dll::Value::Str(x), dll::ValueType::Str)
-                                => FfiData::Str(x.as_ptr().cast()),
-                            (dll::Value::Str(_), dll::ValueType::Real)
-                                => FfiData::Real(0.0),
-                        })
-                );
+                self.buf_ffi_data.extend(args.iter().zip(external.type_args.iter()).map(|(arg, ty)| match (arg, ty) {
+                    (dll::Value::Real(x), dll::ValueType::Real) => FfiData::Real(*x),
+                    (dll::Value::Real(_), dll::ValueType::Str) => {
+                        FfiData::Str(dll::PascalString::empty().as_ptr().cast())
+                    },
+                    (dll::Value::Str(x), dll::ValueType::Str) => FfiData::Str(x.as_ptr().cast()),
+                    (dll::Value::Str(_), dll::ValueType::Real) => FfiData::Real(0.0),
+                }));
 
                 self.buf_ffi_arg.clear();
-                self.buf_ffi_arg.extend(
-                    self.buf_ffi_data
-                        .iter()
-                        .map(|data| match data {
-                            FfiData::Real(x) => ffi::Arg::new(x),
-                            FfiData::Str(s) => ffi::Arg::new(s),
-                        })
-                );
+                self.buf_ffi_arg.extend(self.buf_ffi_data.iter().map(|data| match data {
+                    FfiData::Real(x) => ffi::Arg::new(x),
+                    FfiData::Str(s) => ffi::Arg::new(s),
+                }));
 
                 unsafe {
                     Ok(match external.type_return {
@@ -211,12 +197,18 @@ impl NativeExternals {
                 .into_cif();
 
             let id = self.id;
-            self.defs.insert(id, External::Dll(DllExternal {
-                cif, code_ptr, type_return, call_conv,
-                type_args: type_args.to_vec(),
-                dll: dll.into(),
-                symbol: symbol.into(),
-            }));
+            self.defs.insert(
+                id,
+                External::Dll(DllExternal {
+                    cif,
+                    code_ptr,
+                    type_return,
+                    call_conv,
+                    type_args: type_args.to_vec(),
+                    dll: dll.into(),
+                    symbol: symbol.into(),
+                }),
+            );
             self.id += 1;
             Ok(id)
         }
@@ -224,12 +216,7 @@ impl NativeExternals {
 
     pub fn define_dummy(&mut self, dll: &str, symbol: &str, dummy: dll::Value, argc: usize) -> Result<ID, String> {
         let id = self.id;
-        self.defs.insert(id, External::Dummy(DummyExternal {
-            dll: dll.into(),
-            symbol: symbol.into(),
-            dummy,
-            argc,
-        }));
+        self.defs.insert(id, External::Dummy(DummyExternal { dll: dll.into(), symbol: symbol.into(), dummy, argc }));
         self.id += 1;
         Ok(id)
     }
@@ -265,14 +252,12 @@ impl NativeExternals {
                             type_return: *type_return,
                         })
                     },
-                    External::Dummy(DummyExternal { dll, symbol, dummy, argc }) => {
-                        (*id, state::State::DummyExternal {
-                            dll: dll.clone(),
-                            symbol: symbol.clone(),
-                            dummy: dummy.clone(),
-                            argc: *argc,
-                        })
-                    },
+                    External::Dummy(DummyExternal { dll, symbol, dummy, argc }) => (*id, state::State::DummyExternal {
+                        dll: dll.clone(),
+                        symbol: symbol.clone(),
+                        dummy: dummy.clone(),
+                        argc: *argc,
+                    }),
                 })
                 .collect(),
             self.id,

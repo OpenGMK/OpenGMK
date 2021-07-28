@@ -1,19 +1,27 @@
 mod mixer;
 mod mp3;
 
-use serde::{Serialize, Deserialize};
-use std::{collections::HashMap, sync::{Arc, atomic::{AtomicU32, Ordering}}};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+};
 use udon::{
     cycle::Cycle,
     rechanneler::Rechanneler,
     resampler::Resampler,
     session::{Api, Session},
     source::{ChannelCount, SampleRate, Source},
-    wav::WavPlayer
+    wav::WavPlayer,
 };
 
-use self::mp3::Mp3Player;
-use self::mixer::{Mixer, MixerHandle};
+use self::{
+    mixer::{Mixer, MixerHandle},
+    mp3::Mp3Player,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Mp3Handle {
@@ -75,16 +83,23 @@ impl AudioManager {
         Mp3Player::new(file).map(|player| Mp3Handle { player, id: sound_id }).ok()
     }
 
-    pub fn add_wav(&mut self, file: Box<[u8]>, sound_id: i32, volume: f64, use_3d: bool, exclusive: bool) -> Option<WavHandle> {
-        WavPlayer::new(file).map(|player| WavHandle {
-            player,
-            params: Arc::new(SoundParams {
-                volume: AtomicU32::new(make_volume(volume).to_bits()),
-            }),
-            _use_3d: use_3d,
-            exclusive,
-            id: sound_id,
-        }).ok()
+    pub fn add_wav(
+        &mut self,
+        file: Box<[u8]>,
+        sound_id: i32,
+        volume: f64,
+        use_3d: bool,
+        exclusive: bool,
+    ) -> Option<WavHandle> {
+        WavPlayer::new(file)
+            .map(|player| WavHandle {
+                player,
+                params: Arc::new(SoundParams { volume: AtomicU32::new(make_volume(volume).to_bits()) }),
+                _use_3d: use_3d,
+                exclusive,
+                id: sound_id,
+            })
+            .ok()
     }
 
     pub fn play_mp3(&mut self, handle: &Mp3Handle, start_time: u128) {
@@ -142,10 +157,13 @@ impl AudioManager {
     pub fn loop_mp3(&mut self, handle: &Mp3Handle) {
         self.multimedia_end = Some((handle.id, None));
         if self.do_output {
-            let _ = self.mixer_handle.add_exclusive(Cycle::new(Rechanneler::new(
-                Resampler::new(handle.player.clone(), self.mixer_sample_rate),
-                self.mixer_channel_count,
-            )), handle.id);
+            let _ = self.mixer_handle.add_exclusive(
+                Cycle::new(Rechanneler::new(
+                    Resampler::new(handle.player.clone(), self.mixer_sample_rate),
+                    self.mixer_channel_count,
+                )),
+                handle.id,
+            );
         }
     }
 
@@ -158,15 +176,22 @@ impl AudioManager {
 
         if self.do_output {
             if handle.exclusive {
-                let _ = self.mixer_handle.add_exclusive(Cycle::new(Rechanneler::new(
-                    Resampler::new(handle.player.clone(), self.mixer_sample_rate),
-                    self.mixer_channel_count,
-                )), handle.id);
+                let _ = self.mixer_handle.add_exclusive(
+                    Cycle::new(Rechanneler::new(
+                        Resampler::new(handle.player.clone(), self.mixer_sample_rate),
+                        self.mixer_channel_count,
+                    )),
+                    handle.id,
+                );
             } else {
-                let _ = self.mixer_handle.add(Cycle::new(Rechanneler::new(
-                    Resampler::new(handle.player.clone(), self.mixer_sample_rate),
-                    self.mixer_channel_count,
-                )), handle.params.clone(), handle.id);
+                let _ = self.mixer_handle.add(
+                    Cycle::new(Rechanneler::new(
+                        Resampler::new(handle.player.clone(), self.mixer_sample_rate),
+                        self.mixer_channel_count,
+                    )),
+                    handle.params.clone(),
+                    handle.id,
+                );
             }
         }
     }
@@ -198,7 +223,9 @@ impl AudioManager {
     }
 
     fn mp3_playing(&self, sound_id: i32, current_time: u128) -> bool {
-        self.multimedia_end.map(|(id, end_time)| id == sound_id && end_time.map(|x| x > current_time).unwrap_or(true)).unwrap_or(false)
+        self.multimedia_end
+            .map(|(id, end_time)| id == sound_id && end_time.map(|x| x > current_time).unwrap_or(true))
+            .unwrap_or(false)
     }
 
     fn wav_playing(&self, sound_id: i32, current_time: u128) -> bool {
