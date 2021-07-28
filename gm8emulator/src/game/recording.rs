@@ -150,12 +150,20 @@ enum ContextMenu {
 }
 
 #[derive(Deserialize, Serialize)]
+enum InputMode {
+    Mouse,
+    Direct,
+}
+
+#[derive(Deserialize, Serialize)]
 struct ProjectConfig {
     ui_width: u16,
     ui_height: u16,
     rerecords: u64,
     watched_ids: Vec<i32>,
     full_keyboard: bool,
+    input_mode: InputMode,
+    quicksave_slot: usize,
 }
 
 impl Game {
@@ -168,23 +176,31 @@ impl Game {
             p.push("project.cfg");
             p
         };
+        let default_config = ProjectConfig {
+            ui_width: 1280,
+            ui_height: 720,
+            rerecords: 0,
+            watched_ids: Vec::new(),
+            full_keyboard: false,
+            input_mode: InputMode::Mouse,
+            quicksave_slot: 0,
+        };
         let mut config = if config_path.exists() {
-            bincode::deserialize_from(
+            match bincode::deserialize_from(
                 File::open(&config_path).expect("Couldn't read project.cfg")
-            ).expect("Couldn't parse project.cfg")
+            ) {
+                Ok(config) => config,
+                Err(_) => {
+                    println!("Warning: Couldn't parse project.cfg. Using default configuration.");
+                    default_config
+                }
+            }
         } else {
-            let config = ProjectConfig {
-                ui_width: 1280,
-                ui_height: 720,
-                rerecords: 0,
-                watched_ids: Vec::new(),
-                full_keyboard: false,
-            };
             bincode::serialize_into(
                 File::create(&config_path).expect("Couldn't write project.cfg"),
-                &config,
+                &default_config,
             ).expect("Couldn't serialize project.cfg");
-            config
+            default_config
         };
 
         let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
@@ -264,11 +280,6 @@ impl Game {
             zbuf_trashed: self.renderer.get_zbuf_trashed(),
         };
 
-        let quicksave_path = {
-            let mut path = project_path.clone();
-            path.push("quicksave.bin");
-            path
-        };
         let save_paths = (0..16).map(|i| {
             let mut path = project_path.clone();
             path.push(&format!("save{}.bin", i + 1));
@@ -283,11 +294,12 @@ impl Game {
         let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
         let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
         let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
+        let select_text = (0..16).map(|i| format!("Select###Select{}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
         let mut savestate;
         let mut renderer_state;
 
-        if !quicksave_path.exists() {
+        if !save_paths[config.quicksave_slot].exists() {
             if let Err(e) = match self.init() {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
@@ -317,17 +329,18 @@ impl Game {
             self.renderer.set_state(&ui_renderer_state);
             savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
 
-            if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+            if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                 err_string = Some(format!(
                     concat!(
-                        "Warning: failed to create quicksave.bin (it has still been saved in memory)\n\n",
+                        "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
                         "Error message: {:?}",
                     ),
+                    save_paths[config.quicksave_slot].file_name(),
                     err,
                 ));
             }
         } else {
-            match SaveState::from_file(&quicksave_path, &mut save_buffer) {
+            match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                 Ok(state) => {
                     let (rep, ren) = state.clone().load_into(self);
                     replay = rep;
@@ -695,7 +708,7 @@ impl Game {
 
             if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || frame.key_pressed(input::ramen2vk(Key::Q))) && game_running && err_string.is_none() {
                 savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
-                if let Err(err) = savestate.save_to_file(&quicksave_path, &mut save_buffer) {
+                if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                     err_string = Some(format!(
                         concat!(
                             "Warning: failed to save quicksave.bin (it has still been saved in memory)\n\n",
@@ -768,6 +781,17 @@ impl Game {
                 let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
             }
 
+            let input_label = match config.input_mode {
+                InputMode::Direct => "Switch to mouse input###InputMethod",
+                InputMode::Mouse => "Switch to direct input###InputMethod",
+            };
+            if frame.button(input_label, imgui::Vec2(165.0, 20.0), None) {
+                config.input_mode = match config.input_mode {
+                    InputMode::Mouse => InputMode::Direct,
+                    InputMode::Direct => InputMode::Mouse,
+                }
+            }
+
             if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
                 if let Some(rand) = &mut new_rand {
                     rand.cycle();
@@ -785,7 +809,7 @@ impl Game {
             frame.end();
 
             // Savestates window
-            frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(160.0, 330.0)), None);
+            frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
             frame.begin_window("Savestates", None, true, false, None);
             let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
             let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
@@ -800,6 +824,10 @@ impl Game {
                     cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
                 }
                 let y = (24 * i + 21) as f32;
+                if i == config.quicksave_slot {
+                    let min = imgui::Vec2(0.0, (i * 24) as f32);
+                    frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
+                }
                 if frame.button(&save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && game_running {
                     match SaveState::from(self, replay.clone(), renderer_state.clone())
                         .save_to_file(&save_paths[i], &mut save_buffer)
@@ -857,6 +885,24 @@ impl Game {
                         }
                         instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
                     }
+
+                    if frame.button(&select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && config.quicksave_slot != i {
+//                        config.quicksave_slot = i;
+                        match SaveState::from_file(&save_paths[i], &mut save_buffer) {
+                            Ok(state) => {
+                                savestate = state;
+                                config.quicksave_slot = i;
+                                let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                            }
+                            Err(e) => {
+                                println!(
+                                    "Error: Failed to select quicksave slot {:?}. {:?}",
+                                    save_paths[i].file_name(),
+                                    e
+                                );
+                            }
+                        }
+                    }
                 }
             }
             frame.end();
@@ -864,18 +910,45 @@ impl Game {
             // Macro for keyboard keys and mouse buttons...
             macro_rules! kb_btn {
                 ($name: expr, $size: expr, $x: expr, $y: expr, key $code: expr) => {
-                    let state = &mut keyboard_state[usize::from(input::ramen2vk($code))];
-                    if frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y))) {
-                        state.click();
-                    }
+                    let vk = input::ramen2vk($code);
+                    let state = &mut keyboard_state[usize::from(vk)];
+                    let clicked = frame.invisible_button($name, $size, Some(imgui::Vec2($x, $y)));
                     let hovered = frame.item_hovered();
-                    if frame.right_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                        context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
-                    }
-                    if frame.middle_clicked() && hovered {
-                        unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                        *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                    match config.input_mode {
+                        InputMode::Mouse => {
+                            if clicked {
+                                state.click();
+                            }
+                            if frame.right_clicked() && hovered {
+                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                                context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
+                            }
+                            if frame.middle_clicked() && hovered {
+                                unsafe { cimgui_sys::igSetWindowFocusNil(); }
+                                *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
+                            }
+                        },
+                        InputMode::Direct => {
+                            if frame.key_pressed(vk) {
+                                *state = match state {
+                                    // if neutral and setting would stay neutral => will press
+                                    KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralWillCactus => KeyState::NeutralWillPress,
+                                    // if held but would release => keep held
+                                    KeyState::HeldWillRelease | KeyState::HeldWillTriple => KeyState::Held,
+                                    // otherwise just keep the state
+                                    _ => *state,
+                                };
+                            } else if frame.key_released(vk) {
+                                *state = match state {
+                                    // if held and setting would stay held => will release
+                                    KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => KeyState::HeldWillRelease,
+                                    // if neutral but would press => keep neutral
+                                    KeyState::NeutralWillPress | KeyState::NeutralWillTriple => KeyState::Neutral,
+                                    // otherwise just keep the state
+                                    _ => *state,
+                                };
+                            }
+                        },
                     }
                     draw_keystate(&mut frame, state, imgui::Vec2($x, $y), $size);
                     frame.text_centered($name, imgui::Vec2($x, $y) + imgui::Vec2($size.0 / 2.0, $size.1 / 2.0));

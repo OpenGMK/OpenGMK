@@ -247,6 +247,10 @@ impl Frame<'_> {
         unsafe { c::igIsKeyPressed(code.into(), true) }
     }
 
+    pub fn key_released(&self, code: u8) -> bool {
+        unsafe {c::igIsKeyReleased(code.into()) }
+    }
+
     pub fn mouse_pos(&self) -> Vec2<f32> {
         unsafe {
             let mut pos = std::mem::MaybeUninit::uninit();
