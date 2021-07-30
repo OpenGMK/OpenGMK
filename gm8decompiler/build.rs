@@ -6,7 +6,7 @@ use time::OffsetDateTime;
 fn main() -> Result<(), Box<dyn Error>> {
     // build date
     let time = OffsetDateTime::now_utc();
-    println!("cargo:rustc-env=BUILD_DATE={}/{}/{}", time.year(), time.month(), time.day());
+    println!("cargo:rustc-env=BUILD_DATE={}/{}/{}", time.year(), time.month() as u8, time.day());
 
     // git hash
     let output = Command::new("git").args(&["rev-parse", "--short", "HEAD"]).output()?;
