@@ -1,7 +1,7 @@
 use crate::{ 
     imgui,  game::{
         Game,
-        recording::{ KeyState, ContextMenu, ProjectConfig, InstanceReport, },
+        recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport},
         replay::Replay,
         savestate::{self, SaveState},
     },
