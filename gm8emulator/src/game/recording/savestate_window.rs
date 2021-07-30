@@ -98,7 +98,7 @@ impl Window for SaveStateWindow {
                             **game_running = true;
                             config.rerecords += 1;
                             //rerecord_text = format!("Re-record count: {}", config.rerecords);
-                            //let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                            config.save();
 
                             **instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*game, *id))).collect();
                         },
@@ -113,7 +113,7 @@ impl Window for SaveStateWindow {
                         Ok(state) => {
                             **savestate = state;
                             config.quicksave_slot = i;
-                            //let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                            config.save();
                         }
                         Err(e) => {
                             println!(

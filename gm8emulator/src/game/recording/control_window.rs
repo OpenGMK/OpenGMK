@@ -73,7 +73,7 @@ impl Window for ControlWindow {
                 *info.instance_reports = info.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(info.game, *id))).collect();
                 info.config.rerecords += 1;
                 self.rerecord_text = format!("Re-record count: {}", info.config.rerecords);
-                // let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                info.config.save();
             }
         }
 
@@ -107,7 +107,7 @@ impl Window for ControlWindow {
         };
         if info.frame.button(keyboard_label, imgui::Vec2(165.0, 20.0), None) {
             info.config.full_keyboard = !info.config.full_keyboard;
-            // let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+            info.config.save();
         }
 
         let input_label = match info.config.input_mode {
