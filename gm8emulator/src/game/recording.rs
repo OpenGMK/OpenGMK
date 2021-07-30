@@ -592,7 +592,7 @@ impl Game {
                                 if !config.watched_ids.contains(id) {
                                     config.watched_ids.push(*id);
                                     instance_reports.push((*id, InstanceReport::new(&*self, *id)));
-                                    let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+                                    config.save();
                                 }
                                 context_menu = None;
                                 break;
@@ -721,6 +721,6 @@ impl Game {
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
 
-        let _ = File::create(&config_path).map(|f| bincode::serialize_into(f, &config));
+        config.save();
     }
 }
