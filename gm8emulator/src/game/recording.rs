@@ -1501,29 +1501,28 @@ impl Game {
                     if let Some(handle) = self.room.instance_list.get_by_instid(*id) {
                         use crate::game::GetAsset;
                         let instance = self.room.instance_list.get(handle);
-                        if let Some(atlas_ref) = self
-                            .assets
-                            .sprites
-                            .get_asset(instance.sprite_index.get())
-                            .and_then(|x| x.get_atlas_ref(instance.image_index.get().floor().to_i32()))
+                        if let Some((sprite, atlas_ref)) =
+                            self.assets.sprites.get_asset(instance.sprite_index.get()).and_then(|x| {
+                                x.get_atlas_ref(instance.image_index.get().floor().to_i32()).map(|y| (x, y))
+                            })
                         {
-                            if atlas_ref.w <= 48 && atlas_ref.h <= 48 {
+                            if sprite.width <= 48 && sprite.height <= 48 {
                                 let i = instance_images.len();
                                 instance_images.push(*atlas_ref);
                                 let imgui::Vec2(win_x, win_y) = frame.window_position();
                                 let win_w = frame.window_size().0;
                                 let center_x = win_x + win_w - 28.0;
                                 let center_y = win_y + 46.0;
-                                let min_x = center_x - (atlas_ref.w / 2) as f32;
-                                let min_y = center_y - (atlas_ref.h / 2) as f32;
+                                let min_x = center_x - (sprite.width / 2) as f32;
+                                let min_y = center_y - (sprite.height / 2) as f32;
                                 unsafe {
                                     cimgui_sys::ImDrawList_AddImage(
                                         cimgui_sys::igGetWindowDrawList(),
                                         instance_images.as_mut_ptr().add(i) as _,
                                         cimgui_sys::ImVec2 { x: min_x, y: min_y },
                                         cimgui_sys::ImVec2 {
-                                            x: min_x + atlas_ref.w as f32,
-                                            y: min_y + atlas_ref.h as f32,
+                                            x: min_x + sprite.width as f32,
+                                            y: min_y + sprite.height as f32,
                                         },
                                         cimgui_sys::ImVec2 { x: 0.0, y: 0.0 },
                                         cimgui_sys::ImVec2 { x: 1.0, y: 1.0 },
