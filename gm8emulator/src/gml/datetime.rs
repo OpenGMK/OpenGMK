@@ -1,5 +1,5 @@
 use crate::{gml::Value, math::Real};
-use std::convert::TryInto;
+use std::{convert::TryInto, hint::unreachable_unchecked};
 use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 /// Sleep for T minus 1 millisecond, and busywait for the rest of the duration.
@@ -13,17 +13,36 @@ pub fn sleep(dur: std::time::Duration) {
 }
 
 fn epoch() -> PrimitiveDateTime {
-    time::date!(1899 - 12 - 30).midnight()
+    time::macros::date!(1899 - 12 - 30).midnight()
 }
 
 fn now() -> time::OffsetDateTime {
     OffsetDateTime::now_utc()
-        + time::Duration::seconds(UtcOffset::try_current_local_offset().unwrap_or(UtcOffset::UTC).as_seconds().into())
+        + time::Duration::seconds(UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC).whole_seconds().into())
 }
 
 pub fn now_as_nanos() -> u128 {
     let datetime = now();
     datetime.unix_timestamp_nanos().try_into().unwrap_or(0)
+}
+
+fn i32_to_month(m: i32) -> time::Month {
+    use time::Month::*;
+    match m {
+        1 => January,
+        2 => February,
+        3 => March,
+        4 => April,
+        5 => May,
+        6 => June,
+        7 => July,
+        8 => August,
+        9 => September,
+        10 => October,
+        11 => November,
+        12 => December,
+        _ => unsafe { unreachable_unchecked() },
+    }
 }
 
 pub struct DateTime(PrimitiveDateTime);
@@ -34,7 +53,7 @@ impl DateTime {
             Some(nanos) => {
                 // manual unix timestamp because we need a PrimitiveDateTime
                 // also split into seconds and nanos because time::Duration::nanoseconds takes an i64
-                time::date!(1970 - 1 - 1).midnight()
+                time::macros::date!(1970 - 1 - 1).midnight()
                     + time::Duration::seconds((nanos / 1_000_000_000) as _)
                     + time::Duration::nanoseconds((nanos % 1_000_000_000) as _)
             },
@@ -56,7 +75,7 @@ impl DateTime {
     pub fn from_ymd(y: i32, m: i32, d: i32) -> Option<Self> {
         // GM doesn't support BC so we won't either
         if y > 0 && m > 0 && d > 0 && m <= 12 && d <= 31 {
-            time::Date::try_from_ymd(y, m as _, d as _).ok().map(|d| Self(d.midnight()))
+            time::Date::from_calendar_date(y, i32_to_month(m), d as _).ok().map(|d| Self(d.midnight()))
         } else {
             None
         }
@@ -64,7 +83,7 @@ impl DateTime {
 
     pub fn from_hms(h: i32, m: i32, s: i32) -> Option<Self> {
         if h >= 0 && m >= 0 && s >= 0 && h < 24 && m < 60 && s < 60 {
-            epoch().date().try_with_hms(h as _, m as _, s as _).ok().map(|dt| Self(dt))
+            epoch().date().with_hms(h as _, m as _, s as _).ok().map(|dt| Self(dt))
         } else {
             None
         }
@@ -72,8 +91,8 @@ impl DateTime {
 
     pub fn from_ymdhms(y: i32, mo: i32, d: i32, h: i32, mi: i32, s: i32) -> Option<Self> {
         if y >= 0 && mo >= 0 && d >= 0 && h >= 0 && mi >= 0 && s >= 0 && mo <= 12 && d <= 31 && mi < 60 && s < 60 {
-            time::Date::try_from_ymd(y, mo as _, d as _)
-                .and_then(|d| d.try_with_hms(h as _, mi as _, s as _))
+            time::Date::from_calendar_date(y, i32_to_month(mo), d as _)
+                .and_then(|d| d.with_hms(h as _, mi as _, s as _))
                 .ok()
                 .map(Self)
         } else {
@@ -86,7 +105,7 @@ impl DateTime {
     }
 
     pub fn month(&self) -> u32 {
-        self.0.date().month().into()
+        (self.0.date().month() as u8 + 1).into()
     }
 
     pub fn day(&self) -> u32 {
@@ -122,7 +141,7 @@ impl DateTime {
     }
 
     pub fn week(&self) -> u32 {
-        self.0.week().into()
+        self.0.iso_week().into()
     }
 
     pub fn weekday(&self) -> u32 {
