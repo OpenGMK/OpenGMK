@@ -1,18 +1,12 @@
 use crate::{
     imgui,
     game::{
-        Game,
-        replay::Replay,
-        savestate::{self, SaveState},
         recording::{
-            KeyState,
             window::{Window, DisplayInformation},
         },
     },
-    render::RendererState,
     types::Colour,
 };
-use std::path::PathBuf;
 
 // Savestates window
 pub struct SaveStateWindow {
@@ -44,63 +38,19 @@ impl Window for SaveStateWindow {
                 info.frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
             }
             if info.frame.button(&self.save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && *info.game_running {
-                if let Some(err) = self.save_savestate(&info.save_paths[i], i, info.game, info.replay, info.renderer_state, info.save_buffer) {
-                    *info.err_string = Some(err);
-                }
+                info.savestate_save(i);
             }
             unsafe {
                 cimgui_sys::igPopStyleColor(3);
             }
 
-            if info.save_paths[i].exists() {
+            if info.savestate_exists(i) {
                 if info.frame.button(&self.load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && *info.startup_successful {
-                    match self.load_savestate(info.game, &info.save_paths[i], info.save_buffer) {
-                        Ok((new_replay, new_renderer_state)) => {
-                            *info.replay = new_replay;
-                            *info.renderer_state = new_renderer_state;
-
-                            for (i, state) in info.keyboard_state.iter_mut().enumerate() {
-                                *state = if info.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
-                            }
-                            for (i, state) in info.mouse_state.iter_mut().enumerate() {
-                                *state = if info.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
-                            }
-                
-                            // todo: find a better way to share these
-                            //frame_text = format!("Frame: {}", replay.frame_count());
-                            //seed_text = format!("Seed: {}", game.rand.seed());
-                            *info.context_menu = None;
-                            *info.new_rand = None;
-                            *info.new_mouse_pos = None;
-                            *info.err_string = None;
-                            *info.game_running = true;
-                            info.config.rerecords += 1;
-                            //rerecord_text = format!("Re-record count: {}", config.rerecords);
-                            info.config.save();
-
-                            info.update_instance_reports();
-                        },
-                        Err(err) => {
-                            *info.err_string = Some(err);
-                        }
-                    }
+                    info.savestate_load(i);
                 }
 
                 if info.frame.button(&self.select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && info.config.quicksave_slot != i {
-                    match SaveState::from_file(&info.save_paths[i], info.save_buffer) {
-                        Ok(state) => {
-                            *info.savestate = state;
-                            info.config.quicksave_slot = i;
-                            info.config.save();
-                        }
-                        Err(e) => {
-                            println!(
-                                "Error: Failed to select quicksave slot {:?}. {:?}",
-                                info.save_paths[i].file_name(),
-                                e
-                            );
-                        }
-                    }
+                    info.savestate_set_quicksave_slot(i);
                 }
             }
         }
@@ -115,43 +65,6 @@ impl SaveStateWindow {
             save_text: (0..capacity).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>(),
             load_text: (0..capacity).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>(),
             select_text: (0..capacity).map(|i| format!("Select###Select{}", i + 1)).collect::<Vec<_>>(),
-        }
-    }
-
-    // todo: this probably shouldn't be done in the window, or at least have a way that other windows can access.
-    fn save_savestate(&self, path: &PathBuf, index: usize, game: &mut Game, replay: &Replay, renderer_state: &RendererState, save_buffer: &mut savestate::Buffer)
-    -> Option<String> {
-        match SaveState::from(game, replay.clone(), renderer_state.clone())
-        .save_to_file(&path, save_buffer)
-        {
-            Ok(()) => None,
-            Err(savestate::WriteError::IOErr(err)) =>
-                Some(format!("Failed to write savestate #{}: {}", index, err)),
-            Err(savestate::WriteError::CompressErr(err)) =>
-                Some(format!("Failed to compress savestate #{}: {}", index, err)),
-            Err(savestate::WriteError::SerializeErr(err)) =>
-                Some(format!("Failed to serialize savestate #{}: {}", index, err)),
-        }
-    }
-    
-    // todo: this probably shouldn't be done in the window, or at least have a way that other windows can access.
-    fn load_savestate(&self, game: &mut Game, path: &PathBuf, save_buffer: &mut savestate::Buffer) -> Result<(Replay, RendererState), String> {
-        match SaveState::from_file(path, save_buffer) {
-            Ok(state) => {
-                let (new_replay, new_renderer_state) = state.load_into(game);
-                Ok((new_replay, new_renderer_state))
-            },
-            Err(err) => {
-                let filename = path.to_string_lossy();
-                Err(match err {
-                    savestate::ReadError::IOErr(err) =>
-                        format!("Error reading {}:\n\n{}", filename, err),
-                    savestate::ReadError::DecompressErr(err) =>
-                        format!("Error decompressing {}:\n\n{}", filename, err),
-                    savestate::ReadError::DeserializeErr(err) =>
-                        format!("Error deserializing {}:\n\n{}", filename, err),
-                })
-            },
         }
     }
 }

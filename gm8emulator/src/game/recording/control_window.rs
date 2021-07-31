@@ -2,7 +2,6 @@ use crate::{
     imgui, input,
     game::{
         Game,
-        savestate::SaveState,
         SceneChange,
         recording::{
             KeyState,
@@ -35,44 +34,13 @@ impl Window for ControlWindow {
         }
 
         if (info.frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None) || info.frame.key_pressed(input::ramen2vk(Key::Q))) && *info.game_running && info.err_string.is_none() {
-            *info.savestate = SaveState::from(info.game, info.replay.clone(), info.renderer_state.clone());
-            if let Err(err) = info.savestate.save_to_file(&info.save_paths[info.config.quicksave_slot], info.save_buffer) {
-                *info.err_string = Some(format!(
-                    concat!(
-                        "Warning: failed to save quicksave.bin (it has still been saved in memory)\n\n",
-                        "Error message: {:?}",
-                    ),
-                    err,
-                ));
-            }
-            *info.context_menu = None;
+            info.savestate_save(info.config.quicksave_slot);
         }
 
         if info.frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None) || info.frame.key_pressed(input::ramen2vk(Key::W)) {
             if *info.startup_successful {
                 *info.err_string = None;
-                *info.game_running = true;
-                let (rep, ren) = info.savestate.clone().load_into(info.game);
-                *info.replay = rep;
-                *info.renderer_state = ren;
-
-                for (i, state) in info.keyboard_state.iter_mut().enumerate() {
-                    *state = if info.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
-                }
-
-                for (i, state) in info.mouse_state.iter_mut().enumerate() {
-                    *state = if info.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
-                }
-
-                self.frame_text = format!("Frame: {}", info.replay.frame_count());
-                self.seed_text = format!("Seed: {}", info.game.rand.seed());
-                *info.context_menu = None;
-                *info.new_rand = None;
-                *info.new_mouse_pos = None;
-                info.update_instance_reports();
-                info.config.rerecords += 1;
-                self.rerecord_text = format!("Re-record count: {}", info.config.rerecords);
-                info.config.save();
+                info.savestate_load(info.config.quicksave_slot);
             }
         }
 
