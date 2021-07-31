@@ -43,3 +43,9 @@ use std::path::PathBuf;
 pub trait Window {
     fn show_window(&mut self, info: &mut DisplayInformation);
 }
+
+impl DisplayInformation<'_, '_> {
+    pub fn update_instance_reports(&mut self) {
+        *self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
+    }
+}

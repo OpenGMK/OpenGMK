@@ -124,26 +124,29 @@ impl InstanceReport {
 // Instance-watcher windows
 impl Window for InstanceReportWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
-        let DisplayInformation {
-            game,
-            frame,
-            config,
-            instance_reports,
-            ..
-        } = info;
+        let previous_len = info.config.watched_ids.len();
 
-        let previous_len = config.watched_ids.len();
-        self.instance_images.clear();
-        self.instance_images.reserve(config.watched_ids.len());
+        {
+            let DisplayInformation {
+                game,
+                frame,
+                config,
+                instance_reports,
+                ..
+            } = info;
 
-        config.watched_ids.retain(|id| {
-            let report = instance_reports.iter().find(|(i, _)| i == id);
-            self.instance_window(*frame, *game, *id, report)
-        });
+            self.instance_images.clear();
+            self.instance_images.reserve(config.watched_ids.len());
 
-        if config.watched_ids.len() != previous_len {
-            **instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*game, *id))).collect();
-            config.save();
+            config.watched_ids.retain(|id| {
+                let report = instance_reports.iter().find(|(i, _)| i == id);
+                self.instance_window(*frame, *game, *id, report)
+            });
+        }
+
+        if info.config.watched_ids.len() != previous_len {
+            info.update_instance_reports();
+            info.config.save();
         }
     }
 }

@@ -8,7 +8,6 @@ use crate::{
             KeyState,
             InputMode,
             ContextMenu,
-            InstanceReport,
             window::{ Window, DisplayInformation, },
         },
         replay::{self, Frame},
@@ -70,7 +69,7 @@ impl Window for ControlWindow {
                 *info.context_menu = None;
                 *info.new_rand = None;
                 *info.new_mouse_pos = None;
-                *info.instance_reports = info.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(info.game, *id))).collect();
+                info.update_instance_reports();
                 info.config.rerecords += 1;
                 self.rerecord_text = format!("Re-record count: {}", info.config.rerecords);
                 info.config.save();
@@ -139,7 +138,6 @@ impl Window for ControlWindow {
     }
 }
 
-
 impl ControlWindow {
     pub fn new() -> Self {
         ControlWindow {
@@ -206,7 +204,7 @@ impl ControlWindow {
         *info.new_rand = None;
         *info.new_mouse_pos = None;
 
-        *info.instance_reports = info.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*info.game, *id))).collect();
+        info.update_instance_reports();
     }
 
     fn update_keyboard_state(&self, keyboard_state: &mut [KeyState; 256], game: &mut Game, frame: &mut Frame) {

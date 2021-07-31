@@ -6,8 +6,7 @@ use crate::{
         savestate::{self, SaveState},
         recording::{
             KeyState,
-            InstanceReport,
-            window::{ Window, DisplayInformation, },
+            window::{Window, DisplayInformation},
         },
     },
     render::RendererState,
@@ -25,34 +24,13 @@ pub struct SaveStateWindow {
 
 impl Window for SaveStateWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
-        let DisplayInformation {
-            frame,
-            config,
-            game,
-            game_running,
-            startup_successful,
-            replay,
-            save_buffer,
-            renderer_state,
-            err_string,
-            save_paths,
-            new_mouse_pos,
-            new_rand,
-            instance_reports,
-            context_menu,
-            keyboard_state,
-            mouse_state,
-            savestate,
-            ..
-        } = info;
-
-        frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
-        frame.begin_window("Savestates", None, true, false, None);
-        let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
-        let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
+        info.frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
+        info.frame.begin_window("Savestates", None, true, false, None);
+        let rect_size = imgui::Vec2(info.frame.window_size().0, 24.0);
+        let pos = info.frame.window_position() + info.frame.content_position() - imgui::Vec2(8.0, 8.0);
         for i in 0..(self.capacity/2) {
             let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
-            frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
+            info.frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
         }
         for i in 0..self.capacity {
             unsafe {
@@ -61,64 +39,64 @@ impl Window for SaveStateWindow {
                 cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _, cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 });
             }
             let y = (24 * i + 21) as f32;
-            if i == config.quicksave_slot {
+            if i == info.config.quicksave_slot {
                 let min = imgui::Vec2(0.0, (i * 24) as f32);
-                frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
+                info.frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
             }
-            if frame.button(&self.save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && **game_running {
-                if let Some(err) = self.save_savestate(&save_paths[i], i, game, replay, renderer_state, save_buffer) {
-                    **err_string = Some(err);
+            if info.frame.button(&self.save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && *info.game_running {
+                if let Some(err) = self.save_savestate(&info.save_paths[i], i, info.game, info.replay, info.renderer_state, info.save_buffer) {
+                    *info.err_string = Some(err);
                 }
             }
             unsafe {
                 cimgui_sys::igPopStyleColor(3);
             }
 
-            if save_paths[i].exists() {
-                if frame.button(&self.load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && **startup_successful {
-                    match self.load_savestate(game, &save_paths[i], save_buffer) {
+            if info.save_paths[i].exists() {
+                if info.frame.button(&self.load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y))) && *info.startup_successful {
+                    match self.load_savestate(info.game, &info.save_paths[i], info.save_buffer) {
                         Ok((new_replay, new_renderer_state)) => {
-                            **replay = new_replay;
-                            **renderer_state = new_renderer_state;
+                            *info.replay = new_replay;
+                            *info.renderer_state = new_renderer_state;
 
-                            for (i, state) in keyboard_state.iter_mut().enumerate() {
-                                *state = if game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+                            for (i, state) in info.keyboard_state.iter_mut().enumerate() {
+                                *state = if info.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
                             }
-                            for (i, state) in mouse_state.iter_mut().enumerate() {
-                                *state = if game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
+                            for (i, state) in info.mouse_state.iter_mut().enumerate() {
+                                *state = if info.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
                             }
                 
                             // todo: find a better way to share these
                             //frame_text = format!("Frame: {}", replay.frame_count());
                             //seed_text = format!("Seed: {}", game.rand.seed());
-                            **context_menu = None;
-                            **new_rand = None;
-                            **new_mouse_pos = None;
-                            **err_string = None;
-                            **game_running = true;
-                            config.rerecords += 1;
+                            *info.context_menu = None;
+                            *info.new_rand = None;
+                            *info.new_mouse_pos = None;
+                            *info.err_string = None;
+                            *info.game_running = true;
+                            info.config.rerecords += 1;
                             //rerecord_text = format!("Re-record count: {}", config.rerecords);
-                            config.save();
+                            info.config.save();
 
-                            **instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*game, *id))).collect();
+                            info.update_instance_reports();
                         },
                         Err(err) => {
-                            **err_string = Some(err);
+                            *info.err_string = Some(err);
                         }
                     }
                 }
 
-                if frame.button(&self.select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && config.quicksave_slot != i {
-                    match SaveState::from_file(&save_paths[i], save_buffer) {
+                if info.frame.button(&self.select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y))) && info.config.quicksave_slot != i {
+                    match SaveState::from_file(&info.save_paths[i], info.save_buffer) {
                         Ok(state) => {
-                            **savestate = state;
-                            config.quicksave_slot = i;
-                            config.save();
+                            *info.savestate = state;
+                            info.config.quicksave_slot = i;
+                            info.config.save();
                         }
                         Err(e) => {
                             println!(
                                 "Error: Failed to select quicksave slot {:?}. {:?}",
-                                save_paths[i].file_name(),
+                                info.save_paths[i].file_name(),
                                 e
                             );
                         }
@@ -126,7 +104,7 @@ impl Window for SaveStateWindow {
                 }
             }
         }
-        frame.end();
+        info.frame.end();
     }
 }
 
