@@ -26,6 +26,9 @@ impl Window for ControlWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
         info.frame.begin_window("Control", None, true, false, None);
+
+        self.update_texts(info);
+
         if (
             info.frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None) ||
                 info.frame.key_pressed(input::ramen2vk(Key::Space))
@@ -39,7 +42,6 @@ impl Window for ControlWindow {
 
         if info.frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None) || info.frame.key_pressed(input::ramen2vk(Key::W)) {
             if *info.startup_successful {
-                *info.err_string = None;
                 info.savestate_load(info.config.quicksave_slot);
             }
         }
@@ -91,11 +93,9 @@ impl Window for ControlWindow {
         if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
             if let Some(rand) = &mut info.new_rand {
                 rand.cycle();
-                self.seed_text = format!("Seed: {}*", rand.seed());
             } else {
                 let mut rand = info.game.rand.clone();
                 rand.cycle();
-                self.seed_text = format!("Seed: {}*", rand.seed());
                 *info.new_rand = Some(rand);
             }
         }
@@ -110,8 +110,18 @@ impl ControlWindow {
     pub fn new() -> Self {
         ControlWindow {
             frame_text: format!("Frame: {}", 0),
-            rerecord_text: format!("ReRecords: {}", 0),
+            rerecord_text: format!("Re-Records: {}", 0),
             seed_text: format!("Seed: {}", 0),
+        }
+    }
+
+    fn update_texts(&mut self, info: &mut DisplayInformation) {
+        self.frame_text = format!("Frame: {}", info.replay.frame_count());
+        self.rerecord_text = format!("Re-Records: {}", info.config.rerecords);
+        if let Some(rand) = info.new_rand {
+            self.seed_text = format!("Seed: {}", rand.seed())
+        } else {
+            self.seed_text = format!("Seed: {}", info.game.rand.seed());
         }
     }
 
@@ -158,9 +168,6 @@ impl ControlWindow {
             info.game.frame_counter = 0;
         }
         info.game.frame_counter += 1;
-
-        self.frame_text = format!("Frame: {}", info.replay.frame_count());
-        self.seed_text = format!("Seed: {}", info.game.rand.seed());
 
         info.game.renderer.resize_framebuffer(info.config.ui_width.into(), info.config.ui_height.into(), true);
         info.game.renderer.set_view( 0, 0, info.config.ui_width.into(), info.config.ui_height.into(),
