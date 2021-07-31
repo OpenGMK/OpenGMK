@@ -4308,8 +4308,12 @@ impl Game {
     pub fn move_snap(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (hsnap, vsnap) = expect_args!(args, [real, real])?;
         let instance = self.room.instance_list.get(context.this);
-        instance.x.set(Real::from((instance.x.get() / hsnap).round()) * hsnap);
-        instance.y.set(Real::from((instance.y.get() / vsnap).round()) * vsnap);
+        if hsnap > 0.into() {
+            instance.x.set(Real::from((instance.x.get() / hsnap).round()) * hsnap);
+        }
+        if vsnap > 0.into() {
+            instance.y.set(Real::from((instance.y.get() / vsnap).round()) * vsnap);
+        }
         instance.bbox_is_stale.set(true);
         Ok(Default::default())
     }
