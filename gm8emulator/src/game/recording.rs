@@ -314,8 +314,6 @@ impl Game {
 
         let mut keyboard_state = [KeyState::Neutral; 256];
         let mut mouse_state = [KeyState::Neutral; 3];
-        //let mut will_scroll_up = false;
-        //let mut will_scroll_down = false;
         let mut new_mouse_pos: Option<(i32, i32)> = None;
         let mut setting_mouse_pos = false;
 
@@ -353,12 +351,6 @@ impl Game {
         let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
 
-        let mut frame_text = String::from("Frame: 0");
-        //let mut seed_text = format!("Seed: {}", self.rand.seed());
-        //let mut rerecord_text = format!("Re-record count: {}", config.rerecords);
-        //let save_text = (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>();
-        //let load_text = (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>();
-        //let select_text = (0..16).map(|i| format!("Select###Select{}", i + 1)).collect::<Vec<_>>();
         let mut context_menu: Option<ContextMenu> = None;
         let mut savestate;
         let mut renderer_state;
@@ -426,8 +418,6 @@ impl Game {
                         };
                     }
 
-                    frame_text = format!("Frame: {}", replay.frame_count());
-                    //seed_text = format!("Seed: {}", self.rand.seed());
                     self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), false);
                     self.renderer.set_state(&ui_renderer_state);
                     savestate = state;
@@ -457,14 +447,13 @@ impl Game {
         }
 
         let mut instance_reports: Vec<(i32, Option<InstanceReport>)> = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
-        let mut instance_images: Vec<AtlasRef> = Vec::new();
         let mut new_rand: Option<Random> = None;
+
         let mut game_window = game_window::GameWindow::new();
         let mut control_window = control_window::ControlWindow::new();
         let mut savestate_window = savestate_window::SaveStateWindow::new(16);
         let mut input_windows = input_window::InputWindows::new();
         let mut instance_report_windows = instance_report::InstanceReportWindow::new();
-
 
         /* ----------------------
            Frame loop begins here
@@ -611,7 +600,6 @@ impl Game {
                             count = None;
                             context_menu = None;
                             new_rand = None;
-                            //seed_text = format!("Seed: {}", self.rand.seed());
                         } else if frame.menu_item("+1 RNG call") {
                             count = Some(1);
                             context_menu = None;
@@ -632,13 +620,11 @@ impl Game {
                                 for _ in 0..count {
                                     rand.cycle();
                                 }
-                                //seed_text = format!("Seed: {}*", rand.seed());
                             } else {
                                 let mut rand = self.rand.clone();
                                 for _ in 0..count {
                                     rand.cycle();
                                 }
-                                //seed_text = format!("Seed: {}*", rand.seed());
                                 new_rand = Some(rand);
                             }
                         }

@@ -150,17 +150,13 @@ impl DisplayInformation<'_, '_> {
         for (i, state) in self.mouse_state.iter_mut().enumerate() {
             *state = if self.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
         }
-        
-        // todo: find a better way to share these
-        //frame_text = format!("Frame: {}", replay.frame_count());
-        //seed_text = format!("Seed: {}", game.rand.seed());
+
         *self.context_menu = None;
         *self.new_rand = None;
         *self.new_mouse_pos = None;
         *self.err_string = None;
         *self.game_running = true;
         self.config.rerecords += 1;
-        //rerecord_text = format!("Re-record count: {}", config.rerecords);
         self.config.save();
 
         self.update_instance_reports();

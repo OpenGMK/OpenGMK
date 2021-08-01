@@ -4,7 +4,7 @@ use crate::{
     instance::Field,
     game::{
         Game,
-        recording::window::{ Window, DisplayInformation },
+        recording::window::{Window, DisplayInformation},
     },
     render::atlas::AtlasRef,
 };
@@ -125,7 +125,6 @@ impl InstanceReport {
 impl Window for InstanceReportWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         let previous_len = info.config.watched_ids.len();
-
         {
             let DisplayInformation {
                 game,
@@ -204,10 +203,10 @@ impl InstanceReportWindow {
             frame.text_centered("<deleted instance>", imgui::Vec2(160.0, 35.0));
         }
         frame.end();
-        
+
         open
     }
-    
+
     fn add_sprite_image(&mut self, frame: &mut imgui::Frame, game: &mut Game, id: i32) {
         if let Some(handle) = game.room.instance_list.get_by_instid(id) {
             use crate::game::GetAsset;

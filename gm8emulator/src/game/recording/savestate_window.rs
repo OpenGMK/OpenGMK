@@ -40,6 +40,7 @@ impl Window for SaveStateWindow {
             if info.frame.button(&self.save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && *info.game_running {
                 info.savestate_save(i);
             }
+
             unsafe {
                 cimgui_sys::igPopStyleColor(3);
             }

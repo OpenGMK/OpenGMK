@@ -6,7 +6,7 @@ use crate::{
             KeyState,
             InputMode,
             ContextMenu,
-            window::{ Window, DisplayInformation, },
+            window::{Window, DisplayInformation},
         },
     },
     types::Colour,
@@ -355,8 +355,8 @@ impl InputWindows {
                 kb_btn!("Z", button_size, content_max.0 - button_width, content_max.1 - button_height - 8.0, key Key::Z);
             }
             frame.end();
-            
         }
+
         // Mouse window
         frame.setup_next_window(imgui::Vec2(2.0, 210.0), None, None);
         frame.begin_window("Mouse", Some(imgui::Vec2(300.0, 138.0)), false, false, None);

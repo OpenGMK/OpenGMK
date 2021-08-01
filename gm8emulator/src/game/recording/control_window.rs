@@ -7,7 +7,7 @@ use crate::{
             KeyState,
             InputMode,
             ContextMenu,
-            window::{ Window, DisplayInformation, },
+            window::{Window, DisplayInformation},
         },
         replay::{self, Frame},
     },
@@ -253,7 +253,6 @@ impl ControlWindow {
                 KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
                     game.input.mouse_release(i, true);
                     frame.inputs.push(replay::Input::MouseRelease(i));
-                    println!("Released {}", i);
                 },
                 KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                     game.input.mouse_release(i, true);
