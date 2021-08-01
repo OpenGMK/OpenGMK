@@ -516,8 +516,8 @@ impl Game {
                                 instance,
                                 view.source_x,
                                 view.source_y,
-                                view.source_x + view.source_w as i32,
-                                view.source_y + view.source_h as i32,
+                                view.source_x + view.source_w,
+                                view.source_y + view.source_h,
                             )
                         } else {
                             point_outside_rect(
@@ -525,8 +525,8 @@ impl Game {
                                 instance.y.get().into(),
                                 view.source_x,
                                 view.source_y,
-                                view.source_x + view.source_w as i32,
-                                view.source_y + view.source_h as i32,
+                                view.source_x + view.source_w,
+                                view.source_y + view.source_h,
                             )
                         };
                         if outside {
@@ -557,8 +557,8 @@ impl Game {
                                 instance,
                                 view.source_x,
                                 view.source_y,
-                                view.source_x + view.source_w as i32,
-                                view.source_y + view.source_h as i32,
+                                view.source_x + view.source_w,
+                                view.source_y + view.source_h,
                             )
                         } else {
                             point_outside_rect(
@@ -566,8 +566,8 @@ impl Game {
                                 instance.y.get().into(),
                                 view.source_x,
                                 view.source_y,
-                                view.source_x + view.source_w as i32,
-                                view.source_y + view.source_h as i32,
+                                view.source_x + view.source_w,
+                                view.source_y + view.source_h,
                             )
                         };
                         if intersect {

@@ -2213,8 +2213,8 @@ impl Game {
             self.renderer.set_view(
                 view.source_x,
                 view.source_y,
-                view.source_w as _,
-                view.source_h as _,
+                view.source_w,
+                view.source_h,
                 view.angle.into(),
                 view.port_x,
                 view.port_y,
@@ -9746,11 +9746,11 @@ impl Game {
         if let Some(room) = self.assets.rooms.get_asset_mut(room_id) {
             if let Some(view) = room.views.get_mut(view_id) {
                 *view = View {
-                    visible: visible,
+                    visible,
                     source_x,
                     source_y,
-                    source_w: source_w as _,
-                    source_h: source_h as _,
+                    source_w,
+                    source_h,
                     port_x,
                     port_y,
                     port_w: port_w as _,
