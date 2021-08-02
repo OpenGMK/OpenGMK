@@ -105,7 +105,7 @@ impl DateTime {
     }
 
     pub fn month(&self) -> u32 {
-        (self.0.date().month() as u8 + 1).into()
+        (self.0.date().month() as u8).into()
     }
 
     pub fn day(&self) -> u32 {
