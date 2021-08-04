@@ -9801,6 +9801,10 @@ impl Game {
                 object,
                 id: self.last_instance_id,
                 creation: Ok(std::rc::Rc::new([])),
+                xscale: 1.0,
+                yscale: 1.0,
+                blend: u32::MAX,
+                angle: 0.0,
             });
             Ok(Default::default())
         } else {

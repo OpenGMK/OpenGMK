@@ -34,4 +34,8 @@ pub struct Instance {
     pub object: i32,
     pub id: ID,
     pub creation: Result<Rc<[Instruction]>, String>,
+    pub xscale: f64,
+    pub yscale: f64,
+    pub blend: u32,
+    pub angle: f64,
 }

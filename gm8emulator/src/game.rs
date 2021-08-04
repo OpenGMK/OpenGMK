@@ -1123,6 +1123,10 @@ impl Game {
                                 creation: compiler.compile(&i.creation_code.0).map_err(|e| {
                                     format!("Compiler error in creation code of instance {}: {}", i.id, e)
                                 }),
+                                xscale: i.xscale,
+                                yscale: i.yscale,
+                                blend: i.blend,
+                                angle: i.angle,
                             })
                             .collect::<Vec<_>>()
                             .into(),
@@ -1139,10 +1143,10 @@ impl Game {
                                 height: Cell::new(t.height as _),
                                 depth: Cell::new(t.depth.into()),
                                 id: Cell::new(t.id),
-                                alpha: Cell::new(1.0.into()),
-                                blend: Cell::new(0xFFFFFF),
-                                xscale: Cell::new(1.0.into()),
-                                yscale: Cell::new(1.0.into()),
+                                alpha: Cell::new(Real::from(t.blend >> 24) / Real::from(255)),
+                                blend: Cell::new((t.blend & 0xFFFFFF) as i32),
+                                xscale: Cell::new(t.xscale.into()),
+                                yscale: Cell::new(t.yscale.into()),
                                 visible: Cell::new(true),
                             })
                             .collect::<Vec<_>>()
@@ -1563,12 +1567,17 @@ impl Game {
 
                     // Add instance to list
                     new_handles.push((
-                        self.room.instance_list.insert(Instance::new(
+                        self.room.instance_list.insert(Instance::new_ext(
                             instance.id as _,
                             Real::from(instance.x),
                             Real::from(instance.y),
                             instance.object,
-                            object,
+                            Some(object),
+                            Real::from(instance.xscale),
+                            Real::from(instance.yscale),
+                            (instance.blend & 0xFFFFFF) as i32,
+                            Real::from(instance.blend >> 24) / Real::from(255),
+                            Real::from(instance.angle),
                         )),
                         instance,
                     ));
