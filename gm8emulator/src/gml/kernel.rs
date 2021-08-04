@@ -9548,11 +9548,12 @@ impl Game {
             let parents = object.parents.borrow();
             let children = object.children.borrow();
             // Remove object and its parents from all its children
-            for &child_id in children.iter() {
+            for &child_id in children.iter().filter(|&&id| id != object_id) {
                 if let Some(child) = self.assets.objects.get_asset(child_id) {
                     child.parents.borrow_mut().retain(|p| !parents.contains(p));
                 }
             }
+            drop(parents);
             // Remove object and all its children from old parents
             let mut parent_index = object.parent_index;
             while let Some(parent) = self.assets.objects.get_asset(parent_index) {
@@ -9568,7 +9569,7 @@ impl Game {
                 .unwrap_or_default();
             new_parents.insert(object_id);
             // Add object and all its new parents to children
-            for &child_id in children.iter() {
+            for &child_id in children.iter().filter(|&&id| id != object_id) {
                 if let Some(child) = self.assets.objects.get_asset(child_id) {
                     child.parents.borrow_mut().extend(&new_parents);
                 }
