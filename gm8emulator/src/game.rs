@@ -260,6 +260,17 @@ impl From<PascalString> for gml::String {
     }
 }
 
+macro_rules! handle_scene_change {
+    ($self:ident) => {{
+        match $self.scene_change {
+            Some(SceneChange::Room(id)) => $self.load_room(id)?,
+            Some(SceneChange::Restart) => $self.restart()?,
+            Some(SceneChange::End) => return Ok($self.run_game_end_events()?),
+            None => (),
+        }
+    }};
+}
+
 impl Game {
     pub fn launch(
         assets: gm8exe::GameAssets,
@@ -2020,12 +2031,7 @@ impl Game {
     // Plays the game normally
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
-        match self.scene_change {
-            Some(SceneChange::Room(id)) => self.load_room(id)?,
-            Some(SceneChange::Restart) => self.restart()?,
-            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-            None => (),
-        }
+        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -2033,12 +2039,7 @@ impl Game {
             self.process_window_events();
 
             self.frame()?;
-            match self.scene_change {
-                Some(SceneChange::Room(id)) => self.load_room(id)?,
-                Some(SceneChange::Restart) => self.restart()?,
-                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
-                None => (),
-            }
+            handle_scene_change!(self);
 
             // Exit if the window was closed by the user, such as by pressing 'X'
             if self.close_requested {
@@ -2080,12 +2081,7 @@ impl Game {
             self.stored_events.push_back(ev.clone());
         }
         self.init()?;
-        match self.scene_change {
-            Some(SceneChange::Room(id)) => self.load_room(id)?,
-            Some(SceneChange::Restart) => self.restart()?,
-            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-            None => (),
-        }
+        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         loop {
@@ -2135,12 +2131,7 @@ impl Game {
             }
 
             self.frame()?;
-            match self.scene_change {
-                Some(SceneChange::Room(id)) => self.load_room(id)?,
-                Some(SceneChange::Restart) => self.restart()?,
-                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
-                None => (),
-            }
+            handle_scene_change!(self);
 
             // exit if X pressed or game_end() invoked
             if self.close_requested {
