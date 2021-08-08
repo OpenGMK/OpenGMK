@@ -24,10 +24,10 @@ macro_rules! gml_cmp_impl {
     ($($v: vis $fname: ident aka $op_variant: ident: real: $r_cond: expr, string: $s_cond: expr)*) => {
         $(
             $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
-                let freal: fn(Real, Real) -> bool = $r_cond;
+                let freal: fn(Real) -> bool = $r_cond;
                 let fstr: fn(&[u8], &[u8]) -> bool = $s_cond;
                 Ok(if match (self, rhs) {
-                    (Self::Real(a), Self::Real(b)) => freal(a, b),
+                    (Self::Real(a), Self::Real(b)) => freal((a - b)),
                     (Self::Str(a), Self::Str(b)) => fstr(a.as_ref(), b.as_ref()),
                     (a, b) => return invalid_op!($op_variant, a, b),
                 } {
@@ -54,27 +54,27 @@ impl Value {
     #[rustfmt::skip]
     gml_cmp_impl! {
         pub gml_eq aka Equal:
-            real: |r1, r2| r1 == r2,
+            real: |diff| diff.abs() < Real::CMP_EPSILON,
             string: |s1, s2| s1 == s2
 
         pub gml_ne aka NotEqual:
-            real: |r1, r2| r1 != r2,
+            real: |diff| diff.abs() >= Real::CMP_EPSILON,
             string: |s1, s2| s1 != s2
 
         pub gml_lt aka LessThan:
-            real: |r1, r2| r1 < r2,
+            real: |diff| diff <= -Real::CMP_EPSILON,
             string: |s1, s2| s1 < s2
 
         pub gml_lte aka LessThanOrEqual:
-            real: |r1, r2| r1 <= r2,
+            real: |diff| diff < Real::CMP_EPSILON,
             string: |s1, s2| s1 <= s2
 
         pub gml_gt aka GreaterThan:
-            real: |r1, r2| r1 > r2,
+            real: |diff| diff >= Real::CMP_EPSILON,
             string: |s1, s2| s1 > s2
 
         pub gml_gte aka GreaterThanOrEqual:
-            real: |r1, r2| r1 >= r2,
+            real: |diff| diff > -Real::CMP_EPSILON,
             string: |s1, s2| s1 >= s2
     }
 

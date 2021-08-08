@@ -3123,13 +3123,31 @@ impl Game {
     }
 
     pub fn action_if_variable(args: &[Value]) -> gml::Result<Value> {
+        use std::cmp::Ordering;
         let (lhs, rhs, comparator) = expect_args!(args, [any, any, int])?;
-        let operator = match comparator {
-            1 => Value::gml_lt,
-            2 => Value::gml_gt,
-            0 | _ => Value::gml_eq,
+        let desired = match comparator {
+            1 => Ordering::Less,
+            2 => Ordering::Greater,
+            0 | _ => Ordering::Equal,
         };
-        operator(lhs, rhs)
+        Ok(match (lhs, rhs) {
+            (Value::Real(lhs), Value::Real(rhs)) => lhs.partial_cmp(&rhs) == Some(desired),
+            (Value::Str(lhs), Value::Str(rhs)) => lhs.cmp(&rhs) == desired,
+            (lhs, rhs) => {
+                return Err(gml::Error::FunctionError(
+                    "action_if_variable".to_string(),
+                    format!(
+                        "invalid operands {} and {} to {:?} operator ({} {2:?} {})",
+                        lhs.ty_str(),
+                        rhs.ty_str(),
+                        desired,
+                        lhs,
+                        rhs
+                    ),
+                ))
+            },
+        }
+        .into())
     }
 
     pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3769,8 +3787,18 @@ impl Game {
     }
 
     pub fn sign(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real])
-            .map(|x| if x != 0.into() { Value::Real(x.into_inner().signum().into()) } else { 0.into() })
+        expect_args!(args, [real]).map(|x| {
+            Value::Real(
+                if x >= Real::CMP_EPSILON {
+                    1
+                } else if x <= -Real::CMP_EPSILON {
+                    -1
+                } else {
+                    0
+                }
+                .into(),
+            )
+        })
     }
 
     pub fn frac(args: &[Value]) -> gml::Result<Value> {
