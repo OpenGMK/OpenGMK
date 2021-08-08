@@ -1555,7 +1555,8 @@ impl Game {
             self.stored_rooms.push(self.room.clone());
         }
         self.room = room_state;
-        self.input.step();
+        self.input.keyboard_clear_all();
+        self.input.mouse_clear_all();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
