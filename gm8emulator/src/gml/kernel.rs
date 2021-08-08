@@ -5595,17 +5595,7 @@ impl Game {
 
     pub fn game_load(&mut self, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
-        let mut file = std::fs::File::open(fname.as_ref())
-            .map(std::io::BufReader::new)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        let mut magnum = [0u8; 4];
-        file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        if magnum != [0x1d, 0x02, 0x00, 0x00] {
-            return Err(gml::Error::FunctionError("game_load".into(), "tried to load wrong version of save file".into()))
-        }
-        let save: GMSave = bincode::deserialize_from(file)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_load".into(), e))?;
+        self.scene_change = Some(SceneChange::Load(fname.into_owned().into()));
         Ok(Default::default())
     }
 

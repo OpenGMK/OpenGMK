@@ -331,6 +331,10 @@ impl Game {
                             },
                         }
                     },
+                    Some(SceneChange::Load(ref mut path)) => {
+                        let path = std::mem::take(path);
+                        self.load_gm_save(path)
+                    },
                     None => Ok(()),
                 },
                 Err(e) => Err(e),
@@ -691,6 +695,10 @@ impl Game {
                         Some(SceneChange::Room(id)) => self.load_room(id),
                         Some(SceneChange::Restart) => self.restart(),
                         Some(SceneChange::End) => self.restart(),
+                        Some(SceneChange::Load(ref mut path)) => {
+                            let path = std::mem::take(path);
+                            self.load_gm_save(path)
+                        },
                         None => Ok(()),
                     },
                     Err(e) => Err(e.into()),
