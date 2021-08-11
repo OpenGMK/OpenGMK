@@ -105,6 +105,30 @@ impl Path {
         }
     }
 
+    /// Returns the center of the Path
+    pub fn center(&self) -> (Real, Real) {
+        // GM defaults
+        let mut left = Real::from(100000000);
+        let mut right = Real::from(-100000000);
+        let mut top = Real::from(100000000);
+        let mut bottom = Real::from(-100000000);
+        for point in &self.points {
+            if point.x < left {
+                left = point.x;
+            }
+            if point.x > right {
+                right = point.x;
+            }
+            if point.y < top {
+                top = point.y;
+            }
+            if point.y > bottom {
+                bottom = point.y;
+            }
+        }
+        ((left + right) / Real::from(2), (top + bottom) / Real::from(2))
+    }
+
     /// Returns a Point on the path at the given offset, where 0 is the beginning and 1 is the end
     pub fn get_point(&self, offset: Real) -> Point {
         match &*self.control_nodes {
