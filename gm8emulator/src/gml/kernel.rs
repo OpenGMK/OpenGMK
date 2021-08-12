@@ -9358,7 +9358,7 @@ impl Game {
     pub fn path_mirror(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         if let Some(path) = self.assets.paths.get_asset_mut(id) {
-            let (xcenter, ycenter) = path.center();
+            let (xcenter, _) = path.center();
             for path in &mut path.points {
                 path.x = xcenter - (path.x - xcenter);
             }
@@ -9370,7 +9370,7 @@ impl Game {
     pub fn path_flip(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
         if let Some(path) = self.assets.paths.get_asset_mut(id) {
-            let (xcenter, ycenter) = path.center();
+            let (_, ycenter) = path.center();
             for path in &mut path.points {
                 path.y = ycenter - (path.y - ycenter);
             }
@@ -9379,9 +9379,25 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn path_rotate(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_rotate")
+    pub fn path_rotate(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, angle) = expect_args!(args, [int, real])?;
+        let sin = -angle.to_radians().sin().into_inner();
+        let cos = angle.to_radians().cos().into_inner();
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            let (xcenter, ycenter) = path.center();
+            for point in &mut path.points {
+                crate::util::rotate_around(
+                    point.x.as_mut_ref(),
+                    point.y.as_mut_ref(),
+                    xcenter.into(),
+                    ycenter.into(),
+                    sin,
+                    cos,
+                );
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
     pub fn path_scale(&mut self, args: &[Value]) -> gml::Result<Value> {
