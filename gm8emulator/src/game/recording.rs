@@ -455,6 +455,14 @@ impl Game {
         let mut input_windows = input_window::InputWindows::new();
         let mut instance_report_windows = instance_report::InstanceReportWindow::new();
 
+        let mut windows = vec![
+            &mut game_window as &mut dyn Window,
+            &mut control_window,
+            &mut savestate_window,
+            &mut input_windows,
+            &mut instance_report_windows,
+        ];
+
         /* ----------------------
            Frame loop begins here
            ---------------------- */
@@ -544,17 +552,11 @@ impl Game {
                     win_border_size: win_border_size,
                     win_padding: win_padding,
                 };
-
-                let windows = [
-                    &mut game_window as &mut dyn Window,
-                    &mut control_window,
-                    &mut savestate_window,
-                    &mut input_windows,
-                    &mut instance_report_windows,
-                ];
-                for win in windows {
+        
+                for win in &mut windows {
                     win.show_window(&mut display_info);
                 }
+                windows.retain(|win| win.is_open());
             }
 
             // Context menu windows (aka right-click menus)

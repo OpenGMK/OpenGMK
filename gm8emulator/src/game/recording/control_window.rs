@@ -104,6 +104,8 @@ impl Window for ControlWindow {
         }
         info.frame.end();
     }
+
+    fn is_open(&self) -> bool { true }
 }
 
 impl ControlWindow {

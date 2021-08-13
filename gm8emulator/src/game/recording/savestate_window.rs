@@ -57,6 +57,8 @@ impl Window for SaveStateWindow {
         }
         info.frame.end();
     }
+
+    fn is_open(&self) -> bool { true }
 }
 
 impl SaveStateWindow {

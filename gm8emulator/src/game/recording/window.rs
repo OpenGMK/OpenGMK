@@ -42,6 +42,8 @@ use std::path::PathBuf;
 
 pub trait Window {
     fn show_window(&mut self, info: &mut DisplayInformation);
+
+    fn is_open(&self) -> bool;
 }
 
 impl DisplayInformation<'_, '_> {
