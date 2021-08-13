@@ -3123,13 +3123,31 @@ impl Game {
     }
 
     pub fn action_if_variable(args: &[Value]) -> gml::Result<Value> {
+        use std::cmp::Ordering;
         let (lhs, rhs, comparator) = expect_args!(args, [any, any, int])?;
-        let operator = match comparator {
-            1 => Value::gml_lt,
-            2 => Value::gml_gt,
-            0 | _ => Value::gml_eq,
+        let desired = match comparator {
+            1 => Ordering::Less,
+            2 => Ordering::Greater,
+            0 | _ => Ordering::Equal,
         };
-        operator(lhs, rhs)
+        Ok(match (lhs, rhs) {
+            (Value::Real(lhs), Value::Real(rhs)) => lhs.partial_cmp(&rhs) == Some(desired),
+            (Value::Str(lhs), Value::Str(rhs)) => lhs.cmp(&rhs) == desired,
+            (lhs, rhs) => {
+                return Err(gml::Error::FunctionError(
+                    "action_if_variable".to_string(),
+                    format!(
+                        "invalid operands {} and {} to {:?} operator ({} {2:?} {})",
+                        lhs.ty_str(),
+                        rhs.ty_str(),
+                        desired,
+                        lhs,
+                        rhs
+                    ),
+                ))
+            },
+        }
+        .into())
     }
 
     pub fn action_draw_variable(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3769,8 +3787,18 @@ impl Game {
     }
 
     pub fn sign(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real])
-            .map(|x| if x != 0.into() { Value::Real(x.into_inner().signum().into()) } else { 0.into() })
+        expect_args!(args, [real]).map(|x| {
+            Value::Real(
+                if x >= Real::CMP_EPSILON {
+                    1
+                } else if x <= -Real::CMP_EPSILON {
+                    -1
+                } else {
+                    0
+                }
+                .into(),
+            )
+        })
     }
 
     pub fn frac(args: &[Value]) -> gml::Result<Value> {
@@ -5567,17 +5595,7 @@ impl Game {
 
     pub fn game_load(&mut self, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
-        let mut file = std::fs::File::open(fname.as_ref())
-            .map(std::io::BufReader::new)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        let mut magnum = [0u8; 4];
-        file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        if magnum != [0x1d, 0x02, 0x00, 0x00] {
-            return Err(gml::Error::FunctionError("game_load".into(), "tried to load wrong version of save file".into()))
-        }
-        let save: GMSave = bincode::deserialize_from(file)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_load".into(), e))?;
+        self.scene_change = Some(SceneChange::Load(fname.into_owned().into()));
         Ok(Default::default())
     }
 
@@ -9328,34 +9346,83 @@ impl Game {
         unimplemented!("Called unimplemented kernel function path_clear_points")
     }
 
-    pub fn path_reverse(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_reverse")
+    pub fn path_reverse(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            path.points.reverse();
+            path.update();
+        }
+        Ok(Default::default())
     }
 
-    pub fn path_mirror(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_mirror")
+    pub fn path_mirror(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            let (xcenter, _) = path.center();
+            for path in &mut path.points {
+                path.x = xcenter - (path.x - xcenter);
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
-    pub fn path_flip(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_flip")
+    pub fn path_flip(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let id = expect_args!(args, [int])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            let (_, ycenter) = path.center();
+            for path in &mut path.points {
+                path.y = ycenter - (path.y - ycenter);
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
-    pub fn path_rotate(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_rotate")
+    pub fn path_rotate(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, angle) = expect_args!(args, [int, real])?;
+        let sin = -angle.to_radians().sin().into_inner();
+        let cos = angle.to_radians().cos().into_inner();
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            let (xcenter, ycenter) = path.center();
+            for point in &mut path.points {
+                crate::util::rotate_around(
+                    point.x.as_mut_ref(),
+                    point.y.as_mut_ref(),
+                    xcenter.into(),
+                    ycenter.into(),
+                    sin,
+                    cos,
+                );
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
-    pub fn path_scale(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function path_scale")
+    pub fn path_scale(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xscale, yscale) = expect_args!(args, [int, real, real])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            let (xcenter, ycenter) = path.center();
+            for path in &mut path.points {
+                path.x = xcenter + xscale * (path.x - xcenter);
+                path.y = ycenter + yscale * (path.y - ycenter);
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
-    pub fn path_shift(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function path_shift")
+    pub fn path_shift(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xshift, yshift) = expect_args!(args, [int, real, real])?;
+        if let Some(path) = self.assets.paths.get_asset_mut(id) {
+            for path in &mut path.points {
+                path.x += xshift;
+                path.y += yshift;
+            }
+            path.update();
+        }
+        Ok(Default::default())
     }
 
     pub fn timeline_exists(&self, args: &[Value]) -> gml::Result<Value> {

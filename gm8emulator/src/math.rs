@@ -10,9 +10,6 @@ use std::{
 #[repr(transparent)]
 pub struct Real(f64);
 
-/// The lenience between values when compared.
-const CMP_EPSILON: f64 = 1e-13;
-
 /// The default way to round as defined by IEEE 754 - nearest, ties to even.
 pub fn ieee_round(real: f64) -> f64 {
     let int = real.floor();
@@ -225,7 +222,7 @@ impl Neg for Real {
 impl PartialEq for Real {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        (*self - *other).0.abs() < CMP_EPSILON
+        self.0 == other.0
     }
 }
 impl Eq for Real {}
@@ -233,14 +230,7 @@ impl Eq for Real {}
 impl PartialOrd for Real {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let sub = *self - *other;
-        if sub.0 >= CMP_EPSILON {
-            Some(Ordering::Greater)
-        } else if sub.0 <= -CMP_EPSILON {
-            Some(Ordering::Less)
-        } else {
-            Some(Ordering::Equal)
-        }
+        self.0.partial_cmp(&other.0)
     }
 }
 
@@ -255,6 +245,9 @@ impl std::iter::Sum<Self> for Real {
 }
 
 impl Real {
+    /// The lenience between values when compared.
+    pub const CMP_EPSILON: Self = Self(1e-13);
+
     #[inline(always)]
     pub fn into_inner(self) -> f64 {
         self.0

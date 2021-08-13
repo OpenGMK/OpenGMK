@@ -32,6 +32,7 @@ use crate::{
         trigger::{self, Trigger},
         Object, Script, Sound, Timeline,
     },
+    game::gm_save::GMSave,
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
     input::{self, Input},
@@ -208,11 +209,12 @@ pub enum PlayType {
 }
 
 /// Various different types of scene change which can be requested by GML
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum SceneChange {
-    Room(ID), // Go to the specified room
-    Restart,  // Restart the game and go to the first room
-    End,      // End the game
+    Room(ID),      // Go to the specified room
+    Restart,       // Restart the game and go to the first room
+    End,           // End the game
+    Load(PathBuf), // Load savegame
 }
 
 /// A function defined in an extension, which could either be a DLL external or some compiled GML
@@ -258,6 +260,21 @@ impl From<PascalString> for gml::String {
     fn from(s: PascalString) -> Self {
         s.0.as_ref().into()
     }
+}
+
+macro_rules! handle_scene_change {
+    ($self:ident) => {{
+        match $self.scene_change {
+            Some(SceneChange::Room(id)) => $self.load_room(id)?,
+            Some(SceneChange::Restart) => $self.restart()?,
+            Some(SceneChange::End) => return Ok($self.run_game_end_events()?),
+            Some(SceneChange::Load(ref mut path)) => {
+                let path = std::mem::take(path);
+                $self.load_gm_save(path)?
+            },
+            None => (),
+        }
+    }};
 }
 
 impl Game {
@@ -1544,7 +1561,8 @@ impl Game {
             self.stored_rooms.push(self.room.clone());
         }
         self.room = room_state;
-        self.input.step();
+        self.input.keyboard_clear_all();
+        self.input.mouse_clear_all();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
@@ -1723,6 +1741,28 @@ impl Game {
         // Go to first room
         self.room.id = self.room_order.first().copied().ok_or("Empty room order during Game::restart()")?;
         self.init()
+    }
+
+    pub fn load_gm_save(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        use std::io::Read;
+        self.input.keyboard_clear_all();
+        self.input.mouse_clear_all();
+        let mut file = std::fs::File::open(path)
+            .map(std::io::BufReader::new)
+            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        let mut magnum = [0u8; 4];
+        file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        if magnum != [0x1d, 0x02, 0x00, 0x00] {
+            return Err(Box::new(gml::Error::FunctionError(
+                "game_load".into(),
+                "tried to load wrong version of save file".into(),
+            )))
+        }
+        let save: GMSave = bincode::deserialize_from(file)
+            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
+        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_load".into(), e))?;
+        self.scene_change = None;
+        Ok(Default::default())
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
@@ -2020,12 +2060,7 @@ impl Game {
     // Plays the game normally
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.init()?;
-        match self.scene_change {
-            Some(SceneChange::Room(id)) => self.load_room(id)?,
-            Some(SceneChange::Restart) => self.restart()?,
-            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-            None => (),
-        }
+        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         let mut time_last = time_now;
@@ -2033,12 +2068,7 @@ impl Game {
             self.process_window_events();
 
             self.frame()?;
-            match self.scene_change {
-                Some(SceneChange::Room(id)) => self.load_room(id)?,
-                Some(SceneChange::Restart) => self.restart()?,
-                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
-                None => (),
-            }
+            handle_scene_change!(self);
 
             // Exit if the window was closed by the user, such as by pressing 'X'
             if self.close_requested {
@@ -2080,12 +2110,7 @@ impl Game {
             self.stored_events.push_back(ev.clone());
         }
         self.init()?;
-        match self.scene_change {
-            Some(SceneChange::Room(id)) => self.load_room(id)?,
-            Some(SceneChange::Restart) => self.restart()?,
-            Some(SceneChange::End) => return Ok(self.run_game_end_events()?),
-            None => (),
-        }
+        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         loop {
@@ -2135,12 +2160,7 @@ impl Game {
             }
 
             self.frame()?;
-            match self.scene_change {
-                Some(SceneChange::Room(id)) => self.load_room(id)?,
-                Some(SceneChange::Restart) => self.restart()?,
-                Some(SceneChange::End) => break Ok(self.run_game_end_events()?),
-                None => (),
-            }
+            handle_scene_change!(self);
 
             // exit if X pressed or game_end() invoked
             if self.close_requested {

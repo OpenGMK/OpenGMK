@@ -315,6 +315,10 @@ impl ControlWindow {
                 Some(SceneChange::Room(id)) => game.load_room(id),
                 Some(SceneChange::Restart) => game.restart(),
                 Some(SceneChange::End) => game.restart(),
+                Some(SceneChange::Load(ref mut path)) => {
+                    let path = std::mem::take(path);
+                    self.load_gm_save(path)
+                },
                 None => Ok(()),
             },
             Err(e) => Err(e.into()),

@@ -387,6 +387,10 @@ impl Game {
                             },
                         }
                     },
+                    Some(SceneChange::Load(ref mut path)) => {
+                        let path = std::mem::take(path);
+                        self.load_gm_save(path)
+                    },
                     None => Ok(()),
                 },
                 Err(e) => Err(e),
