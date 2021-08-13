@@ -317,7 +317,7 @@ impl ControlWindow {
                 Some(SceneChange::End) => game.restart(),
                 Some(SceneChange::Load(ref mut path)) => {
                     let path = std::mem::take(path);
-                    self.load_gm_save(path)
+                    game.load_gm_save(path)
                 },
                 None => Ok(()),
             },
