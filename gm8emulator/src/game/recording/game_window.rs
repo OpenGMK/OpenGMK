@@ -31,6 +31,8 @@ impl Window for GameWindow {
             *info.setting_mouse_pos = false;
         }
     }
+
+    fn is_open(&self) -> bool { true }
 }
 
 

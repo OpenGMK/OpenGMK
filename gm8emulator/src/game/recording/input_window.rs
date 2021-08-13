@@ -20,6 +20,8 @@ impl Window for InputWindows {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         self.show_input_windows(info);
     }
+
+    fn is_open(&self) -> bool { true }
 }
 
 

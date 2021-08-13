@@ -148,6 +148,8 @@ impl Window for InstanceReportWindow {
             info.config.save();
         }
     }
+
+    fn is_open(&self) -> bool { true }
 }
 
 impl InstanceReportWindow {
