@@ -5,7 +5,7 @@ use std::{
     fmt::{self, Display},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
     Str(gml::String),

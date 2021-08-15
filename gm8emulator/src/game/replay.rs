@@ -9,7 +9,7 @@ use std::{
 };
 
 // Represents an entire replay (TAS) file
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Replay {
     // System time to use at the beginning of this replay.
     // Will be used to spoof some GML variables such as `current_time`.
@@ -26,7 +26,7 @@ pub struct Replay {
 }
 
 // Associated data for a single frame of playback
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
     pub mouse_x: i32,
     pub mouse_y: i32,
@@ -37,7 +37,7 @@ pub struct Frame {
 }
 
 // Stored events for certain things which must always happen the same way during replay
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
     GetInteger(Value),   // value returned from get_integer()
     GetString(Value),    // value returned from get_string()
@@ -48,7 +48,7 @@ pub enum Event {
 }
 
 // An input event which takes place during a frame
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Input {
     KeyPress(u8),
     KeyRelease(u8),
@@ -162,5 +162,18 @@ impl Replay {
     // Gets the replay's frame count
     pub fn frame_count(&self) -> usize {
         self.frames.len()
+    }
+
+    // Returns whether this replay begins the same way as the other one.
+    pub fn contains_part(&self, other: &Replay) -> bool {
+        if self.frame_count() > other.frame_count() {
+            let mut part = self.clone();
+            part.frames.truncate(other.frame_count());
+            part == *other
+        } else if self.frame_count() == other.frame_count() {
+            *self == *other
+        } else {
+            false
+        }
     }
 }
