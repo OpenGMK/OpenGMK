@@ -228,6 +228,8 @@ pub struct ProjectConfig {
     input_mode: InputMode,
     quicksave_slot: usize,
     config_path: PathBuf,
+    is_read_only: bool,
+    current_frame: usize,
 }
 
 impl ProjectConfig {
@@ -241,6 +243,8 @@ impl ProjectConfig {
             input_mode: InputMode::Mouse,
             quicksave_slot: 0,
             config_path: config_path.clone(),
+            is_read_only: false,
+            current_frame: 0,
         };
         
         let mut config = if config_path.exists() {

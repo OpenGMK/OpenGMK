@@ -164,6 +164,10 @@ impl Replay {
         self.frames.len()
     }
 
+    pub fn truncate_frames(&mut self, len: usize) {
+        self.frames.truncate(len)
+    }
+
     // Returns whether this replay begins the same way as the other one.
     pub fn contains_part(&self, other: &Replay) -> bool {
         if self.frame_count() > other.frame_count() {
