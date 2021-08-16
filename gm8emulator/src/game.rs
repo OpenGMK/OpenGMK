@@ -2100,6 +2100,32 @@ impl Game {
         }
     }
 
+    pub fn set_input_from_frame(&mut self, frame: &crate::game::replay::Frame) {
+        for ev in frame.events.iter() {
+            self.stored_events.push_back(ev.clone());
+        }
+
+        if let Some(seed) = frame.new_seed {
+            self.rand.set_seed(seed);
+        }
+
+        if let Some(time) = frame.new_time {
+            self.spoofed_time_nanos = Some(time);
+        }
+
+        self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
+        for ev in frame.inputs.iter() {
+            match ev {
+                replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
+                replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
+                replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
+                replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
+                replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
+                replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
+            }
+        }
+    }
+
     // Replays some recorded inputs to the game
     pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
@@ -2126,29 +2152,7 @@ impl Game {
                     .into())
                 }
 
-                for ev in frame.events.iter() {
-                    self.stored_events.push_back(ev.clone());
-                }
-
-                if let Some(seed) = frame.new_seed {
-                    self.rand.set_seed(seed);
-                }
-
-                if let Some(time) = frame.new_time {
-                    self.spoofed_time_nanos = Some(time);
-                }
-
-                self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
-                for ev in frame.inputs.iter() {
-                    match ev {
-                        replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
-                        replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
-                        replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
-                        replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
-                        replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
-                        replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
-                    }
-                }
+                self.set_input_from_frame(frame);
             } else if let Some(bin) = &output_bin {
                 let render_state = self.renderer.state();
                 match SaveState::from(&mut self, replay.clone(), render_state)
