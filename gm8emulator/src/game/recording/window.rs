@@ -143,8 +143,8 @@ impl DisplayInformation<'_, '_> {
 
     fn savestate_load_from_state(&mut self, state: SaveState) {
         let (new_replay, new_renderer_state) = state.load_into(self.game);
-        *self.replay = new_replay;
         *self.renderer_state = new_renderer_state;
+
 
         for (i, state) in self.keyboard_state.iter_mut().enumerate() {
             *state =
@@ -160,6 +160,17 @@ impl DisplayInformation<'_, '_> {
         *self.new_mouse_pos = None;
         *self.err_string = None;
         *self.game_running = true;
+
+        self.config.current_frame = new_replay.frame_count();
+
+        if self.config.is_read_only {
+            if !self.replay.contains_part(&new_replay) {
+                *self.err_string = Some("Savestate is not part of recording.\nPlease load a savestate that's part of the current recording or try again in Read/Write mode.".into());
+                *self.game_running = false;
+            }
+        } else {
+            *self.replay = new_replay;
+        }
         self.config.rerecords += 1;
         self.config.save();
 
