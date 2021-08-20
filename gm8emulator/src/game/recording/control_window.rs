@@ -164,12 +164,14 @@ impl ControlWindow {
             if info.config.is_read_only == true {
                 // at the end of the current replay while in read-only mode
                 // don't advance?
-                // > switch to read/write?
-                // add onto it but stay in read-only?
+                // switch to read/write?
+                // > add onto it but stay in read-only?
                 // make that a setting?
-                // also todo, pause the once it reached the end in read-only mode once a real-time toggle has been implemented.
-                info.config.is_read_only = false;
-                info.config.save();
+                // also todo, pause the playback once it reached the end in read-only mode whenever a real-time toggle has been implemented.
+
+                assert_eq!(info.config.current_frame, info.replay.frame_count());
+                // info.config.is_read_only = false;
+                // info.config.save();
             }
 
             // if we write a new frame in the middle of the recording, truncate all following frames
