@@ -423,11 +423,52 @@ impl Game {
                     err,
                 ));
             }
+
+            config.current_frame = 0;
+
+            if config.is_read_only {
+                let mut backup_path = project_path.clone();
+                backup_path.push("backup.gmtas");
+
+                if backup_path.exists() {
+                    match Replay::from_file(&backup_path) {
+                        Ok(backup_replay) => {
+                            if backup_replay.contains_part(&replay) {
+                                replay = backup_replay;
+                            }
+                        },
+                        Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
+                    }
+                }
+            }
         } else {
             match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                 Ok(state) => {
                     let (rep, ren) = state.clone().load_into(self);
-                    replay = rep;
+                    config.current_frame = rep.frame_count();
+
+                    if config.is_read_only {
+                        let mut backup_path = project_path.clone();
+                        backup_path.push("backup.gmtas");
+
+                        if backup_path.exists() {
+                            match Replay::from_file(&backup_path) {
+                                Ok(backup_replay) => {
+                                    if backup_replay.contains_part(&rep) {
+                                        replay = backup_replay;
+                                    } else {
+                                        replay = rep;
+                                    }
+                                },
+                                Err(e) => {
+                                    err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e));
+                                    replay = rep
+                                },
+                            }
+                        }
+                    } else {
+                        replay = rep;
+                    }
                     renderer_state = ren;
 
                     for (i, state) in keyboard_state.iter_mut().enumerate() {
@@ -740,6 +781,10 @@ impl Game {
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
+
+        let mut backup_path = project_path.clone();
+        backup_path.push("backup.gmtas");
+        replay.to_file(&backup_path);
 
         config.save();
     }
