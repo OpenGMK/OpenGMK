@@ -59,7 +59,13 @@ impl DisplayInformation<'_, '_> {
         if slot >= self.save_paths.len() {
             false
         } else {
-            let state = SaveState::from(self.game, self.replay.clone(), self.renderer_state.clone());
+            let mut savestate_replay = self.replay.clone();
+            if self.config.is_read_only {
+                // make sure the saved replay is only up to the savestate.
+                savestate_replay.truncate_frames(self.config.current_frame);
+            }
+
+            let state = SaveState::from(self.game, savestate_replay, self.renderer_state.clone());
             let result = self.savestate_save_to_file(slot, &state);
             if slot == self.config.quicksave_slot {
                 *self.savestate = state;
