@@ -259,6 +259,26 @@ impl Frame<'_> {
         }
     }
 
+    pub fn ctrl_down(&self) -> bool {
+        self.0.io().get_ctrl()
+    }
+
+    pub fn shift_down(&self) -> bool {
+        self.0.io().get_shift()
+    }
+
+    pub fn alt_down(&self) -> bool {
+        self.0.io().get_alt()
+    }
+
+    pub fn key_down(&self, code: u8) -> bool {
+        unsafe { c::igIsKeyDown(code.into()) }
+    }
+
+    pub fn key_pressed_norepeat(&self, code: u8) -> bool {
+        unsafe { c::igIsKeyPressed(code.into(), false) }
+    }
+
     pub fn key_pressed(&self, code: u8) -> bool {
         unsafe { c::igIsKeyPressed(code.into(), true) }
     }
@@ -396,12 +416,24 @@ impl IO {
         self.0.KeyCtrl = state;
     }
 
+    pub fn get_ctrl(&self) -> bool {
+        self.0.KeyCtrl
+    }
+
     pub fn set_shift(&mut self, state: bool) {
         self.0.KeyShift = state;
     }
 
+    pub fn get_shift(&self) -> bool {
+        self.0.KeyShift
+    }
+
     pub fn set_alt(&mut self, state: bool) {
         self.0.KeyAlt = state;
+    }
+
+    pub fn get_alt(&self) -> bool {
+        self.0.KeyAlt
     }
 
     pub fn set_mouse(&mut self, pos: Vec2<f32>) {

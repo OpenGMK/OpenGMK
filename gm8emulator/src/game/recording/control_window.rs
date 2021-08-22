@@ -1,5 +1,5 @@
 use crate::{
-    imgui, input,
+    imgui,
     game::{
         Game,
         SceneChange,
@@ -7,13 +7,13 @@ use crate::{
             KeyState,
             InputMode,
             ContextMenu,
+            keybinds::Binding,
             window::{Window, DisplayInformation},
         },
         replay::{self, Frame},
     },
     types::Colour
 };
-use ramen::event::Key;
 use std::time::Duration;
 
 pub struct ControlWindow {
@@ -29,7 +29,7 @@ impl Window for ControlWindow {
         self.update_texts(info);
 
         if (info.frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None)
-            || info.frame.key_pressed(input::ramen2vk(Key::Space)))
+            || info.keybind_pressed(Binding::Advance))
             && *info.game_running
             && info.err_string.is_none()
         {
@@ -37,7 +37,7 @@ impl Window for ControlWindow {
         }
 
         if (info.frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None)
-            || info.frame.key_pressed(input::ramen2vk(Key::Q)))
+            || info.keybind_pressed(Binding::Quicksave))
             && *info.game_running
             && info.err_string.is_none()
         {
@@ -45,7 +45,7 @@ impl Window for ControlWindow {
         }
 
         if info.frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None)
-            || info.frame.key_pressed(input::ramen2vk(Key::W))
+            || info.keybind_pressed(Binding::Quickload)
         {
             if *info.startup_successful {
                 info.savestate_load(info.config.quicksave_slot);

@@ -4,6 +4,7 @@ mod control_window;
 mod savestate_window;
 mod input_window;
 mod instance_report;
+mod keybinds;
 
 use crate::{
     game::{
@@ -513,6 +514,8 @@ impl Game {
             config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
         let mut new_rand: Option<Random> = None;
 
+        let mut keybindings = keybinds::Keybindings::default();
+
         let mut game_window = game_window::GameWindow::new();
         let mut control_window = control_window::ControlWindow::new();
         let mut savestate_window = savestate_window::SaveStateWindow::new(16);
@@ -606,18 +609,20 @@ impl Game {
                     renderer_state: &mut renderer_state,
                     save_buffer: &mut save_buffer,
                     instance_reports: &mut instance_reports,
-                    
+
                     startup_successful: &startup_successful,
                     ui_renderer_state: &ui_renderer_state,
                     fps_text: &fps_text,
                     save_paths: &save_paths,
                     project_path: &project_path,
-                    
+
                     win_frame_height: win_frame_height,
                     win_border_size: win_border_size,
                     win_padding: win_padding,
+
+                    keybindings: &mut keybindings,
                 };
-        
+
                 for win in &mut windows {
                     win.show_window(&mut display_info);
                 }

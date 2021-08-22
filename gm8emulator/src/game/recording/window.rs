@@ -1,7 +1,7 @@
 use crate::{ 
     imgui,  game::{
         Game,
-        recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport},
+        recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
         replay::Replay,
         savestate::{self, SaveState},
     },
@@ -38,6 +38,8 @@ use std::path::PathBuf;
     pub win_padding: imgui::Vec2<f32>,
     pub win_frame_height: f32,
     pub win_border_size: f32,
+
+    pub keybindings: &'a mut Keybindings,
 }
 
 pub trait Window {
@@ -49,6 +51,10 @@ pub trait Window {
 impl DisplayInformation<'_, '_> {
     pub fn update_instance_reports(&mut self) {
         *self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
+    }
+
+    pub fn keybind_pressed(&self, binding: Binding) -> bool {
+        self.keybindings.keybind_pressed(binding, self.frame)
     }
 
     pub fn savestate_exists(&mut self, slot: usize) -> bool {
