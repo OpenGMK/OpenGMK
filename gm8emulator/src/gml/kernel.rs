@@ -4691,14 +4691,13 @@ impl Game {
             instance.path_positionprevious.set(instance.path_position.get());
             instance.path_scale.set(Real::from(1.0));
             instance.path_orientation.set(Real::from(0.0));
-            let path_start = if forwards { path.start } else { path.end };
             if absolute {
+                let path_start = if forwards { path.start } else { path.end };
                 instance.x.set(path_start.x);
                 instance.y.set(path_start.y);
             }
             instance.path_xstart.set(instance.x.get());
             instance.path_ystart.set(instance.y.get());
-            instance.path_pointspeed.set(path_start.speed);
         } else {
             instance.path_index.set(path_id.min(-1));
         }

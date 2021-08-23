@@ -1290,9 +1290,6 @@ impl Game {
             },
             InstanceVariable::PathPosition => {
                 let new_value = Real::from(value).max(Real::from(0.0)).min(Real::from(1.0));
-                if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
-                    instance.path_pointspeed.set(path.get_point(new_value).speed);
-                }
                 instance.path_position.set(new_value);
             },
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),

@@ -608,9 +608,6 @@ impl Game {
                                     inst.y.set(inst.yprevious.get());
                                     inst.bbox_is_stale.set(true);
                                     inst.path_position.set(inst.path_positionprevious.get());
-                                    if let Some(path) = self.assets.paths.get_asset(inst.path_index.get()) {
-                                        inst.path_pointspeed.set(path.get_point(inst.path_position.get()).speed);
-                                    }
                                 }
                             }
 
