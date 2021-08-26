@@ -426,7 +426,7 @@ impl Game {
                                         skip_count = len;
                                         if let Some(Body::Else) = slice.get(i + len + 1).map(|a| &a.body) {
                                             skip_count +=
-                                                2 + slice.get(i + 1 + len + 1..).map(Self::skip_actions).unwrap_or(0);
+                                                1 + slice.get(i + 1 + len + 1..).map(Self::skip_actions).unwrap_or(0);
                                         };
                                     },
                                     (ReturnType::Exit, len) => return Ok((ReturnType::Exit, i + len)),
