@@ -481,6 +481,9 @@ impl IO {
     pub fn clear_inputs(&mut self) {
         self.0.KeysDown = [false; 512];
         self.0.MouseDown = [false; 5];
+        self.0.KeyCtrl = false;
+        self.0.KeyAlt = false;
+        self.0.KeyShift = false;
     }
 }
 
