@@ -61,7 +61,7 @@ impl Display for KeyCombination {
 
 pub struct Keybindings {
     disable_bindings: bool,
-    bindings: HashMap<Binding, KeyCombination>,
+    bindings: HashMap<Binding, Option<KeyCombination>>,
 }
 
 pub struct KeybindWindow {
@@ -76,13 +76,13 @@ impl Keybindings {
             false
         } else {
             match self.bindings.get(&bind) {
-                Some(keys) => keys.pressed(frame),
-                None => false,
+                Some(Some(keys)) => keys.pressed(frame),
+                _ => false,
             }
         }
     }
 
-    pub fn update_binding(&mut self, bind: Binding, keys: KeyCombination) {
+    pub fn update_binding(&mut self, bind: Binding, keys: Option<KeyCombination>) {
         self.bindings.insert(bind, keys);
     }
 }
@@ -90,9 +90,9 @@ impl Keybindings {
 impl Default for Keybindings {
     fn default() -> Self {
         let mut bindings = HashMap::new();
-        bindings.insert(Binding::Advance, KeyCombination::from(vec![Button::Space]));
-        bindings.insert(Binding::Quickload, KeyCombination::from(vec![Button::W]));
-        bindings.insert(Binding::Quicksave, KeyCombination::from(vec![Button::Q]));
+        bindings.insert(Binding::Advance, Some(KeyCombination::from(vec![Button::Space])));
+        bindings.insert(Binding::Quickload, Some(KeyCombination::from(vec![Button::W])));
+        bindings.insert(Binding::Quicksave, Some(KeyCombination::from(vec![Button::Q])));
 
         Self {
             disable_bindings: false,
@@ -135,13 +135,14 @@ impl KeybindWindow {
         }
     }
 
-    fn binding_entry(&mut self, binding: &Binding, keys: &KeyCombination, frame: &mut imgui::Frame) {
+    fn binding_entry(&mut self, binding: &Binding, keys: &Option<KeyCombination>, frame: &mut imgui::Frame) {
         let is_setting_binding = matches!(self.current_binding, Some(_));
         let text = if is_setting_binding && *binding == self.current_binding.unwrap() {
             frame.coloured_text(&format!("{} | {}", binding, self.current_keys), Colour::new(0.5, 0.6, 0.7));
             "Cancel"
         } else {
-            frame.text(&format!("{} | {}", binding, keys));
+            let name = if let Some(keycombination) = keys { format!("{}", keycombination) } else { String::from("Not set") };
+            frame.text(&format!("{} | {}", binding, name));
             "Set"
         };
         if frame.button(&format!("{}###{}", text, binding), imgui::Vec2(60.0, 20.0), None) {
@@ -157,13 +158,14 @@ impl KeybindWindow {
 
     fn update_current_keys(&mut self, frame: &mut imgui::Frame, bindings: &mut Keybindings) {
         if frame.key_pressed(input::ramen2vk(Key::Escape)) {
+            bindings.update_binding(self.current_binding.unwrap(), None);
             self.current_binding = None;
         } else {
             let keys = frame.get_keys();
             if keys.len() == 0 {
                 // if we have pressed keys before, update the keybinding
                 if self.last_keycodes.len() != 0 {
-                    bindings.update_binding(self.current_binding.unwrap(), self.current_keys.clone());
+                    bindings.update_binding(self.current_binding.unwrap(), Some(self.current_keys.clone()));
                     self.current_binding = None;
                 }
             } else {
