@@ -271,6 +271,22 @@ impl Frame<'_> {
         self.0.io().get_alt()
     }
 
+    pub fn get_keys(&self) -> Vec<u8> {
+        self.0.io()
+            .get_keys()
+            .into_iter()
+            .take(255)
+            .enumerate()
+            .filter_map(|(key, &pressed)| {
+                if pressed {
+                    Some(key as u8)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn key_down(&self, code: u8) -> bool {
         unsafe { c::igIsKeyDown(code.into()) }
     }
@@ -410,6 +426,10 @@ impl IO {
         if let Some(entry) = self.0.KeysDown.get_mut(key) {
             *entry = state;
         }
+    }
+
+    pub fn get_keys(&self) -> &[bool; 512] {
+        &self.0.KeysDown
     }
 
     pub fn set_ctrl(&mut self, state: bool) {

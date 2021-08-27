@@ -521,6 +521,7 @@ impl Game {
         let mut savestate_window = savestate_window::SaveStateWindow::new(16);
         let mut input_windows = input_window::InputWindows::new();
         let mut instance_report_windows = instance_report::InstanceReportWindow::new();
+        let mut keybinding_window = keybinds::KeybindWindow::new();
 
         let mut windows = vec![
             &mut game_window as &mut dyn Window,
@@ -528,6 +529,7 @@ impl Game {
             &mut savestate_window,
             &mut input_windows,
             &mut instance_report_windows,
+            &mut keybinding_window,
         ];
 
         /* ----------------------
