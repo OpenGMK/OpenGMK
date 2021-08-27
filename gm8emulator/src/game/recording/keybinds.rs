@@ -163,8 +163,8 @@ impl KeybindWindow {
         } else {
             let keys = frame.get_keys();
             if keys.len() == 0 {
-                // if we have pressed keys before, update the keybinding
-                if self.last_keycodes.len() != 0 {
+                // if we have pressed keys before, update the keybinding and the key combination is valid
+                if self.last_keycodes.len() != 0 && self.current_keys.is_valid() {
                     bindings.update_binding(self.current_binding.unwrap(), Some(self.current_keys.clone()));
                     self.current_binding = None;
                 }
@@ -218,6 +218,10 @@ impl KeyCombination {
         }
 
         pressed
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.keycodes.len() > 0
     }
 }
 
