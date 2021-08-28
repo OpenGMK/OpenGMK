@@ -4691,14 +4691,13 @@ impl Game {
             instance.path_positionprevious.set(instance.path_position.get());
             instance.path_scale.set(Real::from(1.0));
             instance.path_orientation.set(Real::from(0.0));
-            let path_start = if forwards { path.start } else { path.end };
             if absolute {
+                let path_start = if forwards { path.start } else { path.end };
                 instance.x.set(path_start.x);
                 instance.y.set(path_start.y);
             }
             instance.path_xstart.set(instance.x.get());
             instance.path_ystart.set(instance.y.get());
-            instance.path_pointspeed.set(path_start.speed);
         } else {
             instance.path_index.set(path_id.min(-1));
         }
@@ -5003,7 +5002,7 @@ impl Game {
     }
 
     pub fn collision_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, object_id, precise, exclude_self) = expect_args!(args, [int, int, int, bool, bool])?;
+        let (x, y, object_id, precise, exclude_self) = expect_args!(args, [real, real, int, bool, bool])?;
         match self.find_instance_with(object_id, |handle| {
             (!exclude_self || handle != context.this) && self.check_collision_point(handle, x, y, precise)
         }) {
@@ -5128,7 +5127,7 @@ impl Game {
     }
 
     pub fn instance_position(&self, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, object_id) = expect_args!(args, [int, int, int])?;
+        let (x, y, object_id) = expect_args!(args, [real, real, int])?;
         match self.find_instance_with(object_id, |handle| self.check_collision_point(handle, x, y, true)) {
             Some(handle) => Ok(self.room.instance_list.get(handle).id.get().into()),
             None => Ok(gml::NOONE.into()),
@@ -5361,7 +5360,7 @@ impl Game {
     }
 
     pub fn position_meeting(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (x, y, object_id) = expect_args!(args, [int, int, int])?;
+        let (x, y, object_id) = expect_args!(args, [real, real, int])?;
         let meeting = match object_id {
             gml::SELF => self.check_collision_point(context.this, x, y, true),
             gml::OTHER => self.check_collision_point(context.other, x, y, true),
@@ -5371,7 +5370,7 @@ impl Game {
     }
 
     pub fn position_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
-        let (x, y) = expect_args!(args, [int, int])?;
+        let (x, y) = expect_args!(args, [real, real])?;
         let mut iter = self.room.instance_list.iter_by_insertion();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.check_collision_point(handle, x, y, true) {

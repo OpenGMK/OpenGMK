@@ -60,7 +60,8 @@ impl Game {
                 let angle = instance.path_orientation.get().to_radians();
 
                 // Calculate how much offset (0-1) we want to add to the instance's path position
-                let offset = instance.path_speed.get() * (instance.path_pointspeed.get() / Real::from(100.0))
+                let point_speed = path.get_point(instance.path_position.get()).speed;
+                let offset = instance.path_speed.get() * (point_speed / Real::from(100.0))
                     / (path.length * instance.path_scale.get());
 
                 // Work out what the new position should be
@@ -137,7 +138,6 @@ impl Game {
                 instance.set_speed(0.into());
                 instance.x.set(new_x);
                 instance.y.set(new_y);
-                instance.path_pointspeed.set(point.speed);
                 instance.bbox_is_stale.set(true);
             }
         }

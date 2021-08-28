@@ -2346,7 +2346,7 @@ impl Game {
     }
 
     // Checks if an instance is colliding with a point
-    pub fn check_collision_point(&self, inst: usize, x: i32, y: i32, precise: bool) -> bool {
+    pub fn check_collision_point(&self, inst: usize, x: Real, y: Real, precise: bool) -> bool {
         // Get sprite mask, update bbox
         let inst = self.room.instance_list.get(inst);
         let sprite = self
@@ -2357,10 +2357,10 @@ impl Game {
         inst.update_bbox(sprite);
 
         // AABB with the point
-        if inst.bbox_right.get() < x
-            || x < inst.bbox_left.get()
-            || inst.bbox_bottom.get() < y
-            || y < inst.bbox_top.get()
+        if Real::from(inst.bbox_right.get()) < x
+            || x < Real::from(inst.bbox_left.get())
+            || Real::from(inst.bbox_bottom.get()) < y
+            || y < Real::from(inst.bbox_top.get())
         {
             return false
         }
@@ -2384,8 +2384,8 @@ impl Game {
 
             // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
-            let mut x = Real::from(x) - inst.x.get();
-            let mut y = Real::from(y) - inst.y.get();
+            let mut x = x.round() - inst.x.get(); // round coordinates here because game maker stupid
+            let mut y = y.round() - inst.y.get();
             util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle.sin().into(), angle.cos().into());
             let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round().to_i32();
             let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round().to_i32();
