@@ -26,6 +26,9 @@ impl IpcExternals {
             Some(name) => name,
             None => PROCESS_DEFAULT_NAME.into(),
         });
+        if !process_path.exists() {
+            panic!("{} was not found, please extract it into your gm8emulator directory", PROCESS_DEFAULT_NAME);
+        }
         let mut child = process::Command::new(process_path)
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())

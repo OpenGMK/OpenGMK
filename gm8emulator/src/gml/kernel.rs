@@ -487,7 +487,9 @@ impl Game {
     pub fn screen_refresh(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         let (width, height) = self.window_inner_size;
-        self.renderer.present(width, height, self.scaling);
+        if self.play_type != PlayType::Record {
+            self.renderer.present(width, height, self.scaling);
+        }
         Ok(Default::default())
     }
 
