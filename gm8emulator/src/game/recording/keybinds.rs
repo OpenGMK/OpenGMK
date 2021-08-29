@@ -9,10 +9,10 @@ use std::{
     fmt::{Display, Formatter, Error},
     convert::From,
     default::Default,
-    collections::HashMap,
+    collections::BTreeMap,
 };
 
-#[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Clone, Copy)]
 pub enum Binding {
     Advance,
     Quicksave,
@@ -61,7 +61,7 @@ impl Display for KeyCombination {
 
 pub struct Keybindings {
     disable_bindings: bool,
-    bindings: HashMap<Binding, Option<KeyCombination>>,
+    bindings: BTreeMap<Binding, Option<KeyCombination>>,
 }
 
 pub struct KeybindWindow {
@@ -89,7 +89,7 @@ impl Keybindings {
 
 impl Default for Keybindings {
     fn default() -> Self {
-        let mut bindings = HashMap::new();
+        let mut bindings = BTreeMap::new();
         bindings.insert(Binding::Advance, Some(KeyCombination::from(vec![Button::Space])));
         bindings.insert(Binding::Quickload, Some(KeyCombination::from(vec![Button::W])));
         bindings.insert(Binding::Quicksave, Some(KeyCombination::from(vec![Button::Q])));
