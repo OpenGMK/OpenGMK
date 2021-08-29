@@ -5,14 +5,17 @@ use crate::{
     game::recording::window::{Window, DisplayInformation},
 };
 use ramen::event::Key;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter, Error},
     convert::From,
+    fs::File,
+    path::PathBuf,
     default::Default,
     collections::BTreeMap,
 };
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Binding {
     Advance,
     Quicksave,
@@ -29,7 +32,7 @@ impl Display for Binding {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyCombination {
     ctrl: bool,
     alt: bool,
@@ -59,8 +62,11 @@ impl Display for KeyCombination {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Keybindings {
+    #[serde(skip)]
     disable_bindings: bool,
+
     bindings: BTreeMap<Binding, Option<KeyCombination>>,
 }
 
@@ -84,6 +90,24 @@ impl Keybindings {
 
     pub fn update_binding(&mut self, bind: Binding, keys: Option<KeyCombination>) {
         self.bindings.insert(bind, keys);
+    }
+
+    pub fn from_file_or_default(path: &PathBuf) -> Self {
+        let default_keybindings = Self::default();
+
+        if path.exists() {
+            match bincode::deserialize_from(File::open(&path).expect("Couldn't read key bindings")) {
+                Ok(keybindings) => keybindings,
+                Err(_) => {
+                    println!("Warning: Couldn't parse key bindings. Using default bindings.");
+                    default_keybindings
+                },
+            }
+        } else {
+            bincode::serialize_into(File::create(&path).expect("Couldn't write key bindings"), &default_keybindings)
+                .expect("Couldn't serialize key bindings");
+            default_keybindings
+        }
     }
 }
 

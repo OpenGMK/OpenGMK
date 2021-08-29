@@ -514,7 +514,9 @@ impl Game {
             config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
         let mut new_rand: Option<Random> = None;
 
-        let mut keybindings = keybinds::Keybindings::default();
+        let mut keybind_path = project_path.clone();
+        keybind_path.push("keybindings.cfg");
+        let mut keybindings = keybinds::Keybindings::from_file_or_default(&keybind_path);
 
         let mut game_window = game_window::GameWindow::new();
         let mut control_window = control_window::ControlWindow::new();
@@ -794,5 +796,6 @@ impl Game {
         replay.to_file(&backup_path);
 
         config.save();
+        let _ = File::create(&keybind_path).map(|f| bincode::serialize_into(f, &keybindings));
     }
 }
