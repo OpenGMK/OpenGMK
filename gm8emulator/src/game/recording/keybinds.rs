@@ -20,6 +20,7 @@ pub enum Binding {
     Advance,
     Quicksave,
     Quickload,
+    ToggleReadOnly,
 }
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -27,6 +28,7 @@ impl Display for Binding {
             Self::Advance => write!(f, "Advance Frame"),
             Self::Quicksave => write!(f, "Save Quicksave"),
             Self::Quickload => write!(f, "Load Quicksave"),
+            Self::ToggleReadOnly => write!(f, "Toggle Read-Only"),
             //_ => write!(f, "{:?}", self),
         }
     }
@@ -37,6 +39,7 @@ impl Binding {
             Self::Advance => Some(KeyCombination::from(vec![Button::Space])),
             Self::Quickload => Some(KeyCombination::from(vec![Button::W])),
             Self::Quicksave => Some(KeyCombination::from(vec![Button::Q])),
+            Self::ToggleReadOnly => Some(KeyCombination::from(vec![Button::Shift, Button::Alpha8])),
             //_ => None,
         }
     }
@@ -87,6 +90,20 @@ pub struct KeybindWindow {
 }
 
 impl Keybindings {
+    fn set_default_bindings(bindings: &mut BTreeMap<Binding, Option<KeyCombination>>) {
+        // todo: find a way to iterate enums and automate this.
+        macro_rules! insert {
+            ($binding:expr) => {
+                if !bindings.contains_key(&$binding) { bindings.insert($binding, $binding.default_binding()); }
+            };
+        }
+        
+        insert!(Binding::Advance);
+        insert!(Binding::Quickload);
+        insert!(Binding::Quicksave);
+        insert!(Binding::ToggleReadOnly);
+    }
+
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {
         if self.disable_bindings {
             false
@@ -105,7 +122,7 @@ impl Keybindings {
     pub fn from_file_or_default(path: &PathBuf) -> Self {
         let default_keybindings = Self::default();
 
-        if path.exists() {
+        let mut keybindings = if path.exists() {
             match bincode::deserialize_from(File::open(&path).expect("Couldn't read key bindings")) {
                 Ok(keybindings) => keybindings,
                 Err(_) => {
@@ -117,17 +134,17 @@ impl Keybindings {
             bincode::serialize_into(File::create(&path).expect("Couldn't write key bindings"), &default_keybindings)
                 .expect("Couldn't serialize key bindings");
             default_keybindings
-        }
+        };
+
+        Self::set_default_bindings(&mut keybindings.bindings);
+        keybindings
     }
 }
 
 impl Default for Keybindings {
     fn default() -> Self {
         let mut bindings = BTreeMap::new();
-        bindings.insert(Binding::Advance, Binding::Advance.default_binding());
-        bindings.insert(Binding::Quickload, Binding::Quickload.default_binding());
-        bindings.insert(Binding::Quicksave, Binding::Quicksave.default_binding());
-
+        Self::set_default_bindings(&mut bindings);
         Self {
             disable_bindings: false,
             bindings,
