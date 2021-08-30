@@ -97,9 +97,7 @@ impl Window for ControlWindow {
             InputMode::Direct => "Switch to mouse input###InputMethod",
             InputMode::Mouse => "Switch to direct input###InputMethod",
         };
-        if info.frame.button(input_label, imgui::Vec2(165.0, 20.0), None) 
-            || info.keybind_pressed(Binding::ToggleReadOnly)
-        {
+        if info.frame.button(input_label, imgui::Vec2(165.0, 20.0), None) {
             info.config.input_mode = match info.config.input_mode {
                 InputMode::Mouse => InputMode::Direct,
                 InputMode::Direct => InputMode::Mouse,
@@ -110,7 +108,9 @@ impl Window for ControlWindow {
             true => "Switch to Read/Write###IsReadOnly",
             false => "Switch to Read-Only###IsReadOnly",
         };
-        if info.frame.button(read_only_label, imgui::Vec2(165.0, 20.0), None) {
+        if info.frame.button(read_only_label, imgui::Vec2(165.0, 20.0), None) 
+            || info.keybind_pressed(Binding::ToggleReadOnly)
+        {
             info.config.is_read_only = !info.config.is_read_only;
             info.config.save();
         }
