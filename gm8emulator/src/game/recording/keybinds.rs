@@ -25,9 +25,19 @@ impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Self::Advance => write!(f, "Advance Frame"),
-            Self::Quicksave => write!(f, "Quicksave"),
+            Self::Quicksave => write!(f, "Save Quicksave"),
             Self::Quickload => write!(f, "Load Quicksave"),
             //_ => write!(f, "{:?}", self),
+        }
+    }
+}
+impl Binding {
+    fn default_binding(&self) -> Option<KeyCombination> {
+        match self {
+            Self::Advance => Some(KeyCombination::from(vec![Button::Space])),
+            Self::Quickload => Some(KeyCombination::from(vec![Button::W])),
+            Self::Quicksave => Some(KeyCombination::from(vec![Button::Q])),
+            //_ => None,
         }
     }
 }
@@ -114,9 +124,9 @@ impl Keybindings {
 impl Default for Keybindings {
     fn default() -> Self {
         let mut bindings = BTreeMap::new();
-        bindings.insert(Binding::Advance, Some(KeyCombination::from(vec![Button::Space])));
-        bindings.insert(Binding::Quickload, Some(KeyCombination::from(vec![Button::W])));
-        bindings.insert(Binding::Quicksave, Some(KeyCombination::from(vec![Button::Q])));
+        bindings.insert(Binding::Advance, Binding::Advance.default_binding());
+        bindings.insert(Binding::Quickload, Binding::Quickload.default_binding());
+        bindings.insert(Binding::Quicksave, Binding::Quicksave.default_binding());
 
         Self {
             disable_bindings: false,
@@ -129,7 +139,7 @@ impl Window for KeybindWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.begin_window("Keybindings", None, true, false, None);
 
-        for (binding, keys) in &info.keybindings.bindings {
+        for (binding, keys) in &mut info.keybindings.bindings {
             self.binding_entry(binding, keys, info.frame);
         }
 
@@ -159,7 +169,7 @@ impl KeybindWindow {
         }
     }
 
-    fn binding_entry(&mut self, binding: &Binding, keys: &Option<KeyCombination>, frame: &mut imgui::Frame) {
+    fn binding_entry(&mut self, binding: &Binding, keys: &mut Option<KeyCombination>, frame: &mut imgui::Frame) {
         let is_setting_binding = matches!(self.current_binding, Some(_));
         let text = if is_setting_binding && *binding == self.current_binding.unwrap() {
             frame.coloured_text(&format!("{} | {}", binding, self.current_keys), Colour::new(0.5, 0.6, 0.7));
@@ -177,6 +187,12 @@ impl KeybindWindow {
             } else {
                 self.current_binding = None;
             }
+        }
+
+        frame.same_line(0.0, 5.0);
+        if frame.button(&format!("Default###default{}", binding), imgui::Vec2(60.0, 20.0), None) {
+            *keys = binding.default_binding();
+            self.current_binding = None;
         }
     }
 

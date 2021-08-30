@@ -170,6 +170,10 @@ impl Frame<'_> {
         unsafe { c::igEnd() };
     }
 
+    pub fn same_line(&self, offset_from_start_x: f32, spacing: f32) {
+        unsafe { c::igSameLine(offset_from_start_x, spacing) };
+    }
+
     pub fn window_position(&self) -> Vec2<f32> {
         unsafe {
             let mut pos = std::mem::MaybeUninit::uninit();
