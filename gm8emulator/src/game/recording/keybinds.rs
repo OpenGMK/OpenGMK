@@ -278,9 +278,10 @@ impl KeyCombination {
     pub fn pressed(&self, frame: &imgui::Frame) -> bool {
         let mut pressed = false;
 
-        if frame.ctrl_down() == self.ctrl
-            && frame.alt_down() == self.alt
-            && frame.shift_down() == self.shift
+        // only check if a button is pressed if that button is required. Ignore additionally pressed modifier keys.
+        if !(self.ctrl && !frame.ctrl_down())
+            && !(self.alt && !frame.alt_down())
+            && !(self.shift && !frame.shift_down())
         {
             if self.keycodes.len() == 1 {
                 pressed = frame.key_pressed(self.keycodes[0] as _);
