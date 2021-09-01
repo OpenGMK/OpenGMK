@@ -173,6 +173,23 @@ impl Frame<'_> {
         unsafe { c::igEnd() };
     }
 
+    pub fn set_scroll_here_y(&self, center_y_ratio: f32) {
+        unsafe { c::igSetScrollHereY(center_y_ratio) }
+    }
+
+    pub fn set_next_item_width(&self, width: f32) {
+        unsafe { c::igSetNextItemWidth(width) }
+    }
+
+    pub fn begin_listbox(&mut self, label: &str, size: Vec2<f32>) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igBeginListBox(self.cstr(), size.into()) }
+    }
+
+    pub fn end_listbox(&self) {
+        unsafe { c::igEndListBox() }
+    }
+
     pub fn begin_table(&mut self, label: &str, column: i32, flags: c::ImGuiTableFlags, outer_size: Vec2<f32>, inner_width: f32) -> bool {
         self.cstr_store(label);
         unsafe { c::igBeginTable(self.cstr(), column, flags, outer_size.into(), inner_width) }
@@ -227,6 +244,10 @@ impl Frame<'_> {
         }
     }
 
+    pub fn set_keyboard_focus_here(&self, offset: i32) {
+        unsafe { c::igSetKeyboardFocusHere(offset) }
+    }
+
     pub fn window_focused(&self) -> bool {
         unsafe { c::igIsWindowFocused(0) }
     }
@@ -253,6 +274,16 @@ impl Frame<'_> {
             }
             c::igInvisibleButton(self.cstr(), size.into(), c::ImGuiButtonFlags__ImGuiButtonFlags_None as _)
         }
+    }
+
+    pub fn input_text(&mut self, label: &str, buffer: *mut u8, length: usize, flags: c::ImGuiInputTextFlags) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igInputText(self.cstr(), buffer as *mut i8, length, flags, None, std::ptr::null_mut()) }
+    }
+
+    pub fn checkbox(&mut self, label: &str, value: &mut bool) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igCheckbox(self.cstr(), value as _) }
     }
 
     pub fn text(&mut self, text: &str) {
