@@ -55,19 +55,19 @@ pub struct KeyCombination {
 impl Display for KeyCombination {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         if self.ctrl {
-            f.write_str("Ctrl+");
+            f.write_str("Ctrl+")?;
         }
         if self.alt {
-            f.write_str("Alt+");
+            f.write_str("Alt+")?;
         }
         if self.shift {
-            f.write_str("Shift+");
+            f.write_str("Shift+")?;
         }
 
         for (i, code) in self.keycodes.iter().enumerate() {
-            f.write_fmt(format_args!("{:?}", code));
+            write!(f, "{:?}", code)?;
             if i != self.keycodes.len()-1 {
-                f.write_str("+");
+                f.write_str("+")?;
             }
         }
 
