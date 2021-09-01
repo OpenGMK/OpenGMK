@@ -22,63 +22,64 @@ impl Window for ConsoleWindow {
             ..
         } = info;
 
-        frame.begin_window(&"GML Console", None, true, false, None);
-        let window_size = frame.window_size();
-        let content_position = frame.content_position();
-        frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
-        for text in &self.output {
-            frame.text(&text);
-        }
-        if self.scroll_to_bottom {
-            self.scroll_to_bottom = false;
-            frame.set_scroll_here_y(1.0);
-        }
-        frame.end_listbox();
-        let width = window_size.0 - content_position.0 * 0.2 - 100.0;
-        if width > 0.0 {
-            // checkbox and run button are visible
-            frame.set_next_item_width(width);
-        } else if width > -50.0 {
-            // only checkbox is visible
-            frame.set_next_item_width(width+50.0);
-        }
-        let pressed_enter = frame.input_text(&"###consoleinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _);
-        if pressed_enter {
-            frame.set_keyboard_focus_here(0);
-        }
-        frame.same_line(0.0, -1.0);
-        let mut run_code = pressed_enter;
-        if width > 0.0 {
-            run_code = frame.button(&"Run", imgui::Vec2(50.0, 20.0), None) || run_code;
+        if frame.begin_window(&"GML Console", None, true, false, None) {
+            let window_size = frame.window_size();
+            let content_position = frame.content_position();
+            frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
+            for text in &self.output {
+                frame.text(&text);
+            }
+            if self.scroll_to_bottom {
+                self.scroll_to_bottom = false;
+                frame.set_scroll_here_y(1.0);
+            }
+            frame.end_listbox();
+            let width = window_size.0 - content_position.0 * 0.2 - 100.0;
+            if width > 0.0 {
+                // checkbox and run button are visible
+                frame.set_next_item_width(width);
+            } else if width > -50.0 {
+                // only checkbox is visible
+                frame.set_next_item_width(width+50.0);
+            }
+            let pressed_enter = frame.input_text(&"###consoleinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _);
+            if pressed_enter {
+                frame.set_keyboard_focus_here(0);
+            }
             frame.same_line(0.0, -1.0);
-        }
-
-        frame.checkbox("##runcode", &mut self.run_code);
-        run_code = run_code || self.run_code;
-
-        if run_code {
-            let mut new_args: [Value; 16] = Default::default();
-            new_args[0] = self.input_buffer.clone().into();
-            if !self.run_code {
-                if let Some(Value::Str(s)) = new_args.get(0) {
-                    self.output.push(format!(">>> {}\n", s));
+            let mut run_code = pressed_enter;
+            if width > 0.0 {
+                run_code = frame.button(&"Run", imgui::Vec2(50.0, 20.0), None) || run_code;
+                frame.same_line(0.0, -1.0);
+            }
+            
+            frame.checkbox("##runcode", &mut self.run_code);
+            run_code = run_code || self.run_code;
+            
+            if run_code {
+                let mut new_args: [Value; 16] = Default::default();
+                new_args[0] = self.input_buffer.clone().into();
+                if !self.run_code {
+                    if let Some(Value::Str(s)) = new_args.get(0) {
+                        self.output.push(format!(">>> {}\n", s));
+                    }
                 }
+                if !self.run_code {
+                    // don't clear the input buffer if the code runs every frame
+                    self.input_buffer.fill(0);
+                }
+                match game.execute_string(&mut self.gml_context, &new_args) {
+                    Ok(value) => match value {
+                        Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
+                        Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                    },
+                    Err(error) => {
+                        self.run_code = false;
+                        self.output.push(format!("Error: {0}\n", error));
+                    },
+                }
+                self.scroll_to_bottom = true;
             }
-            if !self.run_code {
-                // don't clear the input buffer if the code runs every frame
-                self.input_buffer.fill(0);
-            }
-            match game.execute_string(&mut self.gml_context, &new_args) {
-                Ok(value) => match value {
-                    Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                    Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
-                },
-                Err(error) => {
-                    self.run_code = false;
-                    self.output.push(format!("Error: {0}\n", error));
-                },
-            }
-            self.scroll_to_bottom = true;
         }
         frame.end();
     }
