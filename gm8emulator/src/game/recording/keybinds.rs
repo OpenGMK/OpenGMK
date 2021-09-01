@@ -8,7 +8,7 @@ use ramen::event::Key;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter, Error},
-    convert::From,
+    convert::{ From, TryInto },
     fs::File,
     path::PathBuf,
     default::Default,
@@ -154,13 +154,31 @@ impl Default for Keybindings {
 
 impl Window for KeybindWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
+        unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 4.0).into()); }
         info.frame.begin_window("Keybindings", None, true, false, None);
 
-        for (binding, keys) in &mut info.keybindings.bindings {
-            self.binding_entry(binding, keys, info.frame);
+        if info.frame.begin_table(
+            "Keybindings",
+            4,
+            (cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_RowBg
+                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders) as i32,
+            imgui::Vec2(0.0, 0.0),
+            0.0
+        ) {
+            info.frame.table_setup_column("Action", 0, 0.0);
+            info.frame.table_setup_column("Keybind", 0, 0.0);
+            info.frame.table_setup_column("Set", cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as i32, 60.0);
+            info.frame.table_setup_column("Default", cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as i32, 60.0);
+
+            for (binding, keys) in &mut info.keybindings.bindings {
+                self.binding_entry(binding, keys, info.frame);
+            }
+
+            info.frame.end_table();
         }
 
         info.frame.end();
+        unsafe { cimgui_sys::igPopStyleVar(1); }
 
         // disable all bindings while recording a new one.
         info.keybindings.disable_bindings = matches!(self.current_binding, Some(_));
@@ -187,15 +205,21 @@ impl KeybindWindow {
     }
 
     fn binding_entry(&mut self, binding: &Binding, keys: &mut Option<KeyCombination>, frame: &mut imgui::Frame) {
+        frame.table_next_column();
+        frame.text(&format!("{}", binding));
+
+        frame.table_next_column();
         let is_setting_binding = matches!(self.current_binding, Some(_));
         let text = if is_setting_binding && *binding == self.current_binding.unwrap() {
-            frame.coloured_text(&format!("{} | {}", binding, self.current_keys), Colour::new(0.5, 0.6, 0.7));
+            frame.coloured_text(&format!("{}", self.current_keys), Colour::new(0.5, 0.6, 0.7));
             "Cancel"
         } else {
             let name = if let Some(keycombination) = keys { format!("{}", keycombination) } else { String::from("Not set") };
-            frame.text(&format!("{} | {}", binding, name));
+            frame.text(&format!("{}", name));
             "Set"
         };
+
+        frame.table_next_column();
         if frame.button(&format!("{}###{}", text, binding), imgui::Vec2(60.0, 20.0), None) {
             if !is_setting_binding {
                 self.current_binding = Some(*binding);
@@ -206,7 +230,7 @@ impl KeybindWindow {
             }
         }
 
-        frame.same_line(0.0, 5.0);
+        frame.table_next_column();
         if frame.button(&format!("Default###default{}", binding), imgui::Vec2(60.0, 20.0), None) {
             *keys = binding.default_binding();
             self.current_binding = None;

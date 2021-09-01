@@ -170,6 +170,32 @@ impl Frame<'_> {
         unsafe { c::igEnd() };
     }
 
+    pub fn begin_table(&mut self, label: &str, column: i32, flags: c::ImGuiTableFlags, outer_size: Vec2<f32>, inner_width: f32) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igBeginTable(self.cstr(), column, flags, outer_size.into(), inner_width) }
+    }
+
+    pub fn end_table(&self) {
+        unsafe { c::igEndTable() };
+    }
+
+    pub fn table_next_row(&self, row_flags: c::ImGuiTableRowFlags, min_row_height: f32) {
+        unsafe { c::igTableNextRow(row_flags, min_row_height) };
+    }
+
+    pub fn table_next_column(&self) -> bool {
+        unsafe { c::igTableNextColumn() }
+    }
+
+    pub fn table_set_column_index(&self, column_n: i32) -> bool {
+        unsafe { c::igTableSetColumnIndex(column_n) }
+    }
+
+    pub fn table_setup_column(&mut self, label: &str, flags: c::ImGuiTableColumnFlags, init_width_or_weight: f32) {
+        self.cstr_store(label);
+        unsafe { c::igTableSetupColumn(self.cstr(), flags, init_width_or_weight, 0) };
+    }
+
     pub fn same_line(&self, offset_from_start_x: f32, spacing: f32) {
         unsafe { c::igSameLine(offset_from_start_x, spacing) };
     }
