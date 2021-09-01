@@ -88,7 +88,9 @@ impl Window for ControlWindow {
         } else {
             "Full Keyboard###KeyboardLayout"
         };
-        if info.frame.button(keyboard_label, imgui::Vec2(165.0, 20.0), None) {
+        if info.frame.button(keyboard_label, imgui::Vec2(165.0, 20.0), None) 
+            || info.keybind_pressed(Binding::ToggleKeyboard)
+        {
             info.config.full_keyboard = !info.config.full_keyboard;
             info.config.save();
         }
@@ -97,7 +99,9 @@ impl Window for ControlWindow {
             InputMode::Direct => "Switch to mouse input###InputMethod",
             InputMode::Mouse => "Switch to direct input###InputMethod",
         };
-        if info.frame.button(input_label, imgui::Vec2(165.0, 20.0), None) {
+        if info.frame.button(input_label, imgui::Vec2(165.0, 20.0), None)
+            || info.keybind_pressed(Binding::ToggleDirect)
+        {
             info.config.input_mode = match info.config.input_mode {
                 InputMode::Mouse => InputMode::Direct,
                 InputMode::Direct => InputMode::Mouse,

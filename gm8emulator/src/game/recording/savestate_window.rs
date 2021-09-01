@@ -1,6 +1,9 @@
 use crate::{
     imgui,
-    game::recording::window::{Window, DisplayInformation},
+    game::recording::{
+        window::{Window, DisplayInformation},
+        keybinds::Binding,
+    },
     types::Colour,
 };
 
@@ -16,6 +19,38 @@ impl Window for SaveStateWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
         info.frame.begin_window("Savestates", None, true, false, None);
+
+        if info.keybind_pressed(Binding::SelectNext) {
+            let mut slot = info.config.quicksave_slot;
+            if slot == self.capacity-1 {
+                slot = 0;
+            } else {
+                slot += 1;
+            }
+            while slot != info.config.quicksave_slot && !info.savestate_set_quicksave_slot(slot) {
+                if slot == self.capacity-1 {
+                    slot = 0;
+                } else {
+                    slot += 1;
+                }    
+            }
+        }
+        if info.keybind_pressed(Binding::SelectPrevious) {
+            let mut slot = info.config.quicksave_slot;
+            if slot == 0 {
+                slot = self.capacity-1;
+            } else {
+                slot -= 1;
+            }
+            while slot != info.config.quicksave_slot && !info.savestate_set_quicksave_slot(slot) {
+                if slot == 0 {
+                    slot = self.capacity-1;
+                } else {
+                    slot -= 1;
+                }
+            }
+        }
+
         let rect_size = imgui::Vec2(info.frame.window_size().0, 24.0);
         let pos = info.frame.window_position() + info.frame.content_position() - imgui::Vec2(8.0, 8.0);
         for i in 0..(self.capacity/2) {

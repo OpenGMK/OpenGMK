@@ -20,7 +20,11 @@ pub enum Binding {
     Advance,
     Quicksave,
     Quickload,
+    SelectNext,
+    SelectPrevious,
     ToggleReadOnly,
+    ToggleDirect,
+    ToggleKeyboard,
 }
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -28,7 +32,11 @@ impl Display for Binding {
             Self::Advance => write!(f, "Advance Frame"),
             Self::Quicksave => write!(f, "Save Quicksave"),
             Self::Quickload => write!(f, "Load Quicksave"),
+            Self::SelectNext => write!(f, "Select next savestate"),
+            Self::SelectPrevious => write!(f, "Select previous savestate"),
             Self::ToggleReadOnly => write!(f, "Toggle Read-Only"),
+            Self::ToggleDirect => write!(f, "Toggle direct/mouse input"),
+            Self::ToggleKeyboard => write!(f, "Toggle full keyboard"),
             //_ => write!(f, "{:?}", self),
         }
     }
@@ -39,7 +47,11 @@ impl Binding {
             Self::Advance => Some(KeyCombination::from(vec![Button::Space])),
             Self::Quickload => Some(KeyCombination::from(vec![Button::W])),
             Self::Quicksave => Some(KeyCombination::from(vec![Button::Q])),
+            Self::SelectNext => Some(KeyCombination::from(vec![Button::Shift, Button::OemPlus])),
+            Self::SelectPrevious => Some(KeyCombination::from(vec![Button::Shift, Button::OemMinus])),
             Self::ToggleReadOnly => Some(KeyCombination::from(vec![Button::Shift, Button::Alpha8])),
+            Self::ToggleDirect => Some(KeyCombination::from(vec![Button::Control, Button::D])),
+            Self::ToggleKeyboard => Some(KeyCombination::from(vec![Button::Control, Button::K])),
             //_ => None,
         }
     }
@@ -101,7 +113,11 @@ impl Keybindings {
         insert!(Binding::Advance);
         insert!(Binding::Quickload);
         insert!(Binding::Quicksave);
+        insert!(Binding::SelectNext);
+        insert!(Binding::SelectPrevious);
         insert!(Binding::ToggleReadOnly);
+        insert!(Binding::ToggleDirect);
+        insert!(Binding::ToggleKeyboard);
     }
 
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {

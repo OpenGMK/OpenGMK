@@ -122,6 +122,10 @@ impl DisplayInformation<'_, '_> {
     fn savestate_from_slot(&mut self, slot: usize) -> Option<SaveState> {
         if slot < self.save_paths.len() {
             let path = &self.save_paths[slot];
+            if !path.exists() {
+                return None;
+            }
+
             match SaveState::from_file(&path, self.save_buffer) {
                 Ok(state) => {
                     Some(state)
