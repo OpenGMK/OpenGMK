@@ -1561,8 +1561,10 @@ impl Game {
             self.stored_rooms.push(self.room.clone());
         }
         self.room = room_state;
-        self.input.keyboard_clear_all();
-        self.input.mouse_clear_all();
+        // clearing input here breaks direct keyboard checks, so just step instead
+        // self.input.keyboard_clear_all();
+        // self.input.mouse_clear_all();
+        self.input.step();
         self.particles.effect_clear();
         self.cursor_sprite_frame = 0;
 
