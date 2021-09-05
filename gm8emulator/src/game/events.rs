@@ -267,7 +267,7 @@ impl Game {
                     while let Some(&object_id) = holders.borrow().get(position) {
                         let mut iter = self.room.instance_list.iter_by_object(object_id);
                         while let Some(handle) = iter.next(&self.room.instance_list) {
-                            if self.check_collision_point(handle, mouse_x, mouse_y, true) {
+                            if self.check_collision_point(handle, mouse_x.into(), mouse_y.into(), true) {
                                 self.run_instance_event(gml::ev::MOUSE, $sub, handle, handle, None)?;
                             }
                         }
@@ -334,8 +334,8 @@ impl Game {
             while let Some(&object_id) = holders.borrow().get(position) {
                 let mut iter = self.room.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.room.instance_list) {
-                    if self.check_collision_point(handle, mouse_x, mouse_y, true)
-                        && !self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
+                    if self.check_collision_point(handle, mouse_x.into(), mouse_y.into(), true)
+                        && !self.check_collision_point(handle, mouse_x_previous.into(), mouse_y_previous.into(), true)
                     {
                         self.run_instance_event(gml::ev::MOUSE, 10, handle, handle, None)?;
                     }
@@ -351,8 +351,8 @@ impl Game {
             while let Some(&object_id) = holders.borrow().get(position) {
                 let mut iter = self.room.instance_list.iter_by_object(object_id);
                 while let Some(handle) = iter.next(&self.room.instance_list) {
-                    if !self.check_collision_point(handle, mouse_x, mouse_y, true)
-                        && self.check_collision_point(handle, mouse_x_previous, mouse_y_previous, true)
+                    if !self.check_collision_point(handle, mouse_x.into(), mouse_y.into(), true)
+                        && self.check_collision_point(handle, mouse_x_previous.into(), mouse_y_previous.into(), true)
                     {
                         self.run_instance_event(gml::ev::MOUSE, 11, handle, handle, None)?;
                     }
@@ -608,9 +608,6 @@ impl Game {
                                     inst.y.set(inst.yprevious.get());
                                     inst.bbox_is_stale.set(true);
                                     inst.path_position.set(inst.path_positionprevious.get());
-                                    if let Some(path) = self.assets.paths.get_asset(inst.path_index.get()) {
-                                        inst.path_pointspeed.set(path.get_point(inst.path_position.get()).speed);
-                                    }
                                 }
                             }
 

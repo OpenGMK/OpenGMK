@@ -111,6 +111,19 @@ impl NativeExternals {
                         args.len(),
                     ))
                 } else {
+                    // most likely this is a sound dll call and we're recording so it will break
+                    match dummy.symbol.as_ref() {
+                        s
+                        @
+                        ("SS_IsSoundPlaying"
+                        | "SS_IsSoundPaused"
+                        | "SS_IsSoundLooping"
+                        | "FMODInstanceIsPlaying"
+                        | "FMODInstanceGetPaused") => {
+                            println!("WARNING: {} called while recording, stuff might break", s)
+                        },
+                        _ => (),
+                    }
                     Ok(dummy.dummy.clone())
                 }
             },
