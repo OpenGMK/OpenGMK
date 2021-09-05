@@ -120,9 +120,12 @@ impl Game {
         if self.room.views_enabled {
             self.renderer.clear_view(self.background_colour, 1.0);
             for view in self.room.views.iter_mut().filter(|x| x.visible) {
-                if let Some(handle) =
-                    self.room.instance_list.iter_by_identity(view.follow_target).next(&self.room.instance_list)
-                {
+                if let Some(handle) = match view.follow_target {
+                    obj_id if obj_id < 100000 => {
+                        self.room.instance_list.iter_by_identity(view.follow_target).next(&self.room.instance_list)
+                    },
+                    inst_id => self.room.instance_list.get_by_instid(inst_id),
+                } {
                     let inst = self.room.instance_list.get(handle);
 
                     let x = inst.x.get().round().to_i32();
