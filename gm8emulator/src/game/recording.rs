@@ -621,6 +621,8 @@ impl Game {
             let mut frame = context.new_frame();
 
             {
+                keybindings.update_disable_bindings();
+
                 let mut display_info = DisplayInformation {
                     game: self,
                     frame: &mut frame,

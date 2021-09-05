@@ -19,6 +19,7 @@ impl Window for ConsoleWindow {
         let DisplayInformation {
             frame,
             game,
+            keybindings,
             ..
         } = info;
 
@@ -46,6 +47,11 @@ impl Window for ConsoleWindow {
             if pressed_enter {
                 frame.set_keyboard_focus_here(0);
             }
+
+            if frame.is_item_focused() {
+                keybindings.disable_bindings();
+            }
+
             frame.same_line(0.0, -1.0);
             let mut run_code = pressed_enter;
             if width > 0.0 {

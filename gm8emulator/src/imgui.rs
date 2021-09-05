@@ -244,6 +244,10 @@ impl Frame<'_> {
         }
     }
 
+    pub fn is_item_focused(&self) -> bool {
+        unsafe { c::igIsItemFocused() }
+    }
+
     pub fn set_keyboard_focus_here(&self, offset: i32) {
         unsafe { c::igSetKeyboardFocusHere(offset) }
     }

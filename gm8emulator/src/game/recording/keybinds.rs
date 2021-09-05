@@ -89,8 +89,8 @@ impl Display for KeyCombination {
 
 #[derive(Serialize, Deserialize)]
 pub struct Keybindings {
-    #[serde(skip)]
-    disable_bindings: bool,
+    #[serde(skip)] disable_bindings: bool,
+    #[serde(skip)] bindings_disabled: bool,
 
     bindings: BTreeMap<Binding, Option<KeyCombination>>,
 }
@@ -121,7 +121,7 @@ impl Keybindings {
     }
 
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {
-        if self.disable_bindings {
+        if self.bindings_disabled {
             false
         } else {
             match self.bindings.get(&bind) {
@@ -133,6 +133,20 @@ impl Keybindings {
 
     pub fn update_binding(&mut self, bind: Binding, keys: Option<KeyCombination>) {
         self.bindings.insert(bind, keys);
+    }
+
+    /// Update the bindings diabled state to ensure that bindings will be disabled until the next io update.
+    pub fn update_disable_bindings(&mut self) {
+        if !self.disable_bindings {
+            self.bindings_disabled = false;
+        }
+
+        self.disable_bindings = false;
+    }
+
+    pub fn disable_bindings(&mut self) {
+        self.bindings_disabled = true;
+        self.disable_bindings = true;
     }
 
     pub fn from_file_or_default(path: &PathBuf) -> Self {
@@ -163,6 +177,7 @@ impl Default for Keybindings {
         Self::set_default_bindings(&mut bindings);
         Self {
             disable_bindings: false,
+            bindings_disabled: false,
             bindings,
         }
     }
@@ -197,8 +212,8 @@ impl Window for KeybindWindow {
         unsafe { cimgui_sys::igPopStyleVar(1); }
 
         // disable all bindings while recording a new one.
-        info.keybindings.disable_bindings = matches!(self.current_binding, Some(_));
-        if info.keybindings.disable_bindings {
+        if matches!(self.current_binding, Some(_)) {
+            info.keybindings.disable_bindings();
             self.update_current_keys(info.frame, info.keybindings);
         }
     }
