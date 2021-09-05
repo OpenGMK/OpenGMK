@@ -362,8 +362,11 @@ impl Compiler {
                                 Err(error) => Node::RuntimeError { error },
                             }
                         },
-                        (left, right) => {
-                            Node::Binary { left: Box::new(left), right: Box::new(right), operator: op_function }
+                        (left, right) => Node::Binary {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            operator: op_function,
+                            type_unsafe: false,
                         },
                     }
                 },
@@ -596,6 +599,7 @@ impl Compiler {
                     left: Box::new(Node::Variable { accessor: VariableAccessor { var: *var, array, owner } }),
                     right: Box::new(value),
                     operator,
+                    type_unsafe: false,
                 },
             }
         } else {
@@ -606,6 +610,7 @@ impl Compiler {
                     left: Box::new(Node::Field { accessor: FieldAccessor { index, array, owner } }),
                     right: Box::new(value),
                     operator,
+                    type_unsafe: true,
                 },
             }
         }
