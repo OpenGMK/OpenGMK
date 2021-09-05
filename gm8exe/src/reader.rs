@@ -87,7 +87,15 @@ where
     // PE header must begin with PE\0\0, then 0x14C which means i386.
     match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
         Some(b"PE\0\0\x4C\x01") => (),
-        _ => return Err(ReaderError::InvalidExeHeader),
+        _ => {
+            exe.set_position(276);
+            let pe_header_loc = exe.read_u32::<LE>()? as usize;
+            // gm82 opengmk runner
+            match exe.get_ref().get(pe_header_loc..(pe_header_loc + 6)) {
+                Some(b"PE\0\0\x64\x86") => (),
+                _ => return Err(ReaderError::InvalidExeHeader),
+            }
+        }
     }
     // Read number of sections
     exe.set_position((pe_header_loc + 6) as u64);

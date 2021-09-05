@@ -1,5 +1,7 @@
 #![feature(bindings_after_at, seek_stream_len)]
 
+#![windows_subsystem="windows"]
+
 mod action;
 mod asset;
 mod game;
@@ -73,10 +75,6 @@ fn xmain() -> i32 {
         },
     };
 
-    if args.len() < 2 || matches.opt_present("h") {
-        help(&process, opts);
-        return EXIT_SUCCESS
-    }
 
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
@@ -152,17 +150,7 @@ fn xmain() -> i32 {
         },
     };
 
-    let input = {
-        if matches.free.len() == 1 {
-            &matches.free[0]
-        } else if matches.free.len() > 1 {
-            eprintln!("unexpected second input {}", matches.free[1]);
-            return EXIT_FAILURE
-        } else {
-            eprintln!("no input file");
-            return EXIT_FAILURE
-        }
-    };
+    let input = &process;
 
     let mut game_args = matches.opt_strs("game-arg");
     game_args.insert(0, input.to_string());
