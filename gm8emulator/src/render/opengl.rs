@@ -948,7 +948,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
-        let new_sprite = self.create_surface(atlas_ref.w, atlas_ref.h, false)?;
+        let new_sprite = AtlasRef {
+            origin_x: atlas_ref.origin_x,
+            origin_y: atlas_ref.origin_y,
+            ..self.create_surface(atlas_ref.w, atlas_ref.h, false)?
+        };
         unsafe {
             // store previous
             let mut prev_read_fbo = 0;
