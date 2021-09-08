@@ -273,7 +273,7 @@ impl ProjectConfig {
 }
 
 impl Game {
-    pub fn record(&mut self, project_path: PathBuf) {
+    pub fn record(&mut self, project_path: PathBuf, pause: bool) {
         let mut save_buffer = savestate::Buffer::new();
         let mut startup_successful = true;
 
@@ -379,7 +379,39 @@ impl Game {
         let mut savestate;
         let mut renderer_state;
 
-        if !save_paths[config.quicksave_slot].exists() {
+        macro_rules! load_backup_recording {
+            () => {
+                let mut backup_path = project_path.clone();
+                backup_path.push("backup.gmtas");
+
+                if backup_path.exists() {
+                    match Replay::from_file(&backup_path) {
+                        Ok(backup_replay) => {
+                            if pause {
+                                self.rand.set_seed(backup_replay.start_seed);
+                                self.spoofed_time_nanos = Some(backup_replay.start_time);
+                                replay.start_seed = backup_replay.start_seed;
+                                replay.start_time = backup_replay.start_time;
+                            }
+
+                            if backup_replay.contains_part(&replay) {
+                                replay = backup_replay;
+                            } else if pause {
+                                println!("Warning: Game is not part of backup replay");
+                            }
+                        },
+                        Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
+                    }
+                }
+            };
+        }
+
+        if pause {
+            config.is_read_only = true;
+            load_backup_recording!();
+        }
+
+        if !save_paths[config.quicksave_slot].exists() || pause {
             if let Err(e) = match self.init() {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
@@ -414,34 +446,36 @@ impl Game {
             self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
             renderer_state = self.renderer.state();
             self.renderer.set_state(&ui_renderer_state);
-            savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
-
-            if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
-                err_string = Some(format!(
-                    concat!(
-                        "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
-                        "Error message: {:?}",
-                    ),
-                    save_paths[config.quicksave_slot].file_name(),
-                    err,
-                ));
-            }
 
             config.current_frame = 0;
 
-            if config.is_read_only {
-                let mut backup_path = project_path.clone();
-                backup_path.push("backup.gmtas");
-
-                if backup_path.exists() {
-                    match Replay::from_file(&backup_path) {
-                        Ok(backup_replay) => {
-                            if backup_replay.contains_part(&replay) {
-                                replay = backup_replay;
-                            }
-                        },
-                        Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
-                    }
+            if pause && save_paths[config.quicksave_slot].exists() {
+                match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
+                    Ok(save) => savestate = save,
+                    Err(e) => {
+                        // Just to initialize renderer_state and keep the compiler happy, this won't be used...
+                        renderer_state = ui_renderer_state.clone();
+                        err_string = Some(format!("(Fatal) Error loading quicksave file: {:?}", e));
+                        savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                        startup_successful = false;
+                        game_running = false;
+                    },
+                }
+            } else {
+                savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                
+                if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
+                    err_string = Some(format!(
+                        concat!(
+                            "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
+                            "Error message: {:?}",
+                        ),
+                        save_paths[config.quicksave_slot].file_name(),
+                        err,
+                    ));
+                }
+                if config.is_read_only {
+                    load_backup_recording!();
                 }
             }
         } else {
