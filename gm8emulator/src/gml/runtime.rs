@@ -49,7 +49,7 @@ pub enum Node {
     ExtensionFunction { args: Box<[Node]>, id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
-    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator },
+    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
     Unary { child: Box<Node>, operator: UnaryOperator },
     RuntimeError { error: Error },
 }
@@ -262,7 +262,7 @@ impl fmt::Debug for Node {
             Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::Binary { left, right, operator } => write!(f, "<binary {:?}: {:?}, {:?}>", operator, left, right),
+            Node::Binary { left, right, operator, type_unsafe } => write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe),
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
@@ -777,8 +777,14 @@ impl Game {
                     },
                 }
             },
-            Node::Binary { left, right, operator } => {
-                operator.call(self.eval(left, context)?, self.eval(right, context)?)
+            Node::Binary { left, right, operator, type_unsafe } => {
+                // the + in += can happen here, and += ignores errors in the + portion
+                let left = self.eval(left, context)?;
+                match operator.call(left.clone(), self.eval(right, context)?) {
+                    res @ Ok(_) => res,
+                    Err(_) if *type_unsafe => Ok(left),
+                    res => res,
+                }
             },
             Node::Unary { child, operator } => operator.call(self.eval(child, context)?),
             Node::RuntimeError { error } => Err(error.clone()),
