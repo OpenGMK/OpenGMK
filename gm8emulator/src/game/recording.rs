@@ -460,7 +460,7 @@ impl Game {
                     },
                 }
             } else {
-                let save_replay = replay.clone();
+                let mut save_replay = replay.clone();
                 save_replay.truncate_frames(config.current_frame);
                 savestate = SaveState::from(self, save_replay, renderer_state.clone());
 
