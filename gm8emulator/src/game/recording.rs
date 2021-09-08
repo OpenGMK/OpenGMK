@@ -462,8 +462,10 @@ impl Game {
                     },
                 }
             } else {
-                savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
-                
+                let save_replay = replay.clone();
+                save_replay.truncate_frames(config.current_frame);
+                savestate = SaveState::from(self, save_replay, renderer_state.clone());
+
                 if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                     err_string = Some(format!(
                         concat!(
