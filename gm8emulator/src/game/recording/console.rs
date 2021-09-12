@@ -26,6 +26,7 @@ impl Window for ConsoleWindow {
             ..
         } = info;
 
+        frame.setup_next_window(imgui::Vec2(100.0, 100.0), Some(imgui::Vec2(600.0, 250.0)), None);
         if frame.begin_window(&"GML Console", None, true, false, None) {
             let window_size = frame.window_size();
             let content_position = frame.content_position();
