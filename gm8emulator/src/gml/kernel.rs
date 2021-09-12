@@ -3694,17 +3694,17 @@ impl Game {
     }
 
     pub fn action_effect(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (kind, mut x, mut y, size, colour, below) = expect_args!(args, [any, real, real, any, any, bool])?;
+        let (kind, mut x, mut y, size, colour, above) = expect_args!(args, [any, real, real, any, any, bool])?;
         if context.relative {
             let instance = self.room.instance_list.get(context.this);
             x += instance.x.get();
             y += instance.y.get();
         }
 
-        if below {
-            self.effect_create_below(&[kind, x.into(), y.into(), size, colour])
-        } else {
+        if above {
             self.effect_create_above(&[kind, x.into(), y.into(), size, colour])
+        } else {
+            self.effect_create_below(&[kind, x.into(), y.into(), size, colour])
         }
     }
 
