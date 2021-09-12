@@ -11,12 +11,15 @@ pub struct ConsoleWindow {
 
     scroll_to_bottom: bool,
     run_code: bool,
+    last_frame: usize,
+    last_rerecords: u64,
 }
 
 // Keyboard & Mouse window
 impl Window for ConsoleWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         let DisplayInformation {
+            config,
             frame,
             game,
             keybindings,
@@ -60,7 +63,11 @@ impl Window for ConsoleWindow {
             }
 
             frame.checkbox("##runcode", &mut self.run_code);
-            run_code = run_code || self.run_code;
+            if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
+                run_code = run_code || self.run_code;
+                self.last_frame = config.current_frame;
+                self.last_rerecords = config.rerecords;
+            }
 
             if run_code {
                 let mut new_args: [Value; 16] = Default::default();
@@ -70,8 +77,8 @@ impl Window for ConsoleWindow {
                         self.output.push(format!(">>> {}\n", s));
                     }
                 }
-                if !self.run_code {
-                    // don't clear the input buffer if the code runs every frame
+                if pressed_enter {
+                    // only clear the input buffer if the user pressed enter
                     self.input_buffer.fill(0);
                 }
                 match game.execute_string(&mut self.gml_context, &new_args) {
@@ -102,6 +109,8 @@ impl ConsoleWindow {
 
             scroll_to_bottom: false,
             run_code: false,
+            last_frame: 0,
+            last_rerecords: 0,
         }
     }
 }
