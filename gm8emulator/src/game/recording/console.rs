@@ -58,13 +58,13 @@ impl Window for ConsoleWindow {
                 run_code = frame.button(&"Run", imgui::Vec2(50.0, 20.0), None) || run_code;
                 frame.same_line(0.0, -1.0);
             }
-            
+
             frame.checkbox("##runcode", &mut self.run_code);
             run_code = run_code || self.run_code;
-            
+
             if run_code {
                 let mut new_args: [Value; 16] = Default::default();
-                new_args[0] = self.input_buffer.clone().into();
+                new_args[0] = self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect::<Vec<u8>>().into();
                 if !self.run_code {
                     if let Some(Value::Str(s)) = new_args.get(0) {
                         self.output.push(format!(">>> {}\n", s));
