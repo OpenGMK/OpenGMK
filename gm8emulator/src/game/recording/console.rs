@@ -70,26 +70,45 @@ impl Window for ConsoleWindow {
             }
 
             if run_code {
-                let mut new_args: [Value; 16] = Default::default();
-                new_args[0] = self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect::<Vec<u8>>().into();
-                if !self.run_code {
-                    if let Some(Value::Str(s)) = new_args.get(0) {
-                        self.output.push(format!(">>> {}\n", s));
+                match String::from_utf8(self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
+                    Ok(input) => {
+                        if input.starts_with('/') || input.starts_with('.') {
+                            // see if it's a known command
+                            match input.split_at(1).1 {
+                                "clear" => self.output.clear(),
+                                _ => {
+                                    self.run_code = false;
+                                    self.output.push(format!("Unknown command: {}\n", input));
+                                }
+                            }
+                        } else {
+                            // run input as gml code
+                            if !self.run_code {
+                                self.output.push(format!(">>> {}\n", input));
+                            }
+
+                            let mut new_args: [Value; 16] = Default::default();
+                            new_args[0] = input.into();
+                            match game.execute_string(&mut self.gml_context, &new_args) {
+                                Ok(value) => match value {
+                                    Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
+                                    Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                                },
+                                Err(error) => {
+                                    self.run_code = false;
+                                    self.output.push(format!("Error: {}\n", error));
+                                },
+                            }
+                        }
+                    },
+                    Err(error) => {
+                        self.run_code = false;
+                        self.output.push(format!("Error: {}\n", error));
                     }
                 }
                 if pressed_enter {
                     // only clear the input buffer if the user pressed enter
                     self.input_buffer.fill(0);
-                }
-                match game.execute_string(&mut self.gml_context, &new_args) {
-                    Ok(value) => match value {
-                        Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                        Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
-                    },
-                    Err(error) => {
-                        self.run_code = false;
-                        self.output.push(format!("Error: {0}\n", error));
-                    },
                 }
                 self.scroll_to_bottom = true;
             }
