@@ -262,7 +262,9 @@ impl fmt::Debug for Node {
             Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::Binary { left, right, operator, type_unsafe } => write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe),
+            Node::Binary { left, right, operator, type_unsafe } => {
+                write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe)
+            },
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
