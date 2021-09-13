@@ -77,7 +77,7 @@ impl Display for KeyCombination {
         }
 
         for (i, code) in self.keycodes.iter().enumerate() {
-            write!(f, "{:?}", code)?;
+            write!(f, "{}", code)?;
             if i != self.keycodes.len()-1 {
                 f.write_str("+")?;
             }
