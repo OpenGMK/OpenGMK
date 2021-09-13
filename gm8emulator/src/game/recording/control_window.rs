@@ -119,7 +119,9 @@ impl Window for ControlWindow {
             info.config.save();
         }
 
-        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
+        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0)))
+            || info.keybind_pressed(Binding::NextRand)
+        {
             if let Some(rand) = &mut info.new_rand {
                 rand.cycle();
             } else {

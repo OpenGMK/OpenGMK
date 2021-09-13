@@ -25,6 +25,7 @@ pub enum Binding {
     ToggleReadOnly,
     ToggleDirect,
     ToggleKeyboard,
+    NextRand,
 }
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -37,6 +38,7 @@ impl Display for Binding {
             Self::ToggleReadOnly => write!(f, "Toggle Read-Only"),
             Self::ToggleDirect => write!(f, "Toggle direct/mouse input"),
             Self::ToggleKeyboard => write!(f, "Toggle full keyboard"),
+            Self::NextRand => write!(f, "Cycle RNG"),
             //_ => write!(f, "{:?}", self),
         }
     }
@@ -52,6 +54,7 @@ impl Binding {
             Self::ToggleReadOnly => Some(KeyCombination::from(vec![Button::Shift, Button::Alpha8])),
             Self::ToggleDirect => Some(KeyCombination::from(vec![Button::Control, Button::D])),
             Self::ToggleKeyboard => Some(KeyCombination::from(vec![Button::Control, Button::K])),
+            Self::NextRand => Some(KeyCombination::from(vec![Button::Control, Button::R])),
             //_ => None,
         }
     }
@@ -118,6 +121,7 @@ impl Keybindings {
         insert!(Binding::ToggleReadOnly);
         insert!(Binding::ToggleDirect);
         insert!(Binding::ToggleKeyboard);
+        insert!(Binding::NextRand);
     }
 
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {
