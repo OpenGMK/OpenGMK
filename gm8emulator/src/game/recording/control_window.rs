@@ -52,7 +52,9 @@ impl Window for ControlWindow {
             }
         }
 
-        if info.frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None) {
+        if info.frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None)
+            || info.keybind_pressed(Binding::ExportGmtas)
+        {
             let mut filepath = info.project_path.clone();
             filepath.push("save.gmtas");
             match info.replay.to_file(&filepath) {

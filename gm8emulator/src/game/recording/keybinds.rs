@@ -26,6 +26,7 @@ pub enum Binding {
     ToggleDirect,
     ToggleKeyboard,
     NextRand,
+    ExportGmtas,
 }
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -39,6 +40,7 @@ impl Display for Binding {
             Self::ToggleDirect => write!(f, "Toggle direct/mouse input"),
             Self::ToggleKeyboard => write!(f, "Toggle full keyboard"),
             Self::NextRand => write!(f, "Cycle RNG"),
+            Self::ExportGmtas => write!(f, "Export .gmtas"),
             //_ => write!(f, "{:?}", self),
         }
     }
@@ -55,6 +57,7 @@ impl Binding {
             Self::ToggleDirect => Some(KeyCombination::from(vec![Button::Control, Button::D])),
             Self::ToggleKeyboard => Some(KeyCombination::from(vec![Button::Control, Button::K])),
             Self::NextRand => Some(KeyCombination::from(vec![Button::Control, Button::R])),
+            Self::ExportGmtas => Some(KeyCombination::from(vec![Button::Control, Button::Shift, Button::E])),
             //_ => None,
         }
     }
@@ -122,6 +125,7 @@ impl Keybindings {
         insert!(Binding::ToggleDirect);
         insert!(Binding::ToggleKeyboard);
         insert!(Binding::NextRand);
+        insert!(Binding::ExportGmtas);
     }
 
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {
