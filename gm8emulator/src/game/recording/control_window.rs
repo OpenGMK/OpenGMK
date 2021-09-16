@@ -28,7 +28,7 @@ impl Window for ControlWindow {
 
         self.update_texts(info);
 
-        if (info.frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None)
+        if (info.frame.button("Advance", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Advance))
             && *info.game_running
             && info.err_string.is_none()
@@ -36,7 +36,7 @@ impl Window for ControlWindow {
             self.advance_frame(info);
         }
 
-        if (info.frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None)
+        if (info.frame.button("Quick Save", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Quicksave))
             && *info.game_running
             && info.err_string.is_none()
@@ -44,7 +44,7 @@ impl Window for ControlWindow {
             info.savestate_save(info.config.quicksave_slot);
         }
 
-        if info.frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None)
+        if info.frame.button("Load Quicksave", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Quickload)
         {
             if *info.startup_successful {
