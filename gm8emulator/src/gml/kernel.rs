@@ -8816,9 +8816,28 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn background_duplicate(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function background_duplicate")
+    pub fn background_duplicate(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let src_id = expect_args!(args, [int])?;
+        if let Some(src) = self.assets.backgrounds.get_asset(src_id) {
+            let renderer = &mut self.renderer;
+            let atlas_ref = src
+                .atlas_ref
+                .as_ref()
+                .map(|ar| renderer.duplicate_sprite(ar))
+                .transpose()
+                .map_err(|e| gml::Error::FunctionError("background_duplicate".into(), e.into()))?;
+            let dst_id = self.assets.backgrounds.len();
+            let (width, height) = (src.width, src.height);
+            self.assets.backgrounds.push(Some(Box::new(asset::Background {
+                name: format!("__newbackground{}", dst_id).into(),
+                width,
+                height,
+                atlas_ref,
+            })));
+            Ok(dst_id.into())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Background, src_id))
+        }
     }
 
     pub fn background_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -9285,14 +9304,38 @@ impl Game {
         Ok(path_id.into())
     }
 
-    pub fn path_duplicate(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function path_duplicate")
+    pub fn path_duplicate(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let src_id = expect_args!(args, [int])?;
+        let dst_id = self.assets.paths.len() as i32;
+        let mut path = self
+            .assets
+            .paths
+            .get_asset(src_id)
+            .ok_or_else(|| gml::Error::NonexistentAsset(asset::Type::Path, src_id))?
+            .clone();
+        path.name = format!("__newpath{}", dst_id).into();
+        self.assets.paths.push(Some(path));
+        Ok(dst_id.into())
     }
 
-    pub fn path_assign(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function path_assign")
+    pub fn path_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        let mut src = self
+            .assets
+            .paths
+            .get_asset(src_id)
+            .ok_or_else(|| {
+                gml::Error::FunctionError("path_assign".into(), "Destination path has an invalid index.".into())
+            })?
+            .clone();
+        if dst_id >= 0 && (dst_id as usize) < self.assets.paths.len() {
+            let dst = &mut self.assets.paths[dst_id as usize];
+            src.name = dst.as_ref().map(|r| r.name.clone()).unwrap_or_else(|| "".into());
+            *dst = Some(src);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into()))
+        }
     }
 
     pub fn path_append(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -9844,19 +9887,96 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn room_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function room_add")
+    pub fn room_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        expect_args!(args, [])?;
+        let room_id = self.assets.rooms.len();
+        self.assets.rooms.push(Some(Box::new(asset::Room {
+            name: format!("__newroom{}", room_id).into(),
+            caption: "".into(),
+            width: 640,
+            height: 480,
+            speed: 30,
+            persistent: false,
+            bg_colour: 0xc0c0c0.into(),
+            clear_screen: true,
+            creation_code: Ok(std::rc::Rc::new([])),
+            backgrounds: vec![
+                crate::game::background::Background {
+                    visible: false,
+                    is_foreground: false,
+                    background_id: -1,
+                    x_offset: 0.into(),
+                    y_offset: 0.into(),
+                    tile_horizontal: true,
+                    tile_vertical: true,
+                    hspeed: 0.into(),
+                    vspeed: 0.into(),
+                    xscale: 1.into(),
+                    yscale: 1.into(),
+                    blend: 0,
+                    alpha: 1.into(),
+                };
+                8
+            ],
+            views_enabled: false,
+            views: vec![
+                crate::game::view::View {
+                    visible: false,
+                    source_x: 0,
+                    source_y: 0,
+                    source_w: 640,
+                    source_h: 480,
+                    port_x: 0,
+                    port_y: 0,
+                    port_w: 640,
+                    port_h: 480,
+                    angle: 0.into(),
+                    follow_target: -1,
+                    follow_hborder: 32,
+                    follow_vborder: 32,
+                    follow_hspeed: -1,
+                    follow_vspeed: -1,
+                };
+                8
+            ],
+            instances: vec![],
+            tiles: vec![],
+        })));
+        Ok(room_id.into())
     }
 
-    pub fn room_duplicate(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function room_duplicate")
+    pub fn room_duplicate(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let src_id = expect_args!(args, [int])?;
+        let dst_id = self.assets.rooms.len() as i32;
+        let mut room = self
+            .assets
+            .rooms
+            .get_asset(src_id)
+            .ok_or_else(|| gml::Error::NonexistentAsset(asset::Type::Room, src_id))?
+            .clone();
+        room.name = format!("__newroom{}", dst_id).into();
+        self.assets.rooms.push(Some(room));
+        Ok(dst_id.into())
     }
 
-    pub fn room_assign(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function room_assign")
+    pub fn room_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (dst_id, src_id) = expect_args!(args, [int, int])?;
+        let mut src = self
+            .assets
+            .rooms
+            .get_asset(src_id)
+            .ok_or_else(|| {
+                gml::Error::FunctionError("room_assign".into(), "Destination room has an invalid index.".into())
+            })?
+            .clone();
+        if dst_id >= 0 && (dst_id as usize) < self.assets.rooms.len() {
+            let dst = &mut self.assets.rooms[dst_id as usize];
+            src.name = dst.as_ref().map(|r| r.name.clone()).unwrap_or_else(|| "".into());
+            *dst = Some(src);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into()))
+        }
     }
 
     pub fn room_instance_add(&mut self, args: &[Value]) -> gml::Result<Value> {
