@@ -1,0 +1,103 @@
+#+title: OpenGMK
+
+*OpenGMK* is a modern, open-source rewrite of the proprietary GameMaker Classic engines, providing a full sourceport of the runner, a decompiler, and the ability to record TASes. It's being worked on almost every day! We’re constantly adding new features and updating the code. Please remember that /this project is a work in progress/ and is unreleased. Until there's an official release, please note that your saves may break in future releases.
+
+* Building GM8Emulator / GM8Decompiler
+This project is written in the Rust programming language. Download the toolchain manager directly from [[https://rustup.rs/]] or a package manager of your choice. After installing, make sure you're up to date and then download the nightly branch:
+
+#+begin_src sh
+  rustup self update
+  rustup update
+  rustup install nightly
+#+end_src
+
+Clone the repository. We use a few git submodules, so initialise them too:
+
+#+begin_src sh
+  git clone --recurse-submodules 'https://github.com/OpenGMK/OpenGMK.git'
+#+end_src
+
+Once that's set up, build everything in release mode (this will take a while):
+
+#+begin_src sh
+  cd <repo-folder>
+  cargo +nightly build --release
+#+end_src
+
+The build artifacts will be located in =<repo-folder>/target/release=.
+
+If you're on Windows 64-bit and would like to play games with GM8Emulator that require 32-bit DLLs to function such as /GMFMODSimple/ or /supersound/ you'll also need to build the WoW64 server, preferably in the release profile. It requires the additional installation of the =i686-pc-windows-msvc= target with rustup.
+
+#+begin_src sh
+  rustup target add --toolchain=nightly i686-pc-windows-msvc
+  cd gm8emulator-wow64
+  cargo +nightly build --release
+#+end_src
+
+The build artifacts for the WoW64 server will be located in =<repo-folder>/gm8emulator-wow64/target/i686-pc-windows-msvc/release=. The binary should either be manually copied to the same folder as =gm8emulator.exe= to work, or the =OPENGMK_WOW64_BINARY= environment variable should be set with the path to the binary.
+
+A much easier alternative to this is building the project as 32-bit on Windows, where the WoW64 server is not required and the DLL loading logic is bundled inside GM8Emulator. It should be noted that cross-platform extension emulation is planned for the long-term future.
+* Recording & Replaying TASes with GM8Emulator
+To play a game normally, simply pass the only argument to =gm8emulator=:
+
+#+begin_src sh
+  gm8emulator path/to/game.exe
+#+end_src
+
+To start record mode, or continue a previous recording, also pass a project name with =-n=.
+A folder for the project will be created in:
+
+- Windows :: =<working-directory>/projects/=
+- Linux :: =$XDG_DATA_HOME/opengmk/projects/= or =~/.local/share/opengmk/projects/=
+
+#+begin_src sh
+  gm8emulator <path/to/game.exe> -n <project-name>
+#+end_src
+
+While in record mode, a =save#.bin= is generated for each savestate. You can export a =save#.gmtas= file, which is for sharing, and has input data only.
+If you've lost your =save#.bin=, or need to migrate OpenGMK versions, you can recreate it by simply replaying your =save#.gmtas=:
+
+#+begin_src sh
+  gm8emulator <path/to/game.exe> -l -f <path/to/save#.gmtas> -o <path/to/save#.bin>
+#+end_src
+
+Note that =-l= here means disabling the framelimiter so it goes by faster.
+
+/All command-line steps will be streamlined in a future release./
+* Load / Runtime Errors
+/Loading a game gives "failed to load 'filename' - unknown format, could not identify file"/
+
+#+begin_quote
+OpenGMK is made to support /GameMaker Classic/ games. It’s possible the game you are trying to load was actually made with /GameMaker: Studio/, which it does not have support for at the moment. Whether it will in the future is unclear right now.
+#+end_quote
+
+/Loading a game or while playing a game, "unimplemented kernel function" or "not yet implemented"/
+
+#+begin_quote
+Your game tried to access functionality that's yet to be implemented. The full GameMaker Classic standard library is absolutely massive, and there's a good bit left to cover.
+#+end_quote
+
+/Entering record mode gives "invalid u8 while decoding bool" or "expected variant" or similar/
+
+#+begin_quote
+This means that the =save#.bin= file in your project directory is out of date with OpenGMK.
+This is a byproduct of it being actively developed, and is bound to happen.
+
+To fix it, open it in the build of OpenGMK it was created with, export a =save#.gmtas= from it,
+and recreate the =save#.bin= in the new build with that as described in the recording section.
+#+end_quote
+* About GameMaker Classic & OpenGMK
+*GameMaker* (formerly /Game Maker/) is an engine for creating Windows games, originally created by [[https://en.wikipedia.org/wiki/Mark_Overmars][Mark Overmars]] in 1999 and [[https://www.yoyogames.com/][YoYo Games]] since 2007. *GameMaker 8* ("GM8") was the last of the /numbered releases/ of GameMaker,
+released on December 22nd 2009 (surpassing /GameMaker 7/) and succeeded by the vastly more popular /GameMaker: Studio/ in 2011.
+The pre-Studio versions are often referred to as /GameMaker Classic/. Due to the huge behavioral differences, as well as /Studio/'s lack of backward-compatibility, the classic engines are still very widely used, with thousands of games to their name.
+
+One of GameMaker's original strengths as a game engine was its ability to compile an entire project into a single executable. No external dependencies or installers, just compile, send the =.exe= file to your friend and they will be able to play your game. This is achieved by having the target executable act as a phase file for the entire collection of assets required to run the game. In other words, the executable contains not only the game engine code, but all of the objects, scripts, sprites, room layouts, everything required for the game logic. This behaviour was made optional in /Studio/, giving the creator a choice between a standalone executable or =.msi= installer, however the standalone builds just extract the contents of the installer to a temporary folder when they're launched, so sending the extracted contents as a =.zip= became much more preferable.
+
+This project was originally started as [[https://github.com/Adamcake/Legacy-GM8Emulator][GM8Emulator]], a program that can load /GameMaker Classic/ games, and accurately play the game within. The goal was to have it mimic the original engine as closely as possible, down to the sub-frame and implementation detail (if observable). Strictly speaking, /emulator/ was not the correct term. In computing, an emulator is a piece of software on a computer system which emulates the behaviour of a different computer system. We aren't emulating any computer system, just the engine, unless you consider /Game Maker Language/ its own architecture. A more accurate term would be a /sourceport/, but it didn't sound as cool at the time. The project required us to write a decompiler as a starting point to extract the assets, and since we were already maintaining the most up-to-date fork of [[https://github.com/DatZach][Zach Reedy]]'s [[https://github.com/WastedMeerkat/gm81decompiler][gm81decompiler]] from 2013, we used that as a starting point to develop a much faster version from scratch out of the new codebase, released as [[https://github.com/OpenGMK/GM8Decompiler][GM8Decompiler]], which was originally a separate repository, but the code is now merged into the unified repository we named the *OpenGMK Project*.
+* Contributing
+This project has only been worked on by a few people so far in their little free time. Contributions are always welcome, although we'd highly prefer if you got in contact beforehand to discuss details. All contributions are licensed under the same licence as the project.
+* Additional Credits
+- [[https://github.com/DatZach][DatZach]] for creating the original open-source decompiler.
+- [[https://github.com/Jabberwock-RU][Jabberwock-RU]] for creating the new project icon and logos.
+* Licence
+OpenGMK is free and open source software, provided under the [[https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html][GNU GPL v2]], and is in no way affiliated with /GameMaker™/ or /YoYo Games Ltd./
