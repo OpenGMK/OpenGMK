@@ -65,13 +65,13 @@ Note that =-l= here means disabling the framelimiter so it goes by faster.
 
 /All command-line steps will be streamlined in a future release./
 * Load / Runtime Errors
-/Loading a game gives "failed to load 'filename' - unknown format, could not identify file"/
+/Loading a game gives "failed to load 'filename' - unknown format, could not identify file" or similar/
 
 #+begin_quote
 OpenGMK is made to support /GameMaker Classic/ games. It’s possible the game you are trying to load was actually made with /GameMaker: Studio/, which it does not have support for at the moment. Whether it will in the future is unclear right now.
 #+end_quote
 
-/Loading a game or while playing a game, "unimplemented kernel function" or "not yet implemented"/
+/Loading a game or while playing a game, "unimplemented kernel function" or "not yet implemented" or similar/
 
 #+begin_quote
 Your game tried to access functionality that's yet to be implemented. The full GameMaker Classic standard library is absolutely massive, and there's a good bit left to cover.
