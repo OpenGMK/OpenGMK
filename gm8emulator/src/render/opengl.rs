@@ -893,7 +893,7 @@ impl RendererTrait for RendererImpl {
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
             self.zbuf_ids.resize(self.texture_ids.len(), None);
             self.fbo_ids = fbo_ids;
-            self.stock_atlas_count = textures.len() as u32;
+            self.stock_atlas_count = textures.len() as u32 + 2; // IMMENSELY disgusting hotfix for -o
         }
 
         // store packers, discard pixeldata
@@ -1435,46 +1435,32 @@ impl RendererTrait for RendererImpl {
     }
 
     fn stored_pixels(&self) -> Box<[u8]> {
-        if let Some(fb) = self.stored_framebuffer {
-            unsafe {
-                let (width, height) = self.stored_size();
-                let len = (width * height * 4) as usize;
-                let mut data: Vec<u8> = Vec::with_capacity(len);
-                data.set_len(len);
-                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
-                self.gl.ReadPixels(
-                    0,
-                    0,
-                    width as _,
-                    height as _,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    data.as_mut_ptr().cast(),
-                );
-                assert_eq!(self.gl.GetError(), 0);
-                data.into_boxed_slice()
-            }
-        } else {
-            Box::new([])
+        let fb = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            let (width, height) = self.stored_size();
+            let len = (width * height * 4) as usize;
+            let mut data: Vec<u8> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
+            self.gl.ReadPixels(0, 0, width as _, height as _, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            assert_eq!(self.gl.GetError(), 0);
+            data.into_boxed_slice()
         }
     }
 
     fn stored_zbuffer(&self) -> Box<[f32]> {
-        if let Some(fb) = self.stored_framebuffer {
-            unsafe {
-                self.gl.BindTexture(gl::TEXTURE_2D, fb.zbuf);
-                let mut width = 0;
-                let mut height = 0;
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                let len = (width * height) as usize;
-                let mut data: Vec<f32> = Vec::with_capacity(len);
-                data.set_len(len);
-                self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
-                data.into_boxed_slice()
-            }
-        } else {
-            Box::new([])
+        let fb = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            self.gl.BindTexture(gl::TEXTURE_2D, fb.zbuf);
+            let mut width = 0;
+            let mut height = 0;
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            let len = (width * height) as usize;
+            let mut data: Vec<f32> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
+            data.into_boxed_slice()
         }
     }
 
@@ -2462,18 +2448,17 @@ impl RendererTrait for RendererImpl {
 
     fn stored_size(&self) -> (u32, u32) {
         use std::convert::TryFrom;
-        self.stored_framebuffer
-            .map(|framebuffer| unsafe {
-                let (mut width, mut height) = (0, 0);
-                self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                (
-                    u32::try_from(width).expect("Negative width reported by OpenGL"),
-                    u32::try_from(height).expect("Negative height reported by OpenGL"),
-                )
-            })
-            .unwrap_or((0, 0))
+        let framebuffer = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            let (mut width, mut height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            (
+                u32::try_from(width).expect("Negative width reported by OpenGL"),
+                u32::try_from(height).expect("Negative height reported by OpenGL"),
+            )
+        }
     }
 
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {
