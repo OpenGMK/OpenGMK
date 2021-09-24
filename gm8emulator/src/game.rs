@@ -2109,6 +2109,7 @@ impl Game {
         self.spoofed_time_nanos = Some(replay.start_time);
 
         // the tas ui creates some sprites, so as a hotfix we need to generate them here too
+        // TODO don't
         for _ in 0..2 {
             self.renderer.upload_sprite(Box::new([0, 0, 0, 0]), 1, 1, 0, 0).expect("Failed to upload blank sprite");
         }

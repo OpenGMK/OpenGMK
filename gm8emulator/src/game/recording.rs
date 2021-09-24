@@ -221,6 +221,7 @@ impl Game {
         }
         io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
 
+        // TODO probably don't store these textures in the same places as the game textures
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
         let mut font = self
             .renderer

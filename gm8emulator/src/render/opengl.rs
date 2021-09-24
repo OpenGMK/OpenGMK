@@ -893,7 +893,7 @@ impl RendererTrait for RendererImpl {
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
             self.zbuf_ids.resize(self.texture_ids.len(), None);
             self.fbo_ids = fbo_ids;
-            self.stock_atlas_count = textures.len() as u32 + 2; // IMMENSELY disgusting hotfix for -o
+            self.stock_atlas_count = textures.len() as u32 + 2; // TODO remove +2 when -o works
         }
 
         // store packers, discard pixeldata
