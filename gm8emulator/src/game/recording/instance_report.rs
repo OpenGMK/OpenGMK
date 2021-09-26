@@ -27,6 +27,7 @@ enum ReportField {
 
 pub struct InstanceReportWindow {
     instance_images: Vec<AtlasRef>,
+    report_count: usize,
 }
 
 impl InstanceReport {
@@ -123,6 +124,10 @@ impl InstanceReport {
 
 // Instance-watcher windows
 impl Window for InstanceReportWindow {
+    fn name(&self) -> String {
+        format!("Instance Reports ({})", self.report_count)
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         let previous_len = info.config.watched_ids.len();
         {
@@ -147,6 +152,7 @@ impl Window for InstanceReportWindow {
             info.update_instance_reports();
             info.config.save();
         }
+        self.report_count = info.config.watched_ids.len();
     }
 
     fn is_open(&self) -> bool { true }
@@ -156,6 +162,7 @@ impl InstanceReportWindow {
     pub fn new() -> Self {
         Self {
             instance_images: Vec::new(),
+            report_count: 0,
         }
     }
 

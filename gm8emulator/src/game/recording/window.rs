@@ -1,5 +1,6 @@
 use crate::{ 
-    imgui,  game::{
+    imgui,
+    game::{
         Game,
         recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
         replay::Replay,
@@ -10,7 +11,7 @@ use crate::{
 };
 use std::path::PathBuf;
 
- pub struct DisplayInformation<'a, 'f> {
+pub struct DisplayInformation<'a, 'f> {
     pub game: &'a mut Game,
     pub frame: &'a mut imgui::Frame<'f>,
     pub context_menu: &'a mut Option<ContextMenu>,
@@ -42,10 +43,34 @@ use std::path::PathBuf;
     pub keybindings: &'a mut Keybindings,
 }
 
-pub trait Window {
+pub trait WindowType {
+    fn window_type_self(&self) -> std::any::TypeId;
+}
+pub trait Window: WindowType {
     fn show_window(&mut self, info: &mut DisplayInformation);
 
     fn is_open(&self) -> bool;
+
+    fn name(&self) -> String;
+}
+impl<T> WindowType for T
+    where T: Window + 'static
+{
+    fn window_type_self(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<T>()
+    }
+}
+
+pub trait Openable<T>: Window
+    where T: 'static
+{
+    fn window_type() -> std::any::TypeId {
+        std::any::TypeId::of::<T>()
+    }
+
+    fn window_name() -> &'static str;
+
+    fn open() -> Self;
 }
 
 impl DisplayInformation<'_, '_> {
@@ -66,10 +91,9 @@ impl DisplayInformation<'_, '_> {
             false
         } else {
             let mut savestate_replay = self.replay.clone();
-            if self.config.is_read_only {
-                // make sure the saved replay is only up to the savestate.
-                savestate_replay.truncate_frames(self.config.current_frame);
-            }
+
+            // make sure the saved replay is only up to the savestate.
+            savestate_replay.truncate_frames(self.config.current_frame);
 
             let state = SaveState::from(self.game, savestate_replay, self.renderer_state.clone());
             let result = self.savestate_save_to_file(slot, &state);

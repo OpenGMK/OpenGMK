@@ -16,6 +16,10 @@ pub struct SaveStateWindow {
 }
 
 impl Window for SaveStateWindow {
+    fn name(&self) -> String {
+        "Savestates".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
         info.frame.begin_window("Savestates", None, true, false, None);

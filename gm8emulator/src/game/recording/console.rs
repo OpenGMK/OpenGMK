@@ -1,5 +1,5 @@
 use crate::{
-    game::recording::window::{Window, DisplayInformation},
+    game::recording::window::{Window, Openable, DisplayInformation},
     gml::{ Context, Value },
     imgui,
 };
@@ -13,10 +13,24 @@ pub struct ConsoleWindow {
     run_code: bool,
     last_frame: usize,
     last_rerecords: u64,
+
+    is_open: bool,
 }
 
-// Keyboard & Mouse window
+impl Openable<Self> for ConsoleWindow {
+    fn window_name() -> &'static str {
+        "Console"
+    }
+
+    fn open() -> Self {
+        Self::new()
+    }
+}
 impl Window for ConsoleWindow {
+    fn name(&self) -> String {
+        "Console".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         let DisplayInformation {
             config,
@@ -27,7 +41,7 @@ impl Window for ConsoleWindow {
         } = info;
 
         frame.setup_next_window(imgui::Vec2(100.0, 100.0), Some(imgui::Vec2(600.0, 250.0)), None);
-        if frame.begin_window(&"GML Console", None, true, false, None) {
+        if frame.begin_window(&"GML Console", None, true, false, Some(&mut self.is_open)) {
             let window_size = frame.window_size();
             let content_position = frame.content_position();
             frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
@@ -117,7 +131,9 @@ impl Window for ConsoleWindow {
         frame.end();
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
 
 impl ConsoleWindow {
@@ -131,6 +147,8 @@ impl ConsoleWindow {
             run_code: false,
             last_frame: 0,
             last_rerecords: 0,
+
+            is_open: true,
         }
     }
 }

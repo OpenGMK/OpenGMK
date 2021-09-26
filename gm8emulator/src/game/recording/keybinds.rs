@@ -2,7 +2,7 @@ use crate::{
     imgui, input,
     input::Button,
     types::Colour,
-    game::recording::window::{Window, DisplayInformation},
+    game::recording::window::{Window, Openable, DisplayInformation},
 };
 use ramen::event::Key;
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,8 @@ pub enum Binding {
     ToggleReadOnly,
     ToggleDirect,
     ToggleKeyboard,
+    NextRand,
+    ExportGmtas,
 }
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -37,6 +39,8 @@ impl Display for Binding {
             Self::ToggleReadOnly => write!(f, "Toggle Read-Only"),
             Self::ToggleDirect => write!(f, "Toggle direct/mouse input"),
             Self::ToggleKeyboard => write!(f, "Toggle full keyboard"),
+            Self::NextRand => write!(f, "Cycle RNG"),
+            Self::ExportGmtas => write!(f, "Export .gmtas"),
             //_ => write!(f, "{:?}", self),
         }
     }
@@ -52,6 +56,8 @@ impl Binding {
             Self::ToggleReadOnly => Some(KeyCombination::from(vec![Button::Shift, Button::Alpha8])),
             Self::ToggleDirect => Some(KeyCombination::from(vec![Button::Control, Button::D])),
             Self::ToggleKeyboard => Some(KeyCombination::from(vec![Button::Control, Button::K])),
+            Self::NextRand => Some(KeyCombination::from(vec![Button::Control, Button::R])),
+            Self::ExportGmtas => Some(KeyCombination::from(vec![Button::Control, Button::Shift, Button::E])),
             //_ => None,
         }
     }
@@ -77,7 +83,7 @@ impl Display for KeyCombination {
         }
 
         for (i, code) in self.keycodes.iter().enumerate() {
-            write!(f, "{:?}", code)?;
+            write!(f, "{}", code)?;
             if i != self.keycodes.len()-1 {
                 f.write_str("+")?;
             }
@@ -99,6 +105,7 @@ pub struct KeybindWindow {
     current_binding: Option<Binding>,
     current_keys: KeyCombination,
     last_keycodes: Vec<u8>,
+    is_open: bool,
 }
 
 impl Keybindings {
@@ -118,6 +125,8 @@ impl Keybindings {
         insert!(Binding::ToggleReadOnly);
         insert!(Binding::ToggleDirect);
         insert!(Binding::ToggleKeyboard);
+        insert!(Binding::NextRand);
+        insert!(Binding::ExportGmtas);
     }
 
     pub fn keybind_pressed(&self, bind: Binding, frame: &imgui::Frame) -> bool {
@@ -182,11 +191,23 @@ impl Default for Keybindings {
         }
     }
 }
+impl Openable<Self> for KeybindWindow {
+    fn window_name() -> &'static str {
+        "Keybindings"
+    }
 
+    fn open() -> Self {
+        Self::new()
+    }
+}
 impl Window for KeybindWindow {
+    fn name(&self) -> String {
+        "Keybindings".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 4.0).into()); }
-        info.frame.begin_window("Keybindings", None, true, false, None);
+        info.frame.begin_window("Keybindings", None, true, false, Some(&mut self.is_open));
 
         if info.frame.begin_table(
             "Keybindings",
@@ -218,7 +239,9 @@ impl Window for KeybindWindow {
         }
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
 
 impl KeybindWindow {
@@ -232,6 +255,7 @@ impl KeybindWindow {
                 shift: false,
                 keycodes: Vec::new(),
             },
+            is_open: true,
         }
     }
 

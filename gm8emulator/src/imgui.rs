@@ -117,6 +117,10 @@ impl Frame<'_> {
         }
     }
 
+    pub fn set_next_window_focus(&self) {
+        unsafe { c::igSetNextWindowFocus(); }
+    }
+
     pub fn begin_window(
         &mut self,
         name: &str,
@@ -310,6 +314,23 @@ impl Frame<'_> {
             c::igSetCursorPos((center - size).into());
             c::igText(self.cstr())
         }
+    }
+
+    pub fn begin_menu_main_bar(&self) -> bool {
+        unsafe { c::igBeginMainMenuBar() }
+    }
+
+    pub fn end_menu_main_bar(&self) {
+        unsafe { c::igEndMainMenuBar(); }
+    }
+
+    pub fn begin_menu(&mut self, label: &str, enabled: bool) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igBeginMenu(self.cstr(), enabled) }
+    }
+
+    pub fn end_menu(&self) {
+        unsafe { c::igEndMenu(); }
     }
 
     pub fn menu_item(&mut self, label: &str) -> bool {

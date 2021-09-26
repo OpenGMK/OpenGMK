@@ -24,6 +24,10 @@ pub struct GameWindow {
 
 // Game window
 impl Window for GameWindow {
+    fn name(&self) -> String {
+        "Game".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         if *info.game_running {
             self.display_window(info);
@@ -62,7 +66,7 @@ impl GameWindow {
         let (w, h) = info.game.renderer.stored_size();
         info.frame.setup_next_window(imgui::Vec2(f32::from(info.config.ui_width) - w as f32 - 8.0, 8.0), None, None);
         info.frame.begin_window(
-            &format!("{}###Game", info.game.get_window_title()),
+            &format!("{}###{}", info.game.get_window_title(), self.name()),
             Some(imgui::Vec2(
                 w as f32 + (2.0 * info.win_border_size),
                 h as f32 + info.win_border_size + info.win_frame_height

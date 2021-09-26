@@ -13,17 +13,20 @@ use crate::{
 };
 use ramen::event::Key;
 
-pub struct InputWindows { }
+pub struct InputWindows;
 
 // Keyboard & Mouse window
 impl Window for InputWindows {
+    fn name(&self) -> String {
+        "Input".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         self.show_input_windows(info);
     }
 
     fn is_open(&self) -> bool { true }
 }
-
 
 // Keyboard window
 impl InputWindows {

@@ -6,6 +6,7 @@ mod input_window;
 mod instance_report;
 mod keybinds;
 mod console;
+mod menu_bar;
 
 use crate::{
     game::{
@@ -273,7 +274,7 @@ impl ProjectConfig {
 }
 
 impl Game {
-    pub fn record(&mut self, project_path: PathBuf) {
+    pub fn record(&mut self, project_path: PathBuf, pause: bool) {
         let mut save_buffer = savestate::Buffer::new();
         let mut startup_successful = true;
 
@@ -379,7 +380,39 @@ impl Game {
         let mut savestate;
         let mut renderer_state;
 
-        if !save_paths[config.quicksave_slot].exists() {
+        macro_rules! load_backup_recording {
+            () => {
+                let mut backup_path = project_path.clone();
+                backup_path.push("backup.gmtas");
+
+                if backup_path.exists() {
+                    match Replay::from_file(&backup_path) {
+                        Ok(backup_replay) => {
+                            if pause {
+                                self.rand.set_seed(backup_replay.start_seed);
+                                self.spoofed_time_nanos = Some(backup_replay.start_time);
+                                replay.start_seed = backup_replay.start_seed;
+                                replay.start_time = backup_replay.start_time;
+                            }
+
+                            if backup_replay.contains_part(&replay) {
+                                replay = backup_replay;
+                            } else if pause {
+                                println!("Warning: Game is not part of backup replay");
+                            }
+                        },
+                        Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
+                    }
+                }
+            };
+        }
+
+        if pause {
+            config.is_read_only = true;
+            load_backup_recording!();
+        }
+
+        if !save_paths[config.quicksave_slot].exists() || pause {
             if let Err(e) = match self.init() {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
@@ -414,34 +447,38 @@ impl Game {
             self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), true);
             renderer_state = self.renderer.state();
             self.renderer.set_state(&ui_renderer_state);
-            savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
-
-            if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
-                err_string = Some(format!(
-                    concat!(
-                        "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
-                        "Error message: {:?}",
-                    ),
-                    save_paths[config.quicksave_slot].file_name(),
-                    err,
-                ));
-            }
 
             config.current_frame = 0;
 
-            if config.is_read_only {
-                let mut backup_path = project_path.clone();
-                backup_path.push("backup.gmtas");
+            if pause && save_paths[config.quicksave_slot].exists() {
+                match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
+                    Ok(save) => savestate = save,
+                    Err(e) => {
+                        // Just to initialize renderer_state and keep the compiler happy, this won't be used...
+                        renderer_state = ui_renderer_state.clone();
+                        err_string = Some(format!("(Fatal) Error loading quicksave file: {:?}", e));
+                        savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                        startup_successful = false;
+                        game_running = false;
+                    },
+                }
+            } else {
+                let mut save_replay = replay.clone();
+                save_replay.truncate_frames(config.current_frame);
+                savestate = SaveState::from(self, save_replay, renderer_state.clone());
 
-                if backup_path.exists() {
-                    match Replay::from_file(&backup_path) {
-                        Ok(backup_replay) => {
-                            if backup_replay.contains_part(&replay) {
-                                replay = backup_replay;
-                            }
-                        },
-                        Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
-                    }
+                if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
+                    err_string = Some(format!(
+                        concat!(
+                            "Warning: failed to create {:?} (it has still been saved in memory)\n\n",
+                            "Error message: {:?}",
+                        ),
+                        save_paths[config.quicksave_slot].file_name(),
+                        err,
+                    ));
+                }
+                if config.is_read_only {
+                    load_backup_recording!();
                 }
             }
         } else {
@@ -520,22 +557,13 @@ impl Game {
         keybind_path.push("keybindings.cfg");
         let mut keybindings = keybinds::Keybindings::from_file_or_default(&keybind_path);
 
-        let mut game_window = game_window::GameWindow::new();
-        let mut control_window = control_window::ControlWindow::new();
-        let mut savestate_window = savestate_window::SaveStateWindow::new(16);
-        let mut input_windows = input_window::InputWindows::new();
-        let mut instance_report_windows = instance_report::InstanceReportWindow::new();
-        let mut keybinding_window = keybinds::KeybindWindow::new();
-        let mut console_window = console::ConsoleWindow::new();
-
-        let mut windows = vec![
-            &mut game_window as &mut dyn Window,
-            &mut control_window,
-            &mut savestate_window,
-            &mut input_windows,
-            &mut instance_report_windows,
-            &mut console_window,
-            &mut keybinding_window,
+        let mut windows: Vec<(Box<dyn Window>, bool)> = vec![
+            (Box::new(game_window::GameWindow::new()), true),
+            (Box::new(control_window::ControlWindow::new()), false),
+            (Box::new(savestate_window::SaveStateWindow::new(16)), false),
+            (Box::new(input_window::InputWindows::new()), false),
+            (Box::new(instance_report::InstanceReportWindow::new()), false),
+            // (Box::new(keybinds::KeybindWindow::new()), false),
         ];
 
         /* ----------------------
@@ -620,7 +648,16 @@ impl Game {
             let win_padding = context.window_padding();
             let mut frame = context.new_frame();
 
+            // ImGui windows
+            // todo: maybe separate control logic from the windows at some point so we can close control/savestate/input windows
+            //       and still have the keyboard shortcuts and everything working. Collapsing them is good enough for now.
             {
+                let mut close: bool = false;
+                menu_bar::show_menu_bar(&mut frame, &mut windows, &mut close);
+                if close {
+                    break 'gui;
+                }
+
                 keybindings.update_disable_bindings();
 
                 let mut display_info = DisplayInformation {
@@ -655,10 +692,14 @@ impl Game {
                     keybindings: &mut keybindings,
                 };
 
-                for win in &mut windows {
+                for (win, focus) in &mut windows {
+                    if *focus {
+                        display_info.frame.set_next_window_focus();
+                        *focus = false;
+                    }
                     win.show_window(&mut display_info);
                 }
-                windows.retain(|win| win.is_open());
+                windows.retain(|(win, _)| win.is_open());
             }
 
             // Context menu windows (aka right-click menus)
