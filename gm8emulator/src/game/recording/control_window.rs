@@ -22,9 +22,13 @@ pub struct ControlWindow {
 }
 
 impl Window for ControlWindow {
+    fn name(&self) -> String {
+        "Control".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
-        info.frame.begin_window("Control", None, true, false, None);
+        info.frame.begin_window(&self.name(), None, true, false, None);
 
         self.update_texts(info);
 

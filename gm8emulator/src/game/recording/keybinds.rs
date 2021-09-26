@@ -2,7 +2,7 @@ use crate::{
     imgui, input,
     input::Button,
     types::Colour,
-    game::recording::window::{Window, DisplayInformation},
+    game::recording::window::{Window, Openable, DisplayInformation},
 };
 use ramen::event::Key;
 use serde::{Deserialize, Serialize};
@@ -105,6 +105,7 @@ pub struct KeybindWindow {
     current_binding: Option<Binding>,
     current_keys: KeyCombination,
     last_keycodes: Vec<u8>,
+    is_open: bool,
 }
 
 impl Keybindings {
@@ -190,11 +191,23 @@ impl Default for Keybindings {
         }
     }
 }
+impl Openable<Self> for KeybindWindow {
+    fn window_name() -> &'static str {
+        "Keybindings"
+    }
 
+    fn open() -> Self {
+        Self::new()
+    }
+}
 impl Window for KeybindWindow {
+    fn name(&self) -> String {
+        "Keybindings".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 4.0).into()); }
-        info.frame.begin_window("Keybindings", None, true, false, None);
+        info.frame.begin_window("Keybindings", None, true, false, Some(&mut self.is_open));
 
         if info.frame.begin_table(
             "Keybindings",
@@ -226,7 +239,9 @@ impl Window for KeybindWindow {
         }
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
 
 impl KeybindWindow {
@@ -240,6 +255,7 @@ impl KeybindWindow {
                 shift: false,
                 keycodes: Vec::new(),
             },
+            is_open: true,
         }
     }
 

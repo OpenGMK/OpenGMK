@@ -1,5 +1,6 @@
 use crate::{ 
-    imgui,  game::{
+    imgui,
+    game::{
         Game,
         recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
         replay::Replay,
@@ -10,7 +11,7 @@ use crate::{
 };
 use std::path::PathBuf;
 
- pub struct DisplayInformation<'a, 'f> {
+pub struct DisplayInformation<'a, 'f> {
     pub game: &'a mut Game,
     pub frame: &'a mut imgui::Frame<'f>,
     pub context_menu: &'a mut Option<ContextMenu>,
@@ -42,10 +43,34 @@ use std::path::PathBuf;
     pub keybindings: &'a mut Keybindings,
 }
 
-pub trait Window {
+pub trait WindowType {
+    fn window_type_self(&self) -> std::any::TypeId;
+}
+pub trait Window: WindowType {
     fn show_window(&mut self, info: &mut DisplayInformation);
 
     fn is_open(&self) -> bool;
+
+    fn name(&self) -> String;
+}
+impl<T> WindowType for T
+    where T: Window + 'static
+{
+    fn window_type_self(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<T>()
+    }
+}
+
+pub trait Openable<T>: Window
+    where T: 'static
+{
+    fn window_type() -> std::any::TypeId {
+        std::any::TypeId::of::<T>()
+    }
+
+    fn window_name() -> &'static str;
+
+    fn open() -> Self;
 }
 
 impl DisplayInformation<'_, '_> {
