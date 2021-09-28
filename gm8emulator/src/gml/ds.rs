@@ -127,8 +127,13 @@ impl Grid {
     }
 
     // This will panic on OOB, so make sure you check bounds before calling
-    pub fn set(&mut self, x: usize, y: usize, val: Value) {
-        self.grid[x][y] = val;
+    pub fn get_mut(&mut self, x: usize, y: usize) -> &mut Value {
+        &mut self.grid[x][y]
+    }
+
+    /// Goes through each column
+    pub fn all_mut(&mut self) -> impl Iterator<Item = &mut Value> {
+        self.grid.iter_mut().flatten()
     }
 
     pub fn width(&self) -> usize {

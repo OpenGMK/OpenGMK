@@ -11892,10 +11892,8 @@ impl Game {
         let (id, val) = expect_args!(args, [int, any])?;
         match self.grids.get_mut(id) {
             Some(grid) => {
-                for x in 0..grid.width() {
-                    for y in 0..grid.height() {
-                        grid.set(x, y, val.clone());
-                    }
+                for cell in grid.all_mut() {
+                    *cell = val.clone();
                 }
                 Ok(Default::default())
             },
@@ -11908,7 +11906,7 @@ impl Game {
         match self.grids.get_mut(id) {
             Some(grid) => {
                 if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
-                    grid.set(x as usize, y as usize, val);
+                    *grid.get_mut(x as usize, y as usize) = val;
                 }
                 Ok(Default::default())
             },
@@ -12091,10 +12089,8 @@ impl Game {
             reader.read_exact(&mut buf).ok()?;
             let height = u32::from_le_bytes(buf) as usize;
             let mut grid = ds::Grid::new(width, height);
-            for x in 0..width {
-                for y in 0..height {
-                    grid.set(x, y, Value::from_reader(&mut reader)?);
-                }
+            for cell in grid.all_mut() {
+                *cell = Value::from_reader(&mut reader)?;
             }
             Some(grid)
         }
