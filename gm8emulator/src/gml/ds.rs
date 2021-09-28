@@ -131,6 +131,49 @@ impl Grid {
         &mut self.grid[x][y]
     }
 
+    fn range_x(&self, x1: i32, x2: i32) -> std::ops::Range<usize> {
+        let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
+        (x1.max(0) as usize)..((x2 + 1).clamp(0, self.width() as _) as usize)
+    }
+
+    fn range_y(&self, y1: i32, y2: i32) -> std::ops::Range<usize> {
+        let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
+        (y1.max(0) as usize)..((y2 + 1).clamp(0, self.height() as _) as usize)
+    }
+
+    /// Goes through each column
+    pub fn region(&self, x1: i32, y1: i32, x2: i32, y2: i32) -> impl Iterator<Item = &Value> {
+        let rx = self.range_x(x1, x2);
+        let ry = self.range_y(y1, y2);
+        self.grid[rx].iter().map(move |col| &col[ry.clone()]).flatten()
+    }
+
+    /// Goes through each column
+    pub fn region_positioned(
+        &self,
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+    ) -> impl Iterator<Item = ((usize, usize), &Value)> {
+        let rx = self.range_x(x1, x2);
+        let ry = self.range_y(y1, y2);
+        self.grid
+            .iter()
+            .enumerate()
+            .take(rx.end)
+            .skip(rx.start)
+            .map(move |(x, col)| col.iter().enumerate().take(ry.end).skip(ry.start).map(move |(y, v)| ((x, y), v)))
+            .flatten()
+    }
+
+    /// Goes through each column
+    pub fn region_mut(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) -> impl Iterator<Item = &mut Value> {
+        let rx = self.range_x(x1, x2);
+        let ry = self.range_y(y1, y2);
+        self.grid[rx].iter_mut().map(move |col| &mut col[ry.clone()]).flatten()
+    }
+
     /// Goes through each column
     pub fn all_mut(&mut self) -> impl Iterator<Item = &mut Value> {
         self.grid.iter_mut().flatten()
