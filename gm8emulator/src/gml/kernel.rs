@@ -11924,9 +11924,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_multiply")
     }
 
-    pub fn ds_grid_set_region(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function ds_grid_set_region")
+    pub fn ds_grid_set_region(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
+        if let Some(grid) = self.grids.get_mut(id) {
+            for cell in grid.region_mut(x1, y1, x2, y2) {
+                *cell = val.clone();
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_set_region".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_add_region(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -12023,19 +12030,46 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_get_disk_mean")
     }
 
-    pub fn ds_grid_value_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function ds_grid_value_exists")
+    pub fn ds_grid_value_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            for cell in grid.region(x1, y1, x2, y2) {
+                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
+                    return Ok(true.into())
+                }
+            }
+            Ok(false.into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_value_exists".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_value_x(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function ds_grid_value_x")
+    pub fn ds_grid_value_x(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            for ((x, _), cell) in grid.region_positioned(x1, y1, x2, y2) {
+                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
+                    return Ok(x.into())
+                }
+            }
+            Ok(false.into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_value_x".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_value_y(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function ds_grid_value_y")
+    pub fn ds_grid_value_y(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            for ((_, y), cell) in grid.region_positioned(x1, y1, x2, y2) {
+                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
+                    return Ok(y.into())
+                }
+            }
+            Ok(false.into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_value_y".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_value_disk_exists(&self, _args: &[Value]) -> gml::Result<Value> {
