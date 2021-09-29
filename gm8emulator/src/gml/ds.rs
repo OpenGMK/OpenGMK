@@ -179,6 +179,67 @@ impl Grid {
     }
 
     /// Goes through each column
+    pub fn region_positioned_mut(
+        &mut self,
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+    ) -> impl Iterator<Item = ((usize, usize), &mut Value)> {
+        let rx = self.range_x(x1, x2);
+        let ry = self.range_y(y1, y2);
+        self.grid
+            .iter_mut()
+            .enumerate()
+            .take(rx.end)
+            .skip(rx.start)
+            .map(move |(x, col)| col.iter_mut().enumerate().take(ry.end).skip(ry.start).map(move |(y, v)| ((x, y), v)))
+            .flatten()
+    }
+
+    pub fn disk(&self, xm: Real, ym: Real, r: Real) -> impl Iterator<Item = &Value> {
+        self.region_positioned(
+            (xm - r).floor().to_i32(),
+            (ym - r).floor().to_i32(),
+            (xm + r).ceil().to_i32(),
+            (ym + r).ceil().to_i32(),
+        )
+        .filter_map(move |((x, y), val)| {
+            let cx = Real::from(x as u32) - xm;
+            let cy = Real::from(y as u32) - ym;
+            (cx * cx + cy * cy <= r * r).then(|| val)
+        })
+    }
+
+    pub fn disk_positioned(&self, xm: Real, ym: Real, r: Real) -> impl Iterator<Item = ((usize, usize), &Value)> {
+        self.region_positioned(
+            (xm - r).floor().to_i32(),
+            (ym - r).floor().to_i32(),
+            (xm + r).ceil().to_i32(),
+            (ym + r).ceil().to_i32(),
+        )
+        .filter_map(move |((x, y), val)| {
+            let cx = Real::from(x as u32) - xm;
+            let cy = Real::from(y as u32) - ym;
+            (cx * cx + cy * cy <= r * r).then(|| ((x, y), val))
+        })
+    }
+
+    pub fn disk_mut(&mut self, xm: Real, ym: Real, r: Real) -> impl Iterator<Item = &mut Value> {
+        self.region_positioned_mut(
+            (xm - r).floor().to_i32(),
+            (ym - r).floor().to_i32(),
+            (xm + r).ceil().to_i32(),
+            (ym + r).ceil().to_i32(),
+        )
+        .filter_map(move |((x, y), val)| {
+            let cx = Real::from(x as u32) - xm;
+            let cy = Real::from(y as u32) - ym;
+            (cx * cx + cy * cy <= r * r).then(|| val)
+        })
+    }
+
+    /// Goes through each column
     pub fn all(&self) -> impl Iterator<Item = &Value> {
         self.grid.iter().flatten()
     }
