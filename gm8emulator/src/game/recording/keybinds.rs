@@ -196,7 +196,7 @@ impl Openable<Self> for KeybindWindow {
         "Keybindings"
     }
 
-    fn open() -> Self {
+    fn open(_id: usize) -> Self {
         Self::new()
     }
 }
