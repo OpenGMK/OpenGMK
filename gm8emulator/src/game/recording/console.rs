@@ -15,6 +15,7 @@ pub struct ConsoleWindow {
     last_rerecords: u64,
 
     is_open: bool,
+    id: usize,
 }
 
 impl Openable<Self> for ConsoleWindow {
@@ -22,13 +23,20 @@ impl Openable<Self> for ConsoleWindow {
         "Console"
     }
 
-    fn open() -> Self {
-        Self::new()
+    fn open(id: usize) -> Self {
+        let mut new_console = Self::new();
+        new_console.id = id;
+
+        new_console
     }
 }
 impl Window for ConsoleWindow {
+    fn window_id(&self) -> usize {
+        self.id
+    }
+
     fn name(&self) -> String {
-        "Console".to_owned()
+        format!("Console {}", self.id+1)
     }
 
     fn show_window(&mut self, info: &mut DisplayInformation) {
@@ -41,7 +49,7 @@ impl Window for ConsoleWindow {
         } = info;
 
         frame.setup_next_window(imgui::Vec2(100.0, 100.0), Some(imgui::Vec2(600.0, 250.0)), None);
-        if frame.begin_window(&"GML Console", None, true, false, Some(&mut self.is_open)) {
+        if frame.begin_window(&self.name(), None, true, false, Some(&mut self.is_open)) {
             let window_size = frame.window_size();
             let content_position = frame.content_position();
             frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
@@ -149,6 +157,7 @@ impl ConsoleWindow {
             last_rerecords: 0,
 
             is_open: true,
+            id: 0,
         }
     }
 }
