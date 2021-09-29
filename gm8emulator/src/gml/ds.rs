@@ -1,6 +1,6 @@
 use crate::{gml::Value, math::Real};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections};
+use std::{cmp::Ordering, collections, convert::TryInto};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -121,14 +121,18 @@ impl Grid {
         }
     }
 
-    // This will panic on OOB, so make sure you check bounds before calling
-    pub fn get(&self, x: usize, y: usize) -> &Value {
-        &self.grid[x][y]
+    pub fn get(&self, x: i32, y: i32) -> Option<&Value> {
+        x.try_into()
+            .ok()
+            .zip(y.try_into().ok())
+            .and_then(|(x, y): (usize, usize)| self.grid.get(x).and_then(|col| col.get(y)))
     }
 
-    // This will panic on OOB, so make sure you check bounds before calling
-    pub fn get_mut(&mut self, x: usize, y: usize) -> &mut Value {
-        &mut self.grid[x][y]
+    pub fn get_mut(&mut self, x: i32, y: i32) -> Option<&mut Value> {
+        x.try_into()
+            .ok()
+            .zip(y.try_into().ok())
+            .and_then(move |(x, y): (usize, usize)| self.grid.get_mut(x).and_then(|col| col.get_mut(y)))
     }
 
     fn range_x(&self, x1: i32, x2: i32) -> std::ops::Range<usize> {
@@ -172,6 +176,11 @@ impl Grid {
         let rx = self.range_x(x1, x2);
         let ry = self.range_y(y1, y2);
         self.grid[rx].iter_mut().map(move |col| &mut col[ry.clone()]).flatten()
+    }
+
+    /// Goes through each column
+    pub fn all(&self) -> impl Iterator<Item = &Value> {
+        self.grid.iter().flatten()
     }
 
     /// Goes through each column

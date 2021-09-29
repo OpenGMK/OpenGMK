@@ -11903,14 +11903,13 @@ impl Game {
 
     pub fn ds_grid_set(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
-        match self.grids.get_mut(id) {
-            Some(grid) => {
-                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
-                    *grid.get_mut(x as usize, y as usize) = val;
-                }
-                Ok(Default::default())
-            },
-            None => Err(gml::Error::FunctionError("ds_grid_set".into(), ds::Error::NonexistentStructure(id).into())),
+        if let Some(grid) = self.grids.get_mut(id) {
+            if let Some(cell) = grid.get_mut(x, y) {
+                *cell = val;
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_set".into(), ds::Error::NonexistentStructure(id).into()))
         }
     }
 
@@ -11978,15 +11977,10 @@ impl Game {
 
     pub fn ds_grid_get(&self, args: &[Value]) -> gml::Result<Value> {
         let (id, x, y) = expect_args!(args, [int, int, int])?;
-        match self.grids.get(id) {
-            Some(grid) => {
-                if x >= 0 && y >= 0 && (x as usize) < grid.width() && (y as usize) < grid.height() {
-                    Ok(grid.get(x as usize, y as usize).clone())
-                } else {
-                    Ok(Default::default())
-                }
-            },
-            None => Err(gml::Error::FunctionError("ds_grid_get".into(), ds::Error::NonexistentStructure(id).into())),
+        if let Some(grid) = self.grids.get(id) {
+            Ok(grid.get(x, y).cloned().unwrap_or_default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_get".into(), ds::Error::NonexistentStructure(id).into()))
         }
     }
 
@@ -12094,19 +12088,16 @@ impl Game {
 
     pub fn ds_grid_write(&self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        match self.grids.get(id) {
-            Some(grid) => {
-                let mut output = "59020000".to_string();
-                output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
-                output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
-                for x in 0..grid.width() {
-                    for y in 0..grid.height() {
-                        output.push_str(&hex::encode_upper(grid.get(x, y).as_bytes()));
-                    }
-                }
-                Ok(output.into())
-            },
-            None => Err(gml::Error::FunctionError("ds_grid_write".into(), ds::Error::NonexistentStructure(id).into())),
+        if let Some(grid) = self.grids.get(id) {
+            let mut output = "59020000".to_string();
+            output.push_str(&hex::encode_upper((grid.width() as u32).to_le_bytes()));
+            output.push_str(&hex::encode_upper((grid.height() as u32).to_le_bytes()));
+            for cell in grid.all() {
+                output.push_str(&hex::encode_upper(cell.as_bytes()));
+            }
+            Ok(output.into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_write".into(), ds::Error::NonexistentStructure(id).into()))
         }
     }
 
