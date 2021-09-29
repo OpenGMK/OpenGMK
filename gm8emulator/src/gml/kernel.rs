@@ -11913,14 +11913,31 @@ impl Game {
         }
     }
 
-    pub fn ds_grid_add(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function ds_grid_add")
+    pub fn ds_grid_add(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
+        if let Some(grid) = self.grids.get_mut(id) {
+            if let Some(cell) = grid.get_mut(x, y) {
+                if cell.add_assign(val.clone()).is_err() {
+                    *cell = val;
+                }
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_add".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_multiply(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 4
-        unimplemented!("Called unimplemented kernel function ds_grid_multiply")
+    pub fn ds_grid_multiply(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x, y, val) = expect_args!(args, [int, int, int, any])?;
+        if let Some(grid) = self.grids.get_mut(id) {
+            match (grid.get_mut(x, y), val) {
+                (Some(Value::Real(cell)), Value::Real(fac)) => *cell *= fac,
+                _ => (),
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_multiply".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_set_region(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -11945,9 +11962,16 @@ impl Game {
         unimplemented!("Called unimplemented kernel function ds_grid_multiply_region")
     }
 
-    pub fn ds_grid_set_disk(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_set_disk")
+    pub fn ds_grid_set_disk(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xm, ym, r, val) = expect_args!(args, [int, real, real, real, any])?;
+        if let Some(grid) = self.grids.get_mut(id) {
+            for cell in grid.disk_mut(xm, ym, r) {
+                *cell = val.clone();
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_set_disk".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_add_disk(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -11984,24 +12008,55 @@ impl Game {
         }
     }
 
-    pub fn ds_grid_get_sum(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_get_sum")
+    pub fn ds_grid_get_sum(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2) = expect_args!(args, [int, int, int, int, int])?;
+        if let Some(grid) = self.grids.get(id) {
+            Ok(grid.region(x1, y1, x2, y2).filter_map(Value::as_real).sum::<Real>().into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_get_sum".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_get_max(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_get_max")
+    pub fn ds_grid_get_max(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2) = expect_args!(args, [int, int, int, int, int])?;
+        if let Some(grid) = self.grids.get(id) {
+            // weird fold needed due to NaN nonsense
+            Ok(grid
+                .region(x1, y1, x2, y2)
+                .filter_map(Value::as_real)
+                .fold(Real::from(-100000000), |acc, val| if val >= acc { val } else { acc })
+                .into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_get_max".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_get_min(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_get_min")
+    pub fn ds_grid_get_min(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2) = expect_args!(args, [int, int, int, int, int])?;
+        if let Some(grid) = self.grids.get(id) {
+            // weird fold needed due to NaN nonsense
+            Ok(grid
+                .region(x1, y1, x2, y2)
+                .filter_map(Value::as_real)
+                .fold(Real::from(100000000), |acc, val| if val <= acc { val } else { acc })
+                .into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_get_min".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_get_mean(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_get_mean")
+    pub fn ds_grid_get_mean(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, x1, y1, x2, y2) = expect_args!(args, [int, int, int, int, int])?;
+        if let Some(grid) = self.grids.get(id) {
+            let mut count = 0;
+            Ok((grid.region(x1, y1, x2, y2).filter_map(Value::as_real).fold(Real::from(0), |acc, val| {
+                count += 1;
+                acc + val
+            }) / Real::from(count))
+            .into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_get_max".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_get_disk_sum(&self, _args: &[Value]) -> gml::Result<Value> {
@@ -12027,12 +12082,7 @@ impl Game {
     pub fn ds_grid_value_exists(&self, args: &[Value]) -> gml::Result<Value> {
         let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
         if let Some(grid) = self.grids.get(id) {
-            for cell in grid.region(x1, y1, x2, y2) {
-                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
-                    return Ok(true.into())
-                }
-            }
-            Ok(false.into())
+            Ok(grid.region(x1, y1, x2, y2).any(|cell| ds::cmp(cell, &val, self.ds_precision).is_eq()).into())
         } else {
             Err(gml::Error::FunctionError("ds_grid_value_exists".into(), ds::Error::NonexistentStructure(id).into()))
         }
@@ -12041,12 +12091,12 @@ impl Game {
     pub fn ds_grid_value_x(&self, args: &[Value]) -> gml::Result<Value> {
         let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
         if let Some(grid) = self.grids.get(id) {
-            for ((x, _), cell) in grid.region_positioned(x1, y1, x2, y2) {
-                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
-                    return Ok(x.into())
-                }
-            }
-            Ok(false.into())
+            Ok(grid
+                .region_positioned(x1, y1, x2, y2)
+                .find(|(_, cell)| ds::cmp(cell, &val, self.ds_precision).is_eq())
+                .map(|((x, _), _)| x)
+                .unwrap_or_default()
+                .into())
         } else {
             Err(gml::Error::FunctionError("ds_grid_value_x".into(), ds::Error::NonexistentStructure(id).into()))
         }
@@ -12055,30 +12105,55 @@ impl Game {
     pub fn ds_grid_value_y(&self, args: &[Value]) -> gml::Result<Value> {
         let (id, x1, y1, x2, y2, val) = expect_args!(args, [int, int, int, int, int, any])?;
         if let Some(grid) = self.grids.get(id) {
-            for ((_, y), cell) in grid.region_positioned(x1, y1, x2, y2) {
-                if ds::cmp(cell, &val, self.ds_precision).is_eq() {
-                    return Ok(y.into())
-                }
-            }
-            Ok(false.into())
+            Ok(grid
+                .region_positioned(x1, y1, x2, y2)
+                .find(|(_, cell)| ds::cmp(cell, &val, self.ds_precision).is_eq())
+                .map(|((_, y), _)| y)
+                .unwrap_or_default()
+                .into())
         } else {
             Err(gml::Error::FunctionError("ds_grid_value_y".into(), ds::Error::NonexistentStructure(id).into()))
         }
     }
 
-    pub fn ds_grid_value_disk_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_value_disk_exists")
+    pub fn ds_grid_value_disk_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xm, ym, r, val) = expect_args!(args, [int, real, real, real, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            Ok(grid.disk(xm, ym, r).any(|cell| ds::cmp(cell, &val, self.ds_precision).is_eq()).into())
+        } else {
+            Err(gml::Error::FunctionError(
+                "ds_grid_value_disk_exists".into(),
+                ds::Error::NonexistentStructure(id).into(),
+            ))
+        }
     }
 
-    pub fn ds_grid_value_disk_x(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_value_disk_x")
+    pub fn ds_grid_value_disk_x(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xm, ym, r, val) = expect_args!(args, [int, real, real, real, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            Ok(grid
+                .disk_positioned(xm, ym, r)
+                .find(|(_, cell)| ds::cmp(cell, &val, self.ds_precision).is_eq())
+                .map(|((x, _), _)| x)
+                .unwrap_or_default()
+                .into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_value_disk_x".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
-    pub fn ds_grid_value_disk_y(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 5
-        unimplemented!("Called unimplemented kernel function ds_grid_value_disk_y")
+    pub fn ds_grid_value_disk_y(&self, args: &[Value]) -> gml::Result<Value> {
+        let (id, xm, ym, r, val) = expect_args!(args, [int, real, real, real, any])?;
+        if let Some(grid) = self.grids.get(id) {
+            Ok(grid
+                .disk_positioned(xm, ym, r)
+                .find(|(_, cell)| ds::cmp(cell, &val, self.ds_precision).is_eq())
+                .map(|((_, y), _)| y)
+                .unwrap_or_default()
+                .into())
+        } else {
+            Err(gml::Error::FunctionError("ds_grid_value_disk_y".into(), ds::Error::NonexistentStructure(id).into()))
+        }
     }
 
     pub fn ds_grid_shuffle(&mut self, _args: &[Value]) -> gml::Result<Value> {
