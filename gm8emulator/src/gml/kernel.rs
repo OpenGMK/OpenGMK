@@ -12049,11 +12049,16 @@ impl Game {
         let (id, x1, y1, x2, y2) = expect_args!(args, [int, int, int, int, int])?;
         if let Some(grid) = self.grids.get(id) {
             let mut count = 0;
-            Ok((grid.region(x1, y1, x2, y2).filter_map(Value::as_real).fold(Real::from(0), |acc, val| {
-                count += 1;
-                acc + val
-            }) / Real::from(count))
-            .into())
+            Ok(grid
+                .region(x1, y1, x2, y2)
+                .filter_map(Value::as_real)
+                .reduce(|acc, val| {
+                    count += 1;
+                    acc + val
+                })
+                .map(|x| x / Real::from(count))
+                .unwrap_or_default()
+                .into())
         } else {
             Err(gml::Error::FunctionError("ds_grid_get_max".into(), ds::Error::NonexistentStructure(id).into()))
         }
