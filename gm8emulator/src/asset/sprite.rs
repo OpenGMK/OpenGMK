@@ -307,7 +307,7 @@ impl Sprite {
         }
     }
 
-    pub fn get_atlas_ref(&self, image_index: i32) -> Option<&AtlasRef> {
-        Some(&self.get_frame(image_index)?.atlas_ref)
+    pub fn get_atlas_ref(&self, image_index: i32) -> Option<AtlasRef> {
+        Some(self.get_frame(image_index)?.atlas_ref)
     }
 }

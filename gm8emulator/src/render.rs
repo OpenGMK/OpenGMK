@@ -4,7 +4,7 @@ pub mod atlas;
 mod opengl;
 
 use crate::types::Colour;
-use atlas::AtlasRef;
+use atlas::{AtlasRect, AtlasRef};
 use ramen::window::Window;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -111,11 +111,11 @@ struct Vertex {
 pub struct PrimitiveBuilder {
     vertices: Vec<Vertex>,
     ptype: PrimitiveType,
-    atlas_ref: AtlasRef,
+    atlas_ref: AtlasRect,
 }
 
 impl PrimitiveBuilder {
-    fn new(atlas_ref: AtlasRef, ptype: PrimitiveType) -> Self {
+    fn new(atlas_ref: AtlasRect, ptype: PrimitiveType) -> Self {
         Self { vertices: Vec::new(), ptype, atlas_ref }
     }
 
@@ -187,7 +187,7 @@ pub trait RendererTrait {
         origin_x: i32,
         origin_y: i32,
     ) -> Result<AtlasRef, String>;
-    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String>;
+    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String>;
     fn delete_sprite(&mut self, atlas_ref: AtlasRef);
 
     /// Resizes the rendering target. Usually called when the window has been resized.
@@ -199,30 +199,35 @@ pub trait RendererTrait {
     fn get_vsync(&self) -> bool;
     fn wait_vsync(&self);
 
-    fn draw_sprite(&mut self, tex: &AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64) {
-        self.draw_sprite_general(
-            tex,
-            0.0,
-            0.0,
-            tex.w.into(),
-            tex.h.into(),
-            x,
-            y,
-            xs,
-            ys,
-            ang,
-            col,
-            col,
-            col,
-            col,
-            alpha,
-            true,
-        );
+    fn get_rect(&self, id: AtlasRef) -> Option<&AtlasRect>;
+
+    fn draw_sprite(&mut self, tex: AtlasRef, x: f64, y: f64, xs: f64, ys: f64, ang: f64, col: i32, alpha: f64) {
+        if let Some(rect) = self.get_rect(tex) {
+            let (w, h) = (rect.w, rect.h);
+            self.draw_sprite_general(
+                tex,
+                0.0,
+                0.0,
+                w.into(),
+                h.into(),
+                x,
+                y,
+                xs,
+                ys,
+                ang,
+                col,
+                col,
+                col,
+                col,
+                alpha,
+                true,
+            );
+        }
     }
 
     fn draw_sprite_colour(
         &mut self,
-        tex: &AtlasRef,
+        tex: AtlasRef,
         x: f64,
         y: f64,
         xs: f64,
@@ -234,29 +239,32 @@ pub trait RendererTrait {
         col4: i32,
         alpha: f64,
     ) {
-        self.draw_sprite_general(
-            tex,
-            0.0,
-            0.0,
-            tex.w.into(),
-            tex.h.into(),
-            x,
-            y,
-            xs,
-            ys,
-            ang,
-            col1,
-            col2,
-            col3,
-            col4,
-            alpha,
-            true,
-        );
+        if let Some(rect) = self.get_rect(tex) {
+            let (w, h) = (rect.w, rect.h);
+            self.draw_sprite_general(
+                tex,
+                0.0,
+                0.0,
+                w.into(),
+                h.into(),
+                x,
+                y,
+                xs,
+                ys,
+                ang,
+                col1,
+                col2,
+                col3,
+                col4,
+                alpha,
+                true,
+            );
+        }
     }
 
     fn draw_sprite_general(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         part_x: f64,
         part_y: f64,
         part_w: f64,
@@ -298,19 +306,13 @@ pub trait RendererTrait {
     fn stored_size(&self) -> (u32, u32);
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour);
 
-    fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]>;
-    fn dump_sprite_part(&self, texture: &AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
-        self.dump_sprite(&AtlasRef {
-            atlas_id: texture.atlas_id,
-            sprite_id: texture.sprite_id,
-            w: part_w,
-            h: part_h,
-            x: texture.x + part_x,
-            y: texture.y + part_y,
-            origin_x: 0.0,
-            origin_y: 0.0,
-        })
+    fn dump_sprite(&self, atlas_ref: AtlasRef) -> Box<[u8]> {
+        match self.get_rect(atlas_ref) {
+            Some(rect) => self.dump_sprite_part(atlas_ref, 0, 0, rect.w, rect.h),
+            None => Box::new([]),
+        }
     }
+    fn dump_sprite_part(&self, texture: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]>;
     fn get_alpha_blending(&self) -> bool;
     fn set_alpha_blending(&mut self, alphablend: bool);
     fn get_blend_mode(&self) -> (BlendType, BlendType);
@@ -330,14 +332,14 @@ pub trait RendererTrait {
 
     fn create_sprite_colour(&mut self, width: i32, height: i32, col: Colour) -> Result<AtlasRef, String>;
     fn create_surface(&mut self, w: i32, h: i32, has_zbuffer: bool) -> Result<AtlasRef, String>;
-    fn set_target(&mut self, atlas_ref: &AtlasRef);
+    fn set_target(&mut self, atlas_ref: AtlasRef);
     fn reset_target(&mut self);
     fn copy_surface(
         &mut self,
-        dest: &AtlasRef,
+        dest: AtlasRef,
         dest_x: i32,
         dest_y: i32,
-        src: &AtlasRef,
+        src: AtlasRef,
         src_x: i32,
         src_y: i32,
         width: i32,
@@ -347,15 +349,15 @@ pub trait RendererTrait {
     fn set_zbuf_trashed(&mut self, trashed: bool);
     fn get_zbuf_trashed(&self) -> bool;
 
-    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32;
-    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef>;
+    fn get_texture_id(&mut self, atl_ref: AtlasRef) -> i32;
+    fn get_texture_from_id(&self, id: i32) -> Option<AtlasRef>;
 
-    fn get_sprite_count(&self) -> i32;
-    fn set_sprite_count(&mut self, sprite_count: i32);
+    fn get_texture_rects(&self) -> Vec<Option<AtlasRect>>;
+    fn set_texture_rects(&mut self, rects: &[Option<AtlasRect>]);
 
     fn draw_sprite_partial(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         part_x: f64,
         part_y: f64,
         part_w: f64,
@@ -375,7 +377,7 @@ pub trait RendererTrait {
     }
     fn draw_sprite_tiled(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         mut x: f64,
         mut y: f64,
         xscale: f64,
@@ -385,8 +387,10 @@ pub trait RendererTrait {
         tile_end_x: Option<f64>,
         tile_end_y: Option<f64>,
     ) {
-        let width = f64::from(texture.w) * xscale;
-        let height = f64::from(texture.h) * yscale;
+        let (width, height) = match self.get_rect(texture) {
+            Some(rect) => (f64::from(rect.w) * xscale, f64::from(rect.h) * yscale),
+            None => return,
+        };
 
         if tile_end_x.is_some() {
             x = x.rem_euclid(width);
@@ -556,7 +560,7 @@ impl Renderer {
         self.0.upload_sprite(data, width, height, origin_x, origin_y)
     }
 
-    pub fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
+    pub fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
         self.0.duplicate_sprite(atlas_ref)
     }
 
@@ -578,7 +582,7 @@ impl Renderer {
 
     pub fn draw_sprite(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         x: f64,
         y: f64,
         xscale: f64,
@@ -592,7 +596,7 @@ impl Renderer {
 
     pub fn draw_sprite_colour(
         &mut self,
-        tex: &AtlasRef,
+        tex: AtlasRef,
         x: f64,
         y: f64,
         xs: f64,
@@ -609,7 +613,7 @@ impl Renderer {
 
     pub fn draw_sprite_general(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         part_x: f64,
         part_y: f64,
         part_w: f64,
@@ -677,7 +681,7 @@ impl Renderer {
 
     pub fn draw_sprite_partial(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         part_x: f64,
         part_y: f64,
         part_w: f64,
@@ -695,7 +699,7 @@ impl Renderer {
 
     pub fn draw_sprite_tiled(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         x: f64,
         y: f64,
         xscale: f64,
@@ -843,18 +847,11 @@ impl Renderer {
         self.0.draw_buffers(atlas_ref, buf)
     }
 
-    pub fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
+    pub fn dump_sprite(&self, atlas_ref: AtlasRef) -> Box<[u8]> {
         self.0.dump_sprite(atlas_ref)
     }
 
-    pub fn dump_sprite_part(
-        &self,
-        texture: &AtlasRef,
-        part_x: i32,
-        part_y: i32,
-        part_w: i32,
-        part_h: i32,
-    ) -> Box<[u8]> {
+    pub fn dump_sprite_part(&self, texture: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         self.0.dump_sprite_part(texture, part_x, part_y, part_w, part_h)
     }
 
@@ -894,7 +891,7 @@ impl Renderer {
         self.0.create_surface(w, h, has_zbuffer)
     }
 
-    pub fn set_target(&mut self, atlas_ref: &AtlasRef) {
+    pub fn set_target(&mut self, atlas_ref: AtlasRef) {
         self.0.set_target(atlas_ref)
     }
 
@@ -904,10 +901,10 @@ impl Renderer {
 
     pub fn copy_surface(
         &mut self,
-        dest: &AtlasRef,
+        dest: AtlasRef,
         dest_x: i32,
         dest_y: i32,
-        src: &AtlasRef,
+        src: AtlasRef,
         src_x: i32,
         src_y: i32,
         width: i32,
@@ -924,20 +921,20 @@ impl Renderer {
         self.0.get_zbuf_trashed()
     }
 
-    pub fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
+    pub fn get_texture_id(&mut self, atl_ref: AtlasRef) -> i32 {
         self.0.get_texture_id(atl_ref)
     }
 
-    pub fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
+    pub fn get_texture_from_id(&self, id: i32) -> Option<AtlasRef> {
         self.0.get_texture_from_id(id)
     }
 
-    pub fn get_sprite_count(&self) -> i32 {
-        self.0.get_sprite_count()
+    pub fn get_texture_rects(&self) -> Vec<Option<AtlasRect>> {
+        self.0.get_texture_rects()
     }
 
-    pub fn set_sprite_count(&mut self, sprite_count: i32) {
-        self.0.set_sprite_count(sprite_count)
+    pub fn set_texture_rects(&mut self, rects: &[Option<AtlasRect>]) {
+        self.0.set_texture_rects(rects)
     }
 
     pub fn get_alpha_blending(&self) -> bool {
@@ -1107,7 +1104,7 @@ impl Renderer {
             blend_mode: self.get_blend_mode(),
             pixel_interpolation: self.get_pixel_interpolation(),
             texture_repeat: self.get_texture_repeat(),
-            sprite_count: self.get_sprite_count(),
+            texture_rects: self.get_texture_rects(),
             vsync: self.get_vsync(),
             ambient_colour: self.get_ambient_colour(),
             using_3d: self.get_3d(),
@@ -1133,7 +1130,7 @@ impl Renderer {
         self.set_blend_mode(state.blend_mode.0, state.blend_mode.1);
         self.set_pixel_interpolation(state.pixel_interpolation);
         self.set_texture_repeat(state.texture_repeat);
-        self.set_sprite_count(state.sprite_count);
+        self.set_texture_rects(&state.texture_rects);
         self.set_vsync(state.vsync);
         self.set_ambient_colour(state.ambient_colour);
         self.set_3d(state.using_3d);
@@ -1162,7 +1159,7 @@ pub struct RendererState {
     pub blend_mode: (BlendType, BlendType),
     pub pixel_interpolation: bool,
     pub texture_repeat: bool,
-    pub sprite_count: i32,
+    pub texture_rects: Vec<Option<AtlasRect>>,
     pub vsync: bool,
     pub ambient_colour: i32,
     pub using_3d: bool,

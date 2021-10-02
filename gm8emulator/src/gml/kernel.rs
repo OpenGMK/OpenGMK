@@ -1058,7 +1058,7 @@ impl Game {
 
     pub fn draw_primitive_begin_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (kind, texture) = expect_args!(args, [int, int])?;
-        self.renderer.reset_primitive_2d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        self.renderer.reset_primitive_2d(kind.into(), self.renderer.get_texture_from_id(texture as _));
         Ok(Default::default())
     }
 
@@ -1114,7 +1114,7 @@ impl Game {
     pub fn background_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let bg_index = expect_args!(args, [int])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 Ok(self.renderer.get_texture_id(atlas_ref).into())
             } else {
                 Ok((-1).into())
@@ -1598,7 +1598,7 @@ impl Game {
         let (bg_index, x, y, xscale, yscale, angle, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x.into(),
@@ -1624,7 +1624,7 @@ impl Game {
     pub fn draw_background_stretched_ext(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (bg_index, x, y, w, h, colour, alpha) = expect_args!(args, [int, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.draw_sprite(
                     atlas_ref,
                     x.into(),
@@ -1664,7 +1664,7 @@ impl Game {
         let (bg_index, left, top, width, height, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.draw_sprite_partial(
                     atlas_ref,
                     left.into(),
@@ -1690,7 +1690,7 @@ impl Game {
         let (bg_index, left, top, width, height, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, int, int, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.draw_sprite_general(
                     atlas_ref,
                     left.into(),
@@ -1725,7 +1725,7 @@ impl Game {
         let (bg_index, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, int, real])?;
         if let Some(background) = self.assets.backgrounds.get_asset(bg_index) {
-            if let Some(atlas_ref) = &background.atlas_ref {
+            if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.draw_sprite_tiled(
                     atlas_ref,
                     x.into(),
@@ -2166,7 +2166,7 @@ impl Game {
     pub fn surface_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
-            Ok(self.renderer.get_texture_id(&surf.atlas_ref).into())
+            Ok(self.renderer.get_texture_id(surf.atlas_ref).into())
         } else {
             Ok((-1).into())
         }
@@ -2175,7 +2175,7 @@ impl Game {
     pub fn surface_set_target(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
-            self.renderer.set_target(&surf.atlas_ref);
+            self.renderer.set_target(surf.atlas_ref);
             self.surface_target = Some(surf_id);
             if self.surface_fix && self.room.views_enabled {
                 let view = &self.room.views[self.view_current];
@@ -2237,7 +2237,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.draw_sprite(
-                &surf.atlas_ref,
+                surf.atlas_ref,
                 x.into(),
                 y.into(),
                 xscale.into(),
@@ -2291,7 +2291,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.draw_sprite_partial(
-                &surf.atlas_ref,
+                surf.atlas_ref,
                 l.into(),
                 t.into(),
                 w.into(),
@@ -2313,7 +2313,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, int, int, int, real])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.draw_sprite_general(
-                &surf.atlas_ref,
+                surf.atlas_ref,
                 l.into(),
                 t.into(),
                 w.into(),
@@ -2344,7 +2344,7 @@ impl Game {
             expect_args!(args, [int, real, real, real, real, int, real])?;
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             self.renderer.draw_sprite_tiled(
-                &surf.atlas_ref,
+                surf.atlas_ref,
                 x.into(),
                 y.into(),
                 xscale.into(),
@@ -2365,8 +2365,7 @@ impl Game {
         }
         if let Some(surf) = self.surfaces.get_asset(surf_id) {
             let mut image =
-                RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(&surf.atlas_ref).into())
-                    .unwrap();
+                RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(surf.atlas_ref).into()).unwrap();
             asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
@@ -2388,7 +2387,7 @@ impl Game {
             let w = w.min(surf.width as i32 - x);
             let h = h.min(surf.height as i32 - y);
             let mut image =
-                RgbaImage::from_vec(w as _, h as _, self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, w, h).into())
+                RgbaImage::from_vec(w as _, h as _, self.renderer.dump_sprite_part(surf.atlas_ref, x, y, w, h).into())
                     .unwrap();
             asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
@@ -2408,7 +2407,7 @@ impl Game {
     pub fn surface_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (dest_id, x, y, src_id) = expect_args!(args, [int, int, int, int])?;
         if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
-            self.renderer.copy_surface(&dst.atlas_ref, x, y, &src.atlas_ref, 0, 0, src.width as _, src.height as _);
+            self.renderer.copy_surface(dst.atlas_ref, x, y, src.atlas_ref, 0, 0, src.width as _, src.height as _);
         }
         Ok(Default::default())
     }
@@ -2417,7 +2416,7 @@ impl Game {
         let (dest_id, dest_x, dest_y, src_id, src_x, src_y, width, height) =
             expect_args!(args, [int, int, int, int, int, int, int, int])?;
         if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
-            self.renderer.copy_surface(&dst.atlas_ref, dest_x, dest_y, &src.atlas_ref, src_x, src_y, width, height);
+            self.renderer.copy_surface(dst.atlas_ref, dest_x, dest_y, src.atlas_ref, src_x, src_y, width, height);
         }
         Ok(Default::default())
     }
@@ -8077,8 +8076,8 @@ impl Game {
             let src_frames = src.frames.clone();
             if let Some(dst) = self.assets.sprites.get_asset_mut(dst_id) {
                 for (dst_frame, src_frame) in dst.frames.iter_mut().zip(src_frames.iter().cycle()) {
-                    let src_data = self.renderer.dump_sprite(&src_frame.atlas_ref);
-                    let mut dst_data = self.renderer.dump_sprite(&dst_frame.atlas_ref);
+                    let src_data = self.renderer.dump_sprite(src_frame.atlas_ref);
+                    let mut dst_data = self.renderer.dump_sprite(dst_frame.atlas_ref);
                     // TODO: delete sprite when this is safe for sprite fonts
                     // self.renderer.delete_sprite(dst_frame.atlas_ref);
                     for (dst_row, src_row) in dst_data
@@ -8172,7 +8171,7 @@ impl Game {
             // can't use .map() because closures cause borrowing issues
             for f in sprite.frames.iter() {
                 images.push(
-                    RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec()).unwrap(),
+                    RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(f.atlas_ref).into_vec()).unwrap(),
                 );
             }
             images.push(image);
@@ -8219,7 +8218,7 @@ impl Game {
                 Version::GameMaker8_0 => (transparency != 0, true),
                 Version::GameMaker8_1 => (transparency == 1, transparency != 2),
             };
-            let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+            let rgba = self.renderer.dump_sprite_part(surf.atlas_ref, x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback, smooth, fill_transparent);
             if self.gm_version == Version::GameMaker8_1 && transparency == -1 {
@@ -8269,7 +8268,7 @@ impl Game {
                 let y = y.max(0);
                 let width = width.min(surf.width as i32 - x);
                 let height = height.min(surf.height as i32 - y);
-                let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+                let rgba = self.renderer.dump_sprite_part(surf.atlas_ref, x, y, width, height);
                 let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
                 asset::sprite::process_image(&mut image, removeback, smooth, true);
                 asset::sprite::scale(&mut image, sprite.width, sprite.height);
@@ -8278,7 +8277,7 @@ impl Game {
                 // can't use .map() because closures cause borrowing issues
                 for f in sprite.frames.iter() {
                     images.push(
-                        RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(&f.atlas_ref).into_vec())
+                        RgbaImage::from_vec(f.width, f.height, self.renderer.dump_sprite(f.atlas_ref).into_vec())
                             .unwrap(),
                     );
                 }
@@ -8466,7 +8465,7 @@ impl Game {
                     .map(|f| {
                         Ok(asset::sprite::Frame {
                             atlas_ref: renderer
-                                .duplicate_sprite(&f.atlas_ref)
+                                .duplicate_sprite(f.atlas_ref)
                                 .map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
                             width: f.width,
                             height: f.height,
@@ -8509,7 +8508,7 @@ impl Game {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
-                    RgbaImage::from_vec(frame.width, frame.height, self.renderer.dump_sprite(&frame.atlas_ref).into())
+                    RgbaImage::from_vec(frame.width, frame.height, self.renderer.dump_sprite(frame.atlas_ref).into())
                         .unwrap(),
                 ) {
                     return Err(gml::Error::FunctionError("sprite_save".into(), e.to_string()))
@@ -8554,7 +8553,7 @@ impl Game {
             let frames = sprite
                 .frames
                 .iter()
-                .map(|f| RgbaImage::from_vec(f.width, f.height, renderer.dump_sprite(&f.atlas_ref).to_vec()).unwrap())
+                .map(|f| RgbaImage::from_vec(f.width, f.height, renderer.dump_sprite(f.atlas_ref).to_vec()).unwrap())
                 .collect::<Vec<RgbaImage>>();
 
             // make colliders
@@ -8630,15 +8629,14 @@ impl Game {
         if self.assets.backgrounds.get_asset(dst_id).filter(|bg| bg.atlas_ref.is_some()).is_none() {
             return Ok(Default::default())
         }
-        let (alpha_src, src_w) =
-            match self.assets.backgrounds.get_asset(src_id).map(|bg| (bg.atlas_ref.as_ref(), bg.width)) {
-                Some((Some(atlas_ref), w)) => (self.renderer.dump_sprite(atlas_ref), w),
-                _ => return Ok(Default::default()),
-            };
+        let (alpha_src, src_w) = match self.assets.backgrounds.get_asset(src_id).map(|bg| (bg.atlas_ref, bg.width)) {
+            Some((Some(atlas_ref), w)) => (self.renderer.dump_sprite(atlas_ref), w),
+            _ => return Ok(Default::default()),
+        };
         if let Some((Some(atlas_ref), dst_w, dst_h)) =
             self.assets.backgrounds.get_asset_mut(dst_id).map(|bg| (bg.atlas_ref.as_mut(), bg.width, bg.height))
         {
-            let mut dst = self.renderer.dump_sprite(atlas_ref);
+            let mut dst = self.renderer.dump_sprite(*atlas_ref);
             self.renderer.delete_sprite(*atlas_ref);
             for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
                 for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
@@ -8688,7 +8686,7 @@ impl Game {
             let y = y.max(0);
             let width = width.min(surf.width as i32 - x);
             let height = height.min(surf.height as i32 - y);
-            let rgba = self.renderer.dump_sprite_part(&surf.atlas_ref, x, y, width, height);
+            let rgba = self.renderer.dump_sprite_part(surf.atlas_ref, x, y, width, height);
             let mut image = RgbaImage::from_vec(width as _, height as _, rgba.into_vec()).unwrap();
             asset::sprite::process_image(&mut image, removeback, smooth, true);
             let background_id = self.assets.backgrounds.len();
@@ -8822,7 +8820,6 @@ impl Game {
             let renderer = &mut self.renderer;
             let atlas_ref = src
                 .atlas_ref
-                .as_ref()
                 .map(|ar| renderer.duplicate_sprite(ar))
                 .transpose()
                 .map_err(|e| gml::Error::FunctionError("background_duplicate".into(), e.into()))?;
@@ -8849,7 +8846,7 @@ impl Game {
                 }
             }
             if dst_id >= 0 && self.assets.backgrounds.len() > dst_id as usize {
-                let dst_atlref = match src.atlas_ref.as_ref() {
+                let dst_atlref = match src.atlas_ref {
                     Some(ar) => Some(
                         self.renderer
                             .duplicate_sprite(ar)
@@ -8878,7 +8875,7 @@ impl Game {
     pub fn background_save(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (background_id, fname) = expect_args!(args, [int, string])?;
         if let Some(background) = self.assets.backgrounds.get_asset(background_id) {
-            if let Some(atlas_ref) = background.atlas_ref.as_ref() {
+            if let Some(atlas_ref) = background.atlas_ref {
                 // get RGBA
                 if let Err(e) = file::save_image(
                     fname.as_ref(),
@@ -12536,7 +12533,7 @@ impl Game {
 
     pub fn d3d_primitive_begin_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (kind, texture) = expect_args!(args, [int, int])?;
-        self.renderer.reset_primitive_3d(kind.into(), self.renderer.get_texture_from_id(texture as _).copied());
+        self.renderer.reset_primitive_3d(kind.into(), self.renderer.get_texture_from_id(texture as _));
         Ok(Default::default())
     }
 
@@ -12674,7 +12671,7 @@ impl Game {
     pub fn d3d_draw_block(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_block(
             &mut self.renderer,
             atlas_ref,
@@ -12696,7 +12693,7 @@ impl Game {
     pub fn d3d_draw_cylinder(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, bool, int])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_cylinder(
             &mut self.renderer,
             atlas_ref,
@@ -12720,7 +12717,7 @@ impl Game {
     pub fn d3d_draw_cone(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, bool, int])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_cone(
             &mut self.renderer,
             atlas_ref,
@@ -12744,7 +12741,7 @@ impl Game {
     pub fn d3d_draw_ellipsoid(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat, steps) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real, int])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_ellipsoid(
             &mut self.renderer,
             atlas_ref,
@@ -12767,7 +12764,7 @@ impl Game {
     pub fn d3d_draw_wall(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_wall(
             &mut self.renderer,
             atlas_ref,
@@ -12789,7 +12786,7 @@ impl Game {
     pub fn d3d_draw_floor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x1, y1, z1, x2, y2, z2, tex_id, hrepeat, vrepeat) =
             expect_args!(args, [real, real, real, real, real, real, int, real, real])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         model::draw_floor(
             &mut self.renderer,
             atlas_ref,
@@ -13366,7 +13363,7 @@ impl Game {
 
     pub fn d3d_model_draw(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, tex_id) = expect_args!(args, [int, real, real, real, int])?;
-        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _).copied();
+        let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
         if let Some(model) = self.models.get_asset_mut(model_id) {
             // translate according to given position
             let old_model_matrix = self.renderer.get_model_matrix();
