@@ -693,7 +693,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.1"
-source = "git+https://github.com/notviri/ramen?branch=july-demo#b191275751c3d4045a427e14153d6720f19b851e"
+source = "git+https://github.com/notviri/ramen?branch=july-demo#0a9c0132359e2209fa99b3590dab900256121bf0"
 
 [[package]]
 name = "rand"
