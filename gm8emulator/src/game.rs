@@ -1775,7 +1775,7 @@ impl Game {
         }
 
         // Update xprevious and yprevious for all instances
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(instance) = iter.next(&self.room.instance_list).map(|x| self.room.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
@@ -1795,7 +1795,7 @@ impl Game {
         }
 
         // Advance timelines for all instances
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let instance = self.room.instance_list.get(handle);
             let object_index = instance.object_index.get();
@@ -1890,7 +1890,7 @@ impl Game {
 
         // Movement: apply friction, gravity, and hspeed/vspeed
         self.process_speeds();
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.apply_speeds(handle) {
                 self.run_instance_event(ev::OTHER, 8, handle, handle, None)?;
@@ -1938,7 +1938,7 @@ impl Game {
         }
 
         // Advance sprite animations
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let instance = self.room.instance_list.get(handle);
             let new_index = instance.image_index.get() + instance.image_speed.get();
@@ -2745,7 +2745,7 @@ impl Game {
 
     // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(target) = iter.next(&self.room.instance_list) {
             if self.room.instance_list.get(target).solid.get() {
                 if self.check_collision(inst, target) {
@@ -2758,7 +2758,7 @@ impl Game {
 
     // Checks if an instance is colliding with any instance, returning the target if it is, otherwise None
     pub fn check_collision_any(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(target) = iter.next(&self.room.instance_list) {
             if inst != target {
                 if self.check_collision(inst, target) {
@@ -2775,7 +2775,7 @@ impl Game {
     pub fn find_instance_with(&self, object_id: i32, pred: impl Fn(usize) -> bool) -> Option<usize> {
         match object_id {
             gml::ALL => {
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 loop {
                     match iter.next(&self.room.instance_list) {
                         Some(handle) => {

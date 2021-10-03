@@ -344,7 +344,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
@@ -382,7 +382,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
@@ -508,7 +508,7 @@ impl Game {
                         }
                     },
                     gml::ALL => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             context.this = instance;
                             match self.execute(body, context)? {
@@ -638,8 +638,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
@@ -718,8 +717,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {

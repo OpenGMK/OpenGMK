@@ -159,30 +159,22 @@ fn nb_coll_iter_advance<T: Copy>(coll: &[T], idx: &mut usize) -> Option<T> {
 #[derive(Clone, Deserialize)]
 pub struct InstanceList {
     chunks: ChunkList<Instance>,
-    insert_order: Vec<usize>,
     draw_order: Vec<usize>,
     object_id_map: HashMap<ID, Vec<usize>>, // Object ID <-> Count
     object_id_map_inherit: HashMap<ID, Vec<usize>>,
-    inactive_id_map: HashMap<ID, Vec<usize>>,
 }
 
 // generic purpose non-borrowing iterators
 pub struct ILIterDrawOrder(usize, usize);
-pub struct ILIterInsertOrder(usize, usize);
 pub struct ILIterInactive(usize, usize);
 impl ILIterDrawOrder {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
         nb_il_iter(&list.draw_order[..self.1], &mut self.0, &list, InstanceState::Active)
     }
 }
-impl ILIterInsertOrder {
-    pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.insert_order[..self.1], &mut self.0, &list, InstanceState::Active)
-    }
-}
 impl ILIterInactive {
     pub fn next(&mut self, list: &InstanceList) -> Option<usize> {
-        nb_il_iter(&list.insert_order[..self.1], &mut self.0, &list, InstanceState::Inactive)
+        nb_il_iter(&list.draw_order[..self.1], &mut self.0, &list, InstanceState::Inactive)
     }
 }
 
@@ -230,11 +222,9 @@ impl InstanceList {
     pub fn new() -> Self {
         Self {
             chunks: ChunkList::new(),
-            insert_order: Vec::new(),
             draw_order: Vec::new(),
             object_id_map: HashMap::new(),
             object_id_map_inherit: HashMap::new(),
-            inactive_id_map: HashMap::new(),
         }
     }
 
@@ -245,7 +235,7 @@ impl InstanceList {
     pub fn get_by_instid(&self, instance_index: ID) -> Option<usize> {
         // gm8 will check the entire instance list if the first one doesn't match
         // instances shouldn't have matching ids anyway so eh it's faster to short circuit
-        self.insert_order
+        self.draw_order
             .iter()
             .copied()
             .find(|&inst| self.get(inst).id.get() == instance_index)
@@ -260,19 +250,19 @@ impl InstanceList {
     }
 
     pub fn any_active(&self) -> bool {
-        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).next().is_some()
+        self.draw_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).next().is_some()
     }
 
     pub fn count_all_active(&self) -> usize {
-        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).count()
+        self.draw_order.iter().filter(|&&inst_idx| self.get(inst_idx).is_active()).count()
     }
 
     pub fn count_all(&self) -> usize {
-        self.insert_order.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive).count()
+        self.draw_order.iter().filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive).count()
     }
 
     pub fn instance_at(&self, n: usize) -> ID {
-        self.insert_order
+        self.draw_order
             .iter()
             .filter(|&&inst_idx| self.get(inst_idx).state.get() != InstanceState::Inactive)
             .nth(n)
@@ -296,12 +286,8 @@ impl InstanceList {
         ILIterDrawOrder(0, self.draw_order.len())
     }
 
-    pub fn iter_by_insertion(&self) -> ILIterInsertOrder {
-        ILIterInsertOrder(0, self.insert_order.len())
-    }
-
     pub fn iter_inactive(&self) -> ILIterInactive {
-        ILIterInactive(0, self.insert_order.len())
+        ILIterInactive(0, self.draw_order.len())
     }
 
     pub fn iter_by_identity(&self, object_index: ID) -> IdentityIter {
@@ -324,7 +310,6 @@ impl InstanceList {
     pub fn insert(&mut self, el: Instance) -> usize {
         let object_id = el.object_index.get();
         let value = self.chunks.insert(el);
-        self.insert_order.push(value);
         self.draw_order.push(value);
         self.object_id_map.entry(object_id).or_insert(Vec::new()).push(value);
         for &parent in self.get(value).parents.clone().borrow().iter() {
@@ -348,8 +333,6 @@ impl InstanceList {
 
             let object_id = instance.object_index.get();
             let parents = instance.parents.clone();
-            // Add to inactive
-            self.inactive_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
             // Remove from active
             let entry = self.object_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
             if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
@@ -380,13 +363,6 @@ impl InstanceList {
             for &parent in parents.borrow().iter() {
                 self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(handle);
             }
-            // Remove from inactive
-            let entry = self.inactive_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
-            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if occupied.get().is_empty() {
-                    occupied.remove_entry();
-                }
-            }
         }
     }
 
@@ -405,7 +381,6 @@ impl InstanceList {
         if self.chunks.remove_with(f) > 0 {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
             for instances in self.object_id_map.values_mut() {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
@@ -422,7 +397,6 @@ impl InstanceList {
         if instances.len() > 0 {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
             for instances in self.object_id_map.values_mut() {
                 instances.retain(|idx| chunks.get(*idx).is_some());
             }
@@ -439,27 +413,20 @@ impl InstanceList {
 #[derive(Clone, Deserialize)]
 pub struct TileList {
     chunks: ChunkList<Tile>,
-    insert_order: Vec<usize>,
     draw_order: Vec<usize>,
 }
 
 // generic purpose non-borrowing iterators
 pub struct TLIterDrawOrder(usize);
-pub struct TLIterInsertOrder(usize);
 impl TLIterDrawOrder {
     pub fn next(&mut self, list: &TileList) -> Option<usize> {
         nb_coll_iter_advance(&list.draw_order, &mut self.0)
     }
 }
-impl TLIterInsertOrder {
-    pub fn next(&mut self, list: &TileList) -> Option<usize> {
-        nb_coll_iter_advance(&list.insert_order, &mut self.0)
-    }
-}
 
 impl TileList {
     pub fn new() -> Self {
-        Self { chunks: ChunkList::new(), insert_order: Vec::new(), draw_order: Vec::new() }
+        Self { chunks: ChunkList::new(), draw_order: Vec::new() }
     }
 
     pub fn get(&self, idx: usize) -> &Tile {
@@ -467,15 +434,11 @@ impl TileList {
     }
 
     pub fn get_by_tileid(&self, tile_id: ID) -> Option<usize> {
-        self.insert_order.iter().copied().find(|&inst| self.get(inst).id.get() == tile_id)
+        self.draw_order.iter().copied().find(|&inst| self.get(inst).id.get() == tile_id)
     }
 
     pub const fn iter_by_drawing(&self) -> TLIterDrawOrder {
         TLIterDrawOrder(0)
-    }
-
-    pub const fn iter_by_insertion(&self) -> TLIterInsertOrder {
-        TLIterInsertOrder(0)
     }
 
     pub fn draw_sort(&mut self) {
@@ -491,14 +454,12 @@ impl TileList {
 
     pub fn insert(&mut self, el: Tile) -> usize {
         let value = self.chunks.insert(el);
-        self.insert_order.push(value);
         self.draw_order.push(value);
         value
     }
 
     pub fn remove(&mut self, idx: usize) {
         self.chunks.remove(idx);
-        self.insert_order.retain(|&i| i != idx);
         self.draw_order.retain(|&i| i != idx);
     }
 
@@ -514,13 +475,11 @@ impl TileList {
         if removed_any {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-            self.insert_order.retain(|idx| chunks.get(*idx).is_some());
         }
     }
 
     pub fn clear(&mut self) {
         self.chunks.clear();
-        self.insert_order.clear();
         self.draw_order.clear();
     }
 }
@@ -591,11 +550,9 @@ impl Serialize for InstanceList {
     {
         let mut list = serializer.serialize_struct("InstanceList", 5)?;
         list.serialize_field("chunks", &self.chunks)?;
-        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
-        list.serialize_field("object_id_map", &defrag_map(&self.object_id_map, &self.insert_order))?;
-        list.serialize_field("object_id_map_inherit", &defrag_map(&self.object_id_map_inherit, &self.insert_order))?;
-        list.serialize_field("inactive_id_map", &defrag_map(&self.inactive_id_map, &self.insert_order))?;
+        list.serialize_field("object_id_map", &defrag_map(&self.object_id_map, &self.draw_order))?;
+        list.serialize_field("object_id_map_inherit", &defrag_map(&self.object_id_map_inherit, &self.draw_order))?;
         list.end()
     }
 }
@@ -607,7 +564,6 @@ impl Serialize for TileList {
     {
         let mut list = serializer.serialize_struct("TileList", 3)?;
         list.serialize_field("chunks", &self.chunks)?;
-        list.serialize_field("insert_order", &defrag(&self.insert_order))?;
         list.serialize_field("draw_order", &defrag(&self.draw_order))?;
         list.end()
     }
