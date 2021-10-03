@@ -326,43 +326,35 @@ impl InstanceList {
         self.chunks.remove(instance)
     }
 
-    pub fn deactivate(&mut self, handle: usize) {
-        let instance = self.get(handle);
-        if instance.state.get() == InstanceState::Active {
-            instance.state.set(InstanceState::Inactive);
+    pub fn refresh_maps(&mut self) {
+        self.object_id_map.clear();
+        self.object_id_map_inherit.clear();
 
+        let mut iter = self.iter_by_drawing();
+        while let Some(handle) = iter.next(self) {
+            let instance = self.get(handle);
             let object_id = instance.object_index.get();
             let parents = instance.parents.clone();
-            // Remove from active
-            let entry = self.object_id_map.entry(object_id).and_modify(|v| v.retain(|h| *h != handle));
-            if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                if occupied.get().is_empty() {
-                    occupied.remove_entry();
-                }
-            }
+            self.object_id_map.entry(object_id).or_default().push(handle);
             for &parent in parents.borrow().iter() {
-                let entry = self.object_id_map_inherit.entry(parent).and_modify(|v| v.retain(|h| *h != handle));
-                if let std::collections::hash_map::Entry::Occupied(occupied) = entry {
-                    if occupied.get().is_empty() {
-                        occupied.remove_entry();
-                    }
-                }
+                self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(handle);
             }
         }
     }
 
+    // Don't forget to call finish_activation_changes(false) later!
+    pub fn deactivate(&mut self, handle: usize) {
+        let instance = self.get(handle);
+        if instance.state.get() == InstanceState::Active {
+            instance.state.set(InstanceState::Inactive);
+        }
+    }
+
+    // Don't forget to call finish_activation_changes(true) later!
     pub fn activate(&mut self, handle: usize) {
         let instance = self.get(handle);
         if instance.state.get() == InstanceState::Inactive {
             instance.state.set(InstanceState::Active);
-
-            let object_id = instance.object_index.get();
-            let parents = instance.parents.clone();
-            // Add to active
-            self.object_id_map.entry(object_id).or_insert(Vec::new()).push(handle);
-            for &parent in parents.borrow().iter() {
-                self.object_id_map_inherit.entry(parent).or_insert(Vec::new()).push(handle);
-            }
         }
     }
 
@@ -381,14 +373,7 @@ impl InstanceList {
         if self.chunks.remove_with(f) > 0 {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-            for instances in self.object_id_map.values_mut() {
-                instances.retain(|idx| chunks.get(*idx).is_some());
-            }
-            self.object_id_map.retain(|_, list| !list.is_empty());
-            for instances in self.object_id_map_inherit.values_mut() {
-                instances.retain(|idx| chunks.get(*idx).is_some());
-            }
-            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
+            self.refresh_maps();
         }
     }
 
@@ -397,14 +382,7 @@ impl InstanceList {
         if instances.len() > 0 {
             let chunks = &self.chunks;
             self.draw_order.retain(|idx| chunks.get(*idx).is_some());
-            for instances in self.object_id_map.values_mut() {
-                instances.retain(|idx| chunks.get(*idx).is_some());
-            }
-            self.object_id_map.retain(|_, list| !list.is_empty());
-            for instances in self.object_id_map_inherit.values_mut() {
-                instances.retain(|idx| chunks.get(*idx).is_some());
-            }
-            self.object_id_map_inherit.retain(|_, list| !list.is_empty());
+            self.refresh_maps();
         }
         instances
     }
