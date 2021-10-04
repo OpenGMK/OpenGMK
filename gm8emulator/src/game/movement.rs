@@ -7,7 +7,7 @@ use crate::{
 impl Game {
     /// Processes movement (friction, gravity, speed/direction) for all instances
     pub fn process_speeds(&mut self) {
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(instance) = iter.next(&self.room.instance_list).map(|i| self.room.instance_list.get(i)) {
             let friction = instance.friction.get();
             if friction != Real::from(0.0) {

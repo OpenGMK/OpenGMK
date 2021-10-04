@@ -4638,7 +4638,7 @@ impl Game {
             gml::ALL => {
                 let mut closest = 1000000.0; // GML default
                 let this = this;
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 while let Some(other) = iter.next(&self.room.instance_list) {
                     let sprite = self.get_instance_mask_sprite(other);
                     let other = self.room.instance_list.get(other);
@@ -5063,7 +5063,7 @@ impl Game {
         }
         let handle = match obj {
             gml::ALL => {
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 (0..n + 1).filter_map(|_| iter.next(&self.room.instance_list)).nth(n as usize)
             },
             _ if obj < 0 => None,
@@ -5141,7 +5141,7 @@ impl Game {
         let nearest = match obj {
             gml::ALL => {
                 // Target is all objects
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 let mut maxdist = Real::from(10000000000.0); // GML default
                 let mut nearest = None;
                 loop {
@@ -5197,7 +5197,7 @@ impl Game {
         let other: Option<usize> = match obj {
             gml::ALL => {
                 // Target is an object ID
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 let mut maxdist = Real::from(0.0);
                 let mut nearest = None;
                 loop {
@@ -5372,7 +5372,7 @@ impl Game {
 
     pub fn position_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x, y) = expect_args!(args, [real, real])?;
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.check_collision_point(handle, x, y, true) {
                 self.run_instance_event(gml::ev::DESTROY, 0, handle, handle, None)?;
@@ -5389,47 +5389,57 @@ impl Game {
 
     pub fn instance_deactivate_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let notme = expect_args!(args, [bool])?;
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             self.room.instance_list.deactivate(handle);
         }
         if notme {
             self.room.instance_list.activate(context.this);
         }
+        self.room.instance_list.refresh_maps();
         Ok(Default::default())
     }
 
     pub fn instance_deactivate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
+        let mut changed = true;
         match obj {
             gml::SELF => self.room.instance_list.deactivate(context.this),
             gml::OTHER => self.room.instance_list.deactivate(context.other),
             gml::ALL => {
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 while let Some(handle) = iter.next(&self.room.instance_list) {
                     self.room.instance_list.deactivate(handle);
                 }
             },
             obj if obj < 100000 => {
+                changed = false;
                 let mut iter = self.room.instance_list.iter_by_identity(obj);
                 while let Some(handle) = iter.next(&self.room.instance_list) {
+                    changed = true;
                     self.room.instance_list.deactivate(handle);
                 }
             },
             inst_id => {
                 // fun fact: in gm8 you can deactivate dead instances
                 // this changes nothing about their deadness
+                changed = false;
                 if let Some(handle) = self.room.instance_list.get_by_instid(inst_id) {
+                    changed = true;
                     self.room.instance_list.deactivate(handle);
                 }
             },
+        }
+        if changed {
+            self.room.instance_list.refresh_maps();
         }
         Ok(Default::default())
     }
 
     pub fn instance_deactivate_region(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside, notme) = expect_args!(args, [real, real, real, real, bool, bool])?;
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut changed = false;
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let inst = self.room.instance_list.get(handle);
             let mask = self.get_instance_mask_sprite(handle);
@@ -5443,11 +5453,18 @@ impl Game {
                 inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
             };
             if outside != inside {
+                changed = true;
                 self.room.instance_list.deactivate(handle);
             }
         }
         if notme {
-            self.room.instance_list.activate(context.this);
+            if self.room.instance_list.get(context.this).state.get() == InstanceState::Inactive {
+                changed = true;
+                self.room.instance_list.activate(context.this);
+            }
+        }
+        if changed {
+            self.room.instance_list.refresh_maps();
         }
         Ok(Default::default())
     }
@@ -5458,11 +5475,13 @@ impl Game {
         while let Some(handle) = iter.next(&self.room.instance_list) {
             self.room.instance_list.activate(handle);
         }
+        self.room.instance_list.refresh_maps();
         Ok(Default::default())
     }
 
     pub fn instance_activate_object(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let obj = expect_args!(args, [int])?;
+        let mut changed = true;
         match obj {
             gml::SELF => self.room.instance_list.activate(context.this),
             gml::OTHER => self.room.instance_list.activate(context.other),
@@ -5473,30 +5492,38 @@ impl Game {
                 }
             },
             obj if obj < 100000 => {
+                changed = false;
                 let mut iter = self.room.instance_list.iter_inactive();
                 while let Some(handle) = iter.next(&self.room.instance_list) {
                     let inst = self.room.instance_list.get(handle);
                     if inst.parents.borrow().contains(&obj) {
+                        changed = true;
                         self.room.instance_list.activate(handle);
                     }
                 }
             },
             inst_id => {
+                changed = false;
                 let mut iter = self.room.instance_list.iter_inactive();
                 while let Some(handle) = iter.next(&self.room.instance_list) {
                     let inst = self.room.instance_list.get(handle);
                     if inst.id.get() == inst_id {
+                        changed = true;
                         self.room.instance_list.activate(handle);
                         break // gm8 doesn't short circuit
                     }
                 }
             },
         }
+        if changed {
+            self.room.instance_list.refresh_maps();
+        }
         Ok(Default::default())
     }
 
     pub fn instance_activate_region(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (left, top, width, height, inside) = expect_args!(args, [real, real, real, real, bool])?;
+        let mut changed = false;
         let mut iter = self.room.instance_list.iter_inactive();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let inst = self.room.instance_list.get(handle);
@@ -5511,8 +5538,12 @@ impl Game {
                 inst.x.get() < left || inst.x.get() > left + width || inst.y.get() < top || inst.y.get() > top + height
             };
             if outside != inside {
+                changed = true;
                 self.room.instance_list.activate(handle);
             }
+        }
+        if changed {
+            self.room.instance_list.refresh_maps();
         }
         Ok(Default::default())
     }
