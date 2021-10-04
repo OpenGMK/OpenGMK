@@ -9,14 +9,16 @@ fn next_pow2(n: i32) -> i32 {
 pub struct AtlasBuilder {
     max_size: i32,
     packers: Vec<DensePacker>,
-    textures: Vec<(AtlasRef, Box<[u8]>)>,
+    textures: Vec<(AtlasRect, Box<[u8]>)>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub struct AtlasRef(pub i32);
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 #[repr(C)]
-pub struct AtlasRef {
+pub struct AtlasRect {
     pub(super) atlas_id: u32,
-    pub(super) sprite_id: i32,
 
     pub(super) x: i32,
     pub(super) y: i32,
@@ -44,16 +46,14 @@ impl AtlasBuilder {
     ) -> Option<AtlasRef> {
         fn to_texture(
             id: u32,
-            sprite_id: i32,
             rect: rect_packer::Rect,
             data: Box<[u8]>,
             origin_x: i32,
             origin_y: i32,
-        ) -> (AtlasRef, Box<[u8]>) {
+        ) -> (AtlasRect, Box<[u8]>) {
             (
-                AtlasRef {
+                AtlasRect {
                     atlas_id: id,
-                    sprite_id,
                     w: rect.width,
                     h: rect.height,
                     x: rect.x,
@@ -66,16 +66,7 @@ impl AtlasBuilder {
         }
 
         if width <= 0 || height <= 0 {
-            return Some(AtlasRef {
-                atlas_id: 0,
-                sprite_id: -1,
-                w: width,
-                h: height,
-                x: 0,
-                y: 0,
-                origin_x: 0.0,
-                origin_y: 0.0,
-            })
+            return Some(AtlasRef(-1))
         }
 
         if width > self.max_size || height > self.max_size {
@@ -84,9 +75,10 @@ impl AtlasBuilder {
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
             if let Some(rect) = packer.pack(width, height, false) {
-                let (atlas_ref, data) = to_texture(id as _, self.textures.len() as _, rect, data, origin_x, origin_y);
+                let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                let id = self.textures.len() as i32;
                 self.textures.push((atlas_ref.clone(), data));
-                return Some(atlas_ref)
+                return Some(AtlasRef(id))
             } else {
                 loop {
                     let (pwidth, pheight) = packer.size();
@@ -99,10 +91,10 @@ impl AtlasBuilder {
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
-                        let (atlas_ref, data) =
-                            to_texture(id as _, self.textures.len() as _, rect, data, origin_x, origin_y);
+                        let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
+                        let id = self.textures.len() as i32;
                         self.textures.push((atlas_ref.clone(), data));
-                        return Some(atlas_ref)
+                        return Some(AtlasRef(id))
                     }
                 }
             }
@@ -114,7 +106,7 @@ impl AtlasBuilder {
     }
 
     #[allow(clippy::type_complexity)] // It's for the Renderer only.
-    pub fn into_inner(self) -> (Vec<DensePacker>, Vec<(AtlasRef, Box<[u8]>)>) {
+    pub(super) fn into_inner(self) -> (Vec<DensePacker>, Vec<(AtlasRect, Box<[u8]>)>) {
         (self.packers, self.textures)
     }
 }

@@ -1507,9 +1507,9 @@ impl Game {
                 height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
-            self.renderer.set_target(&old_surf.atlas_ref);
+            self.renderer.set_target(old_surf.atlas_ref);
             self.draw()?;
-            self.renderer.set_target(&new_surf.atlas_ref);
+            self.renderer.set_target(new_surf.atlas_ref);
             let old_surf_id = self.surfaces.len() as i32;
             self.surfaces.push(Some(old_surf));
             self.surfaces.push(Some(new_surf));
