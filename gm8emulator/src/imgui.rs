@@ -183,6 +183,10 @@ impl Frame<'_> {
         unsafe { c::igEndTable() };
     }
 
+    pub fn table_headers_row(&self) {
+        unsafe { c::igTableHeadersRow(); }
+    }
+
     pub fn table_next_row(&self, row_flags: c::ImGuiTableRowFlags, min_row_height: f32) {
         unsafe { c::igTableNextRow(row_flags, min_row_height) };
     }
@@ -388,6 +392,27 @@ impl Frame<'_> {
 
     pub fn item_hovered(&self) -> bool {
         unsafe { c::igIsItemHovered(0) }
+    }
+
+    pub fn get_item_rect_min(&self) -> Vec2<f32> {
+        let mut min = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectMin(&mut min as *mut c::ImVec2); }
+
+        min.into()
+    }
+
+    pub fn get_item_rect_max(&self) -> Vec2<f32> {
+        let mut max = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectMax(&mut max as *mut c::ImVec2); }
+
+        max.into()
+    }
+
+    pub fn get_item_rect_size(&self) -> Vec2<f32> {
+        let mut size = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectSize(&mut size as *mut c::ImVec2); }
+
+        size.into()
     }
 
     pub fn rect(&mut self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {

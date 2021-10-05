@@ -2,6 +2,7 @@ use crate::{
     imgui,
     game::recording::{
         keybinds::self,
+        input_edit::InputEditWindow,
         window::{
             Window,
             Openable,
@@ -58,6 +59,7 @@ pub fn show_menu_bar(frame: &mut imgui::Frame, windows: &mut Vec<(Box<dyn Window
             if frame.begin_menu("Open", true) {
                 openable! {
                     single keybinds::KeybindWindow,
+                    single InputEditWindow,
                 }
                 
                 frame.end_menu();

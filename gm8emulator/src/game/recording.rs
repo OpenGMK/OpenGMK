@@ -6,6 +6,7 @@ mod input_window;
 mod instance_report;
 mod keybinds;
 mod menu_bar;
+mod input_edit;
 
 use crate::{
     game::{
@@ -146,7 +147,7 @@ impl KeyState {
         open
     }
 
-    fn repr(&self) -> &'static str {
+    pub fn repr(&self) -> &'static str {
         match self {
             Self::Neutral => "Neutral",
             Self::NeutralWillPress => "Neutral; will press",
