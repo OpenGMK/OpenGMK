@@ -212,6 +212,22 @@ impl Frame<'_> {
         unsafe { c::igSameLine(offset_from_start_x, spacing) };
     }
 
+    pub fn get_scroll_x(&self) -> f32 {
+        unsafe { c::igGetScrollX() }
+    }
+
+    pub fn get_scroll_max_x(&self) -> f32 {
+        unsafe { c::igGetScrollMaxX() }
+    }
+
+    pub fn get_scroll_y(&self) -> f32 {
+        unsafe { c::igGetScrollY() }
+    }
+
+    pub fn get_scroll_max_y(&self) -> f32 {
+        unsafe { c::igGetScrollMaxY() }
+    }
+
     pub fn window_position(&self) -> Vec2<f32> {
         unsafe {
             let mut pos = std::mem::MaybeUninit::uninit();

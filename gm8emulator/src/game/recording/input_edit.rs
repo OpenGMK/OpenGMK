@@ -20,12 +20,14 @@ pub struct InputEditWindow {
     keys: Vec<u8>,
     states: Vec<Vec<KeyState>>,
     last_frame: usize,
+    scroll_y: f32,
     hovered_text: Option<&'static str>,
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
 const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
+const TABLE_CLIPPING: f32 = INPUT_TABLE_HEIGHT*5.0;
 
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
@@ -38,7 +40,7 @@ impl Window for InputEditWindow {
         info.frame.begin_window(Self::window_name(), None, true, false, Some(&mut self.is_open));
 
         unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 0.0, y: INPUT_TABLE_YPOS }); }
-        let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS);
+        let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS + 50.0);
         if info.frame.begin_table(
             "Input",
             self.keys.len() as i32 + 1,
@@ -59,7 +61,13 @@ impl Window for InputEditWindow {
             info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
             info.frame.table_headers_row();
             self.draw_input_rows(info);
+
+            self.scroll_y = info.frame.get_scroll_y();
+            let scroll_max_y = info.frame.get_scroll_max_y();
+
             info.frame.end_table();
+
+            info.frame.text(&format!("===  Y Scroll: {}/{}", self.scroll_y, scroll_max_y));
         }
 
         if let Some(text) = self.hovered_text {
@@ -99,6 +107,7 @@ impl InputEditWindow {
             keys: Vec::new(),
             states: Vec::new(),
             last_frame: 0,
+            scroll_y: 0.0,
             hovered_text: None,
         }
     }
@@ -170,7 +179,15 @@ impl InputEditWindow {
             ..
         } = info;
 
-        for i in 0..replay.frame_count() {
+        let visible_height = frame.window_size().1 - INPUT_TABLE_YPOS;
+        let float_count = replay.frame_count() as f32;
+
+        let clipped_above = (f32::max(self.scroll_y - TABLE_CLIPPING, 0.0) / INPUT_TABLE_HEIGHT).floor();
+        let clipped_below = (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * INPUT_TABLE_HEIGHT) / INPUT_TABLE_HEIGHT).floor();
+
+        frame.table_next_row(0, clipped_above * INPUT_TABLE_HEIGHT);
+
+        for i in (clipped_above as usize)..(clipped_below as usize) {
             frame.table_next_row(0, INPUT_TABLE_HEIGHT);
 
             frame.table_set_column_index(0);
@@ -188,6 +205,8 @@ impl InputEditWindow {
                 }
             }
         }
+
+        frame.table_next_row(0, (float_count - clipped_above) * INPUT_TABLE_HEIGHT);
     }
 
     fn update_keystate(&mut self, frame_index: usize, key_index: usize, pressed: bool) {
