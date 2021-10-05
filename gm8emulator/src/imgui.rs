@@ -183,6 +183,10 @@ impl Frame<'_> {
         unsafe { c::igEndTable() };
     }
 
+    pub fn table_setup_scroll_freeze(&self, columns: i32, rows: i32) {
+        unsafe { c::igTableSetupScrollFreeze(columns, rows); }
+    }
+
     pub fn table_headers_row(&self) {
         unsafe { c::igTableHeadersRow(); }
     }
