@@ -20,10 +20,12 @@ pub struct InputEditWindow {
     keys: Vec<u8>,
     states: Vec<Vec<KeyState>>,
     last_frame: usize,
+    hovered_text: Option<&'static str>,
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
 const INPUT_TABLE_HEIGHT: f32 = 20.0;
+const INPUT_TABLE_YPOS: f32 = 44.0;
 
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
@@ -35,14 +37,17 @@ impl Window for InputEditWindow {
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 0.0).into()); }
         info.frame.begin_window(Self::window_name(), None, true, false, Some(&mut self.is_open));
 
+        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 0.0, y: INPUT_TABLE_YPOS }); }
+        let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS);
         if info.frame.begin_table(
             "Input",
             self.keys.len() as i32 + 1,
             (cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_RowBg
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX
-                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadInnerX) as i32,
-            imgui::Vec2(0.0, 0.0),
+                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadInnerX
+                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_ScrollY) as i32,
+            table_size,
             0.0
         ) {
             info.frame.table_setup_column("Frame", 0, 0.0);
@@ -51,10 +56,18 @@ impl Window for InputEditWindow {
                     info.frame.table_setup_column(&format!("{}", button), cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as i32, INPUT_TABLE_WIDTH);
                 }
             }
-
+            info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
             info.frame.table_headers_row();
             self.draw_input_rows(info);
             info.frame.end_table();
+        }
+
+        if let Some(text) = self.hovered_text {
+            unsafe {
+                cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+            }
+            info.frame.text(text);
+            self.hovered_text = None;
         }
 
         unsafe { cimgui_sys::igPopStyleVar(1); }
@@ -85,9 +98,8 @@ impl InputEditWindow {
             is_open: true,
             keys: Vec::new(),
             states: Vec::new(),
-            // keys: vec![0x26, 0x28, 0x27, 0x25],
-            // up, down, left, right
             last_frame: 0,
+            hovered_text: None,
         }
     }
 
@@ -168,7 +180,12 @@ impl InputEditWindow {
                 frame.table_set_column_index(j as i32 + 1);
                 let keystate = &self.states[i][j];
                 frame.invisible_button(keystate.repr(), imgui::Vec2(INPUT_TABLE_WIDTH, INPUT_TABLE_HEIGHT), None);
+
+                let hovered = frame.item_hovered();
                 keystate.draw_keystate(frame, frame.get_item_rect_min()-frame.window_position(), frame.get_item_rect_size());
+                if hovered {
+                    self.hovered_text = Some(keystate.repr());
+                }
             }
         }
     }
