@@ -61,6 +61,7 @@ impl Window for InputEditWindow {
             "Input",
             self.keys.len() as i32 + 1,
             (cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_RowBg
+                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Reorderable
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadInnerX
