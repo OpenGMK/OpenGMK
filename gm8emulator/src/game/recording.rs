@@ -75,6 +75,17 @@ impl KeyState {
         )
     }
 
+    pub fn ends_in_press(&self) -> bool {
+        matches!(
+            self,
+            Self::Held
+                | Self::NeutralWillPress
+                | Self::HeldWillDouble
+                | Self::HeldDoubleEveryFrame
+                | Self::NeutralWillTriple
+        )
+    }
+
     fn click(&mut self) {
         *self = match self {
             Self::Neutral => Self::NeutralWillPress,
@@ -244,6 +255,7 @@ pub enum ContextMenu {
     MouseButton { pos: imgui::Vec2<f32>, button: i8 },
     Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
     Seed { pos: imgui::Vec2<f32> },
+    Any,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -808,7 +820,7 @@ impl Game {
                     }
                     frame.end();
                 },
-                None => (),
+                None | Some(ContextMenu::Any) => (),
             }
 
             // Show error/info message if there is one
