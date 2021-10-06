@@ -52,6 +52,8 @@ pub trait Window: WindowType {
     fn is_open(&self) -> bool;
 
     fn name(&self) -> String;
+
+    fn window_id(&self) -> usize { 0 }
 }
 impl<T> WindowType for T
     where T: Window + 'static
@@ -70,7 +72,7 @@ pub trait Openable<T>: Window
 
     fn window_name() -> &'static str;
 
-    fn open() -> Self;
+    fn open(id: usize) -> Self;
 }
 
 impl DisplayInformation<'_, '_> {

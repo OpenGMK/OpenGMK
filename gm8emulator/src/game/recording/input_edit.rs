@@ -118,7 +118,7 @@ impl Openable<Self> for InputEditWindow {
         "Input Editor"
     }
 
-    fn open() -> Self {
+    fn open(_id: usize) -> Self {
         Self::new()
     }
 }

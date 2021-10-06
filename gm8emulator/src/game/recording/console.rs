@@ -1,5 +1,5 @@
 use crate::{
-    game::recording::window::{Window, DisplayInformation},
+    game::recording::window::{Window, Openable, DisplayInformation},
     gml::{ Context, Value },
     imgui,
 };
@@ -11,19 +11,45 @@ pub struct ConsoleWindow {
 
     scroll_to_bottom: bool,
     run_code: bool,
+    last_frame: usize,
+    last_rerecords: u64,
+
+    is_open: bool,
+    id: usize,
 }
 
-// Keyboard & Mouse window
+impl Openable<Self> for ConsoleWindow {
+    fn window_name() -> &'static str {
+        "Console"
+    }
+
+    fn open(id: usize) -> Self {
+        let mut new_console = Self::new();
+        new_console.id = id;
+
+        new_console
+    }
+}
 impl Window for ConsoleWindow {
+    fn window_id(&self) -> usize {
+        self.id
+    }
+
+    fn name(&self) -> String {
+        format!("Console {}", self.id+1)
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         let DisplayInformation {
+            config,
             frame,
             game,
             keybindings,
             ..
         } = info;
 
-        if frame.begin_window(&"GML Console", None, true, false, None) {
+        frame.setup_next_window(imgui::Vec2(100.0, 100.0), Some(imgui::Vec2(600.0, 250.0)), None);
+        if frame.begin_window(&self.name(), None, true, false, Some(&mut self.is_open)) {
             let window_size = frame.window_size();
             let content_position = frame.content_position();
             frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
@@ -58,31 +84,54 @@ impl Window for ConsoleWindow {
                 run_code = frame.button(&"Run", imgui::Vec2(50.0, 20.0), None) || run_code;
                 frame.same_line(0.0, -1.0);
             }
-            
+
             frame.checkbox("##runcode", &mut self.run_code);
-            run_code = run_code || self.run_code;
-            
+            if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
+                run_code = run_code || self.run_code;
+                self.last_frame = config.current_frame;
+                self.last_rerecords = config.rerecords;
+            }
+
             if run_code {
-                let mut new_args: [Value; 16] = Default::default();
-                new_args[0] = self.input_buffer.clone().into();
-                if !self.run_code {
-                    if let Some(Value::Str(s)) = new_args.get(0) {
-                        self.output.push(format!(">>> {}\n", s));
-                    }
-                }
-                if !self.run_code {
-                    // don't clear the input buffer if the code runs every frame
-                    self.input_buffer.fill(0);
-                }
-                match game.execute_string(&mut self.gml_context, &new_args) {
-                    Ok(value) => match value {
-                        Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                        Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                match String::from_utf8(self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
+                    Ok(input) => {
+                        if input.starts_with('/') || input.starts_with('.') {
+                            // see if it's a known command
+                            match input.split_at(1).1 {
+                                "clear" => self.output.clear(),
+                                _ => {
+                                    self.run_code = false;
+                                    self.output.push(format!("Unknown command: {}\n", input));
+                                }
+                            }
+                        } else {
+                            // run input as gml code
+                            if !self.run_code {
+                                self.output.push(format!(">>> {}\n", input));
+                            }
+
+                            let mut new_args: [Value; 16] = Default::default();
+                            new_args[0] = input.into();
+                            match game.execute_string(&mut self.gml_context, &new_args) {
+                                Ok(value) => match value {
+                                    Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
+                                    Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                                },
+                                Err(error) => {
+                                    self.run_code = false;
+                                    self.output.push(format!("Error: {}\n", error));
+                                },
+                            }
+                        }
                     },
                     Err(error) => {
                         self.run_code = false;
-                        self.output.push(format!("Error: {0}\n", error));
-                    },
+                        self.output.push(format!("Error: {}\n", error));
+                    }
+                }
+                if pressed_enter {
+                    // only clear the input buffer if the user pressed enter
+                    self.input_buffer.fill(0);
                 }
                 self.scroll_to_bottom = true;
             }
@@ -90,7 +139,9 @@ impl Window for ConsoleWindow {
         frame.end();
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
 
 impl ConsoleWindow {
@@ -102,6 +153,11 @@ impl ConsoleWindow {
 
             scroll_to_bottom: false,
             run_code: false,
+            last_frame: 0,
+            last_rerecords: 0,
+
+            is_open: true,
+            id: 0,
         }
     }
 }

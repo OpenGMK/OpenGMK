@@ -3,6 +3,7 @@ use crate::{
     game::recording::{
         keybinds::self,
         input_edit::InputEditWindow,
+        console::ConsoleWindow,
         window::{
             Window,
             Openable,
@@ -38,12 +39,29 @@ pub fn show_menu_bar(frame: &mut imgui::Frame, windows: &mut Vec<(Box<dyn Window
                         *focus = true;
                     } else {
                         // or create it
-                        windows.push((Box::new(<$type>::open()), true));
+                        windows.push((Box::new(<$type>::open(0)), true));
                     }
                 };
                 (@multi $type:ty) => {{
-                    // just add another window if multiple instances of this window are allowed
-                    windows.push((Box::new(<$type>::open()), true));
+                    // figure out all used ids for the windows
+                    let mut ids: Vec<usize> = windows.iter().filter_map(|(win, _)| {
+                        if win.window_type_self() == <$type>::window_type() {
+                            Some(win.window_id())
+                        } else {
+                            None
+                        }
+                    }).collect();
+                    // and select the smallest number not in use
+                    let mut id: usize = 0;
+                    if ids.len() > 0 {
+                        ids.sort();
+                        if let Some(new_id) = ids.iter().enumerate().position(|(i, id)| i != *id) {
+                            id = new_id;
+                        } else {
+                            id = ids.len();
+                        }
+                    }
+                    windows.push((Box::new(<$type>::open(id)), true));
                 }};
                 ($($id:ident $type:ty),* $(,)?) => {{
                     $(
@@ -60,6 +78,7 @@ pub fn show_menu_bar(frame: &mut imgui::Frame, windows: &mut Vec<(Box<dyn Window
                 openable! {
                     single keybinds::KeybindWindow,
                     single InputEditWindow,
+                    multi ConsoleWindow,
                 }
                 
                 frame.end_menu();
