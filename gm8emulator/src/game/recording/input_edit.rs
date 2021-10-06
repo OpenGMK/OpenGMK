@@ -79,9 +79,10 @@ impl Window for InputEditWindow {
                 info.frame.set_scroll_y(info.config.current_frame as f32 * INPUT_TABLE_HEIGHT - INPUT_TABLE_HEIGHT * 2.0);
             }
 
+            self.scroll_y = info.frame.get_scroll_y();
+
             self.draw_input_rows(info);
 
-            self.scroll_y = info.frame.get_scroll_y();
             let scroll_max_y = info.frame.get_scroll_max_y();
 
             info.frame.end_table();
