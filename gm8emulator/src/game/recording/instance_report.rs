@@ -227,7 +227,7 @@ impl InstanceReportWindow {
             {
                 if sprite.width <= 48 && sprite.height <= 48 {
                     let i = self.instance_images.len();
-                    self.instance_images.push(*atlas_ref);
+                    self.instance_images.push(atlas_ref);
                     let imgui::Vec2(win_x, win_y) = frame.window_position();
                     let win_w = frame.window_size().0;
                     let center_x = win_x + win_w - 28.0;

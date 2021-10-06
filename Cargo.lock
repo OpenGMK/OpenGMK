@@ -694,7 +694,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.1"
-source = "git+https://github.com/notviri/ramen?branch=july-demo#1968b739a6de3f26bd7af41276a578e60d033fd4"
+source = "git+https://github.com/notviri/ramen?branch=july-demo#0a9c0132359e2209fa99b3590dab900256121bf0"
 
 [[package]]
 name = "rand"
@@ -875,7 +875,7 @@ dependencies = [
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon?branch=july-demo#4f858dd5e4d15c34507c61ff6d0706451d4c633e"
+source = "git+https://github.com/adamcake/udon?branch=july-demo#548d43fe3f04881d14960f8b4a7b5aaad0bbcde0"
 dependencies = [
  "alsa",
  "serde",

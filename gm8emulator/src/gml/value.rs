@@ -174,6 +174,13 @@ impl Value {
         }
     }
 
+    pub fn as_real(&self) -> Option<Real> {
+        match self {
+            Self::Real(x) => Some(*x),
+            _ => None,
+        }
+    }
+
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {

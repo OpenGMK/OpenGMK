@@ -262,7 +262,9 @@ impl fmt::Debug for Node {
             Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::Binary { left, right, operator, type_unsafe } => write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe),
+            Node::Binary { left, right, operator, type_unsafe } => {
+                write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe)
+            },
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
@@ -342,7 +344,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
@@ -380,7 +382,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
@@ -506,7 +508,7 @@ impl Game {
                         }
                     },
                     gml::ALL => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             context.this = instance;
                             match self.execute(body, context)? {
@@ -636,8 +638,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
@@ -716,8 +717,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {

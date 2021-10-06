@@ -1437,7 +1437,7 @@ impl Particle {
                     None
                 }
             },
-            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s)),
+            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s).copied()),
         };
         let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
         if 2.0 < angle_wiggle_factor {

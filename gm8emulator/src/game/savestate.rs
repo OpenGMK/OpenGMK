@@ -213,7 +213,7 @@ impl SaveState {
 
         let surfaces = self.surfaces;
         if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
-            game.renderer.set_target(&surf.atlas_ref);
+            game.renderer.set_target(surf.atlas_ref);
         } else {
             game.renderer.reset_target();
         }
